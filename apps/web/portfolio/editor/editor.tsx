@@ -1,6 +1,7 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
 import { focus } from '@rasm/ui';
-import { Array, Effect, Match, Option } from 'effect';
+import { Array, Match, Option } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
@@ -12,7 +13,7 @@ import { Identity } from '#/editor/identity';
 import { Library } from '#/editor/library';
 import { RequestAlert } from '#/editor/request-alert';
 import { ReuseFile } from '#/editor/reuse-file';
-import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from '#/editor/state';
+import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
 import { UploadRecovery } from '#/editor/upload-recovery';
 import { destination, pendingUploads } from '#/editor/uploader';
 import { entryTitle, quantity } from '#/media/labels';
@@ -80,7 +81,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         focus(`${ids}source`);
     };
     const create = (kind: typeof Entry.Type.kind) => {
-        const created = Entry.make({ id: Effect.runSync(identifier), kind });
+        const created = Entry.make({ id: SecureRandom.uuidV7Unsafe(), kind });
         setDraft(AsyncResult.map(portfolio.key('entries').modify(Array.append(created))));
         setSelected(created.id);
         setWorkspace('entry');

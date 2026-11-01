@@ -1,9 +1,10 @@
 import { useAtomSet } from '@effect/atom-react';
 import { Checkbox, MenuButton } from '@rasm/ui';
-import { Array, Effect, Option, Record, Struct } from 'effect';
+import { Array, Option, Record, Struct } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
-import { draft, identifier, updateEntry } from '#/editor/state';
+import { draft, updateEntry } from '#/editor/state';
 import { quantity, sheetLabel } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure';
 import type { AssetCollection } from '#/model/asset';
@@ -30,7 +31,7 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { assets: typ
                     className="button button-outline"
                     disabled={chosen.length === 0}
                     onClick={() => {
-                        const compositions = chosen.map((placement) => Composition.make({ id: Effect.runSync(identifier), items: [placement] }));
+                        const compositions = chosen.map((placement) => Composition.make({ id: SecureRandom.uuidV7Unsafe(), items: [placement] }));
                         setDraft(AsyncResult.map(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) }))));
                         onSource(Option.none());
                         onAdd(compositions[0]?.id);

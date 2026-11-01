@@ -2,7 +2,7 @@
 
 Covers functions bound, passed, and returned as values.
 
-## [01]-[OPERATOR_FAMILIES]
+## [01]-[OPERATOR_OVERLOADING]
 
 Members that differ by the function they apply are one method and one `partialmethod` per member. `Term` is an expression over named inputs, each operator binds the function it applies, and nothing evaluates until `at` reads an environment:
 
@@ -98,26 +98,13 @@ def tide(text: str, /) -> Outcome[Tide]:
 
 ## [06]-[STRATEGIES]
 
-Behavior that varies by format or backend is a generic record of functions with one instance per variant, its type parameter the value its functions pass each other. `Grammar` splits text into numbered units of its own type and holds rules over that type:
+Behavior that varies by format or backend is one generic function taking each varying function as a parameter, its type parameter the value those functions pass each other. `report` splits text into numbered units of its own type and applies rules over that type:
 
 ```python
-class Grammar[U](msgspec.Struct, frozen=True, kw_only=True):
-    units: Callable[[str], Iterable[tuple[int, U]]]
-    rules: frozendict[str, Callable[[U], bool]]
-
-    def report(self, text: str, /) -> tuple[str, ...]:
-        return tuple(f"{line}: {message}" for line, unit in self.units(text) for message, rule in self.rules.items() if rule(unit))
-
-
-REPORTS: frozendict[str, Callable[[str], tuple[str, ...]]] = frozendict({
-    ".md": Grammar[str](units=lambda text: enumerate(text.splitlines(), start=1), rules=frozendict({"trailing whitespace": lambda line: line != line.rstrip()})).report,
-    ".py": Grammar[tokenize.TokenInfo](
-        units=lambda text: ((token.start[0], token) for token in tokenize.generate_tokens(io.StringIO(text).readline)),
-        rules=frozendict({"shouted comment": lambda token: token.type == tokenize.COMMENT and token.string.isupper()}),
-    ).report,
-})
+def report[U](units: Callable[[str], Iterable[tuple[int, U]]], rules: Mapping[str, Callable[[U], bool]], text: str, /) -> tuple[str, ...]:
+    return tuple(f"{line}: {message}" for line, unit in units(text) for message, rule in rules.items() if rule(unit))
 ```
 
-`REPORTS[path.suffix](text)` reports one file, `REPORTS[".py"]("x = 1  # LOUD\n")` returns `("1: shouted comment",)`, and a new format adds one entry:
-- Each instance names its type argument (`Grammar[str]`) to type its lambda parameters
-- Invariant `U` leaves instances no common `Grammar` type, and variant tables hold bound `report` methods
+`partial(report, <units>, <rules>)` is one format's reporter, and `report(lambda text: ((token.start[0], token) for token in tokenize.generate_tokens(io.StringIO(text).readline)), {"shouted comment": lambda token: token.type == tokenize.COMMENT and token.string.isupper()}, "x = 1  # LOUD\n")` returns `("1: shouted comment",)`:
+- `U` is the unit type `units` yields, a `TokenInfo` above, and each rule takes that type
+- Reporters over different unit types share `Callable[[str], tuple[str, ...]]`, and a table keyed by suffix holds one `partial` per format

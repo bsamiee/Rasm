@@ -4,12 +4,12 @@ Covers async effects at the boundary.
 
 ## [01]-[FUTURES]
 
-Futures do nothing until polled, and dropping one cancels its work at the `.await` it waits on. Values held across an `.await` decide whether a future is `Send`, and a non-`Send` value (an `Rc`, a lock guard, a `papaya` `pin()` guard) sits in a block that ends before the `.await`. Combinators that race or bound a future (`select!`, `timeout`, `run_until_cancelled`, `take_until`) drop the losing future, and a raced operation keeps its progress outside it:
+Dropping a future cancels its work at the `.await` it waits on. Values held across an `.await` decide whether a future is `Send`, and a non-`Send` value (an `Rc`, a lock guard) sits in a block that ends before the `.await`. Combinators that race or bound a future (`select!`, `timeout`, `run_until_cancelled`, `take_until`) drop the losing future, and a raced operation keeps its progress outside it:
 - Cancel-safe operations lose nothing when dropped: `mpsc::Receiver::recv`, `watch::Receiver::changed`, `TcpListener::accept`, `StreamExt::next`, `AsyncReadExt::read`
 - `read_exact` and `write_all` lose partial progress, a `LinesStream` keeps its partial line in its own buffer
 - `tokio::sync::Mutex::lock`, `Semaphore::acquire`, and `Notify::notified` lose their queue position when dropped
 
-## [02]-[TASK_SCOPES]
+## [02]-[TASKS]
 
 Collecting futures into a `JoinQueue` spawns each one across runtime threads, `join_all` awaits every output, and dropping the queue aborts running tasks:
 
@@ -40,7 +40,7 @@ where H: Handler<handle(..): Send> + Send + Sync + 'static {
 }
 ```
 
-Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, and the drop cancels it on every exit path. A task its subscribers share is one `Arc<AbortOnDropHandle<()>>` each subscriber holds, a map of its `Weak` hands it to the next subscriber, and the last drop aborts it. Hosts drain on the first signal and abandon the drain on the next:
+Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, and the drop cancels it on every exit path. A task its subscribers share is one `Arc<AbortOnDropHandle<()>>` each subscriber holds, a map of its `Weak` hands it to the next subscriber, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
 
 ```rust
 pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(), ServiceError>, mut signals: impl Stream + Unpin) -> Result<(), ServiceError> {
@@ -53,11 +53,11 @@ pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(
 }
 ```
 
-`async move |stop| serve(listener, handler, stop).await` fills `serving`, and `maybe_done` holds its output across both races until `take_output` reads it once. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`async move |stop| serve(listener, handler, stop).await` fills `serving`, and `maybe_done` holds its output across both races until `take_output` reads it once. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
 
 ## [03]-[STREAMS]
 
-Values that arrive over time are a `Stream`, and each failure is one item the consumer handles. `tokio_stream::wrappers` adapt receivers, listeners, watches, intervals, line readers, and join sets into streams, and `futures::StreamExt` combinators transform them as iterator adapters transform sequences:
+Values that arrive over time are a `Stream`, each failure one item the consumer handles, and `tokio_stream::wrappers` adapt receivers, listeners, watches, intervals, line readers, and join sets into one:
 
 ```rust
 pub fn sample<S>(sensor: &S, every: Duration) -> impl Stream<Item = Result<Reading, SensorError>>
@@ -66,12 +66,22 @@ where S: Sensor {
 }
 ```
 
-`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once and then every period, and `set_missed_tick_behavior` decides the ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time, `try_for_each` on the consumer stops at the first `Err`, and `for_each` with a `match` records each failure and continues. `ready_chunks(n)` batches waiting items into one write. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`. Channels take their delivery shape:
-- `mpsc` queues values for one consumer, and a bounded `send` waits while the buffer is full (`ReceiverStream`)
-- `watch` holds the latest value, `Option<T>` until the first one, `WatchStream::new` yields it and each change, `from_changes` yields changes alone
-- `oneshot` delivers one reply
+`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once and then every period, and `set_missed_tick_behavior` decides the ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time, `try_for_each` on the consumer stops at the first `Err`, and `for_each` with a `match` records each failure and continues. `ready_chunks(n)` batches waiting items into one write. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone, and a `watch` with no value before the first one holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`. Paged sources unfold into one stream of items:
 
-## [04]-[OWNED_STATE]
+```rust
+pub fn listed<C>(catalog: &C) -> impl Stream<Item = Result<Item, SourceError>>
+where C: Catalog {
+    stream::try_unfold(Some(Cursor::default()), async |cursor| match cursor {
+        Some(cursor) => catalog.page(cursor).await.map(|Page { items, next }| Some((stream::iter(items).map(Ok), next))),
+        None => Ok(None),
+    })
+    .try_flatten()
+}
+```
+
+`page` returns its items beside the `next` cursor, `None` after the last page. `try_unfold` threads the cursor and fetches a page only when the consumer polls past the previous one, so `take(n)` stops paging, and a failed page ends the stream after its `Err`.
+
+## [04]-[SHARED_STATE]
 
 Owning tasks fold the request stream through a pure transition and answer each request on its `oneshot` sender:
 
@@ -121,7 +131,7 @@ where S: Source {
 }
 ```
 
-`ExponentialBuilder::default()` waits one second and doubles for three retries under a 60-second cap, and `with_jitter`, `with_max_times`, `with_max_delay`, and `with_total_delay` reshape it, and a `Duration` iterator is a schedule as it stands. A success or a failure `when` rejects returns at once, and the last failure returns when the schedule ends. `notify` records each retried failure with its delay, and `adjust` replaces a delay with one the failure carries (a `Retry-After`). Waits run on the runtime clock, and cancellation drops each one:
+`ExponentialBuilder::default()` waits one second and doubles for 3 retries under a 60-second cap, and `with_jitter`, `with_max_times`, `with_max_delay`, and `with_total_delay` reshape it, and a `Duration` iterator is a schedule as it stands. A success or a failure `when` rejects returns at once, and the last failure returns when the schedule ends. `notify` records each retried failure with its delay, and `adjust` replaces a delay with one the failure carries (a `Retry-After`). Waits run on the runtime clock, and cancellation drops each one:
 - `timeout(limit, future)` returns `Err(Elapsed)` once the limit passes, one `timeout` around a composed future bounds every step inside it
 - `timeout_at(deadline, future)` takes an `Instant`, steps in separate calls sharing one budget receive one deadline
 - Crate error variants hold `Elapsed` as their source beside the subject that ran out of time

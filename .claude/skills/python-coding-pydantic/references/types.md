@@ -61,14 +61,14 @@ class Record(msgspec.Struct, frozen=True, kw_only=True):
 ```
 
 `msgspec.convert` validates builtins and `msgspec.to_builtins` dumps each record:
-- Subclasses inherit the hook, and their `Meta` bounds and `__post_init__` run inside `msgspec.convert`
+- Subclasses inherit the hook, and their `Meta` constraints and `__post_init__` run inside `msgspec.convert`
 - Struct failures arrive as one `value_error` holding msgspec's path (`Expected int >= 1 - at $.id`) beside the model's own errors
 - JSON schema inlines the Struct's component, a Struct field holding another Struct emits a `$ref` pydantic never registered and raises `KeyError`
 - `ValidationError.from_exception_data(title, [InitErrorDetails(...)])` folds failures found outside pydantic into one pydantic error
 
-## [04]-[CORE_VALUES]
+## [04]-[PYDANTIC_CORE]
 
-Values pydantic-core exports serve a boundary that reads no model:
+Functions and types pydantic-core exports serve a boundary that reads no model:
 - `from_json(data, allow_partial=)` with `True` or `"trailing-strings"` parses truncated JSON into builtins
 - `to_json(value, fallback=repr)` and `to_jsonable_python(value)` serialize untyped values, sets as lists and datetimes as ISO text
 - `Url("https://user@host:8080/p?q=1")` exposes `host`, `port`, `path`, and `query_params()`, `Url.build(scheme=, host=, path=)` builds one

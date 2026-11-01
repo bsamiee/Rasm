@@ -59,9 +59,9 @@ const resilient = <A, R>(read: Effect.Effect<A, OrderError | HttpClientError.Htt
 - `Effect.catchTag` and `Effect.catchIf` take a third handler for every error the tag or predicate passes over, and `E` holds only what the handlers raise
 - Typed recovery skips a cause holding a defect and passes each typed error in it on as a defect
 
-## [04]-[HOST_TRANSLATION]
+## [04]-[HOST_VALUES]
 
-Hosts translate an outcome once, at the call running it. Programs fold expected failures into a host value, and the `Exit` that `runPromiseExit` resolves with fails on a defect or an interruption alone. `runtime` is a `ManagedRuntime` and `Orders.place` takes a `Quote` and fails with `OrderError`, its reasons `missing`, `rejected`, and `stale`:
+Hosts convert an outcome once, at the call running it. Programs fold expected failures into a host value, and the `Exit` that `runPromiseExit` resolves with fails on a defect or an interruption alone. `runtime` is a `ManagedRuntime` and `Orders.place` takes a `Quote` and fails with `OrderError`, its reasons `missing`, `rejected`, and `stale`:
 
 ```ts
 const respond = (quote: Quote) =>

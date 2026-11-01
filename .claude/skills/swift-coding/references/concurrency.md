@@ -36,7 +36,7 @@ Non-`Sendable` values cross isolation once the compiler proves the sender keeps 
 - Factories returning a class state a `sending` result, and the caller receives a value no other code reaches
 - Actor state leaves an actor as a `Sendable` copy, and a non-`Sendable` value built inside a method leaves as its `sending` result
 
-## [02]-[TASK_TREES]
+## [02]-[TASK_HIERARCHY]
 
 Child tasks belong to the scope that starts them: the scope returns after every child finishes, and cancelling it cancels every child. A count the input decides is a task group, its width a parameter:
 
@@ -121,7 +121,7 @@ Entries written before the `await` serve the next caller. After the `await`, evi
 - Functions taking an `isolated` actor parameter run inside the actor, and their reads and writes take one hop
 - Hosts calling back on a `DispatchSerialQueue` serve an actor whose `unownedExecutor` returns `unsafe queue.asUnownedSerialExecutor()`, and each callback enters through `assumeIsolated`
 
-## [05]-[CANCELLATION_AND_BRIDGES]
+## [05]-[CANCELLATION_AND_CONTINUATIONS]
 
 Cancellation sets a flag on a task and every child, and code observes it where it checks:
 - `withTaskCancellationHandler` runs its handler at once in a cancelled task, else on the cancelling thread beside the operation
@@ -147,4 +147,4 @@ func completion<Value: Sendable, Failure: Error>(
 }
 ```
 
-Callers write `try await completion({ host.lookup(key, then: $0) }, cancel: host.cancel)`, and the call throws the callback's typed failure. The host completes its callback after a cancel, and the completion resumes the continuation once. Delegate APIs that complete from a later method park the noncopyable `Continuation` from `withContinuation(of:throwing:)` in a `Mutex<Continuation<Value, Failure>?>`, and the delegate method resumes what `take()` returns, `nil` for a second completion.
+Callers write `try await completion({ host.lookup(key, then: $0) }, cancel: host.cancel)`, and the call throws the callback's typed failure. The host completes its callback after a cancel, and the completion resumes the continuation once. Delegate APIs that complete from a later method store the noncopyable `Continuation` from `withContinuation(of:throwing:)` in a `Mutex<Continuation<Value, Failure>?>`, and the delegate method resumes what `take()` returns, `nil` for a second completion.

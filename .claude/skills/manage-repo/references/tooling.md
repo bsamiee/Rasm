@@ -40,6 +40,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `boot_start = true` rows start when the supervisor starts in boot mode, and restart selection reads the flag
 - `COLIMA_HOME` and `DOCKER_CONFIG` sit outside `.cache`, the VM disk and CLI plugin links outlive `rasm:clean`
 - Readiness checks without `timeout` wait while the process lives, `docker` row's timeout fails a start when the VM boots with its engine down
+- `docker` readiness runs `colima status` on macOS, a stop after `docker version` passes and before Colima persists its runtime orphans the VM
 - `docker` row takes no `boot_start`, and nothing stops the engine on idle
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names the socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - Container images name `latest` with an always-pull policy, each run starts the newest image

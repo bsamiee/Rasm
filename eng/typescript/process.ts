@@ -1,11 +1,11 @@
 import { Effect, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class ExitError extends Schema.TaggedError<ExitError, { readonly brand: unique symbol }>()('ExitError', { command: Schema.String, args: Schema.Array(Schema.String), code: Schema.Finite }) {
     override get message(): string {
-        return `${[this.command, ...this.args].join(' ')} exited with code ${this.code}`;
+        return `${CommandLine.display([this.command, ...this.args])} exited with code ${this.code}`;
     }
 }
 

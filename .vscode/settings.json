@@ -56,6 +56,7 @@
     // --- [TYPESCRIPT] ------------------------------------------------------------------
     "js/ts.experimental.useTsgo": true,
     "js/ts.tsdk.path": "./node_modules/typescript",
+    "json.schemas": [ { "fileMatch": [ "biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" }, { "fileMatch": [ "nx.json" ], "url": "./node_modules/nx/schemas/nx-schema.json" } ],
     "css.validate": false,
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 

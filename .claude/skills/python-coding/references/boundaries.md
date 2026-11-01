@@ -38,7 +38,7 @@ def argv(template: Template, /) -> tuple[str, ...]:
 
 ## [03]-[FILE_WRITES]
 
-Changes to a path are one function over the change and its arguments, returning the path or its `UNWRITABLE` fault. Writes that replace a file stage their content in a uniquely named file beside their target and commit through `replace`, and readers see the old file or the new one:
+Changes to a path are one function over the change and its arguments, returning the path or its `UNWRITABLE` fault. Writes that replace a file go to a uniquely named temporary file beside their target and commit through `replace`, and readers see the old file or the new one:
 
 ```python
 def changed[*Ts](change: Callable[[Path, *Ts], object], target: Path, /, *args: *Ts) -> Outcome[Path]:
@@ -56,18 +56,15 @@ def rewritten(target: Path, data: bytes, /) -> None:
 
 `changed(rewritten, target, data)` replaces a file, and `changed(Path.unlink, target)` and `changed(Path.symlink_to, link, source)` pass each method unbound with its arguments:
 - Windows refuses to rename an open file, `close` precedes `replace`, and context exit finds the moved name gone
-- Staged files hold mode `0o600`, and a target other users read takes `Path(staged.name).chmod(<mode>)` before `replace`
+- Temporary files hold mode `0o600`, and a target other users read takes `Path(staged.name).chmod(<mode>)` before `replace`
 
 ## [04]-[PLANS]
 
-Changes to an external target are a plan a pure function derives from wanted and live state, and the boundary applies each change once. `held` reads a folder's live links, `edits(live, wanted)` keys each link to change by its `(live, wanted)` sources, and `relinked` applies one link's change:
+Changes to an external target are a plan a pure function derives from wanted and live state, and the boundary applies each change once. `_links` reads a folder's live links, `edits(live, wanted)` keys each link to change by its `(live, wanted)` sources, and `relinked` applies one link's change:
 
 ```python
 def _links(folder: Path, /) -> frozendict[Path, Path]:
     return frozendict({entry: entry.readlink() for entry in folder.iterdir() if entry.info.is_symlink()})
-
-
-held: Callable[[Path], Outcome[frozendict[Path, Path]]] = partial(read, _links)
 
 
 def reconciled(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> Outcome[tuple[Path, ...]]:
@@ -83,7 +80,7 @@ def reconciled(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> Out
     return accumulated(starmap(relinked, edits(live, wanted).items()))
 ```
 
-`held(folder).bind(partial(reconciled, wanted))` reads live state once and applies its plan, `held(folder).map(lambda live: edits(live, wanted))` is its dry run, and a missing folder fails before any change. A failed unlink skips its relink, and `entry.info.is_symlink()` reads the file type `iterdir` took from its directory scan, where `entry.is_symlink()` runs one `lstat` per entry.
+`read(_links, folder).bind(partial(reconciled, wanted))` reads live state once and applies its plan, `read(_links, folder).map(lambda live: edits(live, wanted))` is its dry run, and a missing folder fails before any change. A failed unlink skips its relink, and `entry.info.is_symlink()` reads the file type `iterdir` took from its directory scan, where `entry.is_symlink()` runs one `lstat` per entry.
 
 ## [05]-[ENTRY]
 

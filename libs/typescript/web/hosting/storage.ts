@@ -33,7 +33,7 @@ const createUpload = Effect.fn('createUpload')(function* (object: { readonly key
                     () => HttpApiError.BadRequest.make(),
                 ),
             );
-            yield* Effect.tryPromise(() => uploads.completeUpload(uploadToken, { now }));
+            yield* Effect.tryPromise((signal) => uploads.completeUpload(uploadToken, { now, expectedLength: object.size, signal }));
         }),
     };
 });

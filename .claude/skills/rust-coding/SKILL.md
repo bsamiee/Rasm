@@ -11,25 +11,15 @@ Covers Rust design decisions. `thiserror`, `sysexits`, `validated`, `nonempty-co
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
 - [02]-[TYPES](references/types.md): Algebraic type design and constrained values
 - [03]-[RESULTS](references/results.md): `Option`, `Result`, and `Validated` pipelines over the crate error
-- [04]-[TRAITS](references/traits.md): Capability traits, trait objects, and conversions
+- [04]-[TRAITS](references/traits.md): Capability traits under static and dynamic dispatch
 - [05]-[ITERATORS](references/iterators.md): Iterator pipelines, generator blocks, and data parallelism
-- [06]-[ASYNC](references/async.md): Async effects, task scopes, streams, and shared state
-- [07]-[BOUNDARIES](references/boundaries.md): Wire decode, encode, configuration, and the host entry point
+- [06]-[ASYNC](references/async.md): Async effects, tasks, streams, and shared state
+- [07]-[BOUNDARIES](references/boundaries.md): Wire decode, encode, configuration, and the entry point
 - [08]-[LANGUAGE_FEATURES](references/language-features.md): Nightly features that replace a hand-written form
 
 ## [01]-[FUNCTIONS]
 
-Function signatures are contracts, parameter types state every value a function accepts and its return type every outcome a caller handles. Signature form follows purpose:
-
-| [INDEX] | [PURPOSE]              | [SIGNATURE]                                                          |
-| :-----: | :--------------------- | :------------------------------------------------------------------- |
-|  [01]   | Transform a value      | `fn(Reading) -> Celsius`                                             |
-|  [02]   | Read a view of a value | `fn(&Order) -> &[Line]`                                              |
-|  [03]   | Replace a state        | `fn(Account, Deposit) -> Result<Account, E>`                         |
-|  [04]   | Accept a function      | `fn(&[Item], impl Fn(&Item) -> bool) -> impl Iterator<Item = &Item>` |
-|  [05]   | Return a function      | `fn(Policy) -> impl Fn(&Order) -> Decision`                          |
-|  [06]   | Perform an effect      | `async fn(&impl Store, Order) -> Result<(), E>`                      |
-
+Function signatures are contracts, parameter types state every value a function accepts and its return type every outcome a caller handles:
 - Async callbacks take `impl AsyncFn(A) -> B`, an async closure (`async |order| ...`) supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
@@ -44,17 +34,13 @@ Function signatures are contracts, parameter types state every value a function 
 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
-Functions are total when each declared input produces a declared output. A panic is an outcome the signature omits, and indexing, `unwrap`, integer overflow, and division by zero panic. Make a partial function total by narrowing the input to a constructed type or widening the output:
+Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
-- `fn parse(&str) -> u16` hides failed parses, `fn parse(&str) -> Result<u16, ParseIntError>` states every outcome
-- `slice.get(index)` returns `Option<&T>` in place of indexing
-- Absence is `None`, and every value of the inner type keeps its meaning
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
-- Outputs borrow from inputs when they are views (`fn lines(&self) -> &[Line]`), and own their data when the function builds it
 
 ### [01.2]-[PURITY]
 
-Functions are pure when their result depends only on their arguments and evaluation causes no side effect. Side effects are I/O, reading the clock or randomness, reading the environment, writing through a shared reference, and panicking. Mutation of a local that never escapes is no side effect, and a `&mut` parameter is a side effect on its caller's value. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
+Mutation of a local that never escapes is no side effect. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
 
 ```rust
 #[must_use]
@@ -65,14 +51,11 @@ Pure functions take no `async`, no `&mut` parameter, and no capability trait, an
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
-Higher-order functions own the stable control flow and their caller supplies the varying rule: `Iterator::filter` owns iteration and its caller owns inclusion, `Option::unwrap_or_else` owns absence and its caller owns the fallback. Order parameters for left-to-right application: dependencies and configuration known at the composition root, then a policy selecting behavior, then the runtime value. Dependencies are capability traits or closures: a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`.
+Order parameters for left-to-right application: dependencies and configuration known at the composition root, then a policy selecting behavior, then the runtime value. Dependencies are capability traits or closures: a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`.
 
 Select the form by the call site:
-- Closure parameter when one operation varies per call
-- `match` over ranges, guards, or variants for a first-match decision, arm order stating priority
-- `Iterator::all` or `Iterator::any` when a short-circuiting `bool` suffices
-- Returned closure to narrow a wide API to one operation, its factory doing once the work fixed arguments allow
-- Named function when the helper is larger than the duplication it removes or hides ordering, effects, or termination
+- `match` over ranges, guards, or variants states a first-match decision, arm order stating priority
+- Returned closures narrow a wide API to one operation, their factory doing once the work fixed arguments allow
 
 ## [02]-[EXPRESSIONS]
 
@@ -86,8 +69,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 ```
 
 - Iterator pipelines hold every traversal, and a named reduction (`max_by_key`, `minmax`, `counts_by`) states its fold
-- Adjacent pairs (`array_windows`, `tuple_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
-- `fold` with a seed holds any other reduction, `try_fold` a dependent reduction that stops at its first failure
+- Adjacent pairs (`array_windows`, `map_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, an arm nests no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call
@@ -111,7 +93,6 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 - Matches over a workspace enum list every variant, a new variant then fails each match that must handle it
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
-- Slice patterns (`[first, .., last]`, `[]`) recognize sequence shape, `@` binds a value a nested pattern tests
 - `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
 
@@ -126,8 +107,6 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 |  [03]   | `try_fold` over a state range | Unbounded depth, only the final state or failure    | Intermediate states are lost   |
 |  [04]   | Arena with typed keys         | Shared or cyclic successors                         | Graph built before the walk    |
 
-Recursive enums box their recursive fields, and a fold over them takes one function per variant.
-
 ## [03]-[TYPES]
 
 Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting the values a type has exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts, a tuple or closure holds an intermediate value no consumer names, and a public alias names one generic instantiation (`TypedUuid<OrderKind>`).
@@ -137,7 +116,8 @@ Types make every constructible value valid, and a consumer receives a value that
 Model each state a consumer inspects as one variant holding exactly the data valid in that state:
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, strum::EnumDiscriminants)]
+#[strum_discriminants(name(Stage), derive(PartialOrd, Ord, Hash, enum_map::Enum))]
 pub enum Delivery {
     Pending,
     Shipped { carrier: Carrier, tracking: Tracking },
@@ -146,8 +126,9 @@ pub enum Delivery {
 }
 ```
 
+- Kinds derive from the enum: `delivery.discriminant()` returns its fieldless `Stage`, declaration order ranks stages (`>= Stage::Delivered`), and `EnumMap<Stage, V>` holds one value per stage
 - Data shared by every variant sits in a struct beside a field holding the enum
-- Variants differing only by a tag are one struct keyed by a fieldless enum, `EnumMap<Kind, V>` holds one value per variant
+- Variants differing only by a tag are one struct keyed by a fieldless enum
 - Flags with fields meaningful for one flag value become one variant per valid state
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
@@ -166,17 +147,9 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 
 ### [03.3]-[OWNERSHIP]
 
-Ownership states who decides a value's lifetime, and the parameter mode states what a function does with its argument:
-
-| [INDEX] | [USE]                                 | [PARAMETER]                      |
-| :-----: | :------------------------------------ | :------------------------------- |
-|  [01]   | Read                                  | `&T`, `&str`, `&[T]`             |
-|  [02]   | Keep, store, or transform into output | `T`                              |
-|  [03]   | Replace a state                       | `self` returning `Self`          |
-|  [04]   | Share across tasks for reading        | `Arc<T>`, `Arc<str>`, `Arc<[T]>` |
-|  [05]   | Return owned or borrowed by input     | `Cow<'_, T>` result              |
-
+Ownership states who decides a value's lifetime:
 - Functions storing an argument take it by value, the caller decides whether to clone
+- Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Interior mutability belongs to boundary types that own shared state, domain types hold none
 
@@ -193,7 +166,6 @@ impl Account {
 ```
 
 - `Account` holds an `id` and a `balance`, and one signed `amount` states a credit and a debit alike
-- Bindings stay immutable, `mut` stays on a local that a function builds and returns
 - Struct update syntax (`..self`) copies the unchanged fields of the replaced state, a changed type parameter included
 - `&mut self` methods stay on a type whose purpose is an owned buffer (a builder, a parser cursor)
 
@@ -276,7 +248,7 @@ pub enum LedgerError {
     #[error("{reason}: {account}")]
     Refused { account: AccountId, reason: Refusal },
     #[error("unreadable: {account}")]
-    Store { account: AccountId, source: StoreError },
+    Store { account: AccountId, source: io::Error },
 }
 ```
 
@@ -288,22 +260,22 @@ pub enum LedgerError {
 
 ### [04.3]-[EXIT]
 
-Hosts run the composed effect once and translate its result into an exit status. The crate error states each translation once as a conversion into `sysexits::ExitCode`, a generic host bounds its error `Into<ExitCode>`, and a host holding several failures returns the first one's status:
+Entry points run the composed effect once and translate its result into an exit status. The crate error states each translation once as a conversion from its reference into `sysexits::ExitCode`, a generic entry point bounds `for<'error> ExitCode: From<&'error E>`, and an entry point holding accumulated failures returns the first one's status:
 
 ```rust
-impl From<LedgerError> for ExitCode {
-    fn from(value: LedgerError) -> Self {
+impl From<&LedgerError> for ExitCode {
+    fn from(value: &LedgerError) -> Self {
         match value {
             LedgerError::Refused { account: _, reason: Refusal::Missing } => Self::NoInput,
             LedgerError::Refused { account: _, reason: Refusal::Overflow } => Self::DataErr,
             LedgerError::Refused { account: _, reason: Refusal::Frozen } => Self::NoPerm,
-            LedgerError::Store { account: _, source: _ } => Self::IoErr,
+            LedgerError::Store { account: _, source } => source.kind().into(),
         }
     }
 }
 ```
 
-A variant wrapping an `io::Error` converts its source, the status following the error's kind. Hosts log each failure that reaches their translation as `Report::new(&error)`, inner layers return their result unlogged.
+Entry points log each failure that reaches their translation as `Report::new(&error)`, inner layers return their result unlogged.
 
 ## [05]-[TRAITS]
 
@@ -323,7 +295,6 @@ Traits state a capability a consumer needs. An associated type states an output 
 - Bounds repeated across signatures are one trait alias, a crate-private trait with one implementor is that type's inherent `impl`
 - Implementations of a foreign trait write its required methods and the ones their type answers differently, every default stands
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
-- `From` converts without failure, `TryFrom` with the crate error, `FromStr` parses text, and `Display` renders text people read
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl
 - Parameters take the target type, callers convert with `.into()` at the call site
 
@@ -352,7 +323,7 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [05]   | Checked newtype and its error           | `nutype`                                                             |
 |  [06]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                |
 |  [07]   | Traits on a `PhantomData` generic       | `derive_where`                                                       |
-|  [08]   | Wire encode and decode                  | `serde`, field codecs through `serde_with`                           |
+|  [08]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                      |
 |  [09]   | Field mapping between domain and wire   | `o2o`                                                                |
 
 ## [06]-[EFFECTS]
@@ -397,7 +368,7 @@ Shared state takes the construct its access pattern states, and values that chan
 |  [06]   | Keyed results with expiry and coalesced loads | `moka::future::Cache`                           |
 |  [07]   | Reusable connections and handles              | `deadpool` pool                                 |
 
-Failure policies are distinct operations the application composes around a library's result: fallback runs a lower-priority effect after the preferred one fails, retry reruns a transient failure on a schedule, recovery maps a final failure to a value at the host. Libraries return their result with their own error and leave each policy to the application.
+Failure policies are distinct operations the application composes around a library's result: fallback runs a lower-priority effect after the preferred one fails, retry reruns a transient failure on a schedule, recovery maps a final failure to a value at the entry point. Libraries return their result with their own error and leave each policy to the application.
 
 ## [07]-[NUMERICS]
 

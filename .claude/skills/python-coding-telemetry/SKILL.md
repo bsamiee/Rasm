@@ -18,28 +18,29 @@ class Instrumentor(Protocol):
     def uninstrument(self) -> object: ...
 
 
-ENCODER = msgspec.json.Encoder(enc_hook=repr)
-
-
 def correlated(_logger: WrappedLogger, _method: str, event_dict: EventDict, /) -> EventDict:
     span = trace.get_current_span().get_span_context()
     return {**event_dict, "trace_id": trace.format_trace_id(span.trace_id), "span_id": trace.format_span_id(span.span_id)} if span.is_valid else event_dict
 
 
-def rendered(_logger: WrappedLogger, _method: str, event_dict: EventDict, /) -> bytes:
-    return ENCODER.encode(event_dict)
-
-
 @contextmanager
 def observed(distribution: str, /, *, level: int = logging.INFO, views: Sequence[View] = (), instrumentors: Iterable[Instrumentor] = ()) -> Generator[None]:
-    resource = Resource.create({SERVICE_NAME: distribution, SERVICE_VERSION: version(distribution)})
+    resource, encoder = Resource.create({SERVICE_NAME: distribution, SERVICE_VERSION: version(distribution)}), msgspec.json.Encoder(enc_hook=repr)
     tracing = TracerProvider(resource=resource, shutdown_on_exit=False)
     tracing.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     metering = MeterProvider(metric_readers=[PeriodicExportingMetricReader(OTLPMetricExporter())], resource=resource, views=views, shutdown_on_exit=False)
     trace.set_tracer_provider(tracing)
     metrics.set_meter_provider(metering)
     structlog.configure(
-        processors=[merge_contextvars, add_logger_name, add_log_level, correlated, TimeStamper(fmt="iso"), ExceptionRenderer(ExceptionDictTransformer(show_locals=False)), rendered],
+        processors=[
+            merge_contextvars,
+            add_logger_name,
+            add_log_level,
+            correlated,
+            TimeStamper(fmt="iso"),
+            ExceptionRenderer(ExceptionDictTransformer(show_locals=False)),
+            lambda _logger, _method, event_dict: encoder.encode(event_dict),
+        ],
         wrapper_class=structlog.make_filtering_bound_logger(level),
         logger_factory=structlog.BytesLoggerFactory(),
         cache_logger_on_first_use=True,
@@ -65,7 +66,8 @@ Roots run every handler inside `with observed(<distribution>):` with the level, 
 - `raise_exception_on_conflict=True` raises `DependencyConflictError` for a library release outside an instrumentor's range, where the default logs an error and patches nothing
 - `Instrumentor` types members a root calls, and mypy reads every instrumentor as `Any` under a file-level `# type: ignore` in their base module
 - Detector packages run by entry-point name from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, `*` runs every installed one, and a forked child draws a new `service.instance.id` over any value a root set
-- `rendered` encodes through one held `Encoder` to the bytes `BytesLogger` writes, `enc_hook=repr` covering values msgspec lacks (a `Path`, an exception), where `JSONRenderer` returns `str` and passes `default=` to its serializer
+- Last processor encodes through one held `Encoder` to bytes `BytesLogger` writes, and `enc_hook=repr` covers values msgspec lacks (a `Path`, an exception)
+- `JSONRenderer` returns `str` and passes `default=` to its serializer
 - `add_logger_name` writes the name each `get_logger(<name>)` call hands its `BytesLogger`
 - `dict_tracebacks` writes every frame's locals as reprs, a token argument included, and `ExceptionDictTransformer(show_locals=False)` keeps frames alone
 - `ExceptionRenderer` turns `exc_info` into an `exception` list with `ExceptionGroup` members under `exceptions`, and a chain without it writes `"exc_info":true` with no traceback
@@ -73,48 +75,32 @@ Roots run every handler inside `with observed(<distribution>):` with the level, 
 
 ## [02]-[INSTRUMENTED_STEPS]
 
-Steps returning an `Outcome` take span, status, duration, and completion entry from one decorator, each name derived from the decorated function: tracer, meter, and logger from its module, span and event from its qualified name, and the `code.function.name` on every `step.duration` reading from both. ty reads no `__qualname__` on a `Callable`, and `Step` declares it. `marked` sets `ERROR` status for an expected failure and returns `error.type` attributes that histogram and entry share, and defects raise through the span:
+Steps returning an `Outcome` take span, status, duration, and completion log entry from one decorator, each name derived from the decorated function: tracer, meter, and logger from its module, span and event from its qualified name, and the `code.function.name` on every `step.duration` measurement from both. ty reads no `__qualname__` on a `Callable`, and `traced` reads names from the `@wraps` result, which declares it. An expected failure sets `ERROR` status and the `error.type` attribute that histogram and log entry share, and exceptions propagate through the span:
 
 ```python
-SECONDS = tuple(mantissa * 10.0**exponent for exponent in range(-3, 2) for mantissa in (1.0, 2.5, 5.0))
-
-
-class Step[**P, T](Protocol):
-    __qualname__: str
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]: ...
-
-
-def marked[T](span: Span, outcome: Outcome[T], /) -> dict[str, str]:
-    match outcome:
-        case Result(tag="error", error=(head, *_) as faults):
-            span.set_status(Status(StatusCode.ERROR, "; ".join(fault.message for fault in faults)))
-            span.set_attributes(attributes := {ERROR_TYPE: head.reason.name})
-            return attributes
-        case _:
-            return {}
-
-
-def traced[**P, T](step: Step[P, T], /) -> Callable[P, Outcome[T]]:
-    tracer, log, function = trace.get_tracer(step.__module__), structlog.get_logger(step.__module__), {CODE_FUNCTION_NAME: f"{step.__module__}.{step.__qualname__}"}
-    durations = metrics.get_meter(step.__module__).create_histogram("step.duration", unit="s", explicit_bucket_boundaries_advisory=SECONDS)
+def traced[**P, T](step: Callable[P, Outcome[T]], /) -> Callable[P, Outcome[T]]:
+    tracer, log = trace.get_tracer(step.__module__), structlog.get_logger(step.__module__)
+    durations = metrics.get_meter(step.__module__).create_histogram(
+        "step.duration", unit="s", explicit_bucket_boundaries_advisory=[mantissa * 10.0**exponent for exponent in range(-3, 2) for mantissa in (1.0, 2.5, 5.0)]
+    )
 
     @wraps(step)
     def run(*args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
-        with tracer.start_as_current_span(step.__qualname__) as span:
+        with tracer.start_as_current_span(run.__qualname__) as span:
             started = perf_counter()
             outcome = step(*args, **kwargs)
-            elapsed, attributes = perf_counter() - started, marked(span, outcome)
-            durations.record(elapsed, function | attributes)
-            log.info(step.__qualname__, seconds=elapsed, **attributes)
+            elapsed = perf_counter() - started
+            match outcome:
+                case Result(tag="error", error=(head, *_) as faults):
+                    span.set_status(Status(StatusCode.ERROR, "; ".join(fault.message for fault in faults)))
+                    span.set_attributes(attributes := {ERROR_TYPE: head.reason.name})
+                case _:
+                    attributes = {}
+            durations.record(elapsed, {CODE_FUNCTION_NAME: f"{run.__module__}.{run.__qualname__}"} | attributes)
+            log.info(run.__qualname__, seconds=elapsed, **attributes)
             return outcome
 
     return run
-
-
-@traced
-def stored(target: Path, content: bytes, /) -> Outcome[Path]:
-    return catch(target.write_bytes, exception=OSError)(content).map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
 ```
 
 Histogram series count each function's calls, one per `error.type` value and one without it for successes, and no counter restates the count. Spans record what their block returns, raises, or sets:
@@ -128,26 +114,29 @@ Histogram series count each function's calls, one per `error.type` value and one
 
 ## [03]-[MEASUREMENTS]
 
-Observable instruments read state host objects count themselves (limiter tokens, stream buffers, cache entries) through their statistics at collection, in place of adds and subtracts at each call site. `occupancy` reads an anyio limiter, and `limited` builds one shared resource's limiter with the instrument reading it:
+Observable instruments read state library objects count themselves (limiter tokens, stream buffers, cache entries) through their statistics at collection, in place of adds and subtracts at each call site. `limited` builds one shared resource's limiter with the instrument reading its statistics:
 
 ```python
-def occupancy(limiter: anyio.CapacityLimiter, _options: CallbackOptions, /) -> tuple[Observation, ...]:
-    statistics = limiter.statistics()
-    return (Observation(statistics.borrowed_tokens, {"limiter.state": "borrowed"}), Observation(statistics.tasks_waiting, {"limiter.state": "waiting"}))
-
-
 def limited(resource: str, limit: int, /) -> anyio.CapacityLimiter:
     limiter = anyio.CapacityLimiter(limit)
-    metrics.get_meter(__name__).create_observable_up_down_counter(f"{resource}.limiter", callbacks=[partial(occupancy, limiter)], unit="{task}")
+    metrics.get_meter(__name__).create_observable_up_down_counter(
+        f"{resource}.limiter",
+        callbacks=[
+            lambda _options: (Observation((statistics := limiter.statistics()).borrowed_tokens, {"limiter.state": "borrowed"}), Observation(statistics.tasks_waiting, {"limiter.state": "waiting"}))
+        ],
+        unit="{task}",
+    )
     return limiter
 ```
 
 Roots call `limited` once per resource, and each collection reads borrowed tokens and waiting tasks on asyncio and trio:
 - Callbacks run on the collecting thread (a periodic reader's worker), read state safe across threads, and await nothing
-- Repeated `create_*` calls of one name on one meter return the first instrument, every `@traced` step in a module feeding one `step.duration`, and an observable repeat drops its callbacks unreported
-- Default histogram boundaries run from 0 to 10000 for milliseconds, and `SECONDS` spans 1 ms to 50 s for a histogram in `s`
+- Repeated `create_*` calls of one name on one meter return the first instrument, and every `@traced` step in a module feeds one `step.duration`
+- Repeated `create_observable_*` calls of one name drop their callbacks unreported
+- Default histogram boundaries run from 0 to 10000 for milliseconds, and `traced` boundaries span 1 ms to 50 s for a histogram in `s`
 - `View(instrument_type=Histogram, aggregation=ExponentialBucketHistogramAggregation())` fits buckets to any scale and replaces an advisory
-- SDK metrics hold no cardinality limit, metric attributes hold closed sets (an `error.type`, a state), and ids go on spans and log fields
+- SDK metric streams aggregate at most 2000 attribute sets per collection and fold further sets into one `otel.metric.overflow=true` point
+- Metric attributes hold low-cardinality values (an `error.type`, a state), and ids go on spans and log fields
 - Views with `attribute_keys` merge series over the keys they keep, and each view matching an instrument adds its own stream
 - `View(meter_name="<dependency>", aggregation=DropAggregation())` silences every instrument a dependency's meter creates
 - SDK meters raise `Exception` at creation for a name outside `[a-zA-Z][-_./a-zA-Z0-9]{0,254}`, a `__qualname__` holding `<locals>` among them
@@ -159,11 +148,11 @@ Events are constant names, and each varying value goes in a keyword field. Modul
 - Call keywords win over bound keys, and bound keys win over context-local keys
 - `bind` at module scope before `configure` builds a logger from builtin defaults that keeps printing console lines to stdout
 - Methods below the wrapper's level return `None` without running the chain, `log.is_enabled_for(logging.DEBUG)` gates a field that costs work
-- Async code calls sync methods, `ainfo` and its siblings run the chain in an asyncio executor and raise `RuntimeError` under trio
+- Async code calls sync methods, `ainfo` and other async methods run the chain in an asyncio executor and raise `RuntimeError` under trio
 
 ## [05]-[CONTEXT]
 
-Units of work bind log fields through `bound_contextvars` and open their span in one `with`. Remote contexts attach for a unit's scope through one `ExitStack.callback`, and `to_thread.run_sync` workers run `@traced` steps under their caller's span and fields with no threading instrumentation:
+Units of work bind log fields through `bound_contextvars` and open their span in one `with`. Remote contexts attach for a unit's scope through one `ExitStack.callback`, and `to_thread.run_sync` workers run a `@traced` step (`stored` writing bytes to its target) under their caller's span and fields with no threading instrumentation:
 
 ```python
 TRACER = trace.get_tracer(__name__)
@@ -180,7 +169,8 @@ Entries from each `stored` call hold `batch` and their own span's ids on asyncio
 - `bound_contextvars` restores overwritten keys and removes new ones on exit, as a `with` or a decorator on a `def` or an `async def`
 - Child tasks under anyio inherit bound fields and the current span on asyncio and trio, and a bind inside a child reaches no parent or sibling
 - `propagate.extract(carrier)` starts from an empty `Context`, and `context=context.get_current()` keeps baggage and a span it holds
-- `to_process` workers hold no SDK provider, start from an empty context, and point stdout at `os.devnull`, so their spans and entries vanish and a `@traced` step in the caller records the call
+- `to_process` workers hold no SDK provider, start from an empty context, and point stdout at `os.devnull`, and their spans and entries vanish
+- `@traced` steps in a caller record each `to_process` call
 - `inject` writes `traceparent` inside a valid span and `baggage` once baggage is set
 - Default getters match keys exactly, `Traceparent` extracts nothing, and HTTP header maps pass a case-insensitive `Getter`
 - Batches from many senders pass one `Link(trace.get_current_span(propagate.extract(<carrier>)).get_span_context())` per carrier to `links=`

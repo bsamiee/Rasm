@@ -112,7 +112,7 @@ workspace = [
     "scipy",                                                                      # Root finding, quadrature, splines, sparse operators, and signal filters
     "scs",                                                                        # SCS operator-splitting conic solver, a cvxpy backend
     "sectionproperties",                                                          # Cross-section property solver
-    "sympy>=1.14.0",                                                              # Symbolic expressions beside python-flint and mpmath ground domains, 1.14.0 release candidates omit the `mpmath<1.4` bound their `mpmath.libmp` imports need
+    "sympy>=1.14.0",                                                              # Symbolic expressions beside python-flint and mpmath ground domains, uv takes 1.14.0rc1 or 1.12 for a newer mpmath, both lacking the `mpmath<1.4` bound their `mpmath.libmp.bitcount` import needs
     "uncertainties",                                                              # First-order error propagation with correlated values
 
     # --- [STATISTICS]

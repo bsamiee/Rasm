@@ -1,5 +1,4 @@
 {
-    "$schema": "./node_modules/nx/schemas/nx-schema.json",
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
     "analytics": false,

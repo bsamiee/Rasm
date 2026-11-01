@@ -13,17 +13,9 @@ async def chained[T, R](step: Callable[[T], Awaitable[Outcome[R]]], result: Outc
             return await step(value)
         case Result(error=faults):
             return Error(faults)
-
-
-def named(folder: anyio.Path, raw: bytes, /) -> Outcome[anyio.Path]:
-    return catch(bytes.decode, exception=UnicodeDecodeError)(raw).map(lambda text: folder / text.strip()).map_error(partial(Fault.of, Reason.INVALID, repr(raw)))
-
-
-async def followed(index: anyio.Path, /) -> Outcome[bytes]:
-    return await chained(loaded, (await loaded(index)).bind(partial(named, index.parent)))
 ```
 
-`followed` reads an index file, decodes a file name from it, and reads the named file, and a failed read or decode returns its faults with no later read. `await anyio.functools.reduce(lambda held, item: chained(partial(<step>, item), held), items, initial=Result[<state>, Faults].Ok(<seed>))` folds state through dependent awaited steps and awaits no step after the first fault. Independent awaits start together, and the anyio member follows the shape of the work:
+`await chained(loaded, (await loaded(index)).bind(named))` reads an index file, decodes a file name from it through a synchronous `named` step returning `Outcome[anyio.Path]`, and reads the named file, and a failed read or decode returns its faults with no later read. `await anyio.functools.reduce(lambda held, item: chained(partial(<step>, item), held), items, initial=Result[<state>, Faults].Ok(<seed>))` folds state through dependent awaited steps and awaits no step after the first fault. Independent awaits start together, and the anyio member follows the shape of the work:
 - `anyio.gather` returns a typed tuple, and `paired(*await anyio.gather(loaded(left), loaded(right)))` keeps the faults of every failed read
 - `accumulated(await anyio.amap(loaded, paths))` combines a batch into one outcome holding every fault in input order
 - `async with anyio.as_completed(*coroutines) as done` yields task handles in completion order, `await <handle>` reads each value, and leaving the block cancels every unfinished task

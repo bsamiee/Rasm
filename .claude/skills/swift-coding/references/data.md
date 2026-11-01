@@ -93,20 +93,15 @@ indirect enum Expression: Sendable {
     }
 }
 
-func evaluate(_ expression: Expression, in bindings: [String: Double]) throws(OrderError) -> Double {
-    try expression.fold(
-        number: { value throws(OrderError) in value },
-        variable: { name throws(OrderError) in
-            guard let value: Double = bindings[name] else { throw OrderError(subject: "variable \(name)", reason: .missing) }
-            return value
-        },
-        apply: { op, left, right throws(OrderError) in op(left, right) },
-    )
-}
-
-func rendered(_ expression: Expression) -> String {
-    expression.fold(number: \.description, variable: \.self, apply: { op, left, right in "(\(left) \(op.rawValue) \(right))" })
-}
+let evaluated: Double = try expression.fold(
+    number: { value throws(OrderError) in value },
+    variable: { name throws(OrderError) in
+        guard let value: Double = bindings[name] else { throw OrderError(subject: "variable \(name)", reason: .missing) }
+        return value
+    },
+    apply: { op, left, right throws(OrderError) in op(left, right) },
+)
+let rendered: String = expression.fold(number: \.description, variable: \.self, apply: { op, left, right in "(\(left) \(op.rawValue) \(right))" })
 ```
 
-`Operator` holds its symbol as raw value and its arithmetic in `callAsFunction`, and a new operator is one case and one arm with `evaluate` and `rendered` unchanged. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluate` stops at the first unbound variable and names it, `rendered` infers `Never`.
+`expression` is an `Expression` and `bindings` a `[String: Double]`. `Operator` holds its symbol as raw value and its arithmetic in `callAsFunction`, and a new operator is one case and one arm with every interpretation unchanged. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluated` stops at the first unbound variable and names it, `rendered` infers `Never` and takes no `try`.

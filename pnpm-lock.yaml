@@ -96,6 +96,9 @@ catalogs:
     '@effect/ai-anthropic':
       specifier: 4.1.1
       version: 4.1.1
+    '@effect/ai-cloudflare':
+      specifier: 4.1.1
+      version: 4.1.1
     '@effect/ai-openai':
       specifier: 4.1.1
       version: 4.1.1
@@ -105,10 +108,16 @@ catalogs:
     '@effect/ai-openrouter':
       specifier: 4.1.1
       version: 4.1.1
+    '@effect/ai-typesafe':
+      specifier: 4.1.1
+      version: 4.1.1
     '@effect/atom-react':
       specifier: 4.1.1
       version: 4.1.1
     '@effect/docgen':
+      specifier: 4.1.1
+      version: 4.1.1
+    '@effect/graphql-generator':
       specifier: 4.1.1
       version: 4.1.1
     '@effect/openapi-generator':
@@ -1080,6 +1089,9 @@ importers:
       '@effect/ai-anthropic':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
+      '@effect/ai-cloudflare':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)
       '@effect/ai-openai':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
@@ -1089,12 +1101,18 @@ importers:
       '@effect/ai-openrouter':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
+      '@effect/ai-typesafe':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(react@19.3.0)(scheduler@0.28.0)
       '@effect/docgen':
         specifier: 'catalog:'
         version: 4.1.1(redis@6.2.1(@opentelemetry/api@1.10.0))(tsx@4.23.13)(typescript@7.1.0-dev.20261028.1)
+      '@effect/graphql-generator':
+        specifier: 'catalog:'
+        version: 4.1.1(@effect/platform-node@4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0)))(effect@4.1.1)
       '@effect/openapi-generator':
         specifier: 'catalog:'
         version: 4.1.1(@effect/platform-node@4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0)))(effect@4.1.1)
@@ -3980,6 +3998,11 @@ packages:
     peerDependencies:
       effect: ^4.1.1
 
+  '@effect/ai-cloudflare@4.1.1':
+    resolution: {integrity: sha512-J+ytSZnhOBBCdkYf3HVrlpGS7BD/7+idOtGxUeCfMyS3+MzcuVWbLUz23AVw5C2jOOepm/jM51uh0QY40ZG85w==}
+    peerDependencies:
+      effect: ^4.1.1
+
   '@effect/ai-openai-compat@4.1.1':
     resolution: {integrity: sha512-uy9AGjCUquw1/EVrQdeZ1Zlidn9dQeUkkmq9S2xAFiwTnVKpmzZrpK7CcceT7tt+uzLX1DHUJsbIO6P3GmPKrA==}
     peerDependencies:
@@ -3992,6 +4015,11 @@ packages:
 
   '@effect/ai-openrouter@4.1.1':
     resolution: {integrity: sha512-A/nzSgt0yI56Eono5Rd8mE3kG8DRfyLcGQXso4wpvsuXrchlTWeug566Pml0ukZ19pcBuf8BHX/ErkCyuLQGEQ==}
+    peerDependencies:
+      effect: ^4.1.1
+
+  '@effect/ai-typesafe@4.1.1':
+    resolution: {integrity: sha512-KfLaqJATYGcd1T0ov3IEwSPZEwpwF7hV1nopAta/l8SbrOiQrgMuHnxikkvn7S45j5aTtXI/1axmpRxFq9g7ww==}
     peerDependencies:
       effect: ^4.1.1
 
@@ -4009,6 +4037,13 @@ packages:
     peerDependencies:
       tsx: '>=4.19.3 <5.0.0'
       typescript: 7.1.0-dev.20261028.1
+
+  '@effect/graphql-generator@4.1.1':
+    resolution: {integrity: sha512-78TfSbF2G8Z4r0f9vJh8b3WR1J/a3pD1Gzdk7B6JM4bCQBbmHKzJREtAZqPdaKYox6pBCMJwUnLWmtqxJ6tzlw==}
+    hasBin: true
+    peerDependencies:
+      '@effect/platform-node': ^4.1.1
+      effect: ^4.1.1
 
   '@effect/markdown-toc@0.1.0':
     resolution: {integrity: sha512-IRfvvwqQLabVTIw9hhIj4scOGIYPfa13QuEFv+dBWE6p47R+RR0J8jQvfDINFf0Vn80XXVjNRtZxkZpkKXLx2A==}
@@ -17098,6 +17133,10 @@ snapshots:
     dependencies:
       effect: 4.1.1
 
+  '@effect/ai-cloudflare@4.1.1(effect@4.1.1)':
+    dependencies:
+      effect: 4.1.1
+
   '@effect/ai-openai-compat@4.1.1(effect@4.1.1)':
     dependencies:
       effect: 4.1.1
@@ -17107,6 +17146,10 @@ snapshots:
       effect: 4.1.1
 
   '@effect/ai-openrouter@4.1.1(effect@4.1.1)':
+    dependencies:
+      effect: 4.1.1
+
+  '@effect/ai-typesafe@4.1.1(effect@4.1.1)':
     dependencies:
       effect: 4.1.1
 
@@ -17134,6 +17177,11 @@ snapshots:
       - bufferutil
       - redis
       - utf-8-validate
+
+  '@effect/graphql-generator@4.1.1(@effect/platform-node@4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0)))(effect@4.1.1)':
+    dependencies:
+      '@effect/platform-node': 4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      effect: 4.1.1
 
   '@effect/markdown-toc@0.1.0':
     dependencies:

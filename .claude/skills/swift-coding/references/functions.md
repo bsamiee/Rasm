@@ -29,7 +29,7 @@ func prices(of codes: [String], in catalog: Catalog) throws(OrderError) -> [Deci
 
 References keep their typed throw, and `map` keeps `OrderError` through both steps with no closure literal.
 
-## [03]-[RULES_AS_VALUES]
+## [03]-[PREDICATE_VALUES]
 
 Rules a consumer stores, compares, or shows are package values with the functions as members: a `ClosedRange` or `Set` tests membership, a `KeyPathComparator` orders. Rules nobody reads back are closures:
 

@@ -11,6 +11,7 @@ import type { status } from '#/status';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Form = Schema.TaggedUnion({ Command: Execute.fields, Element: Perform.fields });
+const Dictionary = Schema.Struct({ application: McpSchema.param('application', Schema.String), kind: McpSchema.param('kind', Kind) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -18,9 +19,8 @@ const dictionaries = Effect.gen(function* () {
     const [automation, indesignScript] = yield* Effect.all([Automation, InDesignScript]);
     const scriptable = (hosts: Predicate.Predicate<Installation>) => (row: Installation) => row.scriptable && !hosts(row);
     const described = (given: string) => Effect.flatMap(indesignScript.hosts, (hosts) => lookup(scriptable(hosts))(Option.some(given)));
-    const [application, kind] = [McpSchema.param('application', Schema.String), McpSchema.param('kind', Kind)];
     const completion = { application: () => Effect.zipWith(automation.installed, indesignScript.hosts, (rows, hosts) => rows.filter(scriptable(hosts)).map(Struct.get('name'))) };
-    yield* registerResourceTemplate`adobe://dictionary/${application}`({
+    yield* registerResourceTemplate`adobe://dictionary/${Dictionary.fields.application}`({
         name: 'dictionary',
         description: SchemaAST.resolveDescription(Terms.ast),
         mimeType: 'application/json',
@@ -29,7 +29,7 @@ const dictionaries = Effect.gen(function* () {
         changes: SubscriptionRef.changes(automation.installations),
         content: (_, given) => Effect.flatMap(described(given), automation.terms),
     });
-    yield* registerResourceTemplate`adobe://dictionary/${application}/${kind}/${McpSchema.param('name', Schema.String)}`({
+    yield* registerResourceTemplate`adobe://dictionary/${Dictionary.fields.application}/${Dictionary.fields.kind}/${McpSchema.param('name', Schema.String)}`({
         name: 'dictionary_term',
         description: 'Scripting definition XML matching kind and name',
         mimeType: 'application/xml',
@@ -39,7 +39,7 @@ const dictionaries = Effect.gen(function* () {
             ...completion,
             kind: () => Effect.succeed([...Kind.literals]),
             name: Effect.fnUntraced(function* (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) {
-                const chosen = yield* Schema.decodeUnknownEffect(Schema.Struct({ application, kind }))(context?.arguments);
+                const chosen = yield* Schema.decodeUnknownEffect(Dictionary)(context?.arguments);
                 return Array.map((yield* automation.terms(yield* described(chosen.application)))[chosen.kind], Struct.get('name'));
             }),
         },

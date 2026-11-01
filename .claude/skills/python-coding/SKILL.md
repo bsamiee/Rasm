@@ -10,8 +10,8 @@ Covers functional Python from signature to program boundary, with Expression, ms
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, recursion, and pipelines
 - [02]-[DECORATORS](references/decorators.md): Decorator factories, stacks, and dispatch registries
-- [03]-[RECORDS](references/records.md): Record transitions, keyed diffs, declared graphs, recursive unions, and array fields
-- [04]-[RESULTS](references/results.md): Result accumulation, recovery, option combinators, status mapping, and result laws
+- [03]-[RECORDS](references/records.md): Record transitions, keyed diffs, dependency graphs, recursive unions, and array fields
+- [04]-[RESULTS](references/results.md): Result accumulation, recovery, option combinators, and status mapping
 - [05]-[BOUNDARIES](references/boundaries.md): Command flow from process input through streams, templates, file writes, and plans to one outcome
 - [06]-[CONCURRENCY](references/concurrency.md): Async Python under anyio with tasks, deadlines, cancellation, and workers
 - [07]-[NUMERICS](references/numerics.md): Numeric passes through package members, array ownership, floating-point scopes, random streams, and tables
@@ -64,7 +64,7 @@ Higher-order functions accept a function, return one, or both, and own stable co
 - Callables pass as themselves (`map(str.strip, lines)`, `reduce(Box.merged, boxes)`)
 - Key functions are lambdas or unbound methods (`str.casefold`)
 
-`read` owns the catch and its fault once, and each reader is a `partial` over the function it applies:
+`read` owns the catch and its fault once, and each reader is a `partial` over the function it applies, `partial(read, Path.read_text)` for text:
 
 ```python
 def read[T](reader: Callable[[Path], T], path: Path, /) -> Outcome[T]:
@@ -72,7 +72,6 @@ def read[T](reader: Callable[[Path], T], path: Path, /) -> Outcome[T]:
 
 
 content: Callable[[Path], Outcome[bytes]] = partial(read, Path.read_bytes)
-text: Callable[[Path], Outcome[str]] = partial(read, Path.read_text)
 ```
 
 ## [02]-[EXPRESSIONS]
@@ -199,10 +198,6 @@ class Tier(IntEnum):
     @property
     def quota(self) -> int:
         return 1 << (10 * self.value)
-
-    @property
-    def retention(self) -> timedelta:
-        return timedelta(days=30 * self.value)
 ```
 
 `Tier.TEAM.quota` is `1 << 20`, and a new member takes every fact from its rank:

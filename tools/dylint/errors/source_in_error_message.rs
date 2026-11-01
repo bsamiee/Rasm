@@ -1,5 +1,6 @@
 use clippy_utils::{diagnostics::span_lint_hir_and_then, sym};
 use rustc_ast::{
+    attr::AttributeExt as _,
     token::{self, TokenKind},
     tokenstream::TokenTree,
 };
@@ -23,7 +24,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let [error, source] = ["error", "source"].map(Symbol::intern);
             let node = tcx.local_def_id_to_hir_id(variant.def_id.as_local()?);
             let attribute = tcx.hir_attrs(node).iter().find(|attribute| attribute.has_name(error))?;
-            let Attribute::Unparsed(parsed) = attribute else { return None };
+            let Attribute::DeriveHelper(parsed) = attribute else { return None };
             let AttrArgs::Delimited(delimited) = &parsed.args else { return None };
             let tokens = delimited.tokens.iter().map(|tree| if let TokenTree::Token(token, _) = tree { Some(&token.kind) } else { None }).collect::<Vec<_>>();
             let mut groups = tokens.split(|kind| matches!(kind, Some(TokenKind::Comma)));
@@ -58,7 +59,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 [Piece::NextArgument(_)] => format!("state the failure in the message in place of field `{shown}`"),
                 _ => format!("delete field `{shown}` from the message"),
             };
-            Some((node, attribute.span(), format!("`{}` message prints its source field `{shown}`", variant.name), help))
+            Some((node, parsed.span, format!("`{}` message prints its source field `{shown}`", variant.name), help))
         }
 
         if let ItemKind::Struct(..) | ItemKind::Enum(..) = item.kind

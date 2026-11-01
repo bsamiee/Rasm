@@ -2,7 +2,7 @@
 
 Covers functions as values.
 
-## [01]-[SELECTORS]
+## [01]-[KEY_FUNCTIONS]
 
 Cursor pages over sorted rows are one generic function taking the row's key:
 
@@ -57,7 +57,7 @@ pub fn findings(order: &Order) -> impl Iterator<Item = Finding> {
 
 `findings(order).collect::<Vec<_>>()` reports every violated check, and `findings(order).next().is_none()` answers whether the order passes and stops at its first finding.
 
-## [03]-[STAGING]
+## [03]-[RETURNED_CLOSURES]
 
 Rate bands index once into a `BTreeMap` the returned closure reads per spend:
 
@@ -68,14 +68,17 @@ pub fn rate_for(bands: &[(Cents, Rate)]) -> impl Fn(Cents) -> Option<Rate> + use
 }
 ```
 
-`range(..=spend).next_back()` reads the highest floor at or below a spend in logarithmic time, and a spend below every floor is `None`. `use<>` states that the closure borrows nothing and outlives `bands`. Closures from one factory share its return type, and `[rate_for(&retail), rate_for(&wholesale)]` is an array with no box. Closures written at different sites are different types: non-capturing ones coerce to one `fn` pointer type, and capturing ones share a collection as `Box<dyn Fn>`.
+`range(..=spend).next_back()` reads the highest floor at or below a spend in logarithmic time, and a spend below every floor is `None`. `use<>` states that the closure borrows nothing and outlives `bands`. Closures from one factory share its return type, and `[rate_for(&retail), rate_for(&wholesale)]` is an array with no box.
 
 ## [04]-[COMPOSITION_ROOT]
 
 Composition-root factories take the capability trait with their effects as methods, and the returned closure runs a load, a pure transition, and a save per request:
 
 ```rust
-pub fn depositing<L>(ledger: L) -> impl AsyncFn(Deposit) -> Result<Account, LedgerError>
+pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, LedgerError>;
+
+#[define_opaque(Depositing)]
+pub fn depositing<L>(ledger: L) -> Depositing<L>
 where L: Ledger {
     async move |command: Deposit| {
         let next = ledger.load(command.account).await?.ok_or(LedgerError::Refused { account: command.account, reason: Refusal::Missing })?.post(command.amount)?;
@@ -84,4 +87,4 @@ where L: Ledger {
 }
 ```
 
-`Ledger` declares `load` returning `Result<Option<Account>, LedgerError>` and `save` returning `Result<(), LedgerError>` as `async fn` methods. `main` binds `depositing(store)` once over the store it opened, and the server awaits that closure per request. Each call's future borrows the ledger the closure owns, and no request clones a handle.
+`Ledger` declares `load` returning `Result<Option<Account>, LedgerError>` and `save` returning `Result<(), LedgerError>` as `async fn` methods. `main` binds `depositing(store)` once over the store it opened, and the server awaits that closure per request. Each call's future borrows the ledger the closure owns, and no request clones a handle. `Depositing<L>` names the closure type its `#[define_opaque]` factory fixes, and a state record holds it in a field (`deposit: Depositing<Store>`) with no box and no closure parameter, called as `(state.deposit)(command)`.

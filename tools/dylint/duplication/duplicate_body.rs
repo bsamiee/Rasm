@@ -147,7 +147,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             let traits = generic_calls(earlier, from)?;
             let owned = tcx.hir_body_owned_by(earlier);
-            let body = peel_blocks(&owned.value);
+            let body = peel_blocks(owned.value);
             let typeck = tcx.typeck(earlier);
             let passed = |argument: &Expr<'_>| parameter(owned, argument).is_some();
             let direct = match body.kind {
@@ -162,7 +162,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn varied_value<'tcx>(cx: &LateContext<'tcx>, earlier: LocalDefId, later: LocalDefId, differences: &[(HirId, HirId)]) -> Option<Difference<'tcx>> {
             let tcx = cx.tcx;
             let typeck = tcx.typeck(earlier);
-            let body = peel_blocks(&tcx.hir_body_owned_by(earlier).value);
+            let body = peel_blocks(tcx.hir_body_owned_by(earlier).value);
             let fieldless = |function: LocalDefId| owner(cx, function).filter(|held| held.ty_adt_def().is_some_and(|adt| adt.is_struct() && adt.all_fields().next().is_none()) && !is_error(cx, *held));
             let direct = |arguments: &[Expr<'_>]| differences.iter().all(|&(differing, _)| arguments.iter().any(|argument| argument.hir_id == differing));
             let called = match body.kind {
@@ -333,7 +333,7 @@ fn owner<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> Option<Ty<'tcx>>
 }
 
 fn value(tcx: TyCtxt<'_>, function: LocalDefId) -> &Expr<'_> {
-    let value = peel_blocks(&tcx.hir_body_owned_by(function).value);
+    let value = peel_blocks(tcx.hir_body_owned_by(function).value);
     match value.kind {
         ExprKind::Closure(closure) if matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) => match tcx.hir_body(closure.body).value.kind {
             ExprKind::Block(Block { expr: Some(tail), .. }, _) =>

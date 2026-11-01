@@ -1,4 +1,4 @@
-import { Array, Cause, type Context, Effect, Equal, Function, flow, HashMap, Option, Predicate, Schema, Stream, SubscriptionRef, Tuple } from 'effect';
+import { Array, Cause, type Context, Effect, Equal, Function, flow, HashMap, Option, Predicate, Record, Schema, Stream, SubscriptionRef, Tuple } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
 import { orInternalError } from '#/server';
 
@@ -86,19 +86,28 @@ const registerResource = Effect.fnUntraced(function* <A, I, E extends Error, R>(
 });
 const registerResourceTemplate =
     <const Schemas extends readonly Schema.Codec<unknown, unknown, never, never>[]>(segments: TemplateStringsArray, ...schemas: Schemas) =>
-    <A, I, E extends Error, R, const Completions extends Partial<McpServer.ResourceCompletions<Schemas>> = Record<never, never>>(options: {
+    <A, I, E extends Error, R>(options: {
         readonly name: string;
         readonly description?: string | undefined;
         readonly mimeType?: string | undefined;
         readonly annotations?: Context.Context<never> | undefined;
-        readonly completion?: McpServer.ValidateCompletions<Completions, keyof McpServer.ResourceCompletions<Schemas>> | undefined;
+        readonly completion?:
+            | { readonly [K in keyof McpServer.ResourceCompletions<Schemas>]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<McpServer.ResourceCompletions<Schemas>[K] extends (...args: never) => Effect.Effect<infer Values, unknown, unknown> ? Values : never, Error, R> }
+            | undefined;
         readonly schema: Schema.Codec<A, I>;
         readonly content: (uri: string, ...params: Params<Schemas>) => Effect.Effect<A, E, R>;
         readonly changes: Stream.Stream<unknown, never, R>;
     }) =>
         Effect.gen(function* () {
             const [services, { read, depend }] = yield* Effect.all([Effect.context<R>(), resourceValues(options.schema, options.mimeType, options.changes)]);
-            yield* McpServer.registerResource<Schemas>(segments, ...schemas)<McpSchema.InternalError, never, Completions>({ ...options, content: (uri, ...params) => read(uri, Effect.provideContext(options.content(uri, ...params), services)) });
+            yield* McpServer.registerResource<Schemas>(
+                segments,
+                ...schemas,
+            )({
+                ...options,
+                completion: Record.map({ ...options.completion }, (complete) => flow(complete, Effect.provideContext(services))),
+                content: (uri, ...params) => read(uri, Effect.provideContext(options.content(uri, ...params), services)),
+            });
             return (...params: Params<Schemas>) =>
                 depend(
                     Effect.map(

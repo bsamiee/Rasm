@@ -1,6 +1,6 @@
 ---
 name: python-coding-expression
-description: "Use when calling an expression member, covering result and option members, nested contexts, persistent collections, pipelines, and codec boundaries"
+description: "Use when calling an expression member, covering result and option members, nested results and options, persistent collections, pipelines, and codec boundaries"
 ---
 
 # [PYTHON_CODING_EXPRESSION]
@@ -19,7 +19,7 @@ description: "Use when calling an expression member, covering result and option 
 
 ## [02]-[OPTIONS]
 
-`try_downcast` narrows a host value through an `isinstance` test and returns `T | None`. `held` turns a value of the wrong class into a fault naming expected and found classes:
+`try_downcast` narrows an `object` value through an `isinstance` test and returns `T | None`. `held` turns a value of the wrong class into a fault naming expected and found classes:
 
 ```python
 def held[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
@@ -36,7 +36,7 @@ def held[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
 
 ## [03]-[NESTING]
 
-Nested contexts hold outcomes a consumer handles apart:
+Nested results and options hold outcomes a consumer handles apart:
 - `Outcome[Option[T]]` separates a failed read from a read that found nothing
 - `Option[Option[T]]` holds a `T | UnsetType | None` patch field: `UNSET` as `Nothing`, `None` as `Some(Nothing)`, a value as `Some(Some(value))`
 
@@ -53,7 +53,7 @@ def patched[K, N](lookup: Callable[[K], Outcome[N]], current: Option[N], edit: O
 
 Select the collection by when its items exist:
 
-| [INDEX] | [TYPE]      | [HOLDS]                    | [SERVES]                                            |
+| [INDEX] | [TYPE]      | [HOLDS]                    | [USE]                                               |
 | :-----: | :---------- | :------------------------- | :-------------------------------------------------- |
 |  [01]   | `Block[T]`  | Tuple-backed items, eager  | Pipelines with `Option` or `Result` steps           |
 |  [02]   | `Map[K, V]` | AVL tree ordered by key    | State a fold threads, every version kept            |
@@ -101,23 +101,20 @@ def versions[K: SupportsLessThanAndHash, V](start: Map[K, V], edits: Iterable[tu
 
 ## [05]-[COMPOSITION]
 
-`pipeline(f, g)` composes dependent result steps into one function value, and `pipeline(f, g)(x)` is `f(x).bind(g)`. `counts` maps the composed function over independent texts, each text stops at its first fault, and the batch reports every text's fault:
+`counts` chains each text's dependent steps, each text stops at its first fault, and the batch reports every text's fault:
 
 ```python
-def parsed(text: str, /) -> Outcome[int]:
-    return catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Reason.INVALID, repr(text)))
-
-
-def capped(limit: int, value: int, /) -> Outcome[int]:
-    return Ok(value).filter_with(lambda count: count <= limit, partial(Fault.of, Reason.OUTSIDE, "count", member=f"at most {limit}"))
-
-
 def counts(texts: Iterable[str], /, *, limit: int = 100) -> Outcome[tuple[int, ...]]:
-    return accumulated(map(pipeline(parsed, partial(capped, limit)), texts))
+    return accumulated(
+        catch(int, exception=ValueError)(text)
+        .map_error(partial(Fault.of, Reason.INVALID, repr(text)))
+        .filter_with(lambda count: count <= limit, partial(Fault.of, Reason.OUTSIDE, "count", member=f"at most {limit}"))
+        for text in texts
+    )
 ```
 
-`counts(("3", "x", "500"))` fails with the `parsed` fault for `"x"` and the `capped` fault for `500`:
-- `pipeline` types up to six steps, and `expression.extra.option.pipeline` composes option steps
+`counts(("3", "x", "500"))` fails with the `INVALID` fault for `"x"` and the `OUTSIDE` fault for `500`:
+- `pipeline(f, g)` composes named result steps into one function value, `pipeline(f, g)(x)` is `f(x).bind(g)`, its overloads type up to six steps, and `expression.extra.option.pipeline` composes option steps
 - `traverse(f, block)` and `sequence` call `f` on every item from last to first and return the first item's fault in input order
 - `pipeable(f, *rest)` binds every argument after a subject-first function's subject, and `compose(str.strip, pipeable(textwrap.shorten, 40))` keeps each step typed
 - `catch` returns a wrapped function's `Result` unwrapped while checkers type it `Result[Result[T, F], E]`, and a step returning a result catches its raising call inside

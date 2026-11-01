@@ -67,7 +67,7 @@ const column = <F extends Fields>(field: Field<F>, schema: F[Field<F>], { defaul
         schema,
         kind: Match.value({ node: values[0], decoded: decoded[0], boolean, numeric, integer: integer || (numeric && literals.every(Number.isInteger)), finite: has(SchemaRepresentation.isFiniteReviver), uuid: has(SchemaRepresentation.isUUIDReviver) }).pipe(
             Match.withReturnType<keyof typeof dataTypes.sqlite>(),
-            Match.when({ node: { _tag: 'String', annotations: { contentMediaType: 'application/json' } } }, () => 'json'),
+            Match.when({ node: { _tag: 'String', content: { mediaType: 'application/json' } } }, () => 'json'),
             Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'BigInt' } }, () => 'int64'),
             Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: Match.is(SchemaRepresentation.DateReviver.id, SchemaRepresentation.DateTimeUtcReviver.id) } } }, () => 'instant'),
             Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: SchemaRepresentation.BigDecimalReviver.id } } }, () => 'decimal'),

@@ -81,6 +81,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
 - `.claude/workflows` stays out of `files.includes`, Workflow scripts await and return at top level
+- VS Code `json.schemas` names installed Biome and Nx schemas, a relative `$schema` resolves against a diff's `git:` URI and fails
 
 ## [06]-[HOST_PACKAGING]
 

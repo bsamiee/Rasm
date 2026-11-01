@@ -1,10 +1,10 @@
 # [STREAMS]
 
-Values over time as async sequences, from a host source through operators to pacing and sharing.
+Values over time as async sequences, from a host source through operators to back pressure and sharing.
 
 ## [01]-[SOURCES]
 
-Host APIs that deliver values over time return an async sequence of their own (`NotificationCenter.messages(of:for:)`, `URL.lines`, `FileHandle.bytes`), and a consumer iterates it as declared. Callback APIs that register a handler and return a token enter through one generic bridge that infers value and token types from the host's signatures:
+Host APIs that deliver values over time return an async sequence of their own (`NotificationCenter.messages(of:for:)`, `URL.lines`, `FileHandle.bytes`), and a consumer iterates it as declared. Callback APIs that register a handler and return a token enter through one generic function that infers value and token types from the host's signatures:
 
 ```swift
 func values<Value: Sendable, Token: Sendable>(
@@ -72,16 +72,9 @@ func overdrafts(
 
 ## [04]-[OBSERVATION]
 
-`Observations` turns reads of `@Observable` properties into an async sequence, and `untilFinished` ends it on a state its closure reads:
+`Observations` turns reads of `@Observable` properties into an async sequence, and `untilFinished` ends it on a state its closure reads. `Cart` is a `@MainActor` `@Observable` class holding `prices` and `isSubmitted`:
 
 ```swift
-@MainActor
-@Observable
-final class Cart {
-    var prices: [Decimal] = []
-    var isSubmitted: Bool = false
-}
-
 @MainActor
 func totals(of cart: Cart) -> some AsyncSequence<Decimal, Never> {
     Observations.untilFinished {
@@ -96,9 +89,9 @@ func totals(of cart: Cart) -> some AsyncSequence<Decimal, Never> {
 - Each iterator yields the current value at its first `next()`, and a consumer slower than the model receives the newest value at its next `next()`
 - One `Observations` value serves every consumer the same elements without a buffer, a failure its closure throws ends every iterator, and cancellation ends one
 
-## [05]-[PACING]
+## [05]-[BACK_PRESSURE]
 
-Pacing concerns push producers, a pull source producing only when its consumer calls `next()`. The producer's ability to wait selects the form:
+Back pressure concerns push producers, a pull source producing only when its consumer calls `next()`. The producer's ability to wait selects the form:
 
 | [INDEX] | [PRODUCER]                                      | [FORM]                                                                 |
 | :-----: | :---------------------------------------------- | :--------------------------------------------------------------------- |

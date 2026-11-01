@@ -2,40 +2,24 @@
 
 ## [01]-[VALUES]
 
-`mathutils` values store `float32`, and values read from RNA write through to their owner:
+`mathutils` values store `float32` (`Vector((1 / 3, 0, 0)).x != 1 / 3`), and values read from RNA write through to their owner:
 - Writes through a nested read reach the owner (`obj.matrix_world.translation.x = 7` moves the object)
 - `np.asarray(<value>)` reads a read-only `float32` array, a live view of a detached value and a snapshot of an owned one
 - `value.copy().freeze()` is the hashable form for dict and set keys, `freeze()` on an owned value raising `TypeError`
-- Values round-trip `float64` with loss (`Vector((1 / 3, 0, 0)).x != 1 / 3`), and comparisons take a tolerance
-- Degenerate input answers a fallback: `angle(other, None)` `None` for a zero vector, `inverted(<Matrix>)` its argument for a singular matrix (`inverted(None)` raising `ValueError`), `normalized()` and `rotation_difference` a zero vector and an identity rotation
+- `angle(other, <fallback>)` on a zero vector and `inverted(<fallback>)` on a singular matrix return the fallback, `inverted(None)` raising `ValueError`
+- `normalized()` returns a zero vector and `rotation_difference` an identity rotation on degenerate input
 
 ## [02]-[TRANSFORMS]
 
-`Matrix @ Vector` takes a 3D vector through a 4x4 matrix as a point:
-- Directions transform through `matrix.to_3x3()`, normals through `matrix.inverted_safe().transposed().to_3x3()` then `normalized()`
-- Stored `MATRIX` buffers are the operand numpy's row-vector product takes with no transpose
-
-Transforms of many objects read each member once through `foreach_get` into a buffer shaped by its `array_dimensions`, and points multiply the stored matrices as rows:
+`Matrix @ Vector` takes a 3D vector through a 4x4 matrix as a point, directions through `matrix.to_3x3()`, and normals through `matrix.inverted_safe().transposed().to_3x3()` then `normalized()`. Stored `MATRIX` buffers are the operand numpy's row-vector product takes with no transpose, and world corners of many objects read `matrix_world` and `bound_box` once each through `column`:
 
 ```python
-type Objects = bpy.types.bpy_prop_collection[bpy.types.Object]
-
-
-def stacked(objects: Objects, member: str = "matrix_world") -> Option[NDArray[np.float32]]:
-    match bpy.types.Object.bl_rna.properties[member]:
-        case bpy.types.FloatProperty(array_dimensions=dimensions):
-            buffer = np.empty((len(objects), *filter(None, np.asarray(dimensions))), np.float32)
-            objects.foreach_get(member, buffer.reshape(-1))
-            return Some(buffer)
-        case _:
-            return Nothing
-
-
-def corners(objects: Objects) -> Option[NDArray[np.float32]]:
-    return stacked(objects).map2(lambda worlds, boxes: boxes @ worlds[:, :3, :3] + worlds[:, None, 3, :3], stacked(objects, "bound_box"))
+def corners(objects: Elements[bpy.types.Object], /) -> Buffer:
+    worlds, boxes = (column(objects, bpy.types.Object, member) for member in ("matrix_world", "bound_box"))
+    return boxes @ worlds[:, :3, :3] + worlds[:, None, 3, :3]
 ```
 
-`corners(scene.objects)` holds `(objects, 8, 3)` world corners in `scene.objects` order, and `stacked(objects, "matrix_basis")` reads another transform.
+`corners(scene.objects)` returns `(objects, 8, 3)` world corners in `scene.objects` order, an object without geometry holding eight zero corners that land on its origin.
 
 ## [03]-[ROTATIONS]
 
@@ -57,14 +41,15 @@ Spatial questions take the member that answers them:
 
 Queries follow host rules:
 - `KDTree(<size>)` fixes its capacity, an insert past it and a `find` before `balance()` raising `RuntimeError`, and `insert` takes a 3D numpy row
-- Misses answer `None` (`geometry.intersect_*`) or a tuple of `None` (`ray_cast`, `find_nearest` within a distance, `find` on an empty tree), read through `Option.of_optional` or a `case (Vector() as location, Vector() as normal, int() as face, float() as distance):` arm
-- `BVHTree.FromObject` builds in object space and raises `ValueError` on an object without a mesh
-- `mathutils.noise` values differ from the shader Noise Texture node, node values coming from an evaluated node tree
+- `KDTree.find(co, filter=<index predicate>)` returns the nearest point whose index passes, one balanced tree serving every subset
+- Misses return `None` (`geometry.intersect_*`) or a tuple of `None` (`ray_cast`, `find_nearest` within a distance, `find` on an empty tree), read through `Option.of_optional` or a `case (Vector() as location, Vector() as normal, int() as face, float() as distance):` arm
+- `BVHTree.FromObject(obj, depsgraph)` builds from the evaluated mesh in object space and raises `ValueError` on an object without a mesh
+- `mathutils.noise` shares no basis with the Noise Texture node, and values matching the node come from the node itself, evaluated in a geometry node tree and read back as an attribute
 
-`BVHTree.FromPolygons` takes a positions array and one index array per face, and `overlap` answers face index pairs between trees built from each `Surface` of world positions, corner vertices, and face starts:
+`BVHTree.FromPolygons` takes a positions array and one index array per face, and `overlap` returns face index pairs between trees built from each `surface` result of world positions, corner vertices, and face starts:
 
 ```python
-def touching(first: Surface, second: Surface) -> tuple[tuple[int, int], ...]:
-    left, right = (BVHTree.FromPolygons(positions, np.split(corners, starts[1:])) for positions, corners, starts in (first, second))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+def touching(first: tuple[Buffer, Buffer, Buffer], second: tuple[Buffer, Buffer, Buffer], /) -> tuple[tuple[int, int], ...]:
+    left, right = (BVHTree.FromPolygons(positions, np.split(corners, starts[1:].tolist())) for positions, corners, starts in (first, second))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     return tuple(left.overlap(right))
 ```

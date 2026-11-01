@@ -1,150 +1,63 @@
 # [IMMUTABLE_DATA]
 
-Covers the snapshot and transition model behind immutability rules, with persistent structures and their costs.
+Covers snapshot transitions, entity registries, equality through a snapshot graph, and persistent collection costs.
 
 ## [01]-[TRANSITIONS]
 
-Programs represent real-world change without mutation:
-- Mutation overwrites a value in place, an immutable update creates the next state's value
-- States are snapshots at a point in time
-- Transitions are functions from one snapshot to the next
-
-```text
-current state --transition--> next state
-      |                          |
-   unchanged                  new value
-```
-
-Entities keep their identity through successive immutable states, a frozen account stays the same account while its active and frozen states are distinct values. The model needs snapshots, transitions between them, and an association from entity identity to current snapshot. Avoiding mutation is a design discipline where transitions return new values, and enforcing immutability uses constructors, access restrictions, and immutable referenced values to prevent accidental violations of it.
-
-## [02]-[SHARED_MUTATION]
-
-Shared mutable state creates problems:
-- Lost updates, concurrent operations read the same old value and overwrite one another's results
-- Temporary invalid states, a multi-field update exposes intermediate combinations when fields change separately
-- Hidden coupling, every reader depends on every code path that can change the shared object
-- Loss of purity, changing state outside a function's local scope is an observable side effect
-
-Locks protect one update, and atomicity grows harder to reason about as one business action reaches more objects or subsystems. Asynchronous and parallel execution raise the hazards of threads, and a system combining concurrency with shared mutation cannot be shown free of race conditions. Mutation confined to a function keeps the function pure, and `Fold` expresses a local accumulator hidden from callers.
-
-## [03]-[VALUES_AND_ENTITIES]
-
-Values decide identity of a value object, and changing a date, a number, or a geometric shape produces a different value. Framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values, as custom immutable operations do:
+Snapshots are sealed records whose members are their transitions. A transition a rule can reject returns `Fin<Self>`, and the previous snapshot stays valid for undo, audit, and comparison. Facts that follow from other fields are getters, a stored copy admits a snapshot whose fields disagree:
 
 ```csharp
-internal sealed record Point(double X, double Y);
+internal sealed record Account(decimal Limit, Seq<decimal> Entries) {
+    public decimal Balance => Foldable.sum(Entries);
 
-internal sealed record Circle(Point Center, double Radius);
-
-internal static class Shapes {
-    public static Circle Scaled(Circle circle, double factor) => new(circle.Center, circle.Radius * factor);
+    public Fin<Account> Posted(decimal amount) =>
+        Fault.Unless(Balance + amount <= Limit, Reason.Range, (Balance, amount, Limit)).Map(_ => this with { Entries = Entries.Add(amount) });
 }
 ```
 
-Entity identity persists while state changes, each allowed change is a function constructing another immutable snapshot, and the previous snapshot stays intact.
+## [02]-[REGISTRIES]
 
-## [04]-[SNAPSHOTS]
+Entity identity is the key of a `HashMap<K, V>` from identity to current snapshot, and each change picks the member whose behavior on a present or absent key states the precondition:
 
-Snapshots construct through factories that set initial values and copy a mutable input collection at the boundary out of reach of the caller's later changes:
+| [INDEX] | [MEMBER]                       | [ABSENT_KEY]               | [PRESENT_KEY]              |
+| :-----: | :----------------------------- | :------------------------- | :------------------------- |
+|  [01]   | `Add(key, value)`              | Adds                       | Throws `ArgumentException` |
+|  [02]   | `TryAdd(key, value)`           | Adds                       | Keeps the current value    |
+|  [03]   | `AddOrUpdate(key, value)`      | Adds                       | Replaces                   |
+|  [04]   | `AddOrUpdate(key, Some, None)` | Adds the `None` result     | Maps the current value     |
+|  [05]   | `SetItem(key, Func<V, V>)`     | Throws `ArgumentException` | Maps the current value     |
+|  [06]   | `TrySetItem(key, Func<V, V>)`  | Returns the map unchanged  | Maps the current value     |
+
+Throwing members hold a precondition the caller already established, and a broken one is a defect. A fallible transition at a key lifts an unknown key as `Reason.Missing`, and the write-back sets the key the lookup established:
 
 ```csharp
-internal sealed record Entry(string Reference, decimal Amount);
-
-internal sealed record Snapshot(string Code, decimal Limit, Seq<Entry> Entries) {
-    public static Snapshot Opened(string code, IList<Entry> entries) => new(code, 0m, toSeq(entries));
-
-    public Snapshot Add(Entry entry) => this with { Entries = entry.Cons(Entries) };
-}
-
-internal static class Transitions {
-    public static Snapshot Limited(Snapshot snapshot, decimal limit) => snapshot with { Limit = limit };
+internal static class Registries {
+    extension<K, V>(HashMap<K, V> entities) {
+        public Fin<HashMap<K, V>> Transitioned(K id, Func<V, Fin<V>> transition) =>
+            entities.Find(id).ToFin(Fault.Of(Reason.Missing, id)).Bind(transition).Map(next => entities.SetItem(id, next));
+    }
 }
 ```
 
-`toSeq` in `Opened` copies the list argument into a `Seq<Entry>`. `Add` uses `Cons` to keep the newest entry at the front.
+`accounts.Transitioned(id, account => account.Posted(amount))` serves every registry and transition.
 
-Partial immutability leaves mutation reachable:
-- Public setters let callers replace properties, private setters let code inside the class reassign them
-- Read-only interfaces over a mutable collection leave the graph mutable
-- Immutable top-level objects holding a mutable list are mutable, a shallow copy is safe only when every shared referenced value is immutable
-- Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation
+## [03]-[EQUALITY]
 
-## [05]-[COPIES]
+Record equality compares each field through `EqualityComparer<T>.Default`, so a snapshot compares by value only as deep as its fields do. LanguageExt collections compare element by element and cache their hash code per instance. Arrays, `List<T>`, `ImmutableArray<T>`, `ImmutableList<T>`, and frozen collections compare by reference, and snapshots holding equal contents in one compare unequal. Snapshot fields hold LanguageExt collections, so `next == current` detects a transition that changed nothing and a snapshot serves as a map key or `memo` argument.
 
-Lenses update a nested field without a chain of `with` expressions. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
+## [04]-[COSTS]
 
-## [06]-[COST]
+Persistent collections share every part an update leaves untouched, and the structure sets what it copies:
 
-Immutable updates allocate a new top-level object and raise garbage collection. Copies are shallow, unchanged immutable children stay shared, and only changed values and the new parent allocate:
-- In-place mutation is cheaper for one write
-- Immutable updates improve safety, isolation, and reasoning
-- Mutable designs can require locks and defensive copying
-- Safety comes first, optimization goes to a measured hot path alone
+| [INDEX] | [TYPE]                        | [STRUCTURE]                    | [READ]             | [UPDATE]                                         |
+| :-----: | :---------------------------- | :----------------------------- | :----------------- | :----------------------------------------------- |
+|  [01]   | `Seq<A>`                      | Array, free slots at both ends | `O(1)` index       | `Cons`/`Add` on newest version, amortized `O(1)` |
+|  [02]   | `Arr<A>`                      | Array                          | `O(1)` index       | Copies the array, `O(n)`                         |
+|  [03]   | `Lst<A>`                      | AVL tree with subtree counts   | `O(log n)` index   | `Insert`, `RemoveAt`, `SetItem` in `O(log n)`    |
+|  [04]   | `Map<K, V>`, `Set<A>`         | AVL tree ordered by key        | `O(log n)`, ranges | `O(log n)`                                       |
+|  [05]   | `HashMap<K, V>`, `HashSet<A>` | CHAMP trie, 32-way nodes       | `O(log32 n)`       | `O(log32 n)`                                     |
+|  [06]   | `Stck<A>`                     | Linked cells                   | `O(1)` top         | `Push`, `Pop` on any version in `O(1)`           |
 
-## [07]-[PERSISTENT_LISTS]
-
-Functional singly linked lists are recursive, and persistent means earlier in-memory versions stay available after an update, with nothing written to disk:
-
-```text
-List<T> = Empty | Cons(head: T, tail: List<T>)
-```
-
-`Seq<A>` represents both cases through `Head`, `Tail`, and `Match`, a traversal recurses through the tail, and `Seq(a, b, c)` and `toSeq` build a sequence in the caller's order:
-
-```csharp
-internal static class Histories {
-    public static Seq<Entry> Prepend(Entry entry, Seq<Entry> history) => entry.Cons(history);
-    public static Option<Entry> Newest(Seq<Entry> history) => history.Head;
-    public static Seq<Entry> Older(Seq<Entry> history) => history.Tail;
-    public static decimal Balance(Seq<Entry> history) =>
-        history.Match(
-            Empty: static () => 0m,
-            Tail: static (head, tail) => head.Amount + Balance(tail));
-    public static Lst<Entry> Corrected(Lst<Entry> ledger, int index, Entry corrected) => ledger.SetItem(index, corrected);
-}
-```
-
-Prepends share the whole existing list, and the immutable tail lets the original and every derived list coexist:
-
-```text
-original:       A -> B -> C
-prepend X: X -> A -> B -> C
-prepend Y: Y -> A -> B -> C
-```
-
-Operation costs stay within the order of magnitude of the mutable structure:
-- Prepend is `O(1)` with one new node, and removing the head is `O(1)` by returning the tail
-- `Map`, `Filter`, and a full aggregation are `O(n)`
-- Inserting or removing at index `m` is `O(m)` traversal with `m` rebuilt prefix nodes
-- Indexed operations belong on `Lst<A>` with `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
-- Repeated appends at the end fit poorly, a queue-like workload takes another structure
-
-When emptiness matters, consume the sequence through `Match`. Recursion can overflow the stack on a long list, and a long history folds with `Fold`.
-
-## [08]-[PERSISTENT_TREES]
-
-Binary trees are defined recursively, `Map<K, V>` implements the model, `Select` rebuilds the same shape with transformed values, and `Fold` threads an accumulator through the tree:
-
-```text
-Tree<T> = Leaf(value: T) | Branch(left: Tree<T>, right: Tree<T>)
-```
-
-`Add`, `Find`, and `SetItem` associate an entity identity with its current snapshot. `Add` throws for a present key and `SetItem` for an absent one, both programming errors:
-
-```csharp
-internal static class Registry {
-    public static Map<string, Snapshot> Opened(Map<string, Snapshot> snapshots, string id, Snapshot state) => snapshots.Add(id, state);
-    public static Option<Snapshot> Current(Map<string, Snapshot> snapshots, string id) => snapshots.Find(id);
-    public static Map<string, Snapshot> Replaced(Map<string, Snapshot> snapshots, string id, Snapshot state) => snapshots.SetItem(id, state);
-}
-```
-
-`Add` rebuilds only nodes from the root to the new key and shares every untouched subtree as structural sharing:
-
-```text
-old root                 new root
- /    \                   /    \
-L      R         ->      L    rebuilt R
-```
-
-Insertions into a balanced tree of `n` elements create about `log n + 2` objects with the tree's arity as logarithm base, and a higher-arity tree stays shallow for a large collection. `Map<K, V>` balances itself on every `Add` to keep the rebuilt path within the bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, and components share values without coordinating changes.
+- `Seq<A>` fills a free slot once per version and only at the end it last grew: a repeat `Cons` or `Add` on one version, growth of a `Tail` or `Init` view, or growth at the opposite end copies the array
+- Successors branching from one shared version go in a `Stck<A>` (undo stacks, speculative edits), or a `Lst<A>` where they edit by index
+- `toHashMap` builds its trie from the source in place where a `Fold` of `Add` copies a path per item, and keeps the first value of a repeated key

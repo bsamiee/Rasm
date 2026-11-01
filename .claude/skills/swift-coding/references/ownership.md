@@ -2,7 +2,7 @@
 
 Values with one owner at a time and the views and locks over their storage.
 
-## [01]-[UNIQUE_RESOURCES]
+## [01]-[NONCOPYABLE_RESOURCES]
 
 Resources with a changing owner (stored, returned, handed to a task) are noncopyable structs holding the host handle alone and adding its lifetime. A `consuming` method reporting a release error ends its value with `discard self`:
 

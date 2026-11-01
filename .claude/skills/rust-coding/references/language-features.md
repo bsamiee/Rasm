@@ -4,7 +4,7 @@ Covers nightly features that replace a hand-written body or a declaration family
 
 ## [01]-[TRY_BLOCKS]
 
-`try` blocks wrap the final expression and take their type from the `?` operands. An outcome kept as data beside its subject is a `try` block inside the expression building the pair:
+`try` blocks wrap the final expression, and every `?` inside shares one residual type the block takes. An outcome kept as data beside its subject is a `try` block inside the expression building the pair:
 
 ```rust
 #[must_use]
@@ -23,11 +23,11 @@ pub fn stops(order: &Order, catalog: &Catalog) -> Vec<(Sku, Option<Stop>)> {
 }
 ```
 
-Every `?` in a `try` block shares one residual type, `Option` in `stops`. `try bikeshed Result<Stop, ShopError> { .. }` names the block's type and converts each `?` through `From`, and steps failing with different errors enter the crate error through its `#[from]` variants.
+`try bikeshed Result<Stop, ShopError> { .. }` under `try_blocks_heterogeneous` names the block's type and converts each `?` through `From`, and steps failing with different errors enter the crate error through its `#[from]` variants.
 
 ## [02]-[DEFAULT_FIELD_VALUES]
 
-Typed dependencies (a store, a layer) enter as a parameter beside the record of defaulted fields:
+Records state each default on its field, a nested record defaults to its own `..` literal, and a platform value is one `cfg_select!`:
 
 ```rust
 #[derive(Debug, Clone, Default)]
@@ -48,6 +48,7 @@ pub struct Layout {
 - Required fields (`title`) appear in every literal, and their record derives no `Default` to fill them with an empty value
 - `#[derive(Default)]` reads each declared default: `Wrap::default()` and a container-level `#[serde(default)]` decode agree with `Wrap { .. }`
 - Defaults are constant expressions, owned text defaults through `Cow::Borrowed` in a `Cow<'static, str>` field
+- Typed dependencies (a store, a layer) enter as a parameter beside the record, never a defaulted field
 
 ## [03]-[TRAIT_ALIASES]
 
@@ -98,6 +99,34 @@ pub fn rewritten(expr: Expr) -> Expr {
 }
 ```
 
-- By-value matches move out of each `Box` they pass through, a binding at a pointer position holds the pointer and `*inner` takes its value
-- Failed `if let` guards pass the value to the next arm, and the last arm names each variant it keeps, so a new variant fails to compile until an arm takes it
-- `Vec` fields match slice patterns (`[only]`, `[first, .., last]`), `String` fields match string literals at a decode boundary
+By-value matches move out of each `Box` they pass through, a binding at a pointer position holds the pointer, and `*inner` takes its value.
+
+## [06]-[CONST_PARAMETERS]
+
+Kinds holding no data of their own that the compiler keeps apart are one `ConstParamTy` enum a type takes as a const parameter, and one generic body matches the parameter:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
+pub enum Side {
+    Bid,
+    Ask,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Quote<const SIDE: Side> {
+    pub price: Decimal,
+    pub size: u32,
+}
+
+#[must_use]
+pub fn improves<const SIDE: Side>(quote: &Quote<SIDE>, best: &Quote<SIDE>) -> bool {
+    match SIDE {
+        Side::Bid => quote.price > best.price,
+        Side::Ask => quote.price < best.price,
+    }
+}
+```
+
+- `adt_const_params` enables the parameter, and a variant in argument position sits in braces (`Quote<{ Side::Bid }>`)
+- Each instantiation compiles one arm of `match SIDE`, and a bid passed where an ask belongs fails to compile
+- Kinds holding data of their own are one struct per kind in a type parameter's position

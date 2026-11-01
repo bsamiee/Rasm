@@ -1,5 +1,4 @@
-import { BrowserCrypto } from '@effect/platform-browser';
-import { NodeRuntime } from '@effect/platform-node';
+import { NodeCrypto, NodeRuntime } from '@effect/platform-node';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { store } from '@rasm/database';
 import { s3 } from '@rasm/hosting';
@@ -16,6 +15,6 @@ server(config.worker({ mode: 'production', isPreview: false }), (env) => ({
     services: Layer.mergeAll(
         store(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })),
         s3(env.BUCKET),
-        BrowserCrypto.layer,
+        NodeCrypto.layer,
     ),
 })).pipe(Layer.launch, NodeRuntime.runMain);

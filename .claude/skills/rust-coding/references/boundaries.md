@@ -14,7 +14,7 @@ Decoding is the one place untrusted data becomes domain values, and `nutype` sta
 pub struct Window(Range<Timestamp>);
 ```
 
-`Window` decodes from and encodes to `{"start": .., "end": ..}`, rejects an unknown key or an end at or before its start, and reaches `Range` members (`window.contains(&now)`) through `Deref`. Domain enums spelled as flat wire fields decodes through `#[serde(try_from = "<Wire>")]`.
+`Window` decodes from and encodes to `{"start": .., "end": ..}`, rejects an unknown key or an end at or before its start, and reaches `Range` members (`window.contains(&now)`) through `Deref`. Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`.
 
 Decode errors name the failing path: `toml` errors and `axum::Json` rejections hold it, and a `serde_json::Deserializer` a program drives decodes through `serde_path_to_error::deserialize`, then `Deserializer::end` rejects trailing input.
 
@@ -46,23 +46,25 @@ pub enum Change {
 
 `{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Consumers of a stream that producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, and a known tag with malformed fields fails. Closed protocols reject an unknown tag at decode. Encoded outcomes and errors take the same form: an outcome is a tagged enum of its cases in place of `Result`'s `{"Ok": ..}`, and the crate error derives `Serialize` under a tag with `#[serde(skip)]` on each `source`, its reason enum serializing through `serde_with::SerializeDisplay` from its `Display`.
 
-## [03]-[FIELD_CODECS]
+## [03]-[FIELD_CONVERSIONS]
 
 Encodings sit on the field, and the field keeps its domain type:
 
-| [INDEX] | [WIRE]                         | [DECLARATION]                                |
-| :-----: | :----------------------------- | :------------------------------------------- |
-|  [01]   | Text a type parses and renders | `#[serde_as(as = "DisplayFromStr")]`         |
-|  [02]   | Bytes as base64 text           | `#[serde_as(as = "Base64")]`                 |
-|  [03]   | Instant as epoch seconds       | `#[serde_as(as = "TimestampSeconds<i64>")]`  |
-|  [04]   | One value or a list            | `#[serde_as(as = "OneOrMany<_>")]`           |
-|  [05]   | Absent key for each `None`     | `#[skip_serializing_none]` on the type       |
-|  [06]   | JSON forwarded unread          | `Box<RawValue>` field                        |
-|  [07]   | Undeclared keys kept           | `#[serde(flatten)] rest: Map<String, Value>` |
-|  [08]   | Undeclared keys rejected       | `#[serde(deny_unknown_fields)]`              |
-|  [09]   | Field names in another case    | `#[serde(rename_all = "camelCase")]`         |
+| [INDEX] | [WIRE]                             | [DECLARATION]                                        |
+| :-----: | :--------------------------------- | :--------------------------------------------------- |
+|  [01]   | Text a type parses and renders     | `#[serde_as(as = "DisplayFromStr")]`                 |
+|  [02]   | Number or its text, number written | `#[serde_as(as = "PickFirst<(_, DisplayFromStr)>")]` |
+|  [03]   | Bytes as base64 text               | `#[serde_as(as = "Base64")]`                         |
+|  [04]   | Instant as epoch seconds           | `#[serde_as(as = "TimestampSeconds<i64>")]`          |
+|  [05]   | One value or a list                | `#[serde_as(as = "OneOrMany<_>")]`                   |
+|  [06]   | Map rejecting a repeated key       | `#[serde_as(as = "MapPreventDuplicates<_, _>")]`     |
+|  [07]   | List dropping a malformed item     | `#[serde_as(as = "VecSkipError<_>")]`                |
+|  [08]   | Absent key for each `None`         | `#[skip_serializing_none]` on the type               |
+|  [09]   | JSON forwarded unread              | `Box<RawValue>` field                                |
+|  [10]   | Undeclared keys kept               | `#[serde(flatten)] rest: Map<String, Value>`         |
+|  [11]   | Undeclared keys rejected           | `#[serde(deny_unknown_fields)]`                      |
 
-`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every codec on the type. Codecs compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), an `Option` codec decodes an absent key as `None`, and a derived `JsonSchema` reads each codec's wire form. Records a program owns reject undeclared keys, and records it passes through keep them in `rest`, the one `Value` field, and an encode writes back what it read. `RawValue` copies a forwarded value's bytes unparsed inside a record whose fields decode without `flatten`.
+`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every conversion on the type. Conversions compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), an `Option` conversion decodes an absent key as `None`, and a derived `JsonSchema` reads each conversion's wire form. `TimestampSeconds` takes a jiff `Timestamp` or `Zoned`, and `DurationSeconds` a `SignedDuration`. A plain map decode keeps the last value of a repeated key, and a map from untrusted input rejects the repeat. `VecSkipError<_, I>` reports each dropped item to `I`, an `InspectError` implementor. Records a program owns reject undeclared keys, and records it passes through keep them in `rest`, the one `Value` field, and an encode writes back what it read. `RawValue` copies a forwarded value's bytes unparsed inside a record whose fields decode without `flatten`.
 
 ## [04]-[BINARY]
 
@@ -116,24 +118,21 @@ pub struct Settings {
 
 pub async fn decoded<T>(path: &Utf8Path) -> Result<T, ServiceError>
 where T: DeserializeOwned {
-    let text = fs::read_to_string(path).await.map_err(|source| ServiceError::Read { path: path.to_owned(), source })?;
-    toml::from_str(&text).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
+    toml::from_str(&fs::read_to_string(path).await.map_err(|source| ServiceError::Read { path: path.to_owned(), source })?).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
 }
 ```
 
-`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, and `Read` and `Decode` each hold the path beside the `io::Error` or `toml` error they wrap.
+`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error. `Read` and `Decode` hold the file path as a field beside each source, and `Runtime` holds the `io::Error` a runtime start returns.
 
-## [06]-[HOST]
+## [06]-[ENTRY_POINT]
 
 `main` holds a program's only global effects:
 
 ```rust
-#[tokio::main]
-async fn main() -> ExitCode {
-    let Err(failure) = run(Args::parse()).await else { return ExitCode::Ok };
-    tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(&failure), "service stopped");
-    failure.into()
+fn main() -> ExitCode {
+    let Args { settings, token, telemetry } = Args::parse();
+    telemetry.run(&Args::command(), [], "info", Identity::new(), |_| Runtime::new().map_err(ServiceError::Runtime).and_then(|runtime| runtime.block_on(serve(settings, token))).map_err(NEVec::new))
 }
 ```
 
-`Options::run` holds this body for a workspace host, after it installs the subscriber, exporters, propagators, and panic hook. Logs write to stderr, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.
+`Options::run` installs the subscriber, exporters, propagators, and panic hook around the work, and logs and translates each failure. Logs write to stderr, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.

@@ -106,13 +106,9 @@ Random draws read a `numpy.random.Generator` derived from what they depend on, a
 ```python
 def stream(key: bytes, /, *path: int) -> np.random.Generator:
     return np.random.default_rng(np.random.SeedSequence(int.from_bytes(key), spawn_key=path))
-
-
-def trials(key: bytes, points: Samples, scale: float, count: int, /) -> tuple[Samples, ...]:
-    return tuple(stream(key, index).normal(points, scale) for index in range(count))
 ```
 
-`trials(key, points, scale, 2)` equals `trials(key, points, scale, 3)[:2]`, and equal keys draw equal samples in any run and call order:
+`stream(key, index).normal(points, scale)` draws trial `index` alike under any trial count, and equal keys draw equal samples in any run and call order:
 - `stream(key, *path)` equals the child `Generator.spawn` returns at that path, and `stream(key, 1, 0)` equals `stream(key, 1).spawn(1)[0]`
 - Calls drawing a whole shape read their stream in C order, `normal(size=(2, 3))` equals six scalar draws in any split
 

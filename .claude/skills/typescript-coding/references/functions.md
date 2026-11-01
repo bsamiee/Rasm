@@ -63,8 +63,6 @@ const matching = (query: string, locale?: string) =>
 `Filter<In, Pass, Fail>` is a function returning `Result<Pass, Fail>`, narrowing and mapping its input in one call and failing with the typed remainder. `Array.filterMap`, `Array.partition`, `Option.filterMap`, `Stream.filterMap`, `Stream.partition`, `Effect.filterMapOrFail`, and `Effect.catchFilter` take one, and package constructors build it from the tag, refinement, or lookup stating the rule:
 
 ```ts
-const Change = Schema.TaggedUnion({ Paid: { amount: Schema.BigDecimal, reference: Schema.String }, Voided: {} });
-
 const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
     Filter.compose(
         Filter.tagged<typeof Change.Type>()('Paid'),
@@ -72,7 +70,7 @@ const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
     );
 ```
 
-`Array.partition(changes, matched(open))` returns the invoice each payment matches beside every change matching none, typed as a `Voided` change or a `Paid` one with an unknown reference:
+`Change` is a `Schema.TaggedUnion` with a `Paid` case holding `amount` and `reference` and an empty `Voided` case. `Array.partition(changes, matched(open))` returns the invoice each payment matches beside every change matching none, typed as a `Voided` change or a `Paid` one with an unknown reference:
 - `Filter.fromPredicate` builds a filter from a refinement, `Filter.fromPredicateOption` from a lookup returning `Option`, failing with its input
 - `Filter.compose` feeds one filter's pass to the next, `Filter.or` runs the second on the input the first rejects, and `Filter.zip` pairs both passes
 - Schema `guards` take `unknown` and leave the remainder `unknown`, `Filter.tagged<A>()` fixes the input type
@@ -80,21 +78,15 @@ const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
 
 ## [05]-[DISPATCH_TABLES]
 
-Dispatch tables select behaviors sharing a signature by a decoded key. Modules or objects already holding the rows are the table, narrowed by `Struct.pick`, and the key schema derives from it:
+Dispatch tables select behaviors sharing a signature by a decoded key. Modules or objects already holding the rows are the table, and the key schema lists the member names it accepts:
 
 ```ts
-const casings = Struct.pick(String, ['camelCase', 'constantCase', 'kebabCase', 'pascalCase', 'snakeCase']);
-
-class Export extends Schema.Class<Export, { readonly brand: unique symbol }>('Export')({ casing: Schema.Literals(Struct.keys(casings)), rows: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)) }) {
-    get keyed() {
-        return Array.map(this.rows, Record.mapKeys(casings[this.casing]));
-    }
-}
+const Casing = Schema.Literals(['camelCase', 'constantCase', 'kebabCase', 'pascalCase', 'snakeCase'] satisfies readonly (keyof typeof String)[]);
 ```
 
-`casings[this.casing]` types as the union of its rows, each `(self: string) => string`, and `keyed` renames every row's keys through the selected member. The compiler checks each picked name against the module, and a new casing is one name the decoded `casing` field accepts:
+`String[casing]` types as the union of the accepted members, each `(self: string) => string`, and `Array.map(rows, Record.mapKeys(String[casing]))` renames every row's keys through the member a decoded `Casing` selects. `satisfies` checks each name against the module, and a new casing is one name in the list:
 - Rows hold a function or module where behavior differs by case, rows of data one shared function reads are a lookup table
-- Rows no module holds are an `as const` object keyed by the wire token, with typed handles as values
+- Rows no module holds are an `as const` object keyed by the encoded token, with typed handles as values
 
 ## [06]-[EFFECTFUL_FUNCTIONS]
 

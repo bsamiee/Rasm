@@ -44,7 +44,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && typeck.expr_ty(root).peel_refs().is_freeze(cx.tcx, cx.typing_env())
                 && let Some((negated, predicate)) = match predicate.kind {
                     ExprKind::Closure(closure) => {
-                        let value = peel_blocks(&cx.tcx.hir_body(closure.body).value);
+                        let value = peel_blocks(cx.tcx.hir_body(closure.body).value);
                         let (negated, kept) = if let ExprKind::Unary(UnOp::Not, kept) = value.kind { (true, kept) } else { (false, value) };
                         Some((negated, Predicate::Closure(parameter_bindings(cx.tcx, closure.body), kept)))
                     }

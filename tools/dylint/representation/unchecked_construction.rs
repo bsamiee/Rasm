@@ -4,6 +4,7 @@ use clippy_utils::{
     sym,
     ty::{option_arg_ty, same_type_modulo_regions},
 };
+use rustc_ast::attr::AttributeExt as _;
 use rustc_attr_ir::Attribute;
 use rustc_hir::{Expr, FieldDef, Item, ItemKind, def::DefKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};

@@ -90,7 +90,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     _ => named.and_then(DefId::as_local).and_then(|local| Some((local, cx.tcx.hir_maybe_body_owned_by(local)?))),
                 }
                 .and_then(|(owner, body)| match body.params {
-                    [item] => selects_ok(self, cx, cx.tcx.typeck(owner), peel_hir_pat_refs(item.pat).0.hir_id, &body.value),
+                    [item] => selects_ok(self, cx, cx.tcx.typeck(owner), peel_hir_pat_refs(item.pat).0.hir_id, body.value),
                     _ => None,
                 })
             })

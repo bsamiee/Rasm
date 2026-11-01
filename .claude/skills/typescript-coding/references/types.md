@@ -21,9 +21,9 @@ Return types infer from the body, and every type a consumer names derives at its
 - `Types.ExtractTag<E, '<Case>'>` reads one case of an error channel joining errors from other packages
 - `Types.ExtractReason<E, '<Reason>'>` reads one reason of a host error whose `reason` is a tagged union (`HttpClientError`, `PlatformError`)
 
-## [02]-[RANKED_CASES]
+## [02]-[ORDERED_LITERALS]
 
-Ranked cases are one `Schema.Literals` in rank order, and every ranked value (a count, a cumulative set, a step) derives from a case's index and a policy parameter callers fix first:
+Ordered literals are one `Schema.Literals` in rank order, and every value a rank decides (a count, a cumulative set, a step) derives from a literal's index and a policy parameter callers fix first:
 
 ```ts
 const Plan = Schema.Literals(['basic', 'plus', 'pro']);
@@ -38,8 +38,8 @@ const allowance =
 
 `Channel` is a literal schema of contact channels, and `allowance(Channel.literals)` gives each plan a seat count from one base and every channel up to its rank. New plans are one literal at their rank:
 - `Plan.pick(['plus', 'pro'])` derives a subset schema with its own decoder and type
-- Ranked cases holding data no rule decides are `as const` table rows, `Struct.keys(table)` returning cases in rank order
-- `Schema.TemplateLiteral([Plan, ':', Channel])` joins case axes into one wire key typed as their cross product, with a decoder checking each part
+- Ordered literals holding data no rule decides are `as const` table rows, `Struct.keys(table)` returning cases in rank order
+- `Schema.TemplateLiteral([Plan, ':', Channel])` joins case axes into one encoded key typed as their cross product, with a decoder checking each part
 
 ## [03]-[BRANDS]
 
@@ -63,7 +63,7 @@ Shapes differing in one member schema are one function taking the schema:
 const Page = <S extends Schema.Constraint>(item: S) => Schema.Struct({ items: Schema.Array(item), cursor: Schema.OptionFromOptionalKey(Schema.String) });
 ```
 
-`Page(Invoice)` decodes `readonly Invoice[]`, encodes each invoice's wire form, and requires the services decoding `Invoice` requires:
+`Page(Invoice)` decodes `readonly Invoice[]`, encodes each invoice to `typeof Invoice.Encoded`, and requires the services decoding `Invoice` requires:
 - `Schema.Constraint` accepts any schema a body passes to a constructor or decoder, `Schema.Top` one a body calls methods on (`check`, `annotate`)
 - `Schema.ConstraintDecoder<A, R>` fixes the decoded type a body reads, and `R` adds the services decoding requires to the result
 - Functions passing an effect through keep `A`, `E`, and `R` as type parameters and add their own error and services to them

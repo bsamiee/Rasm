@@ -2,9 +2,10 @@ import { files, preprocess } from '@rasm/media';
 import Uppy, { type Body, type Meta } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, Cause, Effect, Equivalence, Function, Match, Optic, Record, Schema, Struct } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { HttpApiClient } from 'effect/http-api';
 import { AsyncResult, Atom } from 'effect/reactivity';
-import { assets, draft, hero, identifier, pendingRequest, updateEntry } from '#/editor/state';
+import { assets, draft, hero, pendingRequest, updateEntry } from '#/editor/state';
 import { Api } from '#/model/api';
 import { Asset, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
 import { Composition, placementsFor } from '#/model/placement';
@@ -38,13 +39,8 @@ const uppy = Atom.make((get) => {
         uploader,
         Effect.fnUntraced(function* ({ meta: { destination: target }, name, type }, data) {
             const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: (cause) => new Cause.UnknownError(cause, 'File reader failed to load. Retry file') });
-            const { asset, renditions } = yield* inspectFile({ data, id: yield* identifier, name, mime: type });
-            const compositions = yield* Effect.forEach(
-                target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [],
-                Effect.fnUntraced(function* (placement) {
-                    return Composition.make({ id: yield* identifier, items: [placement] });
-                }),
-            );
+            const { asset, renditions } = yield* inspectFile({ data, id: SecureRandom.uuidV7Unsafe(), name, mime: type });
+            const compositions = Array.map(target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [], (placement) => Composition.make({ id: SecureRandom.uuidV7Unsafe(), items: [placement] }));
             return { asset: yield* Schema.encodeEffect(Schema.fromJsonString(Asset))(asset), prepared: { asset, compositions }, renditions };
         }),
         { concurrency: 2, message: 'Reading file' },

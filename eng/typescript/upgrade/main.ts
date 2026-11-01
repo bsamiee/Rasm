@@ -49,11 +49,7 @@ class Downgrade extends Schema.TaggedError<Downgrade, { readonly brand: unique s
 
 const downgrades = Effect.fn('downgrades')(function* (file: string, lock: (typeof LOCKS)[keyof typeof LOCKS]) {
     const fs = yield* FileSystem.FileSystem;
-    const versions = (text: string) =>
-        lock.rows(text).pipe(
-            Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} did not parse`)),
-            Effect.map(flow(Array.filter(flow(Tuple.get(1), lock.valid)), Array.groupBy(Tuple.get(0)), Record.map(Array.map(Tuple.get(1))))),
-        );
+    const versions = (text: string) => lock.rows(text).pipe(Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} did not parse`), onSuccess: flow(Array.filter(flow(Tuple.get(1), lock.valid)), Array.groupBy(Tuple.get(0)), Record.map(Array.map(Tuple.get(1)))) }));
     const [started, current] = yield* Effect.all([Effect.flatMap(stdout('git', ['show', `:${file}`]), versions), Effect.flatMap(fs.readFileString(file), versions)], { concurrency: 'unbounded' });
     const top = flow(Option.liftPredicate(Array.isReadonlyArrayNonEmpty<string>), Option.map(Array.max(lock.order)));
     const moves = Object.entries(started).flatMap(([name, before]) => {

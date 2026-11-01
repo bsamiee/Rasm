@@ -33,11 +33,7 @@ const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);
 const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: AssetCollection }).pipe(
     Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(AssetCollection) }), {
         decode: SchemaGetter.transformEffect(({ portfolio, assets }, options) =>
-            SchemaParser.decodeUnknownEffect(Portfolio)(portfolio, options).pipe(
-                Effect.provideService(Assets, assets),
-                Effect.mapError((issue) => new SchemaIssue.Pointer(['portfolio'], issue)),
-                Effect.map((resolved) => ({ portfolio: resolved, assets })),
-            ),
+            SchemaParser.decodeUnknownEffect(Portfolio)(portfolio, options).pipe(Effect.provideService(Assets, assets), Effect.mapBoth({ onFailure: (issue) => new SchemaIssue.Pointer(['portfolio'], issue), onSuccess: (resolved) => ({ portfolio: resolved, assets }) })),
         ),
         encode: SchemaGetter.transformEffect(({ portfolio, assets }, options) => Effect.map(SchemaParser.encodeEffect(Portfolio)(portfolio, options), (stored) => ({ portfolio: stored, assets }))),
     }),

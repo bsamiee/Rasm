@@ -111,6 +111,8 @@ catalog:
     '@effect/ai-openai': 4.1.1
     '@effect/ai-openrouter': 4.1.1
     '@effect/ai-openai-compat': 4.1.1
+    '@effect/ai-cloudflare': 4.1.1
+    '@effect/ai-typesafe': 4.1.1
     '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
     '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
     '@openfeature/server-sdk': 1.23.0
@@ -318,6 +320,7 @@ catalog:
     typescript: 7.1.0-dev.20261028.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
     '@effect/docgen': 4.1.1
     '@effect/openapi-generator': 4.1.1
+    '@effect/graphql-generator': 4.1.1
     nx: 24.0.2
     '@nx/devkit': 24.0.3
     '@nx/dotnet': 24.0.3

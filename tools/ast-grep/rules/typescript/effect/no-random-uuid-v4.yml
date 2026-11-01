@@ -6,9 +6,11 @@ rule:
     kind: member_expression
     pattern: $MEMBER
     all:
-        - has: {field: property, regex: '^randomUUIDv4$'}
-        - has: {field: object, pattern: $CRYPTO}
+        - has: {field: property, regex: '^uuidV4(Unsafe)?$', pattern: $NAME}
+        - has: {field: object, pattern: $RANDOM}
         - inside: {kind: call_expression, field: function}
-fix: $CRYPTO.randomUUIDv7
+transform:
+    ORDERED: replace($NAME, replace='V4', by='V7')
+fix: $RANDOM.$ORDERED
 message: '`$MEMBER` generates identifiers with no time order'
-note: 'Call `randomUUIDv7()` on the same receiver'
+note: 'Call the `uuidV7` form of the same `SecureRandom` member'

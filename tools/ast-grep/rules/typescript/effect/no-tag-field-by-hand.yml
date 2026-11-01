@@ -29,6 +29,7 @@ rule:
     any:
         - pattern: $FIXABLE
           all:
+            - has: {kind: class_heritage, regex: '\.Class\b'}
             - not: {has: {field: type_parameters, kind: type_parameters}}
             - not: {has: {kind: class_heritage, has: {kind: implements_clause}}}
             - not: {has: {kind: comment, stopBy: end}}
@@ -52,4 +53,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[tagged])
 fix: $FIXED$KEPT
 message: '`$NAME` sets `_tag` by hand on `$DATA.$BASE`'
-note: 'Extend `Data.TaggedClass(<tag>)` or `Data.TaggedError(<tag>)` and delete the `_tag` field'
+note: 'Extend `Data.TaggedClass(<tag>)` for data or `Schema.TaggedError` for an error, and delete the `_tag` field'

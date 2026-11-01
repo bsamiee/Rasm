@@ -4,7 +4,7 @@ Values crossing a module boundary, from decoding external data to file metadata,
 
 ## [01]-[DECODING]
 
-`Line` holds its quantity rule in a `Bounded` field type:
+`Line` is a `Codable` record holding `sku`, `unitPrice`, and its quantity rule in a `quantity: Bounded<1, 999>` field:
 
 ```swift
 struct Bounded<let low: Int, let high: Int>: RawRepresentable, Codable, Sendable {
@@ -14,12 +14,6 @@ struct Bounded<let low: Int, let high: Int>: RawRepresentable, Codable, Sendable
         guard (low...high).contains(rawValue) else { return nil }
         self.rawValue = rawValue
     }
-}
-
-struct Line: Codable, Sendable {
-    let sku: String
-    let quantity: Bounded<1, 999>
-    let unitPrice: Decimal
 }
 ```
 
@@ -54,7 +48,7 @@ enum Event: Decodable, Sendable {
 }
 ```
 
-- `Line(from: decoder)` reads `Line` fields beside `kind`, and the hand coder reads the discriminator alone
+- `Line(from: decoder)` reads `Line` fields beside `kind`, and the hand-written `Event.init(from:)` reads the discriminator alone
 - `unknown(kind:)` keeps a case a newer producer sends as data, and every switch over `Event` handles it
 
 ## [02]-[PATHS]
@@ -103,11 +97,11 @@ extension Configuration {
     }
 }
 
-func revisions(in directory: FilePath) async throws(OrderError) -> [String] {
-    let log: Configuration = .init(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session())
-    return try await log.reduceLines(into: []) { hashes, hash in hashes.append(hash) }
-}
+let log: Configuration = .init(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session())
+let revisions: [String] = try await log.reduceLines(into: []) { hashes, hash in hashes.append(hash) }
 ```
+
+`directory` is a `FilePath`.
 
 - `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails
 - Started processes report through `terminationStatus`, and a failed exit keeps it and standard error whole in `exited(TerminationStatus, standardError: String)`

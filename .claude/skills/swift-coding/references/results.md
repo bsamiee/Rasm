@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Typed outcomes from accumulated failures to host translation.
+Typed outcomes from accumulated failures to entry points.
 
 ## [01]-[ACCUMULATION]
 
@@ -34,22 +34,16 @@ Tuples of results with different value types build through `get()`, and the firs
 
 ## [02]-[VALIDATION]
 
-Throwing initializers build a record from raw input with every field rejection at once, each field's rule held by its type. `checked` lifts a failable constructor into a `Result` with the subject rendered from the rejected value, and `Result(catching:)` lifts a throwing one:
+Throwing initializers build a record from raw input with every field rejection at once, each field's rule held by its type. `map(Result.success)` lifts a failable constructor into a `Result` with its rejection beside it, and `Result(catching:)` lifts a throwing one:
 
 ```swift
-extension OrderError {
-    static func checked<Value, Valid>(_ value: Value, _ reason: Reason, as valid: (Value) -> Valid?) -> Result<Valid, Self> {
-        valid(value).map(Result.success) ?? .failure(Self(subject: String(reflecting: value), reason: reason))
-    }
-}
-
 struct Order: Sendable {
     let quantity: Bounded<1, 999>
     let sku: SKU
 
     init(quantity: Int, sku: String) throws(Failures<OrderError>) {
         (self.quantity, self.sku) = try combine(
-            OrderError.checked(quantity, .outOfRange, as: Bounded.init(rawValue:)),
+            Bounded(rawValue: quantity).map(Result.success) ?? .failure(OrderError(subject: "quantity \(quantity)", reason: .outOfRange)),
             Result { () throws(OrderError) in try SKU(sku) },
         )
     }
@@ -77,7 +71,7 @@ func checkout(quantity: Int, sku: String, in catalog: Catalog, balance: Decimal)
 
 `do throws(OrderError)` types `error` in its `catch`. A `do` body infers its error type from its `try` sites alone, and a `throw` statement inside it widens the inferred type to `any Error`.
 
-## [04]-[STORED_OUTCOMES]
+## [04]-[TASK_RESULTS]
 
 Tasks, task groups, and `async let` fail with `any Error` alone:
 
@@ -95,7 +89,7 @@ func prices(of skus: Set<String>, fetch: @escaping @Sendable (String) async thro
 
 Concurrency declares the async `Result(catching:)`, and AsyncAlgorithms builds an `Array` from the group in completion order. Every fetch runs, and `combine` keeps each key beside its price. A fixed count of steps binds each `async let` to a `Result` and reads every binding in one `try await combine(price, stock)`.
 
-## [05]-[HOST_TRANSLATION]
+## [05]-[ENTRY_POINTS]
 
 `@main` types state application values, adapt host APIs, run the work once, and translate its error into host terms once (an exit code, a response status, rendered text):
 

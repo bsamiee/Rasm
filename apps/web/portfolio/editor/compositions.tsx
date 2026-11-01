@@ -1,12 +1,13 @@
 import { useAtomSet } from '@effect/atom-react';
 import { MenuButton, ReorderableList } from '@rasm/ui';
-import { Array, Effect, String, Struct } from 'effect';
+import { Array, String, Struct } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { PlacementFields } from '#/editor/placement-fields';
-import { draft, identifier, updateEntry } from '#/editor/state';
+import { draft, updateEntry } from '#/editor/state';
 import { CompositionGrid } from '#/media/composition-grid';
 import { compositionLabel, entryTitle, placementTitle, quantity } from '#/media/labels';
 import type { AssetCollection } from '#/model/asset';
@@ -60,7 +61,7 @@ const CompositionEditor = ({ assets, entry, item }: { assets: typeof AssetCollec
                         <button className="button button-outline" onClick={() => replace({ ...item, items: [second, first] })} type="button">
                             Swap order
                         </button>
-                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: Effect.runSync(identifier), items: [second] })} type="button">
+                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: SecureRandom.uuidV7Unsafe(), items: [second] })} type="button">
                             Unpair
                         </button>
                     </>

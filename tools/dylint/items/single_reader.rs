@@ -51,7 +51,7 @@ impl Pass {
                 matches!(tcx.def_kind(owner), DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }) && matches!(tcx.hir_node(node), Node::Expr(read) if fn_item_value(cx, read).is_some());
             let forwarded = tcx.hir_maybe_body_owned_by(owner).filter(|_| matches!(tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)).is_some_and(|body| {
                 let passed = |arguments: &[Expr<'_>]| arguments.iter().all(|argument| parameter(body, peel_hir_expr_refs(argument).0).is_some());
-                match peel_blocks(&body.value) {
+                match peel_blocks(body.value) {
                     value if value.span.from_expansion() => false,
                     Expr { kind: ExprKind::Call(callee, arguments), .. } => callee.hir_id == node && passed(arguments),
                     Expr { kind: ExprKind::MethodCall(_, receiver, arguments, _), hir_id, .. } => *hir_id == node && passed(slice::from_ref(receiver)) && passed(arguments),

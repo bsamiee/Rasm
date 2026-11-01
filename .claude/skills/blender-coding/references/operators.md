@@ -2,18 +2,18 @@
 
 ## [01]-[DECLARATION]
 
-Operator classes declare their inputs as `bpy.props` annotations, and `execute` is the one body every run reaches:
-- Redo, Repeat Last, and script calls run `execute` alone, and a background `'INVOKE_DEFAULT'` call runs `execute` with no `invoke`
+Operator classes declare their inputs as `bpy.props` annotations, a set several operators share sitting on a plain base class whose annotations register on each operator deriving it. `execute` hands them to one pure function as `**self.as_keywords()`, each property the keyword parameter of its name with its default, and `ignore=(<identifier>, ...)` takes a tuple of the properties the function never reads:
+- Redo, Repeat Last, and script calls run `execute` alone, and a background `'INVOKE_DEFAULT'` call runs `execute` with no `invoke` and `self.options.is_invoke` reading `False`
 - `execute` reads its properties and context alone, event and preference values entering through properties `invoke` writes
 - `invoke` writes only properties `self.properties.is_property_set(<name>)` reports unset, a value a button, keymap, or script passed skipping its gesture or form
-- Script calls with `undo` off neither read nor store last-run values, `undo=True` calls and interface runs read and store them, and `SKIP_SAVE` keeps one property at its default per run
-- `poll` reads the context members `execute` acts on, and a raising `poll` prints its traceback and fails the call with `RuntimeError("Operator bpy.ops.<op>.poll() failed, context is incorrect")`
-- Class docstrings supply the tooltip, and a `description(cls, context, properties)` classmethod returns one per property values
-- `bl_options` takes `BLOCKING` and `GRAB_CURSOR` for a gesture owning the cursor, `DEPENDS_ON_CURSOR` with `bl_cursor_pending` for an `invoke` reading the cursor from a menu or button, `MODAL_PRIORITY` for events ahead of other modal operators, and `INTERNAL` for no search entry
+- Script calls with `undo` off neither read nor store last-run values, and `undo=True` calls and interface runs read and store them in `window_manager.operator_properties_last(<idname>)`, the struct a panel draws to set the next run
+- `__init__` overrides take `(self, *args, **kwargs)` and forward both to `super().__init__`, Blender passing its own argument at each run
+- `bl_options` takes `BLOCKING` and `GRAB_CURSOR` for a gesture owning the cursor, `MODAL_PRIORITY` for events ahead of other modal operators, and `INTERNAL` for no search entry
+- `DEPENDS_ON_CURSOR` with `bl_cursor_pending` serves an `invoke` reading the cursor from a menu or button
 
 ## [02]-[INVOKE_FORMS]
 
-`invoke` returns one `WindowManager` form, each taking the options its `bl_rna.functions[<name>].parameters` list:
+`invoke` returns one form `WindowManager` holds as a class-level function over the operator (`bpy.types.WindowManager.invoke_props_dialog(self)`), each taking the options its `bl_rna.functions[<name>].parameters` list:
 
 | [INDEX] | [FORM]                | [BEHAVIOR]                                                                       |
 | :-----: | :-------------------- | :------------------------------------------------------------------------------- |
@@ -22,21 +22,18 @@ Operator classes declare their inputs as `bpy.props` annotations, and `execute` 
 |  [03]   | `invoke_props_popup`  | Popup rerunning `execute` on each edit                                           |
 |  [04]   | `invoke_popup`        | Property popup that never runs `execute`                                         |
 |  [05]   | `invoke_search_popup` | Search over the enum `bl_property` names                                         |
-|  [06]   | `fileselect_add`      | File browser filling `filepath`, `directory`, and `files`                        |
-|  [07]   | `modal_handler_add`   | Gesture stepping `modal` until it answers `FINISHED` or `CANCELLED`              |
 
 Forms read operator members:
-- `draw(self, context)` lays out the form, the default layout listing every property without `HIDDEN`
 - `check(self, context)` runs after each property edit, `True` redrawing the layout
-- `ExportHelper` operators declare `filename_ext`, its `check` correcting the `filepath` extension, and a `filter_glob` property filters either browser
+- `ExportHelper` operators declare `filename_ext`, its `check` correcting the `filepath` extension
 
 ## [03]-[MODAL]
 
-Modal gestures write their value into a property and apply it through `execute`, so Redo and Repeat Last replay the result. Assignment clamps the value to its hard bounds, and `cancel` restores what `invoke` captured:
+Modal gestures write their value into a property and apply it through `execute` for Redo and Repeat Last to replay, and `cancel` restores what `invoke` captured:
 
 ```python
 class Shrink(bpy.types.Operator):
-    """Shrink the selected objects by the cursor's place across the region."""
+    """Shrink selected objects by cursor position across the region."""
 
     bl_idname = "object.shrink"
     bl_label = "Shrink"
@@ -45,12 +42,7 @@ class Shrink(bpy.types.Operator):
     factor: bpy.props.FloatProperty(name="Factor", subtype="FACTOR", min=0.0, max=1.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
     @override
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return bool(context.selected_editable_objects)
-
-    @override
-    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> set["rna_enums.OperatorReturnItems"]:
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Answer:
         if self.properties.is_property_set("factor"):
             return self.execute(context)
         self.before = {obj.session_uid: obj.delta_scale.copy() for obj in context.selected_editable_objects}
@@ -58,7 +50,7 @@ class Shrink(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     @override
-    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> set["rna_enums.OperatorReturnItems"]:
+    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Answer:
         match event.type, event.value:
             case "MOUSEMOVE", _ if region := context.region:
                 self.factor = event.mouse_region_x / region.width
@@ -66,7 +58,7 @@ class Shrink(bpy.types.Operator):
                 return {"RUNNING_MODAL"}
             case "LEFTMOUSE", "PRESS":
                 return self.execute(context)
-            case ("RIGHTMOUSE" | "ESC"), "PRESS":
+            case (("RIGHTMOUSE" | "ESC"), "PRESS"):
                 self.cancel(context)
                 return {"CANCELLED"}
             case _:
@@ -78,22 +70,22 @@ class Shrink(bpy.types.Operator):
             obj.delta_scale = self.before[obj.session_uid]
 
     @override
-    def execute(self, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
+    def execute(self, context: bpy.types.Context) -> Answer:
         for obj in context.selected_editable_objects:
             obj.delta_scale = mathutils.Vector.Fill(3, self.factor)
         return {"FINISHED"}
 ```
 
-A button passing `factor` skips the gesture, and Redo after a drag reruns `execute` at the dragged `factor`:
+Buttons passing `factor` skip the gesture, and Redo after a drag reruns `execute` at the dragged `factor`:
 - Instance attributes persist from `invoke` through every `modal` step, and each Redo builds a fresh instance holding properties alone
-- `modal` runs under the area and region `invoke` ran in, and Blender calls `cancel` only when a file load or window close ends the gesture
-- Timer steps derive progress from their own `timer.time_duration`, since `Event` names no timer and every window timer delivers `TIMER` to each modal step
-- `event_timer_add(<seconds>, window=context.window)` timers leave through `event_timer_remove` at finish and in `cancel`, beside cursor, status text, and header writes
-- Steps answering `PASS_THROUGH` let undo and other operators run between steps, and state held across them keys by `session_uid`
+- `modal` runs under the area and region `invoke` ran in, under the region of that type beneath the cursor inside that area (a quad view quarter) once `invoke` sets `self.options.use_cursor_region`, and Blender calls `cancel` only when a file load or window close ends the gesture
+- Every window timer delivers `TIMER` to each modal step with no timer on `Event`, and timer steps derive progress from their own `timer.time_duration`
+- `context.window_manager.event_timer_add(<seconds>, window=context.window)` timers, cursor, status text, and header writes reset at finish and in `cancel`, timers through `event_timer_remove`
+- Steps returning `PASS_THROUGH` let undo and other operators run between steps, and state held across them keys by `session_uid`
 
 ## [04]-[PLACEMENTS]
 
-Buttons, menus, keymaps, and macros name an operator by its class's `bl_idname`, and calls reach it through `bpy.ops.<category>.<name>`:
-- `layout.operator(<Class>.bl_idname)` returns the `OperatorProperties` a button passes, each write marking that property set
+Buttons, menus, keymaps, and macros name an operator by its class's `bl_idname`, calls reach it through `bpy.ops.<category>.<name>`, and the registered class sits at `bpy.types.<CATEGORY>_OT_<name>` in place of its Python name:
+- `layout.operator_enum(<Class>.bl_idname, <enum property>)` draws one button per item and `operator_menu_enum` one menu, and a `description(cls, context, properties)` classmethod returns each button's tooltip from the properties it passes
 - `bpy.types.Macro` subclasses declaring `REGISTER` and `UNDO` run each `define(<Class>.bl_idname)` step in order as one undo step and one redo entry, the returned `OperatorMacro.properties` holding that step's values
 - `layout.context_pointer_set("<member>", <struct>)` hands a struct to the operators a layout places, each reading it as `context.<member>`

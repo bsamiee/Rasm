@@ -1,5 +1,6 @@
 import { createUpload, deleteObject, serveObject, unavailable } from '@rasm/hosting';
-import { Array, Cause, Crypto, Effect, Match, Option, Schema, Stream } from 'effect';
+import { Array, Cause, Effect, Match, Option, Schema, Stream } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { HttpRouter, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { Api } from '#/model/api';
@@ -33,7 +34,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
     Match.when({ current: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part: field }) =>
         Effect.gen(function* () {
             const asset = yield* Schema.decodeEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => HttpApiError.BadRequest.make()));
-            const attemptId = yield* Crypto.Crypto.use((crypto) => crypto.randomUUIDv7());
+            const attemptId = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());
             const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [...('renditions' in asset ? (asset.renditions ?? []).map(({ width, size }) => ({ key: `${attemptId}/${width}`, field: 'renditions' as const, name: String(width), size })) : []), { key: attemptId, field: 'file', size: asset.size }];
             const existing = yield* Effect.acquireRelease(
                 beginUpload(
@@ -89,8 +90,7 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
                 return { id: uploaded.asset.id };
             },
             Effect.scoped,
-            Effect.catchTag('MultipartError', () => Effect.fail(HttpApiError.BadRequest.make())),
-            Effect.catchTag(['UnknownError', 'PlatformError'], unavailable),
+            Effect.catchTags({ MultipartError: () => Effect.fail(HttpApiError.BadRequest.make()), UnknownError: unavailable }),
         ),
         pending: () => readPendingUploads,
         discard: ({ params }) => releaseObjects(Release.Discard({ assetId: params.id })),

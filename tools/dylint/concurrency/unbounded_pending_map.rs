@@ -177,7 +177,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             (Guard::Lent, _, ExprKind::MethodCall(_, _, [Expr { kind: ExprKind::Closure(closure), .. }], _))
                 if let body = cx.tcx.hir_body(closure.body)
                     && let [Param { pat: Pat { kind: PatKind::Binding(_, binding, _, None), .. }, .. }] = body.params =>
-                first_insert(*binding, &body.value),
+                first_insert(*binding, body.value),
             (Guard::Lent, ..) => None,
         });
         match guarded {

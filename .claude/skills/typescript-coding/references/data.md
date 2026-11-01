@@ -2,9 +2,9 @@
 
 Covers immutable data and its transitions.
 
-## [01]-[SNAPSHOTS]
+## [01]-[TRANSITIONS]
 
-Transitions take their input first and return a function from one snapshot to the next, the one shape `pipe`, `Ref.update`, `Stream.scan`, and a fold apply. Snapshots one collection states are the collection itself, with the value brand deciding what it holds:
+Transitions take their input first and return a function from one state to the next, the one shape `pipe`, `Ref.update`, `Stream.scan`, and a fold apply. States one collection holds are the collection itself, with the value brand deciding what it holds:
 
 ```ts
 const adjusted = (sku: Sku, delta: number) => HashMap.modifyAt(sku, flow(Option.match({ onNone: Function.constant(delta), onSome: Number.sum(delta) }), Quantity.makeOption));
@@ -76,14 +76,10 @@ Orders compose from the orders value modules export and sit on their type as a s
 
 ```ts
 const ranked = <const L extends readonly SchemaAST.LiteralValue[]>(schema: Schema.Literals<L>) => Order.mapInput(Number.Order, (value: L[number]) => schema.literals.indexOf(value));
-
-class Ticket extends Schema.Class<Ticket, { readonly brand: unique symbol }>('Ticket')({ severity: Severity, opened: Schema.DateTimeUtc }) {
-    static readonly order = Order.Struct({ severity: Order.flip(ranked(Severity)), opened: DateTime.Order });
-}
 ```
 
-`Severity` lists its literals from lowest to highest, and `Array.sort(tickets, Ticket.order)` puts the most severe, then the oldest, first:
+`Severity` lists its literals from lowest to highest, and `Ticket.order = Order.Struct({ severity: Order.flip(ranked(Severity)), opened: DateTime.Order })` sorts tickets most severe, then oldest, first:
 - `Order.Struct` compares fields in key order until one differs
 - `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` states equality by key for `Array.dedupeWith` and `Array.unionWith`
 - `Array.dedupe` and `HashSet` group through `Equal` and `Hash` in one pass, `Array.dedupeWith` compares each element with every kept one
-- `Struct.makeReducer` composes per-field reducers (`Number.ReducerSum`, `Duration.ReducerSum`), and `combineAll` folds snapshots into one summary
+- `Struct.makeReducer` composes per-field reducers (`Number.ReducerSum`, `Duration.ReducerSum`), and `combineAll` folds states into one summary

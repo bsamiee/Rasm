@@ -18,7 +18,7 @@ use rustc_hir::{
     def::{CtorKind, DefKind},
     def_id::{DefId, LocalDefId},
 };
-use rustc_lint::{LateContext, LateLintPass, Level};
+use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{
     self, AdtDef, AssocKind, EarlyBinder, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, VariantDef, VariantDiscr,
 };
@@ -482,14 +482,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .chain(adt.all_fields().map(|field| field.did))
                 .filter_map(DefId::as_local)
                 .flat_map(|owner| tcx.hir_attrs(tcx.local_def_id_to_hir_id(owner)))
-                .filter_map(|attribute| {
-                    if let Attribute::Unparsed(unparsed) = attribute
-                        && Level::from_opt_symbol(attribute.name()).is_none()
-                    {
-                        Some(&**unparsed)
-                    } else {
-                        None
-                    }
+                .filter_map(|attribute| match attribute {
+                    Attribute::Tool(unparsed) | Attribute::DeriveHelper(unparsed) => Some(&**unparsed),
+                    Attribute::Parsed(_) => None,
                 })
                 .collect::<Vec<&AttrItem>>()
         };

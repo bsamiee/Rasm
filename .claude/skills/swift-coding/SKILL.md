@@ -8,14 +8,14 @@ description: "Use when writing or reviewing Swift, covering functional design wi
 Swift design decisions from signature shape to host boundary. The standard library, Swift Concurrency, Observation, Synchronization, System, swift-collections, swift-async-algorithms, swift-case-paths, swift-subprocess, and swift-argument-parser are part of the language, and code reaches for their types wherever they state a value.
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, rules as values, and dependencies
-- [02]-[RESULTS](references/results.md): Accumulation, validation, workflows, stored outcomes, and host translation
+- [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
+- [02]-[RESULTS](references/results.md): Accumulation, validation, workflows, task results, and entry points
 - [03]-[DATA](references/data.md): State machines, graph walks, and recursive folds
 - [04]-[OWNERSHIP](references/ownership.md): Noncopyable resources and storage, typestate, borrowed views, and synchronized state
-- [05]-[CONCURRENCY](references/concurrency.md): Isolation, regions, task trees, deadlines, actors, cancellation, and callback bridges
-- [06]-[STREAMS](references/streams.md): Async sequence sources, typed failure, operators, observation, pacing, and sharing
+- [05]-[CONCURRENCY](references/concurrency.md): Isolation, regions, task hierarchy, deadlines, actors, cancellation, and continuations
+- [06]-[STREAMS](references/streams.md): Async sequence sources, typed failure, operators, observation, back pressure, and sharing
 - [07]-[BOUNDARIES](references/boundaries.md): Decoding, paths, child processes, command lines, and logging
-- [08]-[GENERICS](references/generics.md): Constraints, opaque returns, derived conformances, packs, value generics, and macros
+- [08]-[GENERICS](references/generics.md): Constraints, opaque returns, conditional conformances, packs, integer generic parameters, and macros
 
 ## [01]-[FUNCTIONS]
 
@@ -291,7 +291,7 @@ enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Coda
 }
 ```
 
-- Synthesized `Codable` holds every wire mapping, and a hand `init(from:)` exists where a stored type has no `Codable` or the wire names a case in a field
+- Synthesized `Codable` holds every wire mapping, and a hand-written `init(from:)` exists where a stored type has no `Codable` or the wire names a case in a field
 - Untyped host values (`Any`, `CFTypeRef`) decode through one generic read that checks the type
 - Host types stand where they state the value: a caller passes the host's configuration and receives its output whole
 - Host enums stay the host's type, and the wire spelling is one `switch` in the encoder that writes it

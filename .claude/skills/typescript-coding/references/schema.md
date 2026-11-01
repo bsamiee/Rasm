@@ -52,7 +52,7 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 - `match` takes a handler per tag, `matchOrElse` the handled tags and one fallback, `guards.Paid` narrows a case, and `cases.Paid.make` builds one
 - `Schema.Literals(Struct.keys(Activity.fields.change.cases))` decodes a tag parameter
 - Cases holding derived facts are `Schema.TaggedClass` members with getters, joined through `Schema.Union` piped into `Schema.toTaggedUnion`
-- `Schema.toTaggedUnion` over the wire's discriminator key decodes a foreign union, and `Schema.tagDefaultOmit` fills a tag the wire leaves out
+- `Schema.toTaggedUnion` over the encoded discriminator key decodes a foreign union, and `Schema.tagDefaultOmit` fills a tag the encoded form leaves out
 
 ## [03]-[TRANSFORMATIONS]
 
@@ -61,7 +61,7 @@ Transformations state decode and encode in one schema from the encoded form to t
 | [INDEX] | [CONVERSION]               | [FORM]                                                                              |
 | :-----: | :------------------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | Scalar written as text     | `BigDecimalFromString`, `DateTimeUtcFromString`, `DurationFromString`               |
-|  [02]   | Wire literal to domain     | `Schema.Literals(wire).transform(domain)`                                           |
+|  [02]   | Encoded literal to domain  | `Schema.Literals(wire).transform(domain)`                                           |
 |  [03]   | Delimited list             | `SchemaGetter.split()` decoding, `SchemaGetter.transform(Array.join(','))` encoding |
 |  [04]   | Key-value text             | `decodeTo(Schema.Record(K, V), SchemaTransformation.splitKeyValue({ separator }))`  |
 |  [05]   | Text grammar               | `Schema.TemplateLiteralParser` piped into `decodeTo`                                |
@@ -81,9 +81,9 @@ const LineFromText = Schema.TemplateLiteralParser([Schema.String, ' x', Schema.F
 
 ## [04]-[OPTIONALITY]
 
-Absence a host returns decodes to `Option`, absence a domain default fills decodes to the value, and the wire spelling selects the form:
+Absence a host returns decodes to `Option`, absence a domain default fills decodes to the value, and the encoded spelling selects the form:
 
-| [INDEX] | [WIRE]                     | [DECODED]   | [FORM]                                                         |
+| [INDEX] | [ENCODED]                  | [DECODED]   | [FORM]                                                         |
 | :-----: | :------------------------- | :---------- | :------------------------------------------------------------- |
 |  [01]   | Key missing                | `Option<A>` | `Schema.OptionFromOptionalKey(A)`                              |
 |  [02]   | Value `null`               | `Option<A>` | `Schema.OptionFromNullOr(A)`                                   |
@@ -96,9 +96,9 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 - Defaults are effects producing the decoded value, `Schema.withDecodingDefaultTypeKey(DateTime.now)` stamps an instant from the clock
 - `{ encodingStrategy: 'omit' }` drops a defaulted key on encode
 
-## [05]-[WIRES]
+## [05]-[SERIALIZATION]
 
-Field schemas declare the domain type, and each wire derives its codec from the class or model variant it carries. Key spellings a rule decides derive from the fields:
+Field schemas declare the domain type, and each format derives its codec from the class or model variant it encodes. Key spellings a rule decides derive from the fields:
 
 ```ts
 const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fields }>(schema: S) => schema.pipe(Schema.encodeKeys(Record.map(schema.fields, (_, key) => String.camelToSnake(key))));
@@ -106,7 +106,7 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 
 `Schema.fromJsonString(Schema.toCodecJson(snakeCased(Invoice.json)))` reads and writes `issued_at` as `issuedAt`. `toCodecJson` encodes `DateTime`, `BigDecimal`, `Duration`, `Option`, and classes as JSON values, `toCodecStringTree` every leaf as a string:
 
-| [INDEX] | [WIRE]                    | [CODEC]                                                   |
+| [INDEX] | [FORMAT]                  | [CODEC]                                                   |
 | :-----: | :------------------------ | :-------------------------------------------------------- |
 |  [01]   | JSON text                 | `Schema.fromJsonString(Schema.toCodecJson(X))`            |
 |  [02]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                   |

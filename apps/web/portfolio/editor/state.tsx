@@ -1,5 +1,4 @@
-import { BrowserCrypto } from '@effect/platform-browser';
-import { Array, Crypto, Effect, Optic, Record, Schema, Struct } from 'effect';
+import { Array, Effect, Optic, Record, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
 import { Api, type PendingUpload } from '#/model/api';
@@ -65,7 +64,6 @@ const discardRequest = PortfolioClient.runtime
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const identifier = Crypto.Crypto.use((crypto) => crypto.randomUUIDv7()).pipe(Effect.provide(BrowserCrypto.layer));
 const assets = Optic.id<Atom.Success<typeof draft>>().key('assets');
 const portfolio = Optic.id<Atom.Success<typeof draft>>().key('portfolio');
 const hero = portfolio.optionalKey('hero');
@@ -73,4 +71,4 @@ const updateEntry = (id: string, update: (entry: typeof Entry.Type) => typeof En
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, deleteRequest, discardRequest, draft, hero, identifier, pendingRequest, portfolio, reloadRequest, saveRequest, updateEntry };
+export { assets, deleteRequest, discardRequest, draft, hero, pendingRequest, portfolio, reloadRequest, saveRequest, updateEntry };

@@ -89,7 +89,7 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<&'tcx Ex
         PatKind::Binding(_, binding, _, None) => !is_local_used(cx, body.value, binding),
         _ => false,
     }
-    .then(|| peel_blocks(&body.value))
+    .then(|| peel_blocks(body.value))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

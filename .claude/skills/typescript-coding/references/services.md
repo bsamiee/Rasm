@@ -73,7 +73,7 @@ Layers compose at a composition root into one graph, and the compiler rejects a 
 |  [01]   | `Layer.mergeAll(a, b)`          | Outputs and requirements of each                        |
 |  [02]   | `a.pipe(Layer.provide(b))`      | Outputs of `a`, `b` satisfies `a` and stays hidden      |
 |  [03]   | `a.pipe(Layer.provideMerge(b))` | Outputs of both, `b` satisfies `a` and stays readable   |
-|  [04]   | `a.pipe(Layer.provide([b, c]))` | Outputs of `a`, `b` and `c` merge into one hidden stage |
+|  [04]   | `a.pipe(Layer.provide([b, c]))` | Outputs of `a`, `b` and `c` merge into one hidden layer |
 
 ```ts
 const Store = Checkout.layer.pipe(Layer.provideMerge(Pricing.layer), Layer.provide([Ledger.layer, Catalog.layer]));
@@ -82,7 +82,7 @@ const Store = Checkout.layer.pipe(Layer.provideMerge(Pricing.layer), Layer.provi
 `Checkout` reads `Pricing` and `Ledger`, `Pricing` reads `Catalog`, and `Catalog` reads the `HttpClient` each host supplies:
 - Layers inside one `mergeAll` or `provide` array build concurrently and satisfy none of each other's requirements
 - Swappable dependencies stay in their reading layer's requirements, and each root provides its host's implementation
-- References stay out of requirements, and a root provides `ConfigProvider` in its last stage to reach every layer
+- References stay out of requirements, and a root provides `ConfigProvider` in its last `Layer.provide` to reach every layer
 - Layers memoize by reference within one build, a layer function's result binds to one `const`, `Layer.fresh` builds one per consumer
 - `Effect.provide` reuses a layer an enclosing `provide` or runtime built, `{ local: true }` builds its own
 - Graphs a request value selects (a tenant, a region) are one `LayerMap.Service` whose `lookup` maps the key to a layer

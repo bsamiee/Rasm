@@ -208,7 +208,7 @@ class Accounts extends Context.Service<Accounts>()('@app/accounts', {
 }
 ```
 
-### [06.2]-[POLICIES]
+### [06.2]-[ERROR_HANDLING]
 
 Failure policies are distinct operations:
 - Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`, or `Effect.catchTag` for one classified error
@@ -223,6 +223,7 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `Duration` holds every elapsed time and timeout, a millisecond number appears at an API taking one
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
 - `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes
+- `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
 - `Intl` formats numbers, dates, lists, and plurals for display
 
 ## [08]-[MODULES]

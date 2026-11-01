@@ -1,5 +1,4 @@
 {
-    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": { "ignoreUnknown": true, "includes": [ "**", "!!.venv", "!!.cache", "!!.artifacts", "!pnpm-lock.yaml", "!**/*.xcassets", "!**/*.icon", "!.claude/workflows" ] },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },

@@ -2,28 +2,16 @@
 
 Covers records from decode through transition.
 
-## [01]-[LIFECYCLE]
+## [01]-[FALLIBLE_TRANSITIONS]
 
 Fallible transitions reach `__post_init__` through `replaced`, and its `ValueError` returns as an `INVALID` fault:
 
 ```python
-class Stock(msgspec.Struct, frozen=True, kw_only=True):
-    count: int
-    reserved: int = 0
-
-    def __post_init__(self) -> None:
-        if not 0 <= self.reserved <= self.count:
-            raise ValueError(f"reserved {self.reserved} outside 0 to {self.count}")
-
-    def reserving(self, delta: int, /) -> Outcome[Self]:
-        return replaced(self, reserved=self.reserved + delta)
-
-
 def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
     return catch(partial(msgspec.structs.replace, record), exception=ValueError)(**changes).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
 ```
 
-`msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`, and `reserving(2)` twice fails with `Stock is invalid. reserved 4 outside 0 to 3`:
+`Stock` holds `count` and `reserved`, and its `__post_init__` raises `ValueError(f"reserved {self.reserved} outside 0 to {self.count}")`. `msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`, and `replaced(stock, reserved=stock.reserved + 2)` twice from `reserved=0` fails with `Stock is invalid. reserved 4 outside 0 to 3`:
 - `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters
 
 ## [02]-[KEYED_DIFFS]
@@ -38,7 +26,7 @@ def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K,
 `case (None, new):` matches an insertion, `case (old, None):` a deletion, and `case (old, new):` a change:
 - `msgspec.json.encode` writes `null` for a missing side, and `type=frozendict[str, tuple[V | None, V | None]]` reads it back
 
-## [03]-[DECLARED_GRAPHS]
+## [03]-[DEPENDENCY_GRAPHS]
 
 `Plan` refuses an unknown dependency and a cycle at decode, and `TopologicalSorter.prepare` raises the `CycleError` msgspec reports as a `ValidationError`:
 
@@ -50,19 +38,15 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
         if unknown := frozenset(*needed for needed in self.needs.values()) - self.needs.keys():
             raise ValueError(sorted(unknown))
         TopologicalSorter(self.needs).prepare()
-
-    @property
-    def order(self) -> tuple[str, ...]:
-        return tuple(TopologicalSorter(self.needs).static_order())
 ```
 
-`msgspec.json.decode(b'{"needs": {"a": ["b"], "b": ["a"]}}', type=Plan)` fails with `('nodes are in a cycle', ['a', 'b', 'a'])`, `{"a": ["c"]}` fails with `['c']`, and `order` lists each node after its needs:
+`msgspec.json.decode(b'{"needs": {"a": ["b"], "b": ["a"]}}', type=Plan)` fails with `('nodes are in a cycle', ['a', 'b', 'a'])`, `{"a": ["c"]}` fails with `['c']`, and `TopologicalSorter(plan.needs).static_order()` lists each node after its needs:
 - Rules a package member checks run in `__post_init__` through that member, and a `ValueError` subclass it raises fails the decode
 - `TopologicalSorter` reads a node it never saw as a key as one with no needs, the unknown check states the rule it lacks
 
 ## [04]-[RECURSIVE_UNIONS]
 
-Recursive unions take a package type for each leaf and one record for each node, and each operation over them is one function with one recursive `match`. `Group.mode` names a quantifier `QUANTIFIERS` holds:
+Recursive unions take a package type for each leaf and one record for each node, and each operation over them is one function with one recursive `match`. `unmet` returns the failing parts of a condition, and a condition holds where it returns `()`:
 
 ```python
 type Condition = str | Group
@@ -73,27 +57,18 @@ class Group(msgspec.Struct, frozen=True, kw_only=True):
     members: tuple[Condition, ...]
 
 
-def none(held: Iterable[bool], /) -> bool:
-    return not any(held)
-
-
-QUANTIFIERS = frozendict({quantifier.__name__: quantifier for quantifier in (all, any, none)})
-
-
-def holds(condition: Condition, facts: frozenset[str], /) -> bool:
-    match condition:
-        case Group(mode=mode, members=members):
-            return QUANTIFIERS[mode](holds(member, facts) for member in members)
-        case str():
-            return condition in facts
-
-
 def unmet(condition: Condition, facts: frozenset[str], /) -> tuple[Condition, ...]:
     match condition:
         case Group(mode="all", members=members):
             return tuple(*unmet(member, facts) for member in members)
+        case Group(mode="any", members=members) if any(not unmet(member, facts) for member in members):
+            return ()
+        case Group(mode="none", members=members) if all(unmet(member, facts) for member in members):
+            return ()
+        case str() if condition in facts:
+            return ()
         case _:
-            return () if holds(condition, facts) else (condition,)
+            return (condition,)
 ```
 
 `msgspec.json.decode(raw, type=Condition)` reads `{"mode": "all", "members": ["gpu", {"mode": "none", "members": ["busy"]}, {"mode": "any", "members": ["a", "b"]}]}`, and `unmet` with facts `{"gpu", "busy"}` returns the `none` and `any` groups, a disjunction failing as one part.
@@ -134,12 +109,9 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @property
     def slopes(self) -> Samples:
         return np.diff(self.volts) / self.step
-
-    def windowed(self, start: int, stop: int, /) -> Outcome[Self]:
-        return replaced(self, volts=self.volts[start:stop])
 ```
 
 Records holding an array take `eq=False` and compare and hash by identity, a default record's `==` raises `ValueError` on the array's truth value and `hash` raises `TypeError`:
-- Frozen records refuse field assignment and leave array elements writable, and `windowed` holds a view of its parent's buffer
+- Frozen records refuse field assignment and leave array elements writable, and `replaced(trace, volts=trace.volts[start:stop])` holds a view of its parent's buffer
 - Codecs refuse an `ndarray` field (`` Expected `numpy.ndarray`, got `list` - at `$.volts` ``), and a wire record holds `tuple[float, ...]`
 - Per-channel values take the shape their consumer takes whole, a `tuple[float, float, float]` for one color and one `(n, 3)` array for many

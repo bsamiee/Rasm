@@ -1,305 +1,75 @@
 # [FUNCTIONS]
 
-Covers functions as values, from the combinators to the flow from a request to its effects.
+Covers functions as values, from composition and functions held as data to the composition root that wires a request's effects.
 
-## [01]-[COMBINATORS]
+## [01]-[COMPOSITION]
 
-Combinators apply or join functions. `Pipe` applies one function to a whole value where `Map` applies a function to each element of a sequence, piping a sequence treats the sequence as the input value, and generic input and output types let each step change type. LanguageExt has no `Pipe`, the implementation is custom:
+`g << f` states `f >> g` right to left. Step factories take each value a step varies in as a parameter with a default where one value dominates, one composed field states a fixed pipeline, and `Fold` from `identity` composes a pipeline whose steps arrive as data, an empty one returning its input:
 
 ```csharp
-internal static class Piping {
-    extension<TIn>(TIn value) {
-        public TOut Pipe<TOut>(Func<TIn, TOut> transform) => transform(value);
-    }
-    public static string Scaled(decimal input) =>
-        input
-            .Pipe(static x => x - 32).Pipe(static x => x * 5).Pipe(static x => x / 9)
-            .Pipe(static x => Math.Round(x, 2, MidpointRounding.ToEven))
-            .Pipe(static x => string.Create(CultureInfo.InvariantCulture, $"{x} units"));
+internal static class Passes {
+    public static Func<double, double> Offset(double by) => x => x + by;
+    public static Func<double, double> Gain(double by) => x => x * by;
+    public static Func<double, double> Clamp(double low = -1.0, double high = 1.0) => x => Math.Clamp(x, low, high);
+
+    public static readonly Func<double, double> Centered = Offset(-0.5) >> Gain(2.0) >> Clamp();
+
+    public static Func<double, double> Chain(Seq<Func<double, double>> passes) => passes.Fold(fun<double, double>(identity), static (all, next) => all >> next);
 }
 ```
 
-`Fork` gives the same input to more than one function and passes their outputs to a joining function. Separate generic result types let a fixed set of functions produce different kinds of value, each further fixed function needs another overload, and a `Seq` of functions holds any number when each returns the same intermediate type:
-
-```csharp
-internal static class Forks {
-    extension<TIn>(TIn value) {
-        public TOut Fork<TLeft, TRight, TOut>(Func<TIn, TLeft> left, Func<TIn, TRight> right, Func<TLeft, TRight, TOut> join) =>
-            join(left(value), right(value));
-        public TOut Fork<TPart, TOut>(Func<Seq<TPart>, TOut> join, Seq<Func<TIn, TPart>> prongs) =>
-            join(prongs.Map(prong => prong(value)));
-    }
-    public static double Average(Seq<double> values) =>
-        values.Fork(static s => s.Fold(0.0, static (total, x) => total + x), static s => s.Count, static (sum, count) => sum / count);
-}
-```
-
-`flip` from the Prelude swaps the parameters of a `Func<A, B, R>`, `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
+A static field holds a specialization fixed at type load, a getter-only property closes over instance state and allocates a delegate per read, and a factory method alone takes a type parameter. `flip` and `par` adapt a two-argument function value the code does not declare (a dependency, a package delegate): `flip` reorders its parameters and `par` fixes the leading one.
 
 ## [02]-[FUNCTIONS_AS_DATA]
 
-Functions stored in collections, passed into adapters, or returned express control flow as data. Functions stored together need compatible signatures, every type in `Func<T1, ..., TResult>` except the last is a parameter type. Selectors parameterize a larger function: a report builder written once accepts its grouping key, and each new report supplies a selector and a title in place of copying the grouping and row construction:
+A record of the operations targets differ in takes the store as an argument, so each target is one static instance overriding only the `init` members that differ and serving every store. A host type the code does not own takes no interface, and the record stands where an interface would need one implementation per target:
 
 ```csharp
-internal static class Reports {
-    public static Report Summary(Seq<Item> items, Func<Item, string> groupBy, string title) =>
-        new(title, toSeq(items.GroupBy(groupBy, StringComparer.Ordinal)).Map(static g => new Row(g.Key, string.Create(CultureInfo.InvariantCulture, $"{g.Count()}"))));
+internal sealed record Layer(string FullPath, bool IsDeleted);
+internal sealed record Material(string Name);
+internal sealed record Store(Seq<Layer> Layers, Seq<Material> Materials);
+
+internal sealed record Table<T>(Func<Store, Seq<T>> Rows, Func<T, string> Key) {
+    public Func<T, bool> Live { get; init; } = static _ => true;
+    public StringComparer Names { get; init; } = StringComparer.OrdinalIgnoreCase;
+
+    public Option<T> Named(Store store, string name) => Rows(store).Find(row => Live(row) && Names.Equals(Key(row), name));
+}
+
+internal static class Tables {
+    public static readonly Table<Layer> Layers = new(static store => store.Layers, static layer => layer.FullPath) { Live = static layer => !layer.IsDeleted };
+    public static readonly Table<Material> Materials = new(static store => store.Materials, static material => material.Name) { Names = StringComparer.Ordinal };
 }
 ```
 
-Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation. `Seq.Map` is deferred, the functions run when the result is enumerated:
+A first-match decision fixed in code is a switch expression with relational patterns. Rows that arrive as configuration are data a factory reads: each row holds only the values its arms differ in, `Find` returns the first matching row as an `Option`, row order is precedence, and the result past the last row is a parameter that keeps the returned function total:
 
 ```csharp
-internal static class Descriptions {
-    private static readonly Seq<Func<Item, string>> Descriptors = [
-        static item => $"Name: {item.Name}",
-        static item => $"Kind: {item.Kind}",
-    ];
-    public static string Describe(Item item) => string.Join(Environment.NewLine, Descriptors.Map(describe => describe(item)));
+internal static class Tariffs {
+    public static Func<decimal, decimal> Priced(Seq<(decimal UpTo, decimal Rate)> bands, decimal beyond) =>
+        weight => weight * bands.Find(band => weight <= band.UpTo).Map(static band => band.Rate).IfNone(beyond);
 }
 ```
 
-Validation rules of shape `T -> bool` collect into a policy: `ForAll` fits rules that state what valid input must satisfy and stops at the first failed rule, `Exists` fits rules that describe a violation and stops at the first one detected, an empty validity set returns `true` and an empty violation set returns `false`, and each rule states one condition:
+## [03]-[COMPOSITION_ROOT]
+
+A returned `map.Find` hands on one lookup without the map, and a test passes a lambda where a mock would stand. A handler is a factory whose dependencies lead and whose returned function takes the request. The composition root wires by function application with no container: it adapts infrastructure once, returns the handler the host runs per request, and reads each request-scoped value (the date) inside the returned effect so no validator outlives its snapshot:
 
 ```csharp
-internal static class Policies {
-    extension<T>(T value) {
-        public bool IsValid(Seq<Func<T, bool>> rules) => rules.ForAll(rule => rule(value));
-        public bool IsInvalid(Seq<Func<T, bool>> violations) => violations.Exists(rule => rule(value));
-    }
+internal sealed record Command(Guid Id, LocalDate Date);
+
+internal static class Bookings {
+    public static Func<Command, IO<Unit>> Handler(Func<Command, Fin<Command>> validate, Func<Command, IO<Unit>> save, Func<Command, IO<Unit>> notify) =>
+        command =>
+            from valid in IO.lift(validate(command))
+            from _ in save(valid)
+            from __ in notify(valid)
+            select unit;
+
+    public static Func<Command, IO<Unit>> Root(TimeProvider time, AtomHashMap<Guid, Command> store, Func<Command, IO<Unit>> notify) =>
+        command => IO.lift(() => time.ToZonedClock().GetCurrentDate())
+            .Bind(today => Handler(Validators.NotPast(today), booked => IO.lift(() => store.AddOrUpdate(booked.Id, booked)), notify)(command));
 }
 ```
 
-Later rules never run after a short circuit, the boolean form answers yes or no and validators that return typed errors accumulate every failure. `if` and `else if` chains become ordered tables of predicate and transform pairs, first matching predicate wins, order is part of the meaning, each predicate holds its criteria or delegates to a named function, and the explicit fallback makes the operation total:
-
-```csharp
-internal static class RuleTables {
-    extension<TInput>(TInput value) {
-        public TOutput Match<TOutput>(Func<TInput, TOutput> fallback, Seq<(Func<TInput, bool> When, Func<TInput, TOutput> Then)> cases) =>
-            cases.Find(c => c.When(value)).Match(Some: c => c.Then(value), None: () => fallback(value));
-    }
-    public static decimal Net(decimal amount) =>
-        amount.Match(static x => x * 0.55m, [
-            (static x => x <= 12_570m, static x => x),
-            (static x => x <= 50_270m, static x => x * 0.80m),
-            (static x => x <= 150_000m, static x => x * 0.60m),
-        ]);
-}
-```
-
-`Seq.Find` returns an `Option`, the missing case is `None`, and its `Match` selects the fallback without a null check. A staged design that infers no match by comparing the transformed value with `default(TOutput)` fails, a matching transform can return `0`, `false`, or `null`. Rule tables match values with predicates, a fixed decision over types is a native switch expression, and `KeyValuePair` in place of tuples adds syntax without changing the mechanism.
-
-Returned functions capture the original value in a closure and expose one operation: `number => names.Find(number).IfNone("unknown")` narrows a `HashMap<int, string>` to one lookup, keeps the map in scope, converts an absent key into a fallback, and prevents the caller from enumerating, modifying, or otherwise querying the map. Repeated parsing branches move into focused conversion functions, `parseInt(text).IfNone(fallback)` collapses missing and invalid input into one fallback for a caller that need not distinguish them. `parseInt` and `HashMap.Find` preserve every outcome, `IfNone` applies at the boundary that selects the fallback.
-
-## [03]-[SPECIALIZATION]
-
-`par` exists for each arity and number of supplied arguments, `lpar` fixes the second argument of a two-argument function, and partial application avoids unary stages when a group of arguments is always fixed together:
-
-```csharp
-internal sealed record Record(string Name, string Group, string Stamp);
-
-internal static class Parsing {
-    public const bool SkipHeader = true;
-    public const bool KeepHeader = false;
-    public static readonly Func<bool, string, string, string, Seq<Record>> ParseRecords =
-        static (skipHeader, lineBreak, fieldDelimiter, content) =>
-            toSeq(content.Split(lineBreak))
-                .Skip(skipHeader ? 1 : 0)
-                .Map(line => line.Split(fieldDelimiter))
-                .Map(static fields => new Record(fields[0], fields[1], fields[2]));
-}
-
-internal static class Partials {
-    public static readonly Func<string, Seq<Record>> ParseUnixComma = par(Parsing.ParseRecords, Parsing.KeepHeader, "\n", ",");
-    public static readonly Func<string, string, Seq<Record>> ParseWindows = par(Parsing.ParseRecords, Parsing.SkipHeader, Environment.NewLine);
-    public static readonly Func<string, Seq<Record>> ParseWindowsComma = par(ParseWindows, ",");
-}
-```
-
-`curry` turns the same four-argument delegate into `bool -> string -> string -> string -> Seq<Record>`, each stage can be saved and reused for many specializations, and a function written in curried form suits consumers that always supply one argument at a time:
-
-```csharp
-internal static class Families {
-    public static readonly Func<bool, Func<string, Func<string, Func<string, Seq<Record>>>>> Curried = curry(Parsing.ParseRecords);
-    public static readonly Func<string, Func<string, Func<string, Seq<Record>>>> WithHeader = Curried(true);
-    public static readonly Func<string, Func<string, Seq<Record>>> WindowsWithHeader = WithHeader(Environment.NewLine);
-    public static readonly Func<string, Seq<Record>> WindowsComma = WindowsWithHeader(",");
-    public static readonly Func<string, Seq<Record>> WindowsPipe = WindowsWithHeader("|");
-    public static readonly Func<decimal, Func<decimal, decimal>> Add = curry(static (decimal x, decimal y) => x + y);
-    public static readonly Func<decimal, decimal> Add10 = Add(10m);
-}
-```
-
-Explicit lambda parameter types are needed where the compiler does not infer the delegate's generic arguments at the `curry` call, a delegate value with a declared `Func` type needs no annotation. Returned functions retain each supplied value and invoke the original only when the remaining arguments arrive, currying adds nothing when every argument arrives together. Fixing a logger's level the same way creates one function per level that needs only a message. Partial application turns a general operation into a unary function for mapping or composition, a noncommutative operation fixes its first parameter first and takes the pipeline value last:
-
-```csharp
-internal static class Scaling {
-    private static readonly Func<decimal, decimal, decimal> SubtractBase = static (fixedValue, input) => input - fixedValue;
-    private static readonly Func<decimal, decimal, decimal> MultiplyBase = static (fixedValue, input) => input * fixedValue;
-    private static readonly Func<decimal, decimal, decimal> DivideBase = static (fixedValue, input) => input / fixedValue;
-    public static decimal Scaled(decimal value) => value.Pipe(par(SubtractBase, 32m)).Pipe(par(MultiplyBase, 5m)).Pipe(par(DivideBase, 9m));
-}
-```
-
-Costs are `Func` conversion with occasional explicit type annotations and nested delegate types that read poorly at higher arities, ordinary functions stay when the helper is larger or less readable than the duplication it removes.
-
-## [04]-[ADAPTERS]
-
-Unary methods convert where a `Func<T, R>` is expected, multi-argument method groups and local functions do not under a generic higher-order operation, and explicit generic arguments or delegate casts add syntax. Each delegate form has one reach:
-
-```csharp
-internal sealed class Greeter(string separator) {
-    public static readonly Func<string, string, string> Greet = static (greeting, name) => $"{greeting}, {name}";
-    public Func<string, string, string> GreetProperty => (greeting, name) => $"{greeting}{separator}{name}";
-    public static Func<string, TName, string> CreateGreeter<TName>() => static (greeting, name) => $"{greeting}: {name}";
-    public static string GreetInformally(string name) => fun(static (string greeting, string who) => $"{greeting} {who}")("Hey", name);
-}
-```
-
-- Field initializers cannot depend on instance state
-- Getter-only properties create delegates that close over instance state
-- Factory methods introduce generic type parameters, and fields and properties cannot
-- `fun` gives a lambda its `Func` type at the call site, the lambda is invoked or passed without a declared local
-
-Existing APIs can expose arguments in an order that works poorly for partial application. Adapters expose specific types in place of ambiguous primitives, acquire a short-lived resource only when the operation runs, and return a `Func` that later specialization infers:
-
-```csharp
-internal sealed record Template(string Text);
-internal sealed record Entry(Guid Id, string Name, decimal Amount);
-
-internal interface IConnection {
-    public Seq<T> Query<T>(Template template, object parameters);
-}
-
-internal static class Queries {
-    public static readonly Template EntryById = new("select * from entry where id = @Id");
-    public static Func<Template, object, Eff<RT, Seq<T>>> Query<RT, T>() where RT : Has<Eff<RT>, IConnection> =>
-        static (template, parameters) => Has<Eff<RT>, RT, IConnection>.ask.As().Map(connection => connection.Query<T>(template, parameters));
-}
-
-internal static class Lookups<RT> where RT : Has<Eff<RT>, IConnection> {
-    private static readonly Func<Template, object, Eff<RT, Seq<Entry>>> QueryEntries = Queries.Query<RT, Entry>();
-    private static readonly Func<object, Eff<RT, Seq<Entry>>> QueryById = par(QueryEntries, Queries.EntryById);
-    public static readonly Func<Guid, Eff<RT, Option<Entry>>> Lookup = static id => QueryById(new { Id = id }).Map(static rows => rows.Head);
-}
-```
-
-Runtime `RT` supplies the connection through `Has<Eff<RT>, IConnection>`, the runtime record holds the capability from startup and the implementation opens the short-lived connection when the query runs. Effects read the trait when the host runs them and not when the function is built. `EntryById` specializes the query to one operation and leaves only the invocation parameters, `Seq<A>.Head` is an `Option<A>` and lookup absence stays explicit. Custom types (`IConnection`, `Template`) make the signature intention-revealing and own extension methods that do not belong on `string`.
-
-## [05]-[COMPOSITION_ROOT]
-
-Function dependencies decouple the consumer from the implementation, take a deterministic function in a test, need no single-method interface or mock, and enforce interface segregation: a consumer that only saves receives `T -> IO<Unit>` and not a repository abstraction with lookup beside saving, independent behaviors stay separate functions. Objects and interfaces remain compatible, functional behavior can sit behind a framework controller that handles requests and responses.
-
-Runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
-
-```csharp
-internal sealed record AppRuntime(IConnection Connection, TimeProvider Time) : Has<Eff<AppRuntime>, IConnection> {
-    static K<Eff<AppRuntime>, IConnection> Has<Eff<AppRuntime>, IConnection>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
-}
-
-internal static class Workflow {
-    public static Eff<RT, Entry> Book<RT>(
-        Func<Command, Fin<Command>> validate, Func<Guid, Eff<RT, Option<Entry>>> lookup,
-        Func<Command, IO<Unit>> save, Command command) =>
-        from valid in Eff<RT, Command>.Lift(() => validate(command))
-        from owner in lookup(valid.OwnerId)
-        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(new Fault($"owner {valid.OwnerId}", Reason.Missing)))
-        from _ in save(valid)
-        select found;
-}
-
-internal static class Host {
-    public static Fin<Entry> Book(AppRuntime runtime, Func<Command, IO<Unit>> save, Command command) =>
-        Workflow.Book(Validators.NotPast(runtime.Time.ToZonedClock().GetCurrentDate()), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
-}
-```
-
-Framework entry points stay thin while the behavior they invoke arrives as narrow functions, composition is ordinary function application without an inversion-of-control container, and `Validators.NotPast` is the date-taking validator factory that the host specializes once per request with the date its `TimeProvider` reads.
-
-## [06]-[END_TO_END_FLOW]
-
-Compositional programs are sequences of typed transformations, each step's effect on the value and its enclosing structure stays visible. Reusable operations hold the iteration, branching, and enumeration mechanics, a terminal operation evaluates the preceding lazy sequence. `OrderByDescending` reorders and preserves elements, `Take` reduces cardinality, and `Average` projects and collapses to a scalar:
-
-```csharp
-internal static class DataFlow {
-    public static decimal AverageOfTopQuartile(Seq<Entry> population) =>
-        population
-            .OrderByDescending(static e => e.Amount)
-            .Take(population.Count / 4)
-            .Average(static e => e.Amount);
-}
-```
-
-Functions compose when they are pure, chainable through an instance or extension receiver, general in performing one operation for many uses, structure-preserving in returning the outer structure they accept where possible, and non-`void` in returning data for the next function. Terminal operations reduce, materialize, or perform an effect and end the chain:
-
-```csharp
-internal static class Quartiles {
-    extension(Seq<Entry> population) {
-        public Seq<Entry> TopQuartile() =>
-            toSeq(population.OrderByDescending(static e => e.Amount)).Take(population.Count / 4);
-    }
-    extension(IEnumerable<Entry> population) {
-        public decimal AverageAmount() => population.Average(static e => e.Amount);
-    }
-    public static decimal Result(Seq<Entry> population) => population.TopQuartile().AverageAmount();
-}
-```
-
-Nested lambdas in a fluent chain hide the first incorrect transformation, a query with a `from` clause per stage keeps every stage bound once and inspectable. Large intermediate values stay in scope until the containing function ends, stages combine when a large value must be released sooner:
-
-```csharp
-internal static class Stages {
-    public static Option<int> Inspect(int id) =>
-        from initial in Some(id)
-        from first in StepOne(initial)
-        from second in StepTwo(first)
-        from result in StepThree(second)
-        select result;
-}
-```
-
-Immutable state stays separate from behavior, and a pure transition returns its expected failure as data in the return type, produces a value that later steps consume, and leaves the original state unchanged:
-
-```csharp
-internal sealed record Account(decimal Balance);
-
-internal static class Transitions {
-    extension(Account state) {
-        public Fin<Account> Debit(decimal amount) =>
-            Fault.Unless(state.Balance >= amount, Reason.Invalid, (state.Balance, amount)).Map(_ => new Account(state.Balance - amount));
-    }
-}
-```
-
-Boundary services expose reads as `IO<Option<A>>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `IO.lift`, the one consumer matches absence once through `ToFin` with an `Error` that puts it on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
-
-```csharp
-internal interface IRepository<T> {
-    public IO<Option<T>> Get(Guid id);
-    public IO<Unit> Save(Guid id, T value);
-}
-
-internal sealed class MemoryAccounts : IRepository<Account> {
-    private readonly AtomHashMap<Guid, Account> store = AtomHashMap<Guid, Account>();
-
-    public IO<Option<Account>> Get(Guid id) => IO.lift(() => store.Find(id));
-    public IO<Unit> Save(Guid id, Account value) => IO.lift(() => store.AddOrUpdate(id, value));
-}
-internal sealed class Handler(IRepository<Account> states, Func<Command, Account, IO<Unit>> notify) {
-    public IO<Unit> Handle(Command command) =>
-        from state in Require(states.Get(command.TargetId))
-        from next in IO.lift(Workflow.Handle(command, state))
-        from _ in states.Save(command.TargetId, next)
-        from __ in notify(command, next)
-        select unit;
-
-    private static IO<Account> Require(IO<Option<Account>> lookup) =>
-        lookup.Bind(static option => IO.lift(option.ToFin(new Fault("account", Reason.Missing))));
-}
-```
-
-`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `notify` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new state with pure functions, then persist or communicate at the effect boundary. Terminal steps with more than one effect keep each effect visible. Composition has limits:
-- `Option` short-circuits and discards the reason, a missing state and an insufficient balance read the same, `Fin` keeps the reason
-- Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations
-- Database transactions cannot protect an external call from a process failure after the call and before the commit
-- Multi-system flows persist the combined work atomically, process it until every effect completes, and make repeat execution idempotent
+Composition orders effects without making them atomic: `notify` runs only after `save` succeeds, and a failure between them leaves a saved booking no one hears of. A flow across systems writes its own state and the pending notice in one commit, then delivers the notice until delivery succeeds, each delivery idempotent.

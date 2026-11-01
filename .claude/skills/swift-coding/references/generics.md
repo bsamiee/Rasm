@@ -1,6 +1,6 @@
 # [GENERICS]
 
-Code generic over the types it serves, from constraints and opaque returns to derived conformances, packs, value generics, and macros.
+Code generic over the types it serves, from constraints and opaque returns to conditional conformances, packs, integer generic parameters, and macros.
 
 ## [01]-[CONSTRAINTS]
 
@@ -27,7 +27,7 @@ func overdrawn(_ accounts: some Collection<Account>, below limit: Decimal = 0) -
 }
 ```
 
-## [03]-[DERIVED_CONFORMANCES]
+## [03]-[CONDITIONAL_CONFORMANCES]
 
 Requirements dispatch through the conformance and other extension members bind statically, and an operation a conformer replaces is a requirement with its default in an extension. A conditional conformance derives a container's capability from its elements:
 
@@ -63,7 +63,7 @@ let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity.rawVal
 
 `lines` is a `[Line]`.
 
-## [05]-[VALUE_GENERICS]
+## [05]-[INTEGER_GENERIC_PARAMETERS]
 
 Integer generic parameters state a length shared across positions: the compiler infers `N` from the argument types, rejects arguments of different lengths, and `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
 

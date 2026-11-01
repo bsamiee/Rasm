@@ -14,7 +14,7 @@ Value lifetime picks the owner:
 |  [06]   | Named preset files                    | `bpy.utils.register_preset_path` folder                                                   |
 |  [07]   | Session cache                         | Scope-owned dict keyed by `session_uid`, cleared on `load_post`, `undo_post`, `redo_post` |
 
-Records holding unions, 64-bit integers, or nested tuples store as JSON, whose escaped text holds no NUL byte for an overwrite to cut at, and decode against their class at each read:
+Records holding unions, 64-bit integers, or nested tuples store as JSON with no NUL byte for an overwrite to cut at, and decode against their class at each read:
 
 ```python
 def kept(owner: bpy.types.ID, record: msgspec.Struct, /) -> None:
@@ -29,21 +29,23 @@ def held[S: msgspec.Struct](form: type[S], owner: bpy.types.ID, /) -> Outcome[S]
     )
 ```
 
-`held(Grid, obj)` answers `ABSENT` before the first `kept`, and `INVALID` with the refused key path once `Grid` changes shape. Record class names stay unique among the records one ID holds, the 63-byte key cap leaving no room for a module prefix.
+`held(Grid, obj)` returns `ABSENT` before the first `kept`, and `INVALID` with the refused key path once `Grid` changes shape. Record class names stay unique among records one ID holds, keys leaving no room for a module prefix.
 
 ## [02]-[CREATED_IDS]
 
 Created IDs take their saved lifetime from their users and links:
-- `use_fake_user = True` keeps an ID saved with no other user
-- `<old>.user_remap(<new>)` moves every user onto a replacement before the old ID's removal
-- Writes to data with `users > 1` reach every user, and per-data work runs once per data
-- `objects.link` and `children.link` of an item already linked raise `RuntimeError`, and code tests membership before the link
-- `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine
-- Appends and links fire `blend_import_pre` and `blend_import_post`, where code merges imported duplicates of data it owns
+- `use_fake_user = True` keeps an ID saved as one counted user, and `<old>.user_remap(<new>)` moves every user, the fake user included, onto a replacement before the old ID's removal
+- `objects.link` and `children.link` of a linked item raise `RuntimeError`, and `in` tests on these collections take the item's `name`, an ID raising `TypeError`
+- `children.link` refuses the parent itself and every ancestor of the parent with the duplicate's `RuntimeError("Collection '<child>' already in collection '<parent>'")`, and code tests `parent in (child, *child.children_recursive)` before the link
+- `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine and makes the new scene the window's scene
+- Appends and links fire `blend_import_pre` and `blend_import_post` with a `BlendImportContext`, each `import_items` entry holding the local `id` (`Brick.001`), the source `name` (`Brick`), `source_library`, and `append_action`, and the post handler remaps imported duplicates of data its extension owns onto the original that source name holds
+- `asset_mark()` sets `use_fake_user` and an `asset_data` filed under the nil catalog, an object staying outside every collection, and `asset_clear()` clears both, dropping an ID with no other user at the next save
+- Catalogs are `<uuid>:<path>:<simple name>` lines of `blender_assets.cats.txt` at the asset library root, and `asset_data.catalog_id = <uuid>` files the asset with no check that the line exists, a malformed string ignored with no raise
+- `asset_generate_preview()` renders the 128 by 128 `preview` at the call, an empty object keeping `preview` `None`
 
 ## [03]-[LIBRARY_LOADS]
 
-`libraries.load` takes source names inside its context and holds IDs after it exits, both sides naming the `bpy.data` collection whose `fixed_type` is the nearest class in the requested class's MRO:
+`libraries.load` takes source names inside its context and holds IDs after it exits, both sides naming the `bpy.data` collection with a `fixed_type` nearest the requested class in its MRO:
 
 ```python
 @catch(exception=OSError)
@@ -57,7 +59,7 @@ def loaded(kind: type[bpy.types.ID], path: Path, chosen: Callable[[str], bool], 
 ```
 
 `loaded(bpy.types.Material, path, {"Brick", "Wood"}.__contains__)` appends what the source holds of both names, a repeat call returns the same copies, and `bpy.types.SunLight` reads `lights`:
-- Appends with `reuse_local_id=True` return the local copy an earlier append made, links return the linked ID already present, and both flags together raise `ValueError`
+- Appends with `reuse_local_id=True` return the local copy an earlier append made, links return the present linked ID, and both flags together raise `ValueError`
 - Unreadable paths raise `OSError` at `__enter__`, and a name the source lacks loads as `None` with a `UserWarning`
 - Loads bring every ID a requested ID references
 - `bpy.data.temp_data()` holds another file's loads in a store freed at its exit, session data untouched
@@ -83,10 +85,10 @@ Path properties hold blend-relative paths:
 - `//` paths resolve through `bpy.path.abspath(path, library=block.library)`, linked data relative to its library
 - Unsaved files resolve `//` against the process working directory in `bpy.path.abspath` (`tex.png` for `//tex.png`) and in render writes
 - Script writes, path rewrites included, leave `bpy.data.is_dirty` false in GUI and background runs
-- `wm.save_as_mainfile` remaps relative paths and `wm.save_mainfile` keeps them
+- `wm.save_as_mainfile` rewrites each `//` path to reach the same file from the new folder (`//tex.png` saved from `a/` into `b/deep/` reads `//../../a/tex.png`), `relative_remap=False` keeping the text and so retargeting it, and `copy=True` remapping the written copy with session paths and `bpy.data.filepath` unchanged
 - Saves with `compress` unset keep a saved file's compression and read `use_file_compression` for a file never saved
 - Portable files pack external data through `file.pack_all`, and images from a temporary source pack before the source's removal
-- Scripted `wm.save_mainfile` under `save_modified_images` `ASK` saves no modified image, and images save through `image.save()`
+- Script saves write modified images under `preferences.filepaths.save_modified_images` `ALWAYS_SAVE` alone, `ASK` and `NEVER_SAVE` leaving them unsaved whatever `show_save_modified_images_dialog` holds, and each image saves through `image.save()`
 - `bpy.app.tempdir` names a session folder Blender deletes at quit
 - `bpy.utils.system_resource(kind, path=)` resolves folders and returns `""` for a file, and the file name joins onto its resolved folder
 
@@ -100,5 +102,5 @@ Custom properties hold `int`, `float`, `str`, `bytes`, `bool`, `None`, IDs, stri
 - Lists of dictionaries read back as a `list` of `IDPropertyGroup` items, `to_dict()` returning each item's plain form
 - `id[key] = []` stores an empty integer `IDPropertyArray`
 - ID values, alone or in a list, each count as a user and follow renames, and hold the IDs a stored record names
-- Bytes assigned to a key already holding bytes keep the bytes before the first NUL, while a new key, `update()`, a whole-group write, and `ID.copy()` keep every byte
+- Bytes assigned to a key holding bytes keep the bytes before the first NUL, while a new key, `update()`, a whole-group write, and `ID.copy()` keep every byte
 - `id.id_properties_ui(key).update(min=, max=, default=)` sets the UI range and the Reset to Default value
