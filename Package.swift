@@ -34,7 +34,10 @@ let modules: [Target] = [
     ),
     .target(
         name: "Processes",
-        dependencies: ["Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: [
+            "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
         path: "libs/swift/macos/Processes",
     ),
     .target(
@@ -55,7 +58,7 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "Applications", "Encoding", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            "Applications", "Encoding", "Processes", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"),
         ],

@@ -10,9 +10,9 @@ description: "Use when opening or driving a desktop app, covering background con
 ## [01]-[SEQUENCE]
 
 Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
-1. Start a Monitor running `watch` with the app's bundle id or display name, matched without case or diacritics
-2. Read the start line, the state of every running instance or `{}` for none, a `fail` line names a missing grant or an unmatched name with near candidates
-3. Open the app with `launch`, which sends no activation and exits once the app finishes launching
+1. Start a Monitor running `watch` with the app's bundle id or display name
+2. Read the start lines: `system` pressure, then each app's running instances or `{}` for none
+3. Open the app with `launch`, which sends no activation
 4. Act on each line by its state table row, on the `pid` of the instance work drives
 5. Restart the Monitor with the same command on its expiry notice
 
@@ -26,34 +26,44 @@ watch-apps launch <app> [--new] [--hides] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
 ```
 
-- `launch` prints the instance's state line, a running instance's unless `--new` opens another
-- `--document` opens each file in the app, without one the app opens no document window
+- Names resolve by bundle id through Launch Services, then by Spotlight name or id ignoring case and diacritics, then to the one app containing them
+- Unmatched names print a `fail` line listing candidates, and every other name runs
+- `launch` prints the instance's state lines until it leaves `launching`, a running instance's unless `--new` opens another
+- `--document` opens each reachable file in the app, without one the app opens no document window
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
+- `--hides` launches a new instance hidden and hides it again once launched when `--document` shows its windows, a running instance stays as it is
+- `--new` restores the first instance's documents unless `--arguments -ApplePersistenceIgnoreState --arguments YES` follows it
 - Apps can activate and unhide themselves once launched or once a press answers a dialog they show while launching
 - Apps with an argument that stops their activation take the argument through `--arguments`
-- `--hides` launches a new instance hidden, a running one stays as it is
+- Apps supporting automatic termination can quit a hidden instance that shows no window
 - AppleScript `path to application` launches a stopped app hidden, a hidden menu bar app shows no panel until it restarts
 - Bundle ids installed at more than one path print a `fail` line naming each path
 - Output and error streams of the app are its own, `launch` captures neither
 
-Every command exits 1 after printing a `fail` line and 0 otherwise.
+Every command exits 1 after printing a `fail` line and 0 otherwise, exits when the process that started it exits, and prints help with exit 0 for `--help`. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
 
 ## [02]-[ACTIONS]
 
 Runs other than `watch` act once and exit:
 
 ```bash
-watch-apps read <app> [--pid <pid>]
+watch-apps read <app>... [--pid <pid>]
+watch-apps capture <app>... [--pid <pid>] [--window <window>] [--longest-side <pixels>]
 watch-apps perform <id> <action>
 watch-apps set <id> '<text>'
 ```
 
-- `read` prints one state line holding every window, sheet, and dialog with its contents, and the menu bar with each menu under the item opening it
-- `--pid` selects the one instance `read` prints
-- `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item, `set` writes text to the `AXValue` of a control
-- Ids from a `read` or watch line name one element of one presentation, absent once its window, sheet, or dialog closes or shows again
+- `read` prints one state line per app, each menu under the menu bar item opening it
+- `--pid` selects the one instance `read` or `capture` prints and takes one app
+- `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>.png`
+- `--window` captures one window from a line's `window` field, `--longest-side` scales the image down to that many pixels
+- Hidden and minimized windows have no on-screen window to capture, a capture needs the Screen Recording grant
+- `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
+- `set` writes text to the `AXValue` of a control that lists a settable `AXValue`, every other element prints a `fail` line
+- `set` bypasses the app's change tracking: a document stays unedited, autosave can write the text, and closing asks nothing
+- Ids name one element of one presentation, absent once its window, sheet, or dialog closes or shows again, or the app replaces the element
 - Menu item ids name a position in their menu, rerun `read` after the app changes that menu
-- Menu items of a background app take `AXPress` with no Automation grant
+- Menu items of a background app take `AXPress` with no Automation grant, items a background app disables read `enabled` false
 - Apps showing a modal dialog disable every menu item the dialog does not take
 - Runs print nothing when the app performed the action, the watcher shows its effect as the next state line
 - Runs print a `fail` line keyed by the `id`, its `reason` naming an absent element, `AXRaise`, or an action the app refused
@@ -70,39 +80,54 @@ watch-apps set <id> '<text>'
 ## [03]-[STATES]
 
 Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance of the app, a field the app leaves unknown is absent:
-- States read `{"running": {"status": {"<status>": {<fields>}}}}`, `{"failed": {<fields>}}`, or `{"exited": {<fields>}}`
-- `fail` lines read `{"<bundle id or id>": {"fail": {"reason": <text>}}}`
-- Lines print at start and when an instance's state changes, each showing every running instance of that app
+- States read `{"running": {"status": {"<status>": {<fields>}}, "usage": {<fields>}}}`, `{"failed": {<fields>}}`, or `{"exited": {<fields>}}`
+- `fail` lines read `{"<key>": {"fail": {"reason": <text>}}}`, keyed by name, bundle id, element id, or `watch-apps`
+- `capture` lines read `{"<bundle id>": {"<pid>": {"file": <path>, "windows": [<window>]}}}`
+- `system` lines read `{"system": {"memory": "normal|warning|critical", "thermal": "nominal|fair|serious|critical"}}`, the kernel memory pressure level and thermal state
+- Lines print at start and when a state changes, each showing every running instance of that app
 - Exited instances show in the line of their exit and of their crash report, then leave
-- Launching instances, document windows, panels that do not hold the app, menus, and changes inside them print nothing
 
-`responding` in a watch or `launch` line lists the elements that require an answer, `[]` when none does, in a `read` line every window, sheet, dialog, and the menu bar, each holding:
+`watch` adds a line keyed by `com.apple.UserNotificationCenter`, `com.apple.coreservices.uiagent`, or `com.apple.accessibility.universalAccessAuthWarn` once that process shows a dialog requiring an answer with a title or text naming a watched app, holding those dialogs alone, and a `{}` line once they close. Crash alerts, privacy prompts, downloaded-app warnings, and Accessibility warnings belong to these processes.
+
+`responding` lists elements in every watch, `launch`, and `read` line:
+- Watch and `launch` lines hold each window as an outline and give each element requiring an answer its `detail`
+- `read` lines give every window, sheet, dialog, and the menu bar its `detail`
 - `id` names the element for `perform` and `set`, `window` holds its CoreGraphics window number, absent on the menu bar
 - `role`, `subrole`, `modal` (`AXModal`), `title`, and `description` (`AXDescription`, `alert` on an alert) name the element
+- `subrole` reads `AXDialog` on some hidden and minimized windows
 - `identifier` (`AXIdentifier`) names its kind as AppKit does, `save-panel`, `open-panel`, and `_NS:87` for an alert, shared by every element of that kind
+- `document` holds the window's `AXDocument` file URL, `edited` its close button's `AXEdited`
 - `requiresAnswer` holds for a sheet, a window with `modal` true, or a system dialog, and never for a window that only reads `subrole` `AXDialog`
+- `actions` hold the element's own Accessibility actions other than `AXRaise`
+
+`detail` holds what a walk reads:
+- `frame` reads `[[x, y], [width, height]]` in screen points, `main`, `focused`, and `minimized` the window's flags
 - `text` holds its static text
-- `controls` hold each text field, text area, combo box, pop-up button, check box, radio button, and enabled element or menu item offering `AXPress` once
-- Controls hold `id`, `role`, `subrole`, `label`, `identifier`, `value`, `actions`, and `attribute`
+- `controls` hold each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item offering `AXPress` once
+- Walks descend into scroll areas, the visible rows of tables and outlines, and the visible children of lists, a text area's `value` holds its visible text
+- Controls hold `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, and `attribute`
 - Control `attribute` holds the element attribute naming the control, `AXDefaultButton` answers Return and `AXCancelButton` Escape
-- Control `items` hold the controls of the menu the control opens, absent for a control opening none
+- Control `items` hold the controls of the menu the control opens, absent for a control opening none, the Apple menu is absent
 - Control `identifier` reads `action-button-<n>` on an alert in the order its buttons were added, `OKButton` and `CancelButton` on save and open panels, `PDPrint` and `PSOK` on print and page setup
 - Save and open panels set neither `AXDefaultButton` nor `AXCancelButton`
-- `actions` hold the element's own Accessibility actions other than `AXRaise`
 - `unreadable` lists Accessibility reads the app refused, each with `reads`, `role`, `label`, and AXError `error`
 
-Instances are read once they finish launching and after each Accessibility notification they post. `unresponsive` follows a read or notification registration left unanswered for the messaging timeout of 1 second, the instance is then read once per timeout until it answers, and the next state line follows its answer. A hang no notification reaches prints nothing, a stopped process with nothing asking it prints nothing, and a read refused because the process exited prints nothing before its `exited` line. `exited` reads `status` for an exit or `signal` for a kill, then a second line adds `report` once ReportCrash writes the crash report for that pid, for a signal with a default action that dumps core or a code signing kill.
+`usage` holds `cpu` seconds, `footprint` bytes of physical memory, and `threads`, in every `read` line and in each line turning an instance `unresponsive`. Rising `cpu` beside `unresponsive` `running` shows a busy app, flat `cpu` beside `sleeping` an app waiting on something.
+
+Instances are read at insertion and after each window, sheet, title, focus, or destruction notification they post. A heartbeat asks each instance one attribute once per messaging timeout of 1 second. A stopped process reads `unresponsive` `stopped` with no message sent, a heartbeat left unanswered reads `unresponsive` with the process status, and the next answer prints the instance's state again. `launching` holds until the app finishes launching, unless a dialog requiring an answer shows first. `exited` reads `status` for an exit or `signal` for a kill, then a second line adds `report` once ReportCrash writes the crash report for that pid, for a signal with a default action that dumps core or a code signing kill, or `reportFailure` after 60 seconds without one.
 
 | [INDEX] | [STATE]        | [FIELDS]                                 | [MEANING]                             | [ACTION]                            |
 | :-----: | :------------- | :--------------------------------------- | :------------------------------------ | :---------------------------------- |
-|  [01]   | `responding`   | `elements` `[]`                          | Running with nothing to answer        | Drive the app                       |
-|  [02]   | `responding`   | `elements`                               | Dialog or sheet holds the app         | Press one of its buttons first      |
-|  [03]   | `unresponsive` | None                                     | Accessibility request left unanswered | Wait for the next line              |
-|  [04]   | `failed`       | `reason`                                 | Status read failed                    | Grant access or restart the watcher |
-|  [05]   | `exited`       | `status`, `signal`, `report`, `*Failure` | Instance ended                        | Read the report at its `url`        |
-|  [06]   | `fail`         | `reason`                                 | Watcher or command failure            | Grant access or pass a bundle id    |
+|  [01]   | `launching`    | None                                     | Launching, nothing to answer          | Wait for the next line              |
+|  [02]   | `responding`   | `elements` with no `requiresAnswer`      | Running with nothing to answer        | Drive the app                       |
+|  [03]   | `responding`   | `elements` with `requiresAnswer`         | Dialog or sheet holds the app         | Press one of its buttons first      |
+|  [04]   | `unresponsive` | `process` `running`, `sleeping`          | Accessibility request left unanswered | Read `usage` for the cause          |
+|  [05]   | `unresponsive` | `process` `stopped`                      | Stopped by a signal or debugger       | Resume it or wait                   |
+|  [06]   | `failed`       | `reason`                                 | Status read failed                    | Grant access or restart the watcher |
+|  [07]   | `exited`       | `status`, `signal`, `report`, `*Failure` | Instance ended                        | Read the report at its `url`        |
+|  [08]   | `fail`         | `reason`                                 | Watcher or command failure            | Grant access or pass a bundle id    |
 
-Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type. `statusFailure` and `reportFailure` hold the cause of a failed exit status or crash report read.
+Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type. `statusFailure` and `reportFailure` hold the cause of a failed exit status or crash report read. Interface an app draws itself (a Rhino command prompt, Blender's windows) exposes no Accessibility element, and a capture shows it.
 
 ## [04]-[FOCUS]
 

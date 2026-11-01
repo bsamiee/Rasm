@@ -9,9 +9,9 @@ private struct InfoFlag: Decodable {
 
     init(from decoder: any Decoder) throws {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        value = try Result { try container.decode(Bool.self) }
-            .flatMapError { error in if case DecodingError.typeMismatch = error { Result { try NSString(string: container.decode(String.self)).boolValue } } else { .failure(error) } }
-            .get()
+        do { value = try container.decode(Bool.self) } catch DecodingError.typeMismatch {
+            do { value = try container.decode(Double.self) != 0 } catch DecodingError.typeMismatch { value = try NSString(string: container.decode(String.self)).boolValue }
+        }
     }
 }
 
@@ -43,13 +43,15 @@ extension Installation {
     public init(at url: URL) throws(ApplicationFailure) {
         let bundle: URL = url.resolvingSymlinksInPath()
         let path: String = bundle.path(percentEncoded: false)
-        let (info, values): (BundleInfo?, URLResourceValues) = try Result {
-            try (
+        let (info, values): (BundleInfo?, URLResourceValues)
+        do {
+            (info, values) = try (
                 ifPresent { try Data(contentsOf: bundle.appending(components: "Contents", "Info.plist")) }.map { plist in try PropertyListDecoder().decode(BundleInfo.self, from: plist) },
                 bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
             )
+        } catch {
+            throw ApplicationFailure(subject: path, reason: .host(error))
         }
-        .mapError { error in ApplicationFailure(subject: path, reason: .host(error)) }.get()
         guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .absent("CFBundleIdentifier")) }
         self.init(
             url: bundle,

@@ -26,13 +26,12 @@ extension NSWorkspace {
                 returnID: AEReturnID(kAutoGenerateReturnID),
                 transactionID: AETransactionID(kAnyTransactionID),
             ) : nil
-        let instance: NSRunningApplication = try await Result {
-            try await documents.isEmpty
+        do {
+            return try await documents.isEmpty
                 ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
+        } catch {
+            throw ApplicationFailure(subject: "Launch Services open \(path)", reason: .host(error))
         }
-        .mapError { error in ApplicationFailure(subject: "Launch Services open \(path)", reason: .host(error)) }.get()
-        try await instance.finishedLaunching()
-        return instance
     }
 }
 

@@ -45,6 +45,7 @@ public func termination(of process: pid_t) -> AsyncStream<Result<(status: Termin
                     var exited: kevent = unsafe kevent()
                     var now: timespec = timespec()
                     let read: Int32 = unsafe kevent(queue.fileDescriptor, nil, 0, &exited, 1, &now)
+                    guard read != 0 else { return }
                     let data: Int32 = Int32(truncatingIfNeeded: unsafe exited.data)
                     continuation.yield(
                         read < 0 ? .failure(Errno(rawValue: errno)) : .success((status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))

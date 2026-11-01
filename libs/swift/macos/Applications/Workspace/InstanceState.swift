@@ -2,7 +2,7 @@ public import AppKit
 import AsyncAlgorithms
 public import CasePaths
 public import OrderedCollections
-import Processes
+public import Processes
 public import Subprocess
 public import System
 
@@ -14,22 +14,23 @@ private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIG
 
 @CasePathable
 public enum InstanceState: Sendable {
-    case running(ApplicationStatus)
+    case running(ApplicationStatus, usage: ResourceUsage?)
     case failed(ApplicationFailure)
     case exited(Result<TerminationStatus, Errno>, report: Result<CrashReport, ApplicationFailure>?)
 }
 
 extension InstanceState: Encodable {
     private enum Key: CodingKey {
-        case running, failed, exited, status, reason, signal, statusFailure, report, reportFailure
+        case running, failed, exited, status, usage, reason, signal, statusFailure, report, reportFailure
     }
 
     public func encode(to encoder: any Encoder) throws {
         var state: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch self {
-            case .running(let status):
+            case .running(let status, let usage):
                 var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .running)
                 try fields.encode(status, forKey: .status)
+                try fields.encodeIfPresent(usage, forKey: .usage)
             case .failed(let failure):
                 var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .failed)
                 try fields.encode(failure.localizedDescription, forKey: .reason)
@@ -51,35 +52,36 @@ extension InstanceState: Encodable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension Result<ApplicationStatus, ApplicationFailure> {
-    fileprivate var state: InstanceState {
-        switch self {
-            case .success(let status): .running(status)
+extension NSRunningApplication {
+    var usage: ResourceUsage? {
+        Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) }[case: \.success]
+    }
+
+    func state(of status: Result<ApplicationStatus, ApplicationFailure>, sampling sampled: Bool) -> InstanceState {
+        switch status {
+            case .success(let status): .running(status, usage: sampled || status.is(\.unresponsive) ? usage : nil)
             case .failure(let failure): .failed(failure)
         }
     }
-}
 
-extension NSRunningApplication {
     public func state(walking walked: @Sendable (Element) -> Bool) async -> InstanceState {
-        await status(walking: walked).state
+        state(of: await status(walking: walked), sampling: true)
     }
 
     public func states(
         walking walked: @escaping @Sendable (Element) -> Bool,
         notifications: Set<String>,
         polling interval: Duration,
+        reportWithin limit: Duration = .seconds(60),
+        clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> {
         AsyncStream { continuation in
-            let reports: some AsyncSequence<Result<CrashReport, ApplicationFailure>, Never> = CrashReport.following()
             let following: Task<Void, Never> = Task {
                 let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno>? = await withDiscardingTaskGroup { lifetime in
                     lifetime.addTask {
-                        if !self.isFinishedLaunching { continuation.yield(.running(.launching)) }
-                        guard case .success = await Result(catching: self.finishedLaunching) else { return }
-                        for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, notifications: notifications, polling: interval)
+                        for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, notifications: notifications, polling: interval, clock: clock)
                         where !Task.isCancelled {
-                            continuation.yield(change.state)
+                            continuation.yield(self.state(of: change, sampling: false))
                         }
                     }
                     defer { lifetime.cancelAll() }
@@ -88,20 +90,9 @@ extension NSRunningApplication {
                 guard let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno> else { return continuation.finish() }
                 let status: Result<TerminationStatus, Errno> = exit.map(\.status)
                 continuation.yield(.exited(status, report: nil))
-                let reported: Bool =
-                    switch exit {
-                        case .success(let (status, detail)): detail.contains(.csError) || reportingSignals.contains(status)
-                        case .failure: false
-                    }
-                let report: Result<CrashReport, ApplicationFailure>? =
-                    reported
-                    ? await reports.first { read in
-                        switch read {
-                            case .success(let report): report.pid == self.processIdentifier
-                            case .failure(let failure): failure.reason.is(\.unwatched)
-                        }
-                    } : nil
-                if let report: Result<CrashReport, ApplicationFailure> { continuation.yield(.exited(status, report: report)) }
+                if case .success(let (status, detail)) = exit, detail.contains(.csError) || reportingSignals.contains(status) {
+                    continuation.yield(.exited(.success(status), report: await CrashReport.written(by: self.processIdentifier, within: limit, clock: clock)))
+                }
                 continuation.finish()
             }
             continuation.onTermination = { _ in following.cancel() }
@@ -111,7 +102,7 @@ extension NSRunningApplication {
 
 extension NSWorkspace {
     public func instances(of matching: (NSRunningApplication) -> Bool) -> [NSRunningApplication] {
-        runningApplications.filter { instance in instance.isFinishedLaunching && instance.activationPolicy != .prohibited && matching(instance) }
+        runningApplications.filter { instance in instance.activationPolicy != .prohibited && matching(instance) }
     }
 
     @MainActor
@@ -120,6 +111,8 @@ extension NSWorkspace {
         walking walked: @escaping @Sendable (Element) -> Bool,
         notifications: Set<String>,
         polling interval: Duration,
+        reportWithin limit: Duration = .seconds(60),
+        clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
         let watched: @Sendable (NSRunningApplication) -> Bool = { instance in instance.activationPolicy != .prohibited && matching(instance) }
         let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
@@ -130,9 +123,12 @@ extension NSWorkspace {
         let changes: AsyncStream<(instance: NSRunningApplication, state: InstanceState)> = AsyncStream { change in
             let following: Task<Void, Never> = Task {
                 await withDiscardingTaskGroup { group in
-                    for await instance: NSRunningApplication in inserted {
+                    var followed: Set<NSRunningApplication> = []
+                    for await instance: NSRunningApplication in inserted where followed.insert(instance).inserted {
                         group.addTask {
-                            for await state: InstanceState in instance.states(walking: walked, notifications: notifications, polling: interval) { change.yield((instance, state)) }
+                            for await state: InstanceState in instance.states(walking: walked, notifications: notifications, polling: interval, reportWithin: limit, clock: clock) {
+                                change.yield((instance, state))
+                            }
                         }
                     }
                 }

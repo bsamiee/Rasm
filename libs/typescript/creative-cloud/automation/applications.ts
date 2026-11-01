@@ -19,6 +19,7 @@ const controlFields = {
     identifier: Schema.optionalKey(Schema.String),
     attribute: Schema.optionalKey(Schema.String),
     value: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])),
+    enabled: Schema.Boolean,
     actions: Schema.Array(Schema.String),
 };
 const Control: Schema.Codec<Control> = Schema.Struct({ ...controlFields, items: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Control> => Control))) }).annotate({ identifier: 'Control' });
@@ -33,14 +34,32 @@ const elements = {
             identifier: Schema.optionalKey(Schema.String),
             description: Schema.optionalKey(Schema.String),
             title: Schema.optionalKey(Schema.String),
-            text: Schema.Array(Schema.String),
-            controls: Schema.Array(Control),
+            document: Schema.optionalKey(Schema.URL.annotate({ description: 'AXDocument file' })),
+            edited: Schema.optionalKey(Schema.Boolean.annotate({ description: 'AXEdited of the close button' })),
             actions: Schema.Array(Schema.String),
-            unreadable: Schema.Array(Schema.Struct({ reads: Schema.Array(Schema.String), role: Schema.optionalKey(Schema.String), label: Schema.optionalKey(Schema.String), error: Schema.Int.annotate({ description: 'AXError code' }) })),
             requiresAnswer: Schema.Boolean.annotate({ description: 'Sheet, modal, or system dialog' }),
+            detail: Schema.optionalKey(
+                Schema.Struct({
+                    frame: Schema.optionalKey(Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'AXPosition and AXSize' })),
+                    main: Schema.optionalKey(Schema.Boolean),
+                    focused: Schema.optionalKey(Schema.Boolean),
+                    minimized: Schema.optionalKey(Schema.Boolean),
+                    text: Schema.Array(Schema.String),
+                    controls: Schema.Array(Control),
+                    unreadable: Schema.Array(Schema.Struct({ reads: Schema.Array(Schema.String), role: Schema.optionalKey(Schema.String), label: Schema.optionalKey(Schema.String), error: Schema.Int.annotate({ description: 'AXError code' }) })),
+                }).annotate({ description: 'Contents of a walked element' }),
+            ),
         }),
     ),
 };
+const usage = {
+    usage: Schema.optionalKey(
+        Schema.Struct({ cpu: Schema.Finite.annotate({ description: 'CPU seconds' }), footprint: Schema.Int.annotate({ description: 'Physical footprint bytes' }), threads: Schema.Int }).annotate({
+            description: 'Resource usage on read and on turning unresponsive',
+        }),
+    ),
+};
+const unresponsive = { process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Process status: a running thread, every thread sleeping, or stopped' }) };
 const exit = {
     status: Schema.optionalKey(Schema.Int),
     signal: Schema.optionalKey(Schema.Int),
@@ -49,17 +68,37 @@ const exit = {
     reportFailure: Schema.optionalKey(Schema.String),
 };
 const State = Schema.Union([
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct({}) }) }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Launching', {}), SchemaTransformation.transform({ decode: () => ({ _tag: 'Launching' as const }), encode: () => ({ running: { status: { launching: {} } } }) }))),
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }) }) }).pipe(
-        Schema.decodeTo(Schema.TaggedStruct('Responding', elements), SchemaTransformation.transform({ decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding }), encode: (responding) => ({ running: { status: { responding: Struct.omit(responding, ['_tag']) } } }) })),
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct({}) }), ...usage }) }).pipe(
+        Schema.decodeTo(
+            Schema.TaggedStruct('Launching', usage),
+            SchemaTransformation.transform({
+                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, ['usage']) }),
+                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, ['usage']) } }),
+            }),
+        ),
     ),
-    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct({}) }) }) }).pipe(
-        Schema.decodeTo(Schema.TaggedStruct('Unresponsive', {}), SchemaTransformation.transform({ decode: () => ({ _tag: 'Unresponsive' as const }), encode: () => ({ running: { status: { unresponsive: {} } } }) })),
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }), ...usage }) }).pipe(
+        Schema.decodeTo(
+            Schema.TaggedStruct('Responding', { ...elements, ...usage }),
+            SchemaTransformation.transform({
+                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, ...Struct.pick(running, ['usage']) }),
+                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements']) }, ...Struct.pick(responding, ['usage']) } }),
+            }),
+        ),
+    ),
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct(unresponsive) }), ...usage }) }).pipe(
+        Schema.decodeTo(
+            Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage }),
+            SchemaTransformation.transform({
+                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, ['usage']) }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process']) }, ...Struct.pick(value, ['usage']) } }),
+            }),
+        ),
     ),
     Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
-    .annotate({ description: 'Windows, sheets, and menus while responding, unresponsive past Accessibility timeout, failed on status read' })
+    .annotate({ description: 'Windows, sheets, and menus while responding, the process status when unresponsive past Accessibility timeout, failed on status read' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(

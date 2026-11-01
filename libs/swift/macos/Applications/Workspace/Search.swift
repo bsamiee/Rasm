@@ -1,6 +1,8 @@
+public import AppKit
 import AsyncAlgorithms
+import CasePaths
 import CoreServices
-public import Foundation
+import OrderedCollections
 public import Results
 import UniformTypeIdentifiers
 
@@ -21,6 +23,44 @@ extension NSMetadataQuery {
 extension Installation {
     @MainActor
     public static func search(_ predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Result<[Self], AggregateError<ApplicationFailure>>, Never> & Sendable {
+        listings(predicate, in: directories)
+            .map { listed in AggregateError(listed.failures).map(Result.failure) ?? .success(listed.installations) }
+            .removeDuplicates { previous, next in if case (.success(let previous), .success(let next)) = (previous, next) { previous == next } else { false } }
+    }
+
+    @MainActor
+    public static func installed(named name: String, in directories: [URL] = []) async throws(ApplicationFailure) -> [Self] {
+        func listing(_ comparison: NSComparisonPredicate.Operator) async throws(ApplicationFailure) -> [Self] {
+            let matching: NSPredicate = NSCompoundPredicate(
+                orPredicateWithSubpredicates: [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey].map { key in
+                    NSComparisonPredicate(
+                        leftExpression: NSExpression(forKeyPath: key),
+                        rightExpression: NSExpression(forConstantValue: name),
+                        modifier: .direct,
+                        type: comparison,
+                        options: [.caseInsensitive, .diacriticInsensitive],
+                    )
+                }
+            )
+            guard let listed: [Self] = await listings(matching, in: directories).first(where: { @Sendable _ in true })?.installations else {
+                throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled(CancellationError()))
+            }
+            return listed
+        }
+        let registered: [Self] = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).compactMap { url in
+            Result { () throws(ApplicationFailure) in try Self(at: url) }[case: \.success]
+        }
+        guard registered.isEmpty else { return registered }
+        let exact: [Self] = try await listing(.equalTo)
+        guard exact.isEmpty else { return exact }
+        let near: [Self] = try await listing(.contains)
+        let identifiers: OrderedSet<String> = OrderedSet(near.map(\.identifier))
+        guard identifiers.count != 1 else { return near }
+        throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: Array(identifiers))))
+    }
+
+    @MainActor
+    private static func listings(_ predicate: NSPredicate, in directories: [URL]) -> some AsyncSequence<(installations: [Self], failures: [ApplicationFailure]), Never> & Sendable {
         AsyncStream { continuation in
             let following: Task<Void, Never> = Task { @MainActor in
                 let query: NSMetadataQuery = NSMetadataQuery()
@@ -44,44 +84,14 @@ extension Installation {
             }
             continuation.onTermination = { _ in following.cancel() }
         }
-        .removeDuplicates { previous, next in if case (.success(let previous), .success(let next)) = (previous, next) { previous == next } else { false } }
-    }
-
-    @MainActor
-    public static func installed(named name: String, in directories: [URL] = []) async throws(AggregateError<ApplicationFailure>) -> [Self] {
-        func listing(_ comparison: NSComparisonPredicate.Operator) async throws(AggregateError<ApplicationFailure>) -> [Self] {
-            let matching: NSPredicate = NSCompoundPredicate(
-                orPredicateWithSubpredicates: [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey].map { key in
-                    NSComparisonPredicate(
-                        leftExpression: NSExpression(forKeyPath: key),
-                        rightExpression: NSExpression(forConstantValue: name),
-                        modifier: .direct,
-                        type: comparison,
-                        options: [.caseInsensitive, .diacriticInsensitive],
-                    )
-                }
-            )
-            let first: Result<[Self], AggregateError<ApplicationFailure>>? = await search(matching, in: directories).first { @Sendable _ in true }
-            return try (first ?? .failure(AggregateError(first: ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled(CancellationError()))))).get()
-        }
-        return switch try await listing(.equalTo) {
-            case []:
-                throw AggregateError(
-                    first: ApplicationFailure(
-                        subject: name,
-                        reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: try await listing(.contains).map(\.identifier))),
-                    )
-                )
-            case let found: found
-        }
     }
 
     @concurrent
-    static func listed(_ paths: [String?]) async -> Result<[Self], AggregateError<ApplicationFailure>> {
-        traverse(paths.enumerated()) { index, path in
-            (path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
-                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .absent(NSMetadataItemPathKey))))
-                .aggregated(\.self)
+    static func listed(_ paths: [String?]) async -> (installations: [Self], failures: [ApplicationFailure]) {
+        let reads: [Result<Self, ApplicationFailure>] = paths.enumerated().map { index, path in
+            path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
+                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .absent(NSMetadataItemPathKey)))
         }
+        return (reads.compactMap { read in read[case: \.success] }, reads.compactMap { read in read[case: \.failure] })
     }
 }

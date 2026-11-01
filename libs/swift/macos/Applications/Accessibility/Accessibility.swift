@@ -18,11 +18,6 @@ public func checkAccessibilityTrust(prompting: Bool = false) throws(ApplicationF
     }
 }
 
-func vanished(_ process: pid_t) -> Bool {
-    var info: proc_bsdinfo = proc_bsdinfo()
-    return unsafe proc_pidinfo(process, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) <= 0 && errno == ESRCH
-}
-
 private func ownLabel(_ read: [String: CFTypeRef]) -> String? {
     labelAttributes.lazy.compactMap { attribute in read[attribute] as? String }.first { label in !label.isEmpty }
 }
@@ -40,13 +35,17 @@ extension JSONValue {
 
 extension AXError {
     init?(_ slot: CFTypeRef) {
-        switch slot {
-            case let value as AXValue where CFGetTypeID(value) == AXValueGetTypeID() && AXValueGetType(value) == .axError:
-                var error: AXError = .success
-                _ = unsafe AXValueGetValue(value, .axError, &error)
-                self = error
-            default: return nil
-        }
+        guard let error: AXError = AXValue.unpacked(slot, .axError, Self.success) else { return nil }
+        self = error
+    }
+}
+
+extension AXValue {
+    static func unpacked<Value: BitwiseCopyable>(_ slot: CFTypeRef?, _ type: AXValueType, _ empty: Value) -> Value? {
+        guard let slot: CFTypeRef, CFGetTypeID(slot) == AXValueGetTypeID() else { return nil }
+        let value: AXValue = unsafe unsafeDowncast(slot, to: AXValue.self)
+        var unpacked: Value = empty
+        return unsafe AXValueGetType(value) == type && AXValueGetValue(value, type, &unpacked) ? unpacked : nil
     }
 }
 
@@ -67,15 +66,13 @@ extension AXUIElement {
 
     // --- [READS]
     func failure(_ error: AXError, reading reads: [String], among read: [String: CFTypeRef] = [:]) -> ApplicationFailure {
-        switch error {
-            case .apiDisabled: ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
-            case .cannotComplete: ApplicationFailure(subject: "element \(token.base64EncodedString())", reason: .unanswered(nil))
-            default:
-                ApplicationFailure(
-                    subject: "element \(token.base64EncodedString())",
-                    reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error.rawValue)),
-                )
-        }
+        let subject: String = "element \(token.base64EncodedString())"
+        return ApplicationFailure(
+            error,
+            subject: subject,
+            process: process,
+            otherwise: ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error.rawValue))),
+        )
     }
 
     func values(_ attributes: [String]) throws(ApplicationFailure) -> [String: CFTypeRef] {
@@ -119,6 +116,15 @@ extension AXUIElement {
         }
     }
 
+    func attributeNames() throws(ApplicationFailure) -> [String] {
+        var names: CFArray?
+        return switch unsafe AXUIElementCopyAttributeNames(self, &names) {
+            case .success: names as? [String] ?? []
+            case .failure, .invalidUIElement: []
+            case let error: throw failure(error, reading: ["AXUIElementCopyAttributeNames"])
+        }
+    }
+
     func actionNames() throws(ApplicationFailure) -> [String] {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
@@ -128,11 +134,13 @@ extension AXUIElement {
         }
     }
 
-    func children(where kept: ((String?) -> Bool)? = nil) throws(ApplicationFailure) -> [AXUIElement] {
-        let children: [AXUIElement] = try elements(kAXChildrenAttribute)
-        return switch kept {
-            case .some(let kept): try children.map { child throws(ApplicationFailure) in try kept(child.value(kAXRoleAttribute)) ? child : nil }.compactMap(\.self)
-            case .none: children
+    func visibleText() throws(ApplicationFailure) -> String? {
+        guard let range: CFTypeRef = try values([kAXVisibleCharacterRangeAttribute])[kAXVisibleCharacterRangeAttribute] else { return nil }
+        var text: CFTypeRef?
+        return switch unsafe AXUIElementCopyParameterizedAttributeValue(self, kAXStringForRangeParameterizedAttribute as CFString, range, &text) {
+            case .success: text as? String
+            case .noValue, .attributeUnsupported, .parameterizedAttributeUnsupported, .invalidUIElement: nil
+            case let error: throw failure(error, reading: [kAXStringForRangeParameterizedAttribute])
         }
     }
 

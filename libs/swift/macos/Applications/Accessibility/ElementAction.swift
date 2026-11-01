@@ -29,16 +29,16 @@ extension ElementAction {
     @concurrent
     public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            let named: String = "element \(element.base64EncodedString())"
-            let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open \(named)"))
+            let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open element \(element.base64EncodedString())"))
             guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
             func written(_ value: String) throws(ApplicationFailure) -> AXError {
                 var settable: DarwinBoolean = false
-                let checked: AXError = unsafe AXUIElementIsAttributeSettable(node, kAXValueAttribute as CFString, &settable)
-                return switch (checked, settable.boolValue) {
-                    case (.success, true): AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString)
-                    case (.success, false): throw ApplicationFailure(subject: named, reason: .absent("settable \(kAXValueAttribute)"))
-                    case (let error, _): throw ApplicationFailure(subject: description, reason: .refused(error))
+                let unsettable: ApplicationFailure = ApplicationFailure(subject: "element \(element.base64EncodedString())", reason: .absent("settable \(kAXValueAttribute)"))
+                guard try node.attributeNames().contains(kAXValueAttribute) else { throw unsettable }
+                return switch unsafe AXUIElementIsAttributeSettable(node, kAXValueAttribute as CFString, &settable) {
+                    case .success where settable.boolValue: AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString)
+                    case .success: throw unsettable
+                    case let error: error
                 }
             }
             let outcome: AXError =
@@ -47,13 +47,14 @@ extension ElementAction {
                     case .perform(_, let action): AXUIElementPerformAction(node, action as CFString)
                     case .set(_, let value): try written(value)
                 }
-            switch (outcome, node.process) {
-                case (.success, _): return
-                case (.invalidUIElement, _): throw absent
-                case (.cannotComplete, .some(let pid)) where vanished(pid): throw ApplicationFailure(subject: String(pid), reason: .noProcess)
-                case (.cannotComplete, _): throw ApplicationFailure(subject: description, reason: .unanswered(self))
-                case (let error, _): throw ApplicationFailure(subject: description, reason: .refused(error))
-            }
+            guard outcome != .success else { return }
+            throw ApplicationFailure(
+                outcome,
+                subject: description,
+                process: node.process,
+                answering: self,
+                otherwise: outcome == .invalidUIElement ? absent : ApplicationFailure(subject: description, reason: .refused(outcome)),
+            )
         }
     }
 }
