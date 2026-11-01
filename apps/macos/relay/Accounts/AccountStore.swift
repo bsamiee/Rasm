@@ -207,9 +207,9 @@ final class AccountStore {
         }
         func observe(file: URL, provider: Provider) async {
             do {
-                for try await _ in FileWatch.events(of: file).map({ next in
-                    _ = try next.get()
-                    return try ifPresent { try Data(contentsOf: file) }.get()
+                for try await _ in FileEvent.events(of: file).map({ batch in
+                    _ = try batch.get()
+                    return try ifPresent { try Data(contentsOf: file) }
                 }).removeDuplicates()
                     .dropFirst().debounce(for: .milliseconds(300))
                 {
@@ -251,10 +251,7 @@ final class AccountStore {
         func observeRefreshLock() async {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
-                for try await present: Bool in FileWatch.events(of: lock).map({ next in
-                    _ = try next.get()
-                    return FileManager.default.fileExists(atPath: lock.path(percentEncoded: false))
-                }).removeDuplicates().dropFirst()
+                for try await present: Bool in FileEvent.presence(of: lock).map({ present in try present.get() }).removeDuplicates().dropFirst()
                 where !present {
                     logger.debug("Claude refresh lock released")
                     await readSelection(.claude)
@@ -754,7 +751,9 @@ final class AccountStore {
     }
 
     private func removeAccountDirectory(_ id: UUID) {
-        if case .failure(let error) = ifPresent({ try FileManager.default.removeItem(at: locations.accountDirectory(id)) }) {
+        do {
+            _ = try ifPresent { try FileManager.default.removeItem(at: locations.accountDirectory(id)) }
+        } catch {
             logger.error("Account \(id, privacy: .public) directory remove failed with \(error, privacy: .public)")
         }
     }

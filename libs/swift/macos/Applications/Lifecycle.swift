@@ -4,12 +4,13 @@ import Carbon.OpenScripting
 public import CasePaths
 import Combine
 public import OrderedCollections
+import Processes
 import Subprocess
 import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let reportingSignals: Set<Int32> = [SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS]
+private let reportingStatuses: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS].map(TerminationStatus.signaled))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -139,7 +140,7 @@ extension NSRunningApplication {
         AsyncStream { continuation in
             let reports: some AsyncSequence<Result<CrashReport, CrashReportFailure>, Never> = CrashReport.following()
             let following: Task<Void, Never> = Task {
-                let exit: Result<Int32, Errno>? = await withDiscardingTaskGroup { lifetime in
+                let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno>? = await withDiscardingTaskGroup { lifetime in
                     lifetime.addTask {
                         if !self.isFinishedLaunching { continuation.yield(.running(status: .launching)) }
                         guard case .success = await self.finishedLaunching() else { return }
@@ -150,16 +151,15 @@ extension NSRunningApplication {
                         }
                     }
                     defer { lifetime.cancelAll() }
-                    return await self.termination().first { _ in true }
+                    return await termination(of: self.processIdentifier).first { _ in true }
                 }
-                guard let exit: Result<Int32, Errno> else { return continuation.finish() }
-                let status: Result<TerminationStatus, Errno> = exit.map(TerminationStatus.init(waitStatus:))
+                guard let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno> else { return continuation.finish() }
+                let status: Result<TerminationStatus, Errno> = exit.map(\.status)
                 continuation.yield(InstanceState(status, report: nil))
                 let reported: Bool =
-                    switch (exit, status) {
-                        case (.success(let data), .success(.signaled(let signal))): reportingSignals.contains(signal) || data & NOTE_EXIT_CSERROR != 0
-                        case (.success(let data), .success(.exited)): data & NOTE_EXIT_CSERROR != 0
-                        case (.failure, _), (_, .failure): false
+                    switch exit {
+                        case .success(let (status, detail)): detail.contains(.csError) || reportingStatuses.contains(status)
+                        case .failure: false
                     }
                 let report: Result<CrashReport, CrashReportFailure>? =
                     reported
@@ -181,45 +181,5 @@ extension NSRunningApplication {
         await publisher(for: \.isFinishedLaunching).combineLatest(publisher(for: \.isTerminated)).compactMap { done, gone in done || gone ? done : nil }
             .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values.first { _ in true }
             .map { done in done ? .success(()) : .failure(.terminated) } ?? .failure(.cancelled)
-    }
-
-    private func termination() -> AsyncStream<Result<Int32, Errno>> {
-        AsyncStream { continuation in
-            let registered: Result<FileHandle, Errno> = Result { () throws(Errno) in
-                let descriptor: Int32 = kqueue()
-                guard descriptor >= 0 else { throw Errno(rawValue: errno) }
-                let queue: FileHandle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-                var exit: kevent = unsafe kevent(
-                    ident: UInt(processIdentifier),
-                    filter: Int16(EVFILT_PROC),
-                    flags: UInt16(EV_ADD | EV_ONESHOT),
-                    fflags: NOTE_EXIT | UInt32(NOTE_EXITSTATUS) | UInt32(NOTE_EXIT_DETAIL),
-                    data: 0,
-                    udata: nil,
-                )
-                guard unsafe kevent(descriptor, &exit, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
-                return queue
-            }
-            switch registered {
-                case .success(let queue):
-                    queue.readabilityHandler = { queue in
-                        var exited: kevent = unsafe kevent()
-                        var now: timespec = timespec()
-                        let read: Int32 = unsafe kevent(queue.fileDescriptor, nil, 0, &exited, 1, &now)
-                        continuation.yield(read < 0 ? .failure(Errno(rawValue: errno)) : .success(Int32(truncatingIfNeeded: unsafe exited.data)))
-                        continuation.finish()
-                    }
-                    continuation.onTermination = { _ in queue.readabilityHandler = nil }
-                case .failure(let error):
-                    continuation.yield(.failure(error))
-                    continuation.finish()
-            }
-        }
-    }
-}
-
-extension TerminationStatus {
-    init(waitStatus status: Int32) {
-        self = status & _WSTOPPED == 0 ? .exited(status >> 8 & 0xff) : .signaled(status & _WSTOPPED)
     }
 }

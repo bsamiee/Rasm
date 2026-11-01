@@ -116,7 +116,7 @@ actor CodexClient: ProviderClient {
     }
 
     private func remove(_ url: URL) throws(CodexFailure) {
-        _ = try ifPresent { try FileManager.default.removeItem(at: url) }.mapError(CodexFailure.storage).get()
+        do { _ = try ifPresent { try FileManager.default.removeItem(at: url) } } catch { throw .storage(error) }
     }
 
     // --- [SIGN_IN]
@@ -209,7 +209,7 @@ actor CodexClient: ProviderClient {
             arguments: ["app-server"],
             environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key) })
                 .updating(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]),
-            platformOptions: .session,
+            platformOptions: .session(),
         )
         let ready:
             (
@@ -253,7 +253,7 @@ actor CodexClient: ProviderClient {
                     "codex app-server for \(home.path(percentEncoded: false), privacy: .private) ended with \(status, privacy: .public), stopped by Relay \(Task.isCancelled, privacy: .public)",
                 )
             } catch {
-                ready.continuation.yield(.failure(CodexFailure(process: error)))
+                ready.continuation.yield(.failure(CodexFailure(process: ProcessFailure(subject: invocation.executable.description, error))))
                 ready.continuation.finish()
             }
         }

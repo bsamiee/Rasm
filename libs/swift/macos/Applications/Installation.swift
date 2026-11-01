@@ -45,7 +45,7 @@ public struct Installation: Encodable, Hashable, Sendable {
         return Result { () throws(DiscoveryFailure) in
             let (info, values): (BundleInfo?, URLResourceValues) = try Result {
                 try (
-                    ifPresent { try Data(contentsOf: bundle.appending(components: "Contents", "Info.plist")) }.get().map { plist in try PropertyListDecoder().decode(BundleInfo.self, from: plist) },
+                    ifPresent { try Data(contentsOf: bundle.appending(components: "Contents", "Info.plist")) }.map { plist in try PropertyListDecoder().decode(BundleInfo.self, from: plist) },
                     bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
                 )
             }

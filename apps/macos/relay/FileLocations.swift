@@ -38,11 +38,13 @@ nonisolated struct FileLocations: Sendable {
     }
 
     func orphanAccountDirectories(excluding known: Set<UUID>) -> Result<[UUID], any Error> {
-        ifPresent {
-            try FileManager.default.contentsOfDirectory(
-                at: accountsDirectory,
-                includingPropertiesForKeys: [],
-            )
+        Result {
+            try ifPresent {
+                try FileManager.default.contentsOfDirectory(
+                    at: accountsDirectory,
+                    includingPropertiesForKeys: [],
+                )
+            }
         }
         .map { entries in
             (entries ?? []).compactMap { entry in UUID(uuidString: entry.lastPathComponent) }

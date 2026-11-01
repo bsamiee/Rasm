@@ -6,7 +6,6 @@ import Foundation
 import HTTPTypes
 import HTTPTypesFoundation
 import Processes
-import Results
 import Subprocess
 import System
 import os
@@ -86,8 +85,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     nonisolated func pendingSwitch() -> Result<ClaudePendingSwitch?, ProviderError> {
-        ifPresent { try Data(contentsOf: paths.claudeSelectionFile) }
-            .flatMap { data in Result { try data.flatMap { data in try JSONDecoder().decode(ClaudePendingSwitch?.self, from: data) } } }
+        Result { try ifPresent { try Data(contentsOf: paths.claudeSelectionFile) }.flatMap { data in try JSONDecoder().decode(ClaudePendingSwitch?.self, from: data) } }
             .mapError { error in ProviderError(failure: ClaudeFailure.filesystem(error)) }
     }
 
@@ -387,16 +385,11 @@ actor ClaudeClient: ProviderClient {
             executable: .name("claude"),
             arguments: arguments,
             environment: .custom(environment.filter { key, _ in !["ANTHROPIC_", "CLAUDE_", "CCR_"].contains(where: key.rawValue.hasPrefix) }).updating(store.variables),
-            platformOptions: .session,
+            platformOptions: .session(),
         )
-        let result: ExecutionResult<Void, Output, DiscardedOutput> = try await withTimeout(timeout, expired: .timedOut(timeout)) { [invocation] () async throws(ClaudeFailure) in
-            do {
-                return try await Subprocess.run(invocation, input: input, output: output)
-            } catch {
-                throw ClaudeFailure(child: error)
-            }
-        }
-        guard result.terminationStatus.isSuccess else { throw .process(.exit(result.terminationStatus)) }
-        return result.standardOutput
+        return try await Result { () async throws(ProcessFailure) in try await invocation.run(output: output, within: timeout, input: input) }
+            .mapError(ClaudeFailure.init(child:))
+            .get()
+            .standardOutput
     }
 }

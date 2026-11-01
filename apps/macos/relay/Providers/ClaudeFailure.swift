@@ -1,10 +1,10 @@
 import CasePaths
+import Files
 import Foundation
 import HTTPTypes
-import Keychain
-import Lockfiles
 import Processes
 import Results
+import Security
 import Subprocess
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -68,8 +68,9 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case signInRequired
     case accountOnHold(URL)
     case process(ProcessFailure)
-    case keychain(KeychainFailure)
     case filesystem(any Error)
+    case interactionNotAllowed
+    case credentialTooLong
     case invalidCredentials(any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
     case invalidResponse(ClaudeEndpoint, any Error?)
@@ -79,16 +80,15 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case transport(any Error)
     case accountChanged
     case protocolFailure
-    case timedOut(Duration)
     case cancelled(CancellationError)
-    case lock(LockfileFailure)
+    case lock(FileFailure)
     indirect case cleanup(operation: Self, release: Self)
 
-    init(child error: any Error) {
+    init(child failure: ProcessFailure) {
         self =
-            switch ProcessFailure(error) {
+            switch failure.reason {
                 case .subprocess(let error) where error.code == .executableNotFound: .executableMissing
-                case let failure: Self(process: failure)
+                default: Self(process: failure)
             }
     }
 
@@ -110,7 +110,7 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
 
     var isAccountMismatch: Bool { cause.is(\.accountChanged) }
 
-    var isCancellation: Bool { cause.is(\.cancelled) || cause.is(\.keychain.process.cancelled) }
+    var isCancellation: Bool { cause.is(\.cancelled) }
 
     var retryAfter: Date? { cause[case: \.rateLimited]?.until }
 
@@ -120,8 +120,9 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
             case .signInRequired: "Sign in required"
             case .accountOnHold(let url): "Account on hold, visit \(url.absoluteString)"
             case .process(let failure): failure.localizedDescription
-            case .keychain(let failure): failure.localizedDescription
             case .filesystem(let error): "Claude file access failed. \(error.localizedDescription)"
+            case .interactionNotAllowed: SecCopyErrorMessageString(errSecInteractionNotAllowed, nil) as String?
+            case .credentialTooLong: "Claude credential exceeds security -i line buffer of 4096 bytes"
             case .invalidCredentials: "Unreadable Claude credential"
             case .invalidIdentity: "Incomplete Claude account identity"
             case .invalidResponse(let endpoint, _): "Unreadable Claude \(endpoint) response"
@@ -132,9 +133,8 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
             case .transport(let error): "Claude unreachable. \(error.localizedDescription)"
             case .accountChanged: "Signed in to different Claude account"
             case .protocolFailure: "Unexpected Claude Code response"
-            case .timedOut(let timeout): "Claude Code timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "Claude Code was canceled"
-            case .lock(.held): "Claude credential update in progress, retry after it finishes"
+            case .lock(let failure) where failure.reason.is(\.held): "Claude credential update in progress, retry after it finishes"
             case .lock(let failure): failure.localizedDescription
             case .cleanup(let operation, _): operation.localizedDescription
         }

@@ -4,7 +4,6 @@ import Foundation
 
 private nonisolated let separator: String = " · "
 private nonisolated let awaitingUpdate: String = "Awaiting update"
-private nonisolated let blockedText: String = "Blocked"
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,7 +48,7 @@ extension UsageState {
     func note(at now: Date) -> String? {
         switch (usage, usage?.isBlocked, usage?.signInExpiresAt) {
             case (.none, _, _): awaitingUpdate
-            case (.some(let usage), true, _): [blockedText, usage.weekly?.resetsAt?.resetText(at: now)].compactMap(\.self).joined(separator: separator)
+            case (.some(let usage), true, _): ["Blocked", usage.weekly?.resetsAt?.resetText(at: now)].compactMap(\.self).joined(separator: separator)
             case (.some, _, .some(let expiry)) where expiry <= now: "Sign-in expired"
             case (.some, _, _): nil
         }

@@ -1,4 +1,5 @@
 import AppKit
+import CasePathsCore
 import CurrentProcess
 import Observation
 import Processes
@@ -51,14 +52,14 @@ struct RelayApp: App {
 
 @Observable
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private(set) var store: Result<AccountStore, LoginShellFailure>?
+    private(set) var store: Result<AccountStore, ProcessFailure>?
     @ObservationIgnored private var launch: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_: Notification) {
         let logger: Logger = Logger(for: AppDelegate.self)
         launch = Task(name: "Launch Relay") { [self] in
-            switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
-                case .failure(.run(.cancelled)): logger.info("Quit canceled launch during login shell read")
+            switch await Result(catching: { () async throws(ProcessFailure) in try await loginShellEnvironment(within: .seconds(5)) }).map(AccountStore.init(environment:)) {
+                case .failure(let failure) where failure.reason.is(\.cancelled): logger.info("Quit canceled launch during login shell read")
                 case let launched:
                     store = launched
                     switch launched {

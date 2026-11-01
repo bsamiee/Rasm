@@ -76,11 +76,11 @@ nonisolated protocol ProviderFailure: LocalizedError {
 }
 
 nonisolated extension ProviderFailure {
-    init(process error: any Error) {
+    init(process failure: ProcessFailure) {
         self =
-            switch ProcessFailure(error) {
+            switch failure.reason {
                 case .cancelled(let error): .cancelled(error)
-                case let failure: .process(failure)
+                default: .process(failure)
             }
     }
 }

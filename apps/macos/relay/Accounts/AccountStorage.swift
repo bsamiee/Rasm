@@ -46,8 +46,7 @@ actor AccountStorage {
     func load(at now: Date) -> Result<[SavedAccount], AccountStorageFailure> {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return ifPresent { try Data(contentsOf: fileURL) }
-            .flatMap { data in Result { try data.map { data in try decoder.decode(Document.self, from: data) } } }
+        return Result { try ifPresent { try Data(contentsOf: fileURL) }.map { data in try decoder.decode(Document.self, from: data) } }
             .mapError(AccountStorageFailure.read)
             .flatMap { document in
                 document?.savedAccounts(at: now) ?? .success([])

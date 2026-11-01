@@ -43,10 +43,10 @@ public struct CrashReport: Codable, Hashable, Sendable {
     public static func reports(for identifier: String) -> (reports: [Self], failures: [CrashReportFailure]) {
         let keys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey, .contentModificationDateKey]
         func walk(_ url: URL) -> [Result<(report: Self, date: Date?), CrashReportFailure>] {
-            let read: Result<[Result<(report: Self, date: Date?), CrashReportFailure>], any Error> = ifPresent { try url.resourceValues(forKeys: keys) }.flatMap { values in
+            let read: Result<[Result<(report: Self, date: Date?), CrashReportFailure>], any Error> = Result { try ifPresent { try url.resourceValues(forKeys: keys) } }.flatMap { values in
                 switch (values?.isDirectory, values?.isRegularFile, url.pathExtension) {
                     case (true?, _, _):
-                        ifPresent { try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) }.map { entries in
+                        Result { try ifPresent { try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) } }.map { entries in
                             (entries ?? []).flatMap(walk)
                         }
                     case (_, true?, "ips"): .success(read(url).map { read in read.map { report in (report, values?.contentModificationDate) } })
@@ -68,17 +68,17 @@ public struct CrashReport: Codable, Hashable, Sendable {
     }
 
     static func read(_ file: URL) -> [Result<Self, CrashReportFailure>] {
-        switch ifPresent({ try Self(contentsOf: file) }) {
+        switch Result(catching: { try ifPresent { try Self(contentsOf: file) } }) {
             case .success(let report): [report.flatMap(\.self)].compactMap { report in report.map(Result.success) }
             case .failure(let error): [.failure(.unreadable(file, error))]
         }
     }
 
     public static func following() -> some AsyncSequence<Result<Self, CrashReportFailure>, Never> {
-        FileWatch.events(of: directory).flatMap { change -> AsyncSyncSequence<[Result<Self, CrashReportFailure>]> in
+        FileEvent.events(of: directory).flatMap { change -> AsyncSyncSequence<[Result<Self, CrashReportFailure>]> in
             switch change {
-                case .success(let files): files.filter { file in file.pathExtension == "ips" }.flatMap(read).async
-                case .failure(let error): [Result.failure(.unwatched(error))].async
+                case .success(let batch): batch.map(\.url).filter { url in url.pathExtension == "ips" }.flatMap(read).async
+                case .failure(let error): [.failure(.unwatched(error))].async
             }
         }
     }
@@ -87,7 +87,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum CrashReportFailure: CustomNSError, LocalizedError {
-    case unwatched(FileWatchFailure)
+    case unwatched(FileFailure)
     case unreadable(URL, any Error)
 
     public var errorDescription: String? {

@@ -45,7 +45,7 @@ struct AccountMenuItems: View {
 }
 
 struct MenuBarExtraContent: View {
-    let store: Result<AccountStore, LoginShellFailure>?
+    let store: Result<AccountStore, ProcessFailure>?
     let updater: SPUUpdater
 
     @Environment(\.openWindow) private var openWindow: OpenWindowAction

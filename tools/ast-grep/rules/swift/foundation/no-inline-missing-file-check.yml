@@ -2,12 +2,6 @@
 id: no-inline-missing-file-check
 language: swiftlang
 severity: error
-utils:
-    read-if-present:
-        kind: function_declaration
-        all:
-            - has: {kind: parameter, has: {kind: function_type, regex: '\bthrows\b'}}
-            - has: {kind: user_type, has: {stopBy: end, kind: optional_type}}
 rule:
     kind: simple_identifier
     regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError|fileDoesNotExist|(kCF|NS)URLErrorFileDoesNotExist)$'
@@ -17,6 +11,6 @@ rule:
         - inside: {stopBy: &owner {kind: 'statements, lambda_literal'}, kind: 'if_statement, guard_statement, while_statement', has: {field: condition, regex: '^case$'}}
         - inside: {stopBy: *owner, kind: 'equality_expression, comparison_expression'}
         - inside: {stopBy: *owner, kind: call_expression, has: {nthChild: 1, regex: '\.contains$'}}
-    not: {inside: {stopBy: end, matches: read-if-present}}
+    not: {inside: {stopBy: end, kind: function_declaration, has: {field: name, regex: '^ifPresent$'}}}
 message: '`$SITE` matches a missing-file error outside `ifPresent(_:)`'
-note: 'Run the throwing read through `ifPresent { }` from `Files` for `.success(nil)` on a missing file'
+note: 'Run the throwing read through `ifPresent { }` from `Files` for `nil` on a missing file'

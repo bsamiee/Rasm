@@ -27,7 +27,11 @@ let modules: [Target] = [
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
     // --- [MACOS]
     .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
-    .target(name: "Files", path: "libs/swift/macos/Files"),
+    .target(
+        name: "Files",
+        dependencies: ["CurrentProcess", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths")],
+        path: "libs/swift/macos/Files",
+    ),
     .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/macos/Fonts"),
     .target(
         name: "Processes",
@@ -37,20 +41,10 @@ let modules: [Target] = [
     .target(
         name: "Applications",
         dependencies: [
-            "Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
-    ),
-    .target(
-        name: "Keychain",
-        dependencies: ["Encoding", "Processes", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "Subprocess", package: "swift-subprocess")],
-        path: "libs/swift/macos/Keychain",
-    ),
-    .target(
-        name: "Lockfiles",
-        dependencies: ["CurrentProcess", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths")],
-        path: "libs/swift/macos/Lockfiles",
     ),
     .target(
         name: "AppleEvents",

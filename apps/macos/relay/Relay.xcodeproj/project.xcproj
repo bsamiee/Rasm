@@ -103,14 +103,6 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "Keychain",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Lockfiles",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
           "product-name": "Processes",
           "build-phase": { "build-phase": "frameworks" },
         }, {

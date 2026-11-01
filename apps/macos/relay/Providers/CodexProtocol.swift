@@ -164,7 +164,7 @@ nonisolated enum CodexAuthFile {
 
     static func read(in home: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
         let url: URL = file(in: home)
-        guard let data: Data = try ifPresent({ try Data(contentsOf: url) }).mapError(CodexFailure.storage).get() else { return nil }
+        guard let data: Data = try Result(catching: { try ifPresent { try Data(contentsOf: url) } }).mapError(CodexFailure.storage).get() else { return nil }
         let document: Document = try Result { try decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
         if let mode: String = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
         guard let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken else { return (data, nil) }

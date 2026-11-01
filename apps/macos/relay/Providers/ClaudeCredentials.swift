@@ -3,8 +3,6 @@ import CryptoKit
 import Encoding
 import Files
 import Foundation
-import Keychain
-import Lockfiles
 import Subprocess
 import System
 
@@ -178,8 +176,6 @@ nonisolated enum ClaudeStoreContent: Sendable {
 
 nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STATE]
-    static let keychainTimeout: Duration = .seconds(15)
-
     let directory: URL
     let configFile: URL
     let directoryConfigFile: URL
@@ -206,7 +202,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         } ?? "Claude Code-credentials"
     }
 
-    // --- [KEYCHAIN_ITEM]
+    // --- [STORE_CONTENT]
     func read() async throws(ClaudeFailure) -> ClaudeStoreContent {
         let token: ClaudeOAuthToken? = try await readItem()?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.make)
         return switch (token, try token.flatMap { _ throws(ClaudeFailure) in try readAccount() }) {
@@ -222,27 +218,6 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         try await writeAccount(credential.account)
     }
 
-    func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
-        try await Keychain.genericPassword(service: service, account: username, within: Self.keychainTimeout)
-            .mapError(ClaudeFailure.keychain)
-            .get()
-            .map { data throws(ClaudeFailure) in try Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: data) }
-    }
-
-    func writeOAuth(
-        _ oauth: JSONDocument<ClaudeOAuthToken.Attributes>,
-        over item: JSONDocument<ClaudeCredentialItem>?,
-    ) async throws(ClaudeFailure) {
-        let data: Data = try Result { try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))) }
-            .mapError(ClaudeFailure.invalidCredentials)
-            .get()
-        try await Keychain.setGenericPassword(data, service: service, account: username, within: Self.keychainTimeout).mapError(ClaudeFailure.keychain).get()
-    }
-
-    func deleteItem() async throws(ClaudeFailure) {
-        try await Keychain.deleteGenericPassword(service: service, account: username, within: Self.keychainTimeout).mapError(ClaudeFailure.keychain).get()
-    }
-
     // --- [ACCOUNT_FILE]
     func identity() throws(ClaudeFailure) -> AccountIdentity? {
         try readAccount()?.known.identity(plan: nil)
@@ -255,10 +230,12 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     func writeAccount(_ account: JSONDocument<ClaudeOAuthAccount>) async throws(ClaudeFailure) {
         let file: URL = existingConfigFile
         try Result { try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
-        let retries: [Duration] = [200, 400, 800, 1600, 3200, 4000].map { delay in .milliseconds(delay) * Double.random(in: 1..<2) }
-        try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retries: retries)]) { () throws(ClaudeFailure) in
+        let retry: Backoff = Backoff(count: 6, base: .milliseconds(200), cap: .seconds(4), jitter: 1)
+        try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retry: retry)]) { () throws(ClaudeFailure) in
             let fields: [String: JSONValue] = try Self.read(at: file)?.fields ?? [:]
-            let mode: FilePermissions? = try ifPresent { try FilePath(file.path(percentEncoded: false)).stat().permissions }.mapError(ClaudeFailure.filesystem).get()
+            let mode: FilePermissions? = try Result { () throws(Errno) in try ifPresent { () throws(Errno) in try FilePath(file.path(percentEncoded: false)).stat().permissions } }
+                .mapError(ClaudeFailure.filesystem)
+                .get()
             try Result {
                 let document: FileWrapper = FileWrapper(
                     regularFileWithContents: try JSONEncoder().encode(JSONDocument(fields: fields, known: ClaudeAccountFile(oauthAccount: account, hasCompletedOnboarding: true)))
@@ -282,13 +259,12 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     private static func read(at url: URL) throws(ClaudeFailure) -> JSONDocument<ClaudeAccountFile>? {
-        try ifPresent { try Data(contentsOf: url) }
-            .mapError(ClaudeFailure.filesystem)
-            .get()
-            .map { data throws(ClaudeFailure) in try decode(JSONDocument<ClaudeAccountFile>.self, from: data) }
+        let data: Data?
+        do { data = try ifPresent { try Data(contentsOf: url) } } catch { throw .filesystem(error) }
+        return try data.map { data throws(ClaudeFailure) in try decode(JSONDocument<ClaudeAccountFile>.self, from: data) }
     }
 
-    private static func decode<Document: Decodable>(_ type: Document.Type, from data: Data) throws(ClaudeFailure) -> Document {
+    static func decode<Document: Decodable>(_ type: Document.Type, from data: Data) throws(ClaudeFailure) -> Document {
         try Result { try JSONDecoder().decode(type, from: data) }.mapError(ClaudeFailure.invalidCredentials).get()
     }
 }
