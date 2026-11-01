@@ -81,13 +81,14 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
         group.addTask { await Result(catching: work) }
         group.addTask { (try? await clock.sleep(until: deadline, tolerance: nil)).map { .failure(expired) } }
         defer { group.cancelAll() }
-        return await group.compacted().first { _ in true } ?? .failure(expired)
+        for await case let outcome? in group { return outcome }
+        preconditionFailure("Group holding the work yields its outcome")
     }
     .get()
 }
 ```
 
-`expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides.
+`expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, a group never ends with nothing left, and a fallback outcome naming `expired` reports a timeout that never happened.
 
 ## [04]-[ACTORS]
 

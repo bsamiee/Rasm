@@ -7,11 +7,12 @@ import Results
 // --- [ERRORS] --------------------------------------------------------------------------
 
 @CasePathable
-nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
+nonisolated enum CodexFailure: ProviderFailure {
     case applicationUnavailable
     case process(ProcessFailure)
-    case deadline(Deadline)
-    case rpc(JSONRPCFailure<CodexProtocol.Method>, serverVersion: String)
+    case timedOut(Duration)
+    case cancelled(CancellationError)
+    case rpc(JSONRPCFailure, serverVersion: String)
     case invalidResponse(CodexProtocol.Method)
     case invalidAuthFile(URL, any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
@@ -35,7 +36,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
 
     var isAccountMismatch: Bool { self[case: \.identityChanged] != nil }
 
-    var isCancellation: Bool { self[case: \.deadline] == .cancelled }
+    var isCancellation: Bool { self[case: \.cancelled] != nil }
 
     var retryAfter: Date? { nil }
 
@@ -43,7 +44,8 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
         switch self {
             case .applicationUnavailable: "Codex app not installed"
             case .process(let failure): failure.localizedDescription
-            case .deadline(let deadline): "Codex app server \(deadline.localizedDescription)"
+            case .timedOut(let timeout): "Codex app server timed out after \(timeout.formatted(.units(width: .wide)))"
+            case .cancelled: "Codex app server was canceled"
             case .rpc(let failure, let serverVersion): "Codex app server \(serverVersion) failed. \(failure.localizedDescription)"
             case .invalidResponse(let method): "Unreadable Codex \(method.rawValue) response"
             case .invalidAuthFile(let url, _): "Unreadable Codex \(url.lastPathComponent)"

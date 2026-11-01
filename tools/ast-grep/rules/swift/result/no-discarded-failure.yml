@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-failure
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.?(mapError|flatMapError)$', pattern: $M}}
+        - has:
+            kind: call_suffix
+            has:
+                stopBy: {kind: lambda_literal}
+                kind: lambda_literal
+                has: {field: type, kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, kind: simple_identifier, regex: '^_$'}}}
+message: '`$M` drops its failure through a `_` closure parameter'
+note: 'Name the error and recover only the host case the fallback answers (`DecodingError.typeMismatch`, `CancellationError`), passing every other failure on'

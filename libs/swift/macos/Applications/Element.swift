@@ -172,7 +172,7 @@ extension JSONValue {
     init?(accessibility value: CFTypeRef) {
         switch value {
             case let flag as CFBoolean where CFGetTypeID(value) == CFBooleanGetTypeID(): self = .bool(CFBooleanGetValue(flag))
-            case let number as NSNumber: self = .number(number.decimalValue)
+            case let number as NSNumber: self = .number(number.doubleValue)
             case let text as String: self = .string(text)
             default: return nil
         }

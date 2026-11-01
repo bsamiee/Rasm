@@ -43,7 +43,7 @@ nonisolated struct ClaudeErrorBody: Decodable, Sendable {
         init(from decoder: any Decoder) throws {
             let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
             self = try Result { try .code(container.decode(String.self)) }
-                .flatMapError { _ in Result { try .detail(container.decode(ClaudeAPIError.self)) } }
+                .flatMapError { error in if case DecodingError.typeMismatch = error { Result { try .detail(container.decode(ClaudeAPIError.self)) } } else { .failure(error) } }
                 .get()
         }
 
@@ -63,7 +63,7 @@ nonisolated struct ClaudeErrorBody: Decodable, Sendable {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 @CasePathable
-nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
+nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case executableMissing
     case signInRequired
     case accountOnHold(URL)
@@ -79,7 +79,8 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
     case transport(any Error)
     case accountChanged
     case protocolFailure
-    case deadline(Deadline)
+    case timedOut(Duration)
+    case cancelled(CancellationError)
     case lock(LockfileFailure)
     indirect case cleanup(operation: Self, release: Self)
 
@@ -109,7 +110,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
 
     var isAccountMismatch: Bool { cause.is(\.accountChanged) }
 
-    var isCancellation: Bool { [cause[case: \.deadline], cause[case: \.keychain.process.deadline]].contains(.cancelled) }
+    var isCancellation: Bool { cause.is(\.cancelled) || cause.is(\.keychain.process.cancelled) }
 
     var retryAfter: Date? { cause[case: \.rateLimited]?.until }
 
@@ -131,7 +132,8 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
             case .transport(let error): "Claude unreachable. \(error.localizedDescription)"
             case .accountChanged: "Signed in to different Claude account"
             case .protocolFailure: "Unexpected Claude Code response"
-            case .deadline(let deadline): "Claude Code \(deadline.localizedDescription)"
+            case .timedOut(let timeout): "Claude Code timed out after \(timeout.formatted(.units(width: .wide)))"
+            case .cancelled: "Claude Code was canceled"
             case .lock(.held): "Claude credential update in progress, retry after it finishes"
             case .lock(let failure): failure.localizedDescription
             case .cleanup(let operation, _): operation.localizedDescription

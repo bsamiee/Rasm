@@ -202,7 +202,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
         return Unmatched.single(codes, subject: "term", query: name, candidates: OrderedSet(scopes.flatMap(\.named.keys)).elements, named: \.sdef)
             .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
-            .mapError { miss in AggregateError(first: .unmatched(miss)) }
+            .aggregated(DictionaryFailure.unmatched)
     }
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {

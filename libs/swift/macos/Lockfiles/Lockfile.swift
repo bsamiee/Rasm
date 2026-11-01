@@ -3,14 +3,15 @@ public import CasePaths
 import CurrentProcess
 import Files
 public import Foundation
-public import Results
+import Results
 public import System
 import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public protocol LockFailure: DeadlineFailure {
+public protocol LockFailure: Error {
     static func lock(_ failure: LockfileFailure) -> Self
+    static func cancelled(_ error: CancellationError) -> Self
     func releasing(_ release: Result<Void, Self>) -> Self
 }
 
@@ -36,13 +37,10 @@ public struct Lockfile: Equatable, Sendable {
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
         let holder: Holder<Failure> = try await acquire(lockfiles)
-        let work: @Sendable () async -> Result<Value, Failure> = lockfiles.indices.reduce(
-            { @Sendable in await Result(catching: body) },
-            { work, index in
-                { @Sendable in await race(work) { await Result { () async throws(Failure) -> Value in try await holder.heartbeat(index) } } }
-            },
-        )
-        let outcome: Result<Value, Failure> = await work()
+        let work: @Sendable () async throws(Failure) -> Value = lockfiles.indices.reduce(body) { work, index in
+            { @Sendable () async throws(Failure) -> Value in try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index) } }
+        }
+        let outcome: Result<Value, Failure> = await Result(catching: work)
         let released: Result<Void, Failure> = release(await holder.lockfiles)
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
@@ -60,12 +58,16 @@ public struct Lockfile: Equatable, Sendable {
         guard error.is(\.held), case .success = released, let delay: Duration = blocked.retries.first else { throw Failure.lock(error).releasing(released) }
         logger.debug("Waiting up to \(delay, privacy: .public) for held lock \(blocked.url.path(percentEncoded: false), privacy: .private)")
         try await race {
-            await FileWatch.events(of: blocked.url).first { next in next.is(\.failure) || !FileManager.default.fileExists(atPath: blocked.url.path(percentEncoded: false)) }
-                .map { next in next.map { _ in }.mapError { error in Failure.lock(.filesystem(error)) } } ?? .failure(.deadline(.cancelled))
+            () async throws(Failure) in
+            switch await FileWatch.events(of: blocked.url).first(where: { next in next.is(\.failure) || !FileManager.default.fileExists(atPath: blocked.url.path(percentEncoded: false)) }) {
+                case .some(.failure(let error)): throw .lock(.filesystem(error))
+                case .some(.success): return
+                case .none: throw .cancelled(CancellationError())
+            }
         } against: {
-            await Result { try await Task.sleep(for: delay) }.mapError { _ in Failure.deadline(.cancelled) }
+            () async throws(Failure) in
+            do { try await Task.sleep(for: delay) } catch { throw .cancelled(CancellationError()) }
         }
-        .get()
         return try await acquire(
             lockfiles.map { lockfile in lockfile == blocked ? Self(blocked.url, stale: blocked.stale, update: blocked.update, retries: Array(blocked.retries.dropFirst())) : lockfile }
         )
@@ -186,6 +188,6 @@ private actor Holder<Failure: LockFailure> {
         for await _ in AsyncTimerSequence(interval: lockfiles[index].lockfile.update, clock: .continuous) {
             lockfiles[index] = try Result { () throws(LockfileFailure) in try lockfiles[index].updated() }.mapError(Failure.lock).get()
         }
-        throw .deadline(.cancelled)
+        throw .cancelled(CancellationError())
     }
 }

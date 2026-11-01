@@ -74,7 +74,11 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "EffectRPC",
+          "product-name": "Encoding",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "JSONRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "Sparkle",

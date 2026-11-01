@@ -178,7 +178,7 @@ nonisolated enum ClaudeStoreContent: Sendable {
 
 nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STATE]
-    static let keychainDeadline: Duration = .seconds(15)
+    static let keychainTimeout: Duration = .seconds(15)
 
     let directory: URL
     let configFile: URL
@@ -202,7 +202,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     var service: String {
         configDirectoryPath.map { value in
-            "Claude Code-credentials-" + SHA256.hash(data: Data(value.utf8)).prefix(4).hexEncoded
+            "Claude Code-credentials-" + SHA256.hash(data: Data(value.utf8)).prefix(4).hexEncoded()
         } ?? "Claude Code-credentials"
     }
 
@@ -223,7 +223,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
-        try await Keychain.genericPassword(service: service, account: username, within: Self.keychainDeadline)
+        try await Keychain.genericPassword(service: service, account: username, within: Self.keychainTimeout)
             .mapError(ClaudeFailure.keychain)
             .get()
             .map { data throws(ClaudeFailure) in try Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: data) }
@@ -236,11 +236,11 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         let data: Data = try Result { try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))) }
             .mapError(ClaudeFailure.invalidCredentials)
             .get()
-        try await Keychain.setGenericPassword(data, service: service, account: username, within: Self.keychainDeadline).mapError(ClaudeFailure.keychain).get()
+        try await Keychain.setGenericPassword(data, service: service, account: username, within: Self.keychainTimeout).mapError(ClaudeFailure.keychain).get()
     }
 
     func deleteItem() async throws(ClaudeFailure) {
-        try await Keychain.deleteGenericPassword(service: service, account: username, within: Self.keychainDeadline).mapError(ClaudeFailure.keychain).get()
+        try await Keychain.deleteGenericPassword(service: service, account: username, within: Self.keychainTimeout).mapError(ClaudeFailure.keychain).get()
     }
 
     // --- [ACCOUNT_FILE]

@@ -1,20 +1,12 @@
 import Encoding
 import Files
 import Foundation
-import JSONRPC
 import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated enum CodexProtocol {
     // --- [JSON_RPC]
-    static let decoder: JSONDecoder = {
-        let decoder: JSONDecoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .secondsSince1970
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return decoder
-    }()
-
     enum Method: String, Sendable {
         case initialize
         case initialized
@@ -59,7 +51,7 @@ nonisolated enum CodexProtocol {
     struct RateLimitWindow: Decodable, Sendable {
         let usedPercent: Double
         let windowDurationMins: Int?
-        let resetsAt: Date?
+        let resetsAt: Int?
     }
 
     struct RateLimitSnapshot: Decodable, Sendable {
@@ -90,7 +82,14 @@ nonisolated enum CodexProtocol {
             let windows: [QuotaWindow] = try traverse(weekly) { window in
                 UsageAmount.make(percent: window.usedPercent)
                     .aggregated(\.self)
-                    .map { amount in QuotaWindow(kind: .weekly, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted) }
+                    .map { amount in
+                        QuotaWindow(
+                            kind: .weekly,
+                            used: amount,
+                            resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) },
+                            rejected: reached && amount.isExhausted,
+                        )
+                    }
             }
             .mapError(CodexFailure.invalidQuota)
             .get()
@@ -109,20 +108,31 @@ nonisolated enum CodexProtocol {
         let error: String?
     }
 
-    enum AuthCredentialsStore: String, Decodable, Sendable {
+    enum AuthCredentialsStore: String, Sendable {
         case file, keyring, auto, ephemeral
     }
 
     struct EffectiveConfig: Decodable, Sendable {
         struct Config: Decodable, Sendable {
-            let cliAuthCredentialsStore: AuthCredentialsStore?
+            let cliAuthCredentialsStore: Lenient<AuthCredentialsStore>?
             let forcedChatgptWorkspaceId: JSONValue?
+
+            enum CodingKeys: String, CodingKey {
+                case cliAuthCredentialsStore = "cli_auth_credentials_store"
+                case forcedChatgptWorkspaceId = "forced_chatgpt_workspace_id"
+            }
         }
         let config: Config
     }
 }
 
 nonisolated enum CodexAuthFile {
+    private static let decoder: JSONDecoder = {
+        let decoder: JSONDecoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return decoder
+    }()
+
     private struct Document: Decodable, Sendable {
         struct Tokens: Decodable, Sendable {
             let idToken: String?
@@ -155,14 +165,14 @@ nonisolated enum CodexAuthFile {
     static func read(in home: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
         let url: URL = file(in: home)
         guard let data: Data = try ifPresent({ try Data(contentsOf: url) }).mapError(CodexFailure.storage).get() else { return nil }
-        let document: Document = try Result { try CodexProtocol.decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        let document: Document = try Result { try decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
         if let mode: String = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
         guard let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken else { return (data, nil) }
         let components: [Substring] = idToken.split(separator: ".")
         guard components.count == 3 else { throw .invalidAuthFile(url, nil) }
         let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
         guard let payload: Data = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
-        let claims: Claims = try Result { try CodexProtocol.decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        let claims: Claims = try Result { try decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
         let workspace: String? = claims.auth?.chatgptAccountId ?? tokens.accountId
         let identity: AccountIdentity = try combine(
             AccountIdentity.make(accountID: claims.auth?.chatgptUserId ?? claims.auth?.userId, organizationID: workspace, email: claims.email, plan: claims.auth?.chatgptPlanType),

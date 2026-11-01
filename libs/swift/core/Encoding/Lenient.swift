@@ -1,35 +1,15 @@
 // --- [MODELS] --------------------------------------------------------------------------
 
-@propertyWrapper
-public struct Lenient<Value: Decodable & Sendable>: Decodable, Sendable {
-    public let wrappedValue: Value?
+public enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Codable, Sendable {
+    case known(Known)
+    case unknown(String)
 
-    public init(wrappedValue: Value?) {
-        self.wrappedValue = wrappedValue
-    }
+    public init(rawValue: String) { self = Known(rawValue: rawValue).map(Self.known) ?? .unknown(rawValue) }
 
-    public init(from decoder: any Decoder) {
-        wrappedValue = try? Value(from: decoder)
-    }
-}
-
-extension Lenient: Encodable where Value: Encodable {
-    public func encode(to encoder: any Encoder) throws {
-        var container: any SingleValueEncodingContainer = encoder.singleValueContainer()
-        try container.encode(wrappedValue)
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension KeyedDecodingContainer {
-    public func decode<Value>(_: Lenient<Value>.Type, forKey key: Key) -> Lenient<Value> {
-        Lenient(wrappedValue: try? decode(Value.self, forKey: key))
-    }
-}
-
-extension KeyedEncodingContainer {
-    public mutating func encode<Value: Encodable>(_ value: Lenient<Value>, forKey key: Key) throws {
-        try encodeIfPresent(value.wrappedValue, forKey: key)
+    public var rawValue: String {
+        switch self {
+            case .known(let value): value.rawValue
+            case .unknown(let text): text
+        }
     }
 }

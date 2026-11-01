@@ -12,7 +12,7 @@ import Results
 @CasePathable
 enum Line: Encodable, Sendable {
     case states(OrderedDictionary<NSRunningApplication, InstanceState>)
-    case fail(String)
+    case fail(reason: String)
 
     static func answering(_ states: OrderedDictionary<NSRunningApplication, InstanceState>) -> Self {
         .states(
@@ -36,7 +36,7 @@ enum Line: Encodable, Sendable {
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         abstract: "Observes and drives installed applications in background. Commands exit 1 after a fail line",
-        subcommands: [Watch.self, Launch.self, Read.self, Perform.self, Set.self],
+        subcommands: [Watch.self, Launch.self, Read.self, Perform.self, SetValue.self],
     )
 
     @MainActor
@@ -67,7 +67,7 @@ struct WatchApps: AsyncParsableCommand {
         let resolved: Result<[[Installation]], AggregateError<(key: String, line: Line)>> = traverse(await Array(lookups.async.map { lookup in (lookup.name, await lookup.rows.value) })) {
             name,
             rows in
-            rows.mapError { error in AggregateError(first: (name, .fail(error.localizedDescription))) }
+            rows.aggregated { error in (name, .fail(reason: error.localizedDescription)) }
         }
         try await run { output in
             switch resolved {
@@ -94,7 +94,7 @@ struct Watch: AsyncParsableCommand {
         try await WatchApps.run(installed.names) { installations, output in
             let ids: OrderedSet<String> = OrderedSet(installations.map(\.identifier))
             guard AXIsProcessTrusted() else {
-                for id: String in ids { output.yield((id, .fail(ElementFailure.untrusted.localizedDescription))) }
+                for id: String in ids { output.yield((id, .fail(reason: ElementFailure.untrusted.localizedDescription))) }
                 return
             }
             await withDiscardingTaskGroup { group in
@@ -165,7 +165,7 @@ struct Launch: AsyncParsableCommand {
                         }
                         switch launched {
                             case .success(let instance): output.yield((id, .answering([instance: InstanceState(await instance.status(walking: \.requiresAnswer))])))
-                            case .failure(let error): output.yield((id, .fail(error.localizedDescription)))
+                            case .failure(let error): output.yield((id, .fail(reason: error.localizedDescription)))
                         }
                     }
                 }
@@ -195,13 +195,13 @@ struct Read: AsyncParsableCommand {
                     chosen.isEmpty
                         ? Unmatched(subject: "running instance of \(id)", query: String(pid), candidates: running.map { instance in String(instance.processIdentifier) }).localizedDescription : nil
                 }
-                output.yield((id, missed.map(Line.fail) ?? .states(OrderedDictionary(uniqueKeysWithValues: states))))
+                output.yield((id, missed.map(Line.fail(reason:)) ?? .states(OrderedDictionary(uniqueKeysWithValues: states))))
             }
         }
     }
 }
 
-struct Target: ParsableArguments {
+struct ElementTarget: ParsableArguments {
     @Argument(
         help: "Element ID from read or watch line",
         transform: { id in
@@ -214,7 +214,7 @@ struct Target: ParsableArguments {
     func run(_ action: ElementAction) async throws {
         try await WatchApps.run { output in
             let outcome: Result<Void, ElementFailure> = await NSRunningApplication.owning(action.element)?.perform(action) ?? .failure(.absent(action.element))
-            if case .failure(let failure) = outcome { output.yield((action.element.base64EncodedString(), .fail(failure.localizedDescription))) }
+            if case .failure(let failure) = outcome { output.yield((action.element.base64EncodedString(), .fail(reason: failure.localizedDescription))) }
         }
     }
 }
@@ -224,7 +224,7 @@ struct Perform: AsyncParsableCommand {
         abstract: "Performs one element Accessibility action, silent unless it fails"
     )
 
-    @OptionGroup var target: Target
+    @OptionGroup var target: ElementTarget
 
     @Argument(help: "Accessibility action from element actions")
     var action: String
@@ -234,10 +234,10 @@ struct Perform: AsyncParsableCommand {
     }
 }
 
-struct Set: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Sets element AXValue to text, silent unless write fails")
+struct SetValue: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = CommandConfiguration(commandName: "set", abstract: "Sets element AXValue to text, silent unless write fails")
 
-    @OptionGroup var target: Target
+    @OptionGroup var target: ElementTarget
 
     @Argument(help: "Text for element AXValue")
     var value: String

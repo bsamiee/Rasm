@@ -11,7 +11,9 @@ private struct InfoFlag: Decodable {
 
     init(from decoder: any Decoder) throws {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        value = try Result { try container.decode(Bool.self) }.flatMapError { _ in Result { try NSString(string: container.decode(String.self)).boolValue } }.get()
+        value = try Result { try container.decode(Bool.self) }
+            .flatMapError { error in if case DecodingError.typeMismatch = error { Result { try NSString(string: container.decode(String.self)).boolValue } } else { .failure(error) } }
+            .get()
     }
 }
 
@@ -97,7 +99,7 @@ public struct Installation: Encodable, Hashable, Sendable {
 
     @concurrent
     static func listed(_ paths: [String?]) async -> Result<[Self], AggregateError<DiscoveryFailure>> {
-        traverse(paths) { path in (path.map { path in at(URL(filePath: path, directoryHint: .isDirectory)) } ?? .failure(.noPath)).aggregated { error in error } }
+        traverse(paths) { path in (path.map { path in at(URL(filePath: path, directoryHint: .isDirectory)) } ?? .failure(.noPath)).aggregated(\.self) }
     }
 }
 

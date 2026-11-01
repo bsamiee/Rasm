@@ -34,20 +34,25 @@ public enum LoginShell: Sendable {
             guard let entry: passwd = unsafe getpwuid(getuid())?.pointee else { throw .unlisted(getuid()) }
             let (user, home, login): (String, String, String) = unsafe (String(cString: entry.pw_name), String(cString: entry.pw_dir), String(cString: entry.pw_shell))
             let shell: FilePath = FilePath(login.isEmpty ? _PATH_BSHELL : login)
-            let output: ExecutionResult<Void, StringOutput<UTF8>, DiscardedOutput> = try await withTimeout(timeout) {
-                await Result {
-                    try await Subprocess.run(
-                        .path(shell),
-                        arguments: ["-lc", "printf %s \(marker); exec /usr/bin/env -0"],
-                        environment: .custom(["HOME": home, "LOGNAME": user, "PATH": _PATH_DEFPATH, "SHELL": shell.string, "USER": user]),
-                        workingDirectory: FilePath(home),
-                        platformOptions: .session,
-                        output: .string(limit: sysconf(_SC_ARG_MAX)),
-                    )
+            let output: ExecutionResult<Void, StringOutput<UTF8>, DiscardedOutput>
+            do throws(ProcessFailure) {
+                output = try await withTimeout(timeout, expired: .timedOut(timeout)) { () async throws(ProcessFailure) in
+                    do {
+                        return try await Subprocess.run(
+                            .path(shell),
+                            arguments: ["-lc", "printf %s \(marker); exec /usr/bin/env -0"],
+                            environment: .custom(["HOME": home, "LOGNAME": user, "PATH": _PATH_DEFPATH, "SHELL": shell.string, "USER": user]),
+                            workingDirectory: FilePath(home),
+                            platformOptions: .session,
+                            output: .string(limit: sysconf(_SC_ARG_MAX)),
+                        )
+                    } catch {
+                        throw ProcessFailure(error)
+                    }
                 }
-                .mapError(ProcessFailure.init)
+            } catch {
+                throw .run(error)
             }
-            .mapError(LoginShellFailure.run).get()
             guard output.terminationStatus.isSuccess else { throw .run(.exit(output.terminationStatus)) }
             let parts: [Substring] = output.standardOutput.split(separator: marker, maxSplits: 1, omittingEmptySubsequences: false)
             guard parts.count == 2 else { throw .markerNotFound }

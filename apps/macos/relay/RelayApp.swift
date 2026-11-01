@@ -2,7 +2,6 @@ import AppKit
 import CurrentProcess
 import Observation
 import Processes
-import Results
 import Sparkle
 import SwiftUI
 import os
@@ -59,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let logger: Logger = Logger(for: AppDelegate.self)
         launch = Task(name: "Launch Relay") { [self] in
             switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
-                case .failure(.run(.deadline(.cancelled))): logger.info("Quit canceled launch during login shell read")
+                case .failure(.run(.cancelled)): logger.info("Quit canceled launch during login shell read")
                 case let launched:
                     store = launched
                     switch launched {

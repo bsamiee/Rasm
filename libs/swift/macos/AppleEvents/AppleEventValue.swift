@@ -1,5 +1,6 @@
 import CasePathsCore
 import CoreServices
+import Encoding
 public import Foundation
 import OrderedCollections
 public import Results
@@ -77,8 +78,7 @@ extension AppleEventValue: Codable {
     }
 
     public init(from decoder: any Decoder) throws {
-        let value: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        func tagged() throws -> Self {
+        func tagged(_ object: [String: JSONValue]) throws -> Self {
             let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
             func code() throws -> DescType {
                 let code: String = try fields.decode(String.self, forKey: .type)
@@ -86,7 +86,7 @@ extension AppleEventValue: Codable {
                 return type
             }
             return switch try fields.decodeIfPresent(Tag.self, forKey: .tag) {
-                case .none: try .record(type: DescType(typeAERecord), fields: value.decode([String: Self].self))
+                case .none: try .record(type: DescType(typeAERecord), fields: object.mapValues { field in try field.decode(Self.self) })
                 case .record: try .record(type: code(), fields: fields.decode([String: Self].self, forKey: .fields))
                 case .type: try .type(fields.decode(String.self, forKey: .name))
                 case .enumerator: try .enumerator(fields.decode(String.self, forKey: .name))
@@ -103,14 +103,14 @@ extension AppleEventValue: Codable {
             }
         }
         self =
-            try value.decodeNil()
-            ? .null
-            : Result { try .bool(value.decode(Bool.self)) }
-                .flatMapError { _ in Result { try .number(value.decode(Double.self)) } }
-                .flatMapError { _ in Result { try .text(value.decode(String.self)) } }
-                .flatMapError { _ in Result { try .list(value.decode([Self].self)) } }
-                .flatMapError { _ in Result(catching: tagged) }
-                .get()
+            switch try decoder.singleValueContainer().decode(JSONValue.self) {
+                case .null: .null
+                case .bool(let value): .bool(value)
+                case .number(let value): .number(value)
+                case .string(let text): .text(text)
+                case .array(let items): try .list(items.map { item in try item.decode(Self.self) })
+                case .object(let object): try tagged(object)
+            }
     }
 
     public func encode(to encoder: any Encoder) throws {

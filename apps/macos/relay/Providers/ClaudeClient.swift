@@ -360,14 +360,15 @@ actor ClaudeClient: ProviderClient {
         }
         .mapError { error -> ClaudeFailure in
             switch error {
-                case is CancellationError, URLError.cancelled: .deadline(.cancelled)
+                case let error as CancellationError: .cancelled(error)
+                case URLError.cancelled: .cancelled(CancellationError())
                 default: .transport(error)
             }
         }
         .get()
         logger.debug("Claude \(endpoint.rawValue, privacy: .public) answered \(response.status, privacy: .public)")
         return switch response.status {
-            case .ok where Task.isCancelled: throw .deadline(.cancelled)
+            case .ok where Task.isCancelled: throw .cancelled(CancellationError())
             case .ok: try Result { try ClaudeEndpoint.decoder.decode(Value.self, from: data) }.mapError { error in ClaudeFailure.invalidResponse(endpoint, error) }.get()
             default: throw .rejection(by: endpoint, status: response.status, body: data, retryAfter: response.headerFields[.retryAfter], at: Date())
         }
@@ -377,7 +378,7 @@ actor ClaudeClient: ProviderClient {
     private func run<Output: OutputProtocol>(
         _ arguments: Arguments,
         store: ClaudeCredentialStore,
-        within deadline: Duration,
+        within timeout: Duration,
         output: Output,
         input: some InputProtocol = .none,
     ) async throws(ClaudeFailure) -> Output.OutputType {
@@ -388,10 +389,13 @@ actor ClaudeClient: ProviderClient {
             environment: .custom(environment.filter { key, _ in !["ANTHROPIC_", "CLAUDE_", "CCR_"].contains(where: key.rawValue.hasPrefix) }).updating(store.variables),
             platformOptions: .session,
         )
-        let result: ExecutionResult<Void, Output, DiscardedOutput> = try await withTimeout(deadline) { [invocation] in
-            await Result { try await Subprocess.run(invocation, input: input, output: output) }.mapError(ClaudeFailure.init(child:))
+        let result: ExecutionResult<Void, Output, DiscardedOutput> = try await withTimeout(timeout, expired: .timedOut(timeout)) { [invocation] () async throws(ClaudeFailure) in
+            do {
+                return try await Subprocess.run(invocation, input: input, output: output)
+            } catch {
+                throw ClaudeFailure(child: error)
+            }
         }
-        .get()
         guard result.terminationStatus.isSuccess else { throw .process(.exit(result.terminationStatus)) }
         return result.standardOutput
     }

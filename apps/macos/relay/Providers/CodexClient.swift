@@ -1,5 +1,6 @@
 import AppKit
 import CurrentProcess
+import Encoding
 import Files
 import Foundation
 import JSONRPC
@@ -73,7 +74,7 @@ actor CodexClient: ProviderClient {
             params: CodexProtocol.ConfigReadParams(includeLayers: false),
             returning: CodexProtocol.EffectiveConfig.self,
         )
-        guard response.config.cliAuthCredentialsStore ?? .file == .file else { throw .keyringStorage }
+        guard response.config.cliAuthCredentialsStore ?? .known(.file) == .known(.file) else { throw .keyringStorage }
         guard response.config.forcedChatgptWorkspaceId == nil else { throw .forcedWorkspace }
     }
 
@@ -127,23 +128,20 @@ actor CodexClient: ProviderClient {
             }
         return await Result { () async throws(CodexFailure) in
             let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure> = try await connection(for: home)
-            try await withTimeout(.seconds(300)) {
-                await Result { () async throws(CodexFailure) in
-                    let started: CodexProtocol.LoginStarted = try await connection.request(
-                        .accountLoginStart,
-                        params: CodexProtocol.LoginStartParams(),
-                        returning: CodexProtocol.LoginStarted.self,
-                    )
-                    guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
-                    guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
-                    self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
-                    let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
-                        completed in completed.loginId == started.loginId
-                    }
-                    guard completed.success else { throw .signInRefused(reason: completed.error) }
+            try await withTimeout(.seconds(300), expired: .timedOut(.seconds(300))) { () async throws(CodexFailure) in
+                let started: CodexProtocol.LoginStarted = try await connection.request(
+                    .accountLoginStart,
+                    params: CodexProtocol.LoginStartParams(),
+                    returning: CodexProtocol.LoginStarted.self,
+                )
+                guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
+                guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
+                self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
+                let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
+                    completed in completed.loginId == started.loginId
                 }
+                guard completed.success else { throw .signInRefused(reason: completed.error) }
             }
-            .get()
             let identity: AccountIdentity = try identity(at: home)
             guard expected.map(identity.isSameAccount(as:)) ?? true else {
                 try await logOut(home: home)
@@ -225,13 +223,18 @@ actor CodexClient: ProviderClient {
                         "Started codex app-server \(manifest.version, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
                     )
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
-                        reading: execution.standardOutput.jsonLines,
+                        reading: execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded).map { line in Data(line.utf8) },
                         writing: { line in _ = try await execution.standardInputWriter.write(line) },
-                        decoder: CodexProtocol.decoder,
                         timeout: .seconds(60),
                         retaining: [.accountLoginCompleted],
-                        serve: { _ in .failure(JSONRPCError(code: -32601, message: "Relay provides no agent tools", data: nil)) },
-                        failure: { failure in .rpc(failure, serverVersion: manifest.version) },
+                        serving: { _, _ throws(JSONRPCError) in throw JSONRPCError(code: -32601, message: "Relay provides no agent tools") },
+                        failure: { failure in
+                            switch failure.reason {
+                                case .timedOut(let timeout): .timedOut(timeout)
+                                case .cancelled(let error): .cancelled(error)
+                                case .transport, .closed, .unreadable, .unencodable, .refused: .rpc(failure, serverVersion: manifest.version)
+                            }
+                        },
                     ) { connection in
                         ready.continuation.yield(
                             await Result { () async throws(CodexFailure) in
@@ -254,7 +257,7 @@ actor CodexClient: ProviderClient {
                 ready.continuation.finish()
             }
         }
-        switch await ready.stream.first(where: { _ in true }) ?? .failure(.deadline(.cancelled)) {
+        switch await ready.stream.first(where: { _ in true }) ?? .failure(.cancelled(CancellationError())) {
             case .success(let connection):
                 servers[home] = CodexServer(connection: connection, task: task, identity: identity)
                 return connection

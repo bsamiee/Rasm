@@ -16,12 +16,16 @@ public struct AvailableFace: Codable, Hashable, Sendable {
         return (CTFontCollectionCreateMatchingFontDescriptors(collection) as? [CTFontDescriptor] ?? []).compactMap(Self.init)
     }
 
-    public static func named(_ name: String) -> Result<Self, Unmatched> {
+    public static func named(_ name: String) throws(Unmatched) -> Self {
         let query: CTFontDescriptor = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
-        return CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init).map(Result.success)
-            ?? .failure(
-                Unmatched(subject: "font", query: name, candidates: (CTFontManagerCopyAvailablePostScriptNames() as? [String] ?? []).filter { candidate in candidate.localizedStandardContains(name) })
+        guard let face: Self = CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init) else {
+            throw Unmatched(
+                subject: "font",
+                query: name,
+                candidates: (CTFontManagerCopyAvailablePostScriptNames() as? [String] ?? []).filter { candidate in candidate.localizedStandardContains(name) },
             )
+        }
+        return face
     }
 }
 

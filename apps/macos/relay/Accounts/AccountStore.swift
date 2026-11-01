@@ -10,6 +10,7 @@ import Results
 import ServiceManagement
 import Subprocess
 import SwiftUI
+import System
 import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -50,7 +51,7 @@ final class AccountStore {
     private let saves: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
-    @ObservationIgnored private var refreshPause: Task<Void, any Error>?
+    @ObservationIgnored private var refreshWake: AsyncStream<Void>.Continuation?
     @ObservationIgnored private var lastPanelOpen: ContinuousClock.Instant?
 
     init(environment: [Subprocess.Environment.Key: String]) {
@@ -286,15 +287,18 @@ final class AccountStore {
                 .map { date in .seconds(date.timeIntervalSince(now) + 1) }
                 let delay: Duration = min(base, boundary ?? base)
                 logger.debug("Next refresh in \(delay, privacy: .public)")
-                let pause: Task<Void, any Error> = Task(name: "Refresh pause") { try await Task.sleep(for: delay) }
-                refreshPause = pause
-                let slept: Result<Void, any Error> = await withTaskCancellationHandler {
-                    await pause.result
-                } onCancel: {
-                    pause.cancel()
+                let (wakes, wake): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+                refreshWake = wake
+                let slept: Result<Bool, any Error> = await Result {
+                    try await race {
+                        try await Task.sleep(for: delay)
+                        return true
+                    } against: {
+                        await wakes.first { _ in true }.map { false } ?? false
+                    }
                 }
                 guard !Task.isCancelled else { return }
-                if case .success = slept { refresh(accounts) }
+                if case .success(true) = slept { refresh(accounts) }
             }
         }
     }
@@ -305,16 +309,16 @@ final class AccountStore {
         root?.cancel()
         authenticationTask?.cancel()
         for model: AccountModel in accounts { model.running?.task.cancel() }
-        let stopped: Result<Void, Deadline> = await withTimeout(.seconds(5)) { @MainActor [self] in
-            await root?.value
-            await authenticationTask?.value
-            for model: AccountModel in accounts { await model.running?.task.value }
-            await codex.shutdown()
-            return .success(())
-        }
-        switch stopped {
-            case .success: logger.notice("Stopped account work")
-            case .failure(let error): logger.error("Account work stop failed with \(error, privacy: .public)")
+        do throws(Errno) {
+            try await withTimeout(.seconds(5), expired: .timedOut) { @MainActor [self] () async throws(Errno) in
+                await root?.value
+                await authenticationTask?.value
+                for model: AccountModel in accounts { await model.running?.task.value }
+                await codex.shutdown()
+            }
+            logger.notice("Stopped account work")
+        } catch {
+            logger.error("Account work stop failed with \(error, privacy: .public)")
         }
         await save()
     }
@@ -349,7 +353,7 @@ final class AccountStore {
             await readSelection()
             refresh(accounts)
         }
-        refreshPause?.cancel()
+        refreshWake?.yield()
     }
 
     func registerLoginItem() {
@@ -400,7 +404,7 @@ final class AccountStore {
                             ),
                             owning: stores,
                         ) { _ in
-                            if let identity { register(identity) } else { apply(selected: nil, provider: provider) }
+                            if let identity { register(identity) } else { apply(selected: nil) }
                         }
                     case .failure(let error) where error.failure.isCancellation: break
                     case .failure(let error):
@@ -413,7 +417,7 @@ final class AccountStore {
             if let existing: AccountModel = accounts.first(where: { model in
                 model.account.provider == provider && model.account.identity.isSameAccount(as: identity)
             }) {
-                apply(selected: existing.account.id, provider: provider)
+                apply(selected: existing.account.id)
                 return
             }
             let model: AccountModel = AccountModel(
@@ -426,25 +430,24 @@ final class AccountStore {
             logger.notice(
                 "Registered \(provider.name, privacy: .public) account \(model.account.id, privacy: .public) \(identity.email, privacy: .private) from live store"
             )
-            apply(selected: model.account.id, provider: provider)
+            apply(selected: model.account.id)
             saves.continuation.yield()
             refresh([model])
         }
-    }
-
-    private func apply(selected id: UUID?, provider: Provider) {
-        providerIssues[provider] = nil
-        let previous: AccountModel? = accounts.first { model in model.account.provider == provider && model.isSelected }
-        switch accounts.first(where: { model in model.account.provider == provider && model.account.id == id }) {
-            case .some(let selected) where selected !== previous:
-                logger.notice("\(provider.name, privacy: .public) selection moved to account \(selected.account.id, privacy: .public) \(selected.account.identity.email, privacy: .private)")
-            case .none where previous != nil: logger.notice("\(provider.name, privacy: .public) selection cleared, live store holds no connected account")
-            case .some, .none: logger.debug("\(provider.name, privacy: .public) selection unchanged")
-        }
-        for model: AccountModel in accounts where model.account.provider == provider {
-            let selected: Bool = model.account.id == id
-            model.isSelected = selected
-            if selected, !model.isConnected { refresh([model]) }
+        func apply(selected id: UUID?) {
+            providerIssues[provider] = nil
+            let previous: AccountModel? = accounts.first { model in model.account.provider == provider && model.isSelected }
+            switch accounts.first(where: { model in model.account.provider == provider && model.account.id == id }) {
+                case .some(let selected) where selected !== previous:
+                    logger.notice("\(provider.name, privacy: .public) selection moved to account \(selected.account.id, privacy: .public) \(selected.account.identity.email, privacy: .private)")
+                case .none where previous != nil: logger.notice("\(provider.name, privacy: .public) selection cleared, live store holds no connected account")
+                case .some, .none: logger.debug("\(provider.name, privacy: .public) selection unchanged")
+            }
+            for model: AccountModel in accounts where model.account.provider == provider {
+                let selected: Bool = model.account.id == id
+                model.isSelected = selected
+                if selected, !model.isConnected { refresh([model]) }
+            }
         }
     }
 
@@ -672,20 +675,20 @@ final class AccountStore {
             let due: Bool = model.usageReadAfter.map { date in date <= now } ?? true
             guard due || !model.isConnected else { continue }
             run(model, .refreshing) { [self] stores in
-                if !model.isConnected {
-                    switch await client(for: model.account.provider).holdsCredential(for: model.account, isSelected: model.isSelected) {
-                        case .success(true):
-                            logger.notice("Signed-out account \(model.account.id, privacy: .public) holds credential, marked connected")
-                            model.authentication = .connected
-                            model.issue = nil
-                            saves.continuation.yield()
-                        case .success(false):
-                            logger.debug("Signed-out account \(model.account.id, privacy: .public) holds no credential")
-                            return
-                        case .failure(let error):
-                            await record(error, of: .refreshing, for: model, owning: stores)
-                            return
-                    }
+                let held: Result<Bool, ProviderError>? = await (model.isConnected ? nil : client(for: model.account.provider).holdsCredential(for: model.account, isSelected: model.isSelected))
+                switch held {
+                    case .some(.success(true)):
+                        logger.notice("Signed-out account \(model.account.id, privacy: .public) holds credential, marked connected")
+                        model.authentication = .connected
+                        model.issue = nil
+                        saves.continuation.yield()
+                    case .some(.success(false)):
+                        logger.debug("Signed-out account \(model.account.id, privacy: .public) holds no credential")
+                        return
+                    case .some(.failure(let error)):
+                        await record(error, of: .refreshing, for: model, owning: stores)
+                        return
+                    case .none: break
                 }
                 if due { await readUsage(model, for: .refreshing, owning: stores) }
             }
@@ -701,7 +704,7 @@ final class AccountStore {
                 model.issue = nil
                 logger.log(level: operation.level, "\(operation.name, privacy: .public) succeeded for account \(model.account.id, privacy: .public)")
                 saves.continuation.yield()
-                refreshPause?.cancel()
+                refreshWake?.yield()
             case .failure(let error) where error.failure.isCancellation: return
             case .failure(let error):
                 model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
@@ -721,7 +724,7 @@ final class AccountStore {
             model.retryAfter = held
             logger.notice("Account \(model.account.id, privacy: .public) usage reads wait until \(held, privacy: .public)")
             saves.continuation.yield()
-            refreshPause?.cancel()
+            refreshWake?.yield()
         }
         guard error.failure.requiresSignIn else { return }
         model.authentication = .signInRequired

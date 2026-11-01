@@ -39,9 +39,11 @@ public enum Keychain: Sendable {
                 case (.none, _): .success(nil)
                 case (.some, .none): .failure(.unprinted)
                 case (.some, .some(let line)):
-                    .success(
-                        line.hex.map { hex in Data(hex.matches(of: /[0-9A-F]{2}/).compactMap { pair in UInt8(pair.output, radix: 16) }) } ?? line.text.map { text in Data(text.utf8) } ?? Data()
-                    )
+                    switch line.hex.map({ hex in Data(hexEncoded: hex) }) {
+                        case .some(.some(let data)): .success(data)
+                        case .some(.none): .failure(.unprinted)
+                        case .none: .success(line.text.map { text in Data(text.utf8) } ?? Data())
+                    }
             }
         }
     }
@@ -50,7 +52,7 @@ public enum Keychain: Sendable {
         func quoted(_ value: String) -> String {
             "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
         }
-        let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)\n"
+        let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded())\n"
         return line.utf8.count >= 4096 ? .failure(.lineTooLong) : await security(["-i"], within: timeout, input: .string(line)).map { _ in () }
     }
 
@@ -64,20 +66,23 @@ public enum Keychain: Sendable {
         input: some InputProtocol = .none,
     ) async -> Result<ExecutionResult<Void, DiscardedOutput, StringOutput<UTF8>>?, KeychainFailure> {
         func exitStatus(of status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
-        return await withTimeout(timeout) {
-            await Result {
-                try await Subprocess.run(
-                    .path("/usr/bin/security"),
-                    arguments: Arguments(arguments),
-                    environment: .custom([:]),
-                    workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
-                    platformOptions: .session,
-                    input: input,
-                    output: .discarded,
-                    error: .string(limit: 1 << 20),
-                )
+        return await Result { () async throws(ProcessFailure) in
+            try await withTimeout(timeout, expired: .timedOut(timeout)) { () async throws(ProcessFailure) in
+                try await Result {
+                    try await Subprocess.run(
+                        .path("/usr/bin/security"),
+                        arguments: Arguments(arguments),
+                        environment: .custom([:]),
+                        workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
+                        platformOptions: .session,
+                        input: input,
+                        output: .discarded,
+                        error: .string(limit: 1 << 20),
+                    )
+                }
+                .mapError(ProcessFailure.init)
+                .get()
             }
-            .mapError(ProcessFailure.init)
         }
         .mapError(KeychainFailure.process)
         .flatMap { output in

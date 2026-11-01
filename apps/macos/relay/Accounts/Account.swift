@@ -65,8 +65,9 @@ enum AccountOperation: Equatable, Sendable {
     var refusalDescription: String { "\(name), retry after it finishes" }
 }
 
-nonisolated protocol ProviderFailure: DeadlineFailure, LocalizedError {
+nonisolated protocol ProviderFailure: LocalizedError {
     static func process(_ failure: ProcessFailure) -> Self
+    static func cancelled(_ error: CancellationError) -> Self
 
     var requiresSignIn: Bool { get }
     var isAccountMismatch: Bool { get }
@@ -78,7 +79,7 @@ nonisolated extension ProviderFailure {
     init(process error: any Error) {
         self =
             switch ProcessFailure(error) {
-                case .deadline(let deadline): .deadline(deadline)
+                case .cancelled(let error): .cancelled(error)
                 case let failure: .process(failure)
             }
     }

@@ -24,6 +24,7 @@ let modules: [Target] = [
     // --- [CORE]
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
     // --- [MACOS]
     .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
     .target(name: "Files", path: "libs/swift/macos/Files"),
@@ -53,15 +54,12 @@ let modules: [Target] = [
     ),
     .target(
         name: "AppleEvents",
-        dependencies: ["Applications", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections")],
+        dependencies: ["Applications", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections")],
         path: "libs/swift/macos/AppleEvents",
     ),
-    // --- [RPC]
-    .target(name: "EffectRPC", dependencies: ["CurrentProcess", "Encoding", "Results"], path: "libs/swift/rpc/EffectRPC"),
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "OrderedCollections", package: "swift-collections")], path: "libs/swift/rpc/JSONRPC"),
     // --- [CREATIVE_CLOUD]
     .target(name: "AdobeScripting", dependencies: ["AppleEvents", "Applications"], path: "libs/swift/creative-cloud/AdobeScripting"),
-    .target(name: "AdobeAutomation", dependencies: ["AdobeScripting", "AppleEvents", "Applications", "EffectRPC", "Fonts"], path: "libs/swift/creative-cloud/AdobeAutomation"),
+    .target(name: "AdobeAutomation", dependencies: ["AdobeScripting", "AppleEvents", "Applications", "Fonts", "JSONRPC"], path: "libs/swift/creative-cloud/AdobeAutomation"),
 ]
 let executables: [Target] = [
     .executableTarget(
