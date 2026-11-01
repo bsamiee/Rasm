@@ -656,6 +656,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "comfy-table"
+version = "8.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b96a46ad395a5e00676eddaca4a45ed78b29c08be5a878d35e4b071c625637dd"
+dependencies = [
+ "crossterm",
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "compression-codecs"
 version = "0.4.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -698,6 +709,7 @@ checksum = "e96a4956774c13c126a8b5af4daa79384f4d826534c95a02d76afb39e2ab64e3"
 dependencies = [
  "encode_unicode",
  "libc",
+ "unicode-width",
  "windows-sys 0.61.2",
 ]
 
@@ -814,6 +826,54 @@ name = "crossbeam-utils"
 version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
+
+[[package]]
+name = "crossterm"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
+dependencies = [
+ "bitflags 2.13.2",
+ "crossterm_winapi",
+ "derive_more",
+ "document-features",
+ "mio",
+ "parking_lot",
+ "rustix",
+ "signal-hook 0.3.18",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm_winapi"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acdd7c62a3665c7f6830a51635d9ac9b23ed385797f70a83bb8bafe9c572ab2b"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
+name = "csv"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
+dependencies = [
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde_core",
+]
+
+[[package]]
+name = "csv-core"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "darling"
@@ -949,6 +1009,15 @@ dependencies = [
  "base64 0.22.1",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "document-features"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
+dependencies = [
+ "litrs",
 ]
 
 [[package]]
@@ -1248,6 +1317,15 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "fuzzy-matcher"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
+dependencies = [
+ "thread_local",
 ]
 
 [[package]]
@@ -1668,6 +1746,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicatif"
+version = "0.18.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9433806cd6b4ec1aba79c021c7e4c58fb4c3b9977c085062e611ac929998fb0c"
+dependencies = [
+ "console",
+ "portable-atomic",
+ "unicode-width",
+ "unit-prefix",
+ "vt100",
+ "web-time",
+]
+
+[[package]]
+name = "inquire"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6654738b8024300cf062d04a1c13c10c8e2cea598ec1c47dc9b6641159429756"
+dependencies = [
+ "bitflags 2.13.2",
+ "crossterm",
+ "dyn-clone",
+ "fuzzy-matcher",
+ "tempfile",
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "insta"
 version = "1.49.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2004,6 +2111,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
+name = "litrs"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4744e383959f0db86ede514b809b1c53251889093803c05267acc7d4e7030d70"
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2074,12 +2187,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "minus"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b20be26a360f37e73a59ba17f4bee3ad24cd67417d82b9946acd58173a495bfe"
+dependencies = [
+ "crossbeam-channel",
+ "crossterm",
+ "parking_lot",
+ "regex",
+ "textwrap",
+ "thiserror",
+]
+
+[[package]]
 name = "mio"
 version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
 dependencies = [
  "libc",
+ "log",
  "wasi",
  "windows-sys 0.61.2",
 ]
@@ -2779,6 +2907,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-output"
+version = "1.0.0"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "clap",
+ "comfy-table",
+ "csv",
+ "futures",
+ "inquire",
+ "minus",
+ "nonempty-collections",
+ "rasm-command",
+ "rasm-telemetry",
+ "serde",
+ "serde_json",
+ "sysexits",
+ "thiserror",
+ "tokio",
+ "tracing-indicatif",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "rasm-telemetry"
 version = "1.0.0"
 dependencies = [
@@ -3385,12 +3537,33 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
+version = "0.3.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d881a16cf4426aa584979d30bd82cb33429027e42122b169753d6ef1085ed6e2"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook-mio"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b75a19a7a740b25bc7944bdee6172368f988763b744e3d4dfe753f6b4ece40cc"
+dependencies = [
+ "libc",
+ "mio",
+ "signal-hook 0.3.18",
 ]
 
 [[package]]
@@ -3642,12 +3815,21 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
- "signal-hook",
+ "signal-hook 0.4.6",
  "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "url",
+]
+
+[[package]]
+name = "textwrap"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ecfad6c3abc80a577f2b91c1e412ee57e7a060d430b553c1b0c940974ebcd49"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]
@@ -3983,6 +4165,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-indicatif"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1ef6990e0438749f0080573248e96631171a0b5ddfddde119aa5ba8c3a9c47e"
+dependencies = [
+ "indicatif",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-log"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4080,6 +4274,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
+name = "unit-prefix"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
+
+[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4174,6 +4374,27 @@ name = "vsimd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c3082ca00d5a5ef149bb8b555a72ae84c9c59f7250f013ac822ac2e49b19c64"
+
+[[package]]
+name = "vt100"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "054ff75fb8fa83e609e685106df4faeffdf3a735d3c74ebce97ec557d5d36fd9"
+dependencies = [
+ "itoa",
+ "unicode-width",
+ "vte",
+]
+
+[[package]]
+name = "vte"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5924018406ce0063cd67f8e008104968b74b563ee1b85dde3ed1f7cb87d3dbd"
+dependencies = [
+ "arrayvec",
+ "memchr",
+]
 
 [[package]]
 name = "walkdir"

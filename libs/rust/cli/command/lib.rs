@@ -29,7 +29,7 @@ use tracing_appender::{
 };
 use tracing_subscriber::{
     EnvFilter, Layer, Registry,
-    fmt::writer::{MakeWriterExt as _, OptionalWriter},
+    fmt::writer::{MakeWriter, MakeWriterExt as _, OptionalWriter},
     layer::Layered,
     reload,
 };
@@ -137,9 +137,10 @@ fn augmented(program: Command, augment: impl FnOnce(Command) -> Command) -> Comm
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, T, E>(defaults: Defaults, layer: L, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
+pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
+    W: for<'writer> MakeWriter<'writer> + Clone + Send + Sync + 'static,
     L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
     T: Termination,
     E: Error + From<CommandError> + Into<sysexits::ExitCode>,
@@ -162,7 +163,7 @@ where
             )
         })
         .unzip();
-    telemetry.run(&command, defaults, (move || OptionalWriter::from(journal.clone())).or_else(io::stderr), layer, |filter| {
+    telemetry.run(&command, defaults, (move || OptionalWriter::from(journal.clone())).or_else(stderr), layer, |filter| {
         let runtime = Runtime::new().map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Runtime, source })))?;
         let worked = runtime.block_on(async {
             let signals = cfg_select! {

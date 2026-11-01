@@ -415,6 +415,7 @@ where
         program.get_about().into_iter().fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), |identity, about| identity.with_description(about.to_string()));
     rasm_command::run(
         rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. },
+        io::stderr,
         Identity::new(),
         async |Process { args: Augmented { options: Options { listen, allowed_host }, args }, mut signals, filter: _ }| {
             let socket = net::TcpListener::bind(listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(listen), source })?;

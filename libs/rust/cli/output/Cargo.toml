@@ -1,0 +1,48 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-output"
+version.workspace    = true
+edition.workspace    = true
+description          = "Line mode over rasm-command: typed rows as a grid, CSV or JSON, pager, progress bars and prompt colors"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["cli", "table", "pager", "progress", "prompt"]
+categories           = ["command-line-interface"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+futures              = { workspace = true }
+tokio                = { workspace = true }
+nonempty-collections = { workspace = true }
+sysexits             = { workspace = true }
+thiserror            = { workspace = true }
+csv                  = { workspace = true }
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+tracing-subscriber   = { workspace = true }
+anstream             = { workspace = true }
+anstyle              = { workspace = true }
+clap                 = { workspace = true }
+comfy-table          = { workspace = true }
+inquire              = { workspace = true }
+minus                = { workspace = true }
+tracing-indicatif    = { workspace = true }
+rasm-telemetry       = { workspace = true }
+rasm-command         = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

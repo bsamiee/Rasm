@@ -21,7 +21,7 @@ libraries = [{ path = "tools/dylint" }]
 [workspace.dependencies]
 # --- [ASYNC]
 backon           = "1.6.0"                                                                                                                       # Retry schedules with backoff, jitter, and a transient-failure predicate around one async operation
-futures          = "0.3.34"                                                                                                                      # Future joins and stream combinators with ordered results
+futures          = "0.3.34"                                                                                                                      # Future joins, stream combinators with ordered results, and a stream read as an iterator on a blocking thread
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
 tokio            = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
 tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util", "rt", "net", "fs"] }                                           # Stream adapters over tokio channels, watches, intervals, line readers, join sets, listeners, and directory reads
@@ -85,7 +85,7 @@ apache-avro         = { version = "0.22.0", features = ["derive", "zstandard", "
 binrw               = "0.15.2"                                                                       # Binary formats read and written from one declaration
 bytes               = { version = "1.12.1", features = ["serde"] }                                   # Shared immutable byte buffers
 cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                        # CBOR codec
-csv                 = "1.4.0"                                                                        # CSV rows decoded into typed records
+csv                 = "1.4.0"                                                                        # CSV records decoded into and encoded from typed rows
 data-encoding       = "2.11.1"                                                                       # Base64, base32, and hex codecs
 json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
 jsonptr             = "0.8.2"                                                                        # JSON Pointer resolution with typed failures
@@ -274,34 +274,34 @@ tracing                            = "0.1.44"                                   
 tracing-appender                   = "0.2.5"                                                             # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
 tracing-log                        = "0.2.0"                                                             # `log` records forwarded into tracing at every level, reloadable filter decides each
 tracing-opentelemetry              = "0.34.0"                                                            # Tracing spans exported as OpenTelemetry spans
-tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, and the `MakeWriter` sink the JSON layer writes to
+tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
-anstream             = "1.0.0"                                                                         # Writers that keep, strip, or translate ANSI per terminal
-anstyle              = "1.0.14"                                                                        # Style values shared by help text, terminal output, and TUI spans
-clap                 = { version = "4.6.7", features = ["derive", "env"] }                             # Typed command-line arguments and environment values
-clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                   # Verbosity flags resolved to tracing level filter
-clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                         # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
-clap_mangen          = { version = "0.3.3", features = ["env"] }                                       # Man pages generated from each command, `env` naming each variable a row reads
-colorchoice-clap     = "1.0.8"                                                                         # Color choice flag feeding terminal writers
-comfy-table          = "8.0.1"                                                                         # Terminal tables sized to terminal width
-crossterm            = { version = "0.29.0", features = ["event-stream"] }                             # Raw mode, alternate screen, and async terminal events
-gilrs                = "0.11.2"                                                                        # Gamepad input navigating viewports
-iced                 = { version = "0.14.0", features = ["tokio"] }                                    # Windows in The Elm Architecture
-indicatif            = "0.18.6"                                                                        # Progress bars and spinners
-inquire              = { version = "0.9.4", features = ["editor"] }                                    # Interactive prompts
-minus                = { version = "5.8.0", features = ["static_output", "dynamic_output", "search"] } # In-process pager
-ratatui              = "0.30.2"                                                                        # Terminal UI layout, buffer diffing, and widgets
-ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                            # Conversions between terminal styles and TUI styles
-ratatui-image        = "12.0.0-rc.3"                                                                   # Raster previews in terminal
-ratatui-textarea     = "0.9.4"                                                                         # Multi-line text editing widget
-throbber-widgets-tui = "0.11.1"                                                                        # Activity indicators of pending effects
-tracing-indicatif    = "0.3.14"                                                                        # Progress bars driven by tracing spans
-tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] }             # Log pane fed by tracing events
-tui-popup            = "0.7.7"                                                                         # Popups and dialogs
-tui-scrollview       = "0.6.8"                                                                         # Scrollable viewports
-tui-tree-widget      = "0.24.1"                                                                        # Collapsible tree views
-winit                = "0.31.0-beta.4"                                                                 # Platform windows and input events
+anstream             = "1.0.0"                                                             # Writers that keep, strip, or translate ANSI per terminal
+anstyle              = "1.0.14"                                                            # Style values shared by help text, terminal output, and TUI spans
+clap                 = { version = "4.6.7", features = ["derive", "env"] }                 # Typed command-line arguments and environment values
+clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                       # Verbosity flags resolved to tracing level filter
+clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }             # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
+clap_mangen          = { version = "0.3.3", features = ["env"] }                           # Man pages generated from each command, `env` naming each variable a row reads
+colorchoice-clap     = "1.0.8"                                                             # Color choice flag feeding terminal writers
+comfy-table          = "8.0.1"                                                             # Terminal tables sized to terminal width
+crossterm            = { version = "0.29.0", features = ["event-stream"] }                 # Raw mode, alternate screen, and async terminal events
+gilrs                = "0.11.2"                                                            # Gamepad input navigating viewports
+iced                 = { version = "0.14.0", features = ["tokio"] }                        # Windows in The Elm Architecture
+indicatif            = "0.18.6"                                                            # Progress bars and spinners
+inquire              = { version = "0.9.4", features = ["editor"] }                        # Interactive prompts
+minus                = { version = "5.8.0", features = ["static_output", "search"] }       # In-process pager for a grid taller than the terminal, `/` search
+ratatui              = "0.30.2"                                                            # Terminal UI layout, buffer diffing, and widgets
+ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                # Conversions between terminal styles and TUI styles
+ratatui-image        = "12.0.0-rc.3"                                                       # Raster previews in terminal
+ratatui-textarea     = "0.9.4"                                                             # Multi-line text editing widget
+throbber-widgets-tui = "0.11.1"                                                            # Activity indicators of pending effects
+tracing-indicatif    = "0.3.14"                                                            # Progress bars driven by tracing spans
+tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] } # Log pane fed by tracing events
+tui-popup            = "0.7.7"                                                             # Popups and dialogs
+tui-scrollview       = "0.6.8"                                                             # Scrollable viewports
+tui-tree-widget      = "0.24.1"                                                            # Collapsible tree views
+winit                = "0.31.0-beta.4"                                                     # Platform windows and input events
 
 # --- [DATA_STORAGE]
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
@@ -607,7 +607,8 @@ wiremock               = "0.6.5"                                                
 
 # --- [MEMBERS]
 rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
-rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer choice
+rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
+rasm-output    = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
 rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP every Rasm MCP product and `rasm-mcp-bridge` serve through
 
 # --- [LINTS] ----------------------------------------------------------------------------
