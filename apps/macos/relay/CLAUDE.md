@@ -1,6 +1,6 @@
 # [RELAY]
 
-Relay shows Claude and OpenAI subscription usage in the menu bar, switches each provider's active account, and starts 5-hour sessions.
+Relay shows Claude and OpenAI weekly subscription usage in the menu bar and switches each provider's active account.
 
 ## [01]-[STATE]
 
@@ -10,6 +10,7 @@ One store owns every trigger and account state change, views call it and provide
 - Selection follows each provider's live store, actions re-read selection in place of setting it
 - Account identity is account id with organization id, every identity check compares both
 - Failures needing a new sign-in mark the account for sign-in, every other failure leaves an issue on its connected card
+- Accounts marked for sign-in read no usage until their own store holds a matching credential that refreshes or has not expired
 - Logs mark account ids public and emails private, failures hold no token
 - Pending and failed `accounts.json` loads start no trigger, a failed load leaves the file unwritten
 
@@ -37,21 +38,15 @@ Relay drives the Codex desktop app's bundled `codex app-server` over JSON lines 
 - Switch requires `config/read` to report `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
 - Switch refuses to run while the desktop app runs, otherwise stops each affected server and moves `auth.json`
 - Notifications that can arrive before their wait starts are retained until a wait reads them
+- Usage reads map rate-limit windows of a week or longer, Relay models no shorter window
 
-## [04]-[SESSIONS]
-
-Session start sends one greeting when usage reports the account ready:
-- Greetings run with tools, MCP servers, hooks, and memory off
-- Claude greetings read access tokens from a pipe `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR` names, outside argv and environment
-- Claude session resets come from the greeting's `rate_limit_event` when the next usage read reports none
-
-## [05]-[PROCESSES]
+## [04]-[PROCESSES]
 
 Relay spawns one login shell at launch, `claude`, `codex app-server`, and `security` alone:
 - Every child except `codex app-server` runs under a timeout, the server puts one on each request
 - Later children and file locations take the login shell's exports in place of the launch environment
 - Failed login shell reads stop launch and show in the panel and Settings
 
-## [06]-[INTERFACE]
+## [05]-[INTERFACE]
 
 Panel and Settings use system controls, semantic colors, and fonts.

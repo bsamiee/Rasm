@@ -81,6 +81,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     private var calls: [JSONValue: Call] = [:]
     private var listeners: [Method: OrderedDictionary<UUID, Listener>] = [:]
     private var retained: [Method: [Data]] = [:]
+    private var endings: [AsyncStream<Failure>.Continuation] = []
     private var terminal: Failure?
 
     private init(
@@ -120,6 +121,13 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     }
 
     public var isFinished: Bool { terminal != nil }
+
+    public func finished() async -> Failure {
+        if let terminal { return terminal }
+        let (ends, end): (AsyncStream<Failure>, AsyncStream<Failure>.Continuation) = AsyncStream.makeStream()
+        endings.append(end)
+        return await ends.first { _ in true } ?? .deadline(.cancelled)
+    }
 
     // --- [REQUESTS]
     @discardableResult
@@ -233,8 +241,12 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         for listener: Listener in listeners.values.flatMap(\.values) {
             listener.close(failure)
         }
+        for end: AsyncStream<Failure>.Continuation in endings {
+            end.yield(failure)
+        }
         calls.removeAll()
         listeners.removeAll()
         retained.removeAll()
+        endings.removeAll()
     }
 }

@@ -18,9 +18,6 @@ nonisolated struct FileLocations: Sendable {
         URL.applicationSupportDirectory.appending(path: "Relay", directoryHint: .isDirectory)
     }
     var accountsFile: URL { applicationSupportDirectory.appending(path: "accounts.json") }
-    var workingDirectory: URL {
-        applicationSupportDirectory.appending(path: "Session", directoryHint: .isDirectory)
-    }
     var claudeSelectionFile: URL {
         applicationSupportDirectory.appending(path: "claude-selection.json")
     }

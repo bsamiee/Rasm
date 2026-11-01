@@ -72,13 +72,14 @@ actor ClaudeClient: ProviderClient {
         .mapError(ProviderError.init(failure:))
     }
 
-    func holdsCredential(for account: Account) async -> Result<Bool, ProviderError> {
-        await Result(catching: privateStore(account.id).read)
+    func holdsCredential(for account: Account, isSelected: Bool) async -> Result<Bool, ProviderError> {
+        let now: Date = Date()
+        return await Result(catching: store(for: account, isSelected: isSelected).read)
             .map { content in
                 switch content {
                     case .signedOut: false
-                    case .unidentified: true
-                    case .credential(let credential): credential.identity.isSameAccount(as: account.identity)
+                    case .unidentified(let token): token.isUsable(at: now)
+                    case .credential(let credential): credential.identity.isSameAccount(as: account.identity) && credential.token.isUsable(at: now)
                 }
             }
             .mapError(ProviderError.init(failure:))
@@ -210,13 +211,6 @@ actor ClaudeClient: ProviderClient {
             logger.notice("Refreshing account \(account.id, privacy: .public) token after unauthorized usage read")
             verifiedIdentities[stored.token.accessToken] = nil
             return try await send(verify(credential(for: account, isSelected: isSelected, replacing: stored)))
-        }
-        .mapError(ProviderError.init(failure:))
-    }
-
-    func greet(_ account: Account, isSelected: Bool) async -> Result<Date?, ProviderError> {
-        await Result { () async throws(ClaudeFailure) in
-            try await ClaudeSession.run(configuration(store: store(for: account, isSelected: isSelected)), token: credential(for: account, isSelected: isSelected, replacing: nil).token)
         }
         .mapError(ProviderError.init(failure:))
     }
@@ -380,22 +374,6 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [CHILDREN]
-    private func configuration(store: ClaudeCredentialStore, arguments: Arguments = []) throws(ClaudeFailure) -> Configuration {
-        try Result {
-            try FileManager.default.createDirectory(at: paths.workingDirectory, withIntermediateDirectories: true)
-            try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
-        }
-        .mapError(ClaudeFailure.filesystem)
-        .get()
-        return Configuration(
-            executable: .name("claude"),
-            arguments: arguments,
-            environment: .custom(environment.filter { key, _ in !["ANTHROPIC_", "CLAUDE_", "CCR_"].contains(where: key.rawValue.hasPrefix) }).updating(store.variables),
-            workingDirectory: FilePath(paths.workingDirectory.path(percentEncoded: false)),
-            platformOptions: .session,
-        )
-    }
-
     private func run<Output: OutputProtocol>(
         _ arguments: Arguments,
         store: ClaudeCredentialStore,
@@ -403,7 +381,13 @@ actor ClaudeClient: ProviderClient {
         output: Output,
         input: some InputProtocol = .none,
     ) async throws(ClaudeFailure) -> Output.OutputType {
-        let invocation: Configuration = try configuration(store: store, arguments: arguments)
+        try Result { try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
+        let invocation: Configuration = Configuration(
+            executable: .name("claude"),
+            arguments: arguments,
+            environment: .custom(environment.filter { key, _ in !["ANTHROPIC_", "CLAUDE_", "CCR_"].contains(where: key.rawValue.hasPrefix) }).updating(store.variables),
+            platformOptions: .session,
+        )
         let result: ExecutionResult<Void, Output, DiscardedOutput> = try await withTimeout(deadline) { [invocation] in
             await Result { try await Subprocess.run(invocation, input: input, output: output) }.mapError(ClaudeFailure.init(child:))
         }

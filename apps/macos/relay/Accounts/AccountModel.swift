@@ -1,4 +1,3 @@
-import CasePathsCore
 import Foundation
 import Observation
 
@@ -20,7 +19,6 @@ final class AccountModel {
     var retryAfter: Date?
     var issue: ProviderError?
     var isSelected: Bool = false
-    var automaticStartAttempted: Bool = false
     private(set) var running: RunningOperation?
     private(set) var blockingOperation: AccountOperation?
 
@@ -36,17 +34,8 @@ final class AccountModel {
     var acceptsOperation: Bool { running.map { running in running.kind == .refreshing } ?? true }
     var canSelect: Bool { isConnected && acceptsOperation && !isSelected }
 
-    func canStartSession(at now: Date) -> Bool {
-        isConnected && usage.is(\.current) && acceptsOperation && usage.usage?.availability(at: now) == .ready
-    }
-
     var usageReadAfter: Date? {
-        let nextRead: Date? =
-            switch usage {
-                case .current(let usage): usage.observedAt.addingTimeInterval(Self.usageReadSpacing)
-                case .stale, .unavailable: nil
-            }
-        return [retryAfter, nextRead].compactMap(\.self).max()
+        [retryAfter, usage.usage?.observedAt.addingTimeInterval(Self.usageReadSpacing)].compactMap(\.self).max()
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {

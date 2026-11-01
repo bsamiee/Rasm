@@ -33,11 +33,6 @@ nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
     }
 }
 
-nonisolated enum SessionPolicy: String, Codable, Sendable {
-    case manual
-    case automatic
-}
-
 nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
     case connected
     case signInRequired
@@ -46,7 +41,6 @@ nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
 enum AccountOperation: Equatable, Sendable {
     case refreshing
     case selecting
-    case starting
     case signingIn
     case signingOut
     case removing
@@ -55,7 +49,6 @@ enum AccountOperation: Equatable, Sendable {
         switch self {
             case .refreshing: "Refreshing usage"
             case .selecting: "Switching account"
-            case .starting: "Starting session"
             case .signingIn: "Signing in"
             case .signingOut: "Signing out"
             case .removing: "Removing account"
@@ -65,17 +58,11 @@ enum AccountOperation: Equatable, Sendable {
     var level: OSLogType {
         switch self {
             case .refreshing: .debug
-            case .selecting, .starting, .signingIn, .signingOut, .removing: .default
+            case .selecting, .signingIn, .signingOut, .removing: .default
         }
     }
 
     var refusalDescription: String { "\(name), retry after it finishes" }
-}
-
-enum RefreshTrigger: Equatable, Sendable {
-    case background
-    case revalidation
-    case immediate
 }
 
 nonisolated protocol ProviderFailure: DeadlineFailure, LocalizedError {
@@ -99,24 +86,12 @@ nonisolated extension ProviderFailure {
 
 nonisolated protocol ProviderClient: Actor {
     func currentSelection(selected: Account?) async -> Result<AccountIdentity?, ProviderError>
-    func holdsCredential(for account: Account) async -> Result<Bool, ProviderError>
+    func holdsCredential(for account: Account, isSelected: Bool) async -> Result<Bool, ProviderError>
     func select(_ account: Account, outgoing: Account?) async -> Result<AccountIdentity, ProviderError>
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>
     func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError>
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError>
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError>
-    func greet(_ account: Account, isSelected: Bool) async -> Result<Date?, ProviderError>
-}
-
-nonisolated extension ProviderClient {
-    func startSession(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        await Result { () async throws(ProviderError) in
-            let current: AccountUsage = try await usage(for: account, isSelected: isSelected).get()
-            guard current.availability(at: Date()) == .ready else { return current }
-            let reset: Date? = try await greet(account, isSelected: isSelected).get()
-            return try await usage(for: account, isSelected: isSelected).get().fillingResets { kind in kind == .session ? reset : nil }
-        }
-    }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -155,7 +130,6 @@ nonisolated struct Account: Identifiable, Sendable {
     let id: UUID
     let provider: Provider
     var identity: AccountIdentity
-    var sessionPolicy: SessionPolicy
 }
 
 nonisolated enum SignInTarget: Sendable {

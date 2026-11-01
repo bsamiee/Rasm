@@ -52,19 +52,17 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
         }
     }
 
-    let fiveHour: Window?
     let sevenDay: Window?
     let limits: [Limit]?
 
     func usage(observedAt: Date, signInExpiresAt: Date?) throws(ClaudeFailure) -> AccountUsage {
-        let (session, weekly, models): (QuotaWindow?, QuotaWindow?, [QuotaWindow?]) = try combine(
-            fiveHour?.quotaWindow(kind: .session) ?? .success(nil),
+        let (weekly, models): (QuotaWindow?, [QuotaWindow?]) = try combine(
             sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil),
             traverse(limits ?? []) { limit in limit.quotaWindow() },
         )
         .mapError(ClaudeFailure.invalidQuota)
         .get()
-        let windows: [QuotaWindow] = ([session, weekly] + models).compactMap(\.self)
+        let windows: [QuotaWindow] = ([weekly] + models).compactMap(\.self)
         guard !windows.isEmpty else { throw .invalidResponse(.usage, nil) }
         return AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt, signInExpiresAt: signInExpiresAt)
     }

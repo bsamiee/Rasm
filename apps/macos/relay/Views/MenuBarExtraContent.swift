@@ -205,51 +205,10 @@ private struct AccountCard: View {
 
     @ViewBuilder
     private var gauges: some View {
-        let usage: AccountUsage? = model.usage.usage
-        let isCurrent: Bool = model.usage.is(\.current)
-        let session: QuotaWindow? = usage?.session
-        let hasSession: Bool = usage == nil || session != nil
-        let isStarting: Bool = model.running?.kind == .starting
-        let showsStart: Bool = isStarting || model.canStartSession(at: now)
-        let startLabel: String = isStarting ? "Cancel" : "Start session"
-        if hasSession {
-            UsageGauge(
-                title: "Session",
-                reading: model.usage.sessionReading(at: now),
-                fraction: showsStart ? 0 : session?.used.fraction ?? 0,
-                isCurrent: isCurrent,
-                detail: session.flatMap(\.resetsAt).resetTooltip,
-                leadsGlyphRow: true,
-            ) {
-                if showsStart {
-                    Button {
-                        if isStarting { store.cancelOperation(model.account.id) } else { store.startSession(model.account.id) }
-                    } label: {
-                        Image(systemName: "arrow.trianglehead.clockwise")
-                            .font(.body)
-                            .opacity(isStarting ? 0 : 1)
-                    }
-                    .buttonStyle(.accessoryBar)
-                    .overlay {
-                        if isStarting { ProgressView().controlSize(.small) }
-                    }
-                    .accessibilityLabel(startLabel)
-                    .help(startLabel)
-                    .transition(.opacity)
-                }
-            }
-            .animation(.default, value: showsStart)
-        }
-        if let usage {
-            ForEach(usage.windows.filter { window in window.kind != .session }.enumerated(), id: \.offset) { offset, window in
-                UsageGauge(
-                    title: window.kind.name,
-                    reading: window.reading(at: now),
-                    fraction: window.used.fraction,
-                    isCurrent: isCurrent,
-                    detail: window.resetsAt.resetTooltip,
-                    leadsGlyphRow: !hasSession && offset == 0,
-                ) {}
+        if let usage: AccountUsage = model.usage.usage {
+            let isCurrent: Bool = model.usage.is(\.current)
+            ForEach(usage.windows.enumerated(), id: \.offset) { offset, window in
+                UsageGauge(window: window, isCurrent: isCurrent, now: now, leadsGlyphRow: offset == 0)
             }
         }
     }
@@ -259,8 +218,7 @@ private struct AccountCard: View {
             case (.some(let issue), _, _): issue.description(at: now)
             case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.name.description
             case (.none, _, .signInRequired): "Sign in required"
-            case (.none, _, .connected):
-                model.usage.usage?.availability(at: now).blockedLine(at: now) ?? model.usage.usage?.signInLine(at: now)
+            case (.none, _, .connected): model.usage.note(at: now)
         }
     }
 }

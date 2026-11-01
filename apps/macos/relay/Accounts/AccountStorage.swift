@@ -88,7 +88,6 @@ actor AccountStorage {
         let organizationID: String?
         let email: String
         let plan: String?
-        let sessionPolicy: SessionPolicy
         let authentication: AuthenticationState
         let usage: Snapshot?
         let retryAfter: Date?
@@ -100,7 +99,6 @@ actor AccountStorage {
             organizationID = value.account.identity.organizationID
             email = value.account.identity.email
             plan = value.account.identity.plan
-            sessionPolicy = value.account.sessionPolicy
             authentication = value.authentication
             usage = value.usage.map(Snapshot.init)
             retryAfter = value.retryAfter
@@ -117,12 +115,7 @@ actor AccountStorage {
                 usage?.accountUsage(id: id).map(Optional.some) ?? .success(nil)
             return combine(identity, snapshot).map { identity, snapshot in
                 SavedAccount(
-                    account: Account(
-                        id: id,
-                        provider: provider,
-                        identity: identity,
-                        sessionPolicy: sessionPolicy,
-                    ),
+                    account: Account(id: id, provider: provider, identity: identity),
                     authentication: authentication,
                     usage: snapshot,
                     retryAfter: retryAfter.flatMap { date in date > now ? date : nil },

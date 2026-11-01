@@ -21,9 +21,6 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case signInPageUnopened
     case signInRefused(reason: String?)
     case identityChanged
-    case modelUnavailable
-    case turnUnauthorized(message: String)
-    case turnFailed(message: String)
     case storage(any Error)
     case keyringStorage
     case forcedWorkspace
@@ -31,7 +28,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
 
     var requiresSignIn: Bool {
         switch self {
-            case .signInRequired, .subscriptionRequired, .identityChanged, .turnUnauthorized: true
+            case .signInRequired, .subscriptionRequired, .identityChanged: true
             default: false
         }
     }
@@ -58,9 +55,6 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
             case .signInRefused(.some(let reason)): "OpenAI sign-in failed. \(reason)"
             case .signInRefused(.none): "OpenAI sign-in failed"
             case .identityChanged: "Signed in to different OpenAI user or workspace"
-            case .modelUnavailable: "\(CodexProtocol.greetingModelName) model unavailable"
-            case .turnUnauthorized(let message): "OpenAI greeting unauthorized. \(message)"
-            case .turnFailed(let message): "OpenAI greeting failed. \(message)"
             case .storage(let error): "Codex file access failed. \(error.localizedDescription)"
             case .keyringStorage: "Set cli_auth_credentials_store = \"file\" to switch accounts"
             case .forcedWorkspace: "Unset forced_chatgpt_workspace_id to switch accounts"

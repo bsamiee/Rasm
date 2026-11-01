@@ -14,39 +14,35 @@ extension VerticalAlignment {
 
 // --- [VIEWS] ---------------------------------------------------------------------------
 
-struct UsageGauge<Accessory: View>: View {
-    let title: String
-    let reading: String?
-    let fraction: Double
+struct UsageGauge: View {
+    let window: QuotaWindow
     let isCurrent: Bool
-    let detail: String
+    let now: Date
     let leadsGlyphRow: Bool
-    @ViewBuilder let accessory: Accessory
 
     var body: some View {
+        let reading: String = window.reading(at: now)
+        let detail: String = window.resetsAt.resetTooltip
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 label
                 Spacer(minLength: 8)
-                if let reading {
-                    Text(reading)
-                        .monospacedDigit()
-                        .foregroundStyle(isCurrent ? .secondary : .tertiary)
-                        .contentTransition(.opacity)
-                }
+                Text(reading)
+                    .monospacedDigit()
+                    .foregroundStyle(isCurrent ? .secondary : .tertiary)
+                    .contentTransition(.opacity)
             }
             .accessibilityRepresentation {
-                ProgressView(value: fraction) {
-                    Text(title)
+                ProgressView(value: window.used.fraction) {
+                    Text(window.kind.name)
                 } currentValueLabel: {
-                    if let reading { Text(reading) }
+                    Text(reading)
                 }
             }
             .help(detail)
-            .overlay(alignment: .trailing) { accessory }
             .font(.subheadline)
 
-            ProgressView(value: fraction)
+            ProgressView(value: window.used.fraction)
                 .progressViewStyle(CapsuleProgressStyle(tint: isCurrent ? Color.accentColor : .secondary))
                 .accessibilityHidden(true)
                 .help(detail)
@@ -55,7 +51,7 @@ struct UsageGauge<Accessory: View>: View {
 
     @ViewBuilder
     private var label: some View {
-        let text: Text = Text(title).foregroundStyle(isCurrent ? .primary : .secondary)
+        let text: Text = Text(window.kind.name).foregroundStyle(isCurrent ? .primary : .secondary)
         if leadsGlyphRow {
             text.alignmentGuide(.glyphRow) { dimensions in dimensions[VerticalAlignment.center] }
         } else {

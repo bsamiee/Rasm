@@ -78,8 +78,6 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
     case rateLimited(ClaudeEndpoint, until: Date)
     case transport(any Error)
     case accountChanged
-    case modelUnavailable
-    case greetingFailed
     case protocolFailure
     case deadline(Deadline)
     case lock(LockfileFailure)
@@ -132,8 +130,6 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
             case .rateLimited(let endpoint, _): "Claude \(endpoint) requests rate limited"
             case .transport(let error): "Claude unreachable. \(error.localizedDescription)"
             case .accountChanged: "Signed in to different Claude account"
-            case .modelUnavailable: "Haiku model unavailable"
-            case .greetingFailed: "Claude greeting failed"
             case .protocolFailure: "Unexpected Claude Code response"
             case .deadline(let deadline): "Claude Code \(deadline.localizedDescription)"
             case .lock(.held): "Claude credential update in progress, retry after it finishes"

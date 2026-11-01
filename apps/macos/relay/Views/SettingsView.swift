@@ -159,21 +159,6 @@ private struct AccountSettings: View {
             }
 
             Section {
-                Picker(
-                    "Session start",
-                    selection: Binding(
-                        get: { model.account.sessionPolicy },
-                        set: { store.setSessionPolicy($0, for: model.account.id) },
-                    ),
-                ) {
-                    Text("Manual").tag(SessionPolicy.manual)
-                    Text("Automatic").tag(SessionPolicy.automatic)
-                }
-            } footer: {
-                Text("Manual starts sessions from the card. Automatic sends “hi” when a session can start")
-            }
-
-            Section {
                 HStack {
                     switch model.authentication {
                         case .connected: Button("Sign Out") { store.signOut(model.account.id) }

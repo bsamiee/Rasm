@@ -18,7 +18,6 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         let expiresAt: Double?
         let refreshTokenExpiresAt: Double?
         let subscriptionType: String?
-        let rateLimitTier: String?
         let clientId: String?
 
         var signedOut: Self {
@@ -29,7 +28,6 @@ nonisolated struct ClaudeOAuthToken: Sendable {
                 expiresAt: 0,
                 refreshTokenExpiresAt: refreshTokenExpiresAt,
                 subscriptionType: subscriptionType,
-                rateLimitTier: rateLimitTier,
                 clientId: clientId,
             )
         }
@@ -44,6 +42,10 @@ nonisolated struct ClaudeOAuthToken: Sendable {
 
     func needsRefresh(at now: Date) -> Bool {
         expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? false
+    }
+
+    func isUsable(at now: Date) -> Bool {
+        document.known.refreshToken != nil || !needsRefresh(at: now)
     }
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
@@ -94,7 +96,6 @@ nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
             expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
             refreshTokenExpiresAt: refreshTokenExpiresAt,
             subscriptionType: token.document.known.subscriptionType,
-            rateLimitTier: token.document.known.rateLimitTier,
             clientId: token.document.known.clientId,
         )
         guard let renewed: ClaudeOAuthToken = try ClaudeOAuthToken.make(JSONDocument(fields: token.document.fields, known: attributes)) else { throw .invalidResponse(.token, nil) }

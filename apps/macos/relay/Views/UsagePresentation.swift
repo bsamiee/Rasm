@@ -1,4 +1,3 @@
-import CasePathsCore
 import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -46,31 +45,14 @@ extension QuotaWindow {
     }
 }
 
-extension Availability {
-    func blockedLine(at now: Date) -> String? {
-        self[case: \.blocked].map { until in [blockedText, until?.resetText(at: now)].compactMap(\.self).joined(separator: separator) }
-    }
-}
-
-extension AccountUsage {
-    func signInLine(at now: Date) -> String? {
-        signInExpiresAt.flatMap { expiry in expiry <= now ? "Sign-in expired" : nil }
-    }
-}
-
 extension UsageState {
-    func sessionReading(at now: Date) -> String? {
-        let availability: Availability? = usage?.availability(at: now)
-        let state: String? =
-            switch availability {
-                case .running(let until): until.resetText(at: now)
-                case .blocked: blockedText
-                case .ready, .none: awaitingUpdate
-                case .noSessionWindow: nil
-            }
-        guard !`is`(\.current) || availability != .ready else { return nil }
-        let parts: [String] = [usage?.session?.used.percentage, state].compactMap(\.self)
-        return parts.isEmpty ? nil : parts.joined(separator: separator)
+    func note(at now: Date) -> String? {
+        switch (usage, usage?.isBlocked, usage?.signInExpiresAt) {
+            case (.none, _, _): awaitingUpdate
+            case (.some(let usage), true, _): [blockedText, usage.weekly?.resetsAt?.resetText(at: now)].compactMap(\.self).joined(separator: separator)
+            case (.some, _, .some(let expiry)) where expiry <= now: "Sign-in expired"
+            case (.some, _, _): nil
+        }
     }
 }
 

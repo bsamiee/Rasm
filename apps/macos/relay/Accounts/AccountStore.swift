@@ -144,7 +144,6 @@ final class AccountStore {
                 group.addTask(name: "Claude refresh lock") { await observeRefreshLock() }
                 group.addTask(name: "Codex selection") { await observe(file: self.codex.liveAuthFile, provider: .openAI) }
                 group.addTask(name: "Codex configuration") { await observe(file: self.codex.liveHome.appending(path: "config.toml"), provider: .openAI) }
-                group.addTask(name: "Codex rate limits") { await observeCodexUpdates() }
                 group.addTask(name: "Refresh schedule") { await schedule() }
             }
         }
@@ -222,7 +221,7 @@ final class AccountStore {
                     let changed: [AccountModel] = accounts.filter { model in
                         before[model.account.id] != model.isSelected
                     }
-                    refresh(changed, trigger: .background)
+                    refresh(changed)
                 }
             } catch {
                 logger.error("\(provider.name, privacy: .public) live store \(file.lastPathComponent, privacy: .public) watch failed with \(error, privacy: .public)")
@@ -237,7 +236,7 @@ final class AccountStore {
             for await status: NWPath.Status in NWPathMonitor().map(\.status).removeDuplicates() where status == .satisfied && !isStopping {
                 logger.debug("Network path satisfied")
                 await readSelection()
-                refresh(accounts, trigger: .background)
+                refresh(accounts)
             }
         }
         func observeWake() async {
@@ -261,16 +260,6 @@ final class AccountStore {
                 }
             } catch {
                 logger.error("Claude refresh lock watch failed with \(error, privacy: .public)")
-            }
-        }
-        func observeCodexUpdates() async {
-            for await home: URL in codex.updates {
-                logger.debug("Codex rate limits updated for \(home.path(percentEncoded: false), privacy: .private)")
-                let owner: () -> AccountModel? = { [self] in
-                    accounts.first { model in model.account.provider == .openAI && codex.home(for: model.account, isSelected: model.isSelected) == home }
-                }
-                while let operation: RunningOperation = owner()?.running { await operation.task.value }
-                if let model: AccountModel = owner() { refresh([model], trigger: .immediate) }
             }
         }
         func schedule() async {
@@ -305,7 +294,7 @@ final class AccountStore {
                     pause.cancel()
                 }
                 guard !Task.isCancelled else { return }
-                if case .success = slept { refresh(accounts, trigger: .background) }
+                if case .success = slept { refresh(accounts) }
             }
         }
     }
@@ -358,7 +347,7 @@ final class AccountStore {
         logger.debug("Panel opened")
         Task(name: "Panel opened") { [self] in
             await readSelection()
-            refresh(accounts, trigger: .background)
+            refresh(accounts)
         }
         refreshPause?.cancel()
     }
@@ -380,21 +369,6 @@ final class AccountStore {
     }
 
     // --- [ACCOUNT_ACTIONS]
-    func cancelOperation(_ id: UUID) {
-        guard let running: RunningOperation = model(id)?.running else { return }
-        logger.notice("\(running.kind.name, privacy: .public) cancel requested for account \(id, privacy: .public)")
-        running.task.cancel()
-    }
-
-    func setSessionPolicy(_ policy: SessionPolicy, for id: UUID) {
-        guard let model: AccountModel = model(id) else { return }
-        logger.notice("Account \(id, privacy: .public) session policy set to \(policy.rawValue, privacy: .public)")
-        model.account.sessionPolicy = policy
-        model.automaticStartAttempted = policy == .automatic && model.canStartSession(at: Date())
-        saves.continuation.yield()
-        if model.automaticStartAttempted { startSession(id) }
-    }
-
     func moveAccounts(from offsets: IndexSet, to destination: Int) {
         accounts.move(fromOffsets: offsets, toOffset: destination)
         logger.info("Moved accounts at \(Array(offsets), privacy: .public) to position \(destination, privacy: .public)")
@@ -443,7 +417,7 @@ final class AccountStore {
                 return
             }
             let model: AccountModel = AccountModel(
-                account: Account(id: UUID(), provider: provider, identity: identity, sessionPolicy: .manual),
+                account: Account(id: UUID(), provider: provider, identity: identity),
                 authentication: .connected,
                 usage: .unavailable,
                 retryAfter: nil,
@@ -454,7 +428,7 @@ final class AccountStore {
             )
             apply(selected: model.account.id, provider: provider)
             saves.continuation.yield()
-            refresh([model], trigger: .background)
+            refresh([model])
         }
     }
 
@@ -470,7 +444,7 @@ final class AccountStore {
         for model: AccountModel in accounts where model.account.provider == provider {
             let selected: Bool = model.account.id == id
             model.isSelected = selected
-            if selected, !model.isConnected { refresh([model], trigger: .revalidation) }
+            if selected, !model.isConnected { refresh([model]) }
         }
     }
 
@@ -652,12 +626,7 @@ final class AccountStore {
                 let model: AccountModel =
                     existing
                     ?? AccountModel(
-                        account: Account(
-                            id: id,
-                            provider: provider,
-                            identity: identity,
-                            sessionPolicy: replaced?.account.sessionPolicy ?? .manual,
-                        ),
+                        account: Account(id: id, provider: provider, identity: identity),
                         authentication: .connected,
                         usage: replaced?.usage ?? .unavailable,
                         retryAfter: nil,
@@ -696,77 +665,27 @@ final class AccountStore {
     }
 
     // --- [USAGE]
-    func startSession(_ id: UUID) {
-        guard let model: AccountModel = model(id), model.isConnected else { return }
-        run(model, .starting) { [self] stores in
-            guard model.isConnected else { return }
-            await apply(await client(for: model.account.provider).startSession(for: model.account, isSelected: model.isSelected), of: .starting, to: model, owning: stores)
-        }
-    }
-
-    private func apply(_ result: Result<AccountUsage, ProviderError>, of operation: AccountOperation, to model: AccountModel, owning: Set<CredentialStore>) async {
-        switch result {
-            case .success(let usage):
-                let now: Date = Date()
-                let carried: AccountUsage = usage.fillingResets { kind in
-                    model.usage.usage?.windows.first { earlier in earlier.kind == kind }?.resetsAt.flatMap { reset in reset > now ? reset : nil }
-                }
-                model.usage = .current(carried)
-                model.authentication = .connected
-                model.retryAfter = nil
-                model.issue = nil
-                let running: Bool = carried.availability(at: now).is(\.running)
-                if running { model.automaticStartAttempted = false }
-                logger.log(
-                    level: operation.level,
-                    "\(operation.name, privacy: .public) succeeded for account \(model.account.id, privacy: .public), session running \(running, privacy: .public)",
-                )
-                saves.continuation.yield()
-                refreshPause?.cancel()
-                if !isStopping, model.account.sessionPolicy == .automatic, !model.automaticStartAttempted, model.canStartSession(at: Date()) {
-                    model.automaticStartAttempted = true
-                    logger.notice("Starting automatic session for account \(model.account.id, privacy: .public)")
-                    startSession(model.account.id)
-                }
-            case .failure(let error) where error.failure.isCancellation: return
-            case .failure(let error):
-                model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
-                await record(error, of: operation, for: model, owning: owning)
-        }
-    }
-
-    private func refresh(_ candidates: [AccountModel], trigger: RefreshTrigger) {
+    private func refresh(_ candidates: [AccountModel]) {
         guard storageState == .available, !isStopping else { return }
         let now: Date = Date()
         for model: AccountModel in candidates where !model.isBusy {
-            let due: Bool = (trigger == .immediate ? model.retryAfter : model.usageReadAfter).map { date in date <= now } ?? true
-            let refreshes: Bool =
-                switch (model.isConnected, model.isSelected) {
-                    case (true, _): due
-                    case (false, true): due && trigger == .revalidation
-                    case (false, false): true
-                }
-            guard refreshes else { continue }
+            let due: Bool = model.usageReadAfter.map { date in date <= now } ?? true
+            guard due || !model.isConnected else { continue }
             run(model, .refreshing) { [self] stores in
-                let credential: Result<Bool, ProviderError>? =
-                    if !model.isConnected, !model.isSelected {
-                        await client(for: model.account.provider).holdsCredential(for: model.account)
-                    } else {
-                        nil
+                if !model.isConnected {
+                    switch await client(for: model.account.provider).holdsCredential(for: model.account, isSelected: model.isSelected) {
+                        case .success(true):
+                            logger.notice("Signed-out account \(model.account.id, privacy: .public) holds credential, marked connected")
+                            model.authentication = .connected
+                            model.issue = nil
+                            saves.continuation.yield()
+                        case .success(false):
+                            logger.debug("Signed-out account \(model.account.id, privacy: .public) holds no credential")
+                            return
+                        case .failure(let error):
+                            await record(error, of: .refreshing, for: model, owning: stores)
+                            return
                     }
-                switch credential {
-                    case .some(.success(true)):
-                        logger.notice("Signed-out account \(model.account.id, privacy: .public) holds credential, marked connected")
-                        model.authentication = .connected
-                        model.issue = nil
-                        saves.continuation.yield()
-                    case .some(.success(false)):
-                        logger.debug("Signed-out account \(model.account.id, privacy: .public) holds no credential")
-                        return
-                    case .some(.failure(let error)):
-                        await record(error, of: .refreshing, for: model, owning: stores)
-                        return
-                    case .none: break
                 }
                 if due { await readUsage(model, for: .refreshing, owning: stores) }
             }
@@ -774,7 +693,20 @@ final class AccountStore {
     }
 
     private func readUsage(_ model: AccountModel, for operation: AccountOperation, owning: Set<CredentialStore>) async {
-        await apply(await client(for: model.account.provider).usage(for: model.account, isSelected: model.isSelected), of: operation, to: model, owning: owning)
+        switch await client(for: model.account.provider).usage(for: model.account, isSelected: model.isSelected) {
+            case .success(let usage):
+                model.usage = .current(usage)
+                model.authentication = .connected
+                model.retryAfter = nil
+                model.issue = nil
+                logger.log(level: operation.level, "\(operation.name, privacy: .public) succeeded for account \(model.account.id, privacy: .public)")
+                saves.continuation.yield()
+                refreshPause?.cancel()
+            case .failure(let error) where error.failure.isCancellation: return
+            case .failure(let error):
+                model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
+                await record(error, of: operation, for: model, owning: owning)
+        }
     }
 
     // --- [FAILURES]

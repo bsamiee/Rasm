@@ -19,13 +19,11 @@ nonisolated struct UsageAmount: Equatable, Sendable {
 }
 
 nonisolated enum QuotaKind: Hashable, Codable, Sendable {
-    case session
     case weekly
     case model(String)
 
     var name: String {
         switch self {
-            case .session: "Session"
             case .weekly: "Weekly"
             case .model(let name): name
         }
@@ -41,41 +39,14 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     var blocks: Bool { used.isExhausted || rejected }
 }
 
-@CasePathable
-nonisolated enum Availability: Equatable, Sendable {
-    case blocked(until: Date?)
-    case running(until: Date)
-    case ready
-    case noSessionWindow
-}
-
 nonisolated struct AccountUsage: Equatable, Sendable {
     let windows: [QuotaWindow]
     let includedUsageAllowed: Bool?
     let observedAt: Date
     let signInExpiresAt: Date?
 
-    var session: QuotaWindow? { windows.first { window in window.kind == .session } }
     var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
-
-    func availability(at now: Date) -> Availability {
-        switch (weekly, includedUsageAllowed, session, session?.resetsAt) {
-            case (.some(let weekly), _, _, _) where weekly.blocks: .blocked(until: weekly.resetsAt)
-            case (_, false, _, _): .blocked(until: weekly?.resetsAt)
-            case (_, _, .none, _): .noSessionWindow
-            case (_, _, .some, .some(let reset)) where reset > now: .running(until: reset)
-            case (_, _, .some, _): .ready
-        }
-    }
-
-    func fillingResets(_ reset: (QuotaKind) -> Date?) -> Self {
-        Self(
-            windows: windows.map { window in QuotaWindow(kind: window.kind, used: window.used, resetsAt: window.resetsAt ?? reset(window.kind), rejected: window.rejected) },
-            includedUsageAllowed: includedUsageAllowed,
-            observedAt: observedAt,
-            signInExpiresAt: signInExpiresAt,
-        )
-    }
+    var isBlocked: Bool { weekly?.blocks == true || includedUsageAllowed == false }
 }
 
 @CasePathable
