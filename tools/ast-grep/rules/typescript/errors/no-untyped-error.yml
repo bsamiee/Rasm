@@ -35,7 +35,7 @@ utils:
                         has:
                             kind: pair
                             all:
-                                - has: {field: key, regex: '^(message|cause|reason|detail|description|text)$'}
+                                - has: {field: key, regex: '^(message|cause|detail|description|text)$'}
                                 - has: {field: value, kind: 'string, template_string'}
     untagged-thunk:
         kind: arrow_function, function_expression, method_definition

@@ -4,7 +4,7 @@ use clippy_utils::{
     ExprUseNode,
     consts::{ConstEvalCtxt, Constant},
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr,
+    fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr, is_from_proc_macro,
     macros::root_macro_call,
     paths::PathNS,
     peel_blocks,
@@ -154,7 +154,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             {
                 let bounded = |limit: &Expr<'_>| matches!(ConstEvalCtxt::new(cx).eval(limit), Some(Constant::Int(bits)) if bits == min || bits == max);
                 bounded(value)
-                    || unread(cx, value).is_some_and(|(_, body)| match body.kind {
+                    || unread(cx, value).is_some_and(|body| match body.kind {
                         ExprKind::If(_, then, Some(otherwise)) => bounded(then) && bounded(otherwise),
                         _ => bounded(body),
                     })
@@ -169,16 +169,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && let PatKind::TupleStruct(..) = tested.pat.kind
                     && let Some(error) = self.failure(cx, scrutinee, expr) =>
                 Some((call.span, Discard::View, String::from("matches!"), error)),
-            _ if expanded_externally(cx, expr.span) => None,
+            _ if expanded_externally(cx, expr.span) || is_from_proc_macro(cx, expr) => None,
             ExprKind::MethodCall(segment, receiver, arguments, _)
                 if let Some(&(discard, gate)) = fn_def_id(cx, expr).and_then(|method| self.methods.get(&method))
                     && let Some(error) = self.failure(cx, receiver, expr)
                     && match gate {
                         Gate::Always => true,
                         Gate::Unread => arguments.first().is_some_and(|handler| unread(cx, handler).is_some()),
-                        Gate::Succeeds => arguments
-                            .first()
-                            .is_some_and(|value| fn_def_id(cx, unread(cx, value).map_or_else(|| peel_blocks(value), |(_, body)| body)).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk)),
+                        Gate::Succeeds =>
+                            arguments.first().is_some_and(|value| fn_def_id(cx, unread(cx, value).unwrap_or_else(|| peel_blocks(value))).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk)),
                         Gate::Relayed =>
                             get_parent_expr(cx, expr).is_some_and(|parent| match parent.kind {
                                 ExprKind::MethodCall(_, relayed, ..) => relayed.hir_id == expr.hir_id,

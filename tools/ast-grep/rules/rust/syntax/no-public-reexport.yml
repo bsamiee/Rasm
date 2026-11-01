@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-public-reexport
+language: rust
+severity: error
+rule:
+    kind: use_declaration
+    has: {kind: visibility_modifier, regex: '^pub$'}
+    pattern: $USE
+message: '`$USE` re-exports an item another module owns'
+note: 'Declare the owning module `pub` and reach each item through its path'

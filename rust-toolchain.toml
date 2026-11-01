@@ -1,7 +1,7 @@
 # --- [TOOLCHAIN] ------------------------------------------------------------------------
 
 [toolchain]
-channel    = "nightly-2026-10-15"
+channel    = "nightly-2026-10-30"
 profile    = "minimal"
 components = [
     "clippy",

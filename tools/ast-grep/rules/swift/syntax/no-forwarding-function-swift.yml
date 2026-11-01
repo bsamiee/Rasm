@@ -144,7 +144,10 @@ utils:
                     - has: {field: result, matches: constant-result}
                     - has: {field: target, matches: assigned-field}
 rule:
-    not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
+    not:
+        any:
+            - has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}
+            - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@resultBuilder$'}}}}
     any:
         - matches: plain-parameters
           all:

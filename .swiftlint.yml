@@ -98,7 +98,6 @@ only_rules:
     - unneeded_escaping
     - unneeded_override
     - unneeded_parentheses_in_closure_argument
-    - unneeded_throws_rethrows
     - unowned_variable_capture
     - untyped_error_in_catch
     - unused_closure_parameter

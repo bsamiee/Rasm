@@ -14,6 +14,9 @@ enforce-iter-loop-reborrow                   = true
 allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
+# --- [NUMERICS]
+arithmetic-side-effects-allowed-unary = ["rust_decimal::Decimal"]
+
 # --- [NAMING]
 upper-case-acronyms-aggressive = true
 allowed-idents-below-min-chars = ["w", "x", "y", "z"]

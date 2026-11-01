@@ -23,6 +23,10 @@ utils:
             all:
                 - has: {field: target, pattern: $NAME}
                 - has: {field: suffix, regex: '^\.(append|insert|remove|removeAll|removeFirst|removeLast|removeSubrange|replaceSubrange|sort|reverse|shuffle|merge|formUnion|formIntersection|formSymmetricDifference|subtract|toggle)$'}
+    head-write:
+        any:
+            - {kind: assignment, has: {field: target, has: {matches: head}}}
+            - matches: derivable-mutation
     expressionless-loop:
         kind: for_statement
         any:
@@ -82,20 +86,19 @@ rule:
                                     any:
                                         - all:
                                             - matches: expressionless-loop
-                                            - has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
+                                            - has: {stopBy: end, matches: head-write}
                                         - has:
                                             stopBy: end
                                             matches: expressionless-loop
-                                            has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
+                                            has: {stopBy: end, matches: head-write}
                                 - not:
                                     precedes:
                                         stopBy: end
                                         any:
-                                            - {kind: assignment, has: {field: target, has: {matches: head}}}
+                                            - matches: head-write
                                             - has:
                                                 stopBy: end
-                                                kind: assignment
-                                                has: {field: target, has: {matches: head}}
+                                                matches: head-write
                                                 not: {inside: {stopBy: end, matches: expressionless-loop}}
 message: '`var $NAME` binds a value an expression computes'
 note: 'Bind `let` to the expression yielding its final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'

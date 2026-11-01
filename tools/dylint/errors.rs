@@ -1,6 +1,6 @@
 use clippy_utils::{peel_blocks, res::MaybeDef as _, sym, ty::implements_trait, visitors::is_local_used};
 use rustc_hir::{
-    Expr, ExprKind, Pat, PatKind,
+    Expr, ExprKind, PatKind,
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::LateContext;
@@ -80,16 +80,16 @@ fn body_output<'tcx>(cx: &LateContext<'tcx>, body: LocalDefId) -> Option<Ty<'tcx
         .or_else(|| if let ty::Coroutine(_, args) = typeck.node_type_opt(node)?.kind() { Some(args.as_coroutine().return_ty()) } else { None })
 }
 
-fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<(&'tcx Pat<'tcx>, &'tcx Expr<'tcx>)> {
+fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
     let ExprKind::Closure(closure) = handler.kind else { return None };
     let body = cx.tcx.hir_body(closure.body);
     let [parameter] = body.params else { return None };
     match parameter.pat.kind {
         PatKind::Wild => true,
-        PatKind::Binding(_, binding, _, None) => !is_local_used(cx, &body.value, binding),
+        PatKind::Binding(_, binding, _, None) => !is_local_used(cx, body.value, binding),
         _ => false,
     }
-    .then(|| (parameter.pat, peel_blocks(&body.value)))
+    .then(|| peel_blocks(&body.value))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

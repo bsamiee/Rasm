@@ -132,7 +132,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let typeck = tcx.typeck(function);
                 let receives = |node: HirId| typeck.node_args_opt(node).and_then(|args| args.types().next()).is_some_and(|receiver| receiver.peel_refs() == held);
                 let mut called = Vec::new();
-                let _: Option<()> = for_each_expr(tcx, &tcx.hir_body_owned_by(function).value, |expr| {
+                let _: Option<()> = for_each_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
                     called.extend(
                         typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id().filter(|&item| tcx.def_kind(item) == DefKind::AssocFn)).map(|item| (expr.hir_id, item)),
                     );
@@ -373,7 +373,7 @@ fn bound_to_trait(cx: &LateContext<'_>, function: LocalDefId, implemented: DefId
     let supertraits = cx.tcx.supertrait_def_ids(implemented).collect::<Vec<_>>();
     owner(cx, function).is_some_and(|owner| {
         let owned = |expr: &Expr<'_>| typeck.expr_ty_adjusted(expr).peel_refs() == owner;
-        !any_expr(cx.tcx, &cx.tcx.hir_body_owned_by(function).value, |expr| {
+        !any_expr(cx.tcx, cx.tcx.hir_body_owned_by(function).value, |expr| {
             matches!(expr.kind, ExprKind::Field(base, _) if owned(base))
                 || matches!(expr.kind, ExprKind::MethodCall(_, receiver, ..)
                     if owned(receiver) && !typeck.type_dependent_def_id(expr.hir_id).and_then(|method| cx.tcx.trait_of_assoc(method)).is_some_and(|declared| supertraits.contains(&declared)))

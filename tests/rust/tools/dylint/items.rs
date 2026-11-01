@@ -390,6 +390,50 @@ fn single_reader(found: &str) {
     "#);
 }
 
+fn unreachable_public_item(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `pub` associated function is unreachable from the crate root
+      --> tools/dylint/examples/unreachable_public_item.rs:15:9
+       |
+    15 |         pub const fn opened() -> Self { Self }
+       |         ---^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |         |
+       |         help: narrow the visibility to the crate: `pub(crate)`
+       |
+       = note: `#[warn(unreachable_public_item)]` on by default
+    applicability MachineApplicable: narrow the visibility to the crate
+
+    warning: `pub` function is unreachable from the crate root
+      --> tools/dylint/examples/unreachable_public_item.rs:22:5
+       |
+    22 |     pub const fn balance() -> u32 { 1 }
+       |     ---^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |     |
+       |     help: narrow the visibility to the crate: `pub(crate)`
+    applicability MachineApplicable: narrow the visibility to the crate
+
+    warning: `pub` function is unreachable from the crate root
+      --> tools/dylint/examples/unreachable_public_item.rs:8:13
+       |
+     6 |     macro_rules! counted {
+     7 |         ($name:ident) => {
+     8 |             pub fn $name() -> u32 { 3 }
+       |             ^^^^^^^^^^^^^^^^^^^^^
+    ...
+    26 |     counted!(count);
+       |     --------------- in this macro invocation
+       |
+    help: narrow the visibility to the crate
+      --> tools/dylint/examples/unreachable_public_item.rs:8:13
+       |
+     8 |             pub fn $name() -> u32 { 3 }
+       |             ^^^
+    ...
+    26 |     counted!(count);
+       |     --------------- in this macro invocation
+    ");
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-snapshots!(needless_import_rename, single_reader);
+snapshots!(needless_import_rename, single_reader, unreachable_public_item);

@@ -27,6 +27,7 @@ tokio-stream                       = { workspace = true }
 tokio-util                         = { workspace = true }
 arc-swap                           = { workspace = true }
 nonempty-collections               = { workspace = true }
+sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive-where                       = { workspace = true }

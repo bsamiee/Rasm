@@ -29,7 +29,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
             && matches!(closure.kind(), ty::Param(_))
             && let typeck = cx.tcx.typeck_body(body)
-            && any_expr(cx.tcx, &cx.tcx.hir_body(body).value, |called| matches!(called.kind, ExprKind::Call(callee, _) if typeck.expr_ty(callee) == closure))
+            && any_expr(cx.tcx, cx.tcx.hir_body(body).value, |called| matches!(called.kind, ExprKind::Call(callee, _) if typeck.expr_ty(callee) == closure))
         {
             let name = cx.tcx.item_name(guard.did());
             span_lint_hir_and_then(cx, MANUAL_DROP_GUARD, item.hir_id(), cx.tcx.def_span(guard.did()), format!("`Drop` for `{name}` calls the closure `{closure}` it holds"), |diag| {

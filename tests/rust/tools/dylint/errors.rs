@@ -685,6 +685,14 @@ fn discarded_error_source(found: &str) {
        = help: hold `ParseIntError` as `#[source]` of the error the closure builds
        = note: `#[warn(discarded_error_source)]` on by default
 
+    warning: `map_err` replaces `ParseIntError` without reading it
+      --> tools/dylint/examples/discarded_error_source.rs:23:62
+       |
+    23 | fn ignored(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_| Failure::Missing) }
+       |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: hold `ParseIntError` as `#[source]` of the error the closure builds
+
     warning: `or_else` replaces `ParseIntError` without reading it
       --> tools/dylint/examples/discarded_error_source.rs:25:62
        |

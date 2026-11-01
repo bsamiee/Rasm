@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-enum
+language: rust
+severity: error
+rule:
+    kind: enum_item
+    has: {field: name, pattern: $NAME}
+    not: {has: {field: body, has: {kind: enum_variant}}}
+message: '`$NAME` declares no variant and stands in for the never type `!`'
+note: 'Write `!` (`#![feature(never_type)]`), a kind marker comes from the crate macro that declares its kind'

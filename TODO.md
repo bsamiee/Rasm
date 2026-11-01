@@ -5,13 +5,16 @@
 Rebuild the Rust, Swift and TypeScript code the way the C# and Python code was rebuilt.
 - **Workflows:** `.claude/workflows/{rust,swift,typescript}.js`, with their rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
 - **Running them:** one run per `[03]` row, with `args.key` set to its `[KEY]`. A run starts after the rows its `[AFTER]` cell names have landed, in the order each script's `whenToUse` states.
-- **Before the first run:** the Swift and TypeScript rows and their line citations match the tree at `63db3043e`. A citation that an earlier run moves applies to the code wherever that code now sits, as each script's `SURFACE` states.
+- **Before the first run:** the Swift and TypeScript rows and their line citations match the tree at `63db3043e`. A citation that an earlier run moves applies to the code wherever that code now sits, as each script's basis states.
+- **Coding skills first:** each script loads `Skill(<language>-coding)` before planning. `typescript-coding`, `swift-coding`, `rust-coding` and `python-coding` are mid-build: rewrite rounds, then clean-prose, snippet check against the repository's own checkers, a close-out read of the whole skill, and a deep pass per file. The `python-coding-*` sub-skills follow `python-coding`. A skill stays open to change: a run that finds a stronger form than the skill teaches fixes the skill.
 - **What each run does:**
   - It tears the code apart, rebuilds it and iterates on it.
   - It cuts internal and external API and drops nearly every unnecessary type and struct.
   - It uses external packages fully instead of hand-rolling or hand-wrapping them, for example Effect 4 in TypeScript.
   - It leaves no coupling to existing code and drops no functionality.
-- **Done means:** zero findings from every checker, and lines, files and public items lower than at the base commit.
+  - It holds one concept per file, with no lib, main, index or mod file collecting a package's logic and no folder holding a single file.
+  - It designs and lands without reading the old code for shape. After landing, its Check phase compares every rebuilt file with its base version and restores only what the base did objectively better. The Rust under `libs/rust` took many sessions to reach its form, so that check guards it.
+- **Done means:** zero findings from every checker, every file objectively better than its base version, and lines, files and public items lower than at the base commit.
 
 ## [02]-[DARKROOM_WINDOW]
 

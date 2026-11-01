@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::{io, process::ExitCode};
 
 use clap::{Args as _, Command, FromArgMatches as _};
 use nonempty_collections::NEVec;
@@ -23,11 +23,11 @@ fn refused_install_keeps_process_globals() -> Result<(), clap::Error> {
     let (held, mut worked) = (subscriber::set_global_default(Registry::default()), false);
     let code = options.run(&command, [], "", Identity::new(), |_| {
         worked = true;
-        Ok::<_, NEVec<!>>(ExitCode::SUCCESS)
+        Ok::<_, NEVec<io::Error>>(ExitCode::SUCCESS)
     });
     assert_eq!(
         (held.is_ok(), code, worked, global::get_text_map_propagator(|propagator| propagator.fields().count()), log::max_level()),
-        (true, ExitCode::FAILURE, false, 0, log::LevelFilter::Off),
+        (true, ExitCode::from(sysexits::ExitCode::Software), false, 0, log::LevelFilter::Off),
         "refused install changed process globals"
     );
     Ok(())

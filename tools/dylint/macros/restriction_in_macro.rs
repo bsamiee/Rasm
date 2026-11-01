@@ -8,25 +8,23 @@ use clippy_utils::{
 };
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Expr, ExprKind, PatKind, def_id::DefId};
+use rustc_hir::{Expr, ExprKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, Lint};
-use rustc_middle::ty::{TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::TyCtxt;
 use rustc_span::Span;
 
-use crate::{expanded_externally, impl_owner, item_path, path, resolve, result_parts};
+use crate::{expanded_externally, impl_owner, item_path, resolve};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
     methods: FxHashMap<DefId, (&'static Lint, (&'static str, &'static str))>,
-    map_err: Option<DefId>,
 }
 
 lint! {
     Pass;
     UNWRAP_USED_IN_MACRO: "`unwrap` and `unwrap_err` on `Option` and `Result` inside a local `macro_rules!` expansion",
     EXPECT_USED_IN_MACRO: "`expect` and `expect_err` on `Option` and `Result` inside a local `macro_rules!` expansion",
-    MAP_ERR_IGNORE_IN_MACRO: "`map_err(|_| ..)` on `Result` inside a local `macro_rules!` expansion",
     PANIC_IN_MACRO: "`panic!`, `todo!`, `unimplemented!`, and `unreachable!` inside a local `macro_rules!` expansion",
     PRINT_IN_MACRO: "`print!`, `println!`, `eprint!`, and `eprintln!` inside a local `macro_rules!` expansion",
     USE_DEBUG_IN_MACRO: "`{:?}` in `print!`, `println!`, `eprint!`, `eprintln!`, `write!`, and `writeln!` inside a local `macro_rules!` expansion",
@@ -50,7 +48,6 @@ impl Pass {
                     ("core::result::Result::expect_err", (EXPECT_USED_IN_MACRO, ON_OK)),
                 ],
             ),
-            map_err: path(tcx, PathNS::Value, "core::result::Result::map_err"),
         }
     }
 }
@@ -60,19 +57,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let local = |span: Span| span.from_expansion() && !expanded_externally(cx, span);
         let called = fn_def_id(cx, expr);
         let found = match expr.kind {
-            ExprKind::MethodCall(segment, receiver, [argument], _)
-                if local(expr.span)
-                    && called.is_some_and(|method| self.map_err == Some(method))
-                    && let ExprKind::Closure(closure) = argument.kind
-                    && let [parameter] = cx.tcx.hir_body(closure.body).params
-                    && matches!(parameter.pat.kind, PatKind::Wild)
-                    && let Some((_, error)) = result_parts(cx, cx.typeck_results().expr_ty(receiver)) =>
-                with_forced_trimmed_paths!(Some((
-                    MAP_ERR_IGNORE_IN_MACRO,
-                    segment.ident.span.to(expr.span.shrink_to_hi()),
-                    format!("`map_err(|_| ..)` in a local macro expansion discards `{error}`"),
-                    format!("hold `{error}` as `#[source]` of the error the closure builds"),
-                ))),
             ExprKind::MethodCall(segment, ..)
                 if local(expr.span)
                     && let Some(method) = called

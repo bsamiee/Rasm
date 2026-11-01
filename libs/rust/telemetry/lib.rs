@@ -12,7 +12,7 @@ use std::{
 use clap::{Args, Command, ValueEnum};
 use json_subscriber::JsonLayer;
 use log::SetLoggerError;
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use opentelemetry::{
     InstrumentationScope, Key, KeyValue, global,
     propagation::{TextMapCompositePropagator, TextMapPropagator},
@@ -108,7 +108,7 @@ impl Options {
     where
         L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
         T: Termination,
-        E: Error,
+        E: Error + Into<sysexits::ExitCode>,
     {
         fn built<T>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<T, ExporterBuildError>) -> Validated<Option<T>, Failed> {
             match exporter {
@@ -138,6 +138,10 @@ impl Options {
         fn reported<F>(errors: &NEVec<F>)
         where F: Error {
             errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "failed"));
+        }
+        fn status<F>(failures: NEVec<F>) -> ExitCode
+        where F: Into<sysexits::ExitCode> {
+            sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
         }
         fn flushed(results: impl IntoIterator<Item = (Signal, OTelSdkResult)>) -> Result<(), NEVec<Failed>> {
             results.into_iter().map(|(signal, result)| result.map_err(|source| Failed::Flush { signal, source })).collect::<Validated<(), _>>().ok()
@@ -194,7 +198,10 @@ impl Options {
             };
             started.inspect_err(reported)
         });
-        let Ok((traces, metrics, logs, handle)) = started else { return ExitCode::FAILURE };
+        let (traces, metrics, logs, handle) = match started {
+            Ok(started) => started,
+            Err(failures) => return status(failures),
+        };
         global::set_tracer_provider(traces.clone());
         global::set_meter_provider(metrics.clone());
         global::set_text_map_propagator(TextMapCompositePropagator::new(
@@ -217,7 +224,11 @@ impl Options {
         let worked = panic::catch_unwind(AssertUnwindSafe(|| work(&handle).inspect_err(reported)));
         panic::set_hook(previous);
         let stopped = flushed([(Signal::Traces, traces.shutdown()), (Signal::Metrics, metrics.shutdown()), (Signal::Logs, logs.shutdown())]).inspect_err(reported);
-        worked.unwrap_or_else(|payload| panic::resume_unwind(payload)).ok().zip(stopped.ok()).map_or(ExitCode::FAILURE, |(outcome, ())| outcome.report())
+        match (worked.unwrap_or_else(|payload| panic::resume_unwind(payload)), stopped) {
+            (Ok(outcome), Ok(())) => outcome.report(),
+            (Err(failures), _) => status(failures),
+            (Ok(_), Err(failures)) => status(failures),
+        }
     }
 }
 
@@ -235,4 +246,14 @@ enum Failed {
     Forward,
     #[error("cannot flush {signal}")]
     Flush { signal: Signal, source: OTelSdkError },
+}
+
+impl From<Failed> for sysexits::ExitCode {
+    fn from(value: Failed) -> Self {
+        match value {
+            Failed::Filter(_) | Failed::Dispatch | Failed::Forward => Self::Software,
+            Failed::Build { signal: _, source: _ } => Self::Config,
+            Failed::Flush { signal: _, source: _ } => Self::Unavailable,
+        }
+    }
 }

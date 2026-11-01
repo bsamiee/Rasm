@@ -39,9 +39,14 @@ utils:
         any:
             - has: {matches: linked-modifiers}
             - inside: {kind: function_declaration, stopBy: {not: {kind: function_type}}, has: {matches: linked-modifiers}}
+    associatedtype-inheritance-list:
+        kind: ERROR
+        regex: '^,'
+        inside: {kind: associatedtype_declaration}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
+            - matches: associatedtype-inheritance-list
             - matches: awaited-condition-recovery
             - matches: empty-tuple
             - matches: linked-declaration

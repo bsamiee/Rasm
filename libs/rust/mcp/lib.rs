@@ -56,7 +56,7 @@ use tracing_subscriber::layer::Identity;
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait Endpoint: Send + Sync + 'static {
-    type Error: Error + Send + Sync + 'static;
+    type Error: Error + Send + Sync + Into<sysexits::ExitCode> + 'static;
 
     fn info(&self) -> &ServerConfig;
 
@@ -109,6 +109,14 @@ pub enum Invalid {
     Schema { tool: Cow<'static, str>, source: ValidationError<'static> },
 }
 
+impl From<Invalid> for sysexits::ExitCode {
+    fn from(value: Invalid) -> Self {
+        match value {
+            Invalid::Route { pattern: _, source: _ } | Invalid::Schema { tool: _, source: _ } => Self::Software,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Unserved {
     #[error("{uri} names no resource, list resources and resource templates")]
@@ -148,6 +156,18 @@ enum Failed<X> {
 
 impl<X> From<Failed<X>> for NEVec<Failed<X>> {
     fn from(value: Failed<X>) -> Self { Self::new(value) }
+}
+
+impl<X> From<Failed<X>> for sysexits::ExitCode
+where X: Into<Self>
+{
+    fn from(value: Failed<X>) -> Self {
+        match value {
+            Failed::Io { operation: _, source } => source.into(),
+            Failed::Endpoint(source) => source.into(),
+            Failed::Abandoned => Self::TempFail,
+        }
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -25,7 +25,7 @@ pub struct Parcel {
 pub fn charge(tariff: &EnumMap<Zone, Decimal>, (origin, relay): (Zone, Option<Zone>)) -> Option<Decimal> { relay.map_or(Some(tariff[origin]), |zone| tariff[origin].checked_add(tariff[zone])) }
 ```
 
-`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the exact count of a route enum with `Direct` and `Relayed` variants. `booking` counts an unbooked parcel, a request pending since its instant, and a request finished with a label or a carrier error, and a consumer reaches the label through `?`, `map`, and `ok`. An enum is declared for a fieldless key set like `Zone`, or where states hold the same type of data (`Delivered { at }` beside `Returned { at }`) that no composition of standard sums tells apart. `EnumMap` indexing has no absent case, and `EnumMap::from_fn` with a `match` over the key builds a tariff that fails to compile when a zone lacks an entry, or computes each entry from its key when entries follow a rule. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward. `Label` and `CarrierError` are placeholders.
+`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the exact count of a route enum with `Direct` and `Relayed` variants. `booking` counts an unbooked parcel, a request pending since its instant, and a request finished with a label or a carrier error, and a consumer reaches the label through `?`, `map`, and `ok`. An enum is declared for a fieldless key set like `Zone`, or where states hold the same type of data (`Delivered { at }` beside `Returned { at }`) that no composition of standard sums tells apart. `EnumMap` indexing has no absent case, and `EnumMap::from_fn` with a `match` over the key builds a tariff that fails to compile when a zone lacks an entry, or computes each entry from its key when entries follow a rule. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward.
 
 ## [02]-[CONSTRAINED_VALUES]
 
@@ -96,7 +96,7 @@ where S: Precedes<T> {
 }
 ```
 
-`advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule keeps other crates from adding a transition between these states. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once. `Line` and `PaymentReference` are placeholders.
+`advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule keeps other crates from adding a transition between these states. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once.
 
 ## [04]-[SNAPSHOTS]
 
@@ -132,4 +132,4 @@ pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Link> {
 }
 ```
 
-`SlotMap` issues a generational key per hub. A key held past its hub's removal reads `None` from `get` and fails `contains_key`, and the graph leaves out each link to a removed hub. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks the hubs reachable from `origin`, and `toposort(&graph, None)` orders the linked hubs or returns the `Cycle` naming one on it. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`. `Hub` holds its outgoing `links` as `(HubKey, Link)` pairs, and `Link` is a placeholder.
+`SlotMap` issues a generational key per hub. A key held past its hub's removal reads `None` from `get` and fails `contains_key`, and the graph leaves out each link to a removed hub. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks the hubs reachable from `origin`, and `toposort(&graph, None)` orders the linked hubs or returns the `Cycle` naming one on it. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`. `Hub` holds its outgoing `links` as `(HubKey, Link)` pairs.

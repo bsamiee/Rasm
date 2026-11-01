@@ -1,4 +1,4 @@
-#![feature(deref_patterns, iterator_try_collect, rustc_private, try_blocks)]
+#![feature(default_field_values, deref_patterns, iterator_try_collect, rustc_private, try_blocks)]
 
 extern crate rustc_abi;
 extern crate rustc_ast;
@@ -534,6 +534,7 @@ lints! {
     interior_mutability::needless_cell,
     items::needless_import_rename,
     items::single_reader,
+    items::unreachable_public_item,
     macros::redundant_closure_call_in_macro,
     macros::renamed_function_params_in_macro,
     macros::restriction_in_macro,

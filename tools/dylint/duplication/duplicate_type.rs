@@ -669,7 +669,8 @@ fn path(tcx: TyCtxt<'_>, item: DefId) -> Option<String> {
     if item.is_local() {
         return Some(tcx.item_name(item).to_string());
     }
-    if iter::successors(parents.get(&item), |module| parents.get(module)).all(|&module| current(tcx, module)) {
+    let mut walked = FxHashSet::default();
+    if iter::successors(parents.get(&item), |module| parents.get(module)).take_while(|&&module| walked.insert(module)).all(|&module| current(tcx, module)) {
         return Some(tcx.def_path_str(item));
     }
     let mut queue = VecDeque::from([(item.krate.as_def_id(), tcx.crate_name(item.krate).to_string())]);

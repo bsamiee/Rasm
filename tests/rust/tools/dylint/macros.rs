@@ -18,24 +18,6 @@ fn expect_used_in_macro(found: &str) {
     "#);
 }
 
-fn map_err_ignore_in_macro(found: &str) {
-    insta::assert_snapshot!(found, @"
-    warning: `map_err(|_| ..)` in a local macro expansion discards `ParseIntError`
-       --> tools/dylint/examples/restriction_in_macro.rs:89:16
-        |
-     87 | macro_rules! ignored {
-     88 |     ($value:expr) => {
-     89 |         $value.map_err(|_| Refused)
-        |                ^^^^^^^^^^^^^^^^^^^^
-    ...
-    111 | fn ignoring(value: Result<u32, ParseIntError>) -> Result<u32, Refused> { ignored!(value) }
-        |                                                                          --------------- in this macro invocation
-        |
-        = help: hold `ParseIntError` as `#[source]` of the error the closure builds
-        = note: `#[warn(map_err_ignore_in_macro)]` on by default
-    ");
-}
-
 fn panic_in_macro(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `panic!` in a local macro expansion panics
@@ -181,21 +163,21 @@ fn unwrap_used_in_macro(found: &str) {
 fn use_debug_in_macro(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `write!` in a local macro expansion formats through `Debug`
-       --> tools/dylint/examples/restriction_in_macro.rs:83:9
-        |
-     81 | macro_rules! written {
-     82 |     ($out:expr, $value:expr) => {
-     83 |         write!($out, "{:?}", $value)
-        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      --> tools/dylint/examples/restriction_in_macro.rs:75:9
+       |
+    73 | macro_rules! written {
+    74 |     ($out:expr, $value:expr) => {
+    75 |         write!($out, "{:?}", $value)
+       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    109 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
-        |                                                                 -------------------- in this macro invocation
-        |
-        = help: format through `Display` with `{}`
-        = note: `#[warn(use_debug_in_macro)]` on by default
+    81 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
+       |                                                                 -------------------- in this macro invocation
+       |
+       = help: format through `Display` with `{}`
+       = note: `#[warn(use_debug_in_macro)]` on by default
     "#);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-snapshots!(expect_used_in_macro, map_err_ignore_in_macro, panic_in_macro, print_in_macro, redundant_closure_call_in_macro, renamed_function_params_in_macro, unwrap_used_in_macro, use_debug_in_macro);
+snapshots!(expect_used_in_macro, panic_in_macro, print_in_macro, redundant_closure_call_in_macro, renamed_function_params_in_macro, unwrap_used_in_macro, use_debug_in_macro);

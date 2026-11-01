@@ -93,7 +93,8 @@
                         "noReactSpecificProps": "off",
                         "noShadowRestrictedNames": "off",
                         "noUnknownAttribute": { "level": "error", "options": { "ignore": [ "precedence" ] } },
-                        "useBaseline": { "level": "error", "options": { "available": "newly" } }
+                        "useBaseline": { "level": "error", "options": { "available": "newly" } },
+                        "useIterableCallbackReturn": { "level": "error", "options": { "checkForEach": false } }
                     }
                 }
             }

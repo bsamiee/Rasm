@@ -37,6 +37,7 @@ futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
 tokio-util                         = { workspace = true }
+sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }

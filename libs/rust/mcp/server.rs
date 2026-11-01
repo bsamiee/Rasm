@@ -40,7 +40,7 @@ use crate::{Endpoint, Invalid, Notifier, Progress, Unserved, internal};
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait App: Clone + Send + Sync + 'static {
-    type Error: Error + Send + Sync + 'static + From<Invalid> = Invalid;
+    type Error: Error + Send + Sync + 'static + From<Invalid> + Into<sysexits::ExitCode> = Invalid;
 
     fn serve(self, _: Changes<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }

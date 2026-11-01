@@ -63,7 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let once = matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(CoroutineDesugaring::Async, CoroutineSource::Block)))
             && (once || matches!(closure.kind, ClosureKind::Closure) && consumed_once(cx, expr))
         {
-            let (body, capturing) = (&tcx.hir_body(closure.body).value, if once { "async block" } else { "closure" });
+            let (body, capturing) = (tcx.hir_body(closure.body).value, if once { "async block" } else { "closure" });
             let typeck = cx.typeck_results();
             let cloned = tcx.closure_captures(closure.def_id).iter().enumerate().filter_map(|(index, captured)| {
                 let variable = captured.get_root_variable();

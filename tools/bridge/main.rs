@@ -48,6 +48,16 @@ enum BridgeError {
     Ended,
 }
 
+impl From<BridgeError> for sysexits::ExitCode {
+    fn from(value: BridgeError) -> Self {
+        match value {
+            BridgeError::Spawn { command: _, source } => source.into(),
+            BridgeError::Handshake(_) | BridgeError::Unidentified => Self::Protocol,
+            BridgeError::Ended => Self::Unavailable,
+        }
+    }
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 struct Upstream {
