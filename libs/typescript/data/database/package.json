@@ -51,6 +51,9 @@
                         "dependentTasksOutputFiles": "**/*.sql"
                     },
                     {
+                        "externalDependencies": []
+                    },
+                    {
                         "runtime": "squawk --version"
                     }
                 ]

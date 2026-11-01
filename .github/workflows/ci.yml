@@ -30,7 +30,7 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx affected -t check test:integration e2e --configuration ci --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude'
+            - run: nx affected -t check test:integration e2e --configuration ci --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender'
             - uses: actions/upload-artifact@v7
               if: ${{ failure() }}
               with:

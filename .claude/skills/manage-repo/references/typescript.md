@@ -36,7 +36,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Project programs name their story files by extension (`.storybook/*.stories.ts` or `.storybook/*.stories.tsx`) beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
-- Project `typecheck:tsc` hashes compiler package versions alone, root `typecheck:tsc` keeps Nx's default hash of every installed package
+- Project `typecheck:tsc` hashes the compiler packages beside the project's own package closure, root `typecheck:tsc` keeps Nx's default hash of every installed package
 
 ## [03]-[EXECUTION]
 

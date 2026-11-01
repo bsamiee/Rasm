@@ -4,8 +4,10 @@
         <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />
     </Folder>
     <Folder Name="/eng/dotnet/">
-        <Project Path="eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" />
         <Project Path="eng/dotnet/Rasm.Upgrade/Rasm.Upgrade.csproj" />
+    </Folder>
+    <Folder Name="/eng/dotnet/rhino/">
+        <Project Path="eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/bim/">
         <Project Path="libs/dotnet/bim/Rasm.Drafting/Rasm.Drafting.csproj" />

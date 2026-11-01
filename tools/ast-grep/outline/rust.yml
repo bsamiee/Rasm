@@ -72,7 +72,6 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: true
 
 ---
 id: rust-associated-const

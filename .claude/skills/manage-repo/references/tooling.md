@@ -1,7 +1,5 @@
 # [TOOLING]
 
-mise owns tool binaries, the process environment, and local services.
-
 ## [01]-[TOOLS]
 
 - Processes inherit mise's activated environment from their launch shell and call tools by name
@@ -9,10 +7,8 @@ mise owns tool binaries, the process environment, and local services.
 - `cargo:` rows take a crate the registry lacks, a `cargo-binstall` row fetches its release binary before a source build
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
-- `prereleases = true` includes prereleases in `latest`, `minimum_release_age = "0s"` removes the 24h delay on a new release
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
 - `[settings]` holds no `lockfile` row, lock entries replay recorded versions and `conda:` closures in place of `latest`
-- `idiomatic_version_file_enable_tools` makes mise read each named tool's version file
 - .NET SDKs install into one root Parametric Forge names, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
 - Shared root holds runtimes of installed SDKs alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
@@ -65,13 +61,11 @@ Daemon operations:
 
 ## [04]-[MAINTENANCE]
 
-- `.claude/skills/manage-repo/scripts/maintain.sh` runs from any directory and upgrades the checkout holding it
 - `mise prune --yes` alone deletes old mise installations
 - Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
 - Root `upgrade` runs its prerequisites, then fails on each package a resolver moved below the version Git's index records for its lock
 - `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
 - Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
-- Generic cleanup prunes caches and each Pulumi plugin no installed provider package declares
 - Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for the next run
 - `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
 

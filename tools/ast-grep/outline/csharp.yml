@@ -127,7 +127,6 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: true
 
 ---
 id: csharp-member-property
@@ -166,4 +165,3 @@ rule:
     kind: enum_member_declaration
     has: {field: name, pattern: $NAME}
 name: $NAME
-isPublic: true

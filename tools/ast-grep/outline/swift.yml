@@ -539,7 +539,6 @@ transform:
     SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: true
 
 ---
 id: swift-member-subscript

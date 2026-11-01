@@ -47,8 +47,10 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.terminal.activateEnvironment": false,
     "mypy-type-checker.importStrategy": "fromEnvironment",
+    "mypy-type-checker.ignorePatterns": [ "libs/python/blender/*", "apps/blender/*", "tests/python/libs/blender/bpy/background/*" ],
     "ty.experimental.useUv": "on",
     "ty.diagnosticMode": "workspace",
+    "ty.configuration": { "overrides": [ { "include": [ "libs/python/blender/**", "apps/blender/**", "tests/python/libs/blender/bpy/background/**" ], "rules": { "all": "ignore" } } ] },
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------

@@ -334,7 +334,6 @@
         "targets": {
             "restore": {
                 "options": { "args": [ "Workspace.slnx" ] },
-                "inputs": [ "dotnet", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*", "!{workspaceRoot}/.artifacts/dotnet/obj/*.cs/*", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/restore.binlog" ]
             },
             "grammar": {
@@ -358,7 +357,6 @@
                 "command": "ast-grep outline --custom-languages allow --color never --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml --outline-rules tools/ast-grep/outline/rust.yml",
                 "dependsOn": [ "grammar" ]
             },
-            "rewrite": { "dependsOn": [ "grammar" ], "parallelism": false },
             "typecheck": { "dependsOn": [ "typecheck:*" ] },
             "typecheck:tsc": { "command": "tsc --pretty false", "inputs": [ "^default", "typescript", "{workspaceRoot}/**/*.{ts,json}" ] },
             "typecheck:swift": { "executor": "nx:run-commands", "options": { "commands": [ "mkdir -p \"$SWIFTPM_BUILD_DIR\"", "swift package clean", "set -o pipefail; swift build -v --disable-automatic-resolution 2>&1 | tee \"$SWIFTPM_BUILD_DIR/swiftc.log\"" ], "parallel": false }, "parallelism": false },
@@ -387,13 +385,13 @@
             "lint:swiftlint": { "dependsOn": [ "lint:swiftlint:lint", { "target": "lint:swiftlint:analyze", "params": "forward" } ] },
             "lint:swiftlint:lint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet" },
             "lint:swiftlint:analyze": { "command": "swiftlint analyze --quiet --compiler-log-path \"$SWIFTPM_BUILD_DIR/swiftc.log\"", "dependsOn": [ "typecheck:swift" ], "inputs": [ "...", { "dependentTasksOutputFiles": "**/swiftc.log" } ] },
-            "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*" ] },
-            "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "runtime": "xcodebuild -version" } ] },
+            "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*", "{workspaceRoot}/eng/typescript/process.ts" ] },
+            "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ] },
             "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
             "lint:pmd": { "dependsOn": [ "lint:pmd:check", { "target": "lint:pmd:cpd-*", "params": "forward" } ] },
             "lint:pmd:check": {
                 "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
-                "inputs": [ "javaFiles", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
+                "inputs": [ "javaFiles", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" }, { "env": "JAVA_HOME" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
             "lint:pmd:cpd-java": { "command": "fd --hidden --extension java --exec-batch pmd cpd --language java", "inputs": [ "...", "javaFiles" ] },

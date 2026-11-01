@@ -62,7 +62,6 @@ Project and target settings override root `Xcode.xcconfig`:
 - Apple Events senders add `AUTOMATION_APPLE_EVENTS`, Xcode signs the `com.apple.security.automation.apple-events` entitlement from it
 - Settings every package target needs go on `build` and `install` commands, project build settings reach no package target
 - `xcodebuild` builds pass `-skipMacroValidation`, without it a package macro stops the build on Xcode's per-version approval
-- `build` and `pack` set `MARKETING_VERSION` from MinVer over the app's `macos-<App>-v` tags, root `CURRENT_PROJECT_VERSION` derives from it
 - Builds setting no `MARKETING_VERSION` write neither bundle version key, Sparkle then fails to start and shows an alert
 - Apps embedding a package framework set `LD_RUNPATH_SEARCH_PATHS` to `@executable_path/../Frameworks`, the app template row `target add` omits
 - CI-only settings join `build` configuration `ci`, which keeps the index store `lint:periphery` reads

@@ -32,7 +32,6 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 ## [03]-[PROJECTS]
 
 - `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET` and declare it an output
-- MTP tasks pass one result root, SDK per-module layout places outputs beneath it
 
 ## [04]-[CHECKERS]
 

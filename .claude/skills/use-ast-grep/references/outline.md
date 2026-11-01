@@ -13,7 +13,7 @@
 - `<producer> | ast-grep outline --custom-languages allow --stdin -l <lang>` outlines piped code
 - `<path> --json=stream | rg '^\{' | jq -c '<filter>'` post-processes entries
 - Files of a language with no extractor print `nothing found` at exit 0
-- `nx run rasm:outline` sets `NO_COLOR=1`, a forwarded `--color never` fails its option schema
+- `nx run rasm:outline` passes `--color never`, a forwarded `--color` fails as a repeated argument
 
 ## [02]-[EXTRACTORS]
 

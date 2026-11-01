@@ -107,7 +107,7 @@
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <PackageReference Include="MinVer" PrivateAssets="all" />
         <_RhinoLibraryReference Include="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rhino'))" />
-        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" Condition="'@(_RhinoLibraryReference)' != ''" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" Condition="'@(_RhinoLibraryReference)' != ''" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
         <_PlugInDescription Include="WebSite" Value="$(PackageProjectUrl)" />
         <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />

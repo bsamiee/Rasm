@@ -782,7 +782,7 @@ markers                  = [
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage]
-run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python", "tests/python/support"] }
+run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python"] }
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }
 
 # --- [TOMBI] ----------------------------------------------------------------------------

@@ -59,8 +59,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `build.rustflags` enters every fingerprint, one row every caller reads keeps one artifact set, a `RUSTFLAGS` variable replaces it and rebuilds all
 - Coverage builds keep the LLVM backend, instrumentation exists in no other backend, and cranelift dev builds abort on every panic on macOS
 - Coverage builds keep cargo-llvm-cov's own artifact set, Cargo's fingerprint misses the instrumentation its rustc wrapper adds
-- Dev builds keep line tables for members and no debug info for dependencies, backtraces read file and line and fuller debug info slows each link
-- Installed binaries build under `dist` inheriting `release`, `cargo dylint` builds lint libraries under `release` and fails on `panic = "abort"`
 - Members add `build.rs` for work no manifest key or crate does, a build script compiles and runs before its crate on every cold build
 - Cargo targets that compile pass `--locked`, a stale `Cargo.lock` fails the run in place of a rewrite
 - Cargo targets that compile take `parallelism: false`, each cargo run spreads its units across every core through its own jobserver

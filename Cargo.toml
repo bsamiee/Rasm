@@ -726,7 +726,7 @@ unused_workspace_dependencies = "allow"                           # Flags catalo
 # --- [PROFILES] -------------------------------------------------------------------------
 
 [profile.dev]
-debug = "line-tables-only" # Backtraces show file and line with no variable or parameter info
+debug = "line-tables-only" # Backtraces show file and line with no variable or parameter info, fuller debug info slows each link
 
 [profile.dev.package."*"]
 debug = false # Non-member backtrace frames lack file and line

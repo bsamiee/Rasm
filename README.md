@@ -32,29 +32,29 @@ Rasm/
 │   └── watch-apps/           # CLI for agents observing and driving desktop apps in the background
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
-├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
 ├── package.json              # Catalog rows except tool plugins, root Nx targets
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
-├── pyproject.toml            # Python wheel project, dependency groups, and tool tables
-├── Directory.Packages.props  # .NET central package versions
-├── Directory.Build.props     # .NET build defaults and project classification by tree position
-├── Directory.Build.targets   # .NET items, host package references, and build targets
-├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
-├── Workspace.slnx            # .NET solution
-├── NuGet.config              # NuGet source
-├── Package.swift             # Swift modules, executables, and remote package catalog
-├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
 ├── vite.shared.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
+├── pyproject.toml            # Python wheel project, dependency groups, and tool tables
+├── global.json               # .NET SDK versions
+├── Workspace.slnx            # .NET solution
+├── Directory.Packages.props  # .NET central package versions
+├── Directory.Build.props     # .NET build defaults and project classification by tree position
+├── Directory.Build.targets   # .NET items, host package references, and build targets
+├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
+├── NuGet.config              # NuGet source
+├── Package.swift             # Swift modules, executables, and remote package catalog
+├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
+├── Cargo.toml                # Rust workspace and dependency catalog
+├── clippy.toml               # Clippy lint options Cargo.toml lint tables lack
 ├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── rustfmt.toml              # Rust format rules
-├── clippy.toml               # Clippy lint options Cargo.toml lint tables lack
-├── Cargo.toml                # Rust workspace and dependency catalog
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
@@ -104,7 +104,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable]` runs a Pulumi operation on a web app's stack
 - `nx run rasm:upgrade` moves catalogs, locks, action tags, and installed service binaries to newest releases
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes caches and unused Pulumi plugins, and recovers stale macOS processes
-- `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path, `rasm:outline -- <path>` lists its declarations
+- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `rasm:outline -- <path>` lists its declarations
 - Native Python consumers start under `pixi run --locked -e hdf5 pixi run --locked -e default`
 - Projects with `.storybook/` run each story as a Chromium `test` case that fails on an axe violation
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
@@ -163,7 +163,7 @@ Products reach a person through separate levels:
 
 - Libraries group under `libs/<language>/<group>/`
 - Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
-- Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path
+- Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module also for each `Package.swift` platform naming an `apps/` folder
 - .NET build takes Rhino hosts from the `rhino/` path folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`

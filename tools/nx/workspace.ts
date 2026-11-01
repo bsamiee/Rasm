@@ -197,9 +197,9 @@ const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, 
     const suite = path.join('tests', language, ...dir.split(path.sep).filter((segment) => segment !== language));
     return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
 });
-const swiftProject = (tags: readonly string[], env: Record<string, string>, targets: readonly string[]) => ({
+const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
-    targets: { check: {}, ...Record.fromIterableWith(['build', 'lint:periphery', ...targets], (target) => [target, { options: { env } }]) },
+    targets: { check: {}, ...Record.fromIterableWith(['build', 'lint:periphery', ...targets], (target) => [target, {}]) },
 });
 const markers = {
     '*.csproj': Effect.fnUntraced(function* (_, { file, root }) {
@@ -231,7 +231,7 @@ const markers = {
                 build: { executor: 'nx:noop', dependsOn: [{ target: 'build:*.cs', params: 'forward' }] },
                 format: { executor: 'nx:noop', dependsOn: [{ target: 'format:*.cs', params: 'forward' }] },
                 lint: { executor: 'nx:noop', dependsOn: [{ target: 'lint:*.cs', params: 'forward' }] },
-                [`restore:${base}`]: { inputs: ['default', 'dotnet'], outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`, binlog('restore')], options: { args: [file] } },
+                [`restore:${base}`]: { outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`, binlog('restore')], options: { args: [file] } },
                 [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs, outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog('build')], options: { args: [file, '--no-restore'] } },
                 [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
@@ -289,8 +289,9 @@ const markers = {
                 .filter((source) => !source.startsWith('..')),
             (source) => Effect.map(decode(PackageName, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
         );
-        const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => (['build', 'pack'].includes(name) ? { ...target, dependsOn: bundled } : target)) };
+        const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
+        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) } };
+        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => ({ ...target, options, ...(['build', 'pack'].includes(name) ? { dependsOn: bundled } : {}) })) };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
         const [path, { moduleRoots }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
@@ -369,7 +370,8 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
     const excluded = scopes.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
     const scan = (flags: readonly string[]) => ['ast-grep scan --custom-languages allow', ...flags].join(' ');
     const walk = (flags: readonly string[]) => scan(['--no-ignore hidden', "--globs '!pnpm-lock.yaml'", "--globs '!tools/*/examples/**'", ...flags]);
-    const tree = walk(['--error=no-suppress-all', ...off.map(({ id }) => `--off=${id}`)]);
+    const offs = off.map(({ id }) => `--off=${id}`);
+    const tree = walk(['--error=no-suppress-all', ...offs]);
     const rooted = off.filter(runs(interpreter));
     const hosted = Object.fromEntries([
         ...(rooted.length > 0 ? [['root', walk([ids(rooted), ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] as const] : []),
@@ -378,7 +380,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
             return running.length > 0 ? [[version, scan([ids(running), scoped])] as const] : [];
         }),
     ]);
-    const rewrite = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock ${walk(['--update-all'])}`;
+    const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock`;
     const split = (target: string, children: Readonly<Record<string, string>>) => {
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
         return {
@@ -393,7 +395,10 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
                 root: '.',
                 targets: {
                     ...split('lint:ast-grep', { tree, ...hosted }),
-                    rewrite: { command: rewrite },
+                    ...split(
+                        'rewrite',
+                        Record.map({ tree: walk(offs), ...hosted }, (command) => `${lock} ${command} --update-all`),
+                    ),
                     ...split('typecheck:ty', { root: `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`, ...perVersion(({ version, scoped, synced }) => `${synced} ty check --python-version ${version} ${scoped}`) }),
                     ...split('typecheck:mypy', {
                         root: `mypy ${excluded}`,
@@ -417,7 +422,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
     );
     const platformed = platforms.map(Struct.get('name'));
     const modules = sources.map((target) => {
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], {}, target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
         const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
         return [
             target.path,

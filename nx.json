@@ -21,7 +21,7 @@
     "namedInputs": {
         "production": [ "{projectRoot}/**/*", "!{projectRoot}/.storybook/**/*" ],
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" } ],
-        "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
+        "python": [ "{workspaceRoot}/**/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
         "vite": [ "{workspaceRoot}/vite.shared.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
@@ -72,7 +72,7 @@
                 "cache": false
             },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift build --target {projectName} --disable-automatic-resolution", "cache": false, "parallelism": false },
-            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "inputs": [ "default", "^default", "rust" ], "cache": false, "parallelism": false },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "cache": false, "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] },
@@ -91,17 +91,7 @@
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
                 "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.fitout pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
-                "inputs": [
-                    "...",
-                    "default",
-                    "python",
-                    "{workspaceRoot}/eng/python/fitout/**/*.py",
-                    "{workspaceRoot}/Directory.Build.props",
-                    { "runtime": "\"$BLENDER_PATH\" --version" },
-                    { "runtime": "pip --version" },
-                    { "runtime": "resvg --version" },
-                    { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" }
-                ],
+                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/fitout/**/*.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}" ],
                 "cache": true
             },
@@ -109,11 +99,10 @@
                 "filter": { "projects": [ "tag:build:xcode" ] },
                 "executor": "nx:run-commands",
                 "options": {
-                    "cwd": "{projectRoot}",
                     "commands": [
-                        "rm -rf \"$NX_WORKSPACE_ROOT/.artifacts/xcode/{projectRoot}\"",
-                        "version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild archive -project {projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -archivePath \"$NX_WORKSPACE_ROOT/.artifacts/xcode/{projectRoot}/{projectName}.xcarchive\" -disableAutomaticPackageResolution -skipMacroValidation LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
-                        "ditto -c -k --sequesterRsrc --keepParent \"$NX_WORKSPACE_ROOT/.artifacts/xcode/{projectRoot}/{projectName}.xcarchive/Products/Applications/{projectName}.app\" \"$NX_WORKSPACE_ROOT/.artifacts/xcode/{projectRoot}/{projectName}.zip\" && rm -rf \"$NX_WORKSPACE_ROOT/.artifacts/xcode/{projectRoot}/{projectName}.xcarchive\""
+                        "rm -rf \".artifacts/xcode/{projectRoot}\"",
+                        "version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild archive -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -archivePath \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive\" -disableAutomaticPackageResolution -skipMacroValidation LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
+                        "ditto -c -k --sequesterRsrc --keepParent \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive/Products/Applications/{projectName}.app\" \".artifacts/xcode/{projectRoot}/{projectName}.zip\" && rm -rf \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive\""
                     ],
                     "parallel": false
                 },
@@ -125,8 +114,7 @@
         "install": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
-                "command": "rm -rf \"/Applications/{projectName}.app\" && version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild install -project {projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution -skipMacroValidation DSTROOT=/Applications INSTALL_PATH=/ LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
-                "options": { "cwd": "{projectRoot}" },
+                "command": "rm -rf \"/Applications/{projectName}.app\" && version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild install -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution -skipMacroValidation DSTROOT=/Applications INSTALL_PATH=/ LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
                 "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
                 "parallelism": false
             },
@@ -184,6 +172,7 @@
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo clippy --locked --no-deps --package {projectName}", "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ], "parallelism": false }
         ],
         "lint:*": { "cache": true },
+        "rewrite:*": { "dependsOn": [ "grammar" ], "parallelism": false },
         "lint:ast-grep:*": {
             "dependsOn": [ "grammar" ],
             "inputs": [
@@ -195,7 +184,6 @@
                 "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
                 "{workspaceRoot}/**/*.cs",
                 "{workspaceRoot}/**/*.{cjs,js,mjs,jsx}",
-                "{workspaceRoot}/**/*.{html,htm,xhtml}",
                 "{workspaceRoot}/**/*.{py3,bzl,bazel}",
                 "{workspaceRoot}/**/*.{ts,tsx}",
                 "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
@@ -207,9 +195,8 @@
             ],
             "cache": true
         },
-        "typecheck:ty:*": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ], "cache": true },
-        "{typecheck:mypy,lint:refurb}:*": { "inputs": [ "python", "pythonFiles" ], "cache": true },
-        "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml" ], "cache": true },
+        "{typecheck:ty,typecheck:mypy,lint:refurb}:*": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ], "cache": true },
+        "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}" ], "cache": true },
         "lint:swiftlint:*": { "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ], "inputs": [ "swiftlint", "swiftFiles", { "externalDependencies": [] } ], "cache": true },
         "lint:pmd:cpd-*": { "options": { "args": [ "--minimum-tokens", "100" ] }, "inputs": [ { "externalDependencies": [] }, { "runtime": "pmd --version" } ], "cache": true },
         "lint:tombi:*": { "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ], "cache": true },
@@ -258,12 +245,12 @@
         },
         "test": [
             { "cache": true },
-            { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ] },
-            { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support/**/*.py}" ] },
+            { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}" ] },
+            { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support.py}" ] },
+            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "\"$BLENDER_PATH\" --version" } ] },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
-                "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
-                "outputs": [ "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}" ]
+                "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ]
             },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },

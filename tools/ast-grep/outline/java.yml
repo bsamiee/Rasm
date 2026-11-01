@@ -70,7 +70,6 @@ rule:
     has: {field: name, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isPublic: true
 
 ---
 id: java-member-nested-type
@@ -143,7 +142,6 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: true
 
 ---
 id: java-member-annotation-element
@@ -160,7 +158,6 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: true
 
 ---
 id: java-member-record-method

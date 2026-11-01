@@ -2,7 +2,6 @@
     <PropertyGroup>
         <Description>Plug-in RUI files derived from code at build time</Description>
         <OutputType>Exe</OutputType>
-        <RhinoHost>true</RhinoHost>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
@@ -10,6 +9,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

@@ -17,13 +17,16 @@ const Project = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const project = Effect.fn('project')(function* (file: string, { packages, targets }: typeof Project.Type, tags: Record.ReadonlyRecord<string, string>) {
+const project = Effect.fn('project')(function* (file: string, { packages, targets }: typeof Project.Type, release: (url: string) => string) {
     const path = yield* Path.Path;
     const links = targets.flatMap(({ name, 'package-product-members': members }) => members.map((member) => ({ target: name, product: member['product-name'], identity: member.package })));
-    const commands = packages.filter(Schema.is(Remote)).flatMap(({ repository }) => {
-        const identity = path.basename(repository, '.git');
-        return [['pkg', 'remove', identity], ['pkg', 'add', repository, '--from', Option.getOrThrow(Record.get(tags, repository))], ...links.filter((link) => link.identity === identity).map(({ target, product }) => ['pkg', 'link', product, '--package', identity, '--target', target])];
-    });
+    const commands = packages
+        .filter(Schema.is(Remote))
+        .filter(({ repository, version }) => release(repository) !== version['up-to-next-major-version'])
+        .flatMap(({ repository }) => {
+            const identity = path.basename(repository, '.git');
+            return [['pkg', 'remove', identity], ['pkg', 'add', repository, '--from', release(repository)], ...links.filter((link) => link.identity === identity).map(({ target, product }) => ['pkg', 'link', product, '--package', identity, '--target', target])];
+        });
     yield* Effect.forEach(commands, (args) => stdout('xcrun', ['xcodeproj', ...args, '--project', path.dirname(file)]), { discard: true });
 });
 
@@ -63,9 +66,5 @@ Effect.gen(function* () {
             ),
         { discard: true },
     );
-    yield* Effect.forEach(
-        documents.filter(([, document]) => document.packages.filter(Schema.is(Remote)).some(({ repository, version }) => release(repository) !== version['up-to-next-major-version'])),
-        ([file, document]) => project(file, document, tags),
-        { concurrency: 'unbounded', discard: true },
-    );
+    yield* Effect.forEach(documents, ([file, document]) => project(file, document, release), { concurrency: 'unbounded', discard: true });
 }).pipe(Effect.provide(layer), runMain);

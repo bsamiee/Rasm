@@ -137,7 +137,6 @@ transform:
     SIGNATURE: {replace: {source: $FLAT, replace: ';$', by: ''}}
 name: default
 signature: $SIGNATURE
-isExported: true
 
 ---
 id: typescript-export-type-list
@@ -155,7 +154,6 @@ transform:
     SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
 name: types
 signature: $SIGNATURE
-isExported: true
 
 ---
 id: typescript-abstract-class
