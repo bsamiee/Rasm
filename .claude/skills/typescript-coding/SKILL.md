@@ -10,8 +10,9 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Every type, export, and helper states something nothing else does
+- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition

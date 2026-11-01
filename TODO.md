@@ -7,13 +7,17 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 ### What a run produces
 
 - **Less surface:** the fewest exported and internal names, types, constants and helpers the row allows.
+- **Value:** a change improves code only when its result does more with less than its base. Every declaration earns its place through an operation a caller performs, never through a rule, a row cell or the old code alone.
+- **Both ends:** a library and its consumers are rebuilt together and neither shapes the other. Each consumer calls the library directly with no adapter, wrapper or reshaping.
+- **Measured:** each run measures lines, declarations and exports per file at base and after (`git archive HEAD`, `loc`, `ast-grep outline`) and removes growth no capability requires before it ends.
 - **Parameters over declarations:** one parameterized declaration serves every variant, and a consumer reaches a variant through an argument.
 - **Derived values:** each value derives from the type, member or host query that owns it.
 - **Packages used whole:** Effect 4, rmcp, the catalog crates and the macOS SDK do their work through their own members, never a wrapper or hand logic.
 - **One concept per file:** no `index.ts`, barrel, `main`, `lib` or `mod` file collects a package's logic, and no folder holds a single file.
 - **Crate roots:** a Rust crate root holds the crate's code beside its modules.
 - **Dependencies:** a package depends only on the packages whose members it calls, with no cycle.
-- **No shuffling:** moving logic between files, packages, layers, or an app and a library is no improvement. A move happens only where the `[03]` row names it.
+- **Delete and rebuild:** logic built poorly is deleted whole and rebuilt in its best form, never kept beside its replacement, wrapped, aliased or bridged.
+- **No shuffling:** a concept sits where the architecture places it. A misplaced concept is rebuilt in its new place, and relocating the same code is no improvement.
 - **Errors:** TypeScript keeps one `Schema.TaggedError` per package with a `reason` literal, a `subject` and an optional `cause`.
   - Its error covers only failures no host error or `Unmatched` states.
   - `Unmatched`, `ReconcileError`, `InspectError` and `PreconditionFailed` are rebuilt to that form, and no near-copy enters.
@@ -33,7 +37,7 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 ### Order and watch points
 
 - **Swift:** `core`, then `macos/process`, then `macos/applications`.
-- **TypeScript:** `data/search` first, then the rows that need it alone, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
+- **TypeScript:** `data/search` once Swift `core` lands, then rows that need it alone, `creative-cloud/automation` once Swift `macos/applications` lands, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
 - **Rust:** `services/telemetry`, `cli/command`, `services/daemon`, `services/mcp`, with `cli/output` and `cli/screen` after `cli/command`.
 - **Later Rust rows:** each starts once its `[AFTER]` rows have landed.
 - **Rust `services/telemetry`:** owns all of `libs/rust` for the move into categories. Read its plan before its Land phase goes far.

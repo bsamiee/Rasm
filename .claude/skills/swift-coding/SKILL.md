@@ -14,6 +14,7 @@ Code uses each module's types wherever they state a value, as part of the langua
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
@@ -188,9 +189,9 @@ Step signatures and the dependence between steps select the operator:
 |  [01]   | `T -> U`                      | `map`                         | Transforms a present value, keeps the form           |
 |  [02]   | `T -> U?`                     | `flatMap`, `compactMap`       | Continues with a step that can find nothing          |
 |  [03]   | `T throws(E) -> U`            | One `try` over the expression | Continues with a dependent step, first throw ends it |
-|  [04]   | Independent `Result` values   | `combine` over a pack         | Runs every step, throws every failure together       |
+|  [04]   | Independent `Result` values   | `combine` over a pack         | Runs every step, keeps every failure together        |
 |  [05]   | `[T]` with `T throws(E) -> U` | `map` with a throwing closure | Stops at the first failure                           |
-|  [06]   | `[Result<U, E>]`              | `combine` over an array       | Keeps every success or throws every failure          |
+|  [06]   | `[Result<U, E>]`              | `combine` over an array       | Keeps every success or every failure                 |
 
 `Failures` and both `combine` overloads sit once in a module every throwing module imports:
 

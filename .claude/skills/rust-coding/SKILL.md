@@ -18,6 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
