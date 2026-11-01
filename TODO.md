@@ -51,7 +51,25 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 - Zero findings from every compiler, checker and test the Check phase runs.
 - Rows over existing code end with fewer lines, files and public items than their base, and every file objectively better.
 
-## [02]-[DARKROOM_WINDOW]
+## [02]-[TYPESCRIPT_EXTENSION]
+
+Starts once every [01] run has landed. It extends the TypeScript libraries in depth the way the Rust architecture pass designed the Rust crates.
+
+### Method
+
+- **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Their logic informs our own design and is never copied.
+- **Architecture:** one design of packages, folders and files, challenged by critics, recorded in TYPESCRIPT.md rows. Libraries hold general capability usable in any host. Adobe code holds what is specific to Adobe.
+- **Runs:** each row runs on typescript.js as it stands, with both adversarial passes and the Mine phase, adding external packages where a domain needs them.
+
+### Scope
+
+- **InDesign:** the full interface, settings and preferences, derived from the host's own categories, never hand lists. Other Adobe apps follow later.
+- **Typography:** shaping, metrics and typesetting logic, with Persian and Arabic right-to-left support through the packages that own it.
+- **Color:** its own package of color spaces (sRGB, CMYK, Lab, Adobe RGB and others), one conversion path between them, and palettes.
+- **Grids:** grid systems, grid types and their construction, rule lines, and margin and ruling logic, drawn from graphic design grid theory, usable in InDesign and coupled to no host.
+- **Depth:** MCP logic, automation and scripting, data and stores, search kinds and pagination, wherever the current code is shallow.
+
+## [03]-[DARKROOM_WINDOW]
 
 Later work. Investigate first, then plan, then build.
 
