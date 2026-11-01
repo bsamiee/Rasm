@@ -27,7 +27,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 - Catalog rows take the crate's default features and add each non-default feature the crate's role needs, a row adding none is a version string
 - `default-features = false` sits only where a default fails a build or run, harms all members, or duplicates a TLS, crypto, runtime, or clock crate
-- Restricted rows re-add every default except the offending one, their comment stating the fact that excludes it
+- Restricted rows add back only the defaults their role needs that no dependency already turns on, their comment stating the fact that excludes the rest
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
 - Members reach a member through its catalog row pairing `path` with the workspace `version`, Cargo packages no unversioned path dependency
 - Native libraries a `links` key names take one owner row, a second binding crate of the same library fails resolution
