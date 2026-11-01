@@ -1,6 +1,6 @@
 import type { Page, PageItem, Spread } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Uxp } from '@rasm/uxp';
+import { Uxp } from '@rasm/uxp/runtime';
 import { Cause, Effect, Match, Option, Schema, Struct } from 'effect';
 import { imageSize } from 'image-size';
 import { Extent } from '#/documents/extent';

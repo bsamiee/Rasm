@@ -293,7 +293,7 @@ import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => HostError.make({ step: path, cause }) });
+    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFile', pathOrDescriptor: path, cause }) });
     return face.status.equals(FontStatus.INSTALLED)
         ? Option.some(
             yield* bytes(`file:${face.location}`).pipe(
@@ -344,17 +344,17 @@ import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
 const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
     Effect.gen(function* () {
-        const [{ script }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) }))(uxp), RpcSerialization.RpcSerialization]);
-        const answer = (chunk: string | Uint8Array) => Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
+        const [{ script: host }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) }))(uxp), RpcSerialization.RpcSerialization]);
+        const answer = (chunk: string | Uint8Array) => Effect.sync(() => host.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
         yield* Layer.launch(server).pipe(
-            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
+            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(host.args), stdin: Stream.encodeText(Stream.fromIterable(host.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
             Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
         );
-    }).pipe(Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
+    }).pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logged), Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Schema.declare` over `Schema.is` keeps the host's `script` object as `setResult` receiver. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. A missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through the plugin entry's `logged` sink, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`, and `Schema.declare` over `Schema.is` keeps the host's `script` object as `setResult` receiver. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test

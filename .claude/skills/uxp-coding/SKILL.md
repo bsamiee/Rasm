@@ -115,10 +115,10 @@ Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, w
 import { readFileSync } from 'adobe:fs';
 
 const bytes = (path: string) =>
-    Effect.try({ try: () => Option.some(new Uint8Array(readFileSync(path))), catch: (cause) => HostError.make({ step: path, cause }) }).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => Effect.succeedNone));
+    Effect.try({ try: () => Option.some(new Uint8Array(readFileSync(path))), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFile', pathOrDescriptor: path, cause }) }).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => Effect.succeedNone));
 ```
 
-`new Uint8Array` accepts both representations.
+`new Uint8Array` accepts both representations, and `PlatformError` carries the host's thrown value as `cause`.
 
 ## [04]-[OBJECT_MODELS]
 
@@ -143,7 +143,7 @@ Object model facts come from the owner that states them for the installed build:
 
 Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup.
 
-Each package declares one `Schema.TaggedError` with the refused step and the host's thrown value or returned failure as `cause`:
+Each package declares one `Schema.TaggedError` for failures no host error (`PlatformError`, `HttpClientError`) states, with the refused step and the host's thrown value or returned failure as `cause`:
 
 ```ts
 class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', { step: Schema.String, cause: Schema.Defect() }) {}
@@ -218,37 +218,48 @@ Hosts show nothing for a rejected command, and Photoshop logs nothing for it. On
 ```ts
 import fs from 'adobe:fs';
 import { entrypoints } from 'adobe:uxp';
+import { Manifest } from '#/manifest';
+import { Plugin, Uxp } from '#/runtime';
 
-const plugin = <R, E, F, C extends string, P extends string>(
+const logged = flow(Cause.pretty, Console.error);
+const plugin = <R, E, F>(
     layer: Layer.Layer<R, E, Uxp | Plugin>,
     entries: {
-        readonly commands: Record.ReadonlyRecord<C, Effect.Effect<void, F, R | Uxp | Plugin>>;
-        readonly panels: Record.ReadonlyRecord<P, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
+        readonly commands: Record.ReadonlyRecord<string, Effect.Effect<void, F, R | Uxp | Plugin>>;
+        readonly panels: Record.ReadonlyRecord<string, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
     },
 ): void => {
-    const logged = flow(Cause.pretty, Console.error);
+    const manifest = 'plugin:/manifest.json';
     const runtime = ManagedRuntime.make(
-        layer.pipe(Layer.provideMerge(Effect.try({ try: () => fs.readFileSync('plugin:/manifest.json', 'utf-8'), catch: (cause) => HostError.make({ step: Plugin.key, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))), Layer.tapCause(logged)),
-    );
-    const run = (work: Effect.Effect<void, F, R | Uxp | Plugin>) => () => runtime.runPromise(Effect.tapCause(work, logged));
-    Effect.runFork(
-        Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
-            Effect.flatMap(({ setup }) =>
-                Effect.sync(() =>
-                    setup.call(entrypoints, {
-                        plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
-                        commands: Record.map(entries.commands, run),
-                        panels: Record.map(entries.panels, Record.map(run)),
-                    } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
+        layer.pipe(
+            Layer.provideMerge(
+                Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(
+                    Effect.flatMap(Schema.decodeEffect(Manifest.json)),
+                    Layer.effect(Plugin),
+                    Layer.merge(hosted),
                 ),
             ),
-            Effect.tapCause(logged),
+            Layer.tapCause(logged),
         ),
+    );
+    const run = (work: Effect.Effect<unknown, F, R | Uxp | Plugin>) => (): Promise<void> => runtime.runPromise(Effect.asVoid(work));
+    Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
+        Effect.flatMap(({ setup }) =>
+            Effect.sync(() =>
+                setup.call(entrypoints, {
+                    plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
+                    commands: Record.map(entries.commands, flow(Effect.tapCause(logged), run)),
+                    panels: Record.map(entries.panels, Record.map(flow(Effect.tapCause(logged), Effect.forkDetach, run))),
+                } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
+            ),
+        ),
+        Effect.tapCause(logged),
+        Effect.runFork,
     );
 };
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects with the squashed cause. Panels fork their work through `Effect.forkDetach` and return a promise resolved once the work is forked. `logged` is shared by `plugin` and `script`. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
@@ -259,18 +270,23 @@ const plugin = <R, E, F, C extends string, P extends string>(
 
 One manifest serves one host, `host.app` taking `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`. Hosts enforce each `requiredPermissions` key:
 
-| [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
-| :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
-|  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial    |
-|  [02]   | `localFileSystem: "fullAccess"`   | Access outside plugin storage           | Defaults to plugin storage       |
-|  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | InDesign v5 runs `new Function`  |
-|  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
-|  [05]   | `launchProcess`                   | `shell.openPath`, `shell.openExternal`  | Both calls throw a denial        |
+| [INDEX] | [KEY]                                       | [GRANTS]                                                    | [WITHOUT]                        |
+| :-----: | :------------------------------------------ | :---------------------------------------------------------- | :------------------------------- |
+|  [01]   | `network.domains`                           | Dial and fetch to each listed origin                        | Dial throws a manifest denial    |
+|  [02]   | `localFileSystem: "fullAccess"`             | Access outside plugin storage                               | Defaults to plugin storage       |
+|  [03]   | `allowCodeGenerationFromStrings`            | `eval`, `new Function`, inline handlers                     | InDesign v5 runs `new Function`  |
+|  [04]   | `featureFlags.unhandledRejection`           | `unhandledrejection` events                                 | Rejection logged, no caller told |
+|  [05]   | `launchProcess`                             | `shell.openPath`, `shell.openExternal`                      | Both calls throw a denial        |
+|  [06]   | `clipboard: "read"` or `"readAndWrite"`     | System clipboard reads, or reads and writes                 | No clipboard access              |
+|  [07]   | `ipc.enablePluginCommunication`             | Calls into other installed plugins through `pluginManager`  | Defaults to `false`              |
+|  [08]   | `webview` with `allow: "yes"` and `domains` | WebViews in modal dialogs for the listed domains or `"all"` | No WebView                       |
+|  [09]   | `enableUserInfo`                            | `userInfo.userId()` returns the Creative Cloud user GUID    | No user GUID                     |
 
 - `entrypoints` rows name a `panel` or `command` `id` with `label.default`
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
+- `adobe:uxp` exports `Entry` as a type alone, and `Uxp.Entry` decodes a storage entry by its `isEntry: true` field with a `url` string or `URL`
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`

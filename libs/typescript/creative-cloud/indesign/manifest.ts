@@ -1,4 +1,4 @@
-import type { Manifest } from '@rasm/uxp';
+import type { Manifest } from '@rasm/uxp/manifest';
 import { Option } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -6,7 +6,7 @@ import { Option } from 'effect';
 const manifest = {
     host: { app: 'ID', minVersion: '18.5.0' },
     requiredPermissions: { localFileSystem: Option.some('fullAccess') },
-} as const satisfies Pick<Manifest, 'host'> & { readonly requiredPermissions: Pick<Manifest['requiredPermissions'], 'localFileSystem'> };
+} as const satisfies Pick<Parameters<typeof Manifest.make>[0], 'host' | 'requiredPermissions'>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

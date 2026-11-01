@@ -1,6 +1,6 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search/unmatched';
-import type { Uxp } from '@rasm/uxp';
+import type { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Cause, Effect, flow, Option, pipe, Record, Result, Schema, Struct } from 'effect';
 import { ApplicationView } from '#/application-view';
 import { DocumentView } from '#/documents/document-view';

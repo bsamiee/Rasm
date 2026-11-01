@@ -1,4 +1,4 @@
-import type { Entry } from 'adobe:uxp';
+import { Uxp } from '@rasm/uxp/runtime';
 import { Cause, Effect, flow, identity, Match, Option, Predicate, type Record, Result, Schema } from 'effect';
 import { Model } from '#/dom/model';
 import { Reference } from '#/dom/reference';
@@ -20,13 +20,11 @@ const encoder = Effect.map(
                     Match.when(Match.instanceOf(Enumerator), String),
                     Match.when(collection, (items) => ({ type: items.constructor.name, specifier: items.everyItem().toSpecifier(), length: items.length })),
                     Match.when(host, Reference.of),
-                    Match.when(
-                        (entry: unknown): entry is Entry => !record(entry) && Predicate.hasProperty(entry, 'isEntry') && entry.isEntry === true,
-                        (entry) => String(entry.url),
-                    ),
                     Match.when(Predicate.isPromise, () => {
                         throw new TypeError(`${key} holds a promise, scripts answer before it settles`);
                     }),
+                    Match.when(record, identity),
+                    Match.when(Schema.is(Uxp.Entry), ({ url }) => String(url)),
                     Match.when(Predicate.isError, flow(Schema.encodeOption(Schema.Defect()), Option.getOrUndefined)),
                     Match.when(Predicate.isMap, Object.fromEntries),
                     Match.when(Predicate.isSet, (entries) => [...entries]),

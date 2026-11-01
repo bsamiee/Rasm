@@ -1,5 +1,5 @@
 import { Source } from '@rasm/typography';
-import { Uxp } from '@rasm/uxp';
+import { Uxp } from '@rasm/uxp/runtime';
 import { Cause, Effect, Option, Schema } from 'effect';
 import { fontByName } from '#/dom/decoding';
 import { temporary } from '#/dom/files';

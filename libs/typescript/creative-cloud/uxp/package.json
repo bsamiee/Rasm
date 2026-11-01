@@ -8,9 +8,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
         "./entrypoints": "./entrypoints.ts",
-        "./manifest": "./manifest.ts"
+        "./link": "./link.ts",
+        "./manifest": "./manifest.ts",
+        "./runtime": "./runtime.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",
