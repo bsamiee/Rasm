@@ -5,7 +5,7 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint, jd
 ## [01]-[FORMATTER]
 
 - `google-java-format` takes files and no directory, `--aosp` sets its 4-space indent
-- Formatter has no configuration file and no `.editorconfig` row, the mise row is a native binary that runs without a JDK
+- Formatter has no configuration file and no `.editorconfig` row, the mise row installs a native binary needing no JDK
 
 ## [02]-[CHECKS]
 

@@ -10,7 +10,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
-- `analytics: false` disables telemetry `neverConnectToCloud` leaves enabled. Without a boolean, Nx prompts and rewrites `nx.json` expanded
+- `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 
 ## [02]-[DISCOVERY]
 
@@ -79,7 +79,7 @@ Use JSON discovery from workspace root:
 
 ## [06]-[RELEASE]
 
-Products version by Conventional Commits into tags alone, `nx.json` `release` and `eng/typescript/release` hold the whole flow:
+Products version by Conventional Commits into tags alone, `nx.json` `release` and `eng/typescript/release` hold the flow:
 - Release groups map one product `output:*` tag to a group named for the host
 - MinVer tag prefixes spell the group name, target options interpolate no `{releaseGroupName}`
 - Commits count toward a product when they touch its files or a module it links

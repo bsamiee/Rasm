@@ -3,11 +3,6 @@ id: no-parse-error-csharp
 language: csharplang
 severity: error
 utils:
-    ref-compound-assignment:
-        kind: ERROR
-        regex: '^=$'
-        inside: {kind: binary_expression, has: {field: left, kind: invocation_expression}}
-        follows: {regex: '^([-+*/%&|^]|<<|>>>?|\?\?)$'}
     file-directives:
         kind: ERROR
         regex: '^#:[^\n]*(\n(#:[^\n]*|[ \t]*))*$'
@@ -21,7 +16,6 @@ utils:
             - inside: {kind: ERROR, stopBy: end}
             - matches: file-directives
             - inside: {matches: file-directives-head, stopBy: end}
-            - matches: ref-compound-assignment
 rule:
     any:
         - kind: ERROR

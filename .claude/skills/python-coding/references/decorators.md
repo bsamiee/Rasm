@@ -1,7 +1,5 @@
 # [DECORATORS]
 
-Covers decorators and dispatch registries.
-
 ## [01]-[WRAPPERS]
 
 Package decorators apply each change around a call they cover, and a factory applies one no package covers. `caught` over `np.errstate` returns what the scope raises as faults naming the body:
@@ -56,7 +54,7 @@ def _(value: Mapping[str, object], /) -> str:
 ```
 
 `rendered(frozendict(rate=Fraction(1, 3), count=2))` returns `rate=0.33, count=2`:
-- Union annotations register each member, and an annotation naming no class (`Mapping[str, object]`, a `type` alias) passes its class or the alias's `__value__` to `register`
+- Union annotations register each member, a non-class annotation (`Mapping[str, object]`, `type` alias) passes its class or `__value__` to `register`
 - `dispatch(kind)` follows MRO and ABC registration, and `frozendict` reaches the `Mapping` implementation
 - `rendered.dispatch(kind) is not rendered.dispatch(object)` reads a capability from the registrations
 - Implementations in another module register when an eager import loads it, and the dispatcher's module imports none of them

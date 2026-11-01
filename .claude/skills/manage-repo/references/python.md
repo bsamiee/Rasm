@@ -6,15 +6,15 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
-- Host `pyproject.toml` files are virtual uv workspace members (`[tool.uv] package = false`) holding `name`, a static `version`, the floor, `[project] dependencies`, and Ruff `extend`, and create no Nx project
+- Host `pyproject.toml` files are virtual uv members (`[tool.uv] package = false`) with `name`, static `version`, floor, dependencies, Ruff `extend`
 - `blender` is a packaged workspace member, its hatchling wheel mapping its folder onto the `blender` import root
 - `blender` `[project] dependencies` name every package its modules import
 - Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`
-- Extension and host test members name `blender` and every package their modules import, a new extension joining root `[tool.uv.workspace] members` and `uv.lock` first, ty's `missing-direct-dependency` reporting each import its member omits
-- Fitout bundles the closure `uv export --project <extension> --no-editable` reads from `uv.lock`, building workspace members as wheels it copies in as submodules
+- Extension and host test members name `blender` and each import, ty `missing-direct-dependency` reports omissions
+- New extensions join root `[tool.uv.workspace] members` and `uv.lock` first
 - Virtual members install no distribution, `uv sync` installs their dependencies into the root environment
 - Host runtime compatibility covers code a host executes or imports, shared libraries included, wheel membership alone imposes none
-- Use newest syntax, APIs, and typing supported by each execution runtime
+- Use the newest syntax, APIs, and typing each runtime supports
 
 ## [02]-[GROUPS]
 
@@ -42,8 +42,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [04]-[ENVIRONMENT]
 
-- `uv sync` installs the `blender` library editable, its hatch `dev-mode-dirs` exposing the folder holding its import root through `.pth` without a `PYTHONPATH` row
-- Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, versioned commands export `VIRTUAL_ENV` to `.cache/python/<version>`, and `uv run` syncs before every run
+- `uv sync` installs `blender` editable, hatch `dev-mode-dirs` adds its import root's parent folder through `.pth` with no `PYTHONPATH` row
+- Mise `python.uv_venv_auto` puts synced `.venv` on `PATH`, versioned commands set `VIRTUAL_ENV` to `.cache/python/<version>`, `uv run` syncs first
 - Builds reuse objects or a CMake cache an earlier build left in the cached sdist tree
 - Modules in `sys.stdlib_module_names` shadow standard libraries when earlier on `sys.path` or `mypy_path`
 
@@ -51,7 +51,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff prefers a nested `requires-python` over an extended `target-version` and runs once, ty and mypy take one version per run
-- Workspace inference runs ty, mypy, and refurb over root code at the configured version as `:root` and once per nested `requires-python` over its folders as `:<version>`
+- Inferred ty, mypy, and refurb targets run as `:root` over root code at the configured version and as `:<version>` per nested `requires-python`
 - Editors and bare ty and mypy runs check host folders at the root version
 - Python ast-grep rules for a form below or from one release set `metadata` `python-below` or `python-from` as `'<major>.<minor>'`
 - Root scans select version rules from resolved mise metadata and each host's `requires-python`
@@ -76,14 +76,14 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 ## [06]-[PROJECTS]
 
 - Concern project names derive from `py.typed` directories relative to the folders packaged members' hatch `dev-mode-dirs` name
-- `blender_manifest.toml` defines an extension project by manifest `id`
+- `blender_manifest.toml` defines an extension project by manifest `id`, host `pyproject.toml` files define none
 - Project dependencies include runtime and type-only static imports between source owners
 
 ## [07]-[HOST_PACKAGING]
 
 - Use `eng/python/fitout/` for host extension assembly and installation
 - Each packaged member's wheel maps its folder onto its import root through hatch `sources`, `only-include` keeping its manifest out
-- Extension assembly copies first-party wheel packages in as submodules with relative imports and bundles every other distribution as a wheel
+- Fitout bundles `uv export --project <extension> --no-editable` closure, workspace members as submodules with relative imports, the rest as wheels
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
 - Fitout omits Blender-provided distributions from locked export
 - `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into the staged manifest

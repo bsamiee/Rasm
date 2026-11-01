@@ -5,8 +5,7 @@ description: "Use when writing or reviewing a Blender extension's registration, 
 
 # [BLENDER_CODING_EXTENSIONS]
 
-Covers what an extension acquires and releases across its lifecycle, with its manifest and wheels.
-
+Covers what an extension acquires and releases across its lifecycle, with its manifest and wheels:
 - Use `blender-coding` for callback bodies, properties, and operator classes
 - Use `blender-coding-interface` for panels, menus, lists, and interface text
 - Use `use-blender` for installing, validating, and running extensions
@@ -14,18 +13,18 @@ Covers what an extension acquires and releases across its lifecycle, with its ma
 
 [REFERENCES]:
 - [01]-[KEYMAPS](references/keymaps.md): Addon keymap items, event order, and user edits a preferences page draws
-- [02]-[FILES](references/files.md): User folders, packaged files, network access, and file handlers for drops and collection exports
+- [02]-[FILES](references/files.md): User folders, packaged files, network access, file handlers, and collection importers and exporters
 - [03]-[PACKAGING](references/packaging.md): Manifest rules validation leaves unchecked, shared wheels, and subpackages
 
 ## [01]-[REGISTRATION]
 
-Registration follows host rules:
-- Module import and `register()` run under `RestrictBlend`, `bpy.context` holding `window_manager` and `preferences` alone and `bpy.data` reads raising `AttributeError`
-- When `register()` raises, Blender calls no `unregister()`, and classes, handlers, and timers acquired before the raise stay live
-- `bpy.utils.register_classes_factory` stops at a raise with earlier classes registered
-- Gizmo, gizmo group, and macro classes hold no `is_registered`
+Registration runs under host rules:
+- Import and `register()` run under `RestrictBlend`: `bpy.context` holds `window_manager` and `preferences` alone, `bpy.data` raises `AttributeError`
+- Module-level `from bpy import context, data` binds the restricted stand-ins for good, and code reads `bpy.context` and `bpy.data` per call
+- Raising `register()` gets no `unregister()` and drops only its top module from `sys.modules`, its classes, handlers, and timers staying registered
+- Classes register once, a second `register_class` raising `ValueError` and a second `unregister_class` `RuntimeError`
 
-Acquisitions follow host dependency order, and releases run in reverse, a group unregistered while an attachment names it crashing Blender at the attachment's next read:
+Acquisitions follow host dependency order and releases reverse it, an attachment naming an unregistered group crashing Blender at its next read:
 
 | [INDEX] | [FIRST]         | [THEN]                                                   | [OTHERWISE]                                   |
 | :-----: | :-------------- | :------------------------------------------------------- | :-------------------------------------------- |
@@ -33,128 +32,79 @@ Acquisitions follow host dependency order, and releases run in reverse, a group 
 |  [02]   | Parent panel    | Panel naming it in `bl_parent_id`                        | `RuntimeError` at registration                |
 |  [03]   | Operator        | Keymap item calling it                                   | Item property writes raising `AttributeError` |
 
-`ordered` sorts classes by pointer and collection targets and `bl_parent_id`. Class releases go on the stack before `register_class`, a refused property raising with the class registered:
+`registered` registers each class after the groups and parent panel it names, and pushes each release onto the caller's stack after its acquisition. `keyconfigs.update(keep_properties=True)` goes on first to run after every class release, and keymap releases remove the items `keyconfig_init_from_data` added:
 
 ```python
-from contextlib import ExitStack
-import graphlib
-from sys import platform
-from typing import get_type_hints, TYPE_CHECKING, TypedDict
-
-from bl_keymap_utils.io import keymap_init_from_data
-from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
-import bpy
-
-if TYPE_CHECKING:
-    from bpy.stub_internal import rna_enums
-
-type Registrable = type[bpy.types.PropertyGroup | bpy.types.Operator | bpy.types.Panel]
+type Registrable = type[bpy.types.PropertyGroup | bpy.types.AddonPreferences | bpy.types.Operator | bpy.types.Panel | bpy.types.Menu | bpy.types.UIList | bpy.types.FileHandler]
+type Keyconfig = Sequence[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], dict[str, object]]]]]]
 
 
-class Location(TypedDict, total=False):
-    space_type: "rna_enums.SpaceTypeItems"
-    region_type: "rna_enums.RegionTypeItems"
+def registered(stack: ExitStack, classes: Collection[Registrable], /, *, attached: Iterable[tuple[type[Struct], str, _PropertyDeferred]] = (), keymaps: Keyconfig = ()) -> None:
+    keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    addon: bpy.types.KeyConfig = keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    named = {getattr(cls, "bl_idname", cls.__name__): cls for cls in classes}
+    graph = {
+        cls: {
+            *(hint.keywords["type"] for hint in get_type_hints(cls).values() if isinstance(hint, _PropertyDeferred) and "type" in hint.keywords),
+            *(named[parent] for parent in named.keys() & {getattr(cls, "bl_parent_id", "")}),
+        }
+        & set(classes)
+        for cls in classes
+    }
+    stack.callback(keyconfigs.update, keep_properties=True)
+    for cls in graphlib.TopologicalSorter(graph).static_order():
+        bpy.utils.register_class(cls)
+        stack.callback(bpy.utils.unregister_class, cls)
+    for owner, name, prop in attached:
+        setattr(owner, name, prop)
+        stack.callback(delattr, owner, name)
+    before = frozenset(item for keymap in addon.keymaps for item in keymap.keymap_items)
+    keyconfig_init_from_data(addon, keyconfig_data_oskey_from_ctrl_for_macos(keymaps) if sys.platform == "darwin" else keymaps)  # type: ignore[func-returns-value]
+    for keymap in addon.keymaps:
+        for item in frozenset(keymap.keymap_items) - before:
+            stack.callback(keymap.keymap_items.remove, item)
 
 
-type Keymaps = list[tuple[str, Location, dict[str, list[tuple[str, dict[str, object], dict[str, object]]]]]]
-
-
-def ordered[C: Registrable](classes: tuple[C, ...]) -> tuple[C, ...]:
-    panels = {vars(cls).get("bl_idname", cls.__name__): cls for cls in classes if issubclass(cls, bpy.types.Panel)}
-    return tuple(
-        graphlib.TopologicalSorter({
-            cls: {
-                *(
-                    hint.keywords["type"]
-                    for hint in get_type_hints(cls).values()
-                    if isinstance(hint, bpy.props._PropertyDeferred) and hint.function in {bpy.props.PointerProperty, bpy.props.CollectionProperty}
-                ),
-                *(panels[parent] for parent in panels.keys() & {vars(cls).get("bl_parent_id")}),
-            }
-            & set(classes)
-            for cls in classes
-        }).static_order()
-    )
-
-
-CLASSES: tuple[Registrable, ...] = (Detail, Holder, Run, Main, Settings)
-KEYMAPS: Keymaps = [("Object Mode", {}, {"items": [(Run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, {"properties": [("amount", 2)]})]})]
 held = ExitStack()
 
 
-def released(cls: Registrable) -> None:
-    if "bl_rna" in vars(cls):
-        bpy.utils.unregister_class(cls)
-
-
 def register() -> None:
-    keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    addon: bpy.types.KeyConfig = keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     with ExitStack() as stack:
-        stack.callback(keyconfigs.update, keep_properties=True)
-        for cls in ordered(CLASSES):
-            stack.callback(released, cls)
-            bpy.utils.register_class(cls)
-        bpy.types.Scene.item_holder = bpy.props.PointerProperty(type=Holder)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        stack.callback(delattr, bpy.types.Scene, "item_holder")
-        rows: Keymaps = keyconfig_data_oskey_from_ctrl_for_macos(KEYMAPS) if platform == "darwin" else KEYMAPS  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
-        for name, params, content in rows:
-            keymap = addon.keymaps.new(name, **params)
-            start = len(keymap.keymap_items)
-            keymap_init_from_data(keymap, content["items"])
-            for item in keymap.keymap_items[start:]:
-                stack.callback(keymap.keymap_items.remove, item)
+        registered(
+            stack,
+            CLASSES,
+            attached=((bpy.types.Scene, "item", bpy.props.PointerProperty(type=Settings)),),
+            keymaps=[("Object Mode", {}, {"items": [(Run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, {"properties": [("amount", 2)]})]})],
+        )
+        bpy.app.handlers.load_post.append(loaded)
+        stack.callback(bpy.app.handlers.load_post.remove, loaded)
         held.push(stack.pop_all())
 
 
 unregister = held.close
 ```
 
-`Settings` stands for a `PropertyGroup`, `Holder` for a group collecting `Settings`, `Main` and `Detail` for a panel and its child, `Run` for an operator with an `amount` property, and `item` for the manifest `id`.
-
-## [02]-[CLASSES]
-
-Registered classes take the forms Blender checks at `register_class` and at each call:
-- Operator `bl_idname` takes `<category>.<name>` in lowercase letters, digits, and underscores, one dot, at most 60 characters, else `RuntimeError`
-- Panel, menu, header, list, asset shelf, and file handler idnames hold `_PT_`, `_MT_`, `_HT_`, `_UL_`, `_AST_`, or `_FH_` mid-name, else registration warns
-- Panel, menu, list, and render engine `bl_idname` values register cut to 63 bytes, and a class under a taken idname replaces the earlier class with an `Info` line
-- Callbacks declaring more or fewer positional parameters than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
-- `__init__` overrides take `*args, **kwargs` and pass them to `super().__init__` first, a narrower signature reaching callers as `RuntimeError`
-- Blender builds a new operator, panel, and menu instance per call, and instance attributes reach no later call
-- `type(<name>, (<base>,), <namespace>)` registers as a class statement does, a `__annotations__` entry holding its `bpy.props` definitions
-- Unregistering an operator class while it runs modal leaves its `window.modal_operators` entry reading `None` until the next event removes it
-- Classes register once, a second `register_class` raising `ValueError` and a second `unregister_class` `RuntimeError`
-
-Panels shared across editors derive one subclass per `bl_space_type` from a base holding `draw`, a class without `bl_idname` registering under its class name:
-
-```python
-from typing import override
-
-import bpy
-
-
-class Shared(bpy.types.Panel):
-    bl_label = "Item"
-    bl_region_type = "UI"
-    bl_category = "Item"
-
-    @override
-    def draw(self, context: bpy.types.Context) -> None:
-        layout: bpy.types.UILayout = self.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        layout.label(text=self.bl_space_type)
-
-
-PANELS: tuple[type[bpy.types.Panel], ...] = tuple(type(f"ITEM_PT_{space.lower()}", (Shared,), {"bl_space_type": space}) for space in ("VIEW_3D", "IMAGE_EDITOR", "NODE_EDITOR"))
-```
-
-`bpy.types.<Type>.<name> = bpy.props.PointerProperty(type=<group>)` attaches a group, and `delattr(bpy.types.<Type>, "<name>")` releases it:
+`CLASSES` lists classes in any order, and a raise inside the `with` block releases every earlier acquisition, then reaches Blender as raised:
+- `attached` takes any `bpy.props` definition onto a host type, `delattr` releasing it
 - Group storage on an ID starts at its first read, saves with files, and outlives a release, reading back once the group attaches again
 - Static RNA members (`render`, `frame_current`) refuse an attachment with `ValueError`, and `name`, RNA functions, and `bl_rna` take a shadowing one
 - Second attachments under one name replace the first with no raise
 
+## [02]-[CLASSES]
+
+Registered classes take the forms Blender checks at `register_class` and at each call:
+- Operator `bl_idname` is `<category>.<name>` within 60 lowercase letters, digits, and underscores, else registration raises `RuntimeError`
+- Panel, menu, header, list, asset shelf, file handler idnames hold `_PT_`, `_MT_`, `_HT_`, `_UL_`, `_AST_`, `_FH_` mid-name, else registration warns
+- Panel, menu, list, and render engine idnames register cut to 63 bytes, and a class under a taken idname replaces the earlier one with an `Info` line
+- Callbacks with a positional parameter count other than the host's raise `ValueError` at registration, `*args` counting none (Panel `draw` takes 2)
+- Panels and menus build a new instance per draw, and state between draws goes in a property
+- Classes without `bl_idname` register under their class name
+- Panels shared across editors register one `type(f"{base.__name__}_{space.lower()}", (base,), {"bl_space_type": space})` per space
+- Shared panel bases hold `draw` and other `bl_*` members
+
 ## [03]-[CALLBACKS]
 
-Each callback kind pairs one acquisition with one release on the same object, members named under `bpy`:
+Callback kinds pair one acquisition with one release on the same object, pushed onto the registration stack after it, members named under `bpy`:
 
 | [INDEX] | [KIND]       | [ACQUIRE]                                                          | [RELEASE]                                            |
 | :-----: | :----------- | :----------------------------------------------------------------- | :--------------------------------------------------- |
@@ -173,7 +123,7 @@ Acquisitions follow host identity rules:
 - Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call
 - Timers store one callable and match it by identity, each read of a bound method building a new object
 - `bpy.app.timers.unregister` raises `ValueError` for a function no longer registered, a timer that stopped itself included
-- `persistent(fn)` marks and returns `fn` for plain functions and lambdas, raising `ValueError` on a bound method, `functools.partial`, or callable instance
+- `persistent(fn)` marks and returns plain functions and lambdas, and raises `ValueError` on a bound method, `functools.partial`, or callable instance
 - Handler lists keep bound methods of a `persistent` function across file loads
 - `<Menu>.remove` drops the first equal entry, a fresh bound method of one object included, and ignores an absent one
 - Message bus subscriptions take one private `object()` owner per extension
@@ -202,13 +152,12 @@ Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per packa
 - Locale keys take a `bpy.app.translations.locales` code or a shorter form
 - Lookups read one dict per table, trying the full locale, `language_country`, `language@variant`, then `language`
 - Tables key each language once, a full code beside a shorter form (`pt_BR` beside `pt`) answering from the shorter form after an earlier table misses
-- Tables translate only msgids the stock catalog leaves untranslated
-- `en_US` entries relabel stock English text
+- Tables translate only msgids the stock catalog leaves untranslated, and `en_US` entries relabel stock English text
 - Shared keys answer from the first registered table, and second registrations of one package raise `ValueError`
 - `_bl_i18n_utils.bl_extract_messages.dump_addon_messages(<package>, False, <settings>)` returns a `.pot` keyed by `(context, msgid)`
-- Extraction reads extension RNA strings, literal `text=` and report strings, and manifest `name` and `tagline`
-- Extraction skips panel `bl_label` and `bl_category` and returns stock definition strings beside extension keys
 - Extraction settings set `SOURCE_DIR` to `bpy.utils.resource_path("LOCAL")`
+- Extraction returns extension RNA strings, literal `text=` and report strings, manifest `name` and `tagline`, and stock definition strings
+- Extraction leaves out panel `bl_label` and `bl_category`
 
 ## [06]-[MANUAL_MAPS]
 
@@ -220,19 +169,18 @@ Online Manual lookups call manual map functions returning `(<url prefix>, ((<pat
 - Registered group and `AddonPreferences` property buttons resolve to `bpy.types.<class name>.<property>`, a pattern on the attachment missing them
 - Other property buttons resolve to `bpy.types.<declaring struct>.<property>`
 
-Maps run at each lookup, and patterns derived from `dir(bpy.ops.<category>)` and class names cover each operator and property class the extension registers:
+Patterns derive from the registered classes, an operator's `bl_idname` and a group's class name each keying one pattern and one anchor:
 
 ```python
-import bpy
-
-
-def manual() -> tuple[str, tuple[tuple[str, str], ...]]:
-    category: object = bpy.ops.item  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    return "https://<docs>/", (
-        *((f"bpy.ops.item.{name}", f"operators.html#{name}") for name in dir(category)),
-        *((f"bpy.types.{key}.*", f"settings.html#{key}") for key in (cls.__name__.lower() for cls in (Settings, ItemPreferences))),
+def manual(root: str, classes: Iterable[Registrable], /) -> tuple[str, tuple[tuple[str, str], ...]]:
+    return root, tuple(
+        (f"bpy.ops.{cls.bl_idname}", f"#{cls.bl_idname}") if issubclass(cls, bpy.types.Operator) else (f"bpy.types.{cls.__name__.lower()}.*", f"#{cls.__name__.lower()}")
+        for cls in classes
+        if issubclass(cls, (bpy.types.Operator, bpy.types.PropertyGroup, bpy.types.AddonPreferences))
     )
 ```
+
+`register_manual_map` and `unregister_manual_map` take one held `partial(manual, "<url>", CLASSES)`, called at each lookup.
 
 ## [07]-[IDENTITY]
 
@@ -259,7 +207,7 @@ Lifecycle events treat extension state by host rule, `disable` and `enable` nami
 Code reloads follow host rules:
 - Reload Scripts runs from a timer after the calling script returns and never in background runs
 - Reload Scripts reruns an edited top `__init__.py` twice, and module bodies hold declarations alone
-- `importlib.reload` of an enabled package rebinds its module-level `ExitStack`, and the next `unregister()` releases nothing acquired before
+- `importlib.reload` of an enabled package rebinds its module-level `held` stack, and the next `unregister()` releases nothing acquired before
 - Blender writes bytecode beside extension sources and checks it by source size and whole-second mtime, and an edit keeping both loads the old code
 - Extensions with a manifest range excluding the running Blender raise `RuntimeError` at each enable without importing and keep their preference row
 
@@ -270,45 +218,25 @@ Code changes reach a session through an upgrade install or a `disable` and `enab
 
 ## [09]-[PREFERENCES]
 
-`AddonPreferences` values sit on the package's `preferences.addons` row:
-- `--addons` and a first `default_set=False` enable create no row, and `preferences` reads `None` while the class is unregistered
-- Reads match `preferences.addons.get(<package>)` against `bpy.types.Addon(preferences=<class>() as prefs)`, any other case taking the record default
+`AddonPreferences` values sit on the package's `preferences.addons` row, and reads derive the package from the class's `bl_idname`:
+
+```python
+def preferred[P: bpy.types.AddonPreferences](kind: type[P], preferences: bpy.types.Preferences, /) -> Option[P]:
+    addon: bpy.types.Addon | None = preferences.addons.get(kind.bl_idname)
+    stored = addon and addon.preferences
+    return Some(stored) if isinstance(stored, kind) else Nothing
+```
+
+`preferred` returns `Nothing` while the class is unregistered and where `--addons` or a first `default_set=False` enable created no row. Stored values follow host rules:
 - Rows store written properties alone, unwritten ones reading the running version's default
-- Values of renamed or removed properties stay in `bl_system_properties_get()` by name and return when a version declares the name again
+- Values outlive their declaration by identifier and read back once a version declares the identifier again
 - Stored values a property's type refuses delete at read and return the default, `bool`, `int`, and enum values reading as each other
-- Script writes leave `preferences.is_dirty` false while core preference writes, page edits, and row-changing enables set it, and code sets `is_dirty = True` after a write it keeps
+- Renames and type changes keep the old identifier under `options={'HIDDEN'}` beside a new one
+- `register()` copies an old value `is_property_set` reports to the new identifier, then calls `property_unset(<old>)`
+- Core preference writes, page edits, and row-changing enables set `preferences.is_dirty`, and script writes leave it false
+- Code sets `is_dirty` after a write it keeps
 - GUI quits run `exit_pre` handlers, then a save of dirty preferences, then every `unregister()`
 - Background exits skip the save, and background runs save through `bpy.ops.wm.save_userpref()` alone
 - `bpy.ops.preferences.addon_show(module=<package>)` opens Preferences at the extension's expanded row
 - `exit_pre` writes to `filepaths.asset_libraries` hang Blender while a remote listing job runs
 - `filepaths.asset_libraries.new()` rows set `is_dirty` and save at quit, next registration taking the saved row and `unregister()` removing it
-
-Properties keep identifier and type across versions, and a rename or type change takes a new identifier that `register()` fills after the preferences class registers:
-
-```python
-import bpy
-from expression import Nothing, Option, Result, Some
-from expression.extra.result import catch
-import msgspec
-
-
-class Previous(msgspec.Struct, frozen=True, kw_only=True):
-    count: int = 1
-
-
-def migrated(preferences: bpy.types.Preferences, package: str) -> Option[Result[Previous, msgspec.ValidationError]]:
-    addon: bpy.types.Addon | None = preferences.addons.get(package)
-    match addon:
-        case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and (
-            names := tuple(field.name for field in msgspec.structs.fields(Previous) if field.name in stored)  # type: ignore[operator]
-        ):
-            previous: Result[Previous, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)({name: stored.pop(name) for name in names}, type=Previous)
-            for record in previous.to_option().to_list():
-                prefs.amount = record.count
-            preferences.is_dirty = True
-            return Some(previous)
-        case _:
-            return Nothing
-```
-
-`Previous` holds an earlier version's moved properties at that version's defaults, and `ItemPreferences` declares `amount`, an `Error` leaving its default.

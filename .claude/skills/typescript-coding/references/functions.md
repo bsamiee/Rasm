@@ -1,7 +1,5 @@
 # [FUNCTIONS]
 
-Covers functions as values and their composition.
-
 ## [01]-[PIPELINES]
 
 Data-last package steps take their element type from the value before them. Reusable pipelines over a collection type their subject and pass it to `pipe`, `flow` composes steps that type their own input (`String.trim`, a declared function):
@@ -108,3 +106,4 @@ const archive = Effect.fn('archive')(
 - Attributes every call shares sit in `Effect.fn('<name>', { attributes })`
 - `Effect.fnUntraced` declares a generator function a traced one calls, with no stack frame or span, in place of a function returning `Effect.gen`
 - `Effect.fn.Return<A, E, R>` annotates the return of a generic or recursive generator body
+- `Effect.fn('<name>')({ self: this }, body)` and `Effect.gen({ self: this }, body)` bind `this` inside a class member

@@ -1,11 +1,13 @@
 import { Context, Effect, Function, Layer, Logger } from 'effect';
-import { HttpRouter } from 'effect/http';
+import { HttpRouter, HttpServer } from 'effect/http';
 import { type Access, accessBinding, authenticate } from '#/authentication/access';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const worker = <Env extends object, A, E>(routes: (env: Env) => Layer.Layer<A, E, HttpRouter.HttpRouter | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A> | HttpRouter.Request<'GlobalRequires', A>>) => {
-    const serve = Function.memoize((env: Env) => HttpRouter.toWebHandler(Layer.provideMerge(routes(env), Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)])), { disableLogger: true }).handler);
+const worker = <Env extends object, A, E>(
+    routes: (env: Env) => Layer.Layer<A, E, HttpRouter.HttpRouter | Layer.Success<typeof HttpServer.layerServices> | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A> | HttpRouter.Request<'GlobalRequires', A>>,
+) => {
+    const serve = Function.memoize((env: Env) => HttpRouter.toWebHandler(Layer.provideMerge(routes(env), Layer.merge(HttpServer.layerServices, Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)]))), { disableLogger: true }).handler);
     return {
         fetch: Effect.fn('fetch')(function* (request: Request, env: Env & Partial<Record<typeof accessBinding, Access>>) {
             const { [accessBinding]: access } = env;

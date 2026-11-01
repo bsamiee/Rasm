@@ -35,15 +35,15 @@ Getters return base classes, and each class's static `cast` narrows one or retur
 import type { Project, premierepro } from '@adobe/premierepro';
 
 const folders = (host: premierepro, project: Project) =>
-    Effect.tryPromise({ try: () => project.getRootItem(), catch: (cause) => new HostError({ step: project.name, cause }) }).pipe(
-        Effect.flatMap((root) => Effect.tryPromise({ try: () => root.getItems(), catch: (cause) => new HostError({ step: root.name, cause }) })),
+    Effect.tryPromise({ try: () => project.getRootItem(), catch: (cause) => HostError.make({ step: project.name, cause }) }).pipe(
+        Effect.flatMap((root) => Effect.tryPromise({ try: () => root.getItems(), catch: (cause) => HostError.make({ step: root.name, cause }) })),
         Effect.map(Array.flatMap((item) => Array.fromNullishOr(host.FolderItem.cast(item)))),
     );
 ```
 
 `folders` returns the bins in a project's root through `Array.fromNullishOr` over `cast`, which typings declare without `null`. `host` is the module object `require` returns.
 
-| [INDEX] | [NEED]         | [FORM]                                                 | [DECIDING_FACT]                                 |
+| [INDEX] | [NEED]         | [FORM]                                                 | [REASON]                                        |
 | :-----: | :------------- | :----------------------------------------------------- | :---------------------------------------------- |
 |  [01]   | Active project | `await Project.getActiveProject()`                     | `null` with no project open, one object each    |
 |  [02]   | Bin contents   | `FolderItem.cast(item)`, then `getItems()`             | Items are `ProjectItem` with `name` and `type`  |
@@ -76,11 +76,11 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
             });
             return refused;
         },
-        catch: (cause) => new HostError({ step: undo, cause }),
-    }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(new HostError({ step: undo, cause: { refused } })) })));
+        catch: (cause) => HostError.make({ step: undo, cause }),
+    }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(HostError.make({ step: undo, cause: { refused } })) })));
 ```
 
-`renamed` returns its count over items its caller read before the lock, or fails with `refused` naming each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw inside the transaction callback still execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
+`renamed` takes items read before the lock and returns their count, or fails with `refused` naming refused items while every other action executes. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw in the transaction callback execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
 
 | [INDEX] | [CALL]                                      | [RESULT]                                                    |
 | :-----: | :------------------------------------------ | :---------------------------------------------------------- |
@@ -98,7 +98,7 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
 
 ## [04]-[EVENTS]
 
-`EventManager.addEventListener(target, name, handler)` calls `subscribeToEvent` for track and render events, then the target's own `addEventListener`, and `addGlobalEventListener` listens on the event root:
+`EventManager.addEventListener(target, name, handler)` calls `subscribeToEvent` for track and render events, then the target's `addEventListener`. `addGlobalEventListener` listens on the event root:
 
 ```ts
 import type { Project, premierepro } from '@adobe/premierepro';
@@ -126,7 +126,7 @@ const dirtied = <E>(host: premierepro, project: Project, work: (event: object | 
 
 Projects open, return their root, save, and close through static and instance calls:
 
-| [INDEX] | [STEP]        | [CALL]                                                    | [RULE]                                       |
+| [INDEX] | [STEP]        | [CALL]                                                    | [RESULT]                                     |
 | :-----: | :------------ | :-------------------------------------------------------- | :------------------------------------------- |
 |  [01]   | Create        | `await Project.createProject(path)`                       | New project becomes active                   |
 |  [02]   | Root          | `await project.getRootItem()`                             | Returns a `FolderItem`                       |
@@ -155,6 +155,6 @@ Files export through the encoder `EncoderManager.getManager()` returns, and fram
 
 ## [07]-[MEDIA_ENCODER]
 
-Media Encoder loads plugins under manifest host `ame` from an `ame.json` registry row, `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
+Media Encoder loads plugins with manifest host `ame` from an `ame.json` registry row. `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
 - Media Encoder's `api_config.json` allows no class, and `Object.keys(require('mediaencoder'))` lists its module (`RenderQueue`, `PresetManager`)
 - Module JavaScript defines `Constants()` as a method returning `RenderQueueStatus`, `Result`, and `Workarea`

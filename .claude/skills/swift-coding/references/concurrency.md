@@ -1,7 +1,5 @@
 # [CONCURRENCY]
 
-Concurrent work under compiler-checked isolation, from where a function runs to how tasks share, race, and stop.
-
 ## [01]-[ISOLATION]
 
 Models the interface reads are `@MainActor` and `@Observable`, and each heavy step is a `@concurrent` function the model awaits:
@@ -89,7 +87,7 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
 }
 ```
 
-`expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends, with work that never suspends holding the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides.
+`expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides.
 
 ## [04]-[ACTORS]
 
@@ -119,14 +117,15 @@ actor Cache<Key: Hashable & Sendable, Value: Sendable, Failure: Error> {
 Entries written before the `await` serve the next caller. After the `await`, eviction compares the stored task with its own, and a newer task another caller stored stays. The fetch is an unstructured `Task` serving every waiting caller, and cancelling one caller leaves it running.
 
 - Functions taking an `isolated` actor parameter run inside the actor, and their reads and writes take one hop
-- Hosts calling back on a `DispatchSerialQueue` serve an actor whose `unownedExecutor` returns `unsafe queue.asUnownedSerialExecutor()`, and each callback enters through `assumeIsolated`
+- Actors with `unownedExecutor` returning `unsafe queue.asUnownedSerialExecutor()` serve `DispatchSerialQueue` callbacks through `assumeIsolated`
 
 ## [05]-[CANCELLATION_AND_CONTINUATIONS]
 
 Cancellation sets a flag on a task and every child, and code observes it where it checks:
 - `withTaskCancellationHandler` runs its handler at once in a cancelled task, else on the cancelling thread beside the operation
 - Handlers call the host's cancel alone
-- Cleanup runs on every exit as `defer { await withTaskCancellationShield { await session.close() } }`, and inside the shield `Task.isCancelled` reads `false`, sleeps finish, handlers stay silent
+- Cleanup runs on every exit as `defer { await withTaskCancellationShield { await session.close() } }`
+- Inside a shield `Task.isCancelled` reads `false`, sleeps finish, and handlers stay silent
 - Children started inside a shield begin uncancelled, and their group's `cancelAll()` cancels them
 
 Callback APIs with one completion enter through a typed continuation, and the cancel handler pairs the host's cancel with it:
@@ -147,4 +146,4 @@ func completion<Value: Sendable, Failure: Error>(
 }
 ```
 
-Callers write `try await completion({ host.lookup(key, then: $0) }, cancel: host.cancel)`, and the call throws the callback's typed failure. The host completes its callback after a cancel, and the completion resumes the continuation once. Delegate APIs that complete from a later method store the noncopyable `Continuation` from `withContinuation(of:throwing:)` in a `Mutex<Continuation<Value, Failure>?>`, and the delegate method resumes what `take()` returns, `nil` for a second completion.
+Callers write `try await completion({ host.lookup(key, then: $0) }, cancel: host.cancel)`, and the call throws the callback's typed failure. The host completes its callback after a cancel, and the completion resumes the continuation once. Delegate APIs store the noncopyable `Continuation` from `withContinuation(of:throwing:)` in a `Mutex<Continuation<Value, Failure>?>`. The completing delegate method resumes what `take()` returns, `nil` for a second completion.

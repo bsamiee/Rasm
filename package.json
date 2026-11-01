@@ -348,12 +348,14 @@
                         "cp node_modules/tree-sitter-sqlite3/src/scanner.c .cache/ast-grep/sql/src/scanner.c",
                         "tree-sitter build --output .cache/ast-grep/sql.so .cache/ast-grep/sql",
                         "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift",
-                        "tree-sitter build --output .cache/ast-grep/csharp.so node_modules/tree-sitter-c-sharp"
+                        "tree-sitter generate --output .cache/ast-grep/csharp/src tools/ast-grep/grammars/csharp/grammar.js",
+                        "cp node_modules/tree-sitter-c-sharp/src/scanner.c .cache/ast-grep/csharp/src/scanner.c",
+                        "tree-sitter build --output .cache/ast-grep/csharp.so .cache/ast-grep/csharp"
                     ],
                     "parallel": false
                 },
                 "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/**/grammar.js", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift", "tree-sitter-c-sharp" ] }, { "runtime": "tree-sitter --version" }, { "runtime": "node --version" } ],
-                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so", "{workspaceRoot}/.cache/ast-grep/csharp.so" ],
+                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so", "{workspaceRoot}/.cache/ast-grep/csharp", "{workspaceRoot}/.cache/ast-grep/csharp.so" ],
                 "cache": true
             },
             "outline": {

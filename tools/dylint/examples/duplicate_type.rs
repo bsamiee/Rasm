@@ -335,6 +335,14 @@ enum ServeError<X> {
 }
 
 #[derive(Debug, thiserror::Error)]
+enum SettingsError {
+    #[error(transparent)]
+    File(#[from] io::Error),
+    #[error("cannot start the runtime")]
+    Runtime(#[source] io::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
 enum SchemaError {
     #[error("{path} breaks the schema at line {line}")]
     Invalid { path: String, line: u32 },
@@ -551,5 +559,6 @@ fn main() {
         [ManifestError::Read(io::Error::from(io::ErrorKind::NotFound)), ManifestError::Write(io::Error::from(io::ErrorKind::PermissionDenied)), ManifestError::Unnamed].map(|error| error.to_string()),
         [SchemaError::Invalid { path: String::from("a"), line: 1 }, SchemaError::Truncated { path: String::from("b"), line: 2 }, SchemaError::Oversized(3)].map(|error| error.to_string()),
         [ServeError::Runtime(io::Error::from(io::ErrorKind::NotFound)), ServeError::Serve(io::Error::from(io::ErrorKind::AddrInUse)), ServeError::Endpoint(fmt::Error)].map(|error| error.to_string()),
+        [SettingsError::File(io::Error::from(io::ErrorKind::NotFound)), SettingsError::Runtime(io::Error::from(io::ErrorKind::OutOfMemory))].map(|error| error.to_string()),
     ));
 }

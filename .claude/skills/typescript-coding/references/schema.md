@@ -1,16 +1,14 @@
 # [SCHEMA]
 
-Covers schemas as codecs at a boundary.
-
 ## [01]-[MODELS]
 
-Records whose shape differs per boundary operation are one `Model.Class` from `effect/schema`. Each field reaches the variants its role names, the class decodes a stored row, and `insert`, `update`, `json`, `jsonCreate`, and `jsonUpdate` are the codecs of each operation. A fact other fields decide is a getter no stored field contradicts:
+Records differing in shape per boundary operation are one `Model.Class` from `effect/schema`. Each field reaches the variants its role names, the class decodes a stored row, and `insert`, `update`, `json`, `jsonCreate`, and `jsonUpdate` are the codecs of each operation. A fact other fields decide is a getter no stored field contradicts:
 
 ```ts
 class Invoice extends Model.Class<Invoice>('Invoice')({
     id: Model.UuidV7Insert(Schema.String.check(Schema.isUUID()).pipe(Schema.brand('InvoiceId'))),
     customer: Schema.NonEmptyString,
-    term: Schema.DurationFromMillis.check(Schema.makeFilter(Duration.isPositive)),
+    term: Schema.DurationFromMillis.check(Schema.makeIsGreaterThan({ order: Duration.Order })(Duration.zero)),
     lines: Model.JsonFromString(Schema.NonEmptyArray(Line)),
     issuedAt: Model.DateTimeInsert,
 }) {
@@ -21,8 +19,9 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 ```
 
 `Invoice.jsonCreate` decodes a body holding neither `id` nor `issuedAt`, `Invoice.insert.makeEffect(created)` fills both from the clock, and `SqlModel.makeRepository(Invoice, { tableName: 'invoices', spanPrefix: 'Invoices', idColumn: 'id' })` writes the row and returns the decoded class. `lines` is a JSON text column in the table and an array in every JSON variant:
-- `Model.GeneratedByDb` reaches the read variants alone, `Model.Sensitive` every variant but JSON, `Model.DateTimeUpdate` stamps each write, and `Model.FieldOption` decodes a `null` column and a missing JSON key to one `Option`
-- Boundaries other than a table and a JSON API declare their variant set once through `VariantSchema.make({ variants, defaultVariant })`, whose `Class`, `Field`, and `FieldExcept` derive the same way
+- `Model.GeneratedByDb` reaches the read variants alone, `Model.GeneratedByApp` every variant but `jsonCreate` and `jsonUpdate`, and `Model.Sensitive` every variant but JSON
+- `Model.DateTimeUpdate` stamps each write, and `Model.FieldOption` decodes a `null` column and a missing JSON key to one `Option`
+- Boundaries other than a table and a JSON API declare their variant set once through `VariantSchema.make({ variants, defaultVariant })`, with `Class`, `Field`, and `FieldExcept` deriving the same way
 - `Invoice.jsonUpdate.mapFields(Struct.map(Schema.optionalKey))` derives the patch a revision sends
 - Relations no getter derives are one struct `Schema.makeFilter` returning `{ path, issue }` at each field a reader fixes
 - Readers fixing a whole value decode with `{ errors: 'all' }` and read `SchemaIssue.makeFormatterStandardSchemaV1()(error.issue).issues`, one message per path
@@ -49,7 +48,7 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 }
 ```
 
-- `match` takes a handler per tag, `matchOrElse` the handled tags and one fallback, `guards.Paid` narrows a case, and `cases.Paid.make` builds one
+- `match` takes a handler per tag, `matchOrElse` the handled tags and one fallback, `isAnyOf([...])` narrows a decoded value by tag, `guards.Paid` validates unknown input as one case, and `cases.Paid.make` builds one
 - `Schema.Literals(Struct.keys(Activity.fields.change.cases))` decodes a tag parameter
 - Cases holding derived facts are `Schema.TaggedClass` members with getters, joined through `Schema.Union` piped into `Schema.toTaggedUnion`
 - `Schema.toTaggedUnion` over the encoded discriminator key decodes a foreign union, and `Schema.tagDefaultOmit` fills a tag the encoded form leaves out
@@ -83,14 +82,16 @@ const LineFromText = Schema.TemplateLiteralParser([Schema.String, ' x', Schema.F
 
 Absence a host returns decodes to `Option`, absence a domain default fills decodes to the value, and the encoded spelling selects the form:
 
-| [INDEX] | [ENCODED]                  | [DECODED]   | [FORM]                                                         |
-| :-----: | :------------------------- | :---------- | :------------------------------------------------------------- |
-|  [01]   | Key missing                | `Option<A>` | `Schema.OptionFromOptionalKey(A)`                              |
-|  [02]   | Value `null`               | `Option<A>` | `Schema.OptionFromNullOr(A)`                                   |
-|  [03]   | Key missing or `null`      | `Option<A>` | `Schema.OptionFromOptionalNullOr(A)`                           |
-|  [04]   | Key missing                | `A`         | `A.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(a)))` |
-|  [05]   | Key missing or `undefined` | `A`         | `A.pipe(Schema.withDecodingDefaultType(Effect.succeed(a)))`    |
-|  [06]   | Key a caller omits         | `?: A`      | `Schema.optionalKey(A)`                                        |
+| [INDEX] | [ENCODED]                   | [DECODED]   | [FORM]                                                         |
+| :-----: | :-------------------------- | :---------- | :------------------------------------------------------------- |
+|  [01]   | Key missing                 | `Option<A>` | `Schema.OptionFromOptionalKey(A)`                              |
+|  [02]   | Value `null`                | `Option<A>` | `Schema.OptionFromNullOr(A)`                                   |
+|  [03]   | Key missing or `null`       | `Option<A>` | `Schema.OptionFromOptionalNullOr(A)`                           |
+|  [04]   | Key missing or `undefined`  | `Option<A>` | `Schema.OptionFromOptional(A)`                                 |
+|  [05]   | Value `null` or `undefined` | `Option<A>` | `Schema.OptionFromNullishOr(A)`                                |
+|  [06]   | Key missing                 | `A`         | `A.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(a)))` |
+|  [07]   | Key missing or `undefined`  | `A`         | `A.pipe(Schema.withDecodingDefaultType(Effect.succeed(a)))`    |
+|  [08]   | Key a caller omits          | `?: A`      | `Schema.optionalKey(A)`                                        |
 
 - Absence as `null` or `''` decodes by `transform({ decode: flow(Option.fromNullOr, Option.filter(String.isNonEmpty)), encode: Option.getOrNull })`
 - Defaults are effects producing the decoded value, `Schema.withDecodingDefaultTypeKey(DateTime.now)` stamps an instant from the clock

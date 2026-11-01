@@ -1,7 +1,5 @@
 # [CONCURRENCY]
 
-Covers concurrent work and the state it shares.
-
 ## [01]-[FIBERS]
 
 Work ending inside its starting step stays in `Effect.all`, `Effect.forEach` with `concurrency`, a race, or a `Stream`. Work outliving its starting step forks, and the owner of its lifetime selects the fork:
@@ -53,6 +51,7 @@ const produced = <A, E, R>(produce: (emit: (value: A) => Effect.Effect<boolean>)
 `produce` is a host walk calling `emit` per item. `Queue.into` ends the stream when `produce` succeeds and fails it with `produce`'s error:
 - `Stream.share({ capacity, replay, idleTimeToLive })` multicasts a stream in hand, starting with its first consumer and ending after its last
 - `Stream.filterMap` with `Result.fromOption` keeps the elements a lookup finds
+- Sources a constructor states enter through it: `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, `paginate` for cursors
 
 ## [03]-[SHARED_STATE]
 
@@ -67,6 +66,7 @@ Shared state sits behind one handle the runtime keeps consistent, and what fiber
 |  [05]   | `RequestResolver`                   | Lookups concurrent fibers make, merged into one batch call                        |
 |  [06]   | `RcRef`, `RcMap`                    | One resource, or one per key, acquired on first use, released after its last user |
 |  [07]   | `Pool`                              | Interchangeable resources, each lent to one user at a time                        |
+|  [08]   | `PubSub`                            | Messages one producer publishes to every subscriber, `replay` kept for late ones  |
 
 ```ts
 const transfer = (from: TxRef.TxRef<number>, to: TxRef.TxRef<number>, amount: number) =>
@@ -92,7 +92,7 @@ const lineOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 `lineOf` yields `lookup`, and `Effect.forEach(skus, lookup, { concurrency: 'unbounded' })` sends one query for the skus its fibers request in the same tick, equal skus sharing one row and a sku with no row failing with `NoSuchElementError`:
 - Host batch APIs enter through `RequestResolver.make`, completing each entry through `Request.complete`, and a failed batch call fails every entry
 - `RequestResolver.batchN` caps a batch at the host's limit, `setDelay` widens the window a batch collects over
-- Batches merge callers whose services differ, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
+- Batches merge callers with different services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
 - Host state a view observes is a `SubscriptionRef` the host's events set, read through `Atom.subscriptionRef` or its `changes` stream
 - `Semaphore.withPermits(semaphore, n)` bounds a resource shared across operations, `concurrency` bounds one traversal
 - `Cache.makeWith` takes `timeToLive` as a function of each lookup's `Exit` and key
@@ -105,7 +105,7 @@ Recurrence policies are `Schedule` values composed once and read by `Effect.retr
 const backoff = ({ base = Duration.seconds(1), cap = Duration.seconds(10), times = 5 } = {}) => Schedule.min([Schedule.exponential(base), Schedule.spaced(cap)]).pipe(Schedule.jittered, Schedule.upTo({ times }));
 ```
 
-`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at `cap`. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff({ times: 3 }), while: (error) => error.reason === 'unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
+`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at `cap`. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff({ times: 3 }), while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
 - Initial runs precede the schedule, `times` counts retries after the first run
 - `Schedule.while` stops on a step's `attempt`, `elapsed`, `input`, or `output`, and the retried effect reads the same fields from `Schedule.CurrentMetadata`
 - `ExecutionPlan.make` lists layers with their own `attempts` and `schedule`, and `Effect.withExecutionPlan` reruns an effect across them

@@ -2,65 +2,125 @@
 
 ## [01]-[DECLARATION]
 
-Engine classes derive from `bpy.types.RenderEngine` directly, `bl_idname` naming the `render.engine` value:
-- `bl_use_*` flags state their effect in `bl_rna.properties[<flag>].description`
-- Effect stacks skip results of engines with `bl_use_postprocess` off, and `bl_use_image_save` off holds only with it off
-- Subclasses of a registered engine class leave the parent with no Python class, its EXR renders crashing Blender
-- Engines sharing a body build each class through `type(<name>, (bpy.types.RenderEngine,), <namespace>)`
+Engine classes subclass `bpy.types.RenderEngine`, and code selects one through `scene.render.engine = Engine.bl_idname`. Flags decide which host stages run around the engine:
+- `bl_use_postprocess` (on) runs compositor effects and the sequencer on each layer's result, and off hands the engine the whole frame with neither
+- `bl_use_image_save = False` skips Blender's still and animation writes while `bl_use_postprocess` is on, and Blender writes files while it is off
+- `bl_use_shading_nodes_custom` (on) hides Cycles and EEVEE shader nodes in the node editor, and engines reading stock materials turn it off
+- `bl_use_preview` renders material, light, and world previews in the engine at 128 by 128 with `is_preview` true and no compositor or render handler
+- `bl_use_eevee_viewport` draws Material Preview shading through EEVEE
+- `bl_use_gpu_context` runs `update` and `render` inside a GPU context, `gpu` offscreen drawing working in both
+- Freestyle strokes render through EEVEE after the engine unless `bl_use_custom_freestyle` is on
+
+Final renders construct the class twice per frame and keep one instance across that frame's view layers, `render.use_persistent_data` or `bl_use_gpu_context` keeping it across frames. `__init__(self, *args, **kwargs)` calls `super().__init__(*args, **kwargs)` and acquires nothing, and `update` acquires render state and holds it on `self`.
+
+Stock property panels poll `context.engine in cls.COMPAT_ENGINES`, and engines show a stock engine's panels by joining their sets in `register` and leaving them with `apply=set.discard` in `unregister`:
+
+```python
+def joined(engine: str, /, *, like: str = "BLENDER_EEVEE", apply: Callable[[set[str], str], None] = set.add) -> None:
+    for panel in bpy.types.Panel.__subclasses__():
+        if isinstance(engines := getattr(panel, "COMPAT_ENGINES", None), set) and like in engines:
+            apply(engines, engine)
+```
+
+`bpy.types.HydraRenderEngine` syncs, renders, and draws the viewport itself, and engines over a USD Hydra render delegate subclass it:
+- `bl_delegate_id` names an `HdRendererPlugin` type, Blender holding `HdStormRendererPlugin` alone
+- `register` classmethods add other delegates through `pxr.Plug.Registry().RegisterPlugins([<plugin folder>])`
+- `get_render_settings(engine_type)` returns delegate settings for `PREVIEW`, `FINAL`, or `VIEWPORT`
+- `aovToken:<pass>` settings keys bind a registered pass to a delegate AOV
+- `bl_use_materialx` exports materials as MaterialX in place of `UsdPreviewSurface`
 
 ## [02]-[PASSES]
 
-`update_render_passes` registers each pass through `register_pass(scene, renderlayer, name, channels, chanid, type)`, registered passes appearing in `begin_result` layers and writing `<layer>.<name>` parts, and `Combined` present without registration.
+`update_render_passes(scene, renderlayer)` declares each layer's passes through `register_pass(scene, renderlayer, name, channels, chanid, type)`:
+- Blender calls it per layer with `use` on at render result creation, Render Layers socket builds, and `view_layer.update_render_passes()`
+- `register_pass` outside `update_render_passes` adds nothing
+- `chanid` holds one letter per channel (`RGBA`, `XYZ`, `X`), and `type` is `COLOR`, `VECTOR`, or `VALUE`
+- Every result layer holds `Combined` with or without registration, and a table filling passes by name holds a `Combined` entry
+- Passes write as `<layer>.<name>` parts, read by compositor Render Layers nodes under `<name>`
 
 ## [03]-[RESULTS]
 
-`render(depsgraph)` writes through `begin_result(x, y, w, h, layer=, view=)` and `end_result(result, cancel=self.test_break())`:
-- `resolution_x` and `resolution_y` hold the size `resolution_percentage` scales
-- `RenderPass.rect.foreach_set` takes a flat `float32` buffer of `w * h * channels`, bottom row first
-- Tiles sit at their bottom-left offset, `update_progress` and `test_break` running between tiles
-- `is_animation`, `is_preview`, `camera_override`, and `layer_override` state what the call renders
+`update(data, depsgraph)` then `render(depsgraph)` run once per view layer with `use` on, `depsgraph.view_layer` naming the layer, and `render_frame_finish()` runs once after the last layer:
+- `update` runs under the interface draw lock and holds every read of original data, and `render` runs after the lock releases on render job thread
+- `begin_result(x, y, w, h)` without `layer` allocates every rendered layer, `result.layers[0]` naming the first whatever layer renders
+- `begin_result` with `layer=depsgraph.view_layer.name` allocates the rendering layer alone
+- `resolution_x` and `resolution_y` hold the full frame at `resolution_percentage`
+- Border renders clamp tiles to a window sized `result.resolution_x` by `resolution_y` at floored float32 `border_min * resolution`
+- `RenderPass.rect` reads a `(pixels, channels)` copy, and `foreach_set` takes a flat `float32` buffer, bottom row first
+- Multi-view results hold each pass once per view in `layer.passes`, `view_id` naming its view
+- `camera_model_matrix(camera)` reads the eye `active_view_set(view.name)` selects
+- Tiles sit at their bottom-left offset in the window
+- `update_result(result)` shows progress without freeing the tile, and `end_result(result, cancel=True)` frees it unmerged
+- `frame_set(frame, subframe)` re-evaluates the engine's depsgraph at a subframe for motion blur
+- External renderer multilayer EXRs load through `result.load_from_file(path)` or `layer.load_from_file(path)` by `<layer>.<pass>` and view
+- `layer.load_from_file` takes unprefixed `<pass>` parts
+- EXRs sized other than the window raise `RuntimeError` on load
+- `get_result().stamp_data_add_field(field, value)` writes a header key into the written file, a tile from `begin_result` dropping it
 
-One table of passes feeds registration and writes, each pass a function of pixel-center coordinates:
+`bake(depsgraph, object, pass_type, pass_filter, width, height)` runs after `update` once per target image, and `begin_result(0, 0, width, height, layer=depsgraph.view_layer.name)` returns the bake's surface data:
+- `BakePrimitive` holds u, v, and the primitive index as `int32` bits, -1 off the baked object
+- `BakeDifferential` holds du/dx, du/dy, dv/dx, and dv/dy
+- `end_result` copies `Combined` into the target image at object pixels outside the margin
+- `begin_result` without `layer` inside `bake` crashes Blender, and `object.bake` under an engine without `bake` raises `RuntimeError`
+
+One table of fills over normalized coordinates registers passes, writes every layer, view, and border window, and bakes from surface UVs:
 
 ```python
-type Pass = Callable[[NDArray[np.float32]], NDArray[np.float32]]
+type Fill = Callable[[NDArray[np.float32]], NDArray[np.float32]]
 
 
 class Engine(bpy.types.RenderEngine):
     bl_idname = "ITEM_ENGINE"
     bl_label = "Item"
-    bl_use_postprocess = True
 
-    passes: ClassVar[MappingProxyType[tuple[str, str], Pass]] = MappingProxyType({
-        ("Combined", "RGBA"): lambda uv: np.dstack((uv, np.zeros_like(uv[..., :1]), np.ones_like(uv[..., :1]))),
-        ("Coverage", "X"): lambda uv: uv[..., :1],
+    passes: ClassVar[Mapping[str, tuple[str, Fill]]] = MappingProxyType({
+        "Combined": ("RGBA", lambda uv: np.concatenate((uv, np.zeros_like(uv[..., :1]), np.ones_like(uv[..., :1])), axis=-1)),
+        "Coverage": ("X", lambda uv: uv[..., :1]),
     })
 
     @override
     def update_render_passes(self, scene: bpy.types.Scene | None = None, renderlayer: bpy.types.ViewLayer | None = None) -> None:
-        for name, chanid in self.passes:
-            self.register_pass(scene, renderlayer, name, len(chanid), chanid, "VALUE" if len(chanid) == 1 else "COLOR" if chanid in {"RGB", "RGBA"} else "VECTOR")
+        for name, (chanid, _) in self.passes.items():
+            self.register_pass(scene, renderlayer, name, len(chanid), chanid, "COLOR" if chanid.startswith("RGB") else "VALUE" if len(chanid) == 1 else "VECTOR")
 
     @override
-    def render(self, depsgraph: bpy.types.Depsgraph | None) -> None:  # type: ignore[override]
-        width, height = self.resolution_x, self.resolution_y
-        uv: NDArray[np.float32] = np.stack(np.meshgrid((np.arange(width, dtype=np.float32) + 0.5) / width, (np.arange(height, dtype=np.float32) + 0.5) / height), axis=-1)
-        if (result := self.begin_result(0, 0, width, height)) is not None:
-            for (name, _), fill in self.passes.items():
-                result.layers[0].passes[name].rect.foreach_set(np.ascontiguousarray(fill(uv)).ravel())  # type: ignore[arg-type]
-            self.end_result(result, cancel=self.test_break())
+    def render(self, depsgraph: bpy.types.Depsgraph) -> None:  # type: ignore[override]  # ty: ignore[invalid-method-override]
+        scene: bpy.types.Scene = depsgraph.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        frame = np.array((self.resolution_x, self.resolution_y), np.float32)
+        origin = np.floor(np.array((scene.render.border_min_x, scene.render.border_min_y), np.float32) * frame) * scene.render.use_border
+        if (result := self.begin_result(0, 0, self.resolution_x, self.resolution_y, layer=layer.name)) is None:
+            return
+        uv = np.moveaxis(np.indices((result.resolution_y, result.resolution_x), np.float32)[::-1] + (origin + 0.5)[:, None, None], 0, -1) / frame
+        for rendered in result.layers[0].passes:
+            _, fill = self.passes[rendered.name]
+            rendered.rect.foreach_set(np.ascontiguousarray(fill(uv), np.float32).ravel())  # type: ignore[arg-type]
+        self.end_result(result, cancel=self.test_break())
+
+    @override
+    def bake(self, depsgraph: bpy.types.Depsgraph, _object: bpy.types.Object, _pass_type: str, _pass_filter: int, width: int, height: int) -> None:  # type: ignore[override]  # ty: ignore[invalid-method-override]
+        layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        if (result := self.begin_result(0, 0, width, height, layer=layer.name)) is None:
+            return
+        primitive = np.empty((width * height, 3), np.float32)
+        result.layers[0].passes["BakePrimitive"].rect.foreach_get(primitive.ravel())
+        _, fill = self.passes["Combined"]
+        result.layers[0].passes["Combined"].rect.foreach_set(np.ascontiguousarray(fill(primitive[:, :2]), np.float32).ravel())  # type: ignore[arg-type]
+        self.end_result(result)
 ```
 
-Stubs declare `render` as a `RenderSettings` member and as a method, and the method line suppresses `override`.
+Stereo border renders write both eyes of each layer inside the border, `Coverage` reading each pixel center's horizontal frame position, and bakes write each texel's surface UV:
+- Stubs declare `render` as a `RenderSettings` member and as a method, and the method line suppresses `override`
+- Fills receive `(height, width, 2)` arrays in renders and `(texels, 2)` arrays in bakes, each indexing its last axis
 
 ## [04]-[VIEWPORT]
 
-`view_update(context, depsgraph)` and `view_draw(context, depsgraph)` run in a GUI viewport set to Rendered shading:
-- `view_update` syncs changed IDs from `depsgraph.updates`, and `tag_redraw()` and `tag_update()` request the next draw or sync
-- `view_draw` draws scene-linear pixels between `bind_display_space_shader(scene)` and `unbind_display_space_shader()`, the shader applying scene view and display
-
-## [05]-[BAKES]
-
-Python engines bake nothing through `bake(depsgraph, object, pass_type, pass_filter, width, height)`:
-- `get_result()` holds `Combined` alone, with no pixel-to-surface data, and writes there reach no image
-- `begin_result` inside `bake` crashes Blender
+`view_update(context, depsgraph)` and `view_draw(context, depsgraph)` run on the main thread for a 3D viewport in Rendered shading, one instance per viewport:
+- `view_update` runs before `view_draw` on each depsgraph change, its first call holding empty `depsgraph.updates`
+- Engines holding no scene state sync every object before applying `updates`
+- `view_draw` draws scene-linear pixels between `bind_display_space_shader(scene)` and `unbind_display_space_shader()`, other draws reaching no pixel
+- Viewports apply scene display, view, and exposure to drawn pixels
+- Region-filling draws upload `gpu.types.GPUTexture((width, height), format="RGBA16F", data=gpu.types.Buffer("FLOAT", width * height * 4, pixels))`
+- `gpu_extras.presets.draw_texture_2d(texture, (0, 0), width, height)` draws the texture at `context.region` size
+- `tag_redraw()` requests the next `view_draw` and `tag_update()` the next `view_update`, a timer refining an image progressively calling them
+- `view_pause(context)` and `view_resume(context)` bracket each interface render job

@@ -1,7 +1,5 @@
 # [BOUNDARIES]
 
-Covers untyped data entering and leaving domain types.
-
 ## [01]-[DECODE]
 
 Decoding is the one place untrusted data becomes domain values, and `nutype` states a rule across fields with its wire form in one declaration:
@@ -14,9 +12,9 @@ Decoding is the one place untrusted data becomes domain values, and `nutype` sta
 pub struct Window(Range<Timestamp>);
 ```
 
-`Window` decodes from and encodes to `{"start": .., "end": ..}`, rejects an unknown key or an end at or before its start, and reaches `Range` members (`window.contains(&now)`) through `Deref`. Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`.
+`Window` round-trips `{"start": .., "end": ..}` and rejects an unknown key or an end at or before its start. `Deref` reaches `Range` members (`window.contains(&now)`). Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`.
 
-Decode errors name the failing path: `toml` errors and `axum::Json` rejections hold it, and a `serde_json::Deserializer` a program drives decodes through `serde_path_to_error::deserialize`, then `Deserializer::end` rejects trailing input.
+Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. Programs driving a `serde_json::Deserializer` decode through `serde_path_to_error::deserialize`, then reject trailing input with `Deserializer::end`.
 
 ## [02]-[TAGGED_UNIONS]
 
@@ -44,7 +42,7 @@ pub enum Change {
 }
 ```
 
-`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Consumers of a stream that producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, and a known tag with malformed fields fails. Closed protocols reject an unknown tag at decode. Encoded outcomes and errors take the same form: an outcome is a tagged enum of its cases in place of `Result`'s `{"Ok": ..}`, and the crate error derives `Serialize` under a tag with `#[serde(skip)]` on each `source`, its reason enum serializing through `serde_with::SerializeDisplay` from its `Display`.
+`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Streams producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, a malformed known tag fails. Closed protocols reject an unknown tag at decode. Encoded outcomes are a tagged enum of their cases in place of `Result`'s `{"Ok": ..}`. Crate errors derive `Serialize` under a tag with `#[serde(skip)]` on each `source`. Reason enums serialize through `serde_with::SerializeDisplay`.
 
 ## [03]-[FIELD_CONVERSIONS]
 
@@ -64,7 +62,7 @@ Encodings sit on the field, and the field keeps its domain type:
 |  [10]   | Undeclared keys kept               | `#[serde(flatten)] rest: Map<String, Value>`         |
 |  [11]   | Undeclared keys rejected           | `#[serde(deny_unknown_fields)]`                      |
 
-`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every conversion on the type. Conversions compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), an `Option` conversion decodes an absent key as `None`, and a derived `JsonSchema` reads each conversion's wire form. `TimestampSeconds` takes a jiff `Timestamp` or `Zoned`, and `DurationSeconds` a `SignedDuration`. A plain map decode keeps the last value of a repeated key, and a map from untrusted input rejects the repeat. `VecSkipError<_, I>` reports each dropped item to `I`, an `InspectError` implementor. Records a program owns reject undeclared keys, and records it passes through keep them in `rest`, the one `Value` field, and an encode writes back what it read. `RawValue` copies a forwarded value's bytes unparsed inside a record whose fields decode without `flatten`.
+`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every conversion on the type. Conversions compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), and an `Option` conversion decodes an absent key as `None`. Derived `JsonSchema` reads each conversion's wire form. `TimestampSeconds` takes a jiff `Timestamp` or `Zoned`, and `DurationSeconds` a `SignedDuration`. A plain map decode keeps the last value of a repeated key, and a map from untrusted input rejects the repeat. `VecSkipError<_, I>` reports each dropped item to `I`, an `InspectError` implementor. Records a program owns reject undeclared keys. Pass-through records keep them in `rest`, their one `Value` field, and encode back what they read. `RawValue` copies a forwarded value's bytes unparsed inside a record that decodes without `flatten`.
 
 ## [04]-[BINARY]
 
@@ -86,11 +84,11 @@ pub struct Frame {
 }
 ```
 
-`Frame::read(&mut Cursor::new(bytes))` returns `BinResult<Frame>`, and `binrw::Error` names the stream position of a bad magic or a rejected quantity. `Quantity` is a `nutype` over `u32`. Length prefixes are `temp` on read and computed from the collection on write, and `#[binrw]` precedes the derives to remove temporary fields before they run.
+`Frame::read(&mut Cursor::new(bytes))` returns `BinResult<Frame>`, and `binrw::Error` names the stream position of a bad magic or a rejected quantity. `Quantity` is a `nutype` over `u32`. Length prefixes are `temp` on read and computed from the collection on write. `#[binrw]` precedes the derives, removing temporary fields before they run.
 
 ## [05]-[CONFIGURATION]
 
-Invocation values (settings path, secrets, telemetry) decode from arguments and environment through `clap`, service settings from one file, each setting from one source:
+Each setting has one source: `clap` decodes invocation values (settings path, secrets, telemetry) from arguments and environment, a file the rest:
 
 ```rust
 #[derive(Debug, Parser)]
@@ -105,7 +103,7 @@ pub struct Args {
 }
 ```
 
-Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. `Options` from the workspace telemetry crate adds the log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
+Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Workspace telemetry crate `Options` adds log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -118,11 +116,11 @@ pub struct Settings {
 
 pub async fn decoded<T>(path: &Utf8Path) -> Result<T, ServiceError>
 where T: DeserializeOwned {
-    toml::from_str(&fs::read_to_string(path).await.map_err(|source| ServiceError::Read { path: path.to_owned(), source })?).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
+    toml::from_str(&fs::read_to_string(path).await?).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
 }
 ```
 
-`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error. `Read` and `Decode` hold the file path as a field beside each source, and `Runtime` holds the `io::Error` a runtime start returns.
+`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error. The `fs_err` read states its operation and path inside the `io::Error`, and `?` passes it into the `#[error(transparent)]` `File` variant unchanged. `Decode` holds the path beside the `toml` error's line and column. `Runtime` names the operation for a runtime start's `io::Error`.
 
 ## [06]-[ENTRY_POINT]
 

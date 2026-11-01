@@ -1,6 +1,6 @@
 # [LANGUAGE_FEATURES]
 
-Covers nightly features that replace a hand-written body or a declaration family with one form. Crates enable each gate their code writes with `#![feature(..)]` at their root.
+Crates enable each gate they use with `#![feature(..)]` at their root.
 
 ## [01]-[TRY_BLOCKS]
 
@@ -23,7 +23,7 @@ pub fn stops(order: &Order, catalog: &Catalog) -> Vec<(Sku, Option<Stop>)> {
 }
 ```
 
-`try bikeshed Result<Stop, ShopError> { .. }` under `try_blocks_heterogeneous` names the block's type and converts each `?` through `From`, and steps failing with different errors enter the crate error through its `#[from]` variants.
+`try bikeshed Result<Stop, ShopError> { .. }` under `try_blocks_heterogeneous` names the block's type and converts each `?` through `From`. Steps with different errors enter the crate error through its `#[from]` variants.
 
 ## [02]-[DEFAULT_FIELD_VALUES]
 
@@ -44,7 +44,7 @@ pub struct Layout {
 }
 ```
 
-`Layout { title, wrap: Wrap { width: 72, .. }, .. }` sets a title and a wrap width, and a crate writing a `..` literal of another crate's record enables `default_field_values`.
+`Layout { title, wrap: Wrap { width: 72, .. }, .. }` sets a title and wrap width. Crates writing a `..` literal of a foreign record enable `default_field_values`.
 - Required fields (`title`) appear in every literal, and their record derives no `Default` to fill them with an empty value
 - `#[derive(Default)]` reads each declared default: `Wrap::default()` and a container-level `#[serde(default)]` decode agree with `Wrap { .. }`
 - Defaults are constant expressions, owned text defaults through `Cow::Borrowed` in a `Cow<'static, str>` field
@@ -52,7 +52,7 @@ pub struct Layout {
 
 ## [03]-[TRAIT_ALIASES]
 
-Traits with one blanket `impl` over their supertraits as their only implementation are aliases, and an alias stands in every position its bounds take, `dyn` and return `impl` included:
+Traits implemented only by a blanket `impl` over their supertraits are aliases, valid in every bound position including `dyn` and return `impl`:
 
 ```rust
 pub trait Rule = Fn(&Order) -> Option<Discount> + Send + Sync + 'static;
@@ -81,7 +81,7 @@ impl Service<Query> for Answering {
 }
 ```
 
-- Methods of the impl define the hidden type, and auto traits leak from it: a consumer bounding `S::Future: Send` accepts this future with no bound on the declaration
+- Impl methods define the hidden type and its auto traits leak: a consumer bounding `S::Future: Send` accepts the future with no bound declared
 - Hidden types capture only the impl's parameters, and state the future reads moves into the block before `async move`
 
 ## [05]-[DEREF_PATTERNS]
@@ -103,7 +103,7 @@ By-value matches move out of each `Box` they pass through, a binding at a pointe
 
 ## [06]-[CONST_PARAMETERS]
 
-Kinds holding no data of their own that the compiler keeps apart are one `ConstParamTy` enum a type takes as a const parameter, and one generic body matches the parameter:
+Data-free kinds the compiler keeps apart are one `ConstParamTy` enum a type takes as a const parameter, and one generic body matches the parameter:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]

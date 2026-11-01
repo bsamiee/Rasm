@@ -1,7 +1,5 @@
 # [GENERICS]
 
-Code generic over the types it serves, from constraints and opaque returns to conditional conformances, packs, integer generic parameters, and macros.
-
 ## [01]-[CONSTRAINTS]
 
 Constraints name the narrowest protocol a body calls, a standard protocol before a declared one. An `any P<A>` argument opens to its concrete type at a `some P<A>` parameter, and one function serves a single value and a stored existential:
@@ -17,7 +15,7 @@ let medians: [Decimal?] = sources.map { source in median(source) }
 
 `prices` is a `[Decimal]` and `fees` a `[String: Decimal]`. `median` counts before a second pass and takes `Collection` where one pass takes `Sequence`. Members of `any P<A>` with types reading only constrained associated types (`first`, `count`) run on the existential directly.
 
-## [02]-[OPAQUE_RETURNS]
+## [02]-[OPAQUE_TYPES]
 
 Lazy chains over a `some` parameter have a type no signature names and return as `some Collection<Element>` with no box per element access. Every return path yields one concrete type, and a choice between chains becomes a parameter of one chain:
 
@@ -29,7 +27,7 @@ func overdrawn(_ accounts: some Collection<Account>, below limit: Decimal = 0) -
 
 ## [03]-[CONDITIONAL_CONFORMANCES]
 
-Requirements dispatch through the conformance and other extension members bind statically, and an operation a conformer replaces is a requirement with its default in an extension. A conditional conformance derives a container's capability from its elements:
+Requirements dispatch through the conformance, and other extension members bind statically. Operations a conformer replaces are requirements with a default in an extension. A conditional conformance derives a container's capability from its elements:
 
 ```swift
 protocol Costed<Cost> {
@@ -47,7 +45,7 @@ extension Optional: Costed where Wrapped: Costed {
 }
 ```
 
-`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. `.zero` from `AdditiveArithmetic` prices an empty array and an absent value at nothing in every cost type. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. A `@MainActor` type whose conformance generic code reads off the main actor (a `@concurrent` function, a task) states it `nonisolated` (`final class Draft: nonisolated Decodable`), its witnesses initializing the type or reading a struct's stored properties.
+`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. `.zero` from `AdditiveArithmetic` prices an empty array and an absent value at nothing in every cost type. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. `@MainActor` types mark a conformance read off the main actor `nonisolated` (`final class Draft: nonisolated Decodable`). Nonisolated witnesses only initialize the type or read a struct's stored properties.
 
 ## [04]-[PARAMETER_PACKS]
 
@@ -65,7 +63,7 @@ let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity.rawVal
 
 ## [05]-[INTEGER_GENERIC_PARAMETERS]
 
-Integer generic parameters state a length shared across positions: the compiler infers `N` from the argument types, rejects arguments of different lengths, and `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
+Integer generic parameters state a length shared across positions: the compiler infers `N` from argument types and rejects mismatched lengths. `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
 
 ```swift
 func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction: Double = 0.5) -> [N of Double] {
@@ -73,11 +71,11 @@ func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction
 }
 ```
 
-`N` reads as an `Int` value in the body, and `init(first:next:)` unfolds each element from its predecessor (`InlineArray(first: 1) { previous in previous * 2 }`).
+`N` reads as an `Int` in the body. `init(first:next:)` unfolds each element from its predecessor (`InlineArray(first: 1) { previous in previous * 2 }`).
 
 ## [06]-[MACROS]
 
-`@CasePathable` gives each case a `Hashable` key path, `allCasePaths` lists them in declaration order, and a report over every case takes its rows from the enum:
+`@CasePathable` gives each case a `Hashable` key path, and `allCasePaths` lists them in declaration order. Reports over every case take rows from `allCasePaths`:
 
 ```swift
 let report: [(path: PartialCaseKeyPath<Delivery>, count: Int)] = Delivery.allCasePaths.map { path in (path, deliveries.count { delivery in delivery.is(path) }) }

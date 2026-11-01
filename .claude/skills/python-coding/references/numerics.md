@@ -1,7 +1,5 @@
 # [NUMERICS]
 
-Covers whole-array numeric passes.
-
 ## [01]-[PACKAGE_MEMBERS]
 
 Select the member by the fact a pass computes:
@@ -25,7 +23,7 @@ Select the member by the fact a pass computes:
 |  [15]   | Window statistic                            | Named `sp.ndimage` filter or `sp.ndimage.vectorized_filter(values, <reduction>, size=n)` |
 |  [16]   | Row-wise dot, stacked matrix-vector product | `np.vecdot`, `np.matvec`                                                                 |
 
-Loops that converge, bisect, step, or sum a series are calls to the member for their fact, and `roots` expands a bracket from each guess and refines every element in one call each:
+Loops that converge, bisect, step, or sum a series are calls to the member for their fact. `roots` expands a bracket from each guess and refines every element, one call each:
 
 ```python
 type Samples = npt.NDArray[np.float64]
@@ -41,7 +39,7 @@ def roots[*Ts](curve: Callable[[Samples, *Ts], Samples], guess: Samples, /, *arg
 - Results hold per-element `success` and `status`, a failed element reads `nan` beside its solved siblings
 - Refused results stay the fault's cause
 - `elementwise` imports as `from scipy.optimize import elementwise`, every other member reads through `import scipy as sp`
-- Code under `jax.jit`, `jax.grad`, or `jax.vmap` takes `optimistix.root_find`, `quadax.quadgk`, `diffrax.diffeqsolve`, `lineax.linear_solve`, and `jax.ops.segment_sum`
+- `jit`, `grad`, or `vmap` code takes `optimistix.root_find`, `quadax.quadgk`, `diffrax.diffeqsolve`, `lineax.linear_solve`, and `jax.ops.segment_sum`
 - JAX computes `float64` input in `float32` until `jax.config.update("jax_enable_x64", True)` runs at startup
 - Quantities with units enter as `pint.Quantity`, and `quantity.m_as(<unit>)` hands a member its magnitude
 
@@ -55,9 +53,9 @@ def diffused(heat: Samples, span: float, count: int, /) -> Samples:
     return sp.sparse.linalg.expm_multiply(laplacian, heat.ravel(), start=0.0, stop=span, num=count).reshape((count, *heat.shape))
 ```
 
-`diffused(heat, span, count)` returns `count` snapshots from `heat` to `span`, diffusivity times time over squared spacing, for a rod, plate, or volume alike:
+`diffused(heat, span, count)` returns `count` snapshots from `heat` to `span` (diffusivity times time over squared spacing) in any dimension:
 - `expm_multiply` holds its accuracy at any `span`, with no step size or stability bound
-- `boundary_conditions="neumann"` (default) insulates every edge and conserves the total, `"dirichlet"` holds zero past every edge, and `"periodic"` joins opposite edges
+- `boundary_conditions="neumann"` (default) insulates edges and conserves total, `"dirichlet"` is zero past edges, `"periodic"` joins opposite edges
 - `tosparse()` hands `expm_multiply` the trace it reads
 
 ## [03]-[OWNERSHIP]
@@ -71,8 +69,8 @@ def kernel(offsets: Samples, width: float, /) -> Samples:
 ```
 
 `kernel` divides the one array its `exp` allocated in place, each row of weights sums to 1, and `offsets` stays unwritten. Each call states whether its result aliases its input:
-- `np.asarray(<x>, copy=False)` and `reshape(<shape>, copy=False)` return a view or raise `ValueError`, and the default `copy=None` copies only where it must
-- `astype(<dtype>, copy=False)` returns the array itself when its dtype already matches
+- `np.asarray(<x>, copy=False)` and `reshape(<shape>, copy=False)` return a view or raise `ValueError`, and default `copy=None` copies when it must
+- `astype(<dtype>, copy=False)` returns the array itself when its dtype matches
 - `sliding_window_view` and `broadcast_to` return read-only views
 - Writes reach `a` through one index expression on `a` itself (`a[mask] = value`)
 - Ufuncs buffer overlapping operands, `np.add(a[:-1], a[1:], out=a[1:])` over an owned `a` returns sums of the original values
@@ -93,7 +91,7 @@ def glow(distance: Samples, weight: Samples, /) -> Samples:
     return _falloff(distance) / weight
 ```
 
-`glow` returns `Ok` holding zero for a distant sample with an underflowing `exp` and fails with `glow failed. divide by zero encountered in divide` for a zero weight. Each `errstate` keyword names one error kind:
+`glow` returns `Ok` zero where `exp` underflows and fails with `glow failed. divide by zero encountered in divide` on a zero weight. Each `errstate` keyword names one error kind:
 - `divide` covers division by zero and `log(0)`, `invalid` covers `0 / 0`, `inf - inf`, and `sqrt` of a negative
 - `over` covers float overflow and integer scalar overflow (`np.int8(127) + np.int8(1)`)
 - Integer array arithmetic wraps under `all="raise"` and raises nothing
@@ -108,7 +106,7 @@ def stream(key: bytes, /, *path: int) -> np.random.Generator:
     return np.random.default_rng(np.random.SeedSequence(int.from_bytes(key), spawn_key=path))
 ```
 
-`stream(key, index).normal(points, scale)` draws trial `index` alike under any trial count, and equal keys draw equal samples in any run and call order:
+`stream(key, index).normal(points, scale)` draws trial `index` alike under any trial count, equal keys draw equal samples in any run and call order:
 - `stream(key, *path)` equals the child `Generator.spawn` returns at that path, and `stream(key, 1, 0)` equals `stream(key, 1).spawn(1)[0]`
 - Calls drawing a whole shape read their stream in C order, `normal(size=(2, 3))` equals six scalar draws in any split
 

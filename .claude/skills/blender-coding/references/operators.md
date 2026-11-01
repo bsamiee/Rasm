@@ -2,20 +2,24 @@
 
 ## [01]-[DECLARATION]
 
-Operator classes declare their inputs as `bpy.props` annotations, a set several operators share sitting on a plain base class whose annotations register on each operator deriving it. `execute` hands them to one pure function as `**self.as_keywords()`, each property the keyword parameter of its name with its default, and `ignore=(<identifier>, ...)` takes a tuple of the properties the function never reads:
-- Redo, Repeat Last, and script calls run `execute` alone, and a background `'INVOKE_DEFAULT'` call runs `execute` with no `invoke` and `self.options.is_invoke` reading `False`
+Operator classes declare inputs as `bpy.props` annotations, shared sets sitting on a plain base class that registers them on each subclass. `execute` passes them to one pure function as `**self.as_keywords()`, each property a same-named keyword parameter with its default. `ignore=(<identifier>, ...)` drops properties the function never reads:
+- Redo, Repeat Last, script calls, and background `'INVOKE_DEFAULT'` calls run `execute` alone, the last with `self.options.is_invoke` `False`
 - `execute` reads its properties and context alone, event and preference values entering through properties `invoke` writes
-- `invoke` writes only properties `self.properties.is_property_set(<name>)` reports unset, a value a button, keymap, or script passed skipping its gesture or form
-- Script calls with `undo` off neither read nor store last-run values, and `undo=True` calls and interface runs read and store them in `window_manager.operator_properties_last(<idname>)`, the struct a panel draws to set the next run
+- `invoke` writes only properties `self.properties.is_property_set(<name>)` reports unset
+- Values from a button, keymap, or script skip their gesture or popup
+- Script calls with `undo` off neither read nor store last-run values
+- `undo=True` calls and interface runs read and store last-run values in `window_manager.operator_properties_last(<idname>)`
+- Panels draw `operator_properties_last(<idname>)` for the next run
 - `__init__` overrides take `(self, *args, **kwargs)` and forward both to `super().__init__`, Blender passing its own argument at each run
-- `bl_options` takes `BLOCKING` and `GRAB_CURSOR` for a gesture owning the cursor, `MODAL_PRIORITY` for events ahead of other modal operators, and `INTERNAL` for no search entry
+- `bl_options` takes `BLOCKING` and `GRAB_CURSOR` for cursor-owning gestures and `INTERNAL` to hide from search
+- `MODAL_PRIORITY` in `bl_options` runs a modal operator before other modal operators
 - `DEPENDS_ON_CURSOR` with `bl_cursor_pending` serves an `invoke` reading the cursor from a menu or button
 
-## [02]-[INVOKE_FORMS]
+## [02]-[INVOKE_POPUPS]
 
-`invoke` returns one form `WindowManager` holds as a class-level function over the operator (`bpy.types.WindowManager.invoke_props_dialog(self)`), each taking the options its `bl_rna.functions[<name>].parameters` list:
+`invoke` returns a `WindowManager` popup called on the class (`bpy.types.WindowManager.invoke_props_dialog(self)`). Each takes the options its `bl_rna.functions[<name>].parameters` list:
 
-| [INDEX] | [FORM]                | [BEHAVIOR]                                                                       |
+| [INDEX] | [FUNCTION]            | [BEHAVIOR]                                                                       |
 | :-----: | :-------------------- | :------------------------------------------------------------------------------- |
 |  [01]   | `invoke_confirm`      | Confirmation with `title`, `message`, `confirm_text`, and `icon`, then `execute` |
 |  [02]   | `invoke_props_dialog` | Editable dialog running `execute` on confirm, `cancel_default` for data loss     |
@@ -23,13 +27,13 @@ Operator classes declare their inputs as `bpy.props` annotations, a set several 
 |  [04]   | `invoke_popup`        | Property popup that never runs `execute`                                         |
 |  [05]   | `invoke_search_popup` | Search over the enum `bl_property` names                                         |
 
-Forms read operator members:
+Popups read operator members:
 - `check(self, context)` runs after each property edit, `True` redrawing the layout
 - `ExportHelper` operators declare `filename_ext`, its `check` correcting the `filepath` extension
 
 ## [03]-[MODAL]
 
-Modal gestures write their value into a property and apply it through `execute` for Redo and Repeat Last to replay, and `cancel` restores what `invoke` captured:
+Modal gestures write a property and apply it through `execute` for Redo and Repeat Last to replay, `cancel` restoring what `invoke` captured:
 
 ```python
 class Shrink(bpy.types.Operator):
@@ -78,14 +82,18 @@ class Shrink(bpy.types.Operator):
 
 Buttons passing `factor` skip the gesture, and Redo after a drag reruns `execute` at the dragged `factor`:
 - Instance attributes persist from `invoke` through every `modal` step, and each Redo builds a fresh instance holding properties alone
-- `modal` runs under the area and region `invoke` ran in, under the region of that type beneath the cursor inside that area (a quad view quarter) once `invoke` sets `self.options.use_cursor_region`, and Blender calls `cancel` only when a file load or window close ends the gesture
-- Every window timer delivers `TIMER` to each modal step with no timer on `Event`, and timer steps derive progress from their own `timer.time_duration`
-- `context.window_manager.event_timer_add(<seconds>, window=context.window)` timers, cursor, status text, and header writes reset at finish and in `cancel`, timers through `event_timer_remove`
+- `modal` runs in `invoke`'s area and region, or with `self.options.use_cursor_region` the same-type region under the cursor (a quad view quarter)
+- Blender calls `cancel` only when a file load or window close ends the gesture
+- Every window timer sends `TIMER` to each modal step with no timer on `Event`, and steps read progress from their own `timer.time_duration`
+- `event_timer_add(<seconds>, window=context.window)` timers end through `event_timer_remove` at finish and in `cancel`
+- Cursor, status text, and header writes reset at finish and in `cancel`
 - Steps returning `PASS_THROUGH` let undo and other operators run between steps, and state held across them keys by `session_uid`
 
-## [04]-[PLACEMENTS]
+## [04]-[CALL_SITES]
 
-Buttons, menus, keymaps, and macros name an operator by its class's `bl_idname`, calls reach it through `bpy.ops.<category>.<name>`, and the registered class sits at `bpy.types.<CATEGORY>_OT_<name>` in place of its Python name:
-- `layout.operator_enum(<Class>.bl_idname, <enum property>)` draws one button per item and `operator_menu_enum` one menu, and a `description(cls, context, properties)` classmethod returns each button's tooltip from the properties it passes
-- `bpy.types.Macro` subclasses declaring `REGISTER` and `UNDO` run each `define(<Class>.bl_idname)` step in order as one undo step and one redo entry, the returned `OperatorMacro.properties` holding that step's values
+Buttons, menus, keymaps, and macros name an operator by `bl_idname`, and calls reach it through `bpy.ops.<category>.<name>`. The registered class sits at `bpy.types.<CATEGORY>_OT_<name>` in place of its Python name:
+- `layout.operator_enum(<Class>.bl_idname, <enum property>)` draws a button per item and `operator_menu_enum` a menu
+- `description(cls, context, properties)` classmethods return tooltips from button properties
+- `bpy.types.Macro` subclasses with `REGISTER` and `UNDO` run `define(<Class>.bl_idname)` steps in order as one undo and redo entry
+- `OperatorMacro.properties` from each `define` call holds that step's values
 - `layout.context_pointer_set("<member>", <struct>)` hands a struct to the operators a layout places, each reading it as `context.<member>`

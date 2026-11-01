@@ -1,10 +1,8 @@
 # [TYPES]
 
-Covers algebraic type design and constrained values.
-
 ## [01]-[CARDINALITY]
 
-Fields every parcel holds sit in one record, and each varying field composes `Option`, `Result`, and tuples until its count of values equals the domain's count of states:
+Fields every parcel holds sit in one record. Varying fields compose `Option`, `Result`, and tuples until their value count equals the domain's state count:
 
 ```rust
 #[derive(Debug)]
@@ -18,7 +16,7 @@ pub struct Parcel {
 pub fn charge(tariff: &EnumMap<Zone, Decimal>, (origin, relay): (Zone, Option<Zone>)) -> Option<Decimal> { relay.into_iter().try_fold(tariff[origin], |total, zone| total.checked_add(tariff[zone])) }
 ```
 
-`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the exact count of a route enum with `Direct` and `Relayed` variants. `booking` counts an unbooked parcel, a request pending since its instant, and a request finished with a label or a carrier error, and a consumer reaches the label through `?`, `map`, and `ok`. `Zone` is a fieldless enum deriving `Enum`, the key set an enum is declared for, and an enum is also declared where states hold the same type of data (`Delivered { at }` beside `Returned { at }`) that no composition of standard sums tells apart. `EnumMap` indexing has no absent case, and `EnumMap::from_fn` with a `match` over the key builds a tariff that fails to compile when a zone lacks an entry, or computes each entry from its key when entries follow a rule. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward.
+`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the count of a `Direct` and `Relayed` route enum. `booking` counts an unbooked parcel, a request pending since its instant, and a finished request's label or carrier error. Consumers reach the label through `?`, `map`, and `ok`. Enums declare a key set (`Zone`, deriving `Enum`) and states with same-typed data no standard sum tells apart (`Delivered { at }`, `Returned { at }`). `EnumMap` indexing has no absent case. `EnumMap::from_fn` over a key `match` builds a tariff that fails to compile when a zone lacks an entry, or computes entries a rule derives. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward.
 
 ## [02]-[CONSTRAINED_VALUES]
 
@@ -35,7 +33,7 @@ pub struct Email(String);
 pub type Rating = BoundedU8<1, 5>;
 ```
 
-`Email::try_new(text)` trims and lowercases before validating, and returns an `EmailError` naming the violated validator (`NotEmptyViolated`, `LenCharMaxViolated`, `PredicateViolated`). Derived `FromStr` and `Deserialize` run the same path at a boundary. `Rating::new(stars)` returns `Option`, `Rating::const_new::<3>()` rejects an out-of-range constant at compile time, `Deserialize` rejects one on decode, and the `schemars1` feature writes both bounds into a derived schema.
+`Email::try_new` sanitizes first, and `EmailError` has a variant per validator (`NotEmptyViolated`, `LenCharMaxViolated`, `PredicateViolated`). Derived `FromStr` and `Deserialize` run the same path at a boundary. `Rating::new` returns `Option`, `Rating::const_new::<3>()` rejects an out-of-range constant at compile time, and `Deserialize` rejects one on decode. The `schemars1` feature writes both bounds into a derived schema.
 
 One `impl_typed_uuid_kinds!` row per entity states its identifier type:
 
@@ -49,7 +47,7 @@ impl_typed_uuid_kinds! {
 }
 ```
 
-Each row derives an uninhabited `ParcelKind`, its tag `parcel`, and the alias `ParcelUuid` for `TypedUuid<ParcelKind>`. `ParcelUuid::new_v7(stamp)` creates a creation-ordered identifier from the `uuid::Timestamp` that `Timestamp::from_unix(&context, seconds, nanos)` builds from a caller's instant, the caller's `ContextV7` ordering identifiers created within one millisecond.
+Each row derives an uninhabited `ParcelKind`, its tag `parcel`, and the alias `ParcelUuid` for `TypedUuid<ParcelKind>`. `ParcelUuid::new_v7(stamp)` creates a time-ordered identifier from `uuid::Timestamp::from_unix(&context, seconds, nanos)` over a caller's instant. The caller's `ContextV7` orders identifiers created within one millisecond.
 
 ## [03]-[TYPESTATE]
 
@@ -75,11 +73,11 @@ where S: Precedes<T> {
 }
 ```
 
-`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records. `advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule keeps other crates from adding a transition between these states. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once.
+`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records. `advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule bars other crates from adding one. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once.
 
-## [04]-[SNAPSHOTS]
+## [04]-[PERSISTENT_COLLECTIONS]
 
-Each `imbl` transition (`update`, `alter`, `without`) returns a successor sharing every node off its changed path, and a value derived from a version follows the next one through their diff:
+`imbl` transitions (`update`, `alter`, `without`) return a successor sharing every node off the changed path. Derived values follow each version through a diff:
 
 ```rust
 #[must_use]
@@ -92,7 +90,7 @@ pub fn retotal(total: Decimal, before: &OrdMap<Sku, Decimal>, after: &OrdMap<Sku
 }
 ```
 
-`diff` steps over every subtree both versions share by pointer, so a total, index, or view keeps pace with each version at the cost of its changed entries, and versions sharing a root yield nothing. `alter` reads a key's present value and returns the successor in one call, its `None` removing the key. A `Vector` of versions holds an undo history at the cost of changed paths.
+`diff` skips every subtree both versions share by pointer, and a total, index, or view updates at the cost of changed entries alone. Versions sharing a root diff empty. `alter` reads a key's present value and returns the successor in one call, and a `None` from its closure removes the key. A `Vector` of versions holds an undo history at the cost of changed paths.
 
 ## [05]-[ARENAS]
 
@@ -109,4 +107,4 @@ pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Link> {
 }
 ```
 
-`Hub` holds its outgoing `links` as `(HubKey, Link)` pairs. A generational key held past its hub's removal reads `None` from `get` and fails `contains_key`, where a reused index would name a different hub, and the graph leaves out each link to a removed hub. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks the hubs reachable from `origin`, and `toposort(&graph, None)` orders the linked hubs or returns the `Cycle` naming one on it. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`.
+`Hub` holds its outgoing `links` as `(HubKey, Link)` pairs. Generational keys outliving their hub fail `get` and `contains_key` in place of naming a hub that reused the slot. The graph leaves out links to removed hubs. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks hubs reachable from `origin`. `toposort(&graph, None)` orders linked hubs or returns a `Cycle` naming a hub on one. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`.

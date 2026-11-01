@@ -4,7 +4,7 @@ Illustrator answers `do javascript` with its last expression as Unicode text (`u
 
 ## [01]-[CALLS]
 
-Calls needing structured results encode JSON in ExtendScript. Source holds the body as an `encodeURIComponent` string literal, compiles it through `eval` of a function expression, and returns the encoded value, or empty text for no value:
+Calls needing structured results encode JSON in ExtendScript. Source holds the body as an `encodeURIComponent` string literal, compiles it with `eval`, and returns its encoded value, empty for `undefined`:
 
 ```js
 (function (body) {
@@ -29,12 +29,12 @@ const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source
     Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json))))(reply))));
 ```
 
-`send` passes `source` as the direct parameter of `do javascript` through an Apple event sender, and a throw or a syntax error fails as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
+`send` passes `source` as the `do javascript` direct parameter through an Apple event sender. Throws and syntax errors fail as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
-- Photoshop ExtendScript runs `new Function` of a source with a syntax error as a function answering `undefined`, where `eval` of it throws, and answers an `undefined` last value as the text `undefined`
+- In Photoshop ExtendScript, `new Function` of bad syntax answers `undefined` where `eval` throws, and an `undefined` last value answers as text
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`
 - Events sent before Illustrator finishes launching fail -600 or get no reply, and a `launch` event to it returns once it accepts them
@@ -51,9 +51,9 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 
 ## [03]-[OBJECT_MODEL]
 
-`<object>.reflect.properties` rows hold `name`, `type` (`readonly`, `readwrite`), and `dataType`, `reflect.methods` names each method, `reflect.find(<property>)` reads one row and throws 1302 for a method name, and `$.dictionary` reads `null`:
+`reflect.properties` rows hold `name`, `type` (`readonly`, `readwrite`), and `dataType`, and `reflect.methods` names each method. `reflect.find(<property>)` reads one row and throws 1302 for a method name, and `$.dictionary` reads `null`:
 
-| [INDEX] | [NEED]                 | [FORM]                                        | [DECIDING_FACT]                                       |
+| [INDEX] | [NEED]                 | [FORM]                                        | [REASON]                                              |
 | :-----: | :--------------------- | :-------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | Class of a value       | `typename` (`Document`, `Layers`, `PathItem`) | `Object.prototype.toString` reads `[Document <name>]` |
 |  [02]   | Member by name         | `getByName(name)`                             | Absent name throws 1302, no `itemByName` or `isValid` |
@@ -67,7 +67,7 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 - `app.preferences` getters of an unregistered key return a varying value and store the key, where `preferenceExists(key)` stores none
 - Illustrator rewrites `Adobe Illustrator Prefs` whole at quit, and edits to the file while it runs are lost
 
-## [04]-[UNITS_OF_WORK]
+## [04]-[UNDO_STEPS]
 
 Each `do javascript` call is one undo step, and `app.undo()` in a later call reverts every change the call made:
 - Throws keep the changes made before them, and their step stays on the undo stack
@@ -113,12 +113,12 @@ Caught `Error` values hold `number`, `message`, and `line`, and code branches on
 
 ## [07]-[TEXT_AND_FONTS]
 
-`app.textFonts` lists every installed face, `getByName(<PostScript name>)` reads one and throws 1302 for an absent name, and a `TextFont` holds `name` (PostScript), `family`, and `style`:
+`app.textFonts` lists every installed face, and `getByName(<PostScript name>)` reads one or throws 1302 for an absent name. Each `TextFont` holds `name` (PostScript), `family`, and `style`:
 - `textFrames.add()` takes text through `contents`, set in `MyriadPro-Regular` by default
 - `textRange.characterAttributes.textFont` takes a `TextFont`, and `size` takes points
 - `createOutline()` on a duplicate frame returns a `GroupItem` with glyph outline bounds as `geometricBounds`
 
-## [08]-[PLUG_INS]
+## [08]-[PLUGINS]
 
 Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone:
 - UXP logs hold no `upic::` line, and a row in `UXP/PluginsInfo/v1/AI.json` loads nothing

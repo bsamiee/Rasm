@@ -1,7 +1,5 @@
 # [RESULTS]
 
-Covers results combined across more than one chain.
-
 ## [01]-[ACCUMULATION]
 
 `accumulated` combines any count of independent results and `paired` a fixed arity:
@@ -41,7 +39,7 @@ Each unknown SKU adds one `catalog holds no <sku>` fault, and a fully priced bat
 
 ## [02]-[RECOVERY]
 
-`recovered` answers a lone fault caused by one exception class with a fallback value, and `ended` runs a marking step after a failure and appends its fault:
+`recovered` answers a lone fault from one exception class with a fallback, and `ended` runs a marking step after a failure and appends its fault:
 
 ```python
 def recovered[T](kind: type[Exception], fallback: T, faults: Faults, /) -> Outcome[T]:
@@ -56,7 +54,7 @@ def ended[T](work: Outcome[T], mark: Callable[[], Outcome[None]], /) -> Outcome[
     return work.or_else_with(lambda faults: Error((*faults, *mark().swap().default_value(()))))
 ```
 
-`content(path).or_else_with(partial(recovered, FileNotFoundError, b""))` reads a missing file as empty content, and a directory, a denied read, or a missing file beside a second fault keeps its faults. `ended` skips the marking step on success and returns the work faults followed by the marking fault.
+`content(path).or_else_with(partial(recovered, FileNotFoundError, b""))` reads a missing file as empty. A directory, a denied read, or a missing file beside a second fault keeps its faults. `ended` skips the marking step on success and returns the work faults followed by the marking fault.
 
 ## [03]-[OPTIONS]
 
@@ -87,4 +85,4 @@ def responded(outcome: Outcome[object], /) -> tuple[HTTPStatus, bytes]:
             return max(STATUS.get(fault.reason, HTTPStatus.INTERNAL_SERVER_ERROR) for fault in faults), msgspec.json.encode([fault.message for fault in faults])
 ```
 
-Keys take members of any package's reason enum, a reason with no row answers `500`, and `responded` returns the highest status among the faults: absent and unreadable faults together answer `500`. `max` reads the faults with no default, `Faults` holds at least one.
+Keys take members of any package's reason enum, and a reason with no row answers `500`. `responded` returns the highest fault status, absent and unreadable faults together answer `500`. `max` reads the faults with no default, `Faults` holds at least one.

@@ -5,21 +5,29 @@ description: "Use when writing or reviewing Swift, covering functional design wi
 
 # [SWIFT_CODING]
 
-Swift design decisions from signature shape to host boundary. The standard library, Swift Concurrency, Observation, Synchronization, System, swift-collections, swift-async-algorithms, swift-case-paths, swift-subprocess, and swift-argument-parser are part of the language, and code reaches for their types wherever they state a value.
+Code uses each module's types wherever they state a value, as part of the language:
+- Toolchain: standard library, Swift Concurrency, `Observation`, `Synchronization`, `System`
+- Packages: `Collections`, `AsyncAlgorithms`, `CasePaths`, `Subprocess`, `ArgumentParser`
+
+[PRINCIPLES]:
+- Facts are stated once where they belong, and everything else derives from that source
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
+- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
 - [02]-[RESULTS](references/results.md): Accumulation, validation, workflows, task results, and entry points
 - [03]-[DATA](references/data.md): State machines, graph walks, and recursive folds
-- [04]-[OWNERSHIP](references/ownership.md): Noncopyable resources and storage, typestate, borrowed views, and synchronized state
+- [04]-[OWNERSHIP](references/ownership.md): Noncopyable resources and storage, typestate, spans, and synchronized state
 - [05]-[CONCURRENCY](references/concurrency.md): Isolation, regions, task hierarchy, deadlines, actors, cancellation, and continuations
 - [06]-[STREAMS](references/streams.md): Async sequence sources, typed failure, operators, observation, back pressure, and sharing
 - [07]-[BOUNDARIES](references/boundaries.md): Decoding, paths, child processes, command lines, and logging
-- [08]-[GENERICS](references/generics.md): Constraints, opaque returns, conditional conformances, packs, integer generic parameters, and macros
+- [08]-[GENERICS](references/generics.md): Constraints, opaque types, conditional conformances, packs, integer generic parameters, and macros
 
 ## [01]-[FUNCTIONS]
 
-Swift function types state every effect of a call, each annotation exactly where the function performs it:
+Function types state each effect of a call on the function that performs it:
 
 | [INDEX] | [ANNOTATION]             | [STATES]                                                               |
 | :-----: | :----------------------- | :--------------------------------------------------------------------- |
@@ -37,7 +45,7 @@ Swift function types state every effect of a call, each annotation exactly where
 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
-Functions are total when every input they accept reaches a declared outcome. Narrow the input to a validated type or widen the outcome to an `Optional` or a typed throw:
+Functions are total when every input they accept reaches a declared outcome. Narrow input to a validated type or widen outcome to an `Optional` or typed throw:
 - Failable `init?` constructs a value whose only failure is absence, `init(_:) throws(E)` constructs one whose failure has a reason
 - Higher-order functions are generic over their closure's error, taking `(T) throws(E) -> U` and throwing `E` themselves
 - Closure literals that throw state `throws(E)`, an unannotated one infers `any Error`, and one that never throws binds `E` to `Never`
@@ -48,7 +56,7 @@ func total<E: Error>(of lines: [Line], pricedBy price: (Line) throws(E) -> Decim
 }
 ```
 
-`map`, `filter`, `count(where:)`, `Optional.map`, and `Optional.flatMap` keep `E`. Rethrowing members (`reduce`, `compactMap`, `first(where:)`, `contains(where:)`, `allSatisfy`, `sorted(by:)`) widen `E` to `any Error`, and the typed step runs through a typed member while the rethrowing member takes the non-throwing remainder.
+`map`, `filter`, `count(where:)`, `Optional.map`, and `Optional.flatMap` keep `E`. Rethrowing members (`reduce`, `compactMap`, `first(where:)`, `contains(where:)`, `allSatisfy`, `sorted(by:)`) widen `E` to `any Error`. Typed steps run through a typed member, and the rethrowing member takes the non-throwing remainder.
 
 ### [01.2]-[PURITY]
 
@@ -56,19 +64,19 @@ Current instant and user locale enter as arguments, and a function that waits or
 
 ### [01.3]-[DEPENDENCIES]
 
-Dependencies are the operations a consumer reads, and the count of operations over one resource selects the form:
+Dependencies are operations a consumer reads, and their count over one resource selects the form:
 - One operation is a function value: a lookup `(Key) async throws(E) -> Item?`, a persistence step `(Item) async throws(E) -> Void`
 - Operations that share one resource are a protocol, consumed as `some Store<Item>`
 
 ## [02]-[EXPRESSIONS]
 
-`if` and `switch` are expressions when every branch is one expression, and a binding, `return`, or property takes the expression whole. A branch that needs statements calls a function:
+`if` and `switch` are expressions when each branch is one expression, and a binding, `return`, or property takes it whole. Branches needing statements call a function:
 - `let <name>: <Type> = switch <subject> { ... }` binds a value each arm selects, a `throw` arm stays in place
 - `count(where:)` counts, `indices(where:)` returns a `RangeSet` that `removeSubranges` and the `subranges` subscript take whole
 
 ### [02.1]-[PATTERN_MATCHING]
 
-`switch` keeps recognition, extraction, guards, and results together, and a tuple subject decides over every value it holds in one table where each arm names its combination:
+`switch` keeps recognition, extraction, guards, and results together. A tuple subject makes one table where each arm names a combination of its values:
 
 ```swift
 func retryDelay(status: Int, retryAfter: Duration?, attempt: Int, limit: Int = 5, base: Duration = .seconds(1)) -> Duration? {
@@ -97,7 +105,7 @@ Swift guarantees no tail calls, and depth bound and successor sharing select the
 
 ## [03]-[DATA]
 
-Values take the type the standard library, Foundation, or a core package declares for their fact, and a declaration adds only a rule no such type states:
+Values take the type that the standard library, Foundation, or a core package declares for their fact. Declarations add only a rule no such type states:
 
 | [INDEX] | [FACT]                   | [TYPE]                                |
 | :-----: | :----------------------- | :------------------------------------ |
@@ -113,8 +121,8 @@ Values take the type the standard library, Foundation, or a core package declare
 |  [10]   | Vector                   | `SIMD2<Double>`                       |
 |  [11]   | Rendered text            | `FormatStyle` of the value's type     |
 
-- Rules over one value sit on its type: a `RawRepresentable` struct with the rule in `init?(rawValue:)`, enforced by synthesized `Codable` and `ExpressibleByArgument` at every boundary
-- Integer generic parameters state one rule for every bound (`Bounded<1, 999>`), and records of constrained fields synthesize every initializer and coder
+- `RawRepresentable` structs hold a value's rule in `init?(rawValue:)`, and synthesized `Codable` and `ExpressibleByArgument` apply it at boundaries
+- Integer generic parameters state one rule for all bounds (`Bounded<1, 999>`), and records of bounded fields synthesize each initializer and coder
 - Enums declare a closed set, and each per-case fact is a computed property over the case
 - Kinds, keys, and states are enum cases and key paths, a string holds text a person reads or a token a wire fixes
 - `Comparable` synthesis orders the cases of an enum with no raw type, a `String` raw value holds an external spelling
@@ -132,8 +140,7 @@ enum Plan: CaseIterable, Comparable, Sendable {
 }
 ```
 
-Higher plans hold every lower plan's features through `<=`, and a feature gate reads `plan >= required`. A new case takes its seats from its position.
-
+- Higher plans hold every lower plan's features through `<=`, and a feature gate reads `plan >= required`, a new case takes its seats from its position
 - Optional properties stand where absence is a state consumers read, a value with a usual default holds that default
 
 Choose collections by their most frequent operation:
@@ -149,13 +156,13 @@ Choose collections by their most frequent operation:
 |  [07]   | Dense small non-negative integers       | `BitSet`                          |
 |  [08]   | Fixed count known at compile time       | `[N of T]`                        |
 
-### [03.1]-[UNIONS]
+### [03.1]-[ENUMS]
 
-Each state a consumer inspects is a distinct case. Counting the values a type has (a struct multiplies its fields' counts, an enum adds its cases' counts, `Optional` adds one) exposes states no consumer reaches:
+Each state a consumer inspects is a distinct case. Counting a type's values (struct fields multiply, enum cases add, `Optional` adds one) exposes states no consumer reaches:
 - Fields every case holds sit once in the struct that stores the enum, and the enum holds what differs between cases
 - Flags whose companion fields mean something for one value become one case per state
 - Outcomes one case holds side by side are one `Result` each, an optional pair or a reason string loses which outcome failed
-- `@CasePathable` with `@dynamicMemberLookup` projects one case for a reader (`\.inTransit`, `is(\.pending)`, `[case:]`), and a decision over every case is a `switch`
+- `@CasePathable` with `@dynamicMemberLookup` reads one case (`\.inTransit`, `is(\.pending)`, `[case:]`), and a decision over every case is a `switch`
 - Absence and failure stay separate when the consumer responds differently to each
 
 ## [04]-[RESULTS]
@@ -194,7 +201,7 @@ func subtotal(of lines: [Line], pricedBy price: (Line) -> Result<Decimal, OrderE
 ```
 
 - Steps stay in one outcome form through the pipeline
-- Nested optionals and nested results stay nested, the consumer matches the inner layer once
+- Nested optionals and nested results stay nested, and consumers match the inner layer once
 
 ### [04.2]-[ERRORS]
 
@@ -226,7 +233,7 @@ struct OrderError: Error, CustomStringConvertible {
 
 ## [05]-[OWNERSHIP]
 
-Copyability is a fact about a value: a value with one owner at a time is `~Copyable`, the compiler enforces every hand-off, and `deinit` releases what the value owns on every path its owner abandons.
+Values with one owner at a time are `~Copyable`: the compiler checks every hand-off, and `deinit` releases owned resources on every abandoned path.
 
 ## [06]-[CONCURRENCY]
 
@@ -253,7 +260,7 @@ Child tasks follow the shape of the work, and each child returns its typed `Resu
 
 ## [07]-[STREAMS]
 
-Values that arrive over time are an `AsyncSequence` with its element and failure types, `some AsyncSequence<Element, Failure>` in signatures. Delivery shape selects the source and the operator:
+Values over time are `some AsyncSequence<Element, Failure>` in signatures. Delivery shape selects source and operator:
 
 | [INDEX] | [DELIVERY]                            | [FORM]                                               |
 | :-----: | :------------------------------------ | :--------------------------------------------------- |
@@ -271,7 +278,7 @@ Request-response work stays a function, and a stream holds values a consumer rea
 
 ## [08]-[BOUNDARIES]
 
-Every value entering the module is decoded once into its model type, and every value leaving is encoded from it. Wire enums that grow are one generic field type with a `RawRepresentable` conformance that supplies `Codable` and writes an unknown spelling back unchanged:
+Values entering a module decode once into their model type, and values leaving encode from it. Wire enums that grow use one generic field type with a `RawRepresentable` conformance that supplies `Codable` and writes unknown spellings back:
 
 ```swift
 enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Codable, Sendable {
@@ -291,7 +298,7 @@ enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Coda
 }
 ```
 
-- Synthesized `Codable` holds every wire mapping, and a hand-written `init(from:)` exists where a stored type has no `Codable` or the wire names a case in a field
+- Synthesized `Codable` holds every wire mapping, and `init(from:)` is hand-written only where a stored type lacks `Codable` or a field names the case
 - Untyped host values (`Any`, `CFTypeRef`) decode through one generic read that checks the type
 - Host types stand where they state the value: a caller passes the host's configuration and receives its output whole
 - Host enums stay the host's type, and the wire spelling is one `switch` in the encoder that writes it

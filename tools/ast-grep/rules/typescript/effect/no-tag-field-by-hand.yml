@@ -44,11 +44,10 @@ rewriters:
     - id: tagged
       rule: {matches: tagged-class}
       transform:
-        TAGGED: replace($BASE, replace='^', by='Tagged')
         STRIPPED: rewrite($BODY, rewriters=[drop-tag])
         JOINED: replace($STRIPPED, replace='(?m)^[ \t]*;[ \t]*\n', by='')
         MEMBERS: replace($JOINED, replace='^\{[\s;]*\}$', by='{}')
-      fix: class $NAME extends $DATA.$TAGGED($TAG)$TYPES $MEMBERS
+      fix: class $NAME extends $DATA.TaggedClass($TAG)$TYPES $MEMBERS
 transform:
     FIXED: rewrite($FIXABLE, rewriters=[tagged])
 fix: $FIXED$KEPT

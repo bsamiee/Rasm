@@ -1,7 +1,5 @@
 # [RESULTS]
 
-Covers result-type flows over one crate error.
-
 ## [01]-[VALIDATION]
 
 Forms validate each field through its `nutype` constructor, and `ShopError` takes each generated error through a transparent `#[from]` variant:
@@ -13,7 +11,7 @@ pub fn order(form: &OrderForm) -> Validated<Order, ShopError> {
 }
 ```
 
-`map2` runs `Order::new` (from `derive_more::Constructor`) only when both fields pass, and a larger form joins `order` as one operand, so no call passes more than four.
+`map2` runs `Order::new` (from `derive_more::Constructor`) only when both fields pass. Forms over four fields nest `order` as one operand.
 
 ## [02]-[TRAVERSAL]
 
@@ -26,7 +24,7 @@ pub fn products<'catalog>(catalog: &'catalog Catalog, cart: &Cart) -> Validated<
 }
 ```
 
-Each unlisted product reports its own `Refused`, an empty cart passes, and consumers read the found products with no second lookup. Items yielding `Validated` collect the same way, every failure of every item joining one `NEVec`, and checks with nothing to return collect into `Validated<(), E>` through `bool::ok_or`.
+Each unlisted product reports its own `Refused`, an empty cart passes, and consumers read the found products with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`.
 
 ## [03]-[BINDING]
 

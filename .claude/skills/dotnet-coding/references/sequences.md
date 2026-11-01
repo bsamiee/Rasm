@@ -1,38 +1,157 @@
 # [SEQUENCES]
 
-Covers when sequence work runs, how a sequence reduces, and how neighbors compare.
+Covers the sequence flows behind the expression rules, from deferral to the pipeline that turns one text into one report.
 
 ## [01]-[DEFERRAL]
 
-`toSeq` over an `IEnumerable<A>`, `ToSeq()` on an `Iterable<A>`, and `Map` on the resulting `Seq<A>` defer and cache: each element computes on first demand, a partial read (`Head`, `Take`) runs only the elements it reaches, and a second read reruns nothing. `Iterable<A>` and LINQ queries rerun the whole chain on every enumeration and fit one streaming pass over a source too large to hold. `Strict()` computes every element at the call, and a sequence whose enumeration performs I/O calls it inside the `IO` that owns the read, else the read runs wherever a consumer first enumerates it:
+LINQ operators over an `IEnumerable<A>` return a description of how to produce a sequence, and execution begins when a consumer enumerates it. `Iterable<A>` is the lazy form over `IEnumerable<A>`, and `AsIterable()` lifts into it:
 
 ```csharp
-internal static class Readings {
-    public static IO<Seq<A>> Read<A>(string path, Func<string, Option<A>> parse) =>
-        IO.lift(() => toSeq(File.ReadLines(path)).Choose(parse).Strict());
+internal static class Stages {
+    public static Seq<Item> Transformed(IEnumerable<Item> input) {
+        Iterable<Item> pending = input.AsIterable()
+            .Map(First)
+            .Map(Second)
+            .Map(Third);
+
+        return pending.ToSeq();
+    }
 }
 ```
 
-## [02]-[REDUCTION]
+Until enumeration every transformation stays pending, during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, and no intermediate collection exists after a stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage completes each stage before the next and stores a collection per stage. Delaying materialization avoids work that is never demanded. Enumerating the same lazy query repeatedly repeats all of its work, materialize when execution must happen at that point or when the sequence is read more than once. Long deferred or recursive compositions have memory and performance costs.
 
-A keyed reduction holds one accumulator per key where `GroupBy` holds every element of every group, a tuple seed computes every result in one pass, and a seed that depends on its key comes from the `Func<TKey, TAccumulate>` overload. `Fold` takes the same seed and step unkeyed, and `FoldBack` takes the same `(state, item)` step and visits from the last element:
+## [02]-[STAGES]
+
+Fluent chains and named intermediate sequences describe the same transformation when nothing mutates the sequences or their elements. Named stages state each operation and expose intermediate values for inspection, and one chain stays readable while it stays short:
+
+```csharp
+internal static class Rendering {
+    public static Seq<string> Rendered(Seq<Item> items) {
+        Seq<Item> normalized = items.Map(Normalize);
+        Seq<Priced> priced = normalized.Map(Price);
+        return priced.Map(Render);
+    }
+}
+```
+
+Materialization does not introduce mutation, and the resulting collection and its elements stay unchanged.
+
+## [03]-[AGGREGATION]
+
+Every reduction is a `Fold` with a seed and a step, the seed defines the result for an empty input, and the seed type is independent of the element type: `0` with addition sums, `0` with an incrementing step counts, and an empty tree with an insertion step builds an index. Use a specific reduction when one exists, and use `Fold` where the specific call is ambiguous or absent:
 
 ```csharp
 internal static class Totals {
-    public static FrozenDictionary<int, (int Count, int Missing)> ByGroup(Seq<Entry> entries) =>
-        entries
-            .AggregateBy(static entry => entry.Group, (Count: 0, Missing: 0), static (total, entry) => (total.Count + entry.Count, total.Missing + entry.Missing))
-            .ToFrozenDictionary();
+    public static decimal Revenue(Seq<Item> items) =>
+        items.Fold(0m, static (sum, item) => sum + item.Revenue);
+    public static (decimal Cost, decimal Revenue) Both(Seq<Item> items) =>
+        items.Fold(
+            (Cost: 0m, Revenue: 0m),
+            static (state, item) => (state.Cost + item.Cost, state.Revenue + item.Revenue));
 }
 ```
 
-## [03]-[ADJACENCY]
-
-SuperLinq `Window(2, pair => …)` reads each element of a `Seq<A>` beside its successor in one span, `Contains(true)` answers whether some pair matches, `Contains(false)` whether some pair fails, and a sequence shorter than the window yields no pairs. `Segment((current, previous, index) => …)` cuts runs where a pair disagrees, `GroupAdjacent` cuts runs of one key, and `Lag` or `Lead` pairs each element with the one at a fixed offset:
+Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
 
 ```csharp
-internal static class Gaps {
-    public static bool Exceeds(Seq<int> sorted, int gap = 1) =>
-        sorted.Window(2, pair => pair[1] - pair[0] > gap).Contains(true);
+internal static class Medians {
+    public static Option<decimal> Median(Seq<int> values) {
+        Seq<int> sorted = toSeq(values.Order());
+        int middle = sorted.Count / 2;
+        return sorted.Count % 2 is 1
+            ? sorted.At(middle).Map(static value => (decimal)value)
+            : sorted.At(middle).Bind(right =>
+                sorted.At(middle - 1).Map(left => (left + right) / 2m));
+    }
 }
 ```
+
+`Fold` is a left fold equivalent to LINQ `Aggregate`, and `FoldBack` visits the same elements from last to first:
+
+```text
+Fold     : (Seq<A>, S, (S, A) -> S) -> S
+FoldBack : (Seq<A>, S, (S, A) -> S) -> S
+
+Seq(item0, item1, item2) = item0.Cons(item1.Cons(item2.Cons(Seq<A>())))
+
+Fold     = f(f(f(seed, item0), item1), item2)
+FoldBack = f(f(f(seed, item2), item1), item0)
+```
+
+Sequence constructors are the empty sequence and `Cons`, `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor with each recursive position receiving an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
+
+## [04]-[REPLACEMENT]
+
+Indexed `Map` replaces one item and derives the replacement from the old item at that position, and the source stays unchanged:
+
+```csharp
+internal static class Replacement {
+    public static Seq<A> ReplaceAt<A>(Seq<A> source, int index, Func<A, A> replace) =>
+        source.Map((item, current) => current == index ? replace(item) : item);
+}
+```
+
+## [05]-[ADJACENCY]
+
+`Window(2, selector)` over `AsIterable()` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` whether one window matches, `ForAll` whether no window disproves the condition. Fewer than 2 elements produce no windows, `Exists` then returns `false` and `ForAll` `true`:
+
+```csharp
+internal static class Adjacency {
+    public static bool AnyAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
+        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).Exists(identity);
+    public static bool AllAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
+        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).ForAll(identity);
+}
+```
+
+Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop.
+
+Runs cut where an element and its predecessor disagree are `Segment((current, previous, index) => …)`, runs of one key are `GroupAdjacent`, n-wide neighbors are `Window(n, …)`, and a `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
+
+## [06]-[PIPELINE]
+
+Report pipelines read one text, split it into records, parse typed values, group them, aggregate each group, format lines, and join them into one result, and each stage produces a new value:
+
+```text
+single text -> records -> typed values -> groups -> totals -> lines -> single report
+```
+
+Text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>`, one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
+
+```csharp
+internal sealed record Record(int Group, string Name, int Count, int Missing);
+
+internal static class Summary {
+    public static Option<Record> Parse(string line) {
+        Seq<string> fields = toSeq(line.Split(','));
+        return from key in fields.At(0).Bind(static field => parseInt(field))
+               from name in fields.At(1)
+               from count in fields.At(2).Bind(static field => parseInt(field))
+               from missing in fields.At(3).Bind(static field => parseInt(field))
+               select new Record(key, name, count, missing);
+    }
+    public static Option<Seq<Record>> Records(string text) =>
+        toSeq(text.Split(Environment.NewLine)).Traverse(static line => Parse(line)).As();
+    public static Map<int, (int Count, int Missing)> Totals(Seq<Record> records) =>
+        records.Fold(
+            Map<int, (int Count, int Missing)>(),
+            static (state, record) => state.AddOrUpdate(
+                record.Group,
+                total => (total.Count + record.Count, total.Missing + record.Missing),
+                (record.Count, record.Missing)));
+    public static decimal MissingShare(int missing, int count) =>
+        count is 0 ? 0m : (decimal)missing / count * 100m;
+    public static Seq<string> Lines(Map<int, (int Count, int Missing)> totals) =>
+        totals.ToSeq().Map(static total => string.Create(
+            CultureInfo.InvariantCulture,
+            $"{total.Key},{total.Value.Count},{total.Value.Missing},{MissingShare(total.Value.Missing, total.Value.Count)}"));
+    public static Option<string> Render(string text) =>
+        Records(text).Map(static records => {
+            const string header = "Group,Count,Missing,Percentage Missing";
+            return $"{header}{Environment.NewLine}{string.Join(Environment.NewLine, Lines(Totals(records)))}";
+        });
+}
+```
+
+Empty lines parse to `None`, the text cannot end with a newline, and the parser handles no quoted fields or embedded commas.

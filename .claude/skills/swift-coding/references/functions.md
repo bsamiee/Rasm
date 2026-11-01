@@ -1,7 +1,5 @@
 # [FUNCTIONS]
 
-Functions as values and the effects, errors, and dependencies their types state.
-
 ## [01]-[EFFECT_ANNOTATIONS]
 
 Closure parameters take the fewest annotations their use requires, and callers pass the most closures:
@@ -15,11 +13,12 @@ func measured<Value, Failure: Error, C: Clock<Duration>>(on clock: C, _ work: ()
 
 - `Clock.measure` takes a `Void` closure and rethrows `any Error`, `measured` keeps the closure's value and error type
 - Closures run once in another isolation take `sending (T) throws(E) -> U` and capture non-`Sendable` locals the caller stops using
-- Closures stored to run where they were formed take `@escaping @isolated(any) @Sendable (T) async -> Void`, holders call them with `await` from any isolation, and the `isolation` property names the actor each runs on
+- Closures stored to run where formed take `@escaping @isolated(any) @Sendable (T) async -> Void`, and holders `await` them from any isolation
+- `isolation` on an `@isolated(any)` closure names the actor it runs on
 
 ## [02]-[FUNCTION_REFERENCES]
 
-Swift has no curried declarations, and a bound method is their partial application: the receiver holds values the entry point fixes, the argument is the per-call value, and `catalog.price(of:)` is the function a consumer receives:
+Swift has no curried declarations, and bound methods are partial application. Receivers hold values the entry point fixes, arguments vary per call, and `catalog.price(of:)` is the function a consumer receives:
 
 ```swift
 func prices(of codes: [String], in catalog: Catalog) throws(OrderError) -> [Decimal] {
@@ -31,7 +30,7 @@ References keep their typed throw, and `map` keeps `OrderError` through both ste
 
 ## [03]-[PREDICATE_VALUES]
 
-Rules a consumer stores, compares, or shows are package values with the functions as members: a `ClosedRange` or `Set` tests membership, a `KeyPathComparator` orders. Rules nobody reads back are closures:
+Rules a consumer stores, compares, or shows are package values: `ClosedRange` or `Set` tests membership, `KeyPathComparator` orders. Rules nobody reads back are closures:
 
 ```swift
 func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [KeyPathComparator<Reading>] = [KeyPathComparator(\Reading.level, order: .reverse)]) -> [Reading] {
@@ -43,7 +42,7 @@ func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [K
 
 ## [04]-[DEPENDENCIES]
 
-Libraries own their host calls, take each value an application decides as a defaulted parameter, and build host configuration inside. Operations that read and write one record are one requirement taking the transition as a `sending` closure, and the conformance runs read, transition, and write as one isolated step:
+Libraries own their host calls, take each value an application decides as a defaulted parameter, and build host configuration inside. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
 
 ```swift
 protocol Store<Record>: Sendable {
@@ -58,4 +57,4 @@ func debit(_ id: Account.ID, by amount: Decimal, in store: some Store<Account>) 
 }
 ```
 
-`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness over storage that cannot fail drops `throws`. Actor-isolated methods take no partial application, and a consumer reading one operation receives the requirement bound on `some Store<Account>`: `store.load`, typed `(Account.ID) async throws(OrderError) -> Account?`.
+`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness over infallible storage drops `throws`. Actor-isolated methods take no partial application, and a one-operation consumer receives a requirement bound on `some Store<Account>` (`store.load`).

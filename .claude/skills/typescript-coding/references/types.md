@@ -1,7 +1,5 @@
 # [TYPES]
 
-Covers types derived from the values that own them.
-
 ## [01]-[DERIVED_TYPES]
 
 Return types infer from the body, and every type a consumer names derives at its use from the value that owns it. Packages export the owning value in place of a type:
@@ -10,7 +8,7 @@ Return types infer from the body, and every type a consumer names derives at its
 | :-----: | :----------------- | :------------------------------------------------------------------ |
 |  [01]   | `Effect`, `Stream` | `<Module>.Success<typeof x>`, `<Module>.Error`, `<Module>.Services` |
 |  [02]   | `Layer`            | `Layer.Success<typeof x>` built, `Layer.Services` read              |
-|  [03]   | Service            | `Context.Service.Shape<typeof X>`                                   |
+|  [03]   | Service            | `X['Service']`                                                      |
 |  [04]   | Schema             | `typeof X.Type`, `typeof X.Encoded`, `typeof X.DecodingServices`    |
 |  [05]   | Field map          | `Schema.Struct.Type<typeof fields>`                                 |
 |  [06]   | Schema union       | `typeof X.cases.<Case>.Type`                                        |
@@ -19,7 +17,7 @@ Return types infer from the body, and every type a consumer names derives at its
 - Aliases and interfaces stand where no schema, table, or function states the shape, and a `Schema.Class` names its own type
 - Package option types pass whole as `Omit<Options, '<supplied>'> & { readonly <added>: A }`, omitting the keys the calling layer fills
 - `Types.ExtractTag<E, '<Case>'>` reads one case of an error channel joining errors from other packages
-- `Types.ExtractReason<E, '<Reason>'>` reads one reason of a host error whose `reason` is a tagged union (`HttpClientError`, `PlatformError`)
+- `Types.ExtractReason<E, '<Reason>'>` reads one reason of an error with a tagged union `reason`
 
 ## [02]-[ORDERED_LITERALS]
 
@@ -52,6 +50,7 @@ const Quantity = Amount.check(Schema.isInt()).pipe(Schema.brand('Quantity'));
 
 `typeof Quantity.Type` is `number & Brand<'Amount'> & Brand<'Quantity'>`, a quantity passes to every parameter taking an amount, and decoding one runs both checks:
 - Checks one record field reads stay field checks, brands mark a value signatures across a package take
+- Bounds use their module's ordered check (`Schema.isBetweenDate`, `Schema.isGreaterThanBigDecimal`), `Schema.makeIsGreaterThan({ order })` builds one for another `Order`, and `Schema.makeFilter` states a rule no order states
 - Identities kept apart from same-typed values are a brand over their format check (`Schema.isULID()`), decoded at their source
 - Arithmetic on a branded number yields `number`, and `Quantity.makeOption(sum)` reruns every check and returns the branded value or `Option.none()`
 

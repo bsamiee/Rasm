@@ -1,10 +1,8 @@
 # [TRAITS]
 
-Covers capability traits under static and dynamic dispatch.
-
 ## [01]-[CAPABILITIES]
 
-Capability traits with a generic default method keep it off the vtable:
+`where Self: Sized` keeps a generic default method off the vtable:
 
 ```rust
 #[auto_impl(&, Arc, Box)]
@@ -25,7 +23,7 @@ pub trait Codec {
 }
 ```
 
-Consumers fix one associated type and bound another in one clause: `C: Codec<Value = Reading, Error: Into<StoreError>>`. `where Self: Sized` keeps the generic `decode_all` off the vtable, and `Box<dyn Codec<Value = Reading, Error = CodecError> + Send + Sync>` names every associated type and auto trait its holder needs. `keep_default_for` lets each proxy keep the default in place of forwarding it, the generated impls relax to `T: ?Sized`, and the boxed trait object passes to that consumer and reaches `decode_all` through the default.
+Consumers fix one associated type and bound another in one clause: `C: Codec<Value = Reading, Error: Into<StoreError>>`. `Box<dyn Codec<Value = Reading, Error = CodecError> + Send + Sync>` names every associated type and auto trait its holder needs. `keep_default_for` keeps the default on each proxy in place of forwarding it, and generated impls relax to `T: ?Sized`. Boxed trait objects pass that `C: Codec` bound and reach `decode_all` through the default.
 
 ## [02]-[ASYNC_CAPABILITIES]
 
@@ -43,4 +41,4 @@ where A: Archive {
 }
 ```
 
-Implementors write `async fn put`, and `DynArchive::new_box` or `DynArchive::new_arc` erases a concrete archive. `dynosaur` implements `Archive` for `Box<T>`, `&T`, and `&mut T` with `T: ?Sized`, and one `replicate` serves a slice of one concrete archive with static dispatch and a `Vec<Box<DynArchive<'_>>>` mixing archives chosen at run time. Every target's failure reaches the caller. `dynosaur` rejects `where Self: Sized`, and a generic default method belongs to an `auto_impl` trait.
+Implementors write `async fn put`, and `DynArchive::new_box` or `DynArchive::new_arc` erases a concrete archive. `dynosaur` implements `Archive` for `Box<T>`, `&T`, and `&mut T` with `T: ?Sized`. One `replicate` serves a slice of one archive type statically and a `Vec<Box<DynArchive<'_>>>` of archives chosen at run time. Every target's failure reaches the caller. `dynosaur` rejects `where Self: Sized`, and a generic default method belongs to an `auto_impl` trait.

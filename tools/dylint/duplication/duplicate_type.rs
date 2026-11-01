@@ -10,6 +10,7 @@ use clippy_utils::{
     ty::implements_trait_with_env,
 };
 use itertools::Itertools as _;
+use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
 use rustc_errors::listify;
@@ -340,6 +341,23 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &left.fields, &right.fields)
                     && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &right.fields, &left.fields)
             };
+            let transparent = Symbol::intern("transparent");
+            let forwarding = |case: &Case<'tcx>| {
+                adt.variants()
+                    .iter()
+                    .find(|variant| Some(variant.name) == case.name)
+                    .and_then(|variant| variant.def_id.as_local())
+                    .into_iter()
+                    .flat_map(|variant| tcx.hir_attrs(tcx.local_def_id_to_hir_id(variant)))
+                    .filter_map(|attribute| match attribute {
+                        Attribute::DeriveHelper(helper)
+                            if helper.path.segments.last().is_some_and(|segment| segment.as_str() == "error")
+                                && let AttrArgs::Delimited(delimited) = &helper.args =>
+                            Some(delimited.tokens.iter().collect::<Vec<_>>()),
+                        Attribute::DeriveHelper(_) | Attribute::Tool(_) | Attribute::Parsed(_) => None,
+                    })
+                    .any(|tokens| matches!(tokens.as_slice(), [TokenTree::Token(token, _)] if token.is_ident_named(transparent)))
+            };
             let every = matches!(shape.cases.as_slice(), [first, rest @ ..]
                 if !rest.is_empty() && (first.ctor != Some(CtorKind::Fn) && !first.fields.is_empty() || first.fields.len() > 1) && rest.iter().all(|case| alike(case, first)));
             if every {
@@ -359,12 +377,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && let Some(group) = shape
                     .cases
                     .iter()
-                    .filter(|case| !case.fields.is_empty())
+                    .filter(|case| !case.fields.is_empty() && !forwarding(case))
                     .map(|case| {
                         shape
                             .cases
                             .iter()
-                            .filter(|other| !other.fields.is_empty() && alike(other, case))
+                            .filter(|other| !other.fields.is_empty() && !forwarding(other) && alike(other, case))
                             .filter_map(|other| adt.variants().iter().find(|variant| Some(variant.name) == other.name))
                             .collect::<Vec<_>>()
                     })

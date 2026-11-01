@@ -1,6 +1,6 @@
 # [PHOTOSHOP]
 
-Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays changes inside one modal scope and reads anywhere, with one reply descriptor per command. Native Apple event `do javascript` runs ExtendScript.
+Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays changes inside one modal scope and reads anywhere, and replies with one descriptor per command. Apple event `do javascript` runs ExtendScript.
 
 ## [01]-[MODAL_SCOPES]
 
@@ -10,25 +10,25 @@ Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays ch
 import { type ActionDescriptor, action, core, type ExecutionContext } from 'adobe:photoshop';
 
 const played = (commands: ActionDescriptor[]) =>
-    Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: (cause) => new HostError({ step: Array.map(commands, Struct.get('_obj')).join(', '), cause }) }), (replies) =>
+    Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: (cause) => HostError.make({ step: Array.map(commands, Struct.get('_obj')).join(', '), cause }) }), (replies) =>
         Option.match(
-            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }))(reply), (cause) => new HostError({ step: command, cause }))),
+            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }))(reply), (cause) => HostError.make({ step: command, cause }))),
             { onNone: () => Effect.succeed(replies), onSome: Effect.fail },
         ),
     );
 const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) =>
-    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: (cause) => new HostError({ step: commandName, cause }) })));
+    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: (cause) => HostError.make({ step: commandName, cause }) })));
 const committed = (documentID: number, name: string, commands: ActionDescriptor[]) =>
     modal(name, ({ hostControl }) =>
         Effect.acquireUseRelease(
-            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: (cause) => new HostError({ step: name, cause }) }),
+            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: (cause) => HostError.make({ step: name, cause }) }),
             () => played(commands),
             (suspension, exit) => Effect.promise(() => hostControl.resumeHistory(suspension, Exit.isSuccess(exit))),
         ),
     );
 ```
 
-`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption. Suspensions left open commit when their body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. `Effect.flatten` unwraps the `Exit` the body returns as a value.
+`committed` plays commands as one history state named `name`, or fails with the first refused command's error descriptor and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption. Suspensions left open commit when their body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. `Effect.flatten` unwraps the `Exit` the body returns as a value.
 
 | [INDEX] | [CALL]                                                    | [REPLY]                                                         |
 | :-----: | :-------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -67,7 +67,7 @@ const layers = (documentID: number) =>
     );
 ```
 
-`layers` runs outside every modal scope and fails with an error descriptor as cause for a closed document. `index: 1` starts above a background layer, `count: -1` runs to the last element, and `failOnMissingProperty: false` leaves an absent property out of its record.
+`layers` runs outside every modal scope and fails with an error descriptor as cause for a closed document. `index: 1` starts above a background layer, `count: -1` runs to the last element, and `failOnMissingProperty: false` omits an absent property.
 
 | [INDEX] | [VALUE]     | [FORM]                                                             |
 | :-----: | :---------- | :----------------------------------------------------------------- |
@@ -88,9 +88,9 @@ const layers = (documentID: number) =>
 
 ## [03]-[DOM]
 
-DOM members are JavaScript over descriptors: a getter plays a synchronous `get`, and a setter or method plays `saveDocumentSelection`, a `select` of its target, and its command in one batch, which leaves the selection as it was.
+DOM members are JavaScript over descriptors, and a getter plays a synchronous `get`. Setters and methods play `saveDocumentSelection`, a `select` of their target, and their command in one batch that leaves the selection unchanged.
 
-| [INDEX] | [NEED]                        | [FORM]                                       | [DECIDING_FACT]                                    |
+| [INDEX] | [NEED]                        | [FORM]                                       | [REASON]                                           |
 | :-----: | :---------------------------- | :------------------------------------------- | :------------------------------------------------- |
 |  [01]   | Many properties, many targets | One `multiGet`, getters for one read         | One call reads every target                        |
 |  [02]   | Enumeration comparison        | `constants` member under `===`               | Strings, numbers in `SaveOptions` and `SampleSize` |
@@ -119,7 +119,7 @@ Members answer failures in their own form:
 
 ## [04]-[EVENTS]
 
-`action.addNotificationListener(events, handler)` calls `handler(event, descriptor)` for each listed event name, and `removeNotificationListener` with the same names and function removes it:
+`action.addNotificationListener(events, handler)` calls `handler(event, descriptor)` for each listed event. `removeNotificationListener` with the same names and function removes it:
 - User commands arrive with `_isCommand: true` in the descriptor
 - Plays from a plugin's own modal scope, interactive included, and plays from ExtendScript reach no listener of that plugin
 - `core.addNotificationListener('UI', events, handler)` delivers interface events, and group `'OS'` system ones (`displayConfigurationChanged`)
@@ -127,13 +127,13 @@ Members answer failures in their own form:
 
 ## [05]-[EXPORT]
 
-`document.saveAs` holds `psd`, `psb`, `jpg`, `gif`, `png`, and `bmp`, each taking `(file, options, asCopy)` inside a modal scope with a UXP `File` entry:
+`document.saveAs` holds `psd`, `psb`, `jpg`, `gif`, `png`, and `bmp`, each taking `(file, options, asCopy)` in a modal scope with a UXP `File` entry:
 - `localFileSystem.getEntryWithUrl('file:<folder>')`, then `createFile(<name>, { overwrite: true })`, gives the entry under `fullAccess`
 - `asCopy` true writes the file and leaves `title` and `path` unchanged
 - `close()` opens a save dialog under default `SaveOptions.PROMPTTOSAVECHANGES`, and `closeWithoutSaving()` in a scope discards changes synchronously
 - `hostControl.registerAutoCloseDocument(documentID)` closes a working document unsaved when its scope ends
 - `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`, and plain paths reject "invalid file token used"
-- `exportmanager`, which neither typing declares, serves any plugin outside a modal scope
+- `exportmanager` serves any plugin outside a modal scope, and neither typing declares it
 - `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file
 - `exportOptions` hold `scaleHorizontal` and `scaleVertical` in percent, and `formatOptions` `{ name: 'png', colorType: 'png24' }`
 - `imaging` calls other than `createImageDataFromBuffer` throw `number` 1000 outside a modal scope, and `putPixels` records one history state
@@ -148,7 +148,7 @@ One `get` of the application property `fontList` returns parallel arrays `fontNa
 - `characterStyle.font` reads and writes a PostScript name
 - DOM text sizes are pixels and `textKey` sizes points, `textStyle.size` holding DOM `size` times 72 over resolution
 
-## [07]-[PLUG_INS]
+## [07]-[PLUGINS]
 
 Manifest host data decides when Photoshop loads a plugin and which calls need a scope:
 

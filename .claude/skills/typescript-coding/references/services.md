@@ -1,7 +1,5 @@
 # [SERVICES]
 
-Covers services, layers, and runtimes.
-
 ## [01]-[SERVICE_CLASSES]
 
 Service classes are keys programs yield, and `make` states each implementation a static layer builds:
@@ -33,8 +31,8 @@ Settings decode once at layer build, and a missing or invalid key fails the buil
 class Ledger extends Context.Service<Ledger>()('@app/ledger', {
     make: Effect.gen(function* () {
         const { url, token } = yield* Config.schema(Schema.Struct({ url: Schema.URL, token: Schema.Redacted(Schema.String) }), 'ledger');
-        const client = yield* Effect.acquireDisposable(Effect.tryPromise({ try: () => LedgerClient.connect(url, Redacted.value(token)), catch: (cause) => LedgerError.make({ reason: 'unavailable', subject: url.host, cause }) }));
-        return { post: Effect.fn('Ledger.post')((entry: Entry) => Effect.tryPromise({ try: (signal) => client.post(entry, { signal }), catch: (cause) => LedgerError.make({ reason: 'rejected', subject: entry.id, cause }) })) };
+        const client = yield* Effect.acquireDisposable(Effect.tryPromise({ try: () => LedgerClient.connect(url, Redacted.value(token)), catch: (cause) => LedgerError.make({ reason: { _tag: 'Unavailable' }, subject: url.host, cause }) }));
+        return { post: Effect.fn('Ledger.post')((entry: Entry) => Effect.tryPromise({ try: (signal) => client.post(entry, { signal }), catch: (cause) => LedgerError.make({ reason: { _tag: 'Rejected' }, subject: entry.id, cause }) })) };
     }),
 }) {
     static readonly layer = Layer.effect(this, this.make);
@@ -46,7 +44,8 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger', {
 - Fields decode into their domain type (`Schema.URL`, `Schema.Int`, `Schema.DurationFromString`), readers receive the decoded value
 - Separated lists in one variable (`a,b`) read through `Config.Array(schema, path)`, `key=value` pairs through `Config.Record`
 - Secrets are `Schema.Redacted(Schema.String)` fields, rendered as `<redacted>` until `Redacted.value` reads one at the host call
-- `ConfigProvider.ConfigProvider` is a reference, and each root replaces it once (`fromEnv()` in a process, `fromUnknown` over a host record)
+- `ConfigProvider.ConfigProvider` is a reference defaulting to `fromEnv()`, and a root replaces it to transform paths (`constantCase`, `nested`), read a host record (`fromUnknown`), or add a source (`ConfigProvider.layerAdd`)
+- Configs are effects, `Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL'))` sets a reference from a setting
 - Implementations a setting selects are `Layer.unwrap` over one table of layers, keyed by a `Schema.Literals(Struct.keys(table))` field
 
 ## [03]-[SCOPED_RESOURCES]
@@ -84,19 +83,20 @@ const Store = Checkout.layer.pipe(Layer.provideMerge(Pricing.layer), Layer.provi
 - Swappable dependencies stay in their reading layer's requirements, and each root provides its host's implementation
 - References stay out of requirements, and a root provides `ConfigProvider` in its last `Layer.provide` to reach every layer
 - Layers memoize by reference within one build, a layer function's result binds to one `const`, `Layer.fresh` builds one per consumer
-- `Effect.provide` reuses a layer an enclosing `provide` or runtime built, `{ local: true }` builds its own
-- Graphs a request value selects (a tenant, a region) are one `LayerMap.Service` whose `lookup` maps the key to a layer
+- `Effect.provide` reuses a layer an enclosing `provide` or runtime built, `{ local: true }` builds its own, and sibling `provide` calls of one layer each build it
+- Graphs a request value selects (a tenant, a region) are one `LayerMap.Service` with a `lookup` mapping the key to a layer
 - `Effect.provide(Tenants.get(tenant))` builds a key's graph on first use and releases it `idleTimeToLive` after its last user
 
 ## [05]-[RUNTIME]
 
 Hosts run their composed graph once at an entry point, and each host's lifecycle selects its runtime call:
 
-| [INDEX] | [HOST]                              | [ENTRY]                                                             |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Process program owns                | `NodeRuntime.runMain` over `Layer.launch` or main effect            |
-|  [02]   | Host calling effects on its events  | `ManagedRuntime.make(layer)`, one `runPromise` per event            |
-|  [03]   | React tree reading effects as state | `Atom.runtime(layer)` from `effect/reactivity`, its `atom` and `fn` |
+| [INDEX] | [HOST]                              | [ENTRY]                                                  |
+| :-----: | :---------------------------------- | :------------------------------------------------------- |
+|  [01]   | Process program owns                | `NodeRuntime.runMain` over `Layer.launch` or main effect |
+|  [02]   | Host calling effects on its events  | `ManagedRuntime.make(layer)`, one `runPromise` per event |
+|  [03]   | Platform calling a fetch handler    | `HttpRouter.toWebHandler(layer)` at module scope         |
+|  [04]   | React tree reading effects as state | `Atom.runtime(layer)` from `effect/reactivity`           |
 
 ```ts
 Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, ConfigProvider.layer(ConfigProvider.constantCase(ConfigProvider.fromEnv()))]), Layer.launch, NodeRuntime.runMain);

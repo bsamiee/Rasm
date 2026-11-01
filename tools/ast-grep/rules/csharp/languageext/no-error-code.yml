@@ -62,4 +62,4 @@ rule:
             - has: {field: name, pattern: $CODE}
             - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: code-cast}}
 message: '`$CODE` supplies a custom error code'
-note: 'Pass code `0` and branch on error record type, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for LanguageExt failures'
+note: 'Pass code `0` and branch on the package error `Reason`, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for LanguageExt failures'

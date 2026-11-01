@@ -1,10 +1,8 @@
 # [STREAMS]
 
-Values over time as async sequences, from a host source through operators to back pressure and sharing.
-
 ## [01]-[SOURCES]
 
-Host APIs that deliver values over time return an async sequence of their own (`NotificationCenter.messages(of:for:)`, `URL.lines`, `FileHandle.bytes`), and a consumer iterates it as declared. Callback APIs that register a handler and return a token enter through one generic function that infers value and token types from the host's signatures:
+Host APIs delivering values over time return their own async sequence (`NotificationCenter.messages(of:for:)`, `URL.lines`, `FileHandle.bytes`). Consumers iterate it as declared. Callback APIs returning a registration token enter through one generic function that infers value and token types from host signatures:
 
 ```swift
 func values<Value: Sendable, Token: Sendable>(
@@ -45,7 +43,7 @@ func total(of url: URL, price: (String) throws(OrderError) -> Decimal) async thr
 
 ## [03]-[OPERATORS]
 
-Pipelines read as one expression from sources to the values a consumer receives, each operator holding the state its rule needs (`removeDuplicates` the last element, `reductions` a running fold, `adjacentPairs` the predecessor):
+Pipelines are one expression from sources to consumed values. Operators hold the state their rule needs (`removeDuplicates` the last element, `reductions` a running fold, `adjacentPairs` the predecessor):
 
 ```swift
 func overdrafts(
@@ -87,7 +85,7 @@ func totals(of cart: Cart) -> some AsyncSequence<Decimal, Never> {
 - Tracking covers the properties the closure read on its latest run, a branch that stops reading a property stops tracking it
 - Mutations from the first `willSet` to the next suspension point form one transaction and yield one element
 - Each iterator yields the current value at its first `next()`, and a consumer slower than the model receives the newest value at its next `next()`
-- One `Observations` value serves every consumer the same elements without a buffer, a failure its closure throws ends every iterator, and cancellation ends one
+- One `Observations` value serves every consumer the same elements unbuffered, a closure failure ends every iterator, and cancellation ends one
 
 ## [05]-[BACK_PRESSURE]
 
@@ -121,7 +119,7 @@ func drain<Item: Sendable>(
 }
 ```
 
-`produce` sends from any number of child tasks of its own, `finish()` after it returns ends the consumer's loop, and cancelling the caller cancels both sides.
+`produce` can send from its own child tasks, `finish()` after it returns ends the consumer's loop, and cancelling the caller cancels both sides.
 
 ## [06]-[SHARING]
 

@@ -5,18 +5,18 @@ description: "Use when writing or reviewing C#, covering functional design with 
 
 # [DOTNET_CODING]
 
-Covers C# design decisions from signature shape to host boundary. LanguageExt and Thinktecture are part of the language, every example uses their types as vocabulary.
+Covers C# design decisions under workspace standards (TOTALITY, PURITY, BOUNDARY), from signature shape to host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary.
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): `>>` pipelines, operation records and rule rows as data, and the composition root wiring a request's effects
-- [02]-[SEQUENCES](references/sequences.md): Deferral and caching, keyed and one-pass reductions, and adjacent-pair comparison
-- [03]-[RESULTS](references/results.md): `Fin` workflows joining independent checks and binding dependent steps, and recursive union folds
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshot transitions, entity registries, equality through a snapshot graph, and persistent collection costs
-- [05]-[EFFECTS](references/effects.md): A pure core between injected reads and writes, lifting host calls, and the lease scopes they acquire
-- [06]-[STATE](references/state.md): Running state through `Fold`, `Scan`, and zip alignment, and unfolding from a seed
-- [07]-[STREAMS](references/streams.md): Sources with per-item results and one boundary reducer, and agents serializing commands over one owned state
-- [08]-[EVENT_SOURCING](references/event-sourcing.md): Events, snapshots rebuilt from history, commands appending at an expected position, and projections
-- [09]-[LANGUAGE_FEATURES](references/language-features.md): Declarations that replace a family of members with one, from type parameters to caller information
+- [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
+- [02]-[SEQUENCES](references/sequences.md): Worked flows behind the expression rules, from deferral to a text-to-report pipeline
+- [03]-[RESULTS](references/results.md): Worked flows for validators, `Fin` workflows, host translation, union folds, and result equations
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshot and transition model behind the immutability rules, with persistent structure costs
+- [05]-[EFFECTS](references/effects.md): Worked flows for effects at the boundary, from isolating I/O and injection to running the composed effect
+- [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
+- [07]-[STREAMS](references/streams.md): Observable model and agent model, with per-item failure, backpressure, and entity processes
+- [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
+- [09]-[LANGUAGE_FEATURES](references/language-features.md): Language and runtime features that reshape declarations, with when each applies
 
 ## [01]-[FUNCTIONS]
 
@@ -35,12 +35,11 @@ Function signatures are contracts, input types describe every value the function
 - Declared delegates stay for `ref`, `out`, `in`, `params`, and pointer parameters, one per signature, or names telling same-typed parameters apart
 - Extension members sit in one `extension(<receiver>)` block per receiver with its type parameters, constraints, and `ref` or `in` in place of `this`
 - Multi-argument method groups defeat generic type inference, a partially applied function is a `Func` field, property, or factory
+- `fun` gives an inline lambda its delegate type
 - Signatures leave semantic detail unstated (`Where` and `TakeWhile` share one), names state it
 - Records hold inputs and outputs, functions hold behavior
 - Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter
-- Constrained types exist one per rule the domain owns, never one per quantity name or UI bound, and declare comparison only where a consumer orders values
-- Strings hold text a person reads or a wire's fixed token, a kind, key, or member name derives through `nameof` or a caller attribute
-- Identity derives from a typed key and never from a label a person reads
+- Constrained types exist only for a rule the domain owns, comparison stands where a consumer orders values, a type with no rule goes
 
 ### [01.1]-[HONEST_SIGNATURES]
 
@@ -67,30 +66,28 @@ Pure methods can be static, every value they need is an argument or immutable, a
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
-Higher-order functions accept a function, return one, or both, and a delegate is the function value. The higher-order function owns the stable control flow and the caller supplies the varying rule: `Filter` owns iteration and the caller owns the inclusion criterion, `IfNone(Func<T>)` owns the cache miss and the caller owns the fallback work. Function factories close over configuration and return a unary function, and `f >> g` joins `Func` values into one function that applies `f` first:
+Higher-order functions accept a function, return one, or both, and a delegate is the function value. The higher-order function owns the stable control flow and the caller supplies the varying rule: `Filter` owns iteration and the caller owns the inclusion criterion, `IfNone(Func<T>)` owns the cache miss and the caller owns the fallback work. Closures combine a lambda with its declaring context, the declared signature stays unary and the computation reads the captured values beside its argument:
+
+```csharp
+Seq<DayOfWeek> days = toSeq(Enum.GetValues<DayOfWeek>());
+Seq<DayOfWeek> StartingWith(string prefix) => days.Filter(day => day.ToString().StartsWith(prefix, StringComparison.Ordinal));
+Seq<DayOfWeek> matched = StartingWith("S");
+```
+
+Function factories turn configuration into behavior. `compose(f, g)` joins functions into one function that applies `f` first (method groups need its explicit type arguments), method chaining expresses the same flow inline:
 
 ```csharp
 internal static class Factories {
     public static Func<int, bool> IsMod(int divisor) => value => value % divisor is 0;
-    public static Func<int, int> Scale(int factor) => value => value * factor;
-    public static Seq<int> Matched(Seq<int> values, int factor = 2, int divisor = 3) => values.Filter(Scale(factor) >> IsMod(divisor));
+    public static Seq<int> MultiplesOfThree => toSeq(Range(1, 20)).Filter(IsMod(3));
 }
 ```
 
-Both `>>` operands are typed `Func` values (a field, a factory result, a parameter), a method group or lambda has no type in operator resolution (CS0019) and takes one through `fun`. Order parameters for partial application: dependencies and configuration known at composition root, then policies that select behavior, then the runtime value. Dependencies are functions describing behavior a consumer needs: a clock is a `TimeProvider`, a validator `T -> Fin<T>`, a lookup `Guid -> IO<Option<T>>`, and persistence `T -> IO<Unit>`. Composition roots read configuration, adapt infrastructure into dependency functions, partially apply dependencies and policies, and inject only specialized functions into handlers. I/O calls make every delegating layer above them impure.
-
-Variants that differ in the functions they supply are rows of one record of those functions, defaults as `init` members, and one generic operation reads every row:
-
-```csharp
-internal sealed record Table<T>(Func<Seq<T>> Rows, Func<T, Guid> Id) {
-    public Func<T, bool> Live { get; init; } = static _ => true;
-
-    public Option<T> Find(Guid id) => Rows().Find(row => Live(row) && Id(row) == id);
-}
-```
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), partial application (`par`) fixes leading arguments and returns a function of the rest. Order parameters for left-to-right application: dependencies and configuration known at composition root, then policies that select behavior, then the runtime value. Dependencies are functions describing behavior a consumer needs: a clock is a `TimeProvider`, a validator `T -> Fin<T>`, a lookup `Guid -> Eff<RT, Option<T>>`, and persistence `T -> IO<Unit>`. Composition roots read configuration, adapt infrastructure into dependency functions, partially apply dependencies and policies, and inject only specialized functions into handlers. I/O calls make every delegating layer above them impure.
 
 Select the form by the call site:
 - Specialization when it simplifies call sites
+- Function collections when behaviors share a signature and vary as data
 - `ForAll` or `Exists` when a short-circuiting boolean suffices
 - Ordered rule table with an explicit fallback for a first-match decision over values
 - Returned closure to narrow a noisy API to one operation
@@ -110,7 +107,7 @@ internal static class Projections {
 }
 ```
 
-Prefer a query over a mutable accumulator, a named reduction (`Min(seed)`, `Max(seed)`) over a `Fold` that restates it, `Fold` with a seed for any other reduction, and indexed `Map` over a declared counter. Grouped reductions are `CountBy` and `AggregateBy`. One-arm `x switch { var y => … }` bindings stay for a value an expression reads more than once or inside a lambda, and a binding read once or never is inlined.
+Prefer a query over a mutable accumulator, a named reduction (`Min(seed)`, `Max(seed)`) over a `Fold` that restates it, `Fold` with a seed for any other reduction, and indexed `Map` over a declared counter. One-arm `x switch { var y => … }` bindings stay for a value an expression reads more than once or inside a lambda, and a binding read once or never is inlined.
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -132,7 +129,13 @@ internal static class Rates {
 }
 ```
 
-Each arm states an input category beside its outcome, and the switch expression forms a function body or a `Func` passed to a higher-order function. Type patterns bind the typed value only when the arm reads its properties, and extended property patterns (`{ Parent.Depth: 0 }`) reach nested data without extracting each intermediate object.
+Each arm states an input category beside its outcome, and the switch expression forms a function body or a `Func` passed to a higher-order function. Pattern forms:
+- Type patterns test a runtime type and bind the typed value only when the arm needs its properties
+- Property patterns inspect the shape of an object
+- Extended property patterns (`{ Parent.Name: "root" }`) inspect nested data without extracting each intermediate object
+- Relational and logical patterns (`>`, `and`, `not`) express ranges and exclusions inside a pattern
+- `when` adds a guard, `_` is the discard for the fallback arm
+- List patterns recognize values at the beginning, middle, or end of an array with known headers or footers
 
 C# has no active patterns, `Deconstruct` is the only user code that runs inside a pattern and cannot fail. Interpret an external value once near its source into `Option<A>` or a closed union (`parseInt(text)`, a classifier returning a `[Union]` case), then match the typed result.
 
@@ -149,8 +152,6 @@ internal static class Report {
 }
 ```
 
-Tuple shapes repeated across signatures are a record.
-
 ### [02.3]-[RECURSION]
 
 Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, the depth bound and successor sharing select the form:
@@ -158,17 +159,23 @@ Recursive functions need a base case that returns the final value, a recursive c
 | [INDEX] | [APPROACH]                | [USE_WHEN]                                                   | [COST]                                   |
 | :-----: | :------------------------ | :----------------------------------------------------------- | :--------------------------------------- |
 |  [01]   | Direct recursion          | Maximum depth small and bounded                              | Unbounded calls grow the stack           |
-|  [02]   | `Monad.recur`             | Unbounded depth, only the final value needed                 | Intermediate states are lost             |
-|  [03]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>` | Each `unfold` call reruns the transition |
-|  [04]   | Graph traversal           | Shared or cyclic successors (dependencies, references)       | Graph built before the walk              |
+|  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                             | Every step is a deferred call            |
+|  [03]   | `Monad.recur`             | Effectful transition, only the final value needed            | Intermediate states are lost             |
+|  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>` | Each `unfold` call reruns the transition |
+|  [05]   | Graph traversal           | Shared or cyclic successors (dependencies, references)       | Graph built before the walk              |
 
-Graphs build once into an `ArrayBidirectionalGraph<V, SEquatableEdge<V>>` a record holds, a successor function walks as an implicit graph through `ToDelegateIncidenceGraph`, and a cyclic graph orders through `SourceFirstBidirectionalTopologicalSort` over `CondensateStronglyConnected` with each cycle as one component. Recursive unions with children no other parent holds keep the union fold.
+Graphs build once into a read-only graph a record holds, successor functions walk as implicit graphs, and cyclic graphs order through their condensation with each cycle as one component. Recursive unions with children no other parent holds keep the union fold.
 
 ## [03]-[IMMUTABILITY]
 
-Immutable values are fixed once created, a needed change derives a new value from existing values through `with`, and a state transition is a function that receives the old state and the information the change needs and returns the replacement:
+Immutable values are fixed once created, a needed change derives a new value from existing values, and a state transition is a function that receives the old state and the information the change needs and returns the replacement. Language features constrain reassignment:
+- `readonly` protects the fields and not the objects reached through them
+- `init` accessors permit object-initializer syntax and prevent reassignment after initialization
 - `required` marks a property that cannot be omitted, optional parts are `init` members or defaulted parameters in place of a positional `None`
-- Declared types are records, classes, and unions, a `struct` only for a native layout or a struct-constrained type argument of a package or kernel API
+- `record` supports nondestructive mutation through `with`, which copies the unchanged properties and leaves the original unchanged
+- State machines pattern match the next interaction to select the transition
+- Getter-only auto-properties get a compiler-generated readonly backing field, assigned inline or in the constructor
+- Declared types are records, classes, and unions, a `struct` only where a native call, package API (a parallel action), or per-sample kernel the JIT specializes over a static abstract type argument requires one
 
 ```csharp
 internal sealed record Document {
@@ -185,37 +192,33 @@ internal static class Editions {
 None of `readonly`, `init`, and `with` makes a referenced child object immutable, immutability extends through every referenced value:
 - Remove setters and construct through a constructor or factory that enforces required values and invariants, an invalid snapshot cannot exist
 - Seal the type, store collections as `Seq<A>`, copy a mutable input collection at the boundary with `toSeq`, and keep element types immutable
+- `Lens<A, B>` with `lens(outer, inner)` updates a nested field
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
-- Tables built once and only read publish as `FrozenDictionary<K, V>` or `FrozenSet<T>`
 
-Partial overrides are a record of `Option` fields implementing `Monoid<T>`: `|` keeps the override's present value, `HashMap.Union(Merge:)` combines nested maps, and `Monoid.combine` folds a `Seq` of layers into one value:
+In-place updates (`List<T>.Sort()`) destroy the prior value, transformations preserve it and `values` keeps its order:
 
 ```csharp
-internal sealed record Style : Monoid<Style> {
-    public static Style Empty { get; } = new();
-
-    public Option<Color> Fill { get; init; }
-    public Option<float> Weight { get; init; }
-    public HashMap<Part, Style> Parts { get; init; }
-
-    public Style Combine(Style rhs) =>
-        new() { Fill = rhs.Fill | Fill, Weight = rhs.Weight | Weight, Parts = Parts.Union(rhs.Parts, Merge: static (_, under, over) => under.Combine(over)) };
-}
+Seq<int> values = Seq(7, 6, 1);
+Seq<int> sorted = toSeq(values.Order());
 ```
+
+Concurrent reorders of a shared list during a sum give readers an inconsistent traversal, a separate ordered view removes interference. Choose collections by their most frequent operation: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups successors update, `FrozenDictionary<K, V>` for a table built once and only read, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
 
 ## [04]-[RESULTS]
 
 Every function returns an explicit result type, and one type serves one concern:
 
-| [INDEX] | [TYPE]         | [CONCERN]                                     |
-| :-----: | :------------- | :-------------------------------------------- |
-|  [01]   | `Option<A>`    | Absence without an `Error`                    |
-|  [02]   | `Fin<A>`       | Expected failure, `Bind` stops, `Apply` joins |
-|  [03]   | `Either<L, R>` | Value of either type, neither an error        |
-|  [04]   | `Try<A>`       | Synchronous exception capture, deferred       |
-|  [05]   | `IO<A>`        | Side effects with a failure channel           |
+| [INDEX] | [TYPE]             | [CONCERN]                                     |
+| :-----: | :----------------- | :-------------------------------------------- |
+|  [01]   | `Option<A>`        | Absence without an `Error`                    |
+|  [02]   | `Fin<A>`           | Expected failure, `Bind` stops, `Apply` joins |
+|  [03]   | `Either<L, R>`     | Value of either type, neither an error        |
+|  [04]   | `Validation<F, A>` | Failures of a monoid `F` other than `Error`   |
+|  [05]   | `Try<A>`           | Synchronous exception capture, deferred       |
+|  [06]   | `IO<A>`            | Side effects with a failure channel           |
+|  [07]   | `Eff<RT, A>`       | Effects that read a capability                |
 
-Input boundaries select the result type, functions preserve it, and conversions happen at one named boundary through the method named for the target (`ToFin`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations, and `IfNone` with a value stands only where the domain defines that value as the answer to absence. Values of `A` and `Error` lift into `Fin<A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+Input boundaries select the result type, functions preserve it, and conversions happen at one named boundary through the method named for the target (`ToFin`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -230,6 +233,7 @@ Give each step a function and select the operator by the step's signature and by
 |  [05]   | `Seq<A>` with `A -> F<B>`  | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
 |  [06]   | `T -> void`                | `Iter`                                 | Performs the terminal effect only for a present value       |
 
+- Errors from one traversed element hold the element index
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
 - Nested `Bind` calls become a query when an inner step reads the callback value, an inner step reading nothing bound moves to the outer chain
 - Final `from` clauses that `select` returns unchanged become `select <value>` over the earlier steps
@@ -238,45 +242,38 @@ Give each step a function and select the operator by the step's signature and by
 
 ```csharp
 internal static class Workflow {
-    public static Fin<Account> Handle(Command command, HashMap<Guid, Account> accounts) =>
-        from account in accounts.Find(command.Account).ToFin(Fault.Of(Reason.Missing, command.Account))
-        from _ in (Fault.Unless(command.Amount > 0m, Reason.Range, command.Amount), Fault.Unless(command.Date >= account.Opened, Reason.Order, (command.Date, account.Opened)))
-            .Apply(static (_, _) => unit).As()
-        from next in account.Transition(command.Amount)
+    public static Fin<Account> Handle(Command command, Account state) =>
+        from normalized in Pure(Normalize(command)).ToFin()
+        from _ in Fault.Unless(IsValid(normalized), Reason.Invalid, normalized)
+        from next in state.Transition(normalized.Amount)
         select next;
 }
 ```
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record extending `Expected` with code 0 and a `<reason>: <subject>` message. Its reason is a smart enum of rule categories a consumer tells apart (range, order, missing, malformed, refused), each item holding its message text and no host value, and its subject names the rejected values from their call text through `[CallerArgumentExpression]`. `Of` builds the error from one value or a tuple, `Unless` returns `Fin<Unit>` through it, and an `Option` converts with `.ToFin(Fault.Of(…))`:
+Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and a reason as fields, the reason a smart enum with items holding their message text, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and a `<reason>: <subject>` message that reads whole for the rejected values and for the generated message `Create` receives. Records hold only fields, one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`), and the `Create(string)` `IValidationError` requires, a limit or other operation sits in the raising class. `Unless` takes the rejected values as its subject, one value or a tuple, named from their call text through `[CallerArgumentExpression]`:
 
 ```csharp
 [SmartEnum]
 public sealed partial class Reason {
-    public static readonly Reason Range = new("out of range");
-    public static readonly Reason Order = new("out of order");
+    public static readonly Reason Stated = new("rejected input");
+    public static readonly Reason Invalid = new("rule violated");
     public static readonly Reason Missing = new("missing");
-    public static readonly Reason Malformed = new("malformed");
-    public static readonly Reason Refused = new("refused");
 
     public string Message { get; }
 }
 
-public sealed record Fault(string Subject, Reason Reason, Option<Error> Inner = default) : Expected($"{Reason.Message}: {Subject}", 0, Inner) {
-    public static Fault Of<T>(Reason reason, T rejected, Option<Error> inner = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        new(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, inner);
+public sealed record Fault(string Subject, Reason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner), IValidationError<Fault> {
+    public static Fault Create(string message) => new(message, Reason.Stated);
 
-    public static Fin<Unit> Unless<T>(bool flag, Reason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : Of(reason, rejected, names: names);
+    public static Fin<Unit> Unless<T>(bool flag, Reason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
+        flag ? unit : new Fault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }
 ```
 
-- Traversals pass the element index inside the rejected tuple, `Inner` holds a wrapped cause, and a limit or other operation sits in the raising class
-- Tables from a reason to a host answer derive from the function that raises it
-- Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message
-
-Consumers branch on the package error's `Reason` through `Filter<E>`, recover through a `Catch` predicate, and test a captured exception with `HasException<E>`. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its `Inner`. `Fin<A>` holds violated business rules, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. Hosts separate both in one `Match`, `IsExceptional` logs detail and renders a generic failure, every other error renders its business message.
+Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Fin<A>` holds violated business rules, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. Hosts separate both in one `Match`, `IsExceptional` logs detail and renders a generic failure, every other error renders its business message.
 
 Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
@@ -302,13 +299,34 @@ internal abstract partial record Shape {
 - Unions fit a growing set of operations, abstract members fit a growing set of cases
 - Use a union of named outcomes when the consumer needs the names, and `Option`, `Fin`, or `Either` otherwise
 - Keep absence and failure separate when the consumer responds differently
-- Operations are functions and not cases: one record holds the call as `Func<T, IO<T>>` and its name from `[CallerArgumentExpression]`
-- Records pairing a tag with a value implement `K<F, A>` under a witness implementing `Traversable<F>`, and `Map` and `Traverse` come from LanguageExt
-- Recursive cases pass their children to the base constructor, and one `Fold` stepping over a node and its folded children serves every reduction
+- Fold a recursive union with one replacement per constructor, and fold an unbounded depth through `Trampoline<A>`
+
+### [04.4]-[ANTI_PATTERNS]
+
+| [INDEX] | [WRONG_FORM]                                                              | [CORRECT_FORM]                                              |
+| :-----: | :------------------------------------------------------------------------ | :---------------------------------------------------------- |
+|  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                                        |
+|  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                                     |
+|  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                                  |
+|  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer                |
+|  [05]   | `Fin`, `Either<Error, A>`, `Validation`, or `Try` inside an effect        | `Expected` on `IO`, `ValidationT<Error, IO, A>` accumulates |
+|  [06]   | `Run` inside a pipeline performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step                      |
+|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                             |
+|  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases               |
+|  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                              |
+|  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data                           |
+|  [11]   | `from` chain or `ToValidation` round trip over independent checks         | Tuple `Apply` or `Traverse` over `Fin` checks               |
 
 ## [05]-[EFFECTS]
 
-`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a rejection as an `Expected` on that channel in place of a nested result. Operations that wait on I/O enter through `IO.liftAsync` and have no synchronous counterpart that blocks a thread. Passes, caches, and memoized derivations take the `IO` and run nothing, the host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
+`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a rejection as an `Expected` on that channel in place of a nested result:
+- `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel
+- `IO.liftAsync` adapts a task thunk, its `EnvIO` overload passes `env.Token`
+- Operations that wait on I/O enter through `IO.liftAsync` and have no synchronous counterpart that blocks a thread
+- `IO.pure` and `IO.fail` build the plain cases
+- `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, `IO<A>` converts to it implicitly
+
+Host runs the effect once, `RunSafe()` returns the `Fin<A>` for translation into the host's vocabulary, and `Run` throws and belongs to `Main`:
 
 ```csharp
 internal static class Host {
@@ -319,74 +337,70 @@ internal static class Host {
 }
 ```
 
-Host APIs enter the domain in their own types and answers:
-- Host types, presets, and argument lists pass as the host type or a function over it, a fact the host hides is an extension property on that type
-- Package and host enums stay those enums
-- Documented unset values become `Option` at the call
-- Bulk host calls that answer once for partial success run per element under `Traverse`, one error per element
-- Host outputs with a validity flag pass after the flag is tested, a typed failure on false
-- Host rules reach the domain as the host's answer or exception mapped to a typed case
-- Host members lift at the caller where they compose
-- Events are a function attaching a `Func<TArgs, IO<Unit>>` handler, `use(add, remove)` pairs the attach with its detach at the consumer
-
 ### [05.1]-[DEPENDENCIES]
 
-Inject the narrowest dependency that represents what consumers need: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, a function for an operation over the consumer's input, and one interface resolved once for a seam each platform implements in full. Clocks behind an interface leave consumers impure, an injected date makes a consumer deterministic:
+Inject the narrowest dependency that represents what consumers need: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, a runtime `RT` for a consumer that reads many capabilities, and one interface resolved once for a seam each platform implements in full. Clocks behind an interface leave consumers impure, an injected date makes a consumer deterministic:
 
 ```csharp
 internal static class Validators {
     public static Func<Command, Fin<Command>> NotPast(LocalDate today) =>
-        command => Fault.Unless(command.Date >= today, Reason.Order, (command.Date, today)).Map(_ => command);
+        command => Fault.Unless(command.Date >= today, Reason.Invalid, command.Date).Map(_ => command);
 }
 ```
 
-Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`) and is the one time type model fields hold, a `TimeSpan`, tick, or second count appears only at an API taking one. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Generators derive wire names, patterns, and option rules through a `[JsonSerializable]` `JsonSerializerContext`, `[GeneratedRegex]`, and `[OptionsValidator]`, and a format reused at runtime parses once into `CompositeFormat`.
-
-Leases are `use` scopes, `use(acquire, release)` names a release action, and `.Bracket()` on the query opening with the first `use` releases every resource on both paths. A commit is a step after the work, outside its release action:
-
-```csharp
-internal static class Exports {
-    public static IO<Unit> Written(FileInfo target, Func<Stream, IO<Unit>> write) =>
-        (from stream in use(target.Create)
-         from written in write(stream)
-         select written).Bracket();
-}
-```
+Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`) and is the one time type model fields hold, a `TimeSpan`, tick, or second count appears only at an API taking one. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside its release action.
 
 ### [05.2]-[POLICIES]
 
 Failure policies are distinct operations:
 - Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `primary | @catch(predicate, f)` for one classified error
-- Retry reruns a transient failure on a `Schedule`
+- Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(3))`
 - Recovery maps a final error to a value at the host, `IfFail` on the `Fin<A>`
 
-Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. Dependency between effects selects the traversal (`Traverse` overlaps independent effects, `TraverseM` runs dependent ones in order), a concurrency bound chunks the input, and a caller keeping successes beside failures partitions them. State stays unshared, and one value shared across effects serializes its changes through `Atom<A>` or `AtomHashMap<K, V>` with an update function free of effects. Values arriving over time are a `Source<A>` with each expected failure a `Fin<A>` item, request-response work stays an `IO<A>`.
+Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. The dependency structure and the concurrency bound select the traversal:
 
-Use `Skill(dotnet-coding-languageext)` for traversal, concurrency, shared state, and stream members.
+| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                            |
+| :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Independent checks           | `Traverse` or tuple `Apply` on `Fin`    | Joins every error                                     |
+|  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails   |
+|  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                    |
+|  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
+|  [05]   | Every effect, failures kept  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
+
+Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, `awaitAll` runs a `Seq<IO<A>>`. Keep state unshared, and when one logical value must be shared, serialize its changes:
+- `Atom<A>` replaces the value with compare-and-swap
+- `AtomHashMap<K, V>` holds a registry with `FindOrAdd`
+- `Ref<A>` under `atomic` commits coordinated updates
+- `Conduit` reduced under `Fork` serializes commands as an agent
+- Conflicts rerun the update function, the function stays free of effects
+
+Delivery shape selects the construct:
+- `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow
+- Expected per-item failures stay `Fin<A>` values inside the stream
+- Independent events take a callback or an `IO<A>`, request-response work stays out of a stream
+- Coordination that needs explicit queues and exact sequencing takes a `Conduit` as the queue or `Pipes` as the pipeline
 
 ## [06]-[NUMERICS]
 
 Numeric facts come from the package that states them, and a sample loop reads only spans and SIMD lanes:
 - Roots, quadrature, splines, fits, quantiles, factorizations, antiderivatives, and gradients are members of the referenced numerics packages
-- Root searches widen an unbracketed interval first, pass a signed margin to `TryFindRoot`, and return a missed root as `None`
+- Hand loops that converge, bisect, or sum a series are a defect
+- Root searches pass a signed margin to `TryFindRoot` and return a missed root as a failure
 - Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, quantities, and `BigInteger` stay outside the loop
 - Conversions every pass needs (a host buffer's 2D view, a matrix to lanes) sit once at the type that owns them
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part
 - `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds samples and a host unit scale enters once at the boundary
 - Pure geometry takes package value types, a host frame enters where a result lowers to a host type, one extension family converts between them
-- Host decompositions and fits (`Transform.DecomposeAffine`, `Plane.FitPlaneToPoints`, `Quaternion.Slerp`) are called on the host type
 
 | [INDEX] | [FACT]         | [MEMBER]                             |
 | :-----: | :------------- | :----------------------------------- |
-|  [01]   | Root bracket   | `ZeroCrossingBracketing.Expand`      |
-|  [02]   | Scalar root    | `Brent.TryFindRoot`                  |
-|  [03]   | Quadrature     | `Integrate.GaussKronrod`             |
-|  [04]   | Spline         | `CubicSpline.InterpolatePchipSorted` |
-|  [05]   | Antiderivative | `IInterpolation.Integrate`           |
-|  [06]   | Fit            | `Fit.Polynomial`                     |
-|  [07]   | Quantile       | `SortedArrayStatistics.Quantile`     |
-|  [08]   | Factorization  | `Matrix<double>.Svd`                 |
-|  [09]   | Gradient       | `DScalar3<T>.Variables`              |
+|  [01]   | Scalar root    | `Bisection.TryFindRoot`              |
+|  [02]   | Quadrature     | `Integrate.GaussKronrod`             |
+|  [03]   | Spline         | `CubicSpline.InterpolatePchipSorted` |
+|  [04]   | Fit            | `Fit.Polynomial`                     |
+|  [05]   | Quantile       | `SortedArrayStatistics.Quantile`     |
+|  [06]   | Factorization  | `Matrix<double>.Svd`                 |
+|  [07]   | Antiderivative | `Polynomial.Integrate`               |
 
 - Use `Skill(dotnet-coding-memory)` for spans, pooled buffers, 2D views, parallel passes, and span kernels
 - Use `Skill(dotnet-coding-ui)` for drawn surfaces, shaped text, vector art, color, and host controls

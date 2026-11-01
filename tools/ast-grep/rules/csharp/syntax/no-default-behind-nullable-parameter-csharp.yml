@@ -141,4 +141,4 @@ rule:
                         - has: {kind: explicit_interface_specifier}
                 has: {field: body, has: {stopBy: end, any: [{matches: resolution}, {matches: relayed}], all: [{matches: unshadowed}]}}
 message: 'Parameter `$PARAMETER` defaults to null and the body resolves null to `$DEFAULT`'
-note: 'Set a constant default, else declare one overload per case or an `init` member defaulting to `None`'
+note: 'Set a constant default, else take `Option<T>` defaulting to `None`'

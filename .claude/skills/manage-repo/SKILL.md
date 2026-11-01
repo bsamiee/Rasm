@@ -1,11 +1,11 @@
 ---
 name: manage-repo
-description: "Use when changing how the repository is structured, built, or checked, covering each concern's owner and growth rule"
+description: "Use when changing how the repository is structured, built, or checked, covering each concern's owner and placement"
 ---
 
 # [MANAGE_REPO]
 
-Rules for adding the next project, tool, plugin, or harness row, current state and code stay in the files holding them.
+Rules for adding a project, tool, plugin, or harness row.
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
@@ -25,7 +25,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
 - Row consumers are importers (`package.json` included), reading tools, targets, MCP rows, skills, `.gitattributes` filters, and `[CLI_TOOLING]` rows
-- Catalog rows, their overrides, and tool-plugin rows stay without an importer, the catalog holds packages for future projects
+- Catalog rows, their overrides, and tool-plugin rows stay without an importer, catalogs hold packages for future projects
 - Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file
@@ -34,7 +34,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - `tools/`, `infra/`, `plugins/`, and `eng/` code reads project names, paths, and values from arguments and project declarations alone
 - Project files are written by hand as the file set their language's init command produces
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
-- Rows leaving tool output and lock unchanged when deleted go, a documented default among them, a row canceling another goes with the canceled row
+- Rows changing no tool output or lock go, documented defaults included, a row canceling another goes with the canceled row
 - Lists replacing a default list keep its entries, a schema, release notes, or installed source states each default
 - Skills name the tools they drive, their scripts, and output paths, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
@@ -52,7 +52,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
 - Checkers, writers, and type checkers run as `lint:<tool>`, `format:<tool>`, and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
 - `<tool>` names the program implementing the command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
-- Checkers run each subcommand, language, and runtime as a `<kind>:<tool>:<part>` target, a `<kind>:<tool>` parent holds `dependsOn` alone and forwards arguments to the part taking them
+- Checker subcommands, languages, and runtimes run as `<kind>:<tool>:<part>`, a `dependsOn`-only `<kind>:<tool>` forwards arguments to them
 - Checker command lists hold dependent steps alone, a list stops at its first failure or terminates its siblings and hides their findings
 - Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
 - Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone

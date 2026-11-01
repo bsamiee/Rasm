@@ -10,7 +10,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
 - Products list library modules alone, SwiftPM synthesizes each executable's product
 - Test targets take `<Module>Tests` and depend on their module, Nx attaches each to that module's `test` target
-- Remote packages take `.package(url:from:)`, and an `up-to-next-major-version` row in each app linking one of their products, `upgrade:swift` moves both
+- Remote packages take `.package(url:from:)` and an `up-to-next-major-version` row in each app linking their products, `upgrade:swift` moves both
 - Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
 
@@ -21,7 +21,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
 - `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
-- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, `experimental-install` refuses an installed name until `rm` deletes it
+- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, an installed name needs `rm` first
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
@@ -40,9 +40,9 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `package-product-members` holds one row per module the app imports, Nx draws the app's module edges from those rows
 - `pkg link` takes a package the project lists, a product of a package only root libraries list joins through `pkg add`
 - Requirement changes run `pkg remove`, `pkg add`, and `pkg link` per linked product, in `packages` order
-- `pkg link` and `pkg remove` find no `..` package while the synchronized folder holds a subdirectory, those edits run on a copy holding the project alone
+- `pkg link` and `pkg remove` find no `..` package while the synchronized folder holds a subdirectory, edit a copy holding the project alone
 - Synchronized folders outside the project join through `group add --filesystem-path`, which writes a group-relative path
-- Info.plist keys with no `INFOPLIST_KEY_*` setting sit in `Info.plist`, Xcode's AddInfoPlist output, named by `INFOPLIST_FILE` and excluded by `group exclude`
+- Info.plist keys with no `INFOPLIST_KEY_*` setting sit in AddInfoPlist's `Info.plist`, named by `INFOPLIST_FILE` and excluded by `group exclude`
 - AddInfoPlist on a `.` folder writes `<Target>-Info.plist` into the resources phase and copies root `INFOPLIST_KEY_*` rows onto the target
 - Asset catalog and `.icon` JSON keep Apple's serializer form, `plutil -convert json -r` writes it, Biome excludes both
 - Schemes have no command-line writer, Xcode's scheme editor alone writes one
@@ -102,7 +102,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - `included` is unset, when present SwiftLint lints its paths in place of a directory a command passes
 - Layout rules are off, `format:swift-format` runs after `format:swiftlint` and removes the sole `return` `direct_return` writes
 - Rules another owner reports first are off: compiler diagnostics, Periphery's unused parameters, `array_init` sites of `typesafe_array_init`
-- Size and complexity rules are off, and so are rules forcing a form the file organization standard rejects
+- Size and complexity rules are off, as are rules forcing a form file organization rejects
 - `explicit_type_interface` is on, `redundant_type_annotation` and `explicit_acl` are off
 - `no_empty_block` is off for required empty witnesses
 - `discouraged_optional_boolean` and `discouraged_optional_collection` are off for wire fields where absence differs from `false` or empty
@@ -113,7 +113,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 
 ## [09]-[PERIPHERY]
 
-- `.config/periphery.yml` names a generic configuration, `--project` rejects a `project.xcproj` with no `.pbxproj` and SwiftPM mode runs `swift package describe` per scan
+- `.config/periphery.yml` names a generic config, `--project` needs a `.pbxproj` no app holds, SwiftPM mode runs `swift package describe` per scan
 - Bodyless `@_silgen_name` declarations name parameters `_:`, Periphery reports each named one unused
 
 ## [10]-[LANGUAGE_SERVER]

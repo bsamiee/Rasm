@@ -7,8 +7,14 @@ description: "Use when writing or reviewing code that runs in an Adobe UXP host,
 
 UXP runs each plugin and script in one V8 context inside an Adobe host, with host calls at a boundary that decodes values and translates each `Exit`.
 
+[PRINCIPLES]:
+- Facts are stated once where they belong, and everything else derives from that source
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
+- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+
 [REFERENCES]:
-- [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM, from its object model and transactions to GREP, export, and plugin load
+- [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM: object model, transactions, GREP, export, and plugin load
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plugin load
 - [03]-[PREMIERE](references/premiere.md): Premiere Pro's members, reads, transactions, events, projects, export, and Media Encoder
 - [04]-[ILLUSTRATOR](references/illustrator.md): Illustrator's ExtendScript calls, object model, undo steps, export, and plugin load
@@ -16,7 +22,7 @@ UXP runs each plugin and script in one V8 context inside an Adobe host, with hos
 
 ## [01]-[CONTEXTS]
 
-Host modules differ in call form, and code is written for one host's form:
+Host modules differ in DOM call form:
 
 | [INDEX] | [HOST]       | [MODULE]      | [DOM_CALLS]                            |
 | :-----: | :----------- | :------------ | :------------------------------------- |
@@ -27,7 +33,7 @@ Host modules differ in call form, and code is written for one host's form:
 |  [05]   | Acrobat      | None          | Acrobat JavaScript through `do script` |
 
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator and Acrobat run supplied source through one Apple event each, sent in raw form with no terminology read:
+- Illustrator and Acrobat run source through one raw Apple event each, with no terminology read:
 
 ```bash
 osascript -e 'on run argv' -e 'tell application id "<bundle id>"' \
@@ -40,10 +46,10 @@ osascript -e 'tell application id "com.adobe.Acrobat.Pro"' \
 
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
-- Acrobat answers an uncaught throw or a syntax error with -1708 and no text, and source catches inside itself
-- Acrobat replies in Mac Roman with `.` for a character it lacks, and `decodeURIComponent` restores the `encodeURIComponent` JSON source replies
+- Acrobat answers an uncaught throw or a syntax error with -1708 and no text, and source catches its own throws
+- Acrobat replies in Mac Roman with `.` for each character it lacks, and `decodeURIComponent` restores the `encodeURIComponent` JSON source returns
 
-Context decides what code can hold across time:
+Context decides what code holds across calls:
 
 | [INDEX] | [CONTEXT] | [LIFETIME]   | [PERMISSIONS]                  | [HOLDS]                                                     |
 | :-----: | :-------- | :----------- | :----------------------------- | :---------------------------------------------------------- |
@@ -55,7 +61,7 @@ Context decides what code can hold across time:
 
 ## [02]-[RUNTIME]
 
-Each difference from a browser or Node holds in InDesign, Photoshop, and Premiere Pro, and has one owner:
+Differences from a browser or Node hold in InDesign, Photoshop, and Premiere Pro, each with one owner:
 
 | [INDEX] | [DIFFERENCE]                                  | [OWNER]   | [FORM]                                   |
 | :-----: | :-------------------------------------------- | :-------- | :--------------------------------------- |
@@ -65,7 +71,7 @@ Each difference from a browser or Node holds in InDesign, Photoshop, and Premier
 |  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
 |  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
 
-Effect's encoding and socket modules construct `TextEncoder` during module load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. The host `Clock` layer derives monotonic nanoseconds from `performance.now()` and wall nanoseconds from each `currentTimeMillis` read, keeping native sleep and wall time. Offsets anchored once drop the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
+Effect's encoding and socket modules construct `TextEncoder` at load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets anchored once drop the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
 
 - Encoding packages must implement the `{ stream: true }` option Effect decodes with
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
@@ -109,7 +115,7 @@ Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, w
 import { readFileSync } from 'adobe:fs';
 
 const bytes = (path: string) =>
-    Effect.try({ try: () => Option.some(new Uint8Array(readFileSync(path))), catch: (cause) => new HostError({ step: path, cause }) }).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => Effect.succeedNone));
+    Effect.try({ try: () => Option.some(new Uint8Array(readFileSync(path))), catch: (cause) => HostError.make({ step: path, cause }) }).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => Effect.succeedNone));
 ```
 
 `new Uint8Array` accepts both representations.
@@ -145,7 +151,7 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
     Effect.validate(
         Object.entries(values),
         Effect.fnUntraced(function* ([field, value]: readonly [string, unknown]) {
-            const refused = (cause: unknown) => new HostError({ step: field, cause });
+            const refused = (cause: unknown) => HostError.make({ step: field, cause });
             const inner: unknown = Predicate.isObject(value) && Predicate.hasProperty(target, field) ? yield* Effect.try({ try: () => target[field], catch: refused }) : undefined;
             if (Predicate.isObject(value) && Predicate.isObject(inner)) {
                 return Array.map(yield* written(inner, value), (name) => `${field}.${name}`);
@@ -156,22 +162,18 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
     ).pipe(Effect.map(Array.flatten), Effect.catch((causes) => Effect.failCause(Cause.fromReasons(causes.flatMap(Struct.get('reasons'))))));
 ```
 
-`written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions each element through `Effect.result`, nested write reasons survive under `Effect.sandbox` alone, and `Cause.fromReasons` merges sandboxed causes. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
+`written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions elements through `Effect.result`, `Effect.sandbox` alone keeps nested reasons, and `Cause.fromReasons` merges them. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
 
 - `catch` names the refused step from arguments of the failed call
 - Lookups fail with their candidates, and independent writes accumulate every refusal in one cause
 - Consumers decode a host code from `cause` where they branch on it
-- Plugins log a cause to the UXP console through `Cause.pretty`, MCP servers render one through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
-
-| [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                 |
-| :-----: | :-------------------------------------------------------- | :---------------------------------------- | :----------------------- |
-|  [01]   | Host call built as a string template                      | Typed source, arguments passed as data    | Template skips compiler  |
-|  [02]   | `Effect.result` run in a host callback, then `fromResult` | One `Exit` returned through host callback | Failure translated twice |
-|  [03]   | `Cause.UnknownError`, or an error class per refused step  | One package error with step and cause     | Step lost or restated    |
+- Boundaries log a cause once, plugins through `Cause.pretty` to the UXP console, MCP servers through `Cause.prettyErrors` with `Formatter.format`
+- Host calls are typed source the compiler checks, with arguments passed as data
+- Host callbacks return one `Exit`, translated once at the boundary
 
 ## [06]-[SCOPES]
 
-Host state that outlasts a call (listener, preference outside undo, temporary file, socket, runtime) pairs its acquisition with a release in one `Scope`. Hosts call a listener synchronously on their own thread, and removal takes the function registration received:
+Host state outlasting a call (listener, preference outside undo, temporary file, socket, runtime) pairs acquisition with release in one `Scope`. Hosts call a listener synchronously on their own thread, and removal takes the function registration received:
 
 ```ts
 const listening = <V, E>(add: (handler: (event: V) => void) => void, remove: (handler: (event: V) => void) => void, work: (event: V) => Effect.Effect<void, E>) =>
@@ -183,28 +185,28 @@ const listening = <V, E>(add: (handler: (event: V) => void) => void, remove: (ha
 
 `listening` returns `Effect<void, never, Scope>`, and its handler forks `work` and returns to its host at once. Closing the scope removes the handler and interrupts its fibers. `add` and `remove` take host calls of any shape (`addEventListener`, `action.addNotificationListener`). Host rollback restores document state, and a scope restores every state a rollback leaves.
 
-## [07]-[UNITS_OF_WORK]
+## [07]-[UNDO_STEPS]
 
-Each host groups changes into one undo step through one primitive, and every state change runs inside it:
+Each host groups changes into one undo step through one call, and every state change runs inside it:
 
-| [INDEX] | [HOST]       | [PRIMITIVE]                                       | [BODY]                  | [UNDO_STEP]                    |
+| [INDEX] | [HOST]       | [CALL]                                            | [BODY]                  | [UNDO_STEP]                    |
 | :-----: | :----------- | :------------------------------------------------ | :---------------------- | :----------------------------- |
 |  [01]   | InDesign     | `app.doScript` under `UndoModes.ENTIRE_SCRIPT`    | Synchronous function    | One step named by its argument |
 |  [02]   | Photoshop    | `core.executeAsModal` with `suspendHistory`       | Async function, awaited | One state named at suspension  |
 |  [03]   | Premiere Pro | `project.lockedAccess`, then `executeTransaction` | Synchronous callbacks   | One entry named by transaction |
 
-- One primitive call holds one user-visible change, named in the undo menu
+- One call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
 - Values and typed failures leave a body as data, and a throw rolls back an InDesign body
 - Photoshop rolls back a throwing body under an open history suspension alone, and Premiere Pro executes the actions added before the throw
 - Awaited work inside a synchronous body runs after its unit closed, where a later rejection rolls back no change
-- Reads that need no undo step run outside every primitive where their host allows
+- Reads needing no undo step run outside these calls where their host allows
 
 ## [08]-[ENTRY_POINTS]
 
-Each host entry translates one `Exit` into that entry's host form:
+Each entry point translates one `Exit` into the form its host expects:
 
-| [INDEX] | [ENTRY]                        | [HOST_FORM]                                                   |
+| [INDEX] | [ENTRY]                        | [BEHAVIOR]                                                    |
 | :-----: | :----------------------------- | :------------------------------------------------------------ |
 |  [01]   | Plugin `main` module           | Forks `Layer.launch` at load or builds one `ManagedRuntime`   |
 |  [02]   | `entrypoints.setup`            | One call per plugin with `plugin`, `panels`, and `commands`   |
@@ -226,11 +228,11 @@ const plugin = <R, E, F, C extends string, P extends string>(
 ): void => {
     const logged = flow(Cause.pretty, Console.error);
     const runtime = ManagedRuntime.make(
-        layer.pipe(Layer.provideMerge(Effect.try({ try: () => fs.readFileSync('plugin:/manifest.json', 'utf-8'), catch: (cause) => new HostError({ step: Plugin.key, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))), Layer.tapCause(logged)),
+        layer.pipe(Layer.provideMerge(Effect.try({ try: () => fs.readFileSync('plugin:/manifest.json', 'utf-8'), catch: (cause) => HostError.make({ step: Plugin.key, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))), Layer.tapCause(logged)),
     );
     const run = (work: Effect.Effect<void, F, R | Uxp | Plugin>) => () => runtime.runPromise(Effect.tapCause(work, logged));
     Effect.runFork(
-        Schema.decodeUnknownEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
+        Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
             Effect.flatMap(({ setup }) =>
                 Effect.sync(() =>
                     setup.call(entrypoints, {
@@ -246,7 +248,7 @@ const plugin = <R, E, F, C extends string, P extends string>(
 };
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`, and `Plugin` holds the manifest `Manifest.json` decodes from the plugin's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `setup` decoded through a `Schema` runs under `call` with `entrypoints` as receiver and logs a throw as a defect. `ManagedRuntime` builds its layer before any entry's work runs, and `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
@@ -255,7 +257,7 @@ const plugin = <R, E, F, C extends string, P extends string>(
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host application: `host.app` takes `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`, `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and each `requiredPermissions` key is a boundary its host enforces:
+One manifest serves one host, `host.app` taking `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`. Hosts enforce each `requiredPermissions` key:
 
 | [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
 | :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
@@ -265,6 +267,7 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 |  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
 |  [05]   | `launchProcess`                   | `shell.openPath`, `shell.openExternal`  | Both calls throw a denial        |
 
+- `entrypoints` rows name a `panel` or `command` `id` with `label.default`
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
@@ -272,5 +275,3 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
 - Native addons (`.uxpaddon`, manifest 6 `addon` with `enableAddon`) load in Photoshop and Premiere alone
-
-Use `manage-repo` for packaging and installing plugins.

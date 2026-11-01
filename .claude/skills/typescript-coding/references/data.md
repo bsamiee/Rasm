@@ -1,7 +1,5 @@
 # [DATA]
 
-Covers immutable data and its transitions.
-
 ## [01]-[TRANSITIONS]
 
 Transitions take their input first and return a function from one state to the next, the one shape `pipe`, `Ref.update`, `Stream.scan`, and a fold apply. States one collection holds are the collection itself, with the value brand deciding what it holds:
@@ -13,7 +11,7 @@ const adjusted = (sku: Sku, delta: number) => HashMap.modifyAt(sku, flow(Option.
 `Ref.update(cart, adjusted(sku, 1))` applies one change, and a fold from `HashMap.empty()` replays a log of changes:
 - `modifyAt` maps the held `Option` to the stored one, inserting, updating, and removing in one function
 - Lines with a count `Quantity.makeOption` rejects leave the map, and an empty line has no representation
-- `Equal.equals` and `Hash.hash` compare objects, arrays, `Map`, and `Set` by fields and getters alone, a `_tag` separating kinds
+- `Equal.equals` and `Hash.hash` compare plain objects, arrays, `Map`, and `Set` by contents and class instances by class and fields, a `_tag` separating kinds
 - `Hash.hash` caches per object and a hashed value stays unchanged, `Equal.byReference(handle)` compares a host handle by identity
 - `Schema.toDifferJsonPatch(X)` states a change as JSON Patch for a peer or store, with `patch` decoding the result through `X`
 
@@ -39,7 +37,7 @@ const dropped =
 
 Each drop doubles the wait from `base`:
 - Steps deciding a value beside the next state return `[value, next]` to `Ref.modify`, `Effect.flatten` running an effect value after the update
-- Loading states are `AsyncResult` from `effect/reactivity`, with a `waiting` flag on every case and `previousSuccess` on `Failure`
+- Loading states are `AsyncResult` from `effect/reactivity`, with a `waiting` flag on every case
 
 ## [03]-[COLLECTIONS]
 

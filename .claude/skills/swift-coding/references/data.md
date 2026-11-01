@@ -1,7 +1,5 @@
 # [DATA]
 
-Enum models and the transitions, walks, and folds over them.
-
 ## [01]-[STATE_MACHINES]
 
 State machines are an enum of states with their inputs as a nested `Event` enum. One transition returns the next state from a tuple switch over state and event, `nil` where the state rejects the event:
@@ -35,7 +33,7 @@ enum Connection: Equatable, Sendable {
 
 - Last arm lists each state with a wildcard event in place of `default`
 - Rejections return `nil`, and the caller holds the state and the event that name the rejection
-- `events.reductions(Connection.idle) { state, event in state.applying(event) ?? state }.removeDuplicates()` folds an event stream into each accepted state
+- `events.reductions(Connection.idle) { state, event in state.applying(event) ?? state }.removeDuplicates()` streams accepted states
 
 ## [02]-[GRAPH_WALKS]
 
@@ -53,11 +51,11 @@ func reachable<Node: Hashable, Successors: Sequence<Node>>(from start: Node, suc
 }
 ```
 
-`append(contentsOf:)` skips present members, `found` holds each node once in discovery order, and `next` reads it breadth-first without recursion. Successors are any sequence of nodes, and `reachable(from: root) { node in graph[node, default: []] }` walks a `[Node: Set<Node>]` adjacency map as it stands.
+`append(contentsOf:)` skips present members, `found` holds each node once in discovery order, and `next` reads it breadth-first without recursion. `reachable(from: root) { node in graph[node, default: []] }` walks a `[Node: Set<Node>]` adjacency map as it stands.
 
 ## [03]-[RECURSIVE_FOLDS]
 
-Each interpretation of a recursive enum (evaluation, rendering, simplification) passes `fold` one replacement per case, and cases differing in one operation are one case holding an operator enum:
+Each interpretation of a recursive enum (evaluation, rendering, simplification) passes `fold` one replacement per case. Cases differing in one operation are one case holding an operator enum:
 
 ```swift
 indirect enum Expression: Sendable {
@@ -104,4 +102,4 @@ let evaluated: Double = try expression.fold(
 let rendered: String = expression.fold(number: \.description, variable: \.self, apply: { op, left, right in "(\(left) \(op.rawValue) \(right))" })
 ```
 
-`expression` is an `Expression` and `bindings` a `[String: Double]`. `Operator` holds its symbol as raw value and its arithmetic in `callAsFunction`, and a new operator is one case and one arm with every interpretation unchanged. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluated` stops at the first unbound variable and names it, `rendered` infers `Never` and takes no `try`.
+`expression` is an `Expression` and `bindings` a `[String: Double]`. `Operator` holds its symbol as raw value and arithmetic in `callAsFunction`. New operators add one case and one arm and change no interpretation. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluated` stops at the first unbound variable and names it, `rendered` infers `Never` and takes no `try`.

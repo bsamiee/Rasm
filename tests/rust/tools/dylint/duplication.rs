@@ -247,9 +247,9 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^^^^^
         |
     note: built from `Link` fields here
-       --> tools/dylint/examples/duplicate_type.rs:411:39
+       --> tools/dylint/examples/duplicate_type.rs:419:39
         |
-    411 | fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
+    419 | fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
         |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: hold `Location` in `Link` in place of `host` and `path`
 
@@ -260,9 +260,9 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^^^^^^^
         |
     note: converted from `Address` here
-       --> tools/dylint/examples/duplicate_type.rs:493:15
+       --> tools/dylint/examples/duplicate_type.rs:501:15
         |
-    493 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
+    501 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
         |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: use `Address` generic over the differing member types in place of `AddressDto`
 
@@ -273,9 +273,9 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^^^^^^^
         |
     note: converted from `Account` here
-       --> tools/dylint/examples/duplicate_type.rs:374:15
+       --> tools/dylint/examples/duplicate_type.rs:382:15
         |
-    374 |     let row = AccountRow { user: account.login.clone(), address: account.email.clone() };
+    382 |     let row = AccountRow { user: account.login.clone(), address: account.email.clone() };
         |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: use `Account` in place of `AccountRow`
 
@@ -286,9 +286,9 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^^^^
         |
     note: converted from `Celsius` here
-       --> tools/dylint/examples/duplicate_type.rs:378:50
+       --> tools/dylint/examples/duplicate_type.rs:386:50
         |
-    378 | const fn reading(celsius: &Celsius) -> Reading { Reading(celsius.0) }
+    386 | const fn reading(celsius: &Celsius) -> Reading { Reading(celsius.0) }
         |                                                  ^^^^^^^^^^^^^^^^^^
         = help: use `Celsius` in place of `Reading`
 
@@ -299,12 +299,12 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^^^^
         |
     note: built from a match on `Shape` here
-       --> tools/dylint/examples/duplicate_type.rs:355:9
+       --> tools/dylint/examples/duplicate_type.rs:363:9
         |
-    355 | /         match self {
-    356 | |             Self::Circle(_) => ShapeKind::Circle,
-    357 | |             Self::Square(_) => ShapeKind::Square,
-    358 | |         }
+    363 | /         match self {
+    364 | |             Self::Circle(_) => ShapeKind::Circle,
+    365 | |             Self::Square(_) => ShapeKind::Square,
+    366 | |         }
         | |_________^
         = help: match `Shape` in place of `ShapeKind`
 
@@ -323,12 +323,12 @@ fn duplicate_type(found: &str) {
         | ^^^^^^^^^^^
         |
     note: converted from `Phase` here
-       --> tools/dylint/examples/duplicate_type.rs:383:5
+       --> tools/dylint/examples/duplicate_type.rs:391:5
         |
-    383 | /     match phase {
-    384 | |         Phase::Start => Signal::Begin,
-    385 | |         Phase::Stop => Signal::End,
-    386 | |     }
+    391 | /     match phase {
+    392 | |         Phase::Start => Signal::Begin,
+    393 | |         Phase::Stop => Signal::End,
+    394 | |     }
         | |_____^
         = help: use `Phase` in place of `Signal`
 
@@ -431,25 +431,25 @@ fn duplicate_type(found: &str) {
         = help: replace `Runtime` and `Serve` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
     warning: error variants `Invalid` and `Truncated` of `SchemaError` repeat the same fields
-       --> tools/dylint/examples/duplicate_type.rs:338:1
+       --> tools/dylint/examples/duplicate_type.rs:346:1
         |
-    338 | enum SchemaError {
+    346 | enum SchemaError {
         | ^^^^^^^^^^^^^^^^
         |
     note: repeated here
-       --> tools/dylint/examples/duplicate_type.rs:340:5
+       --> tools/dylint/examples/duplicate_type.rs:348:5
         |
-    340 |     Invalid { path: String, line: u32 },
+    348 |     Invalid { path: String, line: u32 },
         |     ^^^^^^^
-    341 |     #[error("{path} ends at line {line}")]
-    342 |     Truncated { path: String, line: u32 },
+    349 |     #[error("{path} ends at line {line}")]
+    350 |     Truncated { path: String, line: u32 },
         |     ^^^^^^^^^
         = help: replace `Invalid` and `Truncated` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
     warning: `Shim` duplicates `AddressDto`
-       --> tools/dylint/examples/duplicate_type.rs:403:5
+       --> tools/dylint/examples/duplicate_type.rs:411:5
         |
-    403 |     struct Shim {
+    411 |     struct Shim {
         |     ^^^^^^^^^^^
         |
     note: `AddressDto` declared here
@@ -490,7 +490,7 @@ fn duplicate_type(found: &str) {
        = help: replace `Retry` and `Text` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
        = note: `#[warn(duplicate_type)]` on by default
 
-    warning: error variants `Flush`, `Forwarded` and `Wrapped` of `Failure` repeat the same fields
+    warning: error variants `Flush` and `Wrapped` of `Failure` repeat the same fields
       --> tools/dylint/examples/source_in_error_message.rs:7:1
        |
      7 | enum Failure {
@@ -502,12 +502,9 @@ fn duplicate_type(found: &str) {
     13 |     Wrapped(#[source] io::Error),
        |     ^^^^^^^
     ...
-    17 |     Forwarded(io::Error),
-       |     ^^^^^^^^^
-    ...
     28 |     Flush(#[source] io::Error),
        |     ^^^^^
-       = help: replace `Flush`, `Forwarded` and `Wrapped` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+       = help: replace `Flush` and `Wrapped` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
        = note: `#[warn(duplicate_type)]` on by default
     "#);
 }

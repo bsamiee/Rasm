@@ -14,7 +14,7 @@ Value lifetime picks the owner:
 |  [06]   | Named preset files                    | `bpy.utils.register_preset_path` folder                                                   |
 |  [07]   | Session cache                         | Scope-owned dict keyed by `session_uid`, cleared on `load_post`, `undo_post`, `redo_post` |
 
-Records holding unions, 64-bit integers, or nested tuples store as JSON with no NUL byte for an overwrite to cut at, and decode against their class at each read:
+Records with unions, 64-bit integers, or nested tuples store as NUL-free JSON that overwrites cannot cut, decoding against their class at each read:
 
 ```python
 def kept(owner: bpy.types.ID, record: msgspec.Struct, /) -> None:
@@ -29,23 +29,30 @@ def held[S: msgspec.Struct](form: type[S], owner: bpy.types.ID, /) -> Outcome[S]
     )
 ```
 
-`held(Grid, obj)` returns `ABSENT` before the first `kept`, and `INVALID` with the refused key path once `Grid` changes shape. Record class names stay unique among records one ID holds, keys leaving no room for a module prefix.
+`held(Grid, obj)` returns `ABSENT` before the first `kept`, and `INVALID` with the failing key path once `Grid` changes shape. Record class names stay unique among records one ID holds, keys leaving no room for a module prefix.
 
 ## [02]-[CREATED_IDS]
 
 Created IDs take their saved lifetime from their users and links:
-- `use_fake_user = True` keeps an ID saved as one counted user, and `<old>.user_remap(<new>)` moves every user, the fake user included, onto a replacement before the old ID's removal
-- `objects.link` and `children.link` of a linked item raise `RuntimeError`, and `in` tests on these collections take the item's `name`, an ID raising `TypeError`
-- `children.link` refuses the parent itself and every ancestor of the parent with the duplicate's `RuntimeError("Collection '<child>' already in collection '<parent>'")`, and code tests `parent in (child, *child.children_recursive)` before the link
-- `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine and makes the new scene the window's scene
-- Appends and links fire `blend_import_pre` and `blend_import_post` with a `BlendImportContext`, each `import_items` entry holding the local `id` (`Brick.001`), the source `name` (`Brick`), `source_library`, and `append_action`, and the post handler remaps imported duplicates of data its extension owns onto the original that source name holds
-- `asset_mark()` sets `use_fake_user` and an `asset_data` filed under the nil catalog, an object staying outside every collection, and `asset_clear()` clears both, dropping an ID with no other user at the next save
-- Catalogs are `<uuid>:<path>:<simple name>` lines of `blender_assets.cats.txt` at the asset library root, and `asset_data.catalog_id = <uuid>` files the asset with no check that the line exists, a malformed string ignored with no raise
+- `use_fake_user = True` keeps an ID saved as one counted user
+- `<old>.user_remap(<new>)` moves every user, fake user included, before removing `<old>`
+- `objects.link` and `children.link` of a linked item raise `RuntimeError`, and `in` tests on them take the item's `name`, an ID raising `TypeError`
+- `children.link` of a parent or ancestor raises already-in-collection `RuntimeError`
+- Collection links test `parent in (child, *child.children_recursive)` first
+- `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera)
+- `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine and makes the new scene the window's scene
+- Appends and links fire `blend_import_pre` and `blend_import_post` with a `BlendImportContext`
+- `BlendImportContext.import_items` entries hold the local `id` (`Brick.001`), the source `name` (`Brick`), `source_library`, and `append_action`
+- `blend_import_post` handlers remap imported duplicates of data their extension owns onto the original the source `name` holds
+- `asset_mark()` sets `use_fake_user` and an `asset_data` filed under the nil catalog, an object staying outside every collection
+- `asset_clear()` clears `use_fake_user` and `asset_data`, and the next save drops an ID with no other user
+- Catalogs are `<uuid>:<path>:<simple name>` lines of `blender_assets.cats.txt` at library root
+- `asset_data.catalog_id = <uuid>` files with no check and ignores malformed strings
 - `asset_generate_preview()` renders the 128 by 128 `preview` at the call, an empty object keeping `preview` `None`
 
 ## [03]-[LIBRARY_LOADS]
 
-`libraries.load` takes source names inside its context and holds IDs after it exits, both sides naming the `bpy.data` collection with a `fixed_type` nearest the requested class in its MRO:
+`libraries.load` takes source names inside its context and holds IDs after exit. Both sides name the `bpy.data` collection with `fixed_type` nearest the requested class in its MRO:
 
 ```python
 @catch(exception=OSError)
@@ -58,12 +65,13 @@ def loaded(kind: type[bpy.types.ID], path: Path, chosen: Callable[[str], bool], 
     return tuple(getattr(target, member))
 ```
 
-`loaded(bpy.types.Material, path, {"Brick", "Wood"}.__contains__)` appends what the source holds of both names, a repeat call returns the same copies, and `bpy.types.SunLight` reads `lights`:
-- Appends with `reuse_local_id=True` return the local copy an earlier append made, links return the present linked ID, and both flags together raise `ValueError`
+`loaded(bpy.types.Material, path, {"Brick", "Wood"}.__contains__)` appends both names the source holds, returning the same copies on repeat. `bpy.types.SunLight` reads `lights`:
+- `reuse_local_id=True` appends return an earlier append's local copy, links return the present linked ID, and both flags together raise `ValueError`
 - Unreadable paths raise `OSError` at `__enter__`, and a name the source lacks loads as `None` with a `UserWarning`
 - Loads bring every ID a requested ID references
 - `bpy.data.temp_data()` holds another file's loads in a store freed at its exit, session data untouched
-- `bpy.data.libraries.write(path, blocks, path_remap=, fake_user=, compress=)` writes a subset with every ID it references, a `path_remap` other than `NONE` keeping `//` paths valid in another folder
+- `bpy.data.libraries.write(path, blocks, path_remap=, fake_user=, compress=)` writes a subset with its references
+- Non-`NONE` `path_remap` on `libraries.write` keeps `//` paths valid elsewhere
 - Edits to linked data take an override from `ID.override_create` or `ID.override_hierarchy_create`
 - Values read from a file (custom properties, texts) stay data, and untrusted files open through `wm.open_mainfile(use_scripts=False)`
 
@@ -81,14 +89,17 @@ def rebased(old: Path, new: Path, /, *, subset: set[bpy.types.ID] | None = None)
 ```
 
 Path properties hold blend-relative paths:
-- Default `flags` skip packed and weak-reference paths, and `EXPAND_TOKENS` and `EXPAND_SEQUENCES` visit each UDIM tile and frame as an `is_expanded` path no return rewrites
+- Default `flags` skip packed and weak-reference paths
+- `EXPAND_TOKENS` and `EXPAND_SEQUENCES` visit UDIM tiles and frames as fixed `is_expanded` paths
 - `//` paths resolve through `bpy.path.abspath(path, library=block.library)`, linked data relative to its library
 - Unsaved files resolve `//` against the process working directory in `bpy.path.abspath` (`tex.png` for `//tex.png`) and in render writes
 - Script writes, path rewrites included, leave `bpy.data.is_dirty` false in GUI and background runs
-- `wm.save_as_mainfile` rewrites each `//` path to reach the same file from the new folder (`//tex.png` saved from `a/` into `b/deep/` reads `//../../a/tex.png`), `relative_remap=False` keeping the text and so retargeting it, and `copy=True` remapping the written copy with session paths and `bpy.data.filepath` unchanged
+- `wm.save_as_mainfile` rewrites `//` paths for the new folder (`//tex.png` from `a/` into `b/deep/` reads `//../../a/tex.png`)
+- `relative_remap=False` keeps each `//` path's text and so retargets it
+- `copy=True` remaps the written copy and leaves session paths and `bpy.data.filepath` unchanged
 - Saves with `compress` unset keep a saved file's compression and read `use_file_compression` for a file never saved
 - Portable files pack external data through `file.pack_all`, and images from a temporary source pack before the source's removal
-- Script saves write modified images under `preferences.filepaths.save_modified_images` `ALWAYS_SAVE` alone, `ASK` and `NEVER_SAVE` leaving them unsaved whatever `show_save_modified_images_dialog` holds, and each image saves through `image.save()`
+- Script saves write modified images under `save_modified_images` `ALWAYS_SAVE` alone, ignoring dialog setting, code calling `image.save()` otherwise
 - `bpy.app.tempdir` names a session folder Blender deletes at quit
 - `bpy.utils.system_resource(kind, path=)` resolves folders and returns `""` for a file, and the file name joins onto its resolved folder
 
@@ -96,11 +107,11 @@ Path properties hold blend-relative paths:
 
 Custom properties hold `int`, `float`, `str`, `bytes`, `bool`, `None`, IDs, string-keyed dictionaries, and single-typed lists:
 - Integers are signed 32-bit, a larger value raising `OverflowError`
-- Floats are doubles while coordinates are `float32`, and georeferenced geometry stores a local offset with its double-precision origin in an ID property
+- Floats are doubles and coordinates `float32`, georeferenced geometry storing a local offset with its double origin in an ID property
 - Lists mixing strings with numbers raise `TypeError`, lists mixing integers with floats store floats, and integer keys raise `KeyError`
 - Keys hold at most 63 UTF-8 bytes, a longer key raising `KeyError`, and keys built from data paths go in values
 - Lists of dictionaries read back as a `list` of `IDPropertyGroup` items, `to_dict()` returning each item's plain form
 - `id[key] = []` stores an empty integer `IDPropertyArray`
 - ID values, alone or in a list, each count as a user and follow renames, and hold the IDs a stored record names
-- Bytes assigned to a key holding bytes keep the bytes before the first NUL, while a new key, `update()`, a whole-group write, and `ID.copy()` keep every byte
+- Bytes written to a key holding bytes stop at the first NUL, and a new key, `update()`, a whole-group write, and `ID.copy()` keep every byte
 - `id.id_properties_ui(key).update(min=, max=, default=)` sets the UI range and the Reset to Default value

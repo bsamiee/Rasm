@@ -1,83 +1,159 @@
 # [EVENT_SOURCING]
 
-Event sourcing stores the transitions of an entity as an append-only history and derives every snapshot and view from it, so persisted data stays as immutable as in-memory values.
+Overwritten rows are shared mutable state even under a stateless server process, functional design applies to persisted data as to in-memory values. Event sourcing stores the transitions of an entity as an ordered history and derives every snapshot from it.
 
-## [01]-[EVENTS]
+## [01]-[STORAGE]
 
-Events are immutable records of something that already happened: past-tense names, fields holding the minimum the occurrence states rather than an entity snapshot, and no rejection or change once stored. Transient notifications stay out of the history. The `[Union]` base holds every fact more than one consumer reads (the entity identity, the balance movement, the freeze), so transitions and views read base members and a new case states its effect where it is declared:
+Append-only storage replaces updates and deletes with appends: existing data stays as written, new information is recorded as additional data, history stays available for audit, analysis, and reconstruction, and appends avoid the write contention of concurrent overwrites of one record. Event sourcing stores an ordered history of things that happened, and valid-time storage stores facts with the intervals during which they are valid. Event sourcing focuses on transitions rather than snapshots, and the current state is derived data:
+
+```text
+initial state = Create(first event)
+current state = remaining events.Fold(initial state, Apply)
+```
+
+Compared snapshots show that state changed and not why, while the event with the prior state decides the next state. Keeping every historical snapshot repeats every unchanged value and still needs a comparison to explain a change, and the event history records the transition itself and derives whichever snapshot is needed.
+
+## [02]-[EVENTS]
+
+Events are immutable, serializable data objects holding the minimum information about something that already happened:
+- Names are past tense (`Created`, `Credited`, `Debited`, `Frozen`)
+- Events cannot be rejected or changed
+- Payloads describe the occurrence, not a mutable entity snapshot
+- Events that cause state transitions belong in the persistent history, and transient notifications stay distinct from them
+
+Each event is a sealed record case nested in one abstract partial base that `[Union]` closes, and the shared identity sits on the base through a private constructor that the cases pass it to:
 
 ```csharp
 [Union]
 internal abstract partial record Event {
-    private Event(Guid entryId, decimal delta = 0m, bool freezes = false) => (EntryId, Delta, Freezes) = (entryId, delta, freezes);
+    private Event(Guid entryId) => EntryId = entryId;
 
     public Guid EntryId { get; }
-    public decimal Delta { get; }
-    public bool Freezes { get; }
 
-    internal sealed record Opened(Guid EntryId, decimal Floor) : Event(EntryId);
-    internal sealed record Credited(Guid EntryId, decimal Amount) : Event(EntryId, Amount);
-    internal sealed record Debited(Guid EntryId, decimal Amount, Guid Target) : Event(EntryId, -Amount);
-    internal sealed record Frozen(Guid EntryId) : Event(EntryId, freezes: true);
+    internal sealed record Created(Guid EntryId, string Code) : Event(EntryId);
+    internal sealed record Credited(Guid EntryId, decimal Amount) : Event(EntryId);
+    internal sealed record Debited(Guid EntryId, decimal Amount, string Target) : Event(EntryId);
+    internal sealed record Frozen(Guid EntryId) : Event(EntryId);
 }
 ```
 
-Stores hold one row per event, with the entity id, its position in the entity's history, the append time, and the serializer's case discriminator as headers beside the serialized event, and return one entity's history in occurrence order up to a time bound.
+Event types have different payload shapes, the storage options from most to least suitable are an event store, a document database that accepts heterogeneous documents, and a relational database. Relational event tables need headers (entity id, timestamp, event type) and a payload column for the serialized event, the headers support retrieving one entity's history in order and filtering it by time, and an existing relational store avoids extra operational infrastructure when only part of a system uses event sourcing.
 
-## [02]-[STATE]
+## [03]-[STATE]
 
-Snapshots are derived data for one purpose. The command side holds only what its decisions read, never the transaction list or display fields, and one transition function serves the live event and the replay. Reconstruction folds the history after its opening event, and an empty history or one that starts with another case is no entity:
+State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
 
 ```csharp
-internal sealed record Snapshot(Guid EntryId, decimal Balance, decimal Floor, bool Frozen);
+[SmartEnum]
+internal sealed partial class Status {
+    public static readonly Status Requested = new(acceptsDebit: false);
+    public static readonly Status Active = new(acceptsDebit: true);
+    public static readonly Status Frozen = new(acceptsDebit: false);
 
-internal static partial class Ledger {
+    public bool AcceptsDebit { get; }
+}
+
+internal sealed record Snapshot(Status Status, string Code, decimal Balance, decimal Limit) {
+    public Snapshot Credit(decimal amount) => this with { Balance = Balance + amount };
+    public Snapshot Debit(decimal amount) => this with { Balance = Balance - amount };
+}
+```
+
+## [04]-[TRANSITIONS]
+
+Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
+
+```csharp
+internal static partial class Entry {
+    public static Snapshot Create(Event.Created created) => new(Status.Active, created.Code, 0m, 0m);
     public static Snapshot Apply(Snapshot snapshot, Event evt) =>
-        snapshot with { Balance = snapshot.Balance + evt.Delta, Frozen = snapshot.Frozen || evt.Freezes };
+        evt.Switch(
+            snapshot,
+            created: static (s, _) => s,
+            credited: static (s, e) => s.Credit(e.Amount),
+            debited: static (s, e) => s.Debit(e.Amount),
+            frozen: static (s, _) => s with { Status = Status.Frozen });
+}
+```
 
+## [05]-[RECONSTRUCTION]
+
+History is retrieved in occurrence order, an empty history means no entity is recorded, and reconstruction returns an optional snapshot rather than a default entity. `Head` on a `Seq<Event>` is the `Option<Event>` that separates a nonexistent entity from a replayable history, `Bind` keeps only a `Created` head, and `Fold` over `Tail` applies the transition function:
+
+```csharp
+internal static partial class Entry {
     public static Option<Snapshot> Rebuild(Seq<Event> history) =>
-        history is [Event.Opened opened, ..] ? history.Tail.Fold(new Snapshot(opened.EntryId, 0m, opened.Floor, false), Apply) : None;
+        history.Head
+            .Bind(static head => head is Event.Created created ? Some(created) : Option<Event.Created>.None)
+            .Map(created => history.Tail.Fold(Create(created), Apply));
 }
 ```
 
-Snapshots at a past time are the same `Rebuild` over the history the store returns for that bound.
+Snapshots at a past time come from the same computation after excluding later events, with each event's time value as the boundary.
 
-## [03]-[COMMANDS]
+## [06]-[COMMANDS]
 
-Commands are decisions `Snapshot -> Fin<Event>` that a factory builds from the request's values, so one handler serves every command and a new command is one factory. Checks over one snapshot are independent and join under tuple `Apply`. The handler appends with the history count the decision read as the expected position, the store rejects the append when another command appended first, and creation appends its opening event outside the handler at position 0, which the store rejects for an existing entity:
+Event sourcing separates the command flow from the query flow:
+
+```text
+command -> validate -> derive event -> persist and publish
+                                      |
+                                      v
+events  -> fold, map, filter -> projection or view model -> query response
+```
+
+Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. Checks over the loaded snapshot are independent and combine under tuple `Apply` to report both rejections, the transition returns its event beside the derived snapshot:
 
 ```csharp
-internal static partial class Ledger {
-    public static Func<Snapshot, Fin<Event>> Debit(decimal amount, Guid target) =>
-        snapshot => (
-                Fault.Unless(amount > 0m, Reason.Range, amount),
-                Fault.Unless(!snapshot.Frozen, Reason.Refused, snapshot.Frozen),
-                Fault.Unless(snapshot.Balance - amount >= snapshot.Floor, Reason.Range, (snapshot.Balance, amount)))
-            .Apply(Event (_, _, _) => new Event.Debited(snapshot.EntryId, amount, target))
-            .As();
+internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
+    public Event ToEvent() => new Event.Debited(EntryId, Amount, Target);
+}
 
-    public static IO<Snapshot> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, int, IO<Unit>> append, Guid entryId, Func<Snapshot, Fin<Event>> decide) =>
-        from history in load(entryId)
-        from snapshot in IO.lift(Rebuild(history).ToFin(Fault.Of(Reason.Missing, entryId)))
-        from evt in IO.lift(decide(snapshot))
-        from _ in append(evt, history.Count)
-        select Apply(snapshot, evt);
+internal static partial class Entry {
+    public static Fin<(Event Event, Snapshot Snapshot)> Debit(Snapshot snapshot, Debit command) =>
+        (Fault.Unless(snapshot.Status.AcceptsDebit, Reason.Invalid, snapshot.Status), Fault.Unless(snapshot.Balance - command.Amount >= snapshot.Limit, Reason.Invalid, (snapshot.Balance, command.Amount)))
+            .Apply((_, _) => command.ToEvent())
+            .As()
+            .Map(evt => (Event: evt, Snapshot: Apply(snapshot, evt)));
 }
 ```
 
-Subscribers (projections, notifications, transfers to other entities) read appended events from the store through a durable subscription with at-least-once delivery, so the append is the one write a command performs and each subscriber is idempotent per history position. A command appends one event, and a subscriber turns it into further events for this or other entities.
-
-## [04]-[QUERIES]
-
-Views are projections shaped for their reader, derived from history and never from the command snapshot. Totals sum a base fact, rows filter the cases that carry it, a period view reads the history before and inside its bound, and rendering derives each row's label from its case through `Switch`:
+Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, and the handler composes them in one query over `IO`, the expected rejection enters the `IO` error channel through `IO.lift(Fin<A>)` beside the failures of loading and saving, `RunSafe` at the host returns one `Fin` and one `Match` reads both outcomes:
 
 ```csharp
-internal sealed record Statement(decimal Opening, Seq<Event> Movements) {
-    public decimal Closing => Opening + Movements.Sum(static evt => evt.Delta);
-
-    public static Statement Of(Seq<Event> before, Seq<Event> period) =>
-        new(before.Sum(static evt => evt.Delta), period.Filter(static evt => evt.Delta != 0m));
+internal static class Commands {
+    public static IO<(Event Event, Snapshot Snapshot)> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, IO<Unit>> save, Debit command) =>
+        from _ in IO.lift(Fault.Unless(command.Amount > 0m, Reason.Invalid, command.Amount))
+        from history in load(command.EntryId)
+        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new Fault($"entry {command.EntryId}", Reason.Missing)))
+        from result in IO.lift(Entry.Debit(snapshot, command))
+        from __ in save(result.Event)
+        select result;
 }
 ```
 
-When replaying for each query grows costly, subscribers maintain each projection incrementally in a store shaped for its queries, and every projection rebuilds from the history.
+Accepted events can trigger subscribers (external transfers, derived calculations, notifications, projection updates), and persisting the event and publishing it to them must behave atomically, saving and then crashing before subscribers see it leaves the system inconsistent. The guarantee depends on the storage and messaging infrastructure, durable subscriptions can use the event store as the event stream with at-least-once delivery, and the handler then only saves the event. Prefer one resulting event per command, and let downstream handlers translate it into further events for the same or other entities. Command-side handlers perform follow-up actions and can emit further events, and query-side handlers update read models. Rules that depend on the snapshot observed before the event is created need one process per entity that serializes its commands, with persistence inside that process.
+
+## [07]-[QUERIES]
+
+Users consume view models shaped for their needs, not raw event logs or the command-side snapshot, and the query side derives each view from history: `Fold` computes totals and balances, `Map` converts relevant events into view data, `Choose` with an `Option` result converts matching events and omits the rest, and time filters select the history for a period or a point in time. For a statement, fold the events before the period for the opening balance, fold through the period for the closing balance, and convert only the transaction events into rows:
+
+```csharp
+internal sealed record Row(string Description, decimal Amount);
+
+internal static class Queries {
+    public static Seq<Row> Rows(Seq<Event> history) =>
+        history.Choose(static evt => evt.Switch<Option<Row>>(
+            created: static _ => Option<Row>.None,
+            credited: static e => Some(new Row("credit", e.Amount)),
+            debited: static e => Some(new Row(e.Target, -e.Amount)),
+            frozen: static _ => Option<Row>.None));
+    public static decimal Total(Seq<Row> rows) => rows.Fold(0m, static (total, row) => total + row.Amount);
+}
+```
+
+As history grows, replaying it for every query becomes expensive, the query side subscribes to new events and maintains cached projections incrementally, publishes changed views to connected clients where that is wanted, or uses a dedicated query database shaped for filtering, and the system rebuilds every projection from the event history, which remains the source of truth. Command and query concerns can stay separate inside one application or deploy and scale independently, query load benefits from more instances, and command processing can need tighter coordination of writes.
+
+## [08]-[FIT]
+
+Choose event sourcing when events are meaningful business occurrences rather than renamed CRUD operations, events drive more than one consequence, commands and the views users consume have different shapes, and reconstructing how and why an entity evolved is central (an auction, where bids and closure are occurrences and clients submit single actions while consuming item details, bid histories, and purchase lists). Prefer valid-time storage when attributes and their validity intervals are the principal concepts (product administration that records creation, retirement, and modification and needs a temporal history of facts).

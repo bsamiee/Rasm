@@ -9,4 +9,4 @@ rule:
         - pattern: $ITEMS.Zip($ITEMS.Tail)
         - pattern: $ITEMS.Zip($ITEMS.Tail, $JOIN)
 message: '`$PAIRS` pairs each element of `$ITEMS` with its successor by hand'
-note: 'Call `SuperEnumerable.Window(<items>.AsIterable(), 2, window => …)` with the span selector, one buffer per window'
+note: 'Call SuperLinq `<items>.Window(2, pair => …)` with the span selector, one buffer per window'

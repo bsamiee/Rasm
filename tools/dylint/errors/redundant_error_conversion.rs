@@ -1,9 +1,7 @@
 use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_from_proc_macro,
-    paths::PathNS,
-    peel_blocks,
+    fn_def_id, is_from_proc_macro, peel_blocks,
     res::{MaybeDef as _, MaybeResPath as _},
     source::walk_span_to_context,
     sym,
@@ -17,21 +15,13 @@ use rustc_hir::{
     def_id::DefId,
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, FieldDef, TyCtxt, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
+use rustc_middle::ty::{self, FieldDef, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
 
-use crate::{awaited_output, constructed, derived_impl, derives, expanded_externally, is_error, parameter, path, result_parts, suggest};
+use crate::{awaited_output, constructed, derived_impl, derives, expanded_externally, is_error, parameter, result_parts, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-pub(crate) struct Pass {
-    io_error: Option<DefId>,
-}
-
-lint!(Pass; REDUNDANT_ERROR_CONVERSION: "`map_err` conversions that `?` applies, and hand-written `From` impls that a `#[from]` field replaces");
-
-impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { io_error: path(tcx, PathNS::Type, "std::io::Error") } }
-}
+lint!(REDUNDANT_ERROR_CONVERSION: "`map_err` conversions that `?` applies, and hand-written `From` impls that a `#[from]` field replaces");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -103,7 +93,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let conversion = cx.tcx.impl_trait_ref(declared).instantiate_identity().skip_normalization()
             && let (target, source) = (conversion.self_ty(), conversion.args.type_at(1))
             && !source.has_param()
-            && source.opt_def_id().is_none_or(|adt| Some(adt) != self.io_error)
             && is_error(cx, source)
             && derives(cx, target, sym::Error)
             && let Some((variant, field)) = wrapped_variant(cx, declared)

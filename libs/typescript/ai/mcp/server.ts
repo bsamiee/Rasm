@@ -77,7 +77,7 @@ const layer = (scheme: string) =>
             });
         }),
     );
-const layerHttp = (manifest: { readonly name: string; readonly version: string; readonly description: string }, listening: { readonly address: NetAddress.InetAddress; readonly hosts: readonly string[] }) => {
+const layerHttp = <E, R>(manifest: { readonly name: string; readonly version: string; readonly description: string }, listening: { readonly address: NetAddress.InetAddress; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
     const allowed = new Set([...listening.hosts, 'localhost', ...[...NetAddress.loopbackAddresses, ...(NetAddress.isUnspecified(listening.address.address) ? [] : [listening.address.address])].map(NetAddress.formatUrlHost)]);
     const hostValidation = HttpRouter.middleware(
         (next) =>
@@ -101,10 +101,11 @@ const layerHttp = (manifest: { readonly name: string; readonly version: string; 
                 path: '/',
                 allowSessionTermination: true,
                 protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26, McpProtocol.v2024_11_05],
+                registrations: Layer.provide(app, layer(manifest.name)),
             }),
         ),
     ).pipe(Layer.provideMerge(McpServer.McpServer.layer));
-    return Layer.merge(Layer.provide(layer(manifest.name), transport), hostValidation);
+    return Layer.merge(transport, hostValidation);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

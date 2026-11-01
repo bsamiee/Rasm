@@ -47,7 +47,7 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Analyzer projects target `netstandard2.0`, authoring packages match the Roslyn API every consuming host loads
 - Analyzer projects take no workspace language packages, project usings, or transitive pinning, holding Roslyn's dependency floor for every host
 - Rules resolve package types through `Compilation.GetTypeByMetadataName` over consumer references, analyzer projects reference no checked package
-- Shared references add analyzer outputs while retaining existing ordinary compile references
+- Shared references add analyzer outputs and keep ordinary compile references
 - Semantic formatting targets schedule analyzer builds
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types

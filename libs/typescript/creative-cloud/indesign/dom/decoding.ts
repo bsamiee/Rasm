@@ -5,12 +5,6 @@ import { record } from '#/dom/encoding';
 import { active, owner, resolve } from '#/dom/location';
 import { Model } from '#/dom/model';
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const SpecifierReference = Schema.Struct({ type: Schema.String, specifier: Schema.String });
-const EnumeratorReference = Schema.Struct({ type: Schema.String, member: Schema.String });
-const OneType = Schema.Tuple([Schema.String]);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const member = Effect.fnUntraced(function* (kind: string, name: string) {
@@ -49,7 +43,7 @@ const decoder = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 't
     const typed = (text: string) =>
         Effect.flatMap(Effect.all([Model, scope]), ([{ enumeration, classes }, container]) =>
             Match.value(Option.match(row, { onNone: Array.empty, onSome: declared })).pipe(
-                Match.when(Schema.is(OneType), ([type]) =>
+                Match.when(Schema.is(Schema.Tuple([Schema.String])), ([type]) =>
                     Match.value(type).pipe(
                         Match.when(flow(enumeration, Option.isSome), (each) => member(each, text)),
                         Match.when('Font', () => fontByName(text)),
@@ -64,8 +58,8 @@ const decoder = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 't
             ),
         );
     const decode: (value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model> = Match.type<unknown>().pipe(
-        Match.when(Schema.is(SpecifierReference), ({ specifier }) => resolve(specifier)),
-        Match.when(Schema.is(EnumeratorReference), ({ type, member: name }) => member(type, name)),
+        Match.when(Schema.is(Schema.Struct({ type: Schema.String, specifier: Schema.String })), ({ specifier }) => resolve(specifier)),
+        Match.when(Schema.is(Schema.Struct({ type: Schema.String, member: Schema.String })), ({ type, member: name }) => member(type, name)),
         Match.when(Predicate.isString, typed),
         Match.when(Array.isArray, (items) => Effect.forEach(items, decode)),
         Match.when(record, (properties) => Effect.all(Record.map(properties, decoder(target, Option.none())))),

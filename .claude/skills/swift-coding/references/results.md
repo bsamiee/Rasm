@@ -1,7 +1,5 @@
 # [RESULTS]
 
-Typed outcomes from accumulated failures to entry points.
-
 ## [01]-[ACCUMULATION]
 
 Independent steps read their own input alone, and a caller receives every rejection at once:
@@ -30,7 +28,7 @@ func combine<Value, Failure: Error>(_ results: [Result<Value, Failure>]) throws(
 }
 ```
 
-Tuples of results with different value types build through `get()`, and the first failure sends `combine` through one pack iteration collecting every failure. CasePaths makes `Result` case-pathable, and `[case: \.failure]` reads one case of an array element without a `switch`.
+Results with different value types build a tuple through `get()`, and the first failure makes `combine` collect every failure in one pack iteration. CasePaths makes `Result` case-pathable, and `[case: \.failure]` reads one case of an array element without a `switch`.
 
 ## [02]-[VALIDATION]
 
@@ -69,7 +67,7 @@ func checkout(quantity: Int, sku: String, in catalog: Catalog, balance: Decimal)
 }
 ```
 
-`do throws(OrderError)` types `error` in its `catch`. A `do` body infers its error type from its `try` sites alone, and a `throw` statement inside it widens the inferred type to `any Error`.
+`do throws(OrderError)` types `error` in its `catch`. Untyped `do` bodies infer their error type from `try` sites alone, and a `throw` statement inside widens it to `any Error`.
 
 ## [04]-[TASK_RESULTS]
 
@@ -91,7 +89,7 @@ Concurrency declares the async `Result(catching:)`, and AsyncAlgorithms builds a
 
 ## [05]-[ENTRY_POINTS]
 
-`@main` types state application values, adapt host APIs, run the work once, and translate its error into host terms once (an exit code, a response status, rendered text):
+`@main` types state application values, adapt host APIs, then run the work and map its error to host terms once (exit code, response status, text):
 
 ```swift
 func exitCode(for failures: Failures<OrderError>) -> ExitCode {

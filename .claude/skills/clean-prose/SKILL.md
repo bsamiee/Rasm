@@ -7,6 +7,24 @@ description: "Use when writing, rewriting, or reviewing any English text in a pr
 
 Governs every English text in a project (markdown, comments, messages, identifiers, file names). Corrections remove a problem's whole category, deletion before replacement. Swaps of one marker for another and rewrites that fail a rule are regressions. Rewrites keep every fact and add no cause, frequency, or certainty their source did not state. Rewrites end with fewer words and bytes unless a fact was wrong or missing. Texts state what a reader acts on where they appear.
 
+Oversized lines are only dash/list/numbered entries, paragraphs are refined/trimmed to principles of optimization laid out in the skill and are not subject to the same <150 col width requirement, they are optimized accordingly/properly, but within appropriate bounds.
+
+1. Use `scripts/prose.py` to automatically find and fix problems we always look for (incorrect dividers, article openers, oversized dash entries, etc)
+2. Always remove/replace coined terms, withing code files (rename files and folders if needed), divider labels, section labels, and use domain appropriate terminology
+3. Remove unnecessary framing within prose/sentences in all forms, unnecessary framing is content not relevant if the earlier portion was stated properly for guidance
+4. Improve all prose to reduce words/char/byte count where its unnecessarily self-referencing or trying to describe the self evident topic of concern
+5. Ensure consistent usage of action words from `references/actions.md`
+6. Ensure all known instances of coined terms from `references/word-map.md` are remoced and replaced, replacements are always domain appropriate, not naive single solution
+7. Ensure no hidden article openers (within md table cells, output fields hiding the true opening, etc)
+8. Treat ALL output message field prose as agent facing, always reduce content as much as possible remove unnecessary/fragile guidance, no anchoring/binding guidance
+9. Ensure all output messages (errors included) use variables where they can over hardcoded values/information, deriving information and minimal framing
+10. Never split/shear an oversized entry to achive the size, optimize the content, identifying what is overlap, unnecessary framing, and prose optimization to achieve it instead
+11. Identify all overlapping/duplicate information in a file, to remove all isntances for focused singular isntances of information without unnecessary framing
+12. Skills do not carry duplicate information within the skill file, or between the skill and references content
+13. `SKILL.md` files never carry mini-sections or named sections that a `references/` file covers, remove the content or move it
+
+Ensure all prose sentences and entries are coherent, not vague, garbled, and clear, remove such lines when they are near similar lines a relic of an earlier poor correction that sheared/split guidance.
+
 [REFERENCES]:
 - [01]-[WORD_MAP](references/word-map.md): Words to delete or replace, with replacement for each
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail

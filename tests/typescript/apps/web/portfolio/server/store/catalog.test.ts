@@ -2,9 +2,10 @@ import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { D1Client } from '@effect/sql-d1';
 import { assert, beforeEach, it } from '@effect/vitest';
+import { assertSome } from '@effect/vitest/utils';
 import { store } from '@rasm/database';
 import { catalog, ownerUserId, readDocument, registerOwner } from '@rasm/portfolio/server';
-import { Effect, Layer, Option } from 'effect';
+import { Effect, Layer } from 'effect';
 import { SqlClient } from 'effect/sql';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -21,7 +22,7 @@ beforeEach(reset);
 it.effect('rebuilds hosted documents, assets, and owner tables with rows intact', () =>
     Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient;
-        assert.deepStrictEqual(yield* ownerUserId('studio@example.com'), Option.some('user'));
+        assertSome(yield* ownerUserId('studio@example.com'), 'user');
         assert.deepStrictEqual(yield* registerOwner({ email: 'studio@example.com', userId: 'other' }), 'user');
         assert.deepStrictEqual((yield* readDocument('draft')).data.portfolio.name, 'Studio');
         assert.deepStrictEqual(yield* sql`SELECT id, body, uploads, removing, ${sql('objectKey')} FROM assets`, [{ id: 'asset', body: '{"kind":"image","uploads":[]}', uploads: '[]', removing: null, objectKey: null }]);

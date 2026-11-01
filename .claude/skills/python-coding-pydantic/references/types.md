@@ -5,12 +5,12 @@ Types reach pydantic through a core schema, built from an annotation, from `Anno
 ## [01]-[PYDANTIC_TYPES]
 
 Values with a format pydantic states take its type in place of a `str` field and a validator:
-- `HttpUrl` appends `/` to a bare host until `url_preserve_empty_path=True`, `ByteSize` reads `"1 KiB"` as `1024`, and `Json[T]` parses text before it validates `T`
+- `HttpUrl` adds `/` to empty paths until `url_preserve_empty_path=True`, `ByteSize` reads `"1 KiB"` as `1024`, `Json[T]` validates parsed text as `T`
 - `InstanceOf[T]` checks by `isinstance` and publishes the schema of `T`, `ImportString` imports a dotted path
 
 ## [02]-[CUSTOM_TYPES]
 
-`Annotated` hooks serve a type the code does not own: `AfterValidator`, `PlainSerializer`, `WithJsonSchema`, and `GetPydanticSchema(lambda source, handler: ...)` for a one-off core schema. Records that parse from text and write back as text own their schema through `__get_pydantic_core_schema__(cls, source, handler)`. `json_or_python_schema` accepts text from JSON and an instance or text from Python, a pattern on its `str_schema` refuses text before `parsed` reads it, and `serialization=` writes each record back as text. `Version` orders by its parts:
+Types the code does not own take `Annotated` hooks (`AfterValidator`, `PlainSerializer`, `WithJsonSchema`). `GetPydanticSchema(lambda source, handler: ...)` builds a one-off core schema. Records parsed from and written as text own their schema through `__get_pydantic_core_schema__(cls, source, handler)`. `json_or_python_schema` accepts text from JSON and an instance or text from Python, and `serialization=` writes records as text. A `str_schema` pattern refuses text before `parsed` reads it. `Version` orders by its parts:
 
 ```python
 class Version(msgspec.Struct, frozen=True, order=True):

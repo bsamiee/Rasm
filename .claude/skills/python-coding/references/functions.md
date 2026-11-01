@@ -1,7 +1,5 @@
 # [FUNCTIONS]
 
-Covers functions bound, passed, and returned as values.
-
 ## [01]-[OPERATOR_OVERLOADING]
 
 Members that differ by the function they apply are one method and one `partialmethod` per member. `Term` is an expression over named inputs, each operator binds the function it applies, and nothing evaluates until `at` reads an environment:
@@ -39,7 +37,7 @@ def graded(errors: Iterable[float], /, *, breaks: tuple[float, float] = (0.5, 0.
     return max((Grade(bisect(breaks, error)) for error in errors), default=Grade.PASS)
 ```
 
-`Grade` values count the breaks below each grade, `breaks` types one break per member past the first, and an empty input grades `PASS` through `default`. Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect.
+`Grade` values count the breaks below each grade, `breaks` types one break per member past the first, and empty input grades `PASS` through `default`. Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect.
 
 ## [03]-[ITERATION]
 
@@ -60,11 +58,11 @@ def filled[V](readings: Sequence[tuple[int, V]], /, *, step: int = 1) -> tuple[t
     return (*((tick, value) for (start, value), (end, _) in pairwise(readings) for tick in range(start, end, step)), *readings[-1:])
 ```
 
-`filled(((0, 1.0), (3, 2.0)))` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`, and `readings[-1:]` closes with the last reading, or with nothing for empty input.
+`filled(((0, 1.0), (3, 2.0)))` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`. `readings[-1:]` closes with the last reading, or nothing for empty input.
 
-## [04]-[RECURSION]
+## [04]-[TOPOLOGICAL_ORDER]
 
-Walks over an acyclic graph whose nodes share successors run through `graphlib.TopologicalSorter`, with no recursion depth and no node visited twice. `generations` yields each batch of nodes with every predecessor done, one batch per longest-path layer, from a sorter it owns:
+Walks over an acyclic graph with shared successors run through `graphlib.TopologicalSorter`, with no recursion depth and no node visited twice. `generations` yields each batch of nodes with every predecessor done, one batch per longest-path layer, from a sorter it owns:
 
 ```python
 def generations[K: Hashable](graph: Mapping[K, Iterable[K]], /) -> Iterator[tuple[K, ...]]:
@@ -76,7 +74,7 @@ def generations[K: Hashable](graph: Mapping[K, Iterable[K]], /) -> Iterator[tupl
         sorter.done(*ready)
 ```
 
-`graph` maps each node to its predecessors, `{"c": ("a", "b"), "b": ("a",), "d": ()}` yields `a` and `d`, then `b`, then `c`, and nodes of one batch can run in parallel. A scheduler calling `done` per finished node in place of per batch starts each node once its own predecessors finish.
+`graph` maps each node to its predecessors, `{"c": ("a", "b"), "b": ("a",), "d": ()}` yields `a` and `d`, then `b`, then `c`. Nodes of one batch can run in parallel. A scheduler calling `done` per finished node in place of per batch starts each node once its own predecessors finish.
 
 ## [05]-[PIPELINES]
 
@@ -98,13 +96,13 @@ def tide(text: str, /) -> Outcome[Tide]:
 
 ## [06]-[STRATEGIES]
 
-Behavior that varies by format or backend is one generic function taking each varying function as a parameter, its type parameter the value those functions pass each other. `report` splits text into numbered units of its own type and applies rules over that type:
+Behavior varying by format or backend is one generic function taking each varying function as a parameter, typed by the value those functions exchange. `report` splits text into numbered units of its own type and applies rules over that type:
 
 ```python
 def report[U](units: Callable[[str], Iterable[tuple[int, U]]], rules: Mapping[str, Callable[[U], bool]], text: str, /) -> tuple[str, ...]:
     return tuple(f"{line}: {message}" for line, unit in units(text) for message, rule in rules.items() if rule(unit))
 ```
 
-`partial(report, <units>, <rules>)` is one format's reporter, and `report(lambda text: ((token.start[0], token) for token in tokenize.generate_tokens(io.StringIO(text).readline)), {"shouted comment": lambda token: token.type == tokenize.COMMENT and token.string.isupper()}, "x = 1  # LOUD\n")` returns `("1: shouted comment",)`:
-- `U` is the unit type `units` yields, a `TokenInfo` above, and each rule takes that type
+`partial(report, <units>, <rules>)` is one format's reporter. `report(lambda text: ((token.start[0], token) for token in tokenize.generate_tokens(io.StringIO(text).readline)), {"shouted comment": lambda token: token.type == tokenize.COMMENT and token.string.isupper()}, "x = 1  # LOUD\n")` returns `("1: shouted comment",)`:
+- `U` is the unit type `units` yields (`TokenInfo` for `tokenize`), and each rule takes it
 - Reporters over different unit types share `Callable[[str], tuple[str, ...]]`, and a table keyed by suffix holds one `partial` per format

@@ -4,7 +4,7 @@ UXP cannot listen, and a plugin serving calls to a process outside its host dial
 
 ## [01]-[SERVING]
 
-`RpcServer` reads its transport from one `SocketServer` service with a `run` member, and a `SocketServer` that dials makes the plugin the server: `RpcServer.layer` over `layerProtocolSocketServer` over that service, with no hand-built protocol.
+`RpcServer` reads its transport from a `SocketServer` service's `run` member, and a dialing `SocketServer` makes the plugin the server. Plugins stack `RpcServer.layer` over `layerProtocolSocketServer` over that service, with no hand-built protocol.
 
 Plugin runtime scopes own socket serving independently of document operations:
 - `run` acquires the reader in one scope per connection before the handler, and a dial refused as a close waits the retry spacing
@@ -24,7 +24,7 @@ Plugin runtime scopes own socket serving independently of document operations:
 
 Peers accept the socket and hold one `RpcClient` per accepted connection:
 
-| [INDEX] | [OPTION]       | [VALUE]              | [DECIDING_FACT]                                                         |
+| [INDEX] | [OPTION]       | [VALUE]              | [REASON]                                                                |
 | :-----: | :------------- | :------------------- | :---------------------------------------------------------------------- |
 |  [01]   | `pingInterval` | `Duration.infinity`  | Host calls block RPC pongs, UXP answers WebSocket pings off that thread |
 |  [02]   | `retryPolicy`  | `Schedule.recurs(0)` | Accepted sockets cannot be redialed                                     |

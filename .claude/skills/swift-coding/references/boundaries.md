@@ -1,7 +1,5 @@
 # [BOUNDARIES]
 
-Values crossing a module boundary, from decoding external data to file metadata, child processes, command lines, and logs.
-
 ## [01]-[DECODING]
 
 `Line` is a `Codable` record holding `sku`, `unitPrice`, and its quantity rule in a `quantity: Bounded<1, 999>` field:
@@ -17,10 +15,10 @@ struct Bounded<let low: Int, let high: Int>: RawRepresentable, Codable, Sendable
 }
 ```
 
-- `RawRepresentable` over `Int` supplies `init(from:)` and `encode(to:)`, and a `nil` raw value throws `DecodingError.dataCorrupted` at the field's coding path
+- `RawRepresentable` over `Int` supplies `init(from:)` and `encode(to:)`, and a rejected value throws `DecodingError.dataCorrupted` at its coding path
 - Key strategies (`.convertFromSnakeCase`) derive wire spellings, `CodingKeys` hold a key no strategy derives in converted spelling (`unitPrice`)
 
-Synthesized `Codable` for an enum with associated values nests fields under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` that reads the discriminator and decodes associated values from the same decoder:
+Synthesized `Codable` for an enum with associated values nests fields under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` that reads the discriminator and associated values from one decoder:
 
 ```swift
 @CasePathable
@@ -61,7 +59,7 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 }
 ```
 
-- `.resolveBeneath` makes the kernel refuse a name whose resolution leaves the root through `..`, a leading `/`, or a symlink, and the refusal is `ENOTCAPABLE`
+- `.resolveBeneath` makes the kernel refuse with `ENOTCAPABLE` a name resolving outside the root through `..`, a leading `/`, or a symlink
 - `FileDescriptor.open(root, .readOnly, options: .directory)` opens the root once, and a rename of its path after the open moves no read
 - `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
 
@@ -104,14 +102,14 @@ let revisions: [String] = try await log.reduceLines(into: []) { hashes, hash in 
 `directory` is a `FilePath`.
 
 - `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails
-- Started processes report through `terminationStatus`, and a failed exit keeps it and standard error whole in `exited(TerminationStatus, standardError: String)`
+- Failed exits of a started process keep `terminationStatus` and standard error whole in `exited(TerminationStatus, standardError: String)`
 - `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
 
 ## [04]-[COMMAND_LINES]
 
-Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, with arguments as properties the parser builds through `ExpressibleByArgument`. A `RawRepresentable` type over an `ExpressibleByArgument` raw value conforms with an empty extension, and the rule that rejects a wire value rejects an argument:
+Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, and the parser builds arguments through `ExpressibleByArgument`. `RawRepresentable` types over an `ExpressibleByArgument` raw value conform in an empty extension, and one rule rejects wire values and arguments:
 
 ```swift
 extension Bounded: ExpressibleByArgument {}

@@ -9,6 +9,14 @@ utils:
               has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $INDEX}}}
             - kind: lambda_expression
               has: {field: parameters, any: [{kind: implicit_parameter, pattern: $INDEX}, {has: {kind: parameter, has: {field: name, pattern: $INDEX}}}]}
+              inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: index-source}}}}
+    index-source:
+        any:
+            - regex: '(^|\.)For$'
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Select|Map|Iter)$'}
+                - has: {field: expression, kind: invocation_expression, regex: '^(\w+\.)?Range\s*\('}
     quotient:
         kind: binary_expression
         all:

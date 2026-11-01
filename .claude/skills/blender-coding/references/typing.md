@@ -4,11 +4,11 @@
 
 ## [01]-[ANNOTATIONS]
 
-Blender's Python 3.13 evaluates module, class, and signature annotations as their statement runs, and `register_class` resolves every annotation on a registrable class and its bases through `typing.get_type_hints` in the class's module:
+Blender's Python 3.13 evaluates module, class, and signature annotations as their statement runs. `register_class` resolves every annotation on a registrable class and its bases through `typing.get_type_hints` in its module:
 - Stub-generic `bpy_struct` and `bpy_prop_collection` raise `TypeError` on a runtime subscript, and annotations reach them through a `type` alias
 - Stub-only names (`bpy.stub_internal`, `TYPE_CHECKING` imports) stay unbound at runtime, and a `type` alias value evaluates on first read alone
 - Signatures name earlier declarations and aliases, a quote holding a later declaration
-- Unresolvable annotations raise at `register_class` on a `PropertyGroup` or `AddonPreferences` class or base, and leave an `Operator` with no property
+- Unresolvable annotations raise at `register_class` on `PropertyGroup` and `AddonPreferences` classes or bases, and leave `Operator` with no property
 - Registrable classes annotate `bpy.props` calls and runtime-bound names alone
 - Python 3.13 reads annotations through `inspect.get_annotations(owner, eval_str=True)`, keeps imports eager, and takes `typing_extensions.TypeForm`
 - Blender's main thread flushes subnormal floats to zero where worker threads keep them, and `msgspec.Meta(gt=0.0)` accepts `0.0` on the main thread
@@ -22,11 +22,11 @@ type Answer = set[OperatorReturnItems]
 type Elements[T] = bpy.types.bpy_prop_collection[T]
 ```
 
-Signatures over both aliases import and run in Blender, `Answer` typing every `execute`, `invoke`, and `modal` return and `Elements[bpy.types.Object]` a parameter taking `collection.objects`.
+Both aliases import and run in Blender, `Answer` typing `execute`, `invoke`, and `modal` returns and `Elements[bpy.types.Object]` a `collection.objects` parameter.
 
 ## [02]-[STUB_DEFECTS]
 
-Stub declarations runtime contradicts take one form each, a suppression holding `# type: ignore[<mypy code>]  # ty: ignore[<ty rule>]` with only the codes each checker reports on its line. Typed locals and assignments take `assignment` and `invalid-assignment`, arguments `arg-type` and `invalid-argument-type`:
+Stub declarations runtime contradicts take one form each. Suppressions hold `# type: ignore[<mypy code>]  # ty: ignore[<ty rule>]` with only codes each checker reports on that line. Typed locals and assignments take `assignment` and `invalid-assignment`, arguments `arg-type` and `invalid-argument-type`:
 
 | [INDEX] | [STUB]                                      | [RUNTIME]                      | [FORM]                                                   |
 | :-----: | :------------------------------------------ | :----------------------------- | :------------------------------------------------------- |
@@ -55,21 +55,23 @@ Stub declarations runtime contradicts take one form each, a suppression holding 
 Never-null members the stubs type optional:
 - `Context.preferences` and `window_manager`, `Scene.view_settings` and `display_settings`, `ViewLayer.active_layer_collection`
 - `Depsgraph.scene` and `view_layer`, `AssetRepresentation.metadata`
-- `NodeTree.interface`, concrete node classes' `inputs` and `outputs`, `NodeLink` endpoints, `NodeSocket.links` as an empty tuple on an unlinked socket
+- `NodeTree.interface`, concrete node classes' `inputs` and `outputs`, `NodeLink` endpoints, `NodeSocket.links` (empty tuple when unlinked)
 - `id_data` on structs an ID owns, `ID.original`, `DepsgraphUpdate.id`
 - `KeyMapItem.active`, `keyconfigs.user` and `addon` in background runs included
-- `Panel`, `Menu`, `Header`, and `Operator` `layout` inside the `draw` Blender calls, a draw function appended to a `Header` or `Menu` class, and a popup's draw function
+- `Panel`, `Menu`, `Header`, and `Operator` `layout` in Blender-called `draw`, appended `Header` or `Menu` draw functions, or popup draw functions
 
-## [03]-[TRUE_OPTIONALS]
+## [03]-[OPTIONAL_VALUES]
 
 Optionals stubs declare and runtime returns narrow once at read with no suppression:
 - `Operator.layout` in `invoke` and `execute`, and `Panel.layout` once its region draw returns
-- `Context.area`, `region`, `space_data`, and `region_data` in every background run and every GUI timer, msgbus, and `load_post` body, the GUI bodies holding `windows[0]` as `context.window`
-- Every `Context` window member in `depsgraph_update_post`, whose body reads its `scene` and `depsgraph` parameters: an event loop call holds the last window and any area its editor refresh left, and a window close's call holds no window or screen
+- `Context.area`, `region`, `space_data`, and `region_data` in background runs and GUI timer, msgbus, and `load_post` bodies
+- GUI timer, msgbus, and `load_post` bodies hold `windows[0]` as `context.window`
+- Every `Context` window member in `depsgraph_update_post`, whose body reads its `scene` and `depsgraph` parameters
+- `depsgraph_update_post` context holding last window and any area an editor refresh left in event loop calls, and no window or screen on window close
 - `Context.window` and `screen` under `temp_override(window=<window>)` once `wm.window_close` closes that window
 - `ViewLayer.depsgraph` until that layer evaluates, `evaluated_depsgraph_get()` under `temp_override(view_layer=<layer>)` evaluating another layer
 - `id_data` on `Preferences` and its member structs, outside every ID
 - `KeyMapItem.properties` on a modal keymap's items
 - `ID.copy()` on a `WindowManager` and `modifiers.new` on an object type its modifier kind rejects, each returning `None` with no raise
 - Unset `PointerProperty` values, `FCurve.driver` on a keyed curve, and `DepsgraphObjectInstance.parent` outside an instance
-- `links.new` on a socket of another tree or a link a dynamic-socket node refuses, and `NodesModifier` and `SceneCompositorEffect` `properties` before a node group
+- `links.new` across trees or into a refusing dynamic-socket node, and `NodesModifier` and `SceneCompositorEffect` `properties` before a node group

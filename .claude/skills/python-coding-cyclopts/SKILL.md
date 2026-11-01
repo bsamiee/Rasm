@@ -1,15 +1,13 @@
 ---
 name: python-coding-cyclopts
-description: "Use when writing or reviewing a cyclopts command-line application, covering commands, parameters, user classes, meta apps, configuration, completion, and exit codes"
+description: "Use when writing or reviewing a cyclopts app, covering commands, parameters, user classes, meta apps, configuration, completion, and exit codes"
 ---
 
 # [PYTHON_CODING_CYCLOPTS]
 
-Covers cyclopts applications from command registration to exit code.
-
 ## [01]-[COMMANDS]
 
-Command signatures are their command lines: positional-only parameters are arguments, keyword-only parameters options, a `*args` tail takes remaining tokens, and docstring `Args` lines give each parameter's help. Options shared across commands are one `type` alias over `Annotated`:
+Positional-only parameters are arguments, keyword-only ones options, `*args` takes remaining tokens, and docstring `Args` lines give help. Commands share an option through one `type` alias over `Annotated`:
 
 ```python
 type Executable = Annotated[ResolvedExistingFile, Parameter(env_var="HOST_PATH")]
@@ -33,15 +31,16 @@ async def launch(folder: Path, /, *arguments: str, executable: Executable) -> Ou
     return Ok(done.returncode)
 ```
 
-`launch <folder> -- -c <code>` passes `-c` to the host, `HOST_PATH` fills an omitted `--executable`, and host status becomes command result. Registration reads a command's signature at once or at its first use:
-- `@app.command` evaluates every annotation at registration, `lazy` imports resolve, and a class declared after its command or a name imported under `TYPE_CHECKING` raises `NameError`
+`launch <folder> -- -c <code>` passes `-c` to host, `HOST_PATH` fills an omitted `--executable`, and host status becomes command result. Registration reads a signature at once or at first use:
+- `@app.command` evaluates annotations at registration, `lazy` imports resolve, a later-declared class or `TYPE_CHECKING` import raises `NameError`
 - `"<module>:<attr>"` registrations import their module at the command's run, its own `--help`, or an `app["<name>"]` read
 - Root `--help` lists an import-path registration with its `help=` text alone, blank without one, and imports no command module
 - Names derive from `__name__` (lowercase, `_` to `-`, outer `_` stripped), and `name=` replaces a name
 - `alias=` adds runnable names, and `synonym=` adds words that fail with a suggestion of the command
 - `app.command(App(name="<group>"))` nests a command group, `app.command(<app>, name="*")` merges its commands into their parent
 - `async def` commands run under `asyncio.run` from `app()` or trio under `App(backend="trio")`, `await app.run_async(tokens)` inside a loop
-- Unset `version=` reads an installed distribution named like the root import package, then its `__version__`, else prints `0.0.0`, and apps with a distribution named apart pass `version=partial(importlib.metadata.version, "<distribution>")`
+- Unset `version=` reads the distribution named like the root package, then `__version__`, else `0.0.0`
+- Distributions named apart from their package pass `version=partial(importlib.metadata.version, "<distribution>")`
 
 ## [02]-[PARAMETERS]
 
@@ -61,18 +60,19 @@ Hints decide coercion, and `Annotated[T, Parameter(...)]` configures one paramet
 |  [10]   | `timedelta`      | Duration strings (`30s`, `1h30m`)                                                                      |
 |  [11]   | `StdioPath`      | `-` reads stdin and writes stdout through every `Path` read and write method, unbound ones included    |
 
-Bounds on a parameter are `cyclopts.types` aliases or `validators` members. Cyclopts checks `annotated_types` and pydantic `Field` bounds on a plain parameter only while `pydantic` sits in `sys.modules`, and never checks `msgspec.Meta`. `Parameter` options merge attribute by attribute from inner to outer `Annotated`, and an outer `validator=` or `converter=` replaces the inner one whole:
-- `Annotated[PositiveInt, Parameter(validator=validators.Number(modulo=2))]` accepts `-2`, and `Annotated[ExistingPath, Parameter(validator=validators.Path(ext="txt"))]` accepts a missing file
+Bounds are `cyclopts.types` aliases or `validators` members. `Parameter` options merge per attribute from inner to outer `Annotated`, and an outer `validator=` or `converter=` replaces the inner one:
+- `PositiveInt` under `validator=validators.Number(modulo=2)` accepts `-2`, `ExistingPath` under `validator=validators.Path(ext="txt")` a missing file
 - Aliases adding a check restate every check they keep (`validators.Number(gt=0, modulo=2)`)
 - `cyclopts.types` aliases adding `converter=` alone (`ResolvedExistingFile`) keep their inner validator
+- Cyclopts checks `annotated_types` and pydantic `Field` bounds on a plain parameter only while `pydantic` is in `sys.modules`, never `msgspec.Meta`
 - Validators run on defaults, `n: PositiveInt = -1` fails an empty command line with `ValidationError`
-- Generic aliases (`type Pair[T] = tuple[T, T]` as `Pair[int]`) drop their `Parameter` and fail every parse with `'typing.TypeAliasType' object is not callable`
-- `negative=()` drops `--no-<name>` and `--empty-<name>`, `count=True` on an `int` counts `-vvv`, `allow_leading_hyphen=True` takes values opening with `-`
-- `App(default_parameter=Parameter(short_alias=True))` derives each option's short flag from its initial, uppercase once the lowercase is taken (`--host` as `-H` beside `-h` for help)
+- `Pair[int]` from `type Pair[T] = tuple[T, T]` drops its `Parameter` and fails every parse with `'typing.TypeAliasType' object is not callable`
+- `negative=()` drops `--no-` and `--empty-` flags, `count=True` on an `int` counts `-vvv`, `allow_leading_hyphen=True` takes values opening with `-`
+- `App(default_parameter=Parameter(short_alias=True))` makes each initial a short flag, uppercase when taken (`--host` as `-H`, `-h` is help)
 
 ## [03]-[USER_CLASSES]
 
-Commands sharing a set of options take one pydantic model under `@Parameter(name="*")`, each field an option with its docstring `Attributes` line as help, and fields without a default are required options:
+Shared options go in one pydantic model under `@Parameter(name="*")`, each field an option with `Attributes` help, required without a default:
 
 ```python
 @Parameter(name="*", group=Group("Remote", sort_key=1))
@@ -102,7 +102,7 @@ def locate(path: str, /, *, remote: Remote) -> Outcome[str]:
     return Ok(urljoin(f"{remote.scheme}://{remote.host}:{remote.port}", path))
 ```
 
-`locate /a --host <host>` returns `https://<host>:443/a`, `--port 0` exits 2 with pydantic's message, and help groups `Remote` fields in their own panel. Class kinds decide which library coerces and validates:
+`locate /a --host <host>` returns `https://<host>:443/a`, `--port 0` exits 2 with pydantic's message, and help shows `Remote` fields in one panel. Class kind decides which library coerces and validates:
 
 | [INDEX] | [CLASS]          | [BINDING]                                                                   |
 | :-----: | :--------------- | :-------------------------------------------------------------------------- |
@@ -112,12 +112,13 @@ def locate(path: str, /, *, remote: Remote) -> Outcome[str]:
 |  [04]   | `msgspec.Struct` | `--<name> <token>` puts the raw token string in its first field, unchecked  |
 
 - Classes under `Parameter(name="*")` with every field defaulted need a default instance, and registration raises `ValueError` without one
-- Dataclass, `attrs`, and pydantic parameters bind `--<name>.<field>` keys or one JSON object token (`--box '{"w": 3}'`), and keys on a `msgspec.Struct` parameter fail whatever `accepts_keys` holds
+- Dataclass, `attrs`, and pydantic parameters bind `--<name>.<field>` keys or one JSON token (`--box '{"w": 3}'`)
+- `msgspec.Struct` parameters reject keys whatever `accepts_keys` holds
 - Omitted `NotRequired` keys of a `TypedDict` stay absent, and fields typed `ReadOnly[T]` fail every parse with `Cannot instantiate typing.ReadOnly`
 
 ## [04]-[VALIDATION]
 
-Validators take `(type_, value)` with `type_` stripped of `Annotated` and return `None`. Raised `ValueError`, `TypeError`, and `AssertionError` become a `ValidationError` naming the option, and every other exception escapes raw:
+Validators take `(type_, value)`, `type_` without `Annotated`, and return `None`. Raised `ValueError`, `TypeError`, and `AssertionError` become a `ValidationError` naming the option, and every other exception escapes raw:
 
 | [INDEX] | [VALIDATOR]                    | [SCOPE]   | [CHECK]                                  |
 | :-----: | :----------------------------- | :-------- | :--------------------------------------- |
@@ -132,11 +133,11 @@ Validators take `(type_, value)` with `type_` stripped of `Annotated` and return
 - `Group("<title>", validator=validators.LimitedChoice(1, 2))` fails a call that supplies no member of the group, `allow_none=True` accepts it
 - `App(validator=f)` checks its own default command after binding, `app.command(f, validator=v)` checks one command
 - Root `App(validator=f)` refusals raise `NotImplementedError` from the error panel and exit 1, a named command or group refusal exits 2
-- `Parameter(validator=lambda _, value: msgspec.convert(value, Size))` checks a `Meta` alias (`Size`) at parse and reports its `msgspec.ValidationError`, a `ValueError`, as `` Expected `int` >= 1 `` on the option
+- `Parameter(validator=lambda _, value: msgspec.convert(value, Size))` reports `msgspec.ValidationError` (a `ValueError`) on the option
 
 ## [05]-[META_APPS]
 
-Meta apps own options every command shares and the scope each command runs in. `session` binds its own options, `parse_args` binds every other token to a command without calling it, and `ignored` maps each `parse=False` command parameter to its type for `session` to supply by type:
+Meta apps own options every command shares and the scope each command runs in. `session` binds its options, `parse_args` binds the rest to an uncalled command, `ignored` maps `parse=False` parameters to types `session` supplies:
 
 ```python
 app = App(name="tool", result_action=(exited, "sys_exit"))
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
 `stamp --help` lists `--keep` in its `Session` panel, and `--scratch` is an unknown option. Called app and parse mode decide binding:
 - `app.meta()` runs `session`, and `app()` skips it and leaves every unparsed parameter unfilled
-- `parse=` takes a regex searched against each parameter name or a `bool`, and `parse=False` on a positional parameter without a default raises `ValueError`
+- `parse=` takes a `bool` or a regex searched against parameter names, and `parse=False` on a positional parameter without default raises `ValueError`
 - Meta apps answer `--help` and `--version` before `session` runs
 - `parse_args` applies no `result_action`, a nested `app(tokens)` inside `session` returns its command result, and the meta app maps it once
 - `parse_mode="fallthrough"` (default) binds a meta option after the command name, and a command option of one name wins
@@ -187,7 +188,7 @@ if __name__ == "__main__":
 
 ## [06]-[CONFIGURATION]
 
-`App(config=...)` takes one source or a sequence, and values resolve from a command line, then `Parameter(env_var=...)`, then each source in order, then a signature default:
+`App(config=...)` takes a source or a sequence, values resolve from command line, `env_var=`, each source in order, then signature default:
 
 ```python
 app = App(name="tool", config=(config.Env("TOOL_", command=True), config.Toml("tool.toml", search_parents=True)))
@@ -210,7 +211,7 @@ app = App(name="tool", config=(config.Env("TOOL_", command=True), config.Toml("t
 
 ## [07]-[COMPLETION]
 
-`--install-completion` from `app.register_install_completion_command()` writes a script for the running shell and sources it from its startup file. Scripts hold every command, option, and `Literal` or `Enum` choice, `Path` hints complete through the shell's own file completion, and `completer=` lists values a run alone knows from other arguments in its context:
+`--install-completion` (`app.register_install_completion_command()`) writes a script for the current shell and sources it from its startup file. Scripts hold every command, option, and `Literal` or `Enum` choice, and `Path` hints use shell file completion. `completer=` lists values only a run knows from other arguments in its context:
 
 ```python
 def entries(context: CompletionContext, /) -> dict[str, str]:
@@ -240,11 +241,11 @@ def remove(name: Annotated[str, Parameter(completer=entries)], /, *, root: Resol
 - Failed coercion leaves `UNSET` in `value`, and completion runs no validator
 - Completers return a `str`, an iterable of values or `(value, description)` pairs, or a `{value: description}` mapping
 - Cyclopts discards a completer's exception, and its parameter offers no candidate
-- `generate_completion` and `--install-completion` import every command module an import-path registration names, and each `completer` completion runs `<prog> __complete <words>` and imports its command's module
+- `generate_completion` and `--install-completion` import every command module, a `completer` run imports its own through `<prog> __complete <words>`
 
-## [08]-[ENTRY]
+## [08]-[ENTRY_POINT]
 
-Entry modules hold one `App`, one registration by import path per command with its `help=` summary, and one result action. `exited` maps help, a status, a value, and faults:
+Entry-point modules hold one `App`, one registration by import path per command with its `help=` summary, and one result action. `exited` maps help, a status, a value, and faults:
 
 ```python
 """Run host executables in prepared folders."""
@@ -282,7 +283,7 @@ if __name__ == "__main__":
     app()
 ```
 
-`launch` exits with its host's status, `locate` writes its address as JSON on stdout, and each fault goes to stderr. `result_action` turns a command's return value into a process outcome, and default `"print_non_int_sys_exit"` prints a non-`int` result and exits 0, a returned `Error` included:
+`launch` exits with its host's status, `locate` writes its address as JSON on stdout, and each fault goes to stderr. `result_action` maps a return value to process outcome, default `"print_non_int_sys_exit"` prints any non-`int` result, `Error` included, and exits 0:
 
 | [INDEX] | [MODE]                                | [BEHAVIOR]                                 |
 | :-----: | :------------------------------------ | :----------------------------------------- |
@@ -296,4 +297,4 @@ if __name__ == "__main__":
 - Parse and validation failures print a panel to stderr and exit 2, and `error_formatter=str` prints the bare message
 - Help and version print to stdout, exit 0, and pass `None` on
 - Exceptions a command raises escape `app()` under every error setting and exit 1 with a traceback, `KeyboardInterrupt` exits 130
-- Embedded calls `app(tokens, result_action="return_value", exit_on_error=False, print_error=False)` return a command result and raise a `CycloptsError` for a parse failure
+- `app(tokens, result_action="return_value", exit_on_error=False, print_error=False)` returns command result, raises `CycloptsError` on parse failure

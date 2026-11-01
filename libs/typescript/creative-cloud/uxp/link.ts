@@ -1,4 +1,4 @@
-import { Cause, Console, Effect, flow, Layer, type Schedule, Schema, SchemaGetter } from 'effect';
+import { Cause, Effect, Layer, type Schedule, Schema, SchemaGetter } from 'effect';
 import { UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { type Rpc, type RpcGroup, type RpcSerialization, RpcServer } from 'effect/rpc';
@@ -40,7 +40,7 @@ const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(
                             reader.pipe(
                                 Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
                                 Effect.scoped,
-                                Effect.tapCauseIf(Cause.hasDies, flow(Cause.pretty, Console.error)),
+                                Effect.tapCauseIf(Cause.hasDies, Effect.logError),
                                 Effect.sandbox,
                                 Effect.retry(redial),
                                 Effect.forever,

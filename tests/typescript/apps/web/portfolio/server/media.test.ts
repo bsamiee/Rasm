@@ -8,7 +8,7 @@ import { r2, StaticAssets } from '@rasm/hosting';
 import { contract } from '@rasm/hosting/authentication';
 import { app, catalog } from '@rasm/portfolio/server';
 import { Effect, Layer, Schema } from 'effect';
-import { HttpRouter } from 'effect/http';
+import { HttpRouter, HttpServer } from 'effect/http';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const draft = { name: 'Studio', introduction: '', email: '', entries: [] };
 const json = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const client = Effect.gen(function* () {
     const { handler } = yield* Effect.acquireRelease(
-        Effect.sync(() => HttpRouter.toWebHandler(app(owner[contract.headers.email]).pipe(Layer.provideMerge([store(catalog, (options) => D1Client.layer({ db: env.DB, ...options })), r2(env.BUCKET), BrowserCrypto.layer, Layer.succeed(StaticAssets, { fetch: globalThis.fetch })])))),
+        Effect.sync(() => HttpRouter.toWebHandler(app(owner[contract.headers.email]).pipe(Layer.provideMerge([store(catalog, (options) => D1Client.layer({ db: env.DB, ...options })), r2(env.BUCKET), BrowserCrypto.layer, HttpServer.layerServices, Layer.succeed(StaticAssets, { fetch: globalThis.fetch })])))),
         ({ dispose }) => Effect.promise(dispose),
     );
     const send = Effect.fn('send')(function* (path: string, init: RequestInit) {

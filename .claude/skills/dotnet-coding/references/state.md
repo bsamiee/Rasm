@@ -1,36 +1,186 @@
 # [STATE]
 
-Covers values that depend on earlier values without a mutable variable, from the transition function to the sequence that threads it.
+Covers computations that depend on earlier inputs without mutating a value in place, from the transition shape to the loop forms.
 
-## [01]-[RUNNING_STATE]
+## [01]-[TRANSITIONS]
 
-A transition `Func<S, A, S>` receives the current state and one input and returns the successor, and the consumer's read selects the operator: `Fold` for the final state, `Scan` for every state, and `FoldM` for a transition `Func<S, A, IO<S>>` whose effects run in input order. Zipping the inputs with their `Scan` pairs each input with the state before it, the extra final state falls off the end, and `Tail` shifts the pairing to the state after each input:
+Programs are stateful when behavior depends on previous inputs, and the label depends on the boundary: a server is stateless by itself while the server with its database forms a stateful system. State becomes an explicit input, and the operation returns its successor beside the value:
+
+```text
+stateless: Input -> Value
+stateful:  Input -> State -> (Value, NewState)
+```
+
+Callers pass the returned state into the next operation, earlier state values stay unchanged, and each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, the operations capture that protocol:
+- `Map` transforms the produced value and preserves the returned state
+- `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the returned state
+- `State.pure` lifts a value into a computation that returns the state unchanged
+- `State.gets` reads a projection, `State.put` replaces the state, `State.modify` replaces it with a function of it, `put` and `modify` produce `Unit`
+- `Select` and `SelectMany` expose the operations to query syntax, which hides the forwarding and preserves the dependency order
+- `Stateful.state` and `Stateful.local` are the trait forms for a wrapper over `State` or `StateT`
+- `Stateful.local` restores the prior state after the nested computation
+
+Produced values can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
+
+## [02]-[CACHE]
+
+Lookups that cache results are state transitions over the cache: the `HashMap<string, decimal>` from codes to quotes is the state, and the lookup is a `State<HashMap<string, decimal>, decimal>`:
 
 ```csharp
-internal static class Running {
-    public static Seq<(double Width, double Start)> Placed(Seq<double> widths, double origin = 0d, double gap = 0d) =>
-        widths.Zip(widths.Scan(origin, (start, width) => start + width + gap), static (width, start) => (Width: width, Start: start));
-    public static Option<int> Settled(Seq<int> deltas, int start = 0) =>
-        deltas.Scan(start, static (sum, delta) => sum + delta).Tail.Choose(static (at, sum) => sum is 0 ? Some(at) : None).Head;
+internal static class QuoteCache {
+    public static State<HashMap<string, decimal>, decimal> Get(Func<string, decimal> fetch, string code) =>
+        from cached in State.gets<HashMap<string, decimal>, Option<decimal>>(cache => cache.Find(code))
+        from quote in cached.Match(
+            Some: static hit => State.pure<HashMap<string, decimal>, decimal>(hit),
+            None: () => Store(fetch(code), code))
+        select quote;
+    private static State<HashMap<string, decimal>, decimal> Store(decimal quote, string code) =>
+        State.modify<HashMap<string, decimal>>(cache => cache.Add(code, quote)).Map(_ => quote);
 }
 ```
 
-`Settled` answers the index of the first input after which the running sum returns to zero, and `Head` stops the `Scan` at that state. The state can be any immutable value: a `Seq<A>` path trimmed with `Take(depth)` and extended with `Add` threads the ancestry of a flattened outline the same way a sum threads an offset.
+Hits return the cached value with the same state, and a miss fetches, returns a new map with the quote, and uses no global state. The signature changes from a stateless lookup into a state transition:
 
-## [02]-[UNFOLDING]
+```text
+remote lookup: string -> decimal
+cached lookup: string -> HashMap<string, decimal> -> (decimal, HashMap<string, decimal>)
+```
 
-A state that advances from itself, with no input sequence and a step count no one knows in advance, unfolds from a seed through `LanguageExt.List.unfold`, and the step's return type selects what the sequence yields:
-- `Func<S, Option<S>>` yields the seed and every successor, and the first `None` ends the sequence after the last state
-- `Func<S, Option<(A, S)>>` yields a value apart from the state and never the seed, and a seed whose step returns `None` yields an empty sequence
-- Tuple seeds up to four elements pass the state as separate parameters and return `Option<(A, S1, S2, ...)>`
+Application state starts as an empty map, dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. Removing mutation does not remove the network effect, and passing the fetch as a `Func<string, decimal>` makes it explicit and testable with a deterministic function. The effect and its failure belong in the type, the fetch becomes `string -> IO<decimal>` and the cache becomes `StateT<HashMap<string, decimal>, IO, decimal>`:
 
 ```csharp
-internal static class Unfolded {
-    public static Seq<int> Levels(int size) =>
-        toSeq(LanguageExt.List.unfold(size, static level => level > 1 ? Some(level / 2) : None));
-    public static Seq<int> Digits(int value, int radix = 10) =>
-        toSeq(LanguageExt.List.unfold(value, rest => rest is 0 ? None : Some((rest % radix, rest / radix))));
+internal static class EffectfulQuoteCache {
+    public static StateT<HashMap<string, decimal>, IO, decimal> Get(Func<string, IO<decimal>> fetch, string code) =>
+        from cache in StateT.get<IO, HashMap<string, decimal>>()
+        from quote in cache.Find(code).Match(
+            Some: static hit => StateT.pure<HashMap<string, decimal>, IO, decimal>(hit),
+            None: () => Fetch(fetch, code, cache))
+        select quote;
+    private static StateT<HashMap<string, decimal>, IO, decimal> Fetch(Func<string, IO<decimal>> fetch, string code, HashMap<string, decimal> cache) =>
+        from quote in StateT.liftIO<HashMap<string, decimal>, IO, decimal>(fetch(code))
+        from _ in StateT.put<IO, HashMap<string, decimal>>(cache.Add(code, quote))
+        select quote;
 }
 ```
 
-`Digits` yields the least significant digit first.
+`StateT.get` reads the whole state, `StateT.liftIO` lifts the fetch into the transformer, and `StateT.put` writes the new map. Fetches that fail on the `IO` error channel leave the host with the original cache, and only a successful lookup yields a cache containing the new quote. `Run(state)` on a `StateT` returns `K<IO, (Value, State)>`, `.As()` converts it, `RunSafe()` executes it, and the host maps the `Fin` cases to its own result type. `IO` forked inside the transformer reads no state and writes none back.
+
+## [03]-[GENERATORS]
+
+Composable generators serve property-based testing, load testing, and simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. Primitive generator `NextInt` scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
+
+```csharp
+internal static class Generator {
+    public static State<int, int> NextInt { get; } = new(static seed => {
+        int shifted = seed ^ (seed >> 13);
+        int mixed = shifted ^ (shifted << 18);
+        int result = mixed & 0x7fffffff;
+        return (result, result);
+    });
+    public static State<int, bool> NextBool => NextInt.Map(static i => i % 2 is 0);
+    public static State<int, (int First, int Second)> Pair =>
+        from first in NextInt
+        from second in NextInt
+        select (first, second);
+    public static State<int, Option<int>> OptionalInt =>
+        from present in NextBool
+        from value in NextInt
+        select present ? Some(value) : Option<int>.None;
+}
+```
+
+`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order decides the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, and `State.pure` supplies the empty result without consuming state:
+
+```csharp
+internal static class ListGenerator {
+    public static State<int, Seq<int>> Empty => State.pure<int, Seq<int>>(Seq<int>());
+    public static State<int, Seq<int>> Ints =>
+        from empty in Generator.NextBool
+        from list in empty ? Empty : NonEmpty
+        select list;
+    public static State<int, Seq<int>> NonEmpty =>
+        from head in Generator.NextInt
+        from tail in Ints
+        select head.Cons(tail);
+}
+```
+
+`Ints` yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
+
+## [04]-[GENERALIZATION]
+
+`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. `Tree<T>` is a generic `[Union]`, and numbering needs no dependency and sits on an abstract member:
+
+```csharp
+internal static class Numbering {
+    public static State<int, int> GetAndIncrement { get; } = new(static count => (count, count + 1));
+    public static Tree<(int Number, T Value)> Numbered<T>(Tree<T> tree) => tree.Number().Run(0).Value;
+}
+
+[Union]
+internal abstract partial record Tree<T> {
+    public abstract State<int, Tree<(int Number, T Value)>> Number();
+
+    internal sealed record Leaf(T Value) : Tree<T> {
+        public override State<int, Tree<(int Number, T Value)>> Number() =>
+            Numbering.GetAndIncrement.Map(count => (Tree<(int Number, T Value)>)new Tree<(int Number, T Value)>.Leaf((count, Value)));
+    }
+    internal sealed record Branch(Tree<T> Left, Tree<T> Right) : Tree<T> {
+        public override State<int, Tree<(int Number, T Value)>> Number() =>
+            from left in Left.Number()
+            from right in Right.Number()
+            select (Tree<(int Number, T Value)>)new Tree<(int Number, T Value)>.Branch(left, right);
+    }
+}
+```
+
+Numbering returns a computation, supplying the initial counter runs it, `Run(0)` returns the numbered tree with the next counter, and `.Value` selects the tree. LINQ sequences the recursive transitions in a branch, and for a simpler case explicit state passing is clearer. Simulations and parsers use the same shape: a functional parser treats the input text as state and returns the parsed value with the unconsumed remainder, which is the model of `LanguageExt.Parsec`, where `Parser<T>` maps a `PString` to a `ParserResult<T>` carrying the unconsumed input.
+
+## [05]-[LOOPS]
+
+Indefinite loops advance a state until a runtime condition holds, and their length is not known in advance, `Map` and `Fold` over a fixed collection do not supply the stopping rule. The model separates concerns, each an explicit value or function:
+- State transition: `Func<S, S>` produces the next state from the current one
+- Termination: `Func<S, bool>` decides whether a state is final
+- Execution: apply the transition until termination
+- Consumption: retain only the final state, or every intermediate state
+
+Loop execution keeps the mutable loop variable inside its mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, C# provides no tail-call optimization and each call adds a stack frame, a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
+
+```csharp
+internal static class Trampolined {
+    public static Trampoline<S> RunUntil<S>(S state, Func<S, bool> stop, Func<S, S> next) =>
+        stop(state)
+            ? Trampoline.Pure(state)
+            : Trampoline.More(() => RunUntil(next(state), stop, next));
+    public static Trampoline<Option<int>> FirstZero(Seq<int> deltas, int current, int nextIndex) =>
+        current is 0
+            ? Trampoline.Pure(Some(nextIndex - 1))
+            : deltas.At(nextIndex).Match(
+                Some: delta => Trampoline.More(() => FirstZero(deltas, current + delta, nextIndex + 1)),
+                None: static () => Trampoline.Pure(Option<int>.None));
+}
+```
+
+`FirstZero` handles exhaustion: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, the state must contain everything both delegates need, a termination that depends on the last action or the latest random outcome belongs in the returned state, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
+
+When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:
+
+```csharp
+internal sealed record Session(int Remaining, bool HasExited);
+
+internal static class Traces {
+    public static Seq<Session> Of(Session initial, Func<Session, Session> advance) =>
+        toSeq(LanguageExt.List.unfold(initial, session => Step(session, advance)));
+    private static Option<(Session, Session)> Step(Session session, Func<Session, Session> advance) =>
+        session.HasExited ? None : Emit(advance(session));
+    private static Option<(Session, Session)> Emit(Session next) => Some((next, next));
+}
+```
+
+`Step` returns `Some` for the transition that first produces the terminal state and `None` on the following call, the sequence yields each state after a transition and not the initial state, and an already-terminal initial state yields an empty `Seq`, decide whether enumeration is empty, emits the initial state, or advances once when the initial state can be terminal. Constructing the sequence does not run the loop, reading it does:
+- `Last` reads until the sequence ends and returns the terminal state as an `Option`, `None` for an empty sequence
+- `Map` defines a lazy transformation of every yielded state, and `Fold` retains accumulated output beside the latest state
+- `Head` and `Take` stop enumeration before the loop's own condition, they serve intentional early termination alone
+- `foreach` is a consumer, and mutating an outer variable inside it reintroduces imperative state at the call site
+
+One `Seq` keeps every state it read, and a second pass does not rerun `advance`, while each `unfold` call constructs a new producer that reruns the whole process, when `advance` reads input or randomness, build the `Seq` once and read every required result from it.

@@ -1,7 +1,5 @@
 # [OWNERSHIP]
 
-Values with one owner at a time and the views and locks over their storage.
-
 ## [01]-[NONCOPYABLE_RESOURCES]
 
 Resources with a changing owner (stored, returned, handed to a task) are noncopyable structs holding the host handle alone and adding its lifetime. A `consuming` method reporting a release error ends its value with `discard self`:
@@ -22,8 +20,8 @@ struct OpenFile: ~Copyable {
 }
 ```
 
-Callers acquire through the memberwise init over the host call (`try OpenFile(descriptor: .open(path, .readOnly))`) and call host members on `descriptor` directly. `OrderError.Reason.failed(any Error)` holds the cause the untyped `close()` throws. `discard self` accepts trivially destroyed stored properties alone, and the owner stores its handle and nothing else:
-- Generic code over a noncopyable value suppresses the implicit requirement (`<Value: ~Copyable>`), and a generic type conforms to `Copyable` where its parameter does, as `Optional` and `Result` do
+Callers acquire through the memberwise init (`try OpenFile(descriptor: .open(path, .readOnly))`) and call host members on `descriptor`. `OrderError.Reason.failed(any Error)` holds the cause the untyped `close()` throws. `discard self` accepts trivially destroyed stored properties alone, and the owner stores its handle and nothing else:
+- Generic code suppresses implicit `Copyable` (`<Value: ~Copyable>`), and generic types are `Copyable` where their parameter is (`Optional`, `Result`)
 - `FileDescriptor.closeAfter` scopes a descriptor one call reads, a noncopyable owner holds one that outlives the call
 
 Noncopyable values sit in storage that moves its elements, and `Array` and `Dictionary` require copyable ones:
@@ -36,11 +34,11 @@ Noncopyable values sit in storage that moves its elements, and `Array` and `Dict
 |  [04]   | One value on the heap           | `UniqueBox`, `consume()` |
 |  [05]   | One value shared across tasks   | `Mutex`                  |
 
-Functions reading elements in order take `borrowing some Iterable<Element, Never> & ~Copyable & ~Escapable`, and one `for` loop borrows each element of a span, `[N of T]`, or `UniqueArray`.
+Functions reading elements in order take `borrowing some Iterable<Element, Never> & ~Copyable & ~Escapable`. One `for` loop borrows each element of a span, `[N of T]`, or `UniqueArray`.
 
 ## [02]-[TYPESTATE]
 
-Workflow states known at compile time are noncopyable types. Each state holds its previous state and the fact its transition added: a forward transition is the next state's memberwise init consuming its predecessor with no field repeated, and a backward transition returns an earlier state whole:
+Workflow states known at compile time are noncopyable types. Each state holds its predecessor and the fact its transition added. Forward transitions are the next state's memberwise init consuming its predecessor, and backward ones return an earlier state whole:
 
 ```swift
 struct Draft: ~Copyable {
@@ -61,11 +59,11 @@ struct Submitted: ~Copyable {
 }
 ```
 
-`Line`, `Account.ID`, and `Approval` are the module's line, account identifier, and copyable approval record. `returned()` takes `draft` out of a consumed value through partial consumption, legal in a state with no `deinit`. Final transitions return a copyable record, and ownership tracking ends with the workflow:
+`Approval` is a copyable record. `returned()` takes `draft` out of a consumed value through partial consumption, legal in a state with no `deinit`. Final transitions return a copyable record, and ownership tracking ends with the workflow:
 - Transitions take validated inputs and stay total, a `consuming` method that throws loses its consumed state with the error
 - States read from storage or the network decode into an enum, and each `switch` arm constructs its typestate value
 
-## [03]-[BORROWED_VIEWS]
+## [03]-[SPANS]
 
 Spans lend contiguous storage to a call without a copy or an escaping pointer and end when the call returns. Functions reading contiguous values take a span, every container lends to one signature, and the operation selects the span:
 
@@ -85,11 +83,11 @@ func values<Value: FixedWidthInteger & ConvertibleFromBytes>(in bytes: RawSpan, 
 let levels: [Int16] = values(in: frame.bytes)
 ```
 
-`frame` is a `Data`. `load(fromByteOffset:as:_:)` checks bounds, reads at any alignment, and takes byte order as a value, one function decodes every fixed-width integer in either order, and the binding's type picks `Value`. `Data` lends `bytes`, `Array` and `InlineArray` lend `span.bytes`. Writers state the order through `storeBytes(of:toByteOffset:as:_:)` on `Data.mutableBytes`.
+`frame` is a `Data`. `load(fromByteOffset:as:_:)` checks bounds, reads at any alignment, and takes byte order as a value. One function decodes every fixed-width integer in either order, and the binding's type picks `Value`. `Data` lends `bytes`, `Array` and `InlineArray` lend `span.bytes`. Writers state the order through `storeBytes(of:toByteOffset:as:_:)` on `Data.mutableBytes`.
 
 ## [04]-[SYNCHRONIZED_STATE]
 
-State that synchronous code updates from concurrent tasks sits in a `Mutex`. `Mutex` and `Atomic` bind to `let` alone, as a stored `let` of a `final class: Sendable` or a global `let` for process-wide state. Each update is a function over `inout` state that `withLock` runs as one critical section, and an actor method or a local `var` runs the same function:
+State that synchronous code updates from concurrent tasks sits in a `Mutex`. `Mutex` and `Atomic` bind to `let` alone, as a stored `let` of a `final class: Sendable` or a global `let` for process-wide state. Each update is a function over `inout` state that `withLock` runs as one critical section, and an actor method or local `var` runs the same function:
 
 ```swift
 func debit(_ amount: Decimal, from account: Account.ID, in balances: inout [Account.ID: Decimal]) throws(OrderError) {

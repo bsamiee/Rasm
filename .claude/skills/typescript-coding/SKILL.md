@@ -7,6 +7,12 @@ description: "Use when writing or reviewing TypeScript, covering functional desi
 
 Covers functional TypeScript on Effect modules, with a native construct where no Effect module states a value.
 
+[PRINCIPLES]:
+- Facts are stated once where they belong, and everything else derives from that source
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Every type, export, and helper states something nothing else does
+- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition
 - [02]-[TYPES](references/types.md): Types derived from the values that own them
@@ -23,7 +29,7 @@ One declaration states each concept, and every other form derives from it:
 ```ts
 class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')({
     sku: Sku,
-    price: Schema.BigDecimal.check(Schema.makeFilter(BigDecimal.isPositive)),
+    price: Schema.BigDecimal.check(Schema.isGreaterThanBigDecimal(BigDecimal.fromBigInt(0n))),
     quantity: Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.withConstructorDefault(Effect.succeed(1))),
 }) {
     get total() {
@@ -39,6 +45,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters with a dominant value take a default, callers state what varies
 - Declarations read once sit inline at their use, a value read twice is a `const`
+- Schemas declare at module scope, the parser cache keys on each schema's AST
 
 ## [02]-[FUNCTIONS]
 
@@ -52,11 +59,11 @@ Total functions return a declared output for each accepted input, narrowing the 
 
 ### [02.2]-[PURITY]
 
-Pure functions depend on their arguments alone and cause no side effect. Clock, randomness, environment, logging, and I/O are effects. Variable dependencies enter as an argument or as a service an effect reads.
+Pure functions depend on their arguments alone and cause no side effect. Clock, randomness, environment, logging, and I/O are effects.
 
 ## [03]-[EXPRESSIONS]
 
-Expressions evaluate to values, and every binding is `const`. Values build in one expression stating each field at creation:
+Bindings are `const`, and values build in one expression stating each field at creation:
 
 ```ts
 const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
@@ -86,6 +93,7 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 - `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
 - Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
 - Host enums match with an arm per member once decoded
+- Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
 
 ### [03.2]-[RECURSION]
 
@@ -101,7 +109,7 @@ TypeScript runs tail calls on the stack, and a recursion's depth bound selects i
 
 ## [04]-[IMMUTABILITY]
 
-Values are fixed once created. Data crossing a boundary is `Schema.Class` and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum`.
+Data crossing a boundary is `Schema.Class` and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum`.
 
 ## [05]-[RESULTS]
 
@@ -116,21 +124,23 @@ Every function returns an explicit outcome type, and one type serves one concern
 |  [05]   | `Exit<A, E>`      | Completed outcome a host reads                       |
 |  [06]   | `Cause<E>`        | Every failure, defect, and interruption of one fiber |
 
-Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently. Each package declares one error class for the expected failures its producers report, holding a `reason` literal for each response a caller gives, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
+Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
+
+Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
 
 ```ts
 class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique symbol }>()('StoreError', {
-    reason: Schema.Literals(['conflict', 'denied', 'unavailable']),
+    reason: Schema.TaggedUnion({ Conflict: { version: Schema.Int }, Denied: {}, Unavailable: {} }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
     override get message() {
-        return `${this.reason}: ${this.subject}`;
+        return `${this.reason._tag}: ${this.subject}`;
     }
 }
 ```
 
-- Instances are effects failing with themselves, `yield*` raises one in a generator and a handler returning one fails with it
+- Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
@@ -184,34 +194,25 @@ const status = Delivery.match({
 
 ## [06]-[EFFECTS]
 
-`Effect<A, E, R>` describes a program that succeeds with `A`, fails with `E`, reads services `R`, and performs nothing until a runtime runs it. Promises are eager, enter through `Effect.tryPromise` with an `AbortSignal` that interruption aborts, and leave through a host runtime call:
+`Effect<A, E, R>` describes a program that succeeds with `A`, fails with `E`, reads services `R`, and performs nothing until a runtime runs it. Promises are eager, enter through `Effect.tryPromise`, and leave through a host runtime call:
 - `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, with `catch` building the package error around its cause
 - `Effect.callback` adapts a callback API, with registration receiving an `AbortSignal` and returning a cleanup effect
+- `Effect.tryPromise` passes an `AbortSignal` that interruption aborts to a `try` declaring `(signal)`, a rest or defaulted parameter receives `undefined`
 
 ```ts
-const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: (cause) => StoreError.make({ reason: 'unavailable', subject: key, cause }) }), Effect.map(Option.fromNullOr));
+const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: (cause) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject: key, cause }) }), Effect.map(Option.fromNullOr));
 ```
 
 `bucket.get` is a host call returning `Promise<Uint8Array | null>`.
 
 ### [06.1]-[DEPENDENCIES]
 
-Consumers receive the narrowest dependency they read: a value for a stable snapshot, an effect for an operation run on demand, and a service for a capability a program reads through its environment:
-
-```ts
-class Accounts extends Context.Service<Accounts>()('@app/accounts', {
-    make: Effect.map(SqlClient.SqlClient, (sql) => ({
-        reserve: SqlSchema.void({ Request: Schema.Struct({ account: Schema.String, amount: Schema.BigDecimalFromString }), execute: (hold) => sql`INSERT INTO holds ${sql.insert(hold)}` }),
-    })),
-}) {
-    static readonly layer = Layer.effect(this, this.make);
-}
-```
+Consumers receive the narrowest dependency they read: a value for a stable snapshot, an effect for an operation run on demand, and a service for a capability a program reads through its environment.
 
 ### [06.2]-[ERROR_HANDLING]
 
 Failure policies are distinct operations:
-- Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`, or `Effect.catchTag` for one classified error
+- Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`, `Effect.catchTag` for one classified error, or `Effect.catchReason` for one reason of it
 - Timeout bounds a wait, `Effect.timeout` fails with `Cause.TimeoutError` and `Effect.timeoutOption` returns `Option.none()`
 - Recovery maps a final failure to a value at the host
 
@@ -235,3 +236,4 @@ Modules hold one concept, and a class holds the concept's data with its operatio
 - Modules export named declarations, a default export stands where a host loads one
 - Package `exports` entries are the import paths consumers use
 - Modules load without side effects, a registry, cache, or connection builds in the layer that owns it
+- Use `typescript-coding-effect` for Effect module families, tests, and telemetry

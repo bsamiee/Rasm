@@ -1,6 +1,6 @@
 # [INDESIGN]
 
-Typings declare DOM classes as interfaces, `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false), and code discriminates instances through a member their prototypes declare or their literal `constructorName` field.
+Typings declare DOM classes as interfaces, and `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false). Code discriminates instances by a member their prototypes declare or by their `constructorName` string.
 
 ## [01]-[MEMBERS]
 
@@ -38,9 +38,9 @@ const located = (specifier: string) =>
     });
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype declares the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object with a prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
-| [INDEX] | [NEED]                     | [FORM]                                          | [DECIDING_FACT]                                |
+| [INDEX] | [NEED]                     | [FORM]                                          | [REASON]                                       |
 | :-----: | :------------------------- | :---------------------------------------------- | :--------------------------------------------- |
 |  [01]   | Member by position or name | `item(index)`, negative from the end, or a name | `collection[index]` reads `undefined`          |
 |  [02]   | Every member as an array   | `everyItem().getElements()`                     | Collections have no iterator                   |
@@ -62,9 +62,9 @@ const located = (specifier: string) =>
 
 ## [03]-[FIELDS]
 
-Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the type a field's dictionary row declares: an enumeration takes a member name or `{type, member}`, and a named class a name resolved in the owning document's collection of that class or `{type, specifier}`.
+Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the type a field's dictionary row declares. Enumeration fields take a member name or `{type, member}`, class fields `{type, specifier}` or a name in the document's collection of that class.
 
-Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, preserving literal strings, and a record value writes field by field into the object a read-only member holds (a preference object). Values leave through a `JSON.stringify` replacer that writes an enumerator as its member name, a collection as type, specifier, and length, and an object `host` accepts as type, specifier, name, and `isValid`.
+Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a read-only member's object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, `isValid`.
 
 - Enumeration members are the prototype keys holding an `Enumerator` whose `String` equals the key
 - Enumerators compare through `equals` (`Justification.CENTER_ALIGN.equals(value)`)
@@ -78,7 +78,7 @@ Refusals throw one field at a time with the host's expected type ("Expected Unit
 
 ## [04]-[TRANSACTIONS]
 
-Throws inside a step roll back every change in every document and record no undo entry. Top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` in a plugin can lose its hand-off: main thread waits for a callback that never runs, plugin thread blocks on a fence, and InDesign hangs until killed, where ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls the plugin serves during an ExtendScript `$.sleep` enter a nested function `doScript`, and open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
+Throws inside a step roll back every change in every document and record no undo entry. Plugin top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can hang InDesign on a callback the fenced plugin thread never runs. ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls served during an ExtendScript `$.sleep` enter a nested function `doScript`. Open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
 
 | [INDEX] | [WORK]                 | [FORM]                                                                |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
@@ -89,18 +89,18 @@ Throws inside a step roll back every change in every document and record no undo
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
 |  [06]   | Write from a script    | Top-level function `doScript` under `ENTIRE_SCRIPT`                   |
 
-`app.doScript` returns a plain object with its scripting property keys alone and rethrows a throw as a new `Error` with no other field: a function's throw as "<name>: <message>", a thrown string as its text, and an ExtendScript source throw as "Uncaught JavaScript exception: <message>". Value and failure leave through a `Deferred`:
+`app.doScript` returns plain objects with scripting property keys alone. Throws return as a bare `Error`: "<name>: <message>" from a function, string throws as text, "Uncaught JavaScript exception: <message>" from source. Value and failure leave through a `Deferred`:
 
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
     const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
     const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | HostError>(), Effect.runSyncWith(yield* Effect.context<R>())];
-    yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => new HostError({ step: label, cause }) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
+    yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => HostError.make({ step: label, cause }) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
     return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), (id) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO)), { discard: true })));
 });
 ```
 
-`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
+`commit` runs in a script context, where top-level function `doScript` completes, and returns the body's value or rolled-back typed failure. `Deferred.fail` completes `done` only when `doScript` refused before the body ran. Documents a rolled-back step opened close, found by id difference. Plugins hold one step open with repeated ExtendScript `$.sleep(5)` until a peer call enters it and runs inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
@@ -127,7 +127,7 @@ value`,
                     ScriptLanguage.JAVASCRIPT,
                     [target.toSpecifier(), field],
                 ),
-            catch: (cause) => new HostError({ step: `${target.toSpecifier()} ${field}`, cause }),
+            catch: (cause) => HostError.make({ step: `${target.toSpecifier()} ${field}`, cause }),
         }),
     );
 ```
@@ -147,7 +147,7 @@ value`,
 
 ```ts
 const preserve = <T extends object>(target: T, replacements: Partial<T>) => {
-    const refused = (cause: unknown) => new HostError({ step: Struct.keys(replacements).join(', '), cause });
+    const refused = (cause: unknown) => HostError.make({ step: Struct.keys(replacements).join(', '), cause });
     return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(Struct.keys(replacements), (key) => [key, target[key]]), catch: refused }), (saved) => Effect.sync(() => Object.assign(target, saved))).pipe(
         Effect.tap(() => Effect.try({ try: () => Object.assign(target, replacements), catch: refused })),
     );
@@ -160,7 +160,7 @@ Find/Change scopes save, load, and delete a native query. Native serialization p
 
 - `MeasurementUnits.POINTS` makes every measurement field read and write points, text size and leading included
 - `AutoEnum.AUTO_VALUE` varies units per field by ruler axis and stroke setting, and unit strings (`'9mm'`) parse under every unit
-- Panels hold `enableRedraw` false and `measurementUnit` at `POINTS` for each served call, reads hold `userInteractionLevel` at `NEVER_INTERACT`, and writes run at InDesign's own level
+- Served calls hold `enableRedraw` false and `measurementUnit` `POINTS`, reads `userInteractionLevel` `NEVER_INTERACT`, writes InDesign's own level
 - Reads that change export preferences hold them through `preserve` without a transaction or document undo entry
 - Scripts start at `INTERACT_WITH_ALL`, and an uncaught script throw alerts under it and `NEVER_INTERACT`
 - `NEVER_INTERACT` turns a PDF font embedding refusal into a silent omission
@@ -168,7 +168,7 @@ Find/Change scopes save, load, and delete a native query. Native serialization p
 
 ## [06]-[GEOMETRY]
 
-`resolve` returns one location in a named coordinate space independent of ruler units and origin, and its top-left and bottom-right anchors give an axis-aligned box for rotated, grouped, anchored, and pasteboard items:
+`resolve` returns one location in a named coordinate space, independent of ruler units and origin. Top-left and bottom-right anchors give an axis-aligned box for rotated, grouped, anchored, and pasteboard items:
 
 ```ts
 import type { Page, PageItem } from 'adobe:indesign';
@@ -180,19 +180,20 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
                 try: () =>
                     Extent.make(
                         Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(
-                            Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
-                                Array.map(each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES), ([x, y]) => ({ top: y, left: x, bottom: y, right: x })),
+                            Array.map(
+                                Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]): readonly (readonly [number, number])[] => each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES)),
+                                ([x, y]) => ({ top: y, left: x, bottom: y, right: x }),
                             ),
                         ),
                     ),
-                catch: (cause) => new HostError({ step: `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`, cause }),
+                catch: (cause) => HostError.make({ step: `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`, cause }),
             }),
         ),
     );
 }
 ```
 
-`Extent.of` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. The bounds-space anchor form reads anchored items the two-element form misreads, and folding corners keeps a rotated group's box tight where four corners per item overstate it.
+`Extent.of` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. The bounds-space anchor form reads anchored items the two-element form misreads. Folding corners keeps a rotated group's box tight where four corners per item overstate it.
 
 - `page.parent.resolve([[0, 0], page.index], CoordinateSpaces.SPREAD_COORDINATES, true)` locates a page's ruler origin in spread space
 - `geometricBounds` orders `[top, left, bottom, right]` in ruler units
@@ -209,11 +210,10 @@ Export reads app-wide preferences another script left, fails with no throw under
 
 ```ts
 import type { Page } from 'adobe:indesign';
-import { temporary } from '#/dom/files';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
     const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), temporary('render.png')]);
-    const refused = (cause: unknown) => new HostError({ step: `export of ${page.toSpecifier()}`, cause });
+    const refused = (cause: unknown) => HostError.make({ step: `export of ${page.toSpecifier()}`, cause });
     yield* preserve(app.pngExportPreferences, {
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pageString: `+${page.documentOffset + 1}`,
@@ -226,7 +226,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
 }, Effect.scoped);
 ```
 
-`temporary` in `dom/files.ts` reads `Model` for a path in the folder ExtendScript `Folder.temp` names, and scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
+`temporary` reads `Model` for a path under ExtendScript `Folder.temp`. Scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -237,9 +237,9 @@ Whole items export through `PageItem.exportFile`, pages and spreads through `Doc
 
 ## [08]-[TEXT]
 
-Text members return a range's first-run value, and `textStyleRanges.everyItem().<field>` returns one value per run, a `SpecialCharacters` enumerator for a run of one special character:
+Text members return a range's first-run value. `textStyleRanges.everyItem().<field>` returns one value per run, a `SpecialCharacters` enumerator for a lone special character:
 
-| [INDEX] | [NEED]                       | [FORM]                                             | [DECIDING_FACT]                               |
+| [INDEX] | [NEED]                       | [FORM]                                             | [REASON]                                      |
 | :-----: | :--------------------------- | :------------------------------------------------- | :-------------------------------------------- |
 |  [01]   | Override presence            | `textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE)` | Text, paragraph, word hold it, story lacks it |
 |  [02]   | Style applied, overrides cut | `appliedParagraphStyle` assignment                 | Matches `applyParagraphStyle(style)`          |
@@ -290,17 +290,16 @@ Searches and changes run in one sequence:
 
 ```ts
 import type { Font } from 'adobe:indesign';
-import { temporary } from '#/dom/files';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => new HostError({ step: path, cause }) });
+    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => HostError.make({ step: path, cause }) });
     return face.status.equals(FontStatus.INSTALLED)
         ? Option.some(
             yield* bytes(`file:${face.location}`).pipe(
                 Effect.catchIf(
                     ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause),
-                    () => Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try({ try: () => face.createSubsetFont(characters, path), catch: (cause) => new HostError({ step: path, cause }) }), bytes(`file:${path}`))),
+                    () => Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try({ try: () => face.createSubsetFont(characters, path), catch: (cause) => HostError.make({ step: path, cause }) }), bytes(`file:${path}`))),
                 ),
             ),
         )
@@ -331,12 +330,13 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 - Profiles resolve by name over `app.preflightProfiles.everyItem().getElements()`, and `itemByName('[Basic]')` reads invalid
 - `app.preflightProcesses.add(document, profile)` ignores document preflight options and takes no argument for them
 - `waitForProcess()` turns preflight off and on for the application and every open document, and returns false once finished
-- Processes `app.preflightProcesses.add` returns finish through `waitForProcess()` with InDesign inactive, where `activeProcess.waitForProcess()` returns false at once and leaves the live process running
+- `app.preflightProcesses.add` processes finish through `waitForProcess()` with InDesign inactive
+- `activeProcess.waitForProcess()` returns false at once and leaves the live process running
 - `preflightEmbedWorkingProfile` reads on the application alone, a document's `preflightOptions` throws "Invalid object for this request."
 
 ## [12]-[SCRIPTS]
 
-Scripts answer through one `script.setResult` call and fire no timers. A script serving an `RpcGroup` reads one encoded request from its arguments as standard input and answers the encoded response through `setResult` as standard output:
+Scripts answer through one `script.setResult` call and fire no timers. Scripts serving an `RpcGroup` read one encoded request from their arguments as stdin and answer through `setResult` as stdout:
 
 ```ts
 import uxp from 'adobe:uxp';
@@ -348,27 +348,26 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
         const answer = (chunk: string | Uint8Array) => Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
         yield* Layer.launch(server).pipe(
             Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
-            Effect.catchCause((cause) =>
-                Cause.hasInterruptsOnly(cause) ? Effect.failCause(cause) : Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer))),
-            ),
+            Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
         );
     }).pipe(Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, and `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Schema.declare` over `Schema.is` keeps the host's `script` object as `setResult` receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Schema.declare` over `Schema.is` keeps the host's `script` object as `setResult` receiver. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test
-- `.idjs` entries sent as a file URL and holding `require('./main.js')` run the bundle beside them synchronously, and a 1.4 MB module requires in about 10 ms
+- `.idjs` entries sent as a file URL run a `require('./main.js')` bundle beside them synchronously, a 1.4 MB module in about 10 ms
 - `app.doScript(<source>, ScriptLanguage.UXPSCRIPT)` returns `undefined` at once for source the runner reads as asynchronous
-- Large source sent as text runs nothing, and bundles load through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)` from text-form source
-- `fullName`, `filePath`, and every field the dictionary types `File` return promises, and ExtendScript `resolve(<specifier>)[<field>].fsName` reads each synchronously
-- `getTemporaryFolder()` returns a promise, ExtendScript `Folder.temp.fsName` names the user temporary folder, and `File(<path>).remove()` deletes, where `require('fs').unlinkSync` throws "a.provider.unlinkSync is not a function"
+- Large text source runs nothing, and text source loads a bundle through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)`
+- `fullName`, `filePath`, and `File`-typed fields return promises, where ExtendScript `resolve(<specifier>)[<field>].fsName` reads each synchronously
+- `getTemporaryFolder()` returns a promise, where ExtendScript `Folder.temp.fsName` names the user temporary folder
+- `File(<path>).remove()` deletes, where `require('fs').unlinkSync` throws "a.provider.unlinkSync is not a function"
 - Listeners a script registers fire after its context ended, and reading `handler` or `properties` of one crashes InDesign
 - DOM calls from a continuation after a script returned crash InDesign, and quit events served while a script runs abort it
 
-## [13]-[PLUG_INS]
+## [13]-[PLUGINS]
 
 InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, and timers fire while it is hidden:
 - `host.app` other than `ID` rejects the folder, and panels become Window menu actions where commands and shortcuts bind none

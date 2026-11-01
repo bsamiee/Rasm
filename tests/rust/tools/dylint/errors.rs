@@ -373,9 +373,9 @@ fn discarded_error(found: &str) {
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `TryFromIntError` with a fallback value
-       --> tools/dylint/examples/duplicate_type.rs:408:52
+       --> tools/dylint/examples/duplicate_type.rs:416:52
         |
-    408 |     shim.port.strict_add(u16::try_from(shim.limit).unwrap_or_default())
+    416 |     shim.port.strict_add(u16::try_from(shim.limit).unwrap_or_default())
         |                                                    ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
@@ -1074,22 +1074,6 @@ fn io_error_without_context(found: &str) {
        = help: pass a typed error to `io::Error::new` in place of the text
        = note: `#[warn(io_error_without_context)]` on by default
 
-    warning: `StoreError` takes every `io::Error` through `From` and keeps no operation or subject
-      --> tools/dylint/examples/io_error_without_context.rs:21:5
-       |
-    21 |     Read(#[from] io::Error),
-       |     ^^^^
-       |
-       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
-
-    warning: `JournalError` takes every `io::Error` through `From` and keeps no operation or subject
-      --> tools/dylint/examples/io_error_without_context.rs:26:1
-       |
-    26 | struct JournalError {
-       | ^^^^^^^^^^^^^^^^^^^
-       |
-       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
-
     warning: `io::Error::new` wraps text callers cannot match
       --> tools/dylint/examples/io_error_without_context.rs:57:19
        |
@@ -1114,14 +1098,45 @@ fn io_error_without_context(found: &str) {
        |
        = help: return a `thiserror` variant holding the subject and its typed source
 
-    warning: `ReadError` takes every `io::Error` through `From` and keeps no operation or subject
-      --> tools/dylint/examples/redundant_error_conversion.rs:91:5
+    warning: `std::fs::read_to_string` returns an `io::Error` stating no operation or subject, and it enters `StoreError` through `From`
+      --> tools/dylint/examples/io_error_without_context.rs:78:59
        |
-    91 |     Io(#[source] io::Error),
-       |     ^^
+    78 | fn opened(path: &Path) -> Result<String, StoreError> { Ok(std::fs::read_to_string(path)?) }
+       |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
-       = note: `#[warn(io_error_without_context)]` on by default
+       = help: call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`
+
+    warning: `std::fs::read` returns an `io::Error` stating no operation or subject, and it enters `StoreError` through `From`
+      --> tools/dylint/examples/io_error_without_context.rs:82:101
+       |
+    82 | fn counted(path: &Path) -> Result<usize, StoreError> { std::fs::read(path).map(|bytes| bytes.len()).map_err(Into::into) }
+       |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`
+
+    warning: `std::io::Read::read_to_string` returns an `io::Error` stating no operation or subject, and it enters `JournalError` through `From`
+      --> tools/dylint/examples/io_error_without_context.rs:87:5
+       |
+    87 |     std::fs::File::open(path)?.read_to_string(&mut text)?;
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`
+
+    warning: `std::fs::File::open` returns an `io::Error` stating no operation or subject, and it enters `JournalError` through `From`
+      --> tools/dylint/examples/io_error_without_context.rs:87:5
+       |
+    87 |     std::fs::File::open(path)?.read_to_string(&mut text)?;
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`
+
+    warning: `tokio::fs::read_to_string` returns an `io::Error` stating no operation or subject, and it enters `StoreError` through `From`
+      --> tools/dylint/examples/io_error_without_context.rs:93:66
+       |
+    93 | async fn spawned(path: &Path) -> Result<String, StoreError> { Ok(tokio::fs::read_to_string(path).await?) }
+       |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`
 
     warning: `io::Error::other` wraps text callers cannot match
        --> tools/dylint/examples/stringified_error.rs:148:49
@@ -1264,6 +1279,19 @@ fn redundant_error_conversion(found: &str) {
        |
     54 |         source: Utf8Error,
        |         ^^^^^^^^^^^^^^^^^
+       = help: mark the field `#[from]` and delete the impl
+
+    warning: `impl From<Error> for ReadError` wraps the source in `Io` by hand
+      --> tools/dylint/examples/redundant_error_conversion.rs:94:1
+       |
+    94 | impl From<io::Error> for ReadError {
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+    note: source field
+      --> tools/dylint/examples/redundant_error_conversion.rs:91:18
+       |
+    91 |     Io(#[source] io::Error),
+       |                  ^^^^^^^^^
        = help: mark the field `#[from]` and delete the impl
 
     warning: `impl From<Utf8Error> for AttributedError` wraps the source in `Text` by hand
@@ -1610,9 +1638,9 @@ fn stringified_error(found: &str) {
 fn untyped_error(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `Result` error `u16` is a primitive that names no failure
-       --> tools/dylint/examples/duplicate_type.rs:459:25
+       --> tools/dylint/examples/duplicate_type.rs:467:25
         |
-    459 | const fn outcome(value: Result<u8, u16>) -> Outcome<u8, u16> {
+    467 | const fn outcome(value: Result<u8, u16>) -> Outcome<u8, u16> {
         |                         ^^^^^^^^^^^^^^^
         |
         = help: return a `thiserror` enum with a variant per failure and its typed source

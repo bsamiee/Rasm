@@ -5,7 +5,19 @@ description: "Use when writing or reviewing Rust, covering functional design wit
 
 # [RUST_CODING]
 
-Covers Rust design decisions. `thiserror`, `sysexits`, `validated`, `nonempty-collections`, `nutype`, `derive_more`, `strum`, `enum-map`, `itertools`, `tokio`, `tokio-util`, `futures`, `serde`, `jiff`, and `tracing` are part of the language, and every example uses their types.
+Code treats each crate as part of the language:
+- Errors and exit status: `thiserror`, `sysexits`
+- Validated values and derives: `validated`, `nutype`, `derive_more`, `strum`
+- Collections and iteration: `nonempty-collections`, `enum-map`, `itertools`
+- Async: `tokio`, `tokio-util`, `futures`
+- Wire and time: `serde`, `jiff`
+- Tracing: `tracing`
+
+[PRINCIPLES]:
+- Facts are stated once where they belong, and everything else derives from that source
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
+- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
@@ -51,7 +63,7 @@ Pure functions take no `async`, no `&mut` parameter, and no capability trait, an
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
-Order parameters for left-to-right application: dependencies and configuration known at the composition root, then a policy selecting behavior, then the runtime value. Dependencies are capability traits or closures: a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`.
+Order parameters left to right: dependencies and configuration the composition root knows, then a behavior policy, then the runtime value. Dependencies are capability traits or closures: a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`.
 
 Select the form by the call site:
 - `match` over ranges, guards, or variants states a first-match decision, arm order stating priority
@@ -109,7 +121,7 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting the values a type has exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts, a tuple or closure holds an intermediate value no consumer names, and a public alias names one generic instantiation (`TypedUuid<OrderKind>`).
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Public aliases name one generic instantiation (`TypedUuid<OrderKind>`).
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 
@@ -126,7 +138,7 @@ pub enum Delivery {
 }
 ```
 
-- Kinds derive from the enum: `delivery.discriminant()` returns its fieldless `Stage`, declaration order ranks stages (`>= Stage::Delivered`), and `EnumMap<Stage, V>` holds one value per stage
+- Kinds derive from the enum: `discriminant()` returns a fieldless `Stage` ranked in declaration order, `EnumMap<Stage, V>` one value per stage
 - Data shared by every variant sits in a struct beside a field holding the enum
 - Variants differing only by a tag are one struct keyed by a fieldless enum
 - Flags with fields meaningful for one flag value become one variant per valid state
@@ -198,7 +210,7 @@ Every fallible function returns its outcome as a value, and one type serves one 
 |  [04]   | `ControlFlow<B, C>`                | Early exit from a fold with a value, not a failure |
 |  [05]   | `impl Stream<Item = Result<T, E>>` | Values over time, each failure one item            |
 
-Input boundaries select the result type, functions preserve it, and conversions happen at one named point through the method named for the target (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone.
+Input boundaries select the result type, functions preserve it, and one point converts by the target's method (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone.
 
 ### [04.1]-[COMPOSITION]
 
@@ -232,7 +244,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for the crate with one variant per source, a domain refusal or each foreign error type, holding the typed subject a reader needs. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names:
+Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -255,12 +267,13 @@ pub enum LedgerError {
 - Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
 - Fields named `source` hold the foreign error a variant wraps
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, forwarding their own message
-- Boundaries add the subject a foreign error lacks (the path, the key) by `map_err` into a variant holding both, an `io::Error` included
+- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source
+- `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
 
-Entry points run the composed effect once and translate its result into an exit status. The crate error states each translation once as a conversion from its reference into `sysexits::ExitCode`, a generic entry point bounds `for<'error> ExitCode: From<&'error E>`, and an entry point holding accumulated failures returns the first one's status:
+Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by reference into `sysexits::ExitCode`, and generic entry points bound `for<'error> ExitCode: From<&'error E>`. Accumulated failures exit with the first one's status:
 
 ```rust
 impl From<&LedgerError> for ExitCode {
@@ -279,7 +292,7 @@ Entry points log each failure that reaches their translation as `Report::new(&er
 
 ## [05]-[TRAITS]
 
-Traits state a capability a consumer needs. An associated type states an output the implementor determines, a generic parameter a choice the caller makes, and a default method derives from the required ones. Select dispatch by what varies and who knows the cases:
+Traits state a capability a consumer needs. Associated types state an output the implementor decides, generic parameters a caller's choice, and default methods derive from required ones. Select dispatch by what varies and who knows the cases:
 
 | [INDEX] | [SITUATION]                                                   | [FORM]                                 |
 | :-----: | :------------------------------------------------------------ | :------------------------------------- |
@@ -356,7 +369,7 @@ where S: Source {
 
 `buffered(0)` polls no fetch, and the bound takes `NonZero`. Every fetch runs to its outcome, and `Validated` keeps each failure for the caller. Concurrency on one task needs no `Send`, no `Arc`, and no `'static` capture, and fits I/O that waits more than it computes.
 
-Shared state takes the construct its access pattern states, and values that change together sit in one construct that owns both the value and its notification:
+Shared state takes the construct its access pattern names, and values changing together sit in one construct owning value and notification:
 
 | [INDEX] | [ACCESS]                                      | [CONSTRUCT]                                     |
 | :-----: | :-------------------------------------------- | :---------------------------------------------- |
@@ -368,7 +381,10 @@ Shared state takes the construct its access pattern states, and values that chan
 |  [06]   | Keyed results with expiry and coalesced loads | `moka::future::Cache`                           |
 |  [07]   | Reusable connections and handles              | `deadpool` pool                                 |
 
-Failure policies are distinct operations the application composes around a library's result: fallback runs a lower-priority effect after the preferred one fails, retry reruns a transient failure on a schedule, recovery maps a final failure to a value at the entry point. Libraries return their result with their own error and leave each policy to the application.
+Libraries return their own error, and the application composes each failure policy around that result:
+- Fallback runs a lower-priority effect after the preferred one fails
+- Retry reruns a transient failure on a schedule
+- Recovery maps a final failure to a value at the entry point
 
 ## [07]-[NUMERICS]
 
@@ -382,7 +398,7 @@ Numeric facts come from the type or package that states them:
 
 Roots, quadrature, factorizations, derivatives, quantiles, and optimization are package members:
 
-| [INDEX] | [FACT]         | [MEMBER]                                 |
+| [INDEX] | [PROBLEM]      | [MEMBER]                                 |
 | :-----: | :------------- | :--------------------------------------- |
 |  [01]   | Scalar root    | `argmin` `BrentRoot`                     |
 |  [02]   | Quadrature     | `GaussLegendre::integrate`               |

@@ -17,13 +17,13 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
 - Lock downgrade checks rank npm prereleases of one base by registry publish time where the first differing label is alphanumeric
 - `ncu --reject` skips rows `ncu` cannot pick (`typescript`, `tree-sitter-swift`'s suffixed tag), `eng/typescript/upgrade/typescript.ts` moves them
-- `pnpm install` keeps orphaned packages for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browser builds
+- `pnpm install` keeps orphans for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browsers
 
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- Packages declare one `exports` entry per runtime their modules load in, an `index.ts` barrel of named re-exports or one module, and importers name the entry
-- Modules reach their own package through `imports` `"#/*"`, with extensionless specifiers, mapped to the extension of the modules each folder holds (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
+- Packages declare one `exports` entry per runtime, an `index.ts` barrel of named re-exports or one module, importers name the entry
+- Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
@@ -33,10 +33,10 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
 - Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
 - `tsconfig.base.json` excludes project `*.config.ts` files, root `tsconfig.json` compiles them and `.storybook/main.ts`
-- Project programs name their story files by extension (`.storybook/*.stories.ts` or `.storybook/*.stories.tsx`) beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
+- Project `include` lists `.storybook/*.stories.ts` or `.stories.tsx` beside `**/*` (skips dot directories), story imports reach `.storybook/preview`
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
-- Project `typecheck:tsc` hashes the compiler packages beside the project's own package closure, root `typecheck:tsc` keeps Nx's default hash of every installed package
+- Project `typecheck:tsc` hashes compiler packages and its package closure, root `typecheck:tsc` keeps Nx's default hash of every installed package
 
 ## [03]-[EXECUTION]
 
@@ -65,9 +65,9 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 [STORYBOOK]:
 - `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
-- Storybook reads `addons` and literal `tags` from `.storybook/preview` source. `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`
+- `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`, Storybook reads `addons` and literal `tags` from its source
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
-- Root `package.json` lists no `@storybook/react-vite`, a root row resolves its `typescript` peer to root TypeScript 7 over `docgen` catalog's TypeScript 6
+- Root `package.json` lists no `@storybook/react-vite`, a root row resolves its `typescript` peer to root TypeScript 7 over `docgen` catalog's 6
 - Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row merges every project's cache into one directory
 - `@nx/storybook` stays out, its `storybook` peer range ends below 11 and its `test-storybook` repeats `test`
 

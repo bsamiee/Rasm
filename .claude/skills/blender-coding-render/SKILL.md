@@ -5,15 +5,14 @@ description: "Use when writing or reviewing Python that sets Blender render, com
 
 # [BLENDER_CODING_RENDER]
 
-Covers `bpy` code over render settings, color management, view layers, compositor effects, renders and their files, bakes, images, strips, and render engines.
-
+Covers `bpy` code over render settings, color management, view layers, compositor effects, renders and their files, bakes, images, strips, and render engines:
 - Use `blender-coding` for member write order, dynamic enums, library loads, handler threads, and pixel buffers
 - Use `blender-coding-nodes` for node trees
 
 [REFERENCES]:
-- [01]-[FILES](references/files.md): Written render files, from multilayer parts and cryptomatte to File Output, metadata, and OpenImageIO reads
-- [02]-[ENGINES](references/engines.md): `RenderEngine` subclasses, from pass registration and result writes to viewport draws and bakes
-- [03]-[SEQUENCER](references/sequencer.md): Sequencer scenes, strip creation, timing writes, effects, modifiers, and metas
+- [01]-[FILES](references/files.md): Written render files and their OpenImageIO reads
+- [02]-[ENGINES](references/engines.md): `RenderEngine` subclasses
+- [03]-[SEQUENCER](references/sequencer.md): Sequencer strips
 
 ## [01]-[SETTINGS]
 
@@ -35,47 +34,43 @@ Governing writes keep every other member and refuse values outside live items:
 - `file_format` writes refuse a format outside the current media with `TypeError`, `MULTI_LAYER_IMAGE` holding `OPEN_EXR_MULTILAYER` alone
 - `linear_colorspace_settings.name` reads `""` with an RNA warning until the first linear format write, and refuses `""` with `TypeError`
 
-Records declare each governing member before the members it resets (`display_settings` before `view_settings` on a scene, `image_settings` before `ffmpeg` on `render`). `assigned` writes each differing member and recurses into nested settings, and `held` restores the prior record on exit and yields what the host kept:
+Writes follow mapping order, each governing member before the members it resets (`display_settings` before `view_settings`, `file_format` before `color_depth`, `image_settings` before `ffmpeg`). `bl_rna.properties` lists scene `view_settings` first and `look` before `view_transform`. `assigned` writes each differing member and recurses into nested settings, and `captured` reads the same shape back with live arrays copied into tuples. `held` restores prior values on exit and yields what the host kept:
 
 ```python
-type Struct = bpy.types.bpy_struct[object]
-
-
-class Colorspace(msgspec.Struct, frozen=True, omit_defaults=True):
-    name: str = ""
-
-
-class FileFormat(msgspec.Struct, frozen=True, kw_only=True):
-    media_type: str
-    file_format: str
-    color_mode: str
-    color_depth: str
-    views_format: str = "INDIVIDUAL"
-    linear_colorspace_settings: Colorspace = Colorspace()
-
-
-def assigned(owner: Struct, values: Mapping[str, object]) -> Result[None, TypeError]:
-    def written(prior: Result[None, TypeError], item: tuple[str, object]) -> Result[None, TypeError]:
-        match item:
-            case name, Mapping() as nested:
-                return prior.bind(lambda _: assigned(getattr(owner, name), nested))
-            case name, value if value != getattr(owner, name):
-                return prior.bind(lambda _: catch(setattr, exception=TypeError)(owner, name, value))
+def assigned(owner: Struct, values: Mapping[str, object], /) -> Outcome[None]:
+    def written(name: str, value: object) -> Outcome[None]:
+        match value:
+            case Mapping():
+                return assigned(getattr(owner, name), value)
+            case _ if value == getattr(owner, name):
+                return Ok(None)
             case _:
-                return prior
+                return catch(setattr, exception=TypeError)(owner, name, value).map_error(partial(Fault.of, Reason.INVALID, owner.path_from_module(name)))
 
-    return reduce(written, values.items(), Result[None, TypeError](ok=None))
+    return reduce(lambda done, item: done.bind(lambda _: written(*item)), values.items(), Ok(None))
+
+
+def captured(owner: Struct, values: Mapping[str, object], /) -> dict[str, object]:
+    def read(name: str, value: object) -> object:
+        match value:
+            case Mapping():
+                return captured(getattr(owner, name), value)
+            case tuple():
+                return tuple(getattr(owner, name))
+            case _:
+                return getattr(owner, name)
+
+    return {name: read(name, value) for name, value in values.items()}
 
 
 @contextmanager
-def held[T: msgspec.Struct](owner: Struct, record: T) -> Generator[Result[T, TypeError]]:
-    kind: type[T] = type(record)
+def held(owner: Struct, values: Mapping[str, object], /) -> Generator[Outcome[dict[str, object]]]:
     with ExitStack() as restore:
-        restore.callback(assigned, owner, msgspec.to_builtins(msgspec.convert(owner, kind, from_attributes=True)))
-        yield assigned(owner, msgspec.to_builtins(record)).map(lambda _: msgspec.convert(owner, kind, from_attributes=True))
+        restore.callback(assigned, owner, captured(owner, values))
+        yield assigned(owner, values).map(lambda _: captured(owner, values))
 ```
 
-`omit_defaults` leaves an empty `Colorspace.name` unwritten, and restores keep a linear space the scope wrote.
+`held(scene, {"display_settings": {"display_device": "Rec.2100-PQ"}, "view_settings": {"view_transform": "AgX"}})` yields an `INVALID` fault at `view_settings.view_transform` with a cause listing the PQ display's views (`AgX - HDR 1000 nits`), and exit restores `sRGB` and `AgX`.
 
 Extensions store render state on `Scene`:
 - Nested settings (`RenderSettings`, `ImageFormatSettings`, view and display settings) refuse ID properties with `TypeError`
@@ -83,12 +78,10 @@ Extensions store render state on `Scene`:
 
 Render code writes every member its output reads:
 - Files loaded under `--factory-startup` keep their render settings (border, crop, stamp, motion blur)
-- NTSC frame rates hold `render.fps_base` 1.001
 - `render.compositor_device` (`GPU` by default) and `compositor_precision` set compositor evaluation
-- `GPU` compositing refuses a render past 8192 pixels a side, and results clamp each side to 8192 on `GPU` and 32768 on `CPU` with no member stating it
-- Bloom comes from the stock `Bloom` effect or a Glare node
-- `scene.cycles.denoiser` items vary per machine
-- Cycles GPU renders set `scene.cycles.device = "GPU"`, then `compute_device_type` and each device's `use` on Cycles preferences after `refresh_devices()`
+- `GPU` compositing refuses renders past 8192 pixels a side, and results clamp each side to 8192 on `GPU` and 32768 on `CPU` with no member stating it
+- Cycles GPU renders set `scene.cycles.device = "GPU"`, then Cycles preferences `compute_device_type` and device `use` flags after `refresh_devices()`
+- `scene.cycles.denoiser` lists the machine's denoisers
 
 ## [02]-[COLOR_MANAGEMENT]
 
@@ -96,20 +89,21 @@ Render code writes every member its output reads:
 - Blender picks a config once at start from `BLENDER_OCIO`, else `OCIO`, else the bundled file
 - Working-space changes rewrite the live config in place with a new `getCacheID()`, and caches key by cache ID
 - `config.getDisplays()` lists `display_device` identifiers, `config.getViews(display)` the `view_transform` identifiers a display offers
-- Views take looks named `<view> - <look>`, else `<family> - <look>` for the family before ` - `, else looks with no ` - `, and every view takes `None`
+- Views take looks named `<view> - <look>`, else `<family> - <look>` for the family before ` - `, else looks without ` - `, and all views take `None`
 - `bpy.ops.wm.set_working_color_space(working_space=..., convert_colors=True)` changes the read-only working space
 
 Colors in code follow the working space and config names:
 - Colors written in code (socket defaults, light colors) are scene-linear in the working space, `COLOR_GAMMA` members (theme colors) sRGB-encoded
 - `mathutils.Color` converts through `from_srgb_to_scene_linear()` and `from_scene_linear_to_<space>()` with no display, view, or look
 - Colorspace writes take config names (`Linear Rec.709`, `Non-Color`), `Linear` and `Raw` raising `TypeError`
-- `colorspace_settings.interop_id`, `bpy.data.colorspace.working_space_interop_id`, and `ColorSpace.getInteropID()` name spaces across configs (`data` for `Non-Color`)
+- `colorspace_settings.interop_id` and `ColorSpace.getInteropID()` name a space across configs (`data` for `Non-Color`)
+- `bpy.data.colorspace.working_space_interop_id` names the working space across configs
 - `CompositorNodeConvertColorSpace` converts by space name or interop id, `CompositorNodeConvertToDisplay` applying its own view and display settings
 
-`DisplayViewTransform(src=<working space>, display=..., view=...)` reproduces a display write at look `None`, an `ExposureContrastTransform` before it adding `exposure`. Premultiplied buffers divide alpha out of a copy, run one CPU processor, and multiply alpha back:
+`DisplayViewTransform(src=PyOpenColorIO.ROLE_SCENE_LINEAR, display=..., view=...)` reproduces a display write at look `None`, and an `ExposureContrastTransform` before it adds `exposure`. `PyOpenColorIO.ROLE_SCENE_LINEAR` names the working space after every working-space change. Premultiplied buffers divide alpha out of a copy, run one CPU processor, and multiply alpha back:
 
 ```python
-def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.float32], display: str, view: str) -> Result[NDArray[np.float32], PyOpenColorIO.Exception]:
+def displayed(config: PyOpenColorIO.Config, pixels: NDArray[np.float32], /, *, display: str, view: str) -> Outcome[NDArray[np.float32]]:
     def encoded(processor: PyOpenColorIO.Processor) -> NDArray[np.float32]:
         buffer, alpha = np.array(pixels, np.float32, order="C"), pixels[..., 3:]
         np.divide(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
@@ -117,17 +111,22 @@ def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.flo
         np.multiply(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
         return buffer
 
-    return catch(config.getProcessor, exception=PyOpenColorIO.Exception)(PyOpenColorIO.DisplayViewTransform(src=working, display=display, view=view)).map(encoded)
+    transform = PyOpenColorIO.DisplayViewTransform(src=PyOpenColorIO.ROLE_SCENE_LINEAR, display=display, view=view)
+    return catch(config.getProcessor, exception=PyOpenColorIO.Exception)(transform).map(encoded).map_error(partial(Fault.of, Reason.INVALID, view))
 ```
 
-`Baker` writes a display, view, and look as LUT text in a format `Baker.getFormats()` lists, `setDisplayView` replacing its empty target space:
+`display` and `view` come from the scene's `display_settings.display_device` and `view_settings.view_transform`, `config.getDefaultView("sRGB")` reading `Standard` where new scenes hold `AgX`.
+
+`Baker` writes a display, view, and looks as a LUT file in a format `Baker.getFormats()` lists, `setDisplayView` replacing its empty target space:
 
 ```python
-def cubed(config: PyOpenColorIO.Config, space: str, display: str, view: str, look: str, size: int) -> Result[str, PyOpenColorIO.Exception]:
-    baker: PyOpenColorIO.Baker = PyOpenColorIO.Baker(config=config, format="resolve_cube", inputSpace=space, targetSpace="", looks="" if look == "None" else look, cubeSize=size)
+def cubed(config: PyOpenColorIO.Config, space: str, path: Path, /, *, display: str, view: str, looks: str = "", size: int = 33, form: str = "resolve_cube") -> Outcome[Path]:
+    baker = PyOpenColorIO.Baker(config=config, format=form, inputSpace=space, targetSpace="", looks=looks, cubeSize=size)
     baker.setDisplayView(display, view)
-    return catch(baker.bake, exception=PyOpenColorIO.Exception)()  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+    return catch(baker.bake, exception=PyOpenColorIO.Exception)(str(path)).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
 ```
+
+`looks` takes OCIO look names, Blender's `None` look baking as `""`.
 
 LUT bakes hold the OCIO transform alone:
 - `view_settings.exposure`, `gamma`, white balance, and `curve_mapping` stay out of the cube
@@ -196,26 +195,25 @@ Light linking on an emitter names `light_linking.receiver_collection` and `block
 - First effects with no Group Input node and no Render Layers node on the scene skip its render
 - Trees evaluate as they stood at frame start, stills taking edits through `render_pre` and animation frames edits before it
 - `scene.copy()` shares effect groups with its source, effects sharing one group keeping their own input values
-- Effect inputs key through `scene.keyframe_insert(data_path=item.path_from_id("value"))`, per-frame values coming from keys on effect inputs or tree sockets
+- Effect inputs key through `scene.keyframe_insert(data_path=item.path_from_id("value"))`, frames reading keys on effect inputs or tree sockets
 
-Stacks reconcile by removing undesired effects, adding missing ones, and moving each effect with a `find(name)` other than its index. `move_compositor_effect_to_index` acts on `context.scene` and raises `RuntimeError` at the current index:
+Stacks reconcile in place, keeping each surviving effect's input values and keys. `SceneCompositorEffects` holds `new`, `remove`, and `clear` alone, and `move_compositor_effect_to_index` moves an effect by name within `context.scene`, raising `RuntimeError` at its current index:
 
 ```python
-def stacked(context: bpy.types.Context, scene: bpy.types.Scene, wanted: tuple[tuple[str, bpy.types.CompositorNodeTree], ...]) -> Result[None, RuntimeError]:
-    effects: bpy.types.SceneCompositorEffects = scene.compositor_effects
-    groups: dict[str, bpy.types.CompositorNodeTree] = dict(wanted)
-    for stale in tuple(effect for effect in effects if effect.name not in groups):
+def stacked(context: bpy.types.Context, scene: bpy.types.Scene, groups: Sequence[bpy.types.CompositorNodeTree], /) -> None:
+    effects = scene.compositor_effects
+    names = frozenset(group.name for group in groups)
+    for stale in [effect for effect in effects if effect.name not in names]:
         effects.remove(stale)
-    for name, group in wanted:
-        if (effect := effects.get(name) or effects.new(name=name)).node_group != group:
-            effect.node_group = group
-
-    def placed(index: int, name: str) -> Result[None, RuntimeError]:
-        return Ok(None) if effects.find(name) == index else catch(bpy.ops.scene.move_compositor_effect_to_index, exception=RuntimeError)(name=name, index=index).map(lambda _: None)
-
     with context.temp_override(scene=scene):
-        return reduce(lambda moved, step: moved.bind(lambda _: placed(*step)), enumerate(groups), Result[None, RuntimeError](ok=None))
+        for index, group in enumerate(groups):
+            if (effect := effects.get(group.name) or effects.new(name=group.name)).node_group != group:
+                effect.node_group = group
+            if effects.find(group.name) != index:
+                bpy.ops.scene.move_compositor_effect_to_index(name=group.name, index=index)
 ```
+
+`stacked(context, scene, (grade, bloom))` names each effect after its group, and `new` on a taken name suffixes it (`Grade.001`).
 
 `compositing_nodes_essentials.blend` in `bpy.utils.system_resource("DATAFILES", path="assets/nodes")` holds stock groups:
 - Groups with `allow_usage_in_scene_compositor_effect` set are effects (`Bloom`, `Vignette`, `Film Grain`), the rest helpers (`Retime`)
@@ -226,7 +224,7 @@ def stacked(context: bpy.types.Context, scene: bpy.types.Scene, wanted: tuple[tu
 - Nodes start with `file_name` at `{blend_name}`, `format` at `OPEN_EXR_MULTILAYER` 32-bit with codec `NONE`, and no items
 - Items with `override_node_format` take their own `format`
 - Multilayer stills write `<directory>/<file_name>.exr` with one part per item, single-layer stills `<directory>/<file_name><item>.<ext>`
-- Animations insert frame numbers before the extension (`sg_beauty0003.png`), and `#` runs in `file_name` take the frame on stills too
+- Animations insert frame numbers before extension (`sg_beauty0003.png`), and `#` runs in `file_name` take the frame in every render, stills included
 - Muted nodes and nodes with no linked input write nothing
 
 ## [05]-[RENDERS]
@@ -245,8 +243,9 @@ def stacked(context: bpy.types.Context, scene: bpy.types.Scene, wanted: tuple[tu
 
 Render handlers fire `render_init`, then per frame `render_pre`, `frame_change_pre`, `frame_change_post`, `render_post`, and `render_write`, then `render_complete` or `render_cancel`:
 - `render_*` handlers take `(scene, None)`, and `render_stats` `(str, None)` repeatedly
-- `render_write` fires on calls that write files, the file present by then, and refused renders run `render_pre` through `render_write` before `render_cancel`
-- `render.filepath` writes in `render_init` steer every file of the call, writes in `render_pre` each animation frame's path alone
+- `render_write` fires on calls that write files, after the file exists
+- Refused renders run `render_pre` through `render_write` before `render_cancel`
+- `render.filepath` writes in `render_init` set every file path of the call, writes in `render_pre` each animation frame's path alone
 - Render Result images read `size` `(0, 0)` and no pixels in background runs, and `save_render(filepath, scene=scene)` writes the last render
 - `bpy.app.is_job_running("RENDER")` reads `False` in background runs
 
@@ -308,15 +307,15 @@ Multi-view renders follow `render.use_multiview` and `render.views`, each view w
 One scope adds a target node to every material, makes it active, and removes it after the bake on every path:
 
 ```python
-def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.Image, kind: "rna_enums.BakePassTypeItems") -> Result[bpy.types.Image, RuntimeError]:
+def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.Image, /, *, kind: "rna_enums.BakePassTypeItems" = "COMBINED") -> Outcome[bpy.types.Image]:
     with ExitStack() as scope:
-        for tree in {slot.material.node_tree for slot in item.material_slots if slot.material is not None and slot.material.node_tree is not None}:
-            target: bpy.types.ShaderNodeTexImage = tree.nodes.new("ShaderNodeTexImage")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        for tree in {tree for slot in item.material_slots if slot.material is not None and (tree := slot.material.node_tree) is not None}:
+            target: bpy.types.ShaderNodeTexImage = tree.nodes.new(bpy.types.ShaderNodeTexImage.__name__)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             scope.callback(setattr, tree.nodes, "active", tree.nodes.active)
             scope.callback(tree.nodes.remove, target)
             target.image, tree.nodes.active = image, target
         with context.temp_override(active_object=item, selected_objects=[item]):
-            return catch(bpy.ops.object.bake, exception=RuntimeError)(type=kind, target="IMAGE_TEXTURES", save_mode="INTERNAL").map(lambda _: image)
+            return catch(bpy.ops.object.bake, exception=RuntimeError)(type=kind, target="IMAGE_TEXTURES", save_mode="INTERNAL").map(lambda _: image).map_error(partial(Fault.of, Reason.FAILED, item.name))
 ```
 
 ## [07]-[IMAGES]
@@ -345,14 +344,12 @@ Tiled images (`tiled=True`) save one file per tile through `<UDIM>` in `filepath
 - `tiles.new()` adds a tile with no buffer that `save()` refuses until `bpy.ops.image.tile_fill()` runs under `temp_override(edit_image=image)`
 - `bpy.ops.image.tile_add(number=..., fill=True)` under the same override adds a filled tile
 
-Linear exports write a `FileFormat` through a scratch scene under `OVERRIDE`, the image keeping its source and tag:
+Linear exports write through `save_render` under a held `OVERRIDE` format, the image keeping its source and tag:
 
 ```python
-def exported(image: bpy.types.Image, path: str, output: FileFormat) -> Result[str, TypeError | RuntimeError]:
-    with ExitStack() as scope:
-        scene: bpy.types.Scene = bpy.data.scenes.new(".export")
-        scope.callback(bpy.data.scenes.remove, scene)
-        scene.render.image_settings.color_management = "OVERRIDE"
-        formatted: Result[None, TypeError] = assigned(scene.render.image_settings, msgspec.to_builtins(output))
-        return Result[None, TypeError | RuntimeError].bind(formatted, lambda _: catch(image.save_render, exception=RuntimeError)(path, scene=scene)).map(lambda _: path)
+def exported(image: bpy.types.Image, path: Path, scene: bpy.types.Scene, output: Mapping[str, object], /) -> Outcome[Path]:
+    with held(scene.render.image_settings, {"color_management": "OVERRIDE", **output}) as written:
+        return written.bind(lambda _: catch(image.save_render, exception=RuntimeError)(str(path), scene=scene).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))).map(lambda _: path)
 ```
+
+`exported(image, path, scene, {"file_format": "OPEN_EXR", "color_depth": "16", "linear_colorspace_settings": {"name": "ACEScg"}})` writes a half-float ACEScg EXR and returns the scene's format to `FOLLOW_SCENE` on exit. Unwritable folders fail `UNWRITABLE` with the host's report as cause.

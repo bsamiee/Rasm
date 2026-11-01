@@ -20,7 +20,7 @@ const main = <E>(manifest: { readonly name: string; readonly version: string; re
         name,
         settings,
         Effect.fnUntraced(function* ({ listen: address, hosts }) {
-            return yield* HttpRouter.serve(Layer.provide(app, layerHttp({ ...manifest, name }, { address, hosts })), { disableLogger: true }).pipe(
+            return yield* HttpRouter.serve(layerHttp({ ...manifest, name }, { address, hosts }, app), { disableLogger: true }).pipe(
                 Layer.provide(NodeHttpServer.layerServer(createServer, { host: NetAddress.formatHost(address), port: address.port, disablePreemptiveShutdown: true })),
                 Layer.launch,
                 Effect.provide(Otlp.layerFromConfig({ resource: { serviceName: name, serviceVersion: manifest.version } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson])))),

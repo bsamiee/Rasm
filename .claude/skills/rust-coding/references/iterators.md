@@ -1,7 +1,5 @@
 # [ITERATORS]
 
-Covers iterator pipelines and data parallelism.
-
 ## [01]-[PIPELINES]
 
 Each adapter states one transformation, and a pipeline reads top to bottom as the order of work:
@@ -24,7 +22,7 @@ pub fn missing(readings: &[Reading], interval: Interval) -> impl Iterator<Item =
 }
 ```
 
-`array_windows` borrows each `[before, after]` window of a slice, and `map_windows` hands its closure each `&[T; N]` window of an iterator from a buffer it fills, cloning no item. `Timestamp::series` steps from `before` until a step overflows, and `take_while` ends each gap at `after`. `Interval` holds a positive `Span` its constructor enforces, a zero step never reaching `after`. `coalesce` hands its rule each adjacent pair and keeps the merged item for the next, and ranges sorted by start join every overlap in one pass. `merge_join_by` walks a sorted pair once and yields `Left`, `Right`, or `Both` per key, and a reconcile of expected against found reads every difference with no set. `k_smallest_relaxed_by_key` holds `2k` items and returns the `k` least in order in linear time with no sort of its input. `exactly_one` returns an error that iterates every item it read when none or more than one remains.
+`array_windows` borrows each `[before, after]` window of a slice. `map_windows` passes each `&[T; N]` window of an iterator from its own buffer and clones no item. `Timestamp::series` steps from `before` until a step overflows, and `take_while` ends each gap at `after`. `Interval` holds a positive `Span` its constructor enforces, a zero step never reaching `after`. `coalesce` hands its rule each adjacent pair and keeps the merged item for the next, and ranges sorted by start join every overlap in one pass. `merge_join_by` walks a sorted pair once and yields `Left`, `Right`, or `Both` per key, and reconciling expected against found needs no set. `k_smallest_relaxed_by_key` holds `2k` items and returns the `k` least in order in linear time with no sort of its input. `exactly_one` returns an error that iterates every item it read when none or more than one remains.
 
 ## [02]-[GROUPING]
 
@@ -37,11 +35,11 @@ pub fn latest(readings: &[Reading]) -> HashMap<SensorId, &Reading> { readings.it
 pub fn sessions(events: &[Event], gap: SignedDuration) -> impl Iterator<Item = &[Event]> { events.chunk_by(move |before, after| after.at.duration_since(before.at) <= gap) }
 ```
 
-`into_grouping_map_by` keeps one accumulator per key as items arrive and reduces it through `max_by_key`, `minmax_by_key`, `sum`, or `fold`, `into_group_map_by` keeps every member for a consumer that reads members, and `counts_by` one count per key. Itertools `chunk_by` groups consecutive items of an iterator by an equal key, and its groups borrow the `ChunkBy` value, ending the pipeline inside the function that creates it.
+`into_grouping_map_by` keeps one accumulator per key, reduced through `max_by_key`, `minmax_by_key`, `sum`, or `fold`. `into_group_map_by` keeps every member for a consumer reading members, `counts_by` one count per key. Itertools `chunk_by` groups consecutive equal-key items of an iterator. Groups borrow the `ChunkBy` value, and the pipeline ends inside the function creating it.
 
 ## [03]-[GENERATORS]
 
-Cursors whose next step consumes an amount of input the previous item decided are `gen fn` bodies, the declared return type naming each item a `yield` produces as the consumer pulls. The cursor is a local holding a borrow of a parameter, and no borrow of a local is held across a `yield`. Decoders whose failure ends their input yield that failure as their last item, and `process_results` runs any infallible pipeline over the successes and returns the failure:
+Cursors whose next step consumes input the previous item sized are `gen fn` bodies, their return type the item each `yield` produces on pull. The cursor is a local holding a borrow of a parameter, and no borrow of a local is held across a `yield`. Decoders yield a failure that ends their input as their last item. `process_results` runs an infallible pipeline over the successes and returns the failure:
 
 ```rust
 pub gen fn frames(bytes: &[u8]) -> Result<&[u8], WireError> {
@@ -72,4 +70,4 @@ pub fn fingerprints(blobs: &[Blob]) -> Validated<Vec<Fingerprint>, StoreError> {
 }
 ```
 
-Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. `fold_chunks` folds fixed-size runs for a result no split decides, and `walk_tree_prefix` or `walk_tree_postfix` runs a tree from its root and a children closure.
+Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure.

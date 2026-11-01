@@ -2,19 +2,50 @@
 
 ## [01]-[LANGUAGE_REBUILDS]
 
-Rebuild the Rust, Swift and TypeScript code the way the C# and Python code was rebuilt.
-- **Workflows:** `.claude/workflows/{rust,swift,typescript}.js`, with their rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
-- **Running them:** one run per `[03]` row, with `args.key` set to its `[KEY]`. A run starts after the rows its `[AFTER]` cell names have landed, in the order each script's `whenToUse` states.
-- **Before the first run:** the Swift and TypeScript rows and their line citations match the tree at `63db3043e`. A citation that an earlier run moves applies to the code wherever that code now sits, as each script's basis states.
-- **Coding skills first:** each script loads `Skill(<language>-coding)` before planning. `typescript-coding`, `swift-coding`, `rust-coding` and `python-coding` are mid-build: rewrite rounds, then clean-prose, snippet check against the repository's own checkers, a close-out read of the whole skill, and a deep pass per file. The `python-coding-*` sub-skills follow `python-coding`. A skill stays open to change: a run that finds a stronger form than the skill teaches fixes the skill.
-- **What each run does:**
-  - It tears the code apart, rebuilds it and iterates on it.
-  - It cuts internal and external API and drops nearly every unnecessary type and struct.
-  - It uses external packages fully instead of hand-rolling or hand-wrapping them, for example Effect 4 in TypeScript.
-  - It leaves no coupling to existing code and drops no functionality.
-  - It holds one concept per file, with no lib, main, index or mod file collecting a package's logic and no folder holding a single file.
-  - It designs and lands without reading the old code for shape. After landing, its Check phase compares every rebuilt file with its base version and restores only what the base did objectively better. The Rust under `libs/rust` took many sessions to reach its form, so that check guards it.
-- **Done means:** zero findings from every checker, every file objectively better than its base version, and lines, files and public items lower than at the base commit.
+Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the C# and Python code was rebuilt. Libraries hold general capability any future app composes, and each app holds its own content. The work reduces surface and raises capability: fewer constants, types, records and items, more derived and parameterized logic, every package used fully.
+
+### What a run produces
+
+- **Less surface:** the fewest exported and internal names, types, constants and helpers the row allows.
+- **Parameters over declarations:** one parameterized declaration serves every variant, and a consumer reaches a variant through an argument.
+- **Derived values:** each value derives from the type, member or host query that owns it.
+- **Packages used whole:** Effect 4, rmcp, the catalog crates and the macOS SDK do their work through their own members, never a wrapper or hand logic.
+- **One concept per file:** no `index.ts`, barrel, `main`, `lib` or `mod` file collects a package's logic, and no folder holds a single file.
+- **Crate roots:** a Rust crate root holds the crate's code beside its modules.
+- **Dependencies:** a package depends only on the packages whose members it calls, with no cycle.
+- **No shuffling:** moving logic between files, packages, layers, or an app and a library is no improvement. A move happens only where the `[03]` row names it.
+- **Errors:** TypeScript keeps one `Schema.TaggedError` per package with a `reason` literal, a `subject` and an optional `cause`.
+  - Its error covers only failures no host error or `Unmatched` states.
+  - `Unmatched`, `ReconcileError`, `InspectError` and `PreconditionFailed` are rebuilt to that form, and no near-copy enters.
+  - Rust and Swift follow the error forms of their skills.
+- **No anchoring:** a run designs from the row, the skill and the package sources, never from the shape of the current code.
+- **Base check:** after landing, the Check phase compares each rebuilt file with its version at the run's start and restores what that version did better.
+
+### Running the workflows
+
+- **Scripts:** `.claude/workflows/{rust,swift,typescript}.js`, with rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
+- **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
+- **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
+- **Concurrency:** one run per language at a time, at most one Rust, one Swift and one TypeScript run together.
+- **Base:** `HEAD` when a run starts. A line citation in the rules applies to its code wherever that code now sits.
+- **Watching:** follow a run in `/workflows`, read `.artifacts/workflows/<language>/<key>/PLAN.md` once the Plan phase writes it, and read the diff.
+
+### Order and watch points
+
+- **Swift:** `core`, then `macos/process`, then `macos/applications`.
+- **TypeScript:** `data/search` first, then the rows that need it alone, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
+- **Rust:** `services/telemetry`, `cli/command`, `services/daemon`, `services/mcp`, with `cli/output` and `cli/screen` after `cli/command`.
+- **Later Rust rows:** each starts once its `[AFTER]` rows have landed.
+- **Rust `services/telemetry`:** owns all of `libs/rust` for the move into categories. Read its plan before its Land phase goes far.
+- **MCP:** Rust `services/mcp` and TypeScript `ai/mcp` are the capability every agent-facing app builds on.
+  - Each states sessions, routing, progress, resources, elicitation, tasks, client and proxy in full, on rmcp and `effect/ai`.
+  - Neither takes its shape from the current servers.
+- **TypeScript `web/ui`:** its plan justifies each component as general capability, never a port of one portfolio screen.
+
+### Done
+
+- Zero findings from every compiler, checker and test the Check phase runs.
+- Rows over existing code end with fewer lines, files and public items than their base, and every file objectively better.
 
 ## [02]-[DARKROOM_WINDOW]
 

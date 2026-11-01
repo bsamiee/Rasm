@@ -5,15 +5,13 @@ description: "Use when writing or reviewing pydantic models, adapters, validator
 
 # [PYTHON_CODING_PYDANTIC]
 
-Covers pydantic with pydantic-core, annotated-types, and pydantic-settings, from untrusted input to published schema.
-
 [REFERENCES]:
 - [01]-[SETTINGS](references/settings.md): Settings sources, precedence, environment and dotenv parsing, secrets, lifetime, and custom sources
 - [02]-[TYPES](references/types.md): Pydantic types, custom types through core schema, Struct fields, and pydantic-core functions
 
 ## [01]-[BOUNDARIES]
 
-Frozen models validate untrusted input once and are records of the data they hold. One `faulted` serves every pydantic boundary: an error's `type` selects its reason, `loc` or `error.title` names its subject, and a `SettingsError` becomes one fault's cause:
+Frozen models validate untrusted input once and hold the validated data. `faulted` serves every pydantic boundary: `type` picks the reason, `loc` or `error.title` the subject, a `SettingsError` becomes one fault's cause:
 
 ```python
 def fault(title: str, detail: ErrorDetails, /) -> Fault:
@@ -33,7 +31,7 @@ def faulted(error: ValueError, /) -> Faults:
             return Fault.of(Reason.INVALID, type(error).__name__, error)
 ```
 
-With `Window` holding a stripped non-empty `name` and a `PositiveInt | None` `limit`, `catch(Window.model_validate_json, exception=ValueError)(raw).map_error(faulted)` over `b'{"limit": 0, "x": 1}'` returns a fault per error (`Window holds no name`, `limit is invalid. Input should be greater than 0`, `x is invalid. Extra inputs are not permitted`), and malformed JSON returns one `json_invalid` fault on `Window`:
+`Window` holds a stripped non-empty `name` and `limit: PositiveInt | None`. `catch(Window.model_validate_json, exception=ValueError)(raw).map_error(faulted)` over `{"limit": 0, "x": 1}` returns one fault per error. Faults read `Window holds no name`, `limit is invalid. Input should be greater than 0`, `x is invalid. Extra inputs are not permitted`. Malformed JSON returns one `json_invalid` fault on `Window`:
 - `ValidationError` and `SettingsError` subclass `ValueError`, a validator raising `TypeError` or `KeyError` escapes validation as a defect
 - `title` names a model by its class and an adapter by its type (`list[int]`)
 - `loc` names a field by its validation alias (`("id",)` for `key: int = Field(alias="id")`), `loc_by_alias=False` names it by attribute
@@ -56,14 +54,14 @@ Class keywords (`class Wire(BaseModel, frozen=True, extra="forbid")`) set config
 - `model_construct`, `model_copy(update=)`, and `copy.replace` skip validation, `Model.model_validate(model.model_dump() | changes)` validates
 - Dumps of a value off its field type warn `UserWarning`, and `warnings="error"` on the dump call raises `PydanticSerializationError`
 - `validate_assignment=True` keeps a value its model validator refused on the instance, frozen models change by validated copy
-- `revalidate_instances="always"` holds on an instance's own class, set on a holding model it leaves a nested `model_construct` value unchecked
+- `revalidate_instances="always"` reads the instance's own class, set on a parent model it leaves a nested `model_construct` value unchecked
 - `@computed_field` over `@property` enters dumps and serialization schema as `readOnly`, and mypy reports its line as `prop-decorator`
 - `functools.cached_property` works on a frozen model and stays out of dumps
 - Field names equal to a `BaseModel` method (`model_dump`) raise `ValueError` at class build, names shadowing an attribute (`copy`) warn
 
 ### [02.1]-[CONSTRAINTS]
 
-Constraints are type metadata: `Field`, `annotated_types`, and `StringConstraints` compile into one schema node, a validator serves a rule none of them states, and a generic alias (`NonEmpty[T]`) holds one constraint over any element type:
+`Field`, `annotated_types`, and `StringConstraints` compile into one schema node, and validators serve rules none of them states. Generic aliases (`NonEmpty[T]`) hold one constraint over any element type:
 
 ```python
 type NonEmpty[T] = Annotated[tuple[T, ...], Field(min_length=1)]
@@ -75,9 +73,9 @@ class Knot[X: float, Y: float](BaseModel, frozen=True, extra="forbid"):
     y: Y
 ```
 
-With `type` aliases `Unit` (`Field(ge=0.0, le=1.0)`) and `Positive` (`Field(gt=0.0)`), a `Curve` holding `code: Code` and `knots: NonEmpty[Knot[Unit, Positive]]` refuses `{"code": "abcd", "knots": [{"x": 1.5, "y": 0}]}` at `code`, `("knots", 0, "x")`, `("knots", 0, "y")`, and `knots`:
+`Curve` holds `code: Code` and `knots: NonEmpty[Knot[Unit, Positive]]`. `type` aliases `Unit` and `Positive` hold `Field(ge=0.0, le=1.0)` and `Field(gt=0.0)`. `Curve` refuses `{"code": "abcd", "knots": [{"x": 1.5, "y": 0}]}` at `code`, `("knots", 0, "x")`, `("knots", 0, "y")`, and `knots`:
 - Length bounds count items that validated
-- Metadata after a validator checks its output, `Code` uppercases before its strip and pattern, and `StringConstraints` alone checks `pattern` before `to_upper`
+- Metadata after a validator checks output: `Code` uppercases before strip and pattern, `StringConstraints` alone checks `pattern` before `to_upper`
 - `PlainValidator` discards every validator and constraint to its left, `Annotated[int, Gt(0), PlainValidator(int)]` accepts `-5`
 - Constraints after a validator drop out of the JSON schema, `Code` publishes a plain string
 - `type` aliases over `Annotated` publish a named `$defs` entry, an assignment alias inlines its node
@@ -95,7 +93,7 @@ Lax mode coerces by the conversion table, strict mode accepts exact types, and J
 
 ## [03]-[VALIDATORS]
 
-Validators attach by mode in `Annotated` beside their type, and a `type` alias holds them with it. Validation runs model `before`, decorator field `before`, `Annotated` `before` and `wrap` right to left, core, `Annotated` `after` left to right, decorator field `after`, then model `after`. Model `after` validators hold cross-field rules and run once every field validated, a failed field skips them:
+Validators attach by mode in `Annotated` beside their type, and a `type` alias holds them with it. Validators run model, field, and right-to-left `Annotated` `before`/`wrap`, core, then left-to-right `Annotated`, field, and model `after`. Model `after` validators hold cross-field rules and run once every field validated, a failed field skips them:
 
 ```python
 class Span(BaseModel, frozen=True, extra="forbid"):
@@ -122,7 +120,7 @@ class Span(BaseModel, frozen=True, extra="forbid"):
 
 ### [03.1]-[CONTEXT]
 
-Data a rule reads per call (a catalog, a unit scale, a caller's limits) enters through `context=` on a validate call, and `ValidationInfo[C]` types it for both checkers. One model serves every caller with no closure, global, or model per catalog:
+Per-call data (catalog, unit scale, caller limits) enters through `context=` on a validate call, and `ValidationInfo[C]` types it for mypy and ty. One model serves every caller with no closure, global, or model per catalog:
 
 ```python
 def known(name: str, info: ValidationInfo[frozenset[str] | None], /) -> str:
@@ -138,14 +136,14 @@ def known(name: str, info: ValidationInfo[frozenset[str] | None], /) -> str:
 type Ref = Annotated[str, AfterValidator(known)]
 ```
 
-Over `Link` holding `source: Ref` and `targets: tuple[Ref, ...]`, `Link.model_validate_json(raw, context=names)` reports each unknown name at its index (`("targets", 1)`), and a call without a catalog raises `TypeError`:
+`Link` holds `source: Ref` and `targets: tuple[Ref, ...]`. `Link.model_validate_json(raw, context=names)` reports unknown names at their index (`("targets", 1)`). Calls without a catalog raise `TypeError`:
 - `context` reaches every nested model and item, and `model_dump(context=)` hands serializers their own through `SerializationInfo`
 - Constructor calls pass no context, a model reading one validates through `model_validate` or an adapter
 - `ValidationInfo` holds `data` (earlier fields that passed), `mode` (`"python"` or `"json"`), and `field_name` beside `context`
 
 ## [04]-[SERIALIZERS]
 
-Types with a wire form pydantic states take no serializer: `Decimal` under `Field(decimal_places=2)` holds exact cents, dumps as JSON text, and reads back from text or a number. Serializers serve output no type states and attach in `Annotated` as `PlainSerializer(fn, return_type=, when_used=)` or `WrapSerializer(fn)` with `fn(value, handler, info)` branching on `info.mode_is_json()`. Sets dump in an iteration order string hashing varies per process, and `Names` writes sorted JSON:
+Types with a pydantic wire form take no serializer: `Decimal` with `Field(decimal_places=2)` holds exact cents, round-trips JSON text, reads numbers. Serializers for output no type states attach in `Annotated` as `PlainSerializer(fn, return_type=, when_used=)` or `WrapSerializer(fn)`. `WrapSerializer` functions take `(value, handler, info)` and branch on `info.mode_is_json()`. Set dump order follows per-process string hashing, and `Names` writes sorted JSON:
 
 ```python
 type Names = Annotated[frozenset[str], PlainSerializer(sorted, return_type=list[str], when_used="json")]
@@ -164,7 +162,7 @@ type Names = Annotated[frozenset[str], PlainSerializer(sorted, return_type=list[
 
 ### [04.1]-[SUBCLASSES]
 
-Fields serialize by declared type: a field typed `Base` holding a `Sub` dumps `Base` fields, and dict input validates as `Base` with `Sub` keys dropped. Subclass shapes take a form that names them:
+Fields serialize by declared type: a `Base` field holding a `Sub` dumps `Base` fields, and dict input validates as `Base` with `Sub` keys dropped. Subclass shapes take a form that names them:
 - Tagged unions keep each member's shape in both directions
 - `class Holder[T: Base](BaseModel)` parametrized as `Holder[Sub]` validates and dumps `Sub`
 - `polymorphic_serialization=True` on a base's configuration dumps held instances by runtime class and leaves validation as declared
@@ -194,7 +192,7 @@ type Answer = Annotated[Done | Failed, Field(discriminator="status")]
 - Tag fields typed `str` raise `PydanticUserError` code `discriminator-needs-literal`, a duplicate tag raises `TypeError` at build
 - JSON schema emits `oneOf` with `discriminator.propertyName` and a `mapping` entry per tag
 
-Unions chosen by a function of input take `Discriminator(fn)`, and `fn` receives raw input or a member instance and returns the class name each member's `Tag` holds (`Circle` holds `radius`, `Rect` holds `width` and `height`):
+Unions chosen by a function take `Discriminator(fn)`, with `fn` mapping raw input or a member instance to the class name in a member's `Tag`. `Circle` holds `radius`, `Rect` holds `width` and `height`:
 
 ```python
 def shape(value: object) -> str | None:
@@ -211,7 +209,7 @@ type Shape = Annotated[Annotated[Circle, Tag(Circle.__name__)] | Annotated[Rect,
 ```
 
 - `None` from `fn` raises the custom error type with its message
-- Untagged unions run smart mode: an exact type wins, `int | str` keeps `"1"` a `str`, and `date | str` keeps an ISO string from Python and reads a `date` from JSON
+- Untagged unions run smart mode, exact types first: `int | str` keeps `"1"` a `str`, `date | str` keeps Python ISO strings and reads JSON as `date`
 - Untagged model unions take a member that validates, input meant for one member can validate as another through lax coercion
 - Untagged unions report one error per member at every level of a recursive alias
 - `Field(union_mode="left_to_right")` takes the first member that validates
@@ -219,7 +217,7 @@ type Shape = Annotated[Annotated[Circle, Tag(Circle.__name__)] | Annotated[Rect,
 ## [06]-[ADAPTERS]
 
 `TypeAdapter(T)` builds a validator and serializer once and gives any type the validate, dump, and schema calls of a model:
-- `TypeAdapter` types its value from its argument under both checkers, an `Annotated` or `type` alias included
+- `TypeAdapter` types its value from its argument under mypy and ty, an `Annotated` or `type` alias included
 - `validate_strings` reads a string or a mapping of strings (environment, query) and rejects a list with `string_type`
 - `from_attributes=True` on a validate call or in configuration reads a host object and its nested objects by attribute
 - `config=` sets configuration on types without their own, a model or `TypedDict` target raises `PydanticUserError`
@@ -228,7 +226,7 @@ type Shape = Annotated[Annotated[Circle, Tag(Circle.__name__)] | Annotated[Rect,
 
 ### [06.1]-[VALIDATION_DECORATOR]
 
-`@validate_call` validates arguments at each call against the signature, reports every argument error at once with a positional argument's index as `loc`, and raises `ValidationError` an entry point converts:
+`@validate_call` validates each call's arguments against the signature and raises one `ValidationError` an entry point converts. The error lists every failing argument, a positional one at its index as `loc`:
 - `**kwargs: Unpack[TypedDict]` validates each keyword against its item
 - `validate_return=True` validates each return, on an `async def` after its await
 - Methods take `@validate_call` directly, under `@classmethod` it sits innermost
@@ -244,7 +242,7 @@ Generic models take PEP 695 class parameters and parametrize at the boundary (`K
 - `type Tree = int | list[Tree]` validates recursive input, a quoted `TypeAlias` recursion raises `RecursionError` at build
 - Fields typed `Self` validate a recursive model
 - `TypedDict(closed=True)` rejects unknown keys, `extra_items=T` validates them, `NotRequired` drops a key from `required`
-- `ReadOnly` items validate with a `UserWarning` that pydantic leaves mutation open
+- `ReadOnly` items validate with a `UserWarning` that pydantic leaves them mutable
 - `frozendict[K, V]` validates to a `frozendict`, `NewType` validates as its base
 - `LiteralString`, `TypeIs`, and sentinels other than `MISSING` raise `PydanticSchemaGenerationError` at build
 - `__init_subclass__` runs before pydantic collects a class's own fields, `__pydantic_init_subclass__(cls, **kwargs)` runs with them built
@@ -252,7 +250,7 @@ Generic models take PEP 695 class parameters and parametrize at the boundary (`K
 
 ## [08]-[SCHEMAS]
 
-Published schemas come from `model_json_schema(mode=)` and `TypeAdapter.json_schema(mode=)` in Draft 2020-12, `"validation"` describing accepted input and `"serialization"` output:
+`model_json_schema(mode=)` and `TypeAdapter.json_schema(mode=)` publish Draft 2020-12, `"validation"` describing input and `"serialization"` output:
 - `json_schema_serialization_defaults_required=True` marks defaulted fields required in serialization mode
 - `models_json_schema([(Model, mode), ...], ref_template="#/components/schemas/{model}")` shares one `$defs` across models
 - `TypeAdapter.json_schemas([(key, mode, adapter), ...])` shares one `$defs` across adapters
@@ -267,7 +265,7 @@ Published schemas come from `model_json_schema(mode=)` and `TypeAdapter.json_sch
 
 Validation cost sits in one schema build per type and one Rust pass per call, and declarations decide both:
 - Adapters build once at module scope, an adapter built per call repeats schema generation
-- `model_validate_json` parses and validates bytes in one pass under JSON rows of the conversion table, a msgspec or `json` decode before `model_validate` parses twice
+- `model_validate_json` parses and validates in one pass under JSON conversion rows, a msgspec or `json` decode before `model_validate` parses twice
 - Discriminated unions read one tag, smart unions try each member, and a callable discriminator runs once per node of a recursive union
 - `list`, `tuple`, and `dict` validate directly, `Sequence` and `Mapping` run an `isinstance` test and try each concrete type
 - Nested `TypedDict` structures validate faster than nested models, a hot path holding no methods takes them
@@ -300,7 +298,7 @@ def settings() -> Outcome[Settings]:
     return catch(Settings.settings_cached, exception=ValueError)().map_error(faulted)
 ```
 
-With the `Store` group holding `host` and a `port` bounded `Field(gt=0, lt=65536)`, TOML `[store] host` and `APP_STORE__PORT=70000` return `store.port is invalid. Input should be less than 65536` beside `Settings holds no token`:
+`Store` holds `host` and a `port` bounded by `Field(gt=0, lt=65536)`. TOML `[store] host` and `APP_STORE__PORT=70000` return `store.port is invalid. Input should be less than 65536` and `Settings holds no token`:
 - `settings_customise_sources` returns sources highest priority first, a source left out of the tuple reads nothing
 - File sources (TOML, pyproject, JSON, YAML) enter through the hook alone, a file key without its source warns and goes unread
 - `BaseSettings` defaults to `extra="forbid"` and `validate_default=True`

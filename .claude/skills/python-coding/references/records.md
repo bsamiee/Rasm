@@ -1,7 +1,5 @@
 # [RECORDS]
 
-Covers records from decode through transition.
-
 ## [01]-[FALLIBLE_TRANSITIONS]
 
 Fallible transitions reach `__post_init__` through `replaced`, and its `ValueError` returns as an `INVALID` fault:
@@ -11,7 +9,7 @@ def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
     return catch(partial(msgspec.structs.replace, record), exception=ValueError)(**changes).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
 ```
 
-`Stock` holds `count` and `reserved`, and its `__post_init__` raises `ValueError(f"reserved {self.reserved} outside 0 to {self.count}")`. `msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`, and `replaced(stock, reserved=stock.reserved + 2)` twice from `reserved=0` fails with `Stock is invalid. reserved 4 outside 0 to 3`:
+`Stock` holds `count` and `reserved`, and its `__post_init__` raises `ValueError(f"reserved {self.reserved} outside 0 to {self.count}")`. `msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`. Applying `replaced(stock, reserved=stock.reserved + 2)` twice from `reserved=0` fails with `Stock is invalid. reserved 4 outside 0 to 3`:
 - `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters
 
 ## [02]-[KEYED_DIFFS]
@@ -28,7 +26,7 @@ def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K,
 
 ## [03]-[DEPENDENCY_GRAPHS]
 
-`Plan` refuses an unknown dependency and a cycle at decode, and `TopologicalSorter.prepare` raises the `CycleError` msgspec reports as a `ValidationError`:
+`Plan` refuses an unknown dependency or a cycle at decode, `TopologicalSorter.prepare` raises the `CycleError` msgspec reports as `ValidationError`:
 
 ```python
 class Plan(msgspec.Struct, frozen=True, kw_only=True):
@@ -40,13 +38,13 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
         TopologicalSorter(self.needs).prepare()
 ```
 
-`msgspec.json.decode(b'{"needs": {"a": ["b"], "b": ["a"]}}', type=Plan)` fails with `('nodes are in a cycle', ['a', 'b', 'a'])`, `{"a": ["c"]}` fails with `['c']`, and `TopologicalSorter(plan.needs).static_order()` lists each node after its needs:
+`msgspec.json.decode(b'{"needs": {"a": ["b"], "b": ["a"]}}', type=Plan)` fails with `('nodes are in a cycle', ['a', 'b', 'a'])`, and `{"a": ["c"]}` with `['c']`. `TopologicalSorter(plan.needs).static_order()` lists each node after its needs:
 - Rules a package member checks run in `__post_init__` through that member, and a `ValueError` subclass it raises fails the decode
 - `TopologicalSorter` reads a node it never saw as a key as one with no needs, the unknown check states the rule it lacks
 
 ## [04]-[RECURSIVE_UNIONS]
 
-Recursive unions take a package type for each leaf and one record for each node, and each operation over them is one function with one recursive `match`. `unmet` returns the failing parts of a condition, and a condition holds where it returns `()`:
+Recursive unions take a package type per leaf and one record per node, and each operation over them is one function with one recursive `match`. `unmet` returns the failing parts of a condition, and a condition holds where it returns `()`:
 
 ```python
 type Condition = str | Group
@@ -71,7 +69,7 @@ def unmet(condition: Condition, facts: frozenset[str], /) -> tuple[Condition, ..
             return (condition,)
 ```
 
-`msgspec.json.decode(raw, type=Condition)` reads `{"mode": "all", "members": ["gpu", {"mode": "none", "members": ["busy"]}, {"mode": "any", "members": ["a", "b"]}]}`, and `unmet` with facts `{"gpu", "busy"}` returns the `none` and `any` groups, a disjunction failing as one part.
+`msgspec.json.decode(raw, type=Condition)` reads `{"mode": "all", "members": ["gpu", {"mode": "none", "members": ["busy"]}, {"mode": "any", "members": ["a", "b"]}]}`. `unmet` with facts `{"gpu", "busy"}` returns the `none` and `any` groups, a disjunction failing as one part.
 
 ## [05]-[TRANSITIONS]
 
@@ -90,7 +88,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
                 return msgspec.structs.replace(self, past=(entry, *self.past))
 ```
 
-Entries within `interval` of the newest entry replace it, and every other entry goes first: entries at `0s`, `0.5s`, and `2s` under a `1s` interval leave the ones at `2s` and `0.5s`:
+Entries within `interval` of the newest replace it, every other entry goes first. Entries at `0s`, `0.5s`, and `2s` under a `1s` interval leave `2s` and `0.5s`:
 - Generic records decode per parameterization, `type=History[str]` refuses an `int` entry at `$.past[0][1]`
 
 ## [06]-[ARRAY_FIELDS]
@@ -111,7 +109,7 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return np.diff(self.volts) / self.step
 ```
 
-Records holding an array take `eq=False` and compare and hash by identity, a default record's `==` raises `ValueError` on the array's truth value and `hash` raises `TypeError`:
-- Frozen records refuse field assignment and leave array elements writable, and `replaced(trace, volts=trace.volts[start:stop])` holds a view of its parent's buffer
+Records holding an array take `eq=False` and compare and hash by identity. Default records raise `ValueError` from `==` on the array's truth value and `TypeError` from `hash`:
+- Frozen records refuse field assignment, array elements stay writable, and `replaced(trace, volts=trace.volts[start:stop])` views the parent's buffer
 - Codecs refuse an `ndarray` field (`` Expected `numpy.ndarray`, got `list` - at `$.volts` ``), and a wire record holds `tuple[float, ...]`
 - Per-channel values take the shape their consumer takes whole, a `tuple[float, float, float]` for one color and one `(n, 3)` array for many

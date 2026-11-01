@@ -75,6 +75,38 @@ fn stored(path: &Path) -> Result<String, StoreError> { Ok(fs_err::read_to_string
 
 fn journaled(path: &Path) -> Result<String, JournalError> { Ok(fs_err::read_to_string(path)?) }
 
+fn opened(path: &Path) -> Result<String, StoreError> { Ok(std::fs::read_to_string(path)?) }
+
+fn measured(path: &Path) -> Result<usize, StoreError> { Ok(fs_err::read(path).map(|bytes| bytes.len())?) }
+
+fn counted(path: &Path) -> Result<usize, StoreError> { std::fs::read(path).map(|bytes| bytes.len()).map_err(Into::into) }
+
+fn streamed(path: &Path) -> Result<String, JournalError> {
+    let mut text = String::new();
+    fs_err::File::open(path)?.read_to_string(&mut text)?;
+    std::fs::File::open(path)?.read_to_string(&mut text)?;
+    Ok(text)
+}
+
+async fn awaited(path: &Path) -> Result<String, StoreError> { Ok(fs_err::tokio::read_to_string(path).await?) }
+
+async fn spawned(path: &Path) -> Result<String, StoreError> { Ok(tokio::fs::read_to_string(path).await?) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(io_text("8080"), typed_io("8081"), loaded(Path::new("port")), stored(Path::new("port")), journaled(Path::new("port")), Magic.read(&mut [0; 4]))); }
+fn main() {
+    black_box(&(
+        io_text("8080"),
+        typed_io("8081"),
+        loaded(Path::new("port")),
+        stored(Path::new("port")),
+        journaled(Path::new("port")),
+        opened(Path::new("port")),
+        measured(Path::new("port")),
+        counted(Path::new("port")),
+        streamed(Path::new("port")),
+        awaited(Path::new("port")),
+        spawned(Path::new("port")),
+        Magic.read(&mut [0; 4]),
+    ));
+}

@@ -1,8 +1,6 @@
 # [FUNCTIONS]
 
-Covers functions as values.
-
-## [01]-[KEY_FUNCTIONS]
+## [01]-[KEY_EXTRACTION]
 
 Cursor pages over sorted rows are one generic function taking the row's key:
 
@@ -55,7 +53,7 @@ pub fn findings(order: &Order) -> impl Iterator<Item = Finding> {
 }
 ```
 
-`findings(order).collect::<Vec<_>>()` reports every violated check, and `findings(order).next().is_none()` answers whether the order passes and stops at its first finding.
+`findings(order).collect::<Vec<_>>()` reports every violated check, `findings(order).next().is_none()` tests a pass and stops at the first finding.
 
 ## [03]-[RETURNED_CLOSURES]
 
@@ -72,7 +70,7 @@ pub fn rate_for(bands: &[(Cents, Rate)]) -> impl Fn(Cents) -> Option<Rate> + use
 
 ## [04]-[COMPOSITION_ROOT]
 
-Composition-root factories take the capability trait with their effects as methods, and the returned closure runs a load, a pure transition, and a save per request:
+Composition-root factories take a capability trait holding the effects, and their closure runs a load, pure transition, and save per request:
 
 ```rust
 pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, LedgerError>;
@@ -87,4 +85,4 @@ where L: Ledger {
 }
 ```
 
-`Ledger` declares `load` returning `Result<Option<Account>, LedgerError>` and `save` returning `Result<(), LedgerError>` as `async fn` methods. `main` binds `depositing(store)` once over the store it opened, and the server awaits that closure per request. Each call's future borrows the ledger the closure owns, and no request clones a handle. `Depositing<L>` names the closure type its `#[define_opaque]` factory fixes, and a state record holds it in a field (`deposit: Depositing<Store>`) with no box and no closure parameter, called as `(state.deposit)(command)`.
+`Ledger` declares `load` returning `Result<Option<Account>, LedgerError>` and `save` returning `Result<(), LedgerError>` as `async fn` methods. `main` binds `depositing(store)` once over the store it opened, and the server awaits that closure per request. Each call's future borrows the ledger the closure owns, and no request clones a handle. `Depositing<L>` names the closure type its `#[define_opaque]` factory fixes. State records hold it in an unboxed, non-generic field (`deposit: Depositing<Store>`), called as `(state.deposit)(command)`.
