@@ -1,0 +1,156 @@
+public import AppKit
+import AsyncAlgorithms
+public import CasePaths
+public import OrderedCollections
+import Processes
+public import Subprocess
+public import System
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS].map(TerminationStatus.signaled))
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+@CasePathable
+public enum InstanceState: Sendable {
+    case running(ApplicationStatus)
+    case failed(ApplicationFailure)
+    case exited(Result<TerminationStatus, Errno>, report: Result<CrashReport, ApplicationFailure>?)
+}
+
+extension InstanceState: Encodable {
+    private enum Key: CodingKey {
+        case running, failed, exited, status, reason, signal, statusFailure, report, reportFailure
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var state: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        switch self {
+            case .running(let status):
+                var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .running)
+                try fields.encode(status, forKey: .status)
+            case .failed(let failure):
+                var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .failed)
+                try fields.encode(failure.localizedDescription, forKey: .reason)
+            case .exited(let termination, let report):
+                var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .exited)
+                switch termination {
+                    case .success(.exited(let status)): try fields.encode(status, forKey: .status)
+                    case .success(.signaled(let signal)): try fields.encode(signal, forKey: .signal)
+                    case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
+                }
+                switch report {
+                    case .some(.success(let report)): try fields.encode(report, forKey: .report)
+                    case .some(.failure(let failure)): try fields.encode(failure.localizedDescription, forKey: .reportFailure)
+                    case .none: break
+                }
+        }
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension Result<ApplicationStatus, ApplicationFailure> {
+    fileprivate var state: InstanceState {
+        switch self {
+            case .success(let status): .running(status)
+            case .failure(let failure): .failed(failure)
+        }
+    }
+}
+
+extension NSRunningApplication {
+    public func state(walking walked: @Sendable (Element) -> Bool) async -> InstanceState {
+        await status(walking: walked).state
+    }
+
+    public func states(
+        walking walked: @escaping @Sendable (Element) -> Bool,
+        notifications: Set<String>,
+        polling interval: Duration,
+    ) -> some AsyncSequence<InstanceState, Never> {
+        AsyncStream { continuation in
+            let reports: some AsyncSequence<Result<CrashReport, ApplicationFailure>, Never> = CrashReport.following()
+            let following: Task<Void, Never> = Task {
+                let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno>? = await withDiscardingTaskGroup { lifetime in
+                    lifetime.addTask {
+                        if !self.isFinishedLaunching { continuation.yield(.running(.launching)) }
+                        guard case .success = await Result(catching: self.finishedLaunching) else { return }
+                        for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, notifications: notifications, polling: interval)
+                        where !Task.isCancelled {
+                            continuation.yield(change.state)
+                        }
+                    }
+                    defer { lifetime.cancelAll() }
+                    return await termination(of: self.processIdentifier).first { _ in true }
+                }
+                guard let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno> else { return continuation.finish() }
+                let status: Result<TerminationStatus, Errno> = exit.map(\.status)
+                continuation.yield(.exited(status, report: nil))
+                let reported: Bool =
+                    switch exit {
+                        case .success(let (status, detail)): detail.contains(.csError) || reportingSignals.contains(status)
+                        case .failure: false
+                    }
+                let report: Result<CrashReport, ApplicationFailure>? =
+                    reported
+                    ? await reports.first { read in
+                        switch read {
+                            case .success(let report): report.pid == self.processIdentifier
+                            case .failure(let failure): failure.reason.is(\.unwatched)
+                        }
+                    } : nil
+                if let report: Result<CrashReport, ApplicationFailure> { continuation.yield(.exited(status, report: report)) }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in following.cancel() }
+        }
+    }
+}
+
+extension NSWorkspace {
+    public func instances(of matching: (NSRunningApplication) -> Bool) -> [NSRunningApplication] {
+        runningApplications.filter { instance in instance.isFinishedLaunching && instance.activationPolicy != .prohibited && matching(instance) }
+    }
+
+    @MainActor
+    public func instanceStates(
+        of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
+        walking walked: @escaping @Sendable (Element) -> Bool,
+        notifications: Set<String>,
+        polling interval: Duration,
+    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+        let watched: @Sendable (NSRunningApplication) -> Bool = { instance in instance.activationPolicy != .prohibited && matching(instance) }
+        let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
+        let initial: Set<NSRunningApplication> = Set(runningApplications.filter(watched))
+        let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial, .new]) { _, change in
+            for instance: NSRunningApplication in change.newValue ?? [] where watched(instance) { insert.yield(instance) }
+        }
+        let changes: AsyncStream<(instance: NSRunningApplication, state: InstanceState)> = AsyncStream { change in
+            let following: Task<Void, Never> = Task {
+                await withDiscardingTaskGroup { group in
+                    for await instance: NSRunningApplication in inserted {
+                        group.addTask {
+                            for await state: InstanceState in instance.states(walking: walked, notifications: notifications, polling: interval) { change.yield((instance, state)) }
+                        }
+                    }
+                }
+            }
+            change.onTermination = { _ in
+                following.cancel()
+                observation.invalidate()
+            }
+        }
+        return chain(
+            (initial.isEmpty ? [OrderedDictionary()] : []).async,
+            changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
+                held.states.removeAll { _, state in state.is(\.exited) }
+                held.states[next.instance] = next.state
+                held.waiting.remove(next.instance)
+            }
+            .drop { held in !held.waiting.isEmpty }
+            .map(\.states),
+        )
+    }
+}

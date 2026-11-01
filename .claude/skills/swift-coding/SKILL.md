@@ -163,7 +163,7 @@ Each state a consumer inspects is a distinct case. Counting a type's values (str
 - Fields every case holds sit once in the struct that stores the enum, and the enum holds what differs between cases
 - Flags whose companion fields mean something for one value become one case per state
 - Outcomes one case holds side by side are one `Result` each, an optional pair or a reason string loses which outcome failed
-- `@CasePathable` with `@dynamicMemberLookup` reads one case (`\.inTransit`, `is(\.pending)`, `[case:]`), and a decision over every case is a `switch`
+- `@CasePathable` with `@dynamicMemberLookup` reads one case (`\.inTransit`, `is(\.pending)`, `[case:]`), and a decision over every case or a tuple payload is a `switch`
 - Absence and failure stay separate when the consumer responds differently to each
 
 ## [04]-[RESULTS]

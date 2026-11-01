@@ -1,9 +1,8 @@
-import Carbon.OpenScripting
-import CasePathsCore
 import CoreServices
+import Encoding
 public import Foundation
 import OrderedCollections
-public import Results
+import Results
 import Synchronization
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -74,10 +73,12 @@ public final class ScriptingDictionary: Encodable, Sendable {
     let enumerators: Scope
     let document: Mutex<XMLDocument>
 
-    public init(definition data: Data) throws(DefinitionFailure) {
-        let document: XMLDocument = try Result { try XMLDocument(data: data, options: .documentXInclude) }.mapError(DefinitionFailure.xml).get()
-        func elements(_ path: String) throws(DefinitionFailure) -> [XMLElement] {
-            try Result { try document.nodes(forXPath: path).compactMap { node in node as? XMLElement } }.mapError(DefinitionFailure.xml).get()
+    public init(definition data: Data) throws(AppleEventFailure) {
+        let document: XMLDocument = try Result { try XMLDocument(data: data, options: .documentXInclude) }
+            .mapError { error in AppleEventFailure(subject: "\(data.count)-byte definition", reason: .xml(error)) }.get()
+        func elements(_ path: String) throws(AppleEventFailure) -> [XMLElement] {
+            try Result { try document.nodes(forXPath: path) }.mapError { error in AppleEventFailure(subject: path, reason: .xml(error)) }.get()
+                .compactMap { node in node as? XMLElement }
         }
         let typedKinds: [Kind] = [.class, .recordType, .valueType]
         let named: [String: [XMLElement]] = try Dictionary(
@@ -130,7 +131,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
             }
         ).elements
         let declared: [Kind: [Term]] = try Dictionary(
-            uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(DefinitionFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
+            uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(AppleEventFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
         let typed: [Term] = typedKinds.flatMap { kind in declared[kind, default: []] }
         declarations = declared
@@ -147,7 +148,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         for kind: Kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []], forKey: kind) }
     }
 
-    public func text(of kind: Kind, named name: String) -> Result<String, DefinitionFailure> {
+    public func text(of kind: Kind, named name: String) throws(AppleEventFailure) -> String {
         let query: String = """
             let $suites := for $suite in /dictionary/suite
                 let $picked := if ($kind = "suite") then (for $child in $suite[@name = $name]/* return element { name($child) } { $child/@* }) else $suite/*[name() = $kind][@name = $name]
@@ -155,99 +156,32 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 return <suite>{ $suite/@*, $picked }</suite>
             return if (exists($suites)) then <dictionary>{ /dictionary/@*, $suites }</dictionary> else ()
             """
-        let listed: [String] = kind == .command ? commands.map(\.name) : declarations[kind, default: []].map(\.name)
-        return document.withLock { document in
-            Result { try document.objects(forXQuery: query, constants: ["kind": kind.rawValue, "name": name]) }
-                .mapError(DefinitionFailure.xml)
-                .flatMap { nodes in
-                    let selected: [String] = nodes.compactMap { node in (node as? XMLNode)?.xmlString }
-                    return selected.isEmpty ? .failure(.unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: OrderedSet(listed).elements))) : .success(selected.joined())
-                }
+        let selected: [String] = try document.withLock { document throws(AppleEventFailure) in
+            try Result { try document.objects(forXQuery: query, constants: ["kind": kind.rawValue, "name": name]) }
+                .mapError { error in AppleEventFailure(subject: "\(kind.rawValue) \(name)", reason: .xml(error)) }.get()
+                .compactMap { node in (node as? XMLNode)?.xmlString }
         }
-    }
-
-    public func command(_ name: String, taking arguments: Set<String>) -> Result<Command, DictionaryFailure> {
-        let code: UInt64? = UInt64(sdef: name)
-        let matching: (Command) -> Bool = { command in command.name == name || command.code == code }
-        let takes: (Command) -> Bool = { command in
-            arguments.allSatisfy { argument in command.parameters.contains { term in term.name == argument || term.code == FourCharCode(sdef: argument) } }
+        guard !selected.isEmpty else {
+            let listed: [String] = kind == .command ? commands.map(\.name) : declarations[kind, default: []].map(\.name)
+            throw AppleEventFailure(subject: name, reason: .unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: OrderedSet(listed).elements)))
         }
-        let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter(takes) }
-        let found: [Command] = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
-        let subject: String = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
-        return Unmatched.single(found, subject: subject, query: name, candidates: OrderedSet(scopes.joined().map(\.name)).elements, named: \.code.sdef).mapError(DictionaryFailure.unmatched)
-    }
-
-    public func event(_ command: Command, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
-        let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
-            eventClass: command.eventClass,
-            eventID: command.eventID,
-            targetDescriptor: target,
-            returnID: AEReturnID(kAutoGenerateReturnID),
-            transactionID: AETransactionID(kAnyTransactionID),
-        )
-        event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
-        return record(arguments, in: [Scope(command.parameters)], into: event)
-    }
-
-    func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
-        traverse(fields.sorted { left, right in left.key < right.key }) { key, value in
-            Self.resolve(key, in: scopes).flatMap { term in value.descriptor(as: term.types, in: self).map { encoded in (term.code, encoded) } }
-        }
-        .map { items in items.reduce(into: descriptor) { descriptor, item in descriptor.setDescriptor(item.1, forKeyword: item.0) } }
-    }
-
-    static func resolve(_ name: String, in scopes: [Scope]) -> Result<Term, AggregateError<DictionaryFailure>> {
-        let named: [Term] = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
-        let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
-        return Unmatched.single(codes, subject: "term", query: name, candidates: OrderedSet(scopes.flatMap(\.named.keys)).elements, named: \.sdef)
-            .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
-            .aggregated(DictionaryFailure.unmatched)
-    }
-
-    static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
-        let found: [Term] = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
-        let name: String? = found.first { term in resolve(term.name, in: scopes)[case: \.success]?.code == code }?.name
-        return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), members: [])
-    }
-
-    func scope(_ code: FourCharCode?) -> [Scope] {
-        [code.flatMap { code in members[code] }, properties].compactMap(\.self)
-    }
-
-    func classCode(of value: AppleEventValue) -> FourCharCode? {
-        switch value {
-            case .text(let name), .type(let name), .specifier(want: let name, form: _, seld: _, from: _):
-                Self.resolve(name, in: [types])[case: \.success]?.code
-            case .null: FourCharCode(cApplication)
-            case .bool, .number, .list, .record, .enumerator, .date, .file, .opaque: nil
-        }
-    }
-
-    func enumerators(of types: Set<String>) -> Scope {
-        Scope(declarations[.enumeration, default: []].filter { enumeration in types.contains(enumeration.name) }.flatMap(\.members))
+        return selected.joined()
     }
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-public enum DictionaryFailure: CustomNSError, LocalizedError {
-    case unmatched(Unmatched)
-    case unencodable(DescType)
-    case undated(String, any Error)
-
-    public var errorDescription: String? {
-        switch self {
-            case .unmatched(let miss): miss.errorDescription
-            case .unencodable(let type): "Value has no \(type.sdef) descriptor"
-            case .undated(let text, _): "\(text) is no ISO 8601 date"
+extension FixedWidthInteger where Self: UnsignedInteger {
+    public init?(sdef text: String) {
+        switch (text.wholeMatch(of: /0x(.+)/).flatMap { match in [UInt8](hexEncoded: match.1) }, text.data(using: .macOSRoman).map { data in [UInt8](data) }) {
+            case (.some(let bytes), _) where bytes.count == Self.bitWidth / 8, (_, .some(let bytes)) where bytes.count == Self.bitWidth / 8:
+                self = bytes.reduce(0) { code, byte in code << 8 | Self(byte) }
+            default: return nil
         }
     }
 
-    public var errorUserInfo: [String: Any] {
-        switch self {
-            case .unmatched(let error as any Error), .undated(_, let error): [NSUnderlyingErrorKey: error]
-            case .unencodable: [:]
-        }
+    public var sdef: String {
+        let bytes: [UInt8] = stride(from: Self.bitWidth - 8, through: 0, by: -8).map { shift in UInt8(truncatingIfNeeded: self >> shift) }
+        return (bytes.contains { byte in byte < 0x20 || byte == 0x7F } ? nil : String(bytes: bytes, encoding: .macOSRoman)) ?? "0x" + bytes.hexEncoded(uppercase: true)
     }
 }

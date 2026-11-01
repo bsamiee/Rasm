@@ -1,12 +1,33 @@
-import AdobeAutomation
 import AppleEvents
 import ApplicationServices
+import Applications
 import CurrentProcess
 import Encoding
 import Foundation
 import JSONRPC
 import Sparkle
 import os
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+struct AtelierFailure: LocalizedError {
+    enum Reason: Sendable {
+        case notAdobe
+        case noProcess
+        case unrendered
+    }
+
+    let subject: String
+    let reason: Reason
+
+    var errorDescription: String? {
+        switch reason {
+            case .notAdobe: "\(subject) has no bundle identifier starting \(adobePrefix)"
+            case .noProcess: "No running application has Process ID \(subject)"
+            case .unrendered: "ScreenCaptureKit returned no SDR image of process \(subject)"
+        }
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -19,7 +40,12 @@ enum Atelier {
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "Atelier.output")
         do {
             try disclaimResponsibility()
-            AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+            AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
+            do {
+                try checkAccessibilityTrust(prompting: true)
+            } catch {
+                logger.notice("Started without Accessibility trust, \(error, privacy: .public)")
+            }
             let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
             let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
             defer { extendLifetime((updater, updaterDelegate)) }
