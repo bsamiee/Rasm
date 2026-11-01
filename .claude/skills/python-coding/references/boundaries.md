@@ -1,91 +1,31 @@
 # [BOUNDARIES]
 
-Covers one entry's flow from argv and environment through codecs, templates, resources, and planned changes to an exit code.
+Covers one command's flow from process input through decoded streams, rendered templates, resources, and planned changes to an exit code.
 
-## [01]-[SETTINGS]
+## [01]-[STREAMS]
 
-Entries decode settings once from every source a run reads. `Environment` maps a process variable onto its field through `rename`, `tomllib` parses the file it names, and `key=value` arguments override its table before one `convert` with `strict=False` validates the merge. `Fault`, `Outcome`, `Reason`, and `accumulated` come from the package faults with an `UNWRITABLE` reason, and `content` is the package byte reader:
-
-```python
-class Environment(msgspec.Struct, frozen=True, kw_only=True, rename={"config": "TOOL_CONFIG"}):
-    config: str
-
-
-class Settings(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    target: str
-    limit: Annotated[int, msgspec.Meta(ge=1)] = 4
-    verbose: bool = False
-
-
-@catch(exception=msgspec.ValidationError)
-def _environment(environ: Mapping[str, str], /) -> Environment:
-    return msgspec.convert(environ, Environment, strict=False)
-
-
-@catch(exception=ValueError)
-def _parsed(raw: bytes, /) -> dict[str, object]:
-    return tomllib.loads(raw.decode())
-
-
-@catch(exception=msgspec.ValidationError)
-def _converted(fields: Mapping[str, object], /) -> Settings:
-    return msgspec.convert(fields, Settings, strict=False)
-
-
-def _table(path: Path, /) -> Outcome[dict[str, object]]:
-    return content(path).bind(lambda raw: _parsed(raw).map_error(partial(Fault.of, Reason.INVALID, str(path))))
-
-
-def configured(environ: Mapping[str, str], argv: Sequence[str], /) -> Outcome[Settings]:
-    overrides = {key: value for key, _, value in (pair.partition("=") for pair in argv)}
-    return (
-        _environment(environ)
-        .map_error(partial(Fault.of, Reason.INVALID, Environment.__name__))
-        .bind(lambda environment: _table(Path(environment.config)))
-        .bind(lambda table: _converted(table | overrides).map_error(partial(Fault.of, Reason.INVALID, Settings.__name__)))
-    )
-```
-
-`configured` stops at the first failing source:
-- `convert` over `os.environ` reads the variables `Environment` declares and ignores every other one, and builds no `Path` from text
-- `TOMLDecodeError` and `UnicodeDecodeError` are both `ValueError`, one `catch` over `_parsed` keeps either as cause
-- `table | overrides` lets arguments win, and `strict=False` turns `limit=8` and `verbose=true` into an `int` and a `bool`
-- `Meta` bounds and `forbid_unknown_fields` hold under `strict=False`, `limit=0` and `color=red` fail as `ValidationError`
-- Bytes decode to text once at entry, and text encodes once at exit
-
-## [02]-[CODECS]
-
-`ceiling` reads the decoded `limit` of `Quota` as an `Option`. Request streams decode line by line, each malformed line becomes faults that name its line number, and every other line decodes:
+Record streams decode one record at a time where a malformed record leaves its siblings valid, and a bound the run states is a type argument the decoder enforces. `Fault`, `Outcome`, `Reason` with an `UNWRITABLE` reason, `content`, and `accumulated` come from the package faults, byte reader, and accumulator:
 
 ```python
-class Quota(msgspec.Struct, frozen=True, kw_only=True):
+class Quota[L: int](msgspec.Struct, frozen=True, kw_only=True):
     name: str
-    limit: int | None = None
-
-    @property
-    def ceiling(self) -> Option[int]:
-        return Option.of_optional(self.limit)
+    limit: L | None = None
 
 
-QUOTA = msgspec.json.Decoder(Quota)
-
-
-def quota(index: int, line: bytes, /) -> Outcome[Quota]:
-    return catch(QUOTA.decode, exception=msgspec.DecodeError)(line).map_error(partial(Fault.of, Reason.INVALID, f"line {index}"))
-
-
-def quotas(raw: bytes, /) -> tuple[Outcome[Quota], ...]:
-    return tuple(quota(index, line) for index, line in enumerate(raw.splitlines(), start=1) if line.strip())
+def quotas(limit: int, raw: bytes, /) -> tuple[Outcome[Quota[int]], ...]:
+    decoded = catch(msgspec.json.Decoder(Quota[Annotated[int, msgspec.Meta(ge=1, le=limit)]]).decode, exception=msgspec.DecodeError)
+    return tuple(decoded(line).map_error(partial(Fault.of, Reason.INVALID, f"line {index}")) for index, line in enumerate(raw.splitlines(), start=1) if line.strip())
 ```
 
-Numbering runs before the blank-line filter, and fault subjects keep each line's position in the input:
-- Causes keep msgspec's message with its field path (``Expected `str`, got `int` - at `$.name` ``)
-- `Decoder.decode_lines` and `Encoder.encode_lines` read and write JSON Lines whole, one bad line failing the batch
-- Persisted state encodes through a msgspec JSON or MessagePack codec, `pickle` and `shelve` run code from the store on load
+`quotas(4, raw)` fails a line holding `"limit": 9` with `` Expected `int` <= 4 - at `$.limit` `` and decodes every other line:
+- Unparametrized `Quota` decodes `limit` as its bound `int`, and each reader states its own bound as the type argument
+- One decoder serves a run, built where its bound is known
+- Numbering runs before the blank-line filter, and fault subjects keep each line's position in the input
+- `Decoder.decode_lines` reads JSON Lines whole and fails the batch on one bad line
 
-## [03]-[TEMPLATES]
+## [02]-[TEMPLATES]
 
-Text another program parses (a shell line, markup, a query) builds from a t-string, and one renderer escapes each interpolation while literal parts pass unchanged:
+Text another program parses builds from a t-string, and one renderer applies the target's escape to each interpolation while literal parts pass unchanged:
 
 ```python
 def rendered(escape: Callable[[str], str], template: Template, /) -> str:
@@ -96,163 +36,84 @@ def argv(template: Template, /) -> tuple[str, ...]:
     return tuple(shlex.split(rendered(shlex.quote, template)))
 ```
 
-`argv(t"grep -n {name} file")` returns `name` as one argument whatever it holds, `rendered(html.escape, ...)` serves markup through the same renderer, and an f-string in either place splices raw text:
+`argv(t"grep -n {pattern} {path}")` keeps each value one argument whatever it holds, `rendered(html.escape, ...)` serves markup, and a query renders `rendered(lambda _: "?", template)` beside `template.values` as its parameters:
 - `convert` applies `!r`, `!s`, and `!a`, and `format` applies the spec after it
 - Iterating a `Template` yields literal strings and `Interpolation` parts in source order, empty strings left out
+- `template.values` holds each interpolation's value in order, and the placeholder follows the database driver's `paramstyle`
 - `Interpolation.expression` holds each field's source text for a renderer's error to name
 
-## [04]-[RESOURCES]
+## [03]-[RESOURCES]
 
-Writes that replace a file stage their content beside their target and commit through `replace` after the write, and `staging` registers the staged name's removal before yielding it. `subscribed` holds any register and unregister pair a host exposes, registering the release only after the register call succeeds:
+Writes that replace a file stage their content in a uniquely named file beside their target and commit through `replace`, and readers see the old file or the new one:
 
 ```python
-@contextmanager
-def staging(target: Path, /) -> Generator[Path]:
-    with ExitStack() as stack:
-        staged = target.with_name(f".{target.name}.partial")
-        stack.callback(staged.unlink, missing_ok=True)
-        yield staged
-
-
 @catch(exception=OSError)
-def _written(target: Path, data: bytes, /) -> Path:
-    with staging(target) as staged:
-        staged.write_bytes(data)
-        staged.replace(target)
+def _replaced(target: Path, data: bytes, /) -> Path:
+    with NamedTemporaryFile(dir=target.parent, prefix=f".{target.name}.", delete_on_close=False) as staged:
+        staged.write(data)
+        staged.flush()
+        os.fsync(staged.fileno())
+        staged.close()
+        Path(staged.name).replace(target)
     return target
 
 
 def written(target: Path, data: bytes, /) -> Outcome[Path]:
-    return _written(target, data).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
-
-
-@contextmanager
-def subscribed[H](subscribe: Callable[[], H], unsubscribe: Callable[[H], object], subject: str, /) -> Generator[Outcome[None]]:
-    with ExitStack() as stack:
-        yield (
-            catch(subscribe, exception=ValueError)()
-            .map(lambda handle: stack.callback(unsubscribe, handle))
-            .map(lambda _: None)
-            .map_error(partial(Fault.of, Reason.FAILED, subject))
-        )
+    return _replaced(target, data).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
 ```
 
-Staged names share their target's folder, `replace` stays one rename on one filesystem, and readers see the old file or the new one:
-- Failed writes leave their target as it was, and release after a commit finds no staged name
-- `@catch` covers `_written` whole, every call in it raises `OSError`
+Staged files share their target's folder, and `replace` stays one rename on one filesystem:
+- Unique staged names keep concurrent writers apart, and a failed write leaves its target unchanged and its staged file removed
+- `fsync` before `replace` keeps a crash from committing an empty file
+- Windows refuses to rename an open file, `close` precedes `replace`, and context exit finds the moved name gone
+- Staged files hold mode `0o600`, and a target other users read takes `Path(staged.name).chmod(<mode>)` before `replace`
+- `@catch` covers `_replaced` whole, every call in it raises `OSError`
+- `ExitStack.pop_all()` hands a caller every resource a function opened, to enter or to join its own stack through `enter_context`
 - Process-lifetime state is a resource the entry scope yields to its dependents
-- Libraries return their result type with their own faults, applications compose fallback order and caching around them
 
-`_opened` hands its caller a stack owning every stream, to enter (`with owner:`) or to pass to its entry's stack (`root.enter_context(owner)`):
+## [04]-[PLANS]
 
-```python
-@catch(exception=OSError)
-def _opened(paths: Sequence[Path], /) -> tuple[ExitStack, tuple[BufferedReader, ...]]:
-    with ExitStack() as stack:
-        streams = tuple(stack.enter_context(path.open("rb")) for path in paths)
-        return stack.pop_all(), streams
-```
-
-## [05]-[PLANS]
-
-Changes to an external target are a plan of records a pure function derives from wanted and live state, and the boundary applies each change once. `held` reads the live links of a folder, `planned` returns the changes between both mappings, and `applied` performs one:
+Changes to an external target are a plan a pure function derives from wanted and live state, and the boundary applies each change once. `held` reads a folder's live links, `planned` returns the targets to unlink and the pairs to link as differences of both mappings' items, and `reconciled` performs the plan:
 
 ```python
-class Step(msgspec.Struct, frozen=True, kw_only=True):
-    target: Path
+def held(folder: Path, /) -> Outcome[frozendict[Path, Path]]:
+    return catch(lambda: frozendict({entry: entry.readlink() for entry in folder.iterdir() if entry.is_symlink()}), exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, str(folder)))
 
 
-class Link(Step, frozen=True, kw_only=True):
-    source: Path
+def planned(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> tuple[frozenset[Path], frozendict[Path, Path]]:
+    return frozenset(target for target, _ in live.items() - wanted.items()), frozendict(wanted.items() - live.items())
 
 
-class Unlink(Step, frozen=True, kw_only=True): ...
+def _changed(target: Path, change: Callable[[], object], /) -> Outcome[Path]:
+    return catch(change, exception=OSError)().map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
 
 
-type Change = Link | Unlink
-
-
-def held(folder: Path, /) -> frozendict[Path, Path]:
-    return frozendict({entry: entry.readlink() for entry in folder.iterdir() if entry.is_symlink()})
-
-
-def planned(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> tuple[Change, ...]:
-    return (
-        *(Unlink(target=target) for target, source in live.items() if wanted.get(target) != source),
-        *(Link(target=target, source=source) for target, source in wanted.items() if live.get(target) != source),
-    )
-
-
-def applied(change: Change, /) -> Outcome[Path]:
-    match change:
-        case Link(target=target, source=source):
-            done = catch(target.symlink_to, exception=OSError)(source)
-        case Unlink(target=target):
-            done = catch(target.unlink, exception=OSError)(missing_ok=True)
-    return done.map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
-
-
-def reconciled(wanted: Mapping[Path, Path], folder: Path, /) -> Outcome[tuple[Path, ...]]:
-    return accumulated(map(applied, planned(wanted, held(folder))))
+def reconciled(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> Outcome[tuple[Path, ...]]:
+    unlinked, linked = planned(wanted, live)
+    return accumulated((*(_changed(target, target.unlink) for target in unlinked), *(_changed(target, partial(target.symlink_to, source)) for target, source in linked.items())))
 ```
 
-Retargeted links unlink before they link, and a converged folder plans `()`:
-- Plans are values a dry run prints and a check compares, `reconciled` adds only the call that performs them
-- Live state reads once before planning, and a second `reconciled` over the same wanted mapping changes nothing
-- Each change case names what it acts on, and `applied` matches the closed union once
+`held(folder).bind(partial(reconciled, wanted))` reads live state once and applies its plan, `held(folder).map(partial(planned, wanted))` is its dry run, and a missing folder fails before any change:
+- `ItemsView` is a `Set`, and `-` over mappings' items yields each pair the left side holds and the right lacks
+- Retargeted links unlink before they link, and a converged folder plans empty values and changes nothing
+- `accumulated` applies every change and returns each failed one's fault in plan order
 
-## [06]-[ENTRY]
+## [05]-[ENTRY]
 
-Entry modules decode settings, bind them into handlers, run the batch, and translate its outcome once. `granted` takes settings ahead of its subject, `run` binds them through `partial` once per run, and `exited` maps a settings or write failure to 2, a refused line to 1, and a clean run to 0:
+Commands are the boundary: their signature is the command line, settings arrive as validated parameters, and a run returns one outcome the app translates into an exit code. `run` partitions each line's outcome into granted quotas and refused faults and writes both:
 
 ```python
-class Summary(msgspec.Struct, frozen=True, kw_only=True):
-    granted: tuple[str, ...]
-    refused: tuple[str, ...]
-
-    @classmethod
-    def of(cls, outcomes: Sequence[Outcome[Quota]], /) -> Summary:
-        return cls(
-            granted=tuple(*outcome.map(lambda entry: (entry.name,)).default_value(()) for outcome in outcomes),
-            refused=tuple(*outcome.swap().map(lambda faults: tuple(fault.message for fault in faults)).default_value(()) for outcome in outcomes),
-        )
+def run(source: Path, target: Path, /, *, limit: PositiveInt = 4) -> Outcome[int]:
+    return content(source).map(partial(quotas, limit)).bind(partial(_summarized, target))
 
 
-SUMMARY = msgspec.json.Encoder()
-
-
-def granted(settings: Settings, entry: Quota, /) -> Outcome[Quota]:
-    return Ok(entry).filter_with(
-        lambda held: held.ceiling.filter(lambda limit: limit > settings.limit).is_none(),
-        lambda held: Fault.of(Reason.OUTSIDE, held.name, held.limit, member=f"a limit up to {settings.limit}"),
-    )
-
-
-def run(settings: Settings, raw: bytes, /) -> Outcome[Summary]:
-    summary = Summary.of(tuple(outcome.bind(partial(granted, settings)) for outcome in quotas(raw)))
-    return written(Path(settings.target), SUMMARY.encode(summary)).map(lambda _: summary)
-
-
-def exited(outcome: Outcome[Summary], /) -> int:
-    match outcome.tag:
-        case "ok":
-            sys.stderr.writelines(f"{line}\n" for line in outcome.ok.refused)
-            return 1 if outcome.ok.refused else 0
-        case "error":
-            sys.stderr.writelines(f"{fault.message}\n" for fault in outcome.error)
-            return 2
-
-
-def main(environ: Mapping[str, str], argv: Sequence[str], raw: bytes, /) -> int:
-    return exited(configured(environ, argv).bind(lambda settings: run(settings, raw)))
-
-
-if __name__ == "__main__":
-    raise SystemExit(main(os.environ, sys.argv[1:], sys.stdin.buffer.read()))
+def _summarized(target: Path, lines: tuple[Outcome[Quota[int]], ...], /) -> Outcome[int]:
+    granted = tuple(*line.to_option().to_list() for line in lines)
+    refused = tuple(*(fault.message for fault in line.swap().default_value(())) for line in lines)
+    return written(target, msgspec.json.encode({"granted": granted, "refused": refused})).map(lambda _: 1 if refused else 0)
 ```
 
-`Settings`, `configured`, `quotas`, and `written` come from the settings, codec, and resource flows:
-- `main` receives process input as arguments, and the `__main__` guard reads `os.environ`, `sys.argv`, and stdin once
+`PositiveInt` refuses `--limit 0` before any read, and `limit` reaches the decoder bound once:
+- Refused lines leave the run `Ok` with status 1, an unreadable source or unwritable target fails the run with its fault
 - Summaries hold fault messages, msgspec raises `TypeError` encoding a `Fault` with its caught cause
-- Refused lines leave the run's result `Ok`
-- Unwritable targets fail a run after its batch, and its summary reaches no reader
+- Commands alone read process input, every other function takes the value it needs as an argument

@@ -388,15 +388,11 @@
             "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*", "{workspaceRoot}/eng/typescript/process.ts" ] },
             "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ] },
             "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
-            "lint:pmd": { "dependsOn": [ "lint:pmd:check", { "target": "lint:pmd:cpd-*", "params": "forward" } ] },
-            "lint:pmd:check": {
+            "lint:pmd": {
                 "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
                 "inputs": [ "javaFiles", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" }, { "env": "JAVA_HOME" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
-            "lint:pmd:cpd-java": { "command": "fd --hidden --extension java --exec-batch pmd cpd --language java", "inputs": [ "...", "javaFiles" ] },
-            "lint:pmd:cpd-python": { "command": "fd --hidden --extension py --exec-batch pmd cpd --language python", "inputs": [ "...", "{workspaceRoot}/**/*.py" ] },
-            "lint:pmd:cpd-swift": { "command": "fd --hidden --extension swift --exec-batch pmd cpd --language swift", "inputs": [ "...", "swiftFiles" ] },
             "lint:tombi": { "dependsOn": [ { "target": "lint:tombi:*", "params": "forward" } ] },
             "lint:tombi:lint": { "command": "tombi lint --error-on-warnings" },
             "lint:tombi:format": { "command": "tombi format --check" },

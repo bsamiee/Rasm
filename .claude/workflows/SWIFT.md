@@ -24,12 +24,12 @@ Rules a module-by-module rebuild of `libs/swift` and its consumers follows, each
     `Backoff(count: 6, base: .milliseconds(200), growth: 2, cap: .milliseconds(4000), jitter: 1..<2)` in place of `ClaudeCredentials.swift:257`; `FileWatch.swift:111` C paths → CF types
 11. A CF read checks `CFGetTypeID` inside the one generic `value` read; an SPI with no public counterpart (`_AXUIElementGetWindow`, remote tokens, `responsibility_spawnattrs_setdisclaim`) is declared once, in the form the manage-repo skill's Swift reference states.
     `Element.swift:206-212,313`
-12. CasePaths serve a projection a reader makes (`.is(\.exited)`, `[case: \.failure.unreadable]`), never an `errorUserInfo` a `switch` states; OrderedCollections stand where order is read; AsyncAlgorithms members sit in the module that composes streams; a product imported for one member goes.
-    `Keychain.swift:29`, `LoginShell.swift:24`, `Lockfile.swift:99`, `Lifecycle.swift:66` → `switch`; `AppleEventValue.swift:4` unused import; `Lockfiles` importing AsyncAlgorithms for one timer
+12. CasePaths serve a projection a reader makes (`.is(\.exited)`, `[case: \.failure.unreadable]`), never an `errorUserInfo` a `switch` states; OrderedCollections stand where order is read; AsyncAlgorithms members sit in the module that composes streams; a product member stands wherever it states the value, and a product goes where the standard library or a framework states the member or nothing calls it.
+    `Keychain.swift:29`, `LoginShell.swift:24`, `Lockfile.swift:99`, `Lifecycle.swift:66` → `switch`; `AppleEventValue.swift:4` unused import
 13. `Xcode.xcconfig` `SWIFT_WARNINGS_AS_ERRORS_GROUPS` names the groups `Package.swift` names.
     `Xcode.xcconfig:34` lacks `ExplicitSendable`
-14. The wire to TypeScript stays byte-identical in every key, `_tag`, case and enum spelling the readers decode (`libs/typescript/creative-cloud/automation/*.ts`, `libs/typescript/data/search/unmatched.ts`, `apps/creative-cloud/atelier/status.ts`, `.claude/skills/watch-apps/SKILL.md`), and the encoding behind a spelling is free to change.
-    `Message.swift:157-168` ↔ `RpcSerialization.ts:348-380`; `Lifecycle.swift:18-20` ↔ `applications.ts:17-20`; `AppleEventValue.swift:73-76` ↔ `apple-events.ts:15-32`
+14. The wire to TypeScript stays byte-identical in every key, `_tag`, case and enum spelling the readers decode (`@rasm/automation`, `@rasm/search`, Atelier's status read, `.claude/skills/watch-apps/SKILL.md`), and the encoding behind a spelling is free to change.
+    `Message.swift:157-168` ↔ effect `src/rpc/RpcSerialization.ts:348-380`; `Lifecycle.swift:18-20` ↔ `applications.ts:17-20`; `AppleEventValue.swift:73-76` ↔ `apple-events.ts:15-32`
 15. A test target stands where a behavior over the public surface earns it, as `<Module>Tests` under `tests/swift/libs/<category>/<Module>/` through `.testTarget(name:dependencies:path:)`.
 
 ## [01]-[FRAMEWORK_USE]

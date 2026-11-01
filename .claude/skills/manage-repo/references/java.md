@@ -1,6 +1,6 @@
 # [JAVA]
 
-google-java-format owns formatting, javac owns compile checks, PMD owns lint and clone detection, jdtls owns editor diagnostics.
+google-java-format owns formatting, javac owns compile checks, PMD owns lint, jdtls owns editor diagnostics.
 
 ## [01]-[FORMATTER]
 
@@ -16,13 +16,7 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint and
 - Host API checks that need resolved types are XPath rules in `.config/pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
 - PMD tags a `-SNAPSHOT` development build after each release
 
-## [03]-[CLONES]
-
-`pmd cpd` reports token sequences repeated inside the repository, the derivation that belongs to one owner:
-- `--language` takes one language per `pmd cpd` run, `pmd cpd` exits 4 on a clone
-- `--minimum-tokens` sits above the forms a language states twice by rule, a protocol member's signature restated by its implementation
-
-## [04]-[LANGUAGE_SERVER]
+## [03]-[LANGUAGE_SERVER]
 
 jdtls type-checks scripts a tool loads against that tool's jars on each edit:
 - `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before the jars attach

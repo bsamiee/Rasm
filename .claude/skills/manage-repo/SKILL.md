@@ -14,7 +14,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
 - [06]-[SWIFT](references/swift.md): Package, SwiftPM, project files, settings, compiler, locks, swift-format, SwiftLint, Periphery, language server
-- [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, clone detection, language server
+- [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
 - [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries, modules
 
 [SCRIPTS]:

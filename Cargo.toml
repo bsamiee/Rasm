@@ -49,7 +49,7 @@ annotate-snippets    = "0.12.17"                                   # Grammar err
 anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 thiserror            = "2.0.21"                                    # Error enums that consumers match by variant
-validated            = "1.0.0"                                     # Applicative validation accumulating every independent error
+validated            = { version = "1.0.0", features = ["rayon"] } # Applicative validation accumulating every independent error
 
 # --- [DERIVES]
 auto_impl    = "1.4.0"                                                                                                                               # Capability traits implemented for references, Arc, and Box from one impl
@@ -113,9 +113,10 @@ croner = { version = "4.0.2", default-features = false, features = ["jiff"] } # 
 jiff   = { version = "0.2.38", features = ["serde"] }                         # Instants, zoned date-times, spans, and zone database
 
 # --- [IDENTIFIERS]
-newtype-uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }  # Identifiers typed by entity kind they name
-semver       = { version = "1.0.28", features = ["serde"] }             # Semantic version and requirement parsing
-uuid         = { version = "1.28.0", features = ["v4", "v7", "serde"] } # Random and creation-ordered identifiers
+newtype-uuid        = { version = "1.4.0", features = ["v4", "v7", "serde"] }  # Identifiers typed by entity kind they name
+newtype-uuid-macros = "0.1.1"                                                  # Kind types and identifier aliases generated per entity
+semver              = { version = "1.0.28", features = ["serde"] }             # Semantic version and requirement parsing
+uuid                = { version = "1.28.0", features = ["v4", "v7", "serde"] } # Random and creation-ordered identifiers
 
 # --- [HASHING]
 blake3      = "1.8.7"                                                     # Content-addressed keys

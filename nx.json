@@ -198,7 +198,6 @@
         "{typecheck:ty,typecheck:mypy,lint:refurb}:*": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ], "cache": true },
         "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}" ], "cache": true },
         "lint:swiftlint:*": { "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ], "inputs": [ "swiftlint", "swiftFiles", { "externalDependencies": [] } ], "cache": true },
-        "lint:pmd:cpd-*": { "options": { "args": [ "--minimum-tokens", "100" ] }, "inputs": [ { "externalDependencies": [] }, { "runtime": "pmd --version" } ], "cache": true },
         "lint:tombi:*": { "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ], "cache": true },
         "lint:{dotnet-format,*.cs}": {
             "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",

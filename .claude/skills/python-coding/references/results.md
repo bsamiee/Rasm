@@ -1,10 +1,10 @@
 # [RESULTS]
 
-Covers result flows past one chain, from accumulation and recovery to option combinators, host translation, and the equations results satisfy.
+Covers result flows past one chain, from accumulation and context checks to recovery, option combinators, host translation, and the equations results satisfy. `Fault`, `Faults`, `Outcome`, and `Reason` are the package faults, and `content` is the package byte reader.
 
 ## [01]-[ACCUMULATION]
 
-`accumulated` combines any count of independent results and `paired` a fixed arity. `Fault`, `Faults`, and `Outcome` are the package faults:
+`accumulated` combines any count of independent results and `paired` a fixed arity:
 
 ```python
 def accumulated[T](results: Iterable[Outcome[T]], /) -> Outcome[tuple[T, ...]]:
@@ -13,7 +13,7 @@ def accumulated[T](results: Iterable[Outcome[T]], /) -> Outcome[tuple[T, ...]]:
         case (head, *rest):
             return Error((head, *rest))
         case _:
-            return Ok(tuple(*result.to_option().to_list() for result in held))
+            return Ok(tuple(result.ok for result in held))
 
 
 @overload
@@ -24,13 +24,25 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
     return accumulated(results)
 ```
 
-`swap().default_value(())` yields each result's faults, and the `(head, *rest)` arm builds the non-empty tuple `Faults` requires. Each `paired` overload types one arity's values as a tuple, and batches pass every item's outcome to `accumulated`, an empty batch returning `Ok(())`:
-- `traverse`, `sequence`, `map2`, and `pipeline` keep one error, `traverse` calls its step on every element back to front
-- Effect builders swallow a `RuntimeError` a step raises (`Ok(None)` from a builder), chains replace them
+`swap().default_value(())` yields each result's faults, the `(head, *rest)` arm builds the non-empty tuple `Faults` requires, and an empty batch returns `Ok(())`. `traverse`, `sequence`, `map2`, and `pipeline` keep one error.
+
+`priced` reads each line against a catalog and reports every unknown SKU at once. `Line` is a decoded record of `sku` and a `Meta`-bounded `count`:
+
+```python
+def priced(prices: Mapping[str, Decimal], lines: Iterable[Line], /) -> Outcome[Decimal]:
+    return accumulated(
+        Option.of_optional(prices.get(line.sku)).map(lambda price: price * line.count).to_result_with(partial(Fault.of, Reason.ABSENT, "catalog", member=line.sku))
+        for line in lines
+    ).map(lambda costs: sum(costs, start=Decimal()))
+```
+
+Each unknown SKU adds one `catalog holds no <sku>` fault, and a fully priced batch returns its exact `Decimal` total:
+- Checks reading one item and context run per item inside `accumulated`, a check across items reads the batch once and joins through `paired`
+- Rules sharing `T -> Outcome[T]` run as `accumulated(rule(value) for rule in rules).map(lambda _: value)`
 
 ## [02]-[RECOVERY]
 
-`journal` reads a missing file as empty content, and `ended` keeps a failure's faults when the step that marks the failure fails. `content` is the package byte reader:
+`journal` reads a missing file as empty content, and `ended` runs a marking step after a failure and appends its fault:
 
 ```python
 def _unwritten(faults: Faults, /) -> Outcome[bytes]:
@@ -45,58 +57,41 @@ def journal(path: Path, /) -> Outcome[bytes]:
     return content(path).or_else_with(_unwritten)
 
 
-def _ended[T](mark: Callable[[], Outcome[None]], faults: Faults, /) -> Outcome[T]:
-    return Error((*faults, *mark().swap().default_value(())))
-
-
 def ended[T](work: Outcome[T], mark: Callable[[], Outcome[None]], /) -> Outcome[T]:
-    return work.or_else_with(partial(_ended, mark))
+    return work.or_else_with(lambda faults: Error((*faults, *mark().swap().default_value(()))))
 ```
 
-`journal` returns `Ok(b"")` for a missing file alone, a directory or a denied read keeps its fault, and `ended` returns the work faults followed by the marking fault:
-- `or_else_with` runs only on failure, a success skips the marking step
-- `merge()` on a `Result[T, T]` reads whichever side a fold ended on, a partial log on the error side reaching a rollback
+`journal` returns `Ok(b"")` for a missing file alone, and a directory, a denied read, or a missing file beside a second fault keeps its faults. `ended` skips the marking step on success and returns the work faults followed by the marking fault.
 
 ## [03]-[OPTIONS]
 
-Options combine applicatively where every part must be present. `joined` concatenates optional tuples and returns `Nothing` when any part is absent:
+Options combine where every part must be present. `collected` returns every value, or `Nothing` when any part is absent:
 
 ```python
-def joined[T](parts: Iterable[Option[tuple[T, ...]]], /) -> Option[tuple[T, ...]]:
-    empty: Option[tuple[T, ...]] = Some(())
-    return reduce(lambda held, part: held.map2(lambda done, more: (*done, *more), part), parts, empty)
+def collected[T](options: Iterable[Option[T]], /) -> Option[tuple[T, ...]]:
+    held = tuple(options)
+    return Some(tuple(*option.to_list() for option in held)).filter(lambda values: len(values) == len(held))
 ```
 
-`joined` returns `Some(())` for no parts:
-- `found.map(filled).default_with(lambda: built().bind(owned))` runs the costly build only on a miss
+`collected` returns `Some(())` for no parts, and `found.map(Ok).default_with(partial(loaded, key))` runs a costly fallible load only on a miss.
 
 ## [04]-[HOST_TRANSLATION]
 
-`status` maps each fault's reason to an HTTP status, and `responded` turns an outcome into a status and a JSON body:
+`STATUS` maps each reason a client causes to its HTTP status, and `responded` answers an outcome with a status and a JSON body:
 
 ```python
-def status(fault: Fault, /) -> HTTPStatus:
-    match fault.reason:
-        case Reason.ABSENT:
-            return HTTPStatus.NOT_FOUND
-        case Reason.INVALID | Reason.OUTSIDE:
-            return HTTPStatus.BAD_REQUEST
-        case _:
-            return HTTPStatus.INTERNAL_SERVER_ERROR
+STATUS: frozendict[StrEnum, HTTPStatus] = frozendict({Reason.ABSENT: HTTPStatus.NOT_FOUND, Reason.INVALID: HTTPStatus.BAD_REQUEST, Reason.OUTSIDE: HTTPStatus.BAD_REQUEST})
 
 
-JSON = msgspec.json.Encoder()
-
-
-def responded(outcome: Outcome[str], /) -> tuple[HTTPStatus, bytes]:
-    match outcome.tag:
-        case "ok":
-            return HTTPStatus.OK, JSON.encode({"endpoint": outcome.ok})
-        case "error":
-            return max(map(status, outcome.error)), JSON.encode([fault.message for fault in outcome.error])
+def responded(outcome: Outcome[object], /) -> tuple[HTTPStatus, bytes]:
+    match outcome:
+        case Result(tag="ok", ok=value):
+            return HTTPStatus.OK, msgspec.json.encode(value)
+        case Result(error=faults):
+            return max(STATUS.get(fault.reason, HTTPStatus.INTERNAL_SERVER_ERROR) for fault in faults), msgspec.json.encode([fault.message for fault in faults])
 ```
 
-`status` reads members of any package's enum, and `responded` returns the highest status among the faults: absent and unreadable faults together answer `500`. `max` reads `Faults` with no default, its type holds at least one fault.
+Keys take members of any package's reason enum, a reason with no row answers `500`, and `responded` returns the highest status among the faults: absent and unreadable faults together answer `500`. `max` reads the faults with no default, `Faults` holds at least one.
 
 ## [05]-[EQUATIONS]
 
@@ -108,6 +103,7 @@ Functor composition:  r.map(g).map(f) == r.map(lambda x: f(g(x)))
 Monad left identity:  Ok(x).bind(f) == f(x)
 Monad right identity: r.bind(Ok) == r
 Monad associativity:  r.bind(f).bind(g) == r.bind(lambda x: f(x).bind(g))
+Accumulation:         paired(Ok(a), Ok(b)) == Ok((a, b)), paired(Error(e), Error(f)) == Error((*e, *f))
 ```
 
 Both identities let `Ok` lift a value with no other effect, and associativity lets a workflow regroup its steps into named functions with the same result.

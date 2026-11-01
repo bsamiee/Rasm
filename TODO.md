@@ -5,7 +5,7 @@
 Rebuild the Rust, Swift and TypeScript code the way the C# and Python code was rebuilt.
 - **Workflows:** `.claude/workflows/{rust,swift,typescript}.js`, with their rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
 - **Running them:** one run per `[03]` row, with `args.key` set to its `[KEY]`. A run starts after the rows its `[AFTER]` cell names have landed, in the order each script's `whenToUse` states.
-- **Before the first run:** read the rules file and the script, and confirm the target rows still match the code. The rows were written against an earlier tree.
+- **Before the first run:** the Swift and TypeScript rows and their line citations match the tree at `63db3043e`. A citation that an earlier run moves applies to the code wherever that code now sits, as each script's `SURFACE` states.
 - **What each run does:**
   - It tears the code apart, rebuilds it and iterates on it.
   - It cuts internal and external API and drops nearly every unnecessary type and struct.

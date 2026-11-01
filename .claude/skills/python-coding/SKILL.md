@@ -5,7 +5,7 @@ description: "Use when writing or reviewing Python, covering functional design w
 
 # [PYTHON_CODING]
 
-Covers Python design decisions from signature shape to host boundary in the newest Python forms. Expression supplies results and options, msgspec records and codecs, and anyio concurrency.
+Covers Python design decisions from signature shape to host boundary in the newest Python forms. Expression, msgspec, anyio, and numpy are part of the language, every example uses their types as vocabulary.
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Worked flows for specialization, operator families, dispatch, iteration, pipelines, and strategies
@@ -24,11 +24,12 @@ Function signatures are contracts, parameter types describe every value a functi
 - `**P` captures a wrapped function's parameters, `*Ts` ties an argument tuple to them (`Callable[[*Ts], R]`), `*args: object` erases both
 - Parameters take the narrowest ABC a body reads (`Iterable`, `Collection`, `Sequence`, `Mapping`), return types stay concrete
 - `Protocol` types a callable `Callable` cannot spell (keyword parameters, `__name__`, overloads) beside the consumer reading it
-- Modules pass as a `Protocol` of the members a body reads, both checkers match it member by member, and ty matches a module constant to a `@property` alone
-- Subjects take positional-only `/` parameters, options and flags take keyword-only `*` parameters
+- Modules pass as a `Protocol` of the members a body reads, a module constant as a `@property` member
+- Subjects take positional-only `/` parameters, and a value a caller varies is a keyword-only `*` parameter with its default
+- Choices a composition passes down are one record of defaulted fields, and a caller names the fields it changes
 - Members differing only in a number, flag, type, or applied function are one generic member taking it as a parameter
 
-`Field` states the operators a formula reads, and `smoothstep` returns its argument's own type, a numpy scalar or an array of any shape, in place of one overload per numeric kind:
+`Field` states the operators a formula reads, and `smoothstep` returns its argument's own type, a numpy scalar or an array of any shape, from one body:
 
 ```python
 class Field(Protocol):
@@ -41,34 +42,31 @@ def smoothstep[V: Field](values: V, /) -> V:
     return values * values * (3.0 - values * 2.0)
 ```
 
-`ty check` reads a `float` argument as `float | int` and refuses it against an operator protocol.
-
 ### [01.1]-[HONEST_SIGNATURES]
 
 Functions honor their signature when each declared input produces a declared output, with no exception or `None` their signature omits. Correct a dishonest contract by narrowing its input to a validated type or widening its output to `Option[T]` or `Outcome[T]`:
 - `int -> Tier` is incomplete when some integers fail validation, `Quantity -> Tier` over a record validating at construction covers every value
-- `Annotated` constraints narrow nothing for a checker, a parameter typed `Annotated[int, Meta(ge=1)]` accepts every `int`
-- `min`, `max`, and `next` raise on empty input, `max(items, default=...)` and `Block.of_seq(items).try_head()` make the read total, and `Option.of_optional(next(..., None))` restates the second
+- `min`, `max`, and `next` raise on empty input, `max(items, default=...)` and `Block.of_seq(items).try_head()` make the read total
 - `T | None` appears where an external API speaks it, `Option.of_optional` converts it at the read
-- Types narrow through `match`, `isinstance`, or a `TypeIs` predicate, `TypeGuard` narrows the true branch alone
-- Boolean parameters that switch behavior become separate functions or a union case parameter
+- Types narrow through `match`, `isinstance`, or a `TypeIs` predicate
+- Behavior a caller selects enters as the function it applies, a `bool` parameter holds data
 
 ### [01.2]-[PURITY]
 
-Functions are pure when their return value depends on their arguments alone and evaluation causes no side effect, and a pure call's result replaces the call. Side effects are mutating state visible outside a function, mutating an argument, raising, and I/O (clock, environment, filesystem, network, randomness, another process). Mutation of a local that never escapes is no side effect:
+Functions are pure when their return value depends on their arguments alone and evaluation causes no side effect, and a pure call's result replaces the call. Side effects are mutating state visible outside a function, mutating an argument, raising, and I/O (clock, environment, filesystem, network, randomness, another process). Mutation of a local that stays in its function is no side effect:
 - Clock, randomness, and configuration enter as arguments (`def expired(now: datetime, issued: datetime, lifetime: timedelta) -> bool`)
-- Module state and parameter defaults are immutable values (`()`, `frozenset()`, `frozendict()`, `Nothing`, a frozen record)
-- State a step changes returns as its next value (`(State, Event) -> State`), a `nonlocal` cell or a list closures append to is shared state
+- Module state and parameter defaults are immutable values built without I/O (`()`, `frozenset()`, `frozendict()`, `Nothing`, a frozen record)
+- State a step changes returns as its next value (`(State, Event) -> State`), closures hold no `nonlocal` cell or appended list
 - `functools.cache` memoizes a pure top-level function or a zero-argument builder, a cached method keeps every `self` it receives alive
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
 Higher-order functions accept a function, return one, or both, and own stable control flow while their caller supplies the varying rule. Bind each varying part through `partial` over a top-level function:
 - Parameters order for partial application: dependencies and configuration, then policies, then the subject
-- Closures returning a closure become a top-level function bound through `partial`
-- Callables built per loop item bind it through `partial(f, item)`, a lambda reads the loop variable's last value
-- Callables pass as themselves (`map(str.strip, lines)`, `reduce(Box.merged, boxes)`), a lambda that forwards its argument restates them
-- Key functions are lambdas or methods, typeshed types `operator.attrgetter` and `itemgetter` results as `Any`
+- Functions returned from a closure are a top-level function bound through `partial`
+- Callables built per loop item bind it through `partial(f, item)`
+- Callables pass as themselves (`map(str.strip, lines)`, `reduce(Box.merged, boxes)`, `partial(_read, Path.read_bytes)`)
+- Key functions are lambdas or unbound methods (`str.casefold`)
 - `pipe(value, f, g)` runs unary steps, `compose(f, g)` names a reusable pipeline, `Result` and `Option` chains stay fluent
 
 `_read` owns the catch and its fault once, and each reader is a `partial` over the unbound method it applies. `Fault`, `Outcome`, and `Reason` are the package faults:
@@ -80,7 +78,6 @@ def _read[T](reader: Callable[[Path], T], path: Path, /) -> Outcome[T]:
 
 content: Callable[[Path], Outcome[bytes]] = partial(_read, Path.read_bytes)
 text: Callable[[Path], Outcome[str]] = partial(_read, Path.read_text)
-listing: Callable[[Path], Outcome[tuple[Path, ...]]] = partial(_read, lambda folder: tuple(folder.iterdir()))
 ```
 
 ## [02]-[EXPRESSIONS]
@@ -88,103 +85,83 @@ listing: Callable[[Path], Outcome[tuple[Path, ...]]] = partial(_read, lambda fol
 Expressions evaluate to values, and statements perform an action or control execution. Build a returned value in one expression, a comprehension, conditional expression, or record constructor:
 - Functions return a `tuple`, `frozenset`, or `frozendict` from every arm, a generator stays where laziness bounds memory
 - `Option` values flatten through `to_list()` (`tuple(*o.to_list() for o in options)`), `bind(identity)` flattens a nested `Option`
-- `dict.fromkeys(items)` keeps first occurrences in order, a `seen` set beside a loop restates it
+- `dict.fromkeys(items)` keeps first occurrences in order
 - Reductions take the operator's own member: `sum(terms, start=zero)` over numbers and arrays, `math.prod`, `math.fsum`, `"".join`
 
-Comprehension unpacking flattens each display kind, a later mapping key wins a merge, and a walrus binds what a filter tests and the element reads:
+Comprehension unpacking flattens each element's parts into one collection, and a walrus binds what a filter tests and the element reads:
 
 ```python
-def merged(layers: Iterable[Mapping[str, str]], /) -> frozendict[str, str]:
-    return frozendict({**layer for layer in layers})
-
-
-def flags(table: Mapping[str, str], /) -> tuple[str, ...]:
-    return tuple(*(f"--{key}", value) for key, value in table.items())
-
-
 def keys(pattern: re.Pattern[str], lines: Iterable[str], /) -> frozenset[str]:
     return frozenset(*hit.groups() for line in lines if (hit := pattern.fullmatch(line.strip())))
 ```
 
-Calls without the `for` (`frozenset(*groups)`) pass each group as its own argument.
-
 ### [02.1]-[PATTERN_MATCHING]
 
-Pattern matching selects a result from a value's type, shape, or fields, and keeps recognition, extraction, guards, and results together. `advanced` is one transition over a pair, and `|` alternatives share an arm when they bind the same names:
+Pattern matching selects a result from a value's type, shape, or fields, and keeps recognition, extraction, guards, and results together. `advanced` is one transition over a pair, a record case beside a `Literal` signal:
 
 ```python
-type Phase = Idle | Running | Done
-type Event = Started | Stopped
+type Watch = Running | Paused
 
 
-def advanced(phase: Phase, event: Event, /) -> Phase:
-    match phase, event:
-        case Idle() | Done(), Started(at=at):
-            return Running(since=at)
-        case Running(since=since), Stopped(at=at) if at >= since:
-            return Done(took=at - since)
+def advanced(watch: Watch, signal: Literal["start", "stop"], at: datetime, /) -> Watch:
+    match watch, signal:
+        case Paused(total=total), "start":
+            return Running(since=at, total=total)
+        case Running(since=since, total=total), "stop" if at >= since:
+            return Paused(total=total + (at - since))
         case _:
-            return phase
+            return watch
 ```
 
-Each phase and event is a frozen record, and patterns read them by form:
+`Running` holds `since` and `total`, `Paused` holds `total`, and a repeated or early signal returns `watch` unchanged:
 - Class patterns bind by keyword, a `kw_only` record or a pydantic model has empty `__match_args__`
-- Sequence patterns (`[first, *rest]`) bind `rest` as a `list` and never match `str` or `bytes`, `case (only,):` proves exactly one
+- `|` alternatives share an arm when each binds the same names (`case Paused() | Running(), "stop":`)
+- Sequence patterns (`[first, *rest]`) bind `rest` as a `list` and match no `str` or `bytes`, `case (only,):` proves exactly one
 - `case (first, *rest): return sum(rest, first)` folds a non-empty sequence with no zero sentinel
 - Mapping patterns (`{"key": float(value), **rest}`) decode each key once, dotted value patterns (`Color.RED`) compare members
 - Guards test what no pattern expresses, a walrus in a guard binds a derived value its arm reads
-- Matches returning from each arm over a closed union prove coverage, mypy and ty report a missing case as an implicit `None` return
-- Matches over a tuple subject end in `case _:`, mypy proves no coverage of a tuple and reports a missing return
+- Matches over a closed union return from each arm with no `case _:`, a tuple subject ends in `case _:`
 - Matches over decoded or host input end in `case _:` returning an `Error`
 
 ## [03]-[RECORDS]
 
-Records are frozen `msgspec.Struct` classes: slotted, hashable, matchable, and cheap to build. Constraint aliases state a domain once, and behavior on a record is its method or property. `Ramp` bounds each stop and its stop count through `Meta`, checks stop order in `__post_init__`, and derives a value no field stores:
+Records exist where no language or package type (`datetime`, `Path`, `Fraction`, an `ndarray`) states a value, as frozen `msgspec.Struct` classes: slotted, hashable, matchable, and cheap to build. Constraints sit on the record's own fields as `Meta` bounds every decode enforces, a `type` alias names each bounded domain, and behavior on a record is its method or property. `Ramp` bounds each stop and the stop count, checks stop order in `__post_init__`, and derives a value no field stores:
 
 ```python
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 type Positive = Annotated[float, msgspec.Meta(gt=0.0)]
 
 
-class Stop(msgspec.Struct, frozen=True, array_like=True):
-    at: Unit
-    value: Positive
-
-
 class Ramp(msgspec.Struct, frozen=True, kw_only=True):
-    stops: Annotated[tuple[Stop, ...], msgspec.Meta(min_length=2)]
+    stops: Annotated[tuple[tuple[Unit, Positive], ...], msgspec.Meta(min_length=2)]
 
     def __post_init__(self) -> None:
-        if any(left.at >= right.at for left, right in pairwise(self.stops)):
+        if any(start >= end for (start, _), (end, _) in pairwise(self.stops)):
             raise ValueError(self)
 
     @property
     def slopes(self) -> tuple[float, ...]:
-        return tuple((right.value - left.value) / (right.at - left.at) for left, right in pairwise(self.stops))
+        return tuple((high - low) / (end - start) for (start, low), (end, high) in pairwise(self.stops))
 
     def mirrored(self) -> Self:
-        return msgspec.structs.replace(self, stops=tuple(Stop(at=1.0 - stop.at, value=stop.value) for stop in reversed(self.stops)))
-
-
-RAMP = msgspec.json.Decoder(Ramp)
+        return msgspec.structs.replace(self, stops=tuple((1.0 - at, value) for at, value in reversed(self.stops)))
 ```
 
-`RAMP.decode(b'{"stops": [[0.0, 1.0], [1.5, 2.0]]}')` fails with `` Expected `float` <= 1.0 - at `$.stops[1][0]` ``, one stop fails with `` Expected `array` of length >= 2 - at `$.stops` ``, and `array_like=True` reads each stop as a pair:
-- `Meta` bounds hold at decode and `convert` alone, values from outside a decode enter through `convert`
+`msgspec.json.decode(raw, type=Ramp)` refuses a stop outside its bound or a lone stop with the refused key path (`$.stops[1][0]`):
+- Parts a projection reads together by position are a typed tuple (`tuple[Unit, Positive]`), parts read by name are record fields
+- `Meta` bounds hold at decode and `convert` alone, values from outside a decode enter through `convert`, and an `Annotated` parameter accepts every value
 - `__post_init__` raises `ValueError` for an invariant across fields and runs at construction, decode, `convert`, and `structs.replace`
 - Transitions keep every invariant by construction (`mirrored` maps a unit interval onto itself), or return `Outcome[Self]`
-- `structs.replace` types as the record under mypy and ty, `copy.replace` fails mypy over `Self` or a union
 - Fields hold frozen typed values (`tuple[T, ...]`, `frozenset[T]`, `frozendict[K, V]`, a frozen record), hashing a record hashes every field
-- Length bounds on a collection field are `Meta(min_length=n)`, msgspec decodes `tuple[T, *tuple[T, ...]]` as a pair of `T` and a tuple
 - Absence is an `Option[T]` property over a decoded `T | None` field
 - Code reads fields by attribute, `msgspec.structs.fields` and `msgspec.inspect` serve a codec alone
-- `functools.cached_property` on a record needs `dict=True`, a slotted record raises `TypeError` at its first read
+- `functools.cached_property` on a record needs `dict=True`
 - `hash()` salts `str` and `bytes` per process, and keys that outlive a process hash a deterministic encoding
 - Use `python-coding-msgspec` for msgspec records and codecs
 
 ### [03.1]-[UNIONS]
 
-Model each valid state a consumer inspects as a distinct case, and states that differ only by a value as one record of that value. Counting values a type admits (a product multiplies its fields' counts, `Option[T]` adds one) exposes unneeded states. One tagged base serves every union of a package, a callable `tag` derives each wire tag from its class name, and each case owns its behavior:
+Model each valid state a consumer inspects as a distinct case, and states that differ only by a value as one record of that value. Counting values a type admits (a product multiplies its fields' counts, `Option[T]` adds one) exposes unneeded states. One tagged base serves every union of a package, a callable `tag` derives each wire tag from its class name, and an operation over every case is one function with one `match`:
 
 ```python
 class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower): ...
@@ -193,69 +170,40 @@ class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.
 class Circle(Case, frozen=True, kw_only=True):
     radius: Positive
 
-    @property
-    def area(self) -> float:
-        return math.pi * self.radius**2
-
 
 class Rect(Case, frozen=True, kw_only=True):
     width: Positive
     height: Positive
 
-    @property
-    def area(self) -> float:
-        return self.width * self.height
-
 
 type Shape = Circle | Rect
 
-SHAPES = msgspec.json.Decoder(tuple[Shape, ...])
 
-
-def covered(shapes: Iterable[Shape], /) -> float:
-    return math.fsum(shape.area for shape in shapes)
+def area(shape: Shape, /) -> float:
+    match shape:
+        case Circle(radius=radius):
+            return math.pi * radius**2
+        case Rect(width=width, height=height):
+            return width * height
 ```
 
-`SHAPES` dispatches each element by its `kind` key in one pass, and `covered` reads `area` from every case without a `match`:
-- Consumers take the `Shape` alias, the base declares no `area`, and a `match` over the alias proves coverage
-- Cases restate `frozen=True` and `kw_only=True`, checkers reject a frozen base under an unfrozen case
-- Cases extend the tagged base directly, and a base listing `ABC` beside `msgspec.Struct` fails with a metaclass conflict
-- `Literal` status fields with fields that hold meaning under one value become one case per value
-- `tag_field` names a wire key an external format fixes, `tag="<value>"` matches one external value
-- Enum members name a closed set of values with no data beyond their value, `StrEnum` for wire values, `IntEnum` for an order
+`msgspec.json.decode(raw, type=tuple[Shape, ...])` dispatches each element by its `kind` key in one pass, and `math.fsum(map(area, shapes))` sums them:
+- Consumers take the `Shape` alias, and a new case adds its arm to every `match` over it
+- Cases extend the tagged base directly and restate `frozen=True` and `kw_only=True`
+- Fields that hold meaning under one value of a status field make one case per value, each holding its own fields
+- Closed value sets with no data are `Literal` types, an enum holds members with a value consumers read (a template, an order)
 
 ### [03.2]-[DERIVATION]
 
-Decorators, `__init_subclass__`, and `__set_name__` read a declaration once at import and derive behavior from it in place of a metaclass, callers state what the declaration cannot. Decorators that are generic records hold their function as `__wrapped__`, `**P` keeps its signature for checkers, and `inspect.signature` follows it at runtime. Registries are one frozen table over the namespace, each value narrowed through `isinstance`:
+Behavior derives from a declaration read once at import, callers state what the declaration cannot. Tables take each key from the entry's own declaration, and the table type states the signature every entry shares once:
 
 ```python
-class Body[**P, R](Protocol):
-    __name__: str
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
-
-
-class Command[**P, R](msgspec.Struct, frozen=True):
-    __wrapped__: Body[P, R]
-
-    @property
-    def key(self) -> str:
-        return self.__wrapped__.__name__.replace("_", "-")
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        return self.__wrapped__(*args, **kwargs)
-
-
-@Command
-def build_all(target: str, /, *, clean: bool = False) -> int:
-    return 0 if clean else len(target)
-
-
-COMMANDS: frozendict[str, Command[[str], int]] = frozendict({entry.key: entry for entry in globals().values() if isinstance(entry, Command)})
+COMMANDS: frozendict[str, Callable[[str], int]] = frozendict({command.__name__.replace("_", "-"): command for command in (build_all, check_all)})
 ```
 
-Calls through a record check against `P`, and `build_all(1)` or a second positional argument fails mypy and ty:
-- `Body` gives ty the `__name__` no `Callable` declares, and the table type names the signature every entry shares
+`build_all(target, /, *, clean=False)` and `check_all(target, /)` enter once each under `build-all` and `check-all`:
+- Decorators keep a body's parameters through `**P` and its identity through `wraps`, and `inspect.signature` follows `__wrapped__`
+- Class facts derive at class build through `__init_subclass__` and `__set_name__`, with no metaclass
 - Declaration defects raise `TypeError` at decoration or class build, before first use
 
 ## [04]-[RESULTS]
@@ -270,13 +218,13 @@ Every fallible function returns an explicit result type, and one type serves one
 Input boundaries select the result type, functions preserve it, and conversion happens at one named boundary through the member named for its target (`to_result_with`, `to_option`, `Option.of_optional`, `to_optional`):
 - `default_value` and `default_with` supply a default the domain defines for absence or failure
 - Empty `tuple` is a result and not absence, `Option[tuple[T, ...]]` exists only where a consumer treats no collection and an empty one apart
-- Producers that map an operational failure to `Nothing` hide it from their consumer
-- Truthiness means nothing on `Result` and `Option` (`bool(Nothing)` is `True`), `is_ok()` and `is_none()` read the case
+- Operational failures stay `Error` through every producer, `Nothing` holds absence alone
+- `is_ok()` and `is_none()` read the case
 - Use `python-coding-expression` for expression members
 
 ### [04.1]-[ERRORS]
 
-Exceptions mark a violated precondition, a declaration defect at import, or a third-party raise a boundary converts. `Reason` values are message templates, and `Fault.of` returns the non-empty tuple every fault builder needs:
+Exceptions mark a violated precondition, a declaration defect at import, or a third-party raise a boundary converts. One `Fault` record serves every package, its reason an enum member holding its message template, and `Fault.of` returns the non-empty tuple every fault builder needs:
 
 ```python
 type Faults = tuple[Fault, *tuple[Fault, ...]]
@@ -308,12 +256,11 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 
 `reason` takes a member of any package's reason enum, and a new failure kind adds one member with its template:
 - `subject` names the refused value, `member` the member or bound it misses, and a caught exception stays as `cause`
-- `partial(Fault.of, <reason>, <subject>)` serves `map_error`, `filter_with`, and `to_result_with` alike, the refused value becoming `cause`
+- `partial(Fault.of, <reason>, <subject>)` serves `map_error` and `filter_with` with the refused value as `cause`, and `to_result_with` with none
 - Consumers classify a fault by its `reason` member or by a class pattern on its `cause`
 - Suppressed or warned conditions become an `Error` or a `Result` holding the degraded value
-- Preconditions raise explicitly, `python -O` strips every `assert`
 
-`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` binds its fault builder once and keeps the `CalledProcessError` holding a child's status as cause:
+`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` applies one fault builder to a failed launch and a failed exit, and a failed child's `CompletedProcess` stays as cause with its status and stderr:
 
 ```python
 @catch(exception=OSError)
@@ -323,17 +270,11 @@ def _launched(argv: tuple[str, ...], /) -> subprocess.CompletedProcess[str]:
 
 def ran(argv: tuple[str, ...], /) -> Outcome[str]:
     failed = partial(Fault.of, Reason.FAILED, argv[0])
-    return (
-        _launched(argv)
-        .map_error(failed)
-        .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done.stdout).map_error(failed))
-    )
+    return _launched(argv).map_error(failed).filter_with(lambda done: done.returncode == 0, failed).map(lambda done: done.stdout)
 ```
 
 Each `catch` names the exception its call's contract raises:
-- `catch` erases parameters to `...` and an overloaded return to mypy's first overload or ty's union, a typed `def` under `@catch` keeps both
-- `catch` over an `async def` or a generator function returns `Ok(<coroutine>)` and catches nothing raised later
-- Lambdas building fault tuples type them as `tuple[Fault]`, and a later `bind` to a step returning `Outcome` fails both checkers
+- `catch` erases parameters to `...`, and an overloaded call takes a typed `def` under `@catch` that fixes its return
 
 ### [04.2]-[COMPOSITION]
 
@@ -350,67 +291,54 @@ Give each step a function and select the operator by the step's signature and by
 |  [07]   | `Option[T] -> Result[T, E]` | `.to_result_with(f)`    | Promotes absence where its reason is known           |
 |  [08]   | Independent results         | `paired`, `accumulated` | Keeps every value, or every fault in input order     |
 
-Independent checks run as separate results and combine through `paired`, a step needing every check passed chains after the combination, and dependent steps over items fold through `reduce` over `.bind`:
+Checks reading a value alone are `Meta` bounds or `__post_init__` on its record, and chains hold checks reading a runtime value (a limit, a held set). Independent checks combine through `paired` from the package faults:
 
 ```python
-def named(entry: Entry, /) -> Outcome[str]:
-    return Ok(entry.name).filter_with(str.isidentifier, partial(Fault.of, Reason.OUTSIDE, "name", member="an identifier"))
-
-
 def sized(limit: int, entry: Entry, /) -> Outcome[int]:
-    return Ok(entry.size).filter_with(lambda size: 0 < size <= limit, partial(Fault.of, Reason.OUTSIDE, "size", member=f"1 to {limit}"))
+    return Ok(entry.size).filter_with(lambda size: size <= limit, partial(Fault.of, Reason.OUTSIDE, "size", member=f"at most {limit}"))
 
 
-def accepted(limit: int, taken: frozenset[str], entry: Entry, /) -> Outcome[Entry]:
-    return (
-        paired(named(entry), sized(limit, entry))
-        .map(lambda _: entry)
-        .filter_with(lambda held: held.name not in taken, lambda held: Fault.of(Reason.OUTSIDE, "name", held.name, member="an unused name"))
-    )
+def unused(taken: frozenset[str], entry: Entry, /) -> Outcome[str]:
+    return Ok(entry.name).filter_with(lambda name: name not in taken, partial(Fault.of, Reason.OUTSIDE, "name", member="an unused name"))
 
 
-def folded[S, T](step: Callable[[S, T], Outcome[S]], seed: S, items: Iterable[T], /) -> Outcome[S]:
-    return reduce(lambda held, item: held.bind(lambda state: step(state, item)), items, Ok(seed))
+def admitted(limit: int, taken: frozenset[str], entry: Entry, /) -> Outcome[Entry]:
+    return paired(sized(limit, entry), unused(taken, entry)).map(lambda _: entry)
 ```
 
-`Entry` is a record of `name` and `size`. `Entry(name="9x", size=0)` fails with both faults and never reads `taken`, and `folded` stops at the first refused item and returns `seed` for none:
-- Steps a chain binds are named functions declared `-> Outcome[T]`, a lambda returning `Ok(...) if c else Error(...)` widens to `Any`
-- Steps one member states (`filter_with`, `to_result_with`, `Some(x).filter`) replace a ternary or `bind` rebuilding `Ok` or `Error`
-- Values stay inside a result through a pipeline, an unwrap mid-pipeline followed by a rewrap duplicates its failure path
+`Entry` is a record of `name` and `size`, and an entry over the limit with a taken name fails with both faults:
+- Dependent steps over items fold as `reduce(lambda held, item: held.bind(lambda state: step(state, item)), items, Ok(seed))`, stopping at the first refused item
+- Steps a chain binds are named functions declared `-> Outcome[T]`
+- Checks one member states run through it (`filter_with`, `to_result_with`, `Some(x).filter`)
+- Values stay inside a result through a pipeline, and the host reads it once
 
 ### [04.3]-[MATCHING]
 
-Hosts read a result once through `match` on its `tag`, each narrowed literal proves its case and the value reads as `ok` or `error`:
+Hosts read a result once through `match`, `Result(tag="ok", ok=<name>)` binding the value and `Result(error=<name>)` the faults, and the pair proves coverage:
 
 ```python
 def exited(outcome: Outcome[int], /) -> int:
-    match outcome.tag:
-        case "ok":
-            return outcome.ok
-        case "error":
-            sys.stderr.writelines(f"{fault.message}\n" for fault in outcome.error)
+    match outcome:
+        case Result(tag="ok", ok=code):
+            return code
+        case Result(error=faults):
+            sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
             return 1
 ```
-
-`Ok`, `Error`, and `Some` are functions, `case Ok(value)` raises `TypeError`, and `case Result(tag="ok", ok=value)` binds without proving coverage. Hosts that read a command's return value read an unmapped `Error` as success.
 
 ## [05]-[BOUNDARIES]
 
 ### [05.1]-[CODECS]
 
-Decode external bytes or builtins into a record in one typed call through a module-level codec or `msgspec.convert`. Generic records holding a `TypeForm[T]` decode any type form, a `type` alias over `Annotated` included, and both checkers read the result as `T`:
+Decode external bytes or builtins into a record in one typed call through `msgspec.<format>.decode(raw, type=T)` or `msgspec.convert`, and a module-level codec holds options those functions lack (`dec_hook`, `strict=False`). A `TypeForm[T]` parameter decodes any type form, a `type` alias over `Annotated` included, and both checkers read the result as `T`:
 
 ```python
-class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
-    path: Path
-    form: TypeForm[T]
-
-    def read(self) -> Outcome[T]:
-        return content(self.path).bind(lambda raw: catch(msgspec.json.decode, exception=msgspec.DecodeError)(raw, type=self.form).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.path))))
+def stored[T](form: TypeForm[T], path: Path, /) -> Outcome[T]:
+    return content(path).bind(lambda raw: catch(msgspec.json.decode, exception=msgspec.DecodeError)(raw, type=form).map_error(partial(Fault.of, Reason.INVALID, str(path))))
 ```
 
-`Stored(path=<path>, form=Ports)` over `type Ports = tuple[Annotated[int, msgspec.Meta(ge=1, le=65535)], ...]` reads as `Outcome[tuple[int, ...]]`, and a file holding `[0]` fails with `` Expected `int` >= 1 - at `$[0]` ``:
-- `Decoder` keeps the type of a class or `tuple[...]` argument, an alias argument types it `Decoder[Any]` until an annotation on the codec names the type
+`stored(Ports, path)` over `type Ports = tuple[Annotated[int, msgspec.Meta(ge=1, le=65535)], ...]` reads as `Outcome[tuple[int, ...]]`:
+- `partial(stored, Ports)` is the reader of one file kind
 - `DecodeError` covers malformed input and its subclass `ValidationError` a schema mismatch
 - Wire records apart from domain records exist only where the wire shape differs (names, units, nesting)
 - Files a program owns are read by key path at their use site, schemas validate input a program does not own
@@ -434,7 +362,7 @@ def opened(paths: Sequence[Path], /) -> Generator[Outcome[tuple[BufferedReader, 
 ```
 
 Failed opens release every stream opened before them at scope exit, and the body receives one fault in place of an exception:
-- `@contextmanager` and `@asynccontextmanager` return `Generator[T]` or `AsyncGenerator[T]`, and `ExitStack` replaces `try` with `finally`
+- `@contextmanager` and `@asynccontextmanager` return `Generator[T]` or `AsyncGenerator[T]`, and `ExitStack` owns every release
 - Commits are a step after the work, outside its release
 - Use `python-coding-telemetry` for logs, traces, and measurements
 
@@ -453,7 +381,8 @@ async def loaded(path: anyio.Path, /) -> Outcome[bytes]:
 
 `await anyio.amap(loaded, paths)` returns each path's outcome in input order, a missing file's fault beside its siblings' bytes:
 - `anyio.gather` returns a typed tuple, and a task handle one task's value
-- Blocking standard library calls take the anyio member ruff's `ASYNC` rules name, other blocking native calls run through `to_thread.run_sync`
+- Blocking calls inside a coroutine take their anyio member (`anyio.Path`, `anyio.open_file`, `anyio.run_process`, `anyio.sleep`)
+- Blocking native calls with no anyio member run through `to_thread.run_sync`
 - CPU-bound pure Python runs through `to_process` or `to_interpreter`
 
 ### [05.4]-[TIME]
@@ -475,32 +404,30 @@ class Lease(msgspec.Struct, frozen=True, kw_only=True):
         return self.left(now) // step
 ```
 
-`{"issued": "2026-03-07T12:00:00", "lifetime": "PT1H"}` fails with `` Expected `datetime` with a timezone component - at `$.issued` ``:
-- Clock reads take `datetime.now(UTC)`, and comparing a naive with an aware value raises `TypeError`
-- Numbers suffixed `_ms` or `_seconds` restate a unit `timedelta` holds, `delta / timedelta(seconds=1)` hands a numeric API its `float`
+`Lease` decodes `lifetime` from an ISO 8601 duration (`PT1H`):
+- Clock reads take `datetime.now(UTC)`
+- Fields and parameters hold a `timedelta` with no unit suffix, `delta / timedelta(seconds=1)` hands a numeric API its `float`
 - `delta // step` counts whole steps and `delta % step` returns the rest, exact to the microsecond
-- Datetimes sharing one `ZoneInfo` subtract as wall clocks, across a DST change `later - start` reads `1 day` for 23 elapsed hours, and elapsed spans subtract in UTC
+- Datetimes sharing one `ZoneInfo` subtract as wall clocks (`1 day` across a 23-hour DST day), elapsed spans subtract in UTC
 - Elapsed intervals read a monotonic clock (`time.monotonic_ns()`, `anyio.current_time()`) no wall clock adjustment moves
 
 ## [06]-[NUMERICS]
 
-Numeric facts come from the package that states them, and array code runs whole-array operations. Floating-point scopes that raise are `np.errstate` on one named `def`, and `@catch` above it converts `FloatingPointError` into a `Result` with no `with` block or flag:
+Numeric facts come from the package that states them, and array code runs whole-array operations:
 
-```python
-@catch(exception=FloatingPointError)
-@np.errstate(divide="raise", invalid="raise")
-def _ratios(numerator: Samples, denominator: Samples, /) -> Samples:
-    return numerator / denominator
+| [INDEX] | [FACT]          | [MEMBER]                            |
+| :-----: | :-------------- | :---------------------------------- |
+|  [01]   | Scalar root     | `sp.optimize.brentq`                |
+|  [02]   | Quadrature      | `sp.integrate.quad`                 |
+|  [03]   | Monotone spline | `sp.interpolate.PchipInterpolator`  |
+|  [04]   | Polynomial fit  | `np.polynomial.Polynomial.fit`      |
+|  [05]   | Antiderivative  | `np.polynomial.Polynomial.integ`    |
+|  [06]   | Running area    | `sp.integrate.cumulative_trapezoid` |
+|  [07]   | Quantile        | `np.quantile`                       |
+|  [08]   | Factorization   | `np.linalg.svd`                     |
 
-
-def efficiency(output: Samples, supply: Samples, /) -> Outcome[Samples]:
-    return _ratios(output, supply).map_error(partial(Fault.of, Reason.INVALID, "supply"))
-```
-
-`Samples` is `npt.NDArray[np.float64]`, and each call runs inside a fresh scope that leaves `np.geterr()` unchanged:
-- Roots, quadrature, interpolation, fits, and factorizations are scipy and numpy members, a hand loop that converges is a defect
-- One specialized operation replaces composed general ones (`np.dot(v, v)` over `np.sum(v * v)`, `np.add.at` over a scatter loop)
-- Arrays build once (`np.fromiter(items, dtype, count=n)`, one `np.concatenate`), each `np.append` copies the whole array
+- Specialized members state a composed operation once (`np.dot(v, v)` for a squared norm)
+- Arrays build once (`np.fromiter(items, dtype, count=n)`, one `np.concatenate`)
 - Module-level arrays call `setflags(write=False)` once built
 
 ## [07]-[MODULES]
@@ -511,7 +438,7 @@ Each module holds one owner, and imports point down its layers:
 - Unused public capability stays exported
 - Files existing to break an import cycle merge, and the cycle goes at its root
 - Annotations stay unquoted with no `from __future__ import annotations`, runtime readers call `annotationlib.get_annotations`
-- Entry modules hold host translation alone with import-safe top-level code, process and interpreter workers re-import them (`__mp_main__` under `to_process`)
-- Use `python-coding-cyclopts` for command-line applications
+- Entry modules hold host translation alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them
 - Code an older interpreter imports keeps its forms: `MappingProxyType` for `frozendict`, eager imports, nested comprehensions
+- Use `python-coding-cyclopts` for command-line applications
 - Use `python-document` for docstrings

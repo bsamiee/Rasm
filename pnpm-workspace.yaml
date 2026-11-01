@@ -12,24 +12,24 @@ minimumReleaseAge: 0
 # --- [CATALOG] --------------------------------------------------------------------------
 catalog:
     # --- [EFFECT_RUNTIME]
-    effect: 4.0.5
-    '@effect/platform-node': 4.0.5
-    '@effect/platform-bun': 4.0.5
-    '@effect/platform-browser': 4.0.6
-    '@effect/opentelemetry': 4.0.5
+    effect: 4.1.1
+    '@effect/platform-node': 4.1.1
+    '@effect/platform-bun': 4.1.1
+    '@effect/platform-browser': 4.1.1
+    '@effect/opentelemetry': 4.1.1
     # --- [SERIALIZATION_MESSAGING]
     jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
     '@types/jsesc': 3.0.3
-    '@solana/codecs': 8.5.1-canary-20261026083951 # Bidirectional binary format declarations for Adobe palette exchange
+    '@solana/codecs': 8.6.0 # Bidirectional binary format declarations for Adobe palette exchange
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
     '@bufbuild/protovalidate': 1.3.0
-    '@connectrpc/connect': 2.2.0
-    '@connectrpc/connect-web': 2.2.0
+    '@connectrpc/connect': 2.3.0
+    '@connectrpc/connect-web': 2.3.0
     '@msgpack/msgpack': 3.1.3
     vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
     vscode-languageserver-textdocument: 1.0.16
-    rfc6902: 5.3.0
+    rfc6902: 5.4.0
     fast-xml-parser: 5.11.2
     '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
     cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
@@ -42,39 +42,39 @@ catalog:
     mqtt: 5.16.1
     '@electric-sql/d2mini': 0.1.8
     '@electric-sql/d2ts': 0.1.8
-    '@opentelemetry/semantic-conventions': 1.43.0
+    '@opentelemetry/semantic-conventions': 1.44.0
     # --- [SECURITY_IDENTITY]
-    jose: 6.2.13
+    jose: 6.2.14
     openid-client: 6.8.8
     '@simplewebauthn/browser': 14.0.0
     '@simplewebauthn/server': 14.0.3
-    otplib: 13.5.0
-    '@otplib/core': 13.5.0
+    otplib: 13.6.0
+    '@otplib/core': 13.6.0
     '@node-rs/argon2': 2.2.2
     '@noble/hashes': 2.4.0
     '@oslojs/encoding': 1.1.0
     '@dopplerhq/node-sdk': 1.3.0
     # --- [DATA_STORAGE]
-    '@effect/sql-pg': 4.0.6
-    '@effect/sql-sqlite-node': 4.0.6
-    '@effect/sql-sqlite-bun': 4.0.6
-    '@effect/sql-sqlite-wasm': 4.0.6
-    '@effect/sql-libsql': 4.0.6
-    '@effect/sql-d1': 4.0.6
-    '@effect/sql-mysql2': 4.0.6
-    '@effect/sql-mssql': 4.0.6
-    '@effect/sql-clickhouse': 4.0.6
-    '@effect/sql-pglite': 4.0.6
-    '@effect/sql-sqlite-do': 4.0.6
-    '@electric-sql/pglite': 0.5.12
-    '@electric-sql/pglite-tools': 0.4.12
+    '@effect/sql-pg': 4.1.1
+    '@effect/sql-sqlite-node': 4.1.1
+    '@effect/sql-sqlite-bun': 4.1.1
+    '@effect/sql-sqlite-wasm': 4.1.1
+    '@effect/sql-libsql': 4.1.1
+    '@effect/sql-d1': 4.1.1
+    '@effect/sql-mysql2': 4.1.1
+    '@effect/sql-mssql': 4.1.1
+    '@effect/sql-clickhouse': 4.1.1
+    '@effect/sql-pglite': 4.1.1
+    '@effect/sql-sqlite-do': 4.1.1
+    '@electric-sql/pglite': 0.5.14
+    '@electric-sql/pglite-tools': 0.4.14
     '@duckdb/node-api': 2.0.0-r.1
     '@duckdb/duckdb-wasm': "1.33.1-dev110.0"
     '@qualithm/arrow-flight-client': 0.2.2
     parquet-wasm: 0.9.0
-    '@aws-sdk/client-s3': 3.1157.0
-    '@aws-sdk/s3-request-presigner': 3.1157.0
-    '@aws-sdk/lib-storage': 3.1157.0
+    '@aws-sdk/client-s3': 3.1161.0
+    '@aws-sdk/s3-request-presigner': 3.1161.0
+    '@aws-sdk/lib-storage': 3.1161.0
     '@tus/server': 2.4.6
     '@tus/s3-store': 2.0.9
     sharp: 0.35.5
@@ -86,8 +86,8 @@ catalog:
     meshoptimizer: 1.3.0
     watlas: 1.0.1
     webdav: 5.11.0
-    basic-ftp: 6.2.3
-    partial-content: 4.0.0
+    basic-ftp: 6.2.4
+    partial-content: 5.0.0
     chokidar: 6.0.0
     '@parcel/watcher': 2.6.0
     # --- [SERVICES_OBSERVABILITY]
@@ -96,9 +96,9 @@ catalog:
     '@nats-io/jetstream': "3.4.1-0"
     '@nats-io/kv': "3.4.1-0"
     '@nats-io/obj': "3.4.1-0"
-    '@connectrpc/connect-node': 2.2.0
+    '@connectrpc/connect-node': 2.3.0
     chevrotain: 13.2.0
-    nodemailer: 10.2.1
+    nodemailer: 10.3.1
     '@types/nodemailer': 8.0.2
     validator: 13.15.35
     '@types/validator': 13.15.10
@@ -107,11 +107,11 @@ catalog:
     jszip: 3.10.2
     papaparse: 5.7.0
     '@types/papaparse': 5.5.2
-    '@effect/ai-anthropic': 4.0.6
-    '@effect/ai-openai': 4.0.6
-    '@effect/ai-openrouter': 4.0.6
-    '@effect/ai-openai-compat': 4.0.6
-    '@modelcontextprotocol/ext-apps': 2.0.3 # MCP application protocol and browser client
+    '@effect/ai-anthropic': 4.1.1
+    '@effect/ai-openai': 4.1.1
+    '@effect/ai-openrouter': 4.1.1
+    '@effect/ai-openai-compat': 4.1.1
+    '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
     '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
     '@openfeature/server-sdk': 1.23.0
     '@opentelemetry/api': 1.10.0
@@ -153,11 +153,11 @@ catalog:
     workbox-build: 7.4.1
     workbox-window: 7.4.1
     # --- [WEB_UI]
-    '@dnd-kit/helpers': 0.5.1
-    '@dnd-kit/react': 0.5.1
-    '@embedpdf/core-geometry': 3.0.0-next.16
-    '@embedpdf/engine': 3.0.0-next.16
-    '@embedpdf/react': 3.0.0-next.16
+    '@dnd-kit/helpers': 0.5.3
+    '@dnd-kit/react': 0.5.3
+    '@embedpdf/core-geometry': 3.0.0-next.19
+    '@embedpdf/engine': 3.0.0-next.19
+    '@embedpdf/react': 3.0.0-next.19
     '@uppy/core': 6.3.0
     '@uppy/dashboard': 6.0.2
     '@uppy/react': 6.1.0
@@ -177,13 +177,13 @@ catalog:
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
-    '@effect/atom-react': 4.0.6
+    '@effect/atom-react': 4.1.1
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.3.1
-    '@tanstack/react-virtual': 3.14.23
+    '@tanstack/react-virtual': 3.14.24
     '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
-    lucide-react: 1.62.0
+    lucide-react: 1.66.0
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
@@ -194,25 +194,25 @@ catalog:
     colorjs.io: 0.7.1
     isomorphic-dompurify: 4.6.0
     tus-js-client: 5.0.0-pre3
-    react-resizable-panels: 4.15.0
+    react-resizable-panels: 4.16.0
     '@xyflow/react': 13.0.0-next.0
-    elkjs: 0.12.0
+    elkjs: 0.12.1
     prosemirror-model: 1.25.12
     prosemirror-state: 1.4.4
-    prosemirror-view: 1.42.8
+    prosemirror-view: 1.42.9
     prosemirror-transform: 1.12.4
     prosemirror-commands: 1.7.2
     prosemirror-keymap: 1.2.3
     prosemirror-history: 1.5.1
     prosemirror-inputrules: 1.5.1
-    prosemirror-schema-list: 1.5.1
+    prosemirror-schema-list: 1.6.0
     prosemirror-gapcursor: 1.4.1
     prosemirror-dropcursor: 1.8.4
     prosemirror-collab: 1.3.1
-    motion: 14.6.0
+    motion: 14.9.0
     d3: 7.9.0
     uplot: 1.6.32
-    '@observablehq/plot': 0.6.17
+    '@observablehq/plot': 0.6.18-alpha.1
     '@visx/scale': 4.0.0
     '@visx/shape': 4.0.0
     '@visx/axis': 4.0.0
@@ -224,9 +224,9 @@ catalog:
     '@perspective-dev/viewer-charts': 5.6.1
     web-vitals: 6.2.3
     # --- [SPATIAL_RENDERING]
-    three: 0.186.1
-    '@types/three': 0.186.0
-    three-mesh-bvh: 0.9.16
+    three: 0.187.0
+    '@types/three': 0.187.0
+    three-mesh-bvh: 0.9.17
     maplibre-gl: 6.16.0
     '@deck.gl/core': 9.4.0
     '@deck.gl/geo-layers': 9.4.0
@@ -235,7 +235,7 @@ catalog:
     '@deck.gl/mesh-layers': 9.4.0
     '@deck.gl/extensions': 9.4.0
     '@loaders.gl/3d-tiles': "5.0.0-alpha.12"
-    '@loaders.gl/core': "5.0.0-alpha.14"
+    '@loaders.gl/core': "5.0.0-beta.2"
     '@loaders.gl/las': "5.0.0-alpha.14"
     '@geoarrow/deck.gl-geoarrow': 0.4.2
     apache-arrow: 21.2.0
@@ -259,37 +259,37 @@ catalog:
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
-    amaro: 1.2.2 # Node's TypeScript syntax stripping
+    amaro: 1.3.0 # Node's TypeScript syntax stripping
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
     image-size: 2.0.4 # Image width and height read from encoded bytes
     # --- [INFRASTRUCTURE]
-    '@pulumi/pulumi': "3.273.0-alpha.x3cc2de3"
-    '@pulumi/kubernetes': "4.35.0-alpha.1792650132"
-    '@pulumi/aws': "7.52.0-alpha.1792577301"
-    '@pulumi/awsx': "3.12.0-alpha.1793037951"
-    '@pulumi/gcp': "10.3.0-alpha.1793053451"
-    '@pulumi/cloudflare': "6.24.0-alpha.1792649795"
-    '@pulumi/postgresql': "3.19.0-alpha.1792650309"
-    '@pulumi/tls': "5.7.0-alpha.1792651467"
+    '@pulumi/pulumi': "3.274.0-alpha.x95dc869"
+    '@pulumi/kubernetes': "4.35.0-alpha.1793428903"
+    '@pulumi/aws': "7.53.0-alpha.1793427939"
+    '@pulumi/awsx': "3.13.0-alpha.1793355242"
+    '@pulumi/gcp': "10.3.0-alpha.1793428109"
+    '@pulumi/cloudflare': "6.24.0-alpha.1793370025"
+    '@pulumi/postgresql': "3.19.0-alpha.1793376798"
+    '@pulumi/tls': "5.7.0-alpha.1793431378"
     '@pulumi/random': "4.22.0-alpha.1792650729"
-    '@pulumi/command': "1.3.0-alpha.1793046795"
-    '@pulumi/docker': "5.3.0-alpha.1792648153"
-    '@pulumi/docker-build': "0.1.0-alpha.1792716480"
+    '@pulumi/command': "1.4.0-alpha.1793425298"
+    '@pulumi/docker': "5.3.0-alpha.1793426566"
+    '@pulumi/docker-build': "0.1.0-alpha.1793426269"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
     '@pulumi/policy': "1.22.0-alpha.1787747072"
     '@pulumiverse/doppler': 0.9.0
     '@pulumiverse/grafana': 2.44.0
-    '@grafana/grafana-foundation-sdk': 0.0.21
-    '@pulumi/eks': "4.5.0-alpha.1792736806"
-    '@pulumi/cloudinit': "1.7.0-alpha.1792647110"
-    '@pulumi/github': "6.16.0-alpha.1792648425"
-    '@pulumi/synced-folder': 0.12.6
+    '@grafana/grafana-foundation-sdk': 0.0.22
+    '@pulumi/eks': "4.6.0-alpha.1793303389"
+    '@pulumi/cloudinit': "1.7.0-alpha.1793425019"
+    '@pulumi/github': "6.16.0-alpha.1793373074"
+    '@pulumi/synced-folder': 0.13.0
     '@pulumi/esc-sdk': 0.14.0
     '@pulumi/pulumiservice': "1.6.0-alpha.1792787233"
     '@pulumiverse/acme': "0.18.1"
     # --- [TESTING]
     vitest: 5.1.0-beta.1
-    '@effect/vitest': 4.0.6
+    '@effect/vitest': 4.1.1
     fast-check: 4.10.2
     '@vitest/coverage-v8': 5.1.0-beta.1
     '@vitest/browser': 5.1.0-beta.1
@@ -299,49 +299,49 @@ catalog:
     '@stryker-mutator/vitest-runner': 10.1.1
     '@playwright/test': 1.65.0-alpha-2026-10-27
     playwright: 1.65.0-alpha-2026-10-27
-    '@axe-core/playwright': 4.14.1-55245d5.0.sha-55245d5
+    '@axe-core/playwright': 4.14.1-e9cf392.0.sha-e9cf392
     storybook: 11.0.0-alpha.6
     '@storybook/react-vite': 11.0.0-alpha.6
     '@storybook/addon-vitest': 11.0.0-alpha.6
     '@storybook/addon-a11y': 11.0.0-alpha.6
     '@storybook/addon-docs': 11.0.0-alpha.6
-    '@cloudflare/vitest-plugin': 1.4.8
+    '@cloudflare/vitest-plugin': 1.4.11
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     # --- [TOOLING]
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.5
-    '@cloudflare/workers-types': 5.20261027.1
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.8
+    '@cloudflare/workers-types': 5.20261101.1
     '@openai/sites-vite-plugin': 0.2.0
-    '@cloudflare/build-output-utils': 0.9.5 # Build Output tree reader for hosting programs
-    cf: 1.0.0-beta.23 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    '@effect/tsgo': 0.59.0 # Effect diagnostics in patched `tsc` and language server
-    typescript: 7.1.0-dev.20261026.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
-    '@effect/docgen': 4.0.6
-    '@effect/openapi-generator': 4.0.6
+    '@cloudflare/build-output-utils': 0.9.6 # Build Output tree reader for hosting programs
+    cf: 1.0.0-beta.26 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
+    '@effect/tsgo': 0.63.0 # Effect diagnostics in patched `tsc` and language server
+    typescript: 7.1.0-dev.20261028.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
+    '@effect/docgen': 4.1.1
+    '@effect/openapi-generator': 4.1.1
     nx: 24.0.2
-    '@nx/devkit': 24.0.2
-    '@nx/dotnet': 24.0.2
-    '@nx/playwright': 24.0.2
+    '@nx/devkit': 24.0.3
+    '@nx/dotnet': 24.0.3
+    '@nx/playwright': 24.0.3
     '@nx/vitest': 24.0.2
     '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar `@ast-grep/napi` registers as a dynamic language
     smol-toml: 1.9.1 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
-    minimatch: 10.2.6
-    '@biomejs/biome': 2.6.3
+    minimatch: 11.0.3
+    '@biomejs/biome': 2.6.4
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit with generated parser holding C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13; lambdas with `out` parameters fail to parse
     tree-sitter-sqlite3: 0.1.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag with generated parser, npm stops at 0.7.1 and plain tag omits `src/parser.c`
-    '@swc/core': 1.16.20
-    '@swc/cli': 0.8.1
-    tslib: 2.8.1
-    '@types/node': 26.6.5
+    '@swc/core': 1.16.21
+    '@swc/cli': 0.8.2
+    tslib: 2.9.1
+    '@types/node': 26.6.6
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.5
     '@vitejs/plugin-react': 6.1.2
     oxc-transform-react: 0.156.0
     '@tailwindcss/vite': 4.3.3
-    '@rolldown/plugin-babel': 0.2.4
+    '@rolldown/plugin-babel': 0.3.0
     rollup-plugin-visualizer: 7.1.1
     lightningcss: 1.33.0
     vite-plugin-pwa: 2.0.0
@@ -354,10 +354,10 @@ catalog:
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
-    '@modelcontextprotocol/inspector': 2.12.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     npm-check-updates: 23.1.1
     verkit: 0.5.0 # Cargo and pnpm lock version order the upgrade downgrade check reads
-    '@renovatebot/pep440': 5.0.1 # uv lock version order the upgrade downgrade check reads
+    '@renovatebot/pep440': 6.0.0 # uv lock version order the upgrade downgrade check reads
 
 # --- [CATALOGS] -------------------------------------------------------------------------
 catalogs:
