@@ -1,5 +1,7 @@
 import { Automation, Installation, Pid, Screenshot } from '@rasm/automation';
-import { Image, READ_ONLY, registerResource, registerRoutedTool } from '@rasm/mcp';
+import { Image } from '@rasm/mcp/content';
+import { registerResource } from '@rasm/mcp/resource';
+import { registerRoutedTool } from '@rasm/mcp/tool';
 import { Context, Effect, Function, Schema, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import type { routes } from '#/routes';
@@ -39,7 +41,7 @@ const screenshot = ({ application }: Effect.Success<ReturnType<typeof routes>>) 
                 description: 'Captures on-screen windows as one PNG without raising them',
                 parameters: Screenshot,
                 success: Screenshot.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })),
-            }).annotateMerge(READ_ONLY),
+            }).annotate(Tool.Readonly, true),
             (capture, { pid }) => automation.screenshot({ ...capture, pid }),
         ),
     );

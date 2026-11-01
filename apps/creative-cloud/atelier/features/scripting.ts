@@ -1,8 +1,11 @@
 import { Automation, Execute, type Installation, Kind, Perform, Terms } from '@rasm/automation';
 import { ExecuteScript } from '@rasm/indesign';
-import { Attachment, Instructions, registerResourceTemplate, registerRoutedTool } from '@rasm/mcp';
+import { Attachment } from '@rasm/mcp/content';
+import { registerResourceTemplate } from '@rasm/mcp/resource';
+import { Instructions } from '@rasm/mcp/server';
+import { registerRoutedTool } from '@rasm/mcp/tool';
 import { transformSync } from 'amaro';
-import { Array, Context, Effect, Function, Match, Option, Predicate, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, Function, Option, Predicate, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import { InDesignScript } from '#/indesign-script';
 import { instance, lookup, type routes } from '#/routes';
@@ -48,7 +51,6 @@ const dictionaries = Effect.gen(function* () {
 });
 const command = Effect.fnUntraced(function* ({ application }: Effect.Success<ReturnType<typeof routes>>, { reported, refused }: Effect.Success<typeof status>) {
     const [automation, hosts] = yield* Effect.all([Automation, InDesignScript.use(Struct.get('hosts'))]);
-    const forms = { Command: Predicate.not(hosts), Element: Function.constTrue } satisfies Record<(typeof Form.Type)['_tag'], Predicate.Predicate<Installation>>;
     const tool = Tool.make('command', {
         description: 'Command runs outside InDesign, refused while a dialog requires an answer. Element runs Accessibility actions on status elements, an answer during launch can activate application',
         parameters: Schema.Struct({}),
@@ -57,10 +59,10 @@ const command = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
     yield* registerRoutedTool({
         ...application,
         fields: { ...application.fields, run: Form },
-        resolve: ({ run, application: given, pid }) => Effect.map(instance(lookup(forms[run._tag])(given), pid), (chosen) => ({ ...chosen, run })),
-        depends: ({ pid, run }) => Effect.succeed([run._tag === 'Element' ? reported(pid) : refused(pid)]),
+        resolve: ({ run, application: given, pid }) => Effect.map(instance(lookup(Form.match(run, { Command: () => Predicate.not(hosts), Element: () => Function.constTrue }))(given), pid), (chosen) => ({ ...chosen, run })),
+        depends: ({ pid, run }) => Effect.succeed([Form.match(run, { Command: () => refused(pid), Element: () => reported(pid) })]),
     })(tool, (_, { pid, run }) =>
-        Match.valueTags(run, {
+        Form.match(run, {
             Command: (given) => automation.execute({ ...given, pid }),
             Element: (perform) => automation.perform({ ...perform, pid }),
         }),
@@ -82,7 +84,11 @@ const executeScript = Effect.fnUntraced(function* ({ application }: Effect.Succe
     yield* registerRoutedTool(application)(tool, ({ code }, { installation, pid }) => {
         const [open, close] = ['async function body() {\n', '\n}'];
         return hosts(installation)
-            ? Effect.scoped(Effect.flatMap(Effect.all([Effect.try(() => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length)), indesignScript.client(pid)]), ([source, call]) => call('execute_script', { code: source })))
+            ? Effect.scoped(
+                  Effect.flatMap(Effect.all([Effect.try({ try: () => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length), catch: (cause) => new Cause.UnknownError(cause, 'type strip') }), indesignScript.client(pid)]), ([source, call]) =>
+                      call('execute_script', { code: source }),
+                  ),
+              )
             : Effect.map(automation.script(pid, code), (result) => ({ result }));
     });
 });

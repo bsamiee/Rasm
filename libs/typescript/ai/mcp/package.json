@@ -1,14 +1,19 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Effect programs exposed to agents as tools",
+    "description": "Effect programs exposed to agents as tools and resources",
     "sideEffects": false,
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts"
+        "./content": "./content.ts",
+        "./node": "./node.ts",
+        "./resource": "./resource.ts",
+        "./rpc": "./rpc.ts",
+        "./server": "./server.ts",
+        "./tool": "./tool.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

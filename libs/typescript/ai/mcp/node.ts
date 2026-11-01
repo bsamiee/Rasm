@@ -10,7 +10,7 @@ import { layerHttp } from '#/server';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const main = <E>(manifest: { readonly name: string; readonly version: string; readonly description: string }, app: Layer.Layer<never, E, McpServer.McpServer | HttpRouter.HttpRouter | NodeServices.NodeServices>): void => {
+const main = <E>(manifest: Parameters<typeof layerHttp>[0], app: Layer.Layer<never, E, McpServer.McpServer | HttpRouter.HttpRouter | NodeServices.NodeServices>): void => {
     const name = manifest.name.slice(manifest.name.lastIndexOf('/') + 1);
     const settings = {
         listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.mapTryCatch(NetAddress.inetAddressFromStringUnsafe, String), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),

@@ -1,6 +1,9 @@
 import { Contract, Render } from '@rasm/indesign';
-import { Image, Instructions, READ_ONLY, Registration, registerRpcGroup } from '@rasm/mcp';
+import { Image } from '@rasm/mcp/content';
+import { registerRpcGroup } from '@rasm/mcp/rpc';
+import { Instructions } from '@rasm/mcp/server';
 import { Array, Context, Effect, Match, Schema, Struct } from 'effect';
+import { Tool } from 'effect/ai';
 import { InDesignScript } from '#/indesign-script';
 import type { routes } from '#/routes';
 
@@ -8,33 +11,28 @@ import type { routes } from '#/routes';
 
 const indesign = Effect.fnUntraced(function* ({ indesign: route }: Effect.Success<ReturnType<typeof routes>>) {
     const indesignScript = yield* InDesignScript;
-    yield* registerRpcGroup(
-        Contract,
-        {
-            inspect: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['inspect: indesign://kinds lists classes and enumerations'])) }),
-            change: Registration.Tool({ annotations: Context.empty() }),
-            create: Registration.Tool({ annotations: Context.empty() }),
-            remove: Registration.Tool({ annotations: Context.empty() }),
-            find_change: Registration.Tool({ annotations: Context.empty() }),
-            invoke: Registration.Tool({ annotations: Context.make(Instructions, ['invoke: indesign://menu lists actions by id, name, and area']) }),
-            render: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['render: Use screenshot for panels, dialogs, pasteboard, and parent spreads'])), success: Render.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })) }),
-            menu: Registration.Resource({ uri: 'indesign://menu', complete: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } }),
-            preflight: Registration.Resource({
-                uri: 'indesign://preflight',
-                complete: { document: Array.map((process) => process.targetObject.specifier) },
-            }),
-            kind: Registration.Resource({ uri: 'indesign://kinds', complete: { name: Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) } }),
+    yield* registerRpcGroup(Contract.annotate(Instructions, ['InDesign tools run as UXP scripts through do script']), {
+        tools: {
+            inspect: { annotations: Context.make(Tool.Readonly, true).pipe(Context.add(Instructions, ['inspect: indesign://kinds lists classes and enumerations'])) },
+            change: {},
+            create: {},
+            remove: {},
+            find_change: {},
+            invoke: { annotations: Context.make(Instructions, ['invoke: indesign://menu lists actions by id, name, and area']) },
+            render: { annotations: Context.make(Tool.Readonly, true).pipe(Context.add(Instructions, ['render: Use screenshot for panels, dialogs, pasteboard, and parent spreads'])), success: Render.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })) },
         },
-        {
-            route,
-            invoke: (rpc) =>
-                Effect.fnUntraced(function* (payload, { pid }) {
-                    const call = yield* indesignScript.client(pid);
-                    return yield* call(rpc._tag, payload);
-                }, Effect.scoped),
-            annotations: Context.make(Instructions, ['InDesign tools run as UXP scripts through do script']),
+        resources: {
+            menu: { uri: 'indesign://menu', complete: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } },
+            preflight: { uri: 'indesign://preflight', complete: { document: Array.map((process) => process.targetObject.specifier) } },
+            kind: { uri: 'indesign://kinds', complete: { name: Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) } },
         },
-    );
+        route,
+        invoke: (rpc) =>
+            Effect.fnUntraced(function* (payload, { pid }) {
+                const call = yield* indesignScript.client(pid);
+                return yield* call(rpc._tag, payload);
+            }, Effect.scoped),
+    });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

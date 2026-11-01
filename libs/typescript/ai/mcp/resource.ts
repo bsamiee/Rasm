@@ -16,9 +16,10 @@ type Params<Schemas extends readonly Schema.Constraint[]> = { readonly [K in key
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const written = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Codec<A, I>, mimeType: string | undefined, changes: Stream.Stream<unknown, never, R>) {
     const [server, store] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, readonly [Effect.Effect<A, Error>, A]>())]);
-    const [encoded, written] = [Schema.encodeEffect(Schema.toCodecJson(schema)), Schema.encodeEffect(Schema.fromJsonString(Schema.Json))];
+    const encoded = Schema.encodeEffect(Schema.toCodecJson(schema));
     const observe = (uri: string, read: Effect.Effect<A, Error>) =>
         read.pipe(
             Effect.tap((value) => SubscriptionRef.update(store, HashMap.set(uri, [read, value] as const))),
@@ -84,9 +85,10 @@ const registerResource = Effect.fnUntraced(function* <A, I, E extends Error, R>(
     yield* McpServer.registerResource({ ...options, content: read(options.uri, content) });
     return depend(Effect.succeed(options.uri), Function.constant(content));
 });
-const registerResourceTemplate =
-    <const Schemas extends readonly Schema.Codec<unknown, unknown, never, never>[]>(segments: TemplateStringsArray, ...schemas: Schemas) =>
-    <A, I, E extends Error, R>(options: {
+const registerResourceTemplate = <const Schemas extends readonly Schema.Codec<unknown, unknown, never, never>[]>(segments: TemplateStringsArray, ...schemas: Schemas) => {
+    const woven = <B>(values: readonly B[]) => Array.flatMap(segments, (segment, index) => [segment, ...Option.toArray(Array.get(values, index))]);
+    const uri = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(woven(Array.map(schemas, (schema) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(schema)))))));
+    return Effect.fnUntraced(function* <A, I, E extends Error, R>(options: {
         readonly name: string;
         readonly description?: string | undefined;
         readonly mimeType?: string | undefined;
@@ -97,26 +99,19 @@ const registerResourceTemplate =
         readonly schema: Schema.Codec<A, I>;
         readonly content: (uri: string, ...params: Params<Schemas>) => Effect.Effect<A, E, R>;
         readonly changes: Stream.Stream<unknown, never, R>;
-    }) =>
-        Effect.gen(function* () {
-            const [services, { read, depend }] = yield* Effect.all([Effect.context<R>(), resourceValues(options.schema, options.mimeType, options.changes)]);
-            yield* McpServer.registerResource<Schemas>(
-                segments,
-                ...schemas,
-            )({
-                ...options,
-                completion: Record.map({ ...options.completion }, (complete) => flow(complete, Effect.provideContext(services))),
-                content: (uri, ...params) => read(uri, Effect.provideContext(options.content(uri, ...params), services)),
-            });
-            return (...params: Params<Schemas>) =>
-                depend(
-                    Effect.map(
-                        Effect.forEach(Array.zip(schemas, params), ([schema, param]) => Schema.encodeUnknownEffect(Schema.String.pipe(Schema.decodeTo(Schema.toCodecStringTree(schema))))(param)),
-                        (values) => Array.zipWith(segments, [...values, ''], (segment, value) => `${segment}${encodeURIComponent(value)}`).join(''),
-                    ),
-                    (uri) => Effect.provideContext(options.content(uri, ...params), services),
-                );
+    }) {
+        const [services, { read, depend }] = yield* Effect.all([Effect.context<R>(), resourceValues(options.schema, options.mimeType, options.changes)]);
+        yield* McpServer.registerResource(
+            segments,
+            ...schemas,
+        )({
+            ...options,
+            completion: Record.map({ ...options.completion }, (complete) => flow(complete, Effect.provideContext(services))),
+            content: (at, ...params) => read(at, Effect.provideContext(options.content(at, ...params), services)),
         });
+        return (...params: Params<Schemas>) => depend(uri(woven(params)), (at) => Effect.provideContext(options.content(at, ...params), services));
+    });
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

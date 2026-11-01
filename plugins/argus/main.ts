@@ -4,9 +4,10 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
-import { main, READ_ONLY, registerTool } from '@rasm/mcp';
+import { main } from '@rasm/mcp/node';
+import { registerTool } from '@rasm/mcp/tool';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, PlatformError, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
@@ -104,13 +105,14 @@ class Exited extends Schema.TaggedError<Exited, { readonly brand: unique symbol 
 
 const watch = (root: string, ignore: string[], snapshot: string) => {
     const scanned = { ignore, backend: 'brute-force' as const };
-    const record = Effect.tryPromise(() => writeSnapshot(root, snapshot, scanned));
+    const watched = <A>(run: () => Promise<A>) => Effect.tryPromise({ try: run, catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'watch', pathOrDescriptor: root, cause }) });
+    const record = watched(() => writeSnapshot(root, snapshot, scanned));
     return Stream.unwrap(
         Effect.as(
             record,
-            Stream.callback<readonly [Error | null, readonly Event[]], Cause.UnknownError>((queue) =>
+            Stream.callback<readonly [Error | null, readonly Event[]], PlatformError.PlatformError>((queue) =>
                 Effect.acquireRelease(
-                    Effect.tryPromise(() => subscribe(root, (error, events) => Queue.offerUnsafe(queue, [error, events]), { ignore })),
+                    watched(() => subscribe(root, (error, events) => Queue.offerUnsafe(queue, [error, events]), { ignore })),
                     (subscription) => Effect.promise(() => subscription.unsubscribe()),
                 ),
             ),
@@ -119,7 +121,7 @@ const watch = (root: string, ignore: string[], snapshot: string) => {
         Stream.mapEffect(([error, events]) =>
             error === null
                 ? Effect.succeed(events)
-                : Effect.tryPromise(() => getEventsSince(root, snapshot, scanned)).pipe(
+                : watched(() => getEventsSince(root, snapshot, scanned)).pipe(
                       Effect.tap(() => record),
                       Effect.map((missed) => [...events, ...missed]),
                   ),
@@ -295,7 +297,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     };
 });
 
-const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotateMerge(READ_ONLY).annotate(Tool.OpenWorld, false);
+const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false);
 
 const initialize = Effect.fn('initialize')(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -350,7 +352,7 @@ const initialize = Effect.fn('initialize')(function* () {
         [
             registerTool(
                 query('diagnostics', 'Language server diagnostics as `path:line:column severity source(code): message` lines, related locations indented', File),
-                Effect.fnUntraced(function* ({ file }: typeof File.Type) {
+                Effect.fnUntraced(function* ({ file }) {
                     const { server, item } = yield* serve(file);
                     const diagnostics = Array.dedupe(yield* server.diagnose(item));
                     const related = diagnostics.flatMap(({ relatedInformation }) => relatedInformation ?? []).flatMap(({ location: { uri, range }, message }) => (uri === item.uri ? [{ range, message }] : []));
@@ -371,21 +373,21 @@ const initialize = Effect.fn('initialize')(function* () {
             ),
             registerTool(
                 query('definition', 'Symbol definition locations as `path:line:column` lines', Position),
-                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                Effect.fnUntraced(function* (position) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(DefinitionRequest.type, point(item, position)));
                 }, Effect.scoped),
             ),
             registerTool(
                 query('references', 'Symbol reference and declaration locations as `path:line:column` lines', Position),
-                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                Effect.fnUntraced(function* (position) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(ReferencesRequest.type, { ...point(item, position), context: { includeDeclaration: true } }));
                 }, Effect.scoped),
             ),
             registerTool(
                 query('hover', 'Symbol type signature and documentation', Position),
-                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                Effect.fnUntraced(function* (position) {
                     const { server, item } = yield* serve(position.file);
                     const hover = yield* server.ask(HoverRequest.type, point(item, position));
                     return { lines: [hover?.contents ?? []].flat().map((content) => (typeof content === 'string' ? content : content.value)) };

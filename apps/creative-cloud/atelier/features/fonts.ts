@@ -1,6 +1,7 @@
 import { Automation, AvailableFace, FaceName } from '@rasm/automation';
 import { FontView } from '@rasm/indesign';
-import { READ_ONLY, registerResource, registerRoutedTool } from '@rasm/mcp';
+import { registerResource } from '@rasm/mcp/resource';
+import { registerRoutedTool } from '@rasm/mcp/tool';
 import { Face, Instance, Run, Shaped, type Source } from '@rasm/typography';
 import { Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
@@ -27,7 +28,7 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
             }),
         ),
         success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...FontView.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),
-    }).annotateMerge(READ_ONLY);
+    }).annotate(Tool.Readonly, true);
     const typeset = Effect.fnUntraced(function* ({ name, variations, size, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<{ readonly pid: number }>) {
         const shaped = (source: typeof Source.Type) => Effect.map(Face.open(source, { variations, size }), (face) => ({ face, shaped: Shaped.of(face, run) }));
         const native = Effect.fnUntraced(function* ({ pid }: { readonly pid: number }) {

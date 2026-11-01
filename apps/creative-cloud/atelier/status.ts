@@ -1,5 +1,5 @@
 import { Automation, Exited, Launching, Pid, Responding, Running, State } from '@rasm/automation';
-import { registerResourceTemplate } from '@rasm/mcp';
+import { registerResourceTemplate } from '@rasm/mcp/resource';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 

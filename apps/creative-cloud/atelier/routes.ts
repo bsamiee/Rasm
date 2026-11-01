@@ -1,5 +1,5 @@
 import { Automation, Exited, type Installation, Pid, type RunningInstance } from '@rasm/automation';
-import { Instructions } from '@rasm/mcp';
+import { Instructions } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, Function, Option, type Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
@@ -32,16 +32,19 @@ const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Opti
 const routes = Effect.fnUntraced(function* (names: readonly string[], { refused }: Effect.Success<typeof status>) {
     const [installed, hosts] = yield* Effect.all([Automation.use(Struct.get('installed')), InDesignScript.use(Struct.get('hosts'))]);
     const listed = (holds: Predicate.Predicate<Installation>) => Schema.Literals(Array.intersection(names, installed.filter(holds).map(Struct.get('name')))).annotate({ description: 'Installed Adobe application' });
-    const route = (holds: Predicate.Predicate<Installation>) => ({
-        fields: {
+    const route = (holds: Predicate.Predicate<Installation>) => {
+        const fields = {
             application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Application running in Dock when absent' })),
             pid: Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Required when bundle runs more than one instance' })),
-        },
-        resolve: ({ application: given, pid }: { readonly application: Option.Option<string>; readonly pid: Option.Option<number> }) => instance(lookup(holds)(given), pid),
-        depends: ({ pid }: { readonly pid: number }) => Effect.succeed([refused(pid)]),
-        annotations: Context.make(Tool.OpenWorld, false).pipe(Context.add(Instructions, ['State-changing calls return early when a dialog requires an answer. No tool changes frontmost application'])),
-        completion: { application: () => Effect.map(candidates(holds)(Option.none()), Array.map(Struct.get('name'))) },
-    });
+        };
+        return {
+            fields,
+            resolve: ({ application: given, pid }: Schema.Struct.Type<typeof fields>) => instance(lookup(holds)(given), pid),
+            depends: ({ pid }: { readonly pid: number }) => Effect.succeed([refused(pid)]),
+            annotations: Context.make(Tool.OpenWorld, false).pipe(Context.add(Instructions, ['State-changing calls return early when a dialog requires an answer. No tool changes frontmost application'])),
+            completion: { application: () => Effect.map(candidates(holds)(Option.none()), Array.map(Struct.get('name'))) },
+        };
+    };
     return { application: route(Function.constTrue), indesign: route(hosts), listed };
 });
 

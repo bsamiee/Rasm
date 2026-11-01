@@ -1,15 +1,19 @@
 import { ranked } from '@rasm/search/ranked';
-import { Array, Cause, Context, Deferred, Effect, Exit, Formatter, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, type Schema } from 'effect';
-import { McpProtocol, McpSchema, McpServer } from 'effect/ai';
+import { Array, Cause, Context, Deferred, Effect, Exit, Formatter, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema } from 'effect';
+import { McpProtocol, McpSchema, McpServer, Tool } from 'effect/ai';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
 import { NetAddress } from 'effect/net';
-import { executions } from '#/executions';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Executions = Schema.fromJsonString(
+    Schema.toCodecJson(Schema.Array(Schema.Struct({ tool: Schema.String, arguments: Schema.Json, result: Schema.OptionFromOptionalKey(Schema.Exit(Schema.Union([McpSchema.CallToolResult, Schema.instanceOf(McpSchema.InputRequired, { toCodecJson: () => undefined })]), McpSchema.McpError, Schema.Defect())) }))),
+);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Instructions = Context.Reference<readonly string[]>('@rasm/mcp/server/Instructions', { defaultValue: () => [] });
-const ContentBlocks = Context.Reference<(block: McpSchema.ContentBlock) => Effect.Effect<void>>('@rasm/mcp/server/ContentBlocks', { defaultValue: () => () => Effect.void });
-const Respond = Context.Reference<(refusal: Error) => Effect.Effect<void>>('@rasm/mcp/server/Respond', { defaultValue: () => () => Effect.void });
+const ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -24,18 +28,57 @@ const orInternalError = Effect.catchCause((cause: Cause.Cause<unknown>) =>
               }),
           ),
 );
+const failure = Exit.match({ onSuccess: (value: unknown) => (Schema.is(McpSchema.CallToolResult)(value) && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause: Cause.Cause<unknown>) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) });
 const instrumented =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>
     <A, E, R>(self: Effect.Effect<A, E, R>) =>
         Effect.flatMap(McpSchema.McpRequestContext, ({ requestMetadata }) =>
             Effect.gen(function* () {
                 const [duration, exit] = yield* Effect.timed(Effect.exit(self));
-                const failure = Exit.match(exit, { onSuccess: (value) => (Predicate.hasProperty(value, 'isError') && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) });
-                yield* Effect.annotateCurrentSpan(failure);
-                yield* Metric.update(Metric.withAttributes(Metric.timer('mcp.server.operation.duration', { description: 'Duration of MCP server operations' }), { 'mcp.method.name': method, ...attributes, ...failure }), duration);
+                const failed = failure(exit);
+                yield* Effect.annotateCurrentSpan(failed);
+                yield* Metric.update(Metric.withAttributes(Metric.timer('mcp.server.operation.duration', { description: 'Duration of MCP server operations' }), { 'mcp.method.name': method, ...attributes, ...failed }), duration);
                 return yield* exit;
             }).pipe(Effect.withSpan(`${method} ${name}`, { kind: 'server', attributes: { 'mcp.method.name': method, ...attributes }, parent: pipe(Record.filter({ ...requestMetadata }, Predicate.isString), Headers.fromInput, HttpTraceContext.fromHeaders, Option.getOrUndefined) })),
         );
+const executions = Effect.fnUntraced(function* (scheme: string) {
+    const [server, scope, kept] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>())]);
+    const listed = { uri: `${scheme}://executions`, name: 'executions', description: 'Cancelled or refused state-changing calls that keep running. Read outcome before repeating a call, finished calls drop after one read', mimeType: 'application/json' };
+    const registration = yield* Effect.cached(
+        McpServer.registerResource({
+            ...listed,
+            content: Effect.gen(function* () {
+                const rows = yield* Ref.get(kept);
+                const read = yield* Effect.all(rows);
+                yield* Ref.update(kept, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
+                return { contents: [{ uri: listed.uri, mimeType: listed.mimeType, text: yield* Effect.orDie(Schema.encodeEffect(Executions)(read)) }] };
+            }),
+        }).pipe(Effect.provideService(McpServer.McpServer, server)),
+    );
+    const record = Effect.fnUntraced(function* <E extends McpSchema.McpError, R>(tool: string, given: Schema.Json, answer: Effect.Effect<McpSchema.CallToolResult | McpSchema.InputRequired, E, R>, early: Deferred.Deferred<McpSchema.CallToolResult>) {
+        const done = yield* Deferred.make<McpSchema.CallToolResult | McpSchema.InputRequired, E>();
+        const recorded = Ref.update(
+            kept,
+            Array.append(
+                Deferred.poll(done).pipe(
+                    Effect.map(Option.map(Effect.exit)),
+                    Effect.flatMap(Effect.transposeOption),
+                    Effect.map((result) => ({ tool, arguments: given, result })),
+                ),
+            ),
+        );
+        yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
+        const [outcome, pending] = yield* Effect.raceFirst(
+            Effect.map(Deferred.await(done), (value) => [value, false] as const),
+            Effect.map(Deferred.await(early), (value) => [value, true] as const),
+        ).pipe(
+            Effect.interruptible,
+            Effect.onInterrupt(() => recorded),
+        );
+        return yield* Effect.as(pending ? recorded : Effect.void, outcome);
+    }, Effect.uninterruptible);
+    return { registration, record, link: McpSchema.ResourceLink.make(listed) };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -50,7 +93,7 @@ const layer = (scheme: string) =>
                         const ordered = ranked(input, values);
                         return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
                     });
-            const writes = ({ tool }: Parameters<typeof server.addTool>[0]) => tool.annotations?.readOnlyHint !== true;
+            const writes = ({ annotations }: Parameters<typeof server.addTool>[0]) => !Context.get(annotations, Tool.Readonly);
             const refused = ({ message }: McpSchema.InternalError) => McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message }), link] });
             const served = (options: Parameters<typeof server.addTool>[0]) =>
                 Effect.fnUntraced(
@@ -60,10 +103,7 @@ const layer = (scheme: string) =>
                             const result = yield* options.handle(payload);
                             const added = yield* Ref.get(blocks);
                             return result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] });
-                        }).pipe(
-                            Effect.provideService(ContentBlocks, (block) => Ref.update(blocks, Array.append(block))),
-                            Effect.provideService(Respond, (refusal) => Effect.asVoid(Deferred.complete(early, Effect.map(Effect.flip(orInternalError(Effect.fail(refusal))), refused)))),
-                        );
+                        }).pipe(Effect.provideService(ToolCall, { add: (block) => Ref.update(blocks, Array.append(block)), respond: (refusal) => Effect.asVoid(Deferred.complete(early, Effect.map(Effect.flip(orInternalError(Effect.fail(refusal))), refused))) }));
                         return yield* writes(options) ? record(options.tool.name, payload, answer, early) : answer;
                     },
                     instrumented('tools/call', options.tool.name, { 'gen_ai.tool.name': options.tool.name, 'gen_ai.operation.name': 'execute_tool' }),
@@ -110,4 +150,4 @@ const layerHttp = <E, R>(manifest: { readonly name: string; readonly version: st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ContentBlocks, Instructions, layer, layerHttp, orInternalError, Respond };
+export { Instructions, layer, layerHttp, orInternalError, ToolCall };

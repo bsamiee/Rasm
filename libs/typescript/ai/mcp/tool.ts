@@ -1,7 +1,7 @@
 import { Array, Cause, Context, Effect, Exit, Function, flow, Option, pipe, Record, Schema, SchemaGetter, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import type { Dependency } from '#/resources';
-import { ContentBlocks, orInternalError, Respond } from '#/server';
+import type { Dependency } from '#/resource';
+import { orInternalError, ToolCall } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,10 +12,6 @@ interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
     readonly annotations: Context.Context<never>;
     readonly completion: { readonly [Key in keyof Fields]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R> };
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const READ_ONLY = Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.Destructive, false));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -29,6 +25,11 @@ const registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extend
     const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
     yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
 });
+const stated = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
+const refused = flow(
+    stated,
+    Effect.map((shown) => new Cause.IllegalArgumentError(shown)),
+);
 const registerRoutedTool =
     <Chosen, Fields extends Schema.Struct.Fields, RR>(route: Route<Chosen, Fields, RR>) =>
     <P extends Schema.Top & { readonly fields: Schema.Struct.Fields }, S extends Schema.Top, R>(
@@ -38,11 +39,6 @@ const registerRoutedTool =
         const parts = Schema.toCodecJson(Schema.Tuple([tool.parametersSchema, Schema.Struct(route.fields)]));
         const annotations = Context.merge(route.annotations, tool.annotations);
         const fields = { ...tool.parametersSchema.fields, ...route.fields };
-        const stated = (entries: readonly (readonly [string, Schema.Json])[]) => Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)))(Record.fromEntries(entries)));
-        const refused = flow(
-            stated,
-            Effect.map((shown) => new Cause.IllegalArgumentError(shown)),
-        );
         const reported =
             (dependencies: readonly Dependency[]) =>
             <A, E, R2>(self: Effect.Effect<A, E, R2>) =>
@@ -51,7 +47,7 @@ const registerRoutedTool =
                     (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
                     () =>
                         Effect.gen(function* () {
-                            const [[holding, failed], add] = yield* Effect.all([Effect.partition(dependencies, (dependency) => orInternalError(dependency.report), { concurrency: 'unbounded' }), ContentBlocks]);
+                            const [[holding, failed], { add }] = yield* Effect.all([Effect.partition(dependencies, (dependency) => orInternalError(dependency.report), { concurrency: 'unbounded' }), ToolCall]);
                             const shown = yield* pipe(holding, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(stated), Effect.transposeOption);
                             yield* Effect.forEach([...Option.toArray(shown), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
                         }),
@@ -65,8 +61,9 @@ const registerRoutedTool =
                         yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refused, Effect.flatMap(Effect.fail)) });
                         yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(
                             Stream.filter(Option.isSome),
-                            Stream.runHead,
-                            Effect.flatMap(Option.match({ onNone: () => Effect.void, onSome: ({ value }) => Effect.flatMap(Effect.all([refused([value]), Respond]), ([refusal, respond]) => respond(refusal)) })),
+                            Stream.take(1),
+                            Stream.mapEffect(({ value }) => refused([value])),
+                            Stream.runForEach((refusal) => ToolCall.use(({ respond }) => respond(refusal))),
                             Effect.catchCause(Effect.logError),
                             Effect.forkScoped,
                         );
@@ -87,4 +84,4 @@ const registerRoutedTool =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { READ_ONLY, type Route, registerRoutedTool, registerTool };
+export { type Route, registerRoutedTool, registerTool };

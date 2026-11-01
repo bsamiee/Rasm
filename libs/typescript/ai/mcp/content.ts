@@ -1,6 +1,6 @@
 import { Effect, Option, Schema, SchemaGetter } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { ContentBlocks } from '#/server';
+import { ToolCall } from '#/server';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ const Content = <S extends Schema.Top>(schema: S, description: string, block: (v
                 decode: SchemaGetter.forbidden(() => 'Content blocks hold value'),
                 encode: SchemaGetter.transformEffect((value: S['Type']) => {
                     const [added, shown] = block(value);
-                    return ContentBlocks.use((add) => Effect.as(add(added), shown));
+                    return ToolCall.use(({ add }) => Effect.as(add(added), shown));
                 }),
             }),
     });

@@ -106,7 +106,6 @@
         { "includes": [ "tests/typescript/e2e-*/**", "tests/typescript/support/playwright/*.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
         { "includes": [ "tests/typescript/libs/data/database/cases.ts" ], "linter": { "rules": { "suspicious": { "useExpect": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
-        { "includes": [ "libs/typescript/ai/mcp/rpc.ts" ], "linter": { "rules": { "style": { "noMagicNumbers": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]
 }

@@ -1,5 +1,5 @@
 import { Automation } from '@rasm/automation';
-import { main } from '@rasm/mcp';
+import { main } from '@rasm/mcp/node';
 import { Array, Config, Effect, flow, identity, Layer, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { applications, launch, screenshot } from '#/features/applications';
 import { faces, font } from '#/features/fonts';
