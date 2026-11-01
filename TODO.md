@@ -30,7 +30,7 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 - **Scripts:** `.claude/workflows/{rust,swift,typescript}.js`, with rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
 - **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
 - **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
-- **Concurrency:** one run per language at a time, at most one Rust, one Swift and one TypeScript run together.
+- **Concurrency:** one TypeScript run at a time. Rust runs on rows that share no dependency overlap when started at least 20 minutes apart, and overlapping runs commit together.
 - **Base:** `HEAD` when a run starts. A line citation in the rules applies to its code wherever that code now sits.
 - **Watching:** follow a run in `/workflows`, read `.artifacts/workflows/<language>/<key>/PLAN.md` once the Plan phase writes it, and read the diff.
 
