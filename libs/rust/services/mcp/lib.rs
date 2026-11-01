@@ -10,12 +10,13 @@ use std::{
 };
 
 use axum::http::{request::Parts, uri::Authority};
-use clap::{Args, FromArgMatches as _, Parser};
+use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::ValidationError;
 use nonempty_collections::NEVec;
 use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, propagation::Extractor};
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE};
+use rasm_command::{Augmented, CommandError, Process};
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
@@ -31,19 +32,11 @@ use rmcp::{
 };
 use serde_json::Value;
 use serde_urlencoded::de;
-#[cfg(unix)]
-use tokio::signal::unix::{SignalKind, signal};
-#[cfg(windows)]
-use tokio::signal::windows;
 use tokio::{
-    net, runtime,
+    net,
     sync::{broadcast, watch},
     time::Instant,
 };
-#[cfg(windows)]
-use tokio_stream::wrappers::CtrlCStream;
-#[cfg(unix)]
-use tokio_stream::wrappers::SignalStream;
 use tokio_stream::wrappers::{BroadcastStream, WatchStream, errors::BroadcastStreamRecvError};
 use tokio_util::{
     sync::CancellationToken,
@@ -71,14 +64,10 @@ pub trait Endpoint: Send + Sync + 'static {
 
 #[derive(Debug, derive_more::Display)]
 enum Operation {
-    #[display("start async runtime")]
-    Runtime,
     #[display("bind {_0}")]
     Bind(SocketAddr),
     #[display("read bound address")]
     Address,
-    #[display("listen for shutdown signals")]
-    Signal,
     #[display("serve HTTP")]
     Serve,
 }
@@ -95,8 +84,6 @@ struct Options {
     listen: SocketAddr,
     #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback and bound address")]
     allowed_host: Vec<Authority>,
-    #[command(flatten)]
-    telemetry: rasm_telemetry::Options,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -146,6 +133,8 @@ impl From<Unserved> for ErrorData {
 
 #[derive(Debug, thiserror::Error)]
 enum Failed<X> {
+    #[error(transparent)]
+    Command(#[from] CommandError),
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
     #[error("endpoint failed")]
@@ -163,6 +152,7 @@ where X: Into<Self>
 {
     fn from(value: Failed<X>) -> Self {
         match value {
+            Failed::Command(source) => source.into(),
             Failed::Io { operation: _, source } => source.into(),
             Failed::Endpoint(source) => source.into(),
             Failed::Abandoned => Self::TempFail,
@@ -415,57 +405,48 @@ pub fn fault(error: ServiceError) -> ErrorData { if let ServiceError::McpError(d
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<P, E>(version: &'static str, build: impl AsyncFnOnce(P, Implementation, Notifier) -> Result<E, E::Error>) -> process::ExitCode
+pub fn run<P, E>(build: impl AsyncFnOnce(P, Implementation, Notifier) -> Result<E, E::Error>) -> process::ExitCode
 where
-    P: Parser,
+    P: CommandFactory + FromArgMatches,
     E: Endpoint,
 {
-    let mut command = Options::augment_args(P::command().version(version));
-    let matches = command.get_matches_mut();
-    let (options, args) = Options::from_arg_matches(&matches).and_then(|options| P::from_arg_matches(&matches).map(|args| (options, args))).unwrap_or_else(|error| error.exit());
-    let identity = command.get_about().into_iter().fold(Implementation::new(command.get_name(), version), |identity, about| identity.with_description(about.to_string()));
-    let Options { listen, allowed_host, telemetry } = options;
-    let listening = async move {
-        let signals = cfg_select! {
-            unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)),
-            windows => [windows::ctrl_c().map(CtrlCStream::new)],
-        };
-        let mut signals = signals.into_iter().try_collect::<stream::SelectAll<_>>().map_err(|source| Failed::Io { operation: Operation::Signal, source })?;
-        let socket = net::TcpListener::bind(listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(listen), source })?;
-        let address = socket.local_addr().map_err(|source| Failed::Io { operation: Operation::Address, source })?;
-        let notifier = Notifier(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY));
-        let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
-        let endpoint = started.map_err(Failed::Endpoint)?;
-        tracing::info!(listen = %address, "listening");
-        let host = Arc::new(Host { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
-        let manager = Arc::new(LocalSessionManager::default());
-        let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
-        config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
-        let factory = Arc::clone(&host);
-        let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
-        let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
-        let mut lifetime = pin!(future::maybe_done(host.endpoint.serve(host.stopping.clone())));
-        future::select(signals.next(), future::select(lifetime.as_mut(), http.as_mut())).await;
-        tracing::info!("shutting down");
-        let drained = async {
-            host.requests.close();
-            host.requests.wait().await;
-            host.stopping.cancel();
-            host.watches.close();
-            future::join_all(manager.sessions.read().await.values().map(|session| session.close_standalone_sse_stream(None))).await;
-            future::join(lifetime.as_mut(), host.watches.wait()).await;
-        };
-        future::select(pin!(future::join(drained, http.as_mut())), signals.next()).await;
-        let ended = lifetime.as_mut().take_output().map_or(Err(Failed::Abandoned), |ended| ended.map_err(Failed::Endpoint));
-        let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
-        validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
-    };
-    telemetry.run(&command, rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. }, io::stderr, Identity::new(), |_| {
-        let runtime = runtime::Runtime::new().map_err(|source| Failed::Io { operation: Operation::Runtime, source })?;
-        let hosted = runtime.block_on(listening);
-        runtime.shutdown_background();
-        hosted
-    })
+    let program = P::command();
+    let identity =
+        program.get_about().into_iter().fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), |identity, about| identity.with_description(about.to_string()));
+    rasm_command::run(
+        rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. },
+        Identity::new(),
+        async |Process { args: Augmented { options: Options { listen, allowed_host }, args }, mut signals, filter: _ }| {
+            let socket = net::TcpListener::bind(listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(listen), source })?;
+            let address = socket.local_addr().map_err(|source| Failed::Io { operation: Operation::Address, source })?;
+            let notifier = Notifier(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY));
+            let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
+            let endpoint = started.map_err(Failed::Endpoint)?;
+            tracing::info!(listen = %address, "listening");
+            let host = Arc::new(Host { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
+            let manager = Arc::new(LocalSessionManager::default());
+            let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
+            config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
+            let factory = Arc::clone(&host);
+            let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
+            let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
+            let mut lifetime = pin!(future::maybe_done(host.endpoint.serve(host.stopping.clone())));
+            future::select(signals.next(), future::select(lifetime.as_mut(), http.as_mut())).await;
+            tracing::info!("shutting down");
+            let drained = async {
+                host.requests.close();
+                host.requests.wait().await;
+                host.stopping.cancel();
+                host.watches.close();
+                future::join_all(manager.sessions.read().await.values().map(|session| session.close_standalone_sse_stream(None))).await;
+                future::join(lifetime.as_mut(), host.watches.wait()).await;
+            };
+            future::select(pin!(future::join(drained, http.as_mut())), signals.next()).await;
+            let ended = lifetime.as_mut().take_output().map_or(Err(Failed::Abandoned), |ended| ended.map_err(Failed::Endpoint));
+            let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
+            validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
+        },
+    )
 }
 
 pub mod server;

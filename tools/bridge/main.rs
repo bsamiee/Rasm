@@ -26,7 +26,7 @@ use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(clap::Parser)]
-#[command(about)]
+#[command(version, about)]
 struct Args {
     #[arg(help = "Stdio MCP server executable")]
     command: OsString,
@@ -195,4 +195,4 @@ fn scrub(meta: &mut MetaObject) { meta.retain(|key, _| !key.starts_with("io.mode
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() -> process::ExitCode { rasm_mcp::run(env!("CARGO_PKG_VERSION"), Bridge::spawn) }
+fn main() -> process::ExitCode { rasm_mcp::run(Bridge::spawn) }

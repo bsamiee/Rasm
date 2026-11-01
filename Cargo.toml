@@ -46,7 +46,7 @@ wasmtime        = "50.0.1"                                            # In-proce
 windows-service = "0.8.1"                                             # Windows service installation and control events
 
 # --- [ERRORS]
-annotate-snippets    = "0.12.17"                                   # Grammar errors rendered over source spans
+annotate-snippets    = "0.12.17"                                   # Diagnostics rendered over source spans
 anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 sysexits             = "0.13.0"                                    # Process exit statuses each crate error converts into at the host
@@ -168,7 +168,6 @@ xot          = "0.31.2"                                                         
 camino                = { version = "1.2.6", features = ["serde1"] }                                                                                                                                        # UTF-8 paths as construction invariant
 cap-std               = { version = "4.0.3", features = ["fs_utf8"] }                                                                                                                                       # Directory capabilities opened at boundary and passed in
 dunce                 = "1.0.5"                                                                                                                                                                             # Canonical Windows paths without verbatim prefix
-etcetera              = "0.11.0"                                                                                                                                                                            # Configuration, data, and cache directories under platform or XDG conventions
 file-format           = { version = "0.29.0", features = ["reader-zip", "reader-xml", "reader-pdf", "reader-cfb", "reader-ebml", "reader-exe", "reader-mp4", "reader-rm", "reader-sqlite3", "reader-txt"] } # Format detection from leading bytes and containers
 fs-err                = { version = "3.3.2", features = ["tokio"] }                                                                                                                                         # File calls with errors that name path
 globset               = "0.4.21"                                                                                                                                                                            # One path matched against many globs in one pass
@@ -272,7 +271,7 @@ pyroscope                          = { version = "2.1.5", features = ["backend-p
 sysinfo                            = "0.40.1"                                                            # Process and host resource readings
 tokio-metrics                      = "0.5.2"                                                             # Runtime and task metrics on stable tokio
 tracing                            = "0.1.44"                                                            # Spans and events emitted at service boundaries
-tracing-appender                   = "0.2.5"                                                             # Rolling and non-blocking file writers
+tracing-appender                   = "0.2.5"                                                             # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
 tracing-log                        = "0.2.0"                                                             # `log` records forwarded into tracing at every level, reloadable filter decides each
 tracing-opentelemetry              = "0.34.0"                                                            # Tracing spans exported as OpenTelemetry spans
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, and the `MakeWriter` sink the JSON layer writes to
@@ -282,8 +281,8 @@ anstream             = "1.0.0"                                                  
 anstyle              = "1.0.14"                                                                        # Style values shared by help text, terminal output, and TUI spans
 clap                 = { version = "4.6.7", features = ["derive", "env"] }                             # Typed command-line arguments and environment values
 clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                   # Verbosity flags resolved to tracing level filter
-clap_complete        = "4.6.11"                                                                        # Shell completion scripts generated from each command
-clap_mangen          = "0.3.3"                                                                         # Man pages generated from each command
+clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                         # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
+clap_mangen          = { version = "0.3.3", features = ["env"] }                                       # Man pages generated from each command, `env` naming each variable a row reads
 colorchoice-clap     = "1.0.8"                                                                         # Color choice flag feeding terminal writers
 comfy-table          = "8.0.1"                                                                         # Terminal tables sized to terminal width
 crossterm            = { version = "0.29.0", features = ["event-stream"] }                             # Raw mode, alternate screen, and async terminal events
@@ -607,7 +606,8 @@ tracing-test           = "0.2.6"                                                
 wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
 
 # --- [MEMBERS]
-rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry every Rasm executable runs under: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
+rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
+rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer choice
 rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP every Rasm MCP product and `rasm-mcp-bridge` serve through
 
 # --- [LINTS] ----------------------------------------------------------------------------

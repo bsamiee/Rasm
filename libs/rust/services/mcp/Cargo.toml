@@ -54,6 +54,7 @@ tracing-opentelemetry              = { workspace = true }
 tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
 rasm-telemetry                     = { workspace = true }
+rasm-command                       = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
