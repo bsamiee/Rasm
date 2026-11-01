@@ -2,15 +2,13 @@
 id: no-telemetry-composed-by-hand
 language: rust
 severity: error
-ignores: ['libs/rust/telemetry/**']
+ignores: ['libs/rust/services/telemetry/**']
 utils:
     subscriber-install:
         any:
             - kind: scoped_identifier
               regex: '^(::)?((tracing::)?(subscriber|dispatcher)|tracing)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init$'
-            - all:
-                - regex: '^(set_global_default|set_default|with_default)$'
-                - matches: {rust-imported-name: {source: {regex: '\btracing\b'}, name: {regex: '^(set_global_default|set_default|with_default)$'}}}
+            - matches: {rust-imported-name: {source: {regex: '\btracing\b'}, name: {regex: '^(set_global_default|set_default|with_default)$'}}}
             - kind: field_expression
               all:
                 - has: {field: field, regex: '^init$'}
@@ -29,16 +27,12 @@ utils:
         any:
             - kind: scoped_identifier
               regex: '(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$'
-            - all:
-                - regex: '^set_(tracer_provider|meter_provider|text_map_propagator)$'
-                - matches: {rust-imported-name: {source: {regex: '\bglobal\b'}, name: {regex: '^set_(tracer_provider|meter_provider|text_map_propagator)$'}}}
+            - matches: {rust-imported-name: {source: {regex: '\bglobal\b'}, name: {regex: '^set_(tracer_provider|meter_provider|text_map_propagator)$'}}}
     panic-hook:
         any:
             - kind: scoped_identifier
-              regex: '(^|::)panic::(set_hook|update_hook)$'
-            - all:
-                - regex: '^(set_hook|update_hook)$'
-                - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|update_hook)$'}}}
+              regex: '(^|::)panic::(set_hook|take_hook|update_hook)$'
+            - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|take_hook|update_hook)$'}}}
 rule:
     kind: 'identifier, scoped_identifier, field_expression'
     pattern: $SITE
@@ -46,7 +40,10 @@ rule:
         - matches: subscriber-install
         - matches: global-install
         - matches: panic-hook
-    not: {matches: rust-test-scope}
-    inside: {kind: call_expression, field: function}
+    not:
+        any:
+            - matches: rust-test-scope
+            - inside: {kind: scoped_identifier}
+            - inside: {kind: use_declaration, stopBy: end}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, propagator, or panic hook outside `rasm-telemetry`'
 note: 'Run the process entry through `rasm_telemetry::Options::run`'

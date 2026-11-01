@@ -1,10 +1,11 @@
-#![feature(error_reporter, try_blocks)]
+#![feature(default_field_values, error_reporter, try_blocks)]
 
 use core::error::Error;
 use std::{
     backtrace::Backtrace,
+    borrow::Cow,
     error::Report,
-    io,
+    mem::DropGuard,
     panic::{self, AssertUnwindSafe},
     process::{ExitCode, Termination},
 };
@@ -42,7 +43,7 @@ use tracing_log::LogTracer;
 use tracing_subscriber::{
     EnvFilter, Layer, Registry,
     filter::{Directive, LevelFilter, ParseError},
-    fmt::time::SystemTime,
+    fmt::{MakeWriter, time::SystemTime},
     layer::{Layered, SubscriberExt as _},
     registry::LookupSpan,
     reload,
@@ -77,6 +78,12 @@ enum Propagator {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+#[derive(Debug)]
+pub struct Defaults {
+    pub directives: Cow<'static, str> = Cow::Borrowed("info"),
+    pub attributes: Vec<KeyValue> = Vec::new(),
+}
+
 #[derive(Args, Debug)]
 #[group(skip)]
 #[command(next_help_heading = "Telemetry")]
@@ -97,28 +104,25 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn run<L, T, E>(
-        self,
-        command: &Command,
-        attributes: impl IntoIterator<Item = KeyValue>,
-        defaults: &str,
-        layer: L,
-        work: impl FnOnce(&reload::Handle<EnvFilter, Registry>) -> Result<T, NEVec<E>>,
-    ) -> ExitCode
+    pub fn run<W, L, T, E>(self, command: &Command, defaults: Defaults, writer: W, layer: L, work: impl FnOnce(&reload::Handle<EnvFilter, Registry>) -> Result<T, NEVec<E>>) -> ExitCode
     where
+        W: for<'writer> MakeWriter<'writer> + Clone + Send + Sync + 'static,
         L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
         T: Termination,
         E: Error + Into<sysexits::ExitCode>,
     {
-        fn built<T>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<T, ExporterBuildError>) -> Validated<Option<T>, Failed> {
+        fn built<T>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<T, ExporterBuildError>) -> Validated<Option<T>, TelemetryError> {
             match exporter {
                 Exporter::None => Validated::Good(None),
-                Exporter::Otlp => build().map(Some).map_err(|source| Failed::Build { signal, source }).into(),
+                Exporter::Otlp => build().map(Some).map_err(|source| TelemetryError::Build { signal, source }).into(),
             }
         }
-        fn json<S>(resource: &Resource) -> JsonLayer<S, fn() -> io::Stderr>
-        where S: Subscriber + for<'span> LookupSpan<'span> {
-            let mut layer = JsonLayer::stderr();
+        fn json<S, W>(resource: &Resource, writer: W) -> JsonLayer<S, W>
+        where
+            S: Subscriber + for<'span> LookupSpan<'span>,
+            W: for<'writer> MakeWriter<'writer> + 'static,
+        {
+            let mut layer = JsonLayer::new(writer);
             layer
                 .with_timer("timestamp", SystemTime)
                 .with_level("level")
@@ -143,10 +147,11 @@ impl Options {
         where F: Into<sysexits::ExitCode> {
             sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
         }
-        fn flushed(results: impl IntoIterator<Item = (Signal, OTelSdkResult)>) -> Result<(), NEVec<Failed>> {
-            results.into_iter().map(|(signal, result)| result.map_err(|source| Failed::Flush { signal, source })).collect::<Validated<(), _>>().ok()
+        fn flushed(results: impl IntoIterator<Item = (Signal, OTelSdkResult)>) -> Result<(), NEVec<TelemetryError>> {
+            results.into_iter().map(|(signal, result)| result.map_err(|source| TelemetryError::Flush { signal, source })).collect::<Validated<(), _>>().ok()
         }
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter } = self;
+        let Defaults { directives, attributes } = defaults;
         let detectors: [Box<dyn ResourceDetector>; _] =
             [Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(ProcessResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)];
         let resource = Resource::builder_empty()
@@ -168,10 +173,10 @@ impl Options {
             .with_attributes(attributes)
             .with_attributes(service_name.map(|name| KeyValue::new(SERVICE_NAME, name)))
             .build();
-        let early = Dispatch::new(tracing_subscriber::registry().with(json(&resource)).with(LevelFilter::WARN));
+        let early = Dispatch::new(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN));
         let started = dispatcher::with_default(&early, || {
-            let started: Result<_, NEVec<Failed>> = try {
-                let (filter, span_exporter, metric_exporter, log_exporter) = Validated::from(EnvFilter::try_new(defaults).map_err(Failed::Filter))
+            let started: Result<_, NEVec<TelemetryError>> = try {
+                let (filter, span_exporter, metric_exporter, log_exporter) = Validated::from(EnvFilter::try_new(&directives).map_err(|source| TelemetryError::Filter { directives, source }))
                     .map4(
                         built(Signal::Traces, traces_exporter, || SpanExporter::builder().build()),
                         built(Signal::Metrics, metrics_exporter, || MetricExporter::builder().build()),
@@ -187,12 +192,12 @@ impl Options {
                 let dispatched = tracing_subscriber::registry()
                     .with(filter)
                     .with(layer)
-                    .with(json(&resource))
+                    .with(json(&resource, writer))
                     .with(tracing_opentelemetry::layer().with_tracer(traces.tracer_with_scope(scope)))
                     .with(OpenTelemetryTracingBridge::builder(&logs).with_tracing_span_attributes(TracingSpanAttributes::all()).build());
                 subscriber::set_global_default(dispatched)
-                    .map_err(|SetGlobalDefaultError { .. }| Failed::Dispatch)
-                    .and_then(|()| LogTracer::init().map_err(|SetLoggerError { .. }| Failed::Forward))
+                    .map_err(|SetGlobalDefaultError { .. }| TelemetryError::Dispatch)
+                    .and_then(|()| LogTracer::init().map_err(|SetLoggerError { .. }| TelemetryError::Forward))
                     .map_err(NEVec::new)?;
                 (traces, metrics, logs, handle)
             };
@@ -216,13 +221,13 @@ impl Options {
                 })
                 .collect(),
         ));
-        let (previous, hooked) = (panic::take_hook(), (traces.clone(), metrics.clone(), logs.clone()));
+        let (restore, hooked) = (DropGuard::new(panic::take_hook(), panic::set_hook), (traces.clone(), metrics.clone(), logs.clone()));
         panic::set_hook(Box::new(move |info| {
             tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
             flushed([(Signal::Traces, hooked.0.force_flush()), (Signal::Metrics, hooked.1.force_flush()), (Signal::Logs, hooked.2.force_flush())]).unwrap_or_else(|errors| reported(&errors));
         }));
         let worked = panic::catch_unwind(AssertUnwindSafe(|| work(&handle).inspect_err(reported)));
-        panic::set_hook(previous);
+        drop(restore);
         let stopped = flushed([(Signal::Traces, traces.shutdown()), (Signal::Metrics, metrics.shutdown()), (Signal::Logs, logs.shutdown())]).inspect_err(reported);
         match (worked.unwrap_or_else(|payload| panic::resume_unwind(payload)), stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
@@ -235,9 +240,9 @@ impl Options {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error)]
-enum Failed {
-    #[error("program filter directives did not parse")]
-    Filter(#[source] ParseError),
+enum TelemetryError {
+    #[error("cannot parse filter directives {directives}")]
+    Filter { directives: Cow<'static, str>, source: ParseError },
     #[error("cannot build OTLP {signal} exporter")]
     Build { signal: Signal, source: ExporterBuildError },
     #[error("cannot install tracing subscriber, one is installed")]
@@ -248,12 +253,12 @@ enum Failed {
     Flush { signal: Signal, source: OTelSdkError },
 }
 
-impl From<Failed> for sysexits::ExitCode {
-    fn from(value: Failed) -> Self {
+impl From<TelemetryError> for sysexits::ExitCode {
+    fn from(value: TelemetryError) -> Self {
         match value {
-            Failed::Filter(_) | Failed::Dispatch | Failed::Forward => Self::Software,
-            Failed::Build { signal: _, source: _ } => Self::Config,
-            Failed::Flush { signal: _, source: _ } => Self::Unavailable,
+            TelemetryError::Filter { directives: _, source: _ } | TelemetryError::Dispatch | TelemetryError::Forward => Self::Software,
+            TelemetryError::Build { signal: _, source: _ } => Self::Config,
+            TelemetryError::Flush { signal: _, source: _ } => Self::Unavailable,
         }
     }
 }

@@ -129,8 +129,8 @@ where T: DeserializeOwned {
 ```rust
 fn main() -> ExitCode {
     let Args { settings, token, telemetry } = Args::parse();
-    telemetry.run(&Args::command(), [], "info", Identity::new(), |_| Runtime::new().map_err(ServiceError::Runtime).and_then(|runtime| runtime.block_on(serve(settings, token))).map_err(NEVec::new))
+    telemetry.run(&Args::command(), Defaults { .. }, io::stderr, Identity::new(), |_| Runtime::new().map_err(ServiceError::Runtime).and_then(|runtime| runtime.block_on(serve(settings, token))).map_err(NEVec::new))
 }
 ```
 
-`Options::run` installs the subscriber, exporters, propagators, and panic hook around the work, and logs and translates each failure. Logs write to stderr, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.
+`Options::run` installs the subscriber, exporters, propagators, and panic hook around the work, and logs and translates each failure. `Defaults { .. }` keeps the `info` filter, and `io::stderr` is the `MakeWriter` the JSON lines write to, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.

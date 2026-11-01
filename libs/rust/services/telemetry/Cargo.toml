@@ -4,7 +4,7 @@
 name                 = "rasm-telemetry"
 version.workspace    = true
 edition.workspace    = true
-description          = "Process telemetry under OpenTelemetry conventions"
+description          = "Process entry under OpenTelemetry conventions: JSON lines, OTLP signals, resource, propagators, exit status"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
@@ -21,6 +21,7 @@ bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
+# --- [RUNTIME]
 [dependencies]
 nonempty-collections               = { workspace = true }
 sysexits                           = { workspace = true }

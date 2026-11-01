@@ -267,23 +267,23 @@ pub enum LedgerError {
 
 - Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
 - Fields named `source` hold the foreign error a variant wraps
-- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, forwarding their own message
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, forwarding their own message, and a foreign error with one value (`SetGlobalDefaultError`, `SetLoggerError`) holds nothing to forward, so its variant is a unit variant with the crate's message
 - Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
 
-Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by reference into `sysexits::ExitCode`, and generic entry points bound `for<'error> ExitCode: From<&'error E>`. Accumulated failures exit with the first one's status:
+Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Accumulated failures exit with the first one's status:
 
 ```rust
-impl From<&LedgerError> for ExitCode {
-    fn from(value: &LedgerError) -> Self {
+impl From<LedgerError> for ExitCode {
+    fn from(value: LedgerError) -> Self {
         match value {
             LedgerError::Refused { account: _, reason: Refusal::Missing } => Self::NoInput,
             LedgerError::Refused { account: _, reason: Refusal::Overflow } => Self::DataErr,
             LedgerError::Refused { account: _, reason: Refusal::Frozen } => Self::NoPerm,
-            LedgerError::Store { account: _, source } => source.kind().into(),
+            LedgerError::Store { account: _, source } => source.into(),
         }
     }
 }

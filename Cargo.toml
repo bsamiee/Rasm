@@ -3,7 +3,7 @@
 # --- [MEMBERS]
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*", "tools/bridge", "tools/dylint"]
+members  = ["libs/rust/*/*", "tools/bridge", "tools/dylint"]
 
 # --- [IDENTITY]
 [workspace.package]
@@ -275,7 +275,7 @@ tracing                            = "0.1.44"                                   
 tracing-appender                   = "0.2.5"                                                             # Rolling and non-blocking file writers
 tracing-log                        = "0.2.0"                                                             # `log` records forwarded into tracing at every level, reloadable filter decides each
 tracing-opentelemetry              = "0.34.0"                                                            # Tracing spans exported as OpenTelemetry spans
-tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry and directive filters under JSON layer
+tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
 anstream             = "1.0.0"                                                                         # Writers that keep, strip, or translate ANSI per terminal
@@ -607,8 +607,8 @@ tracing-test           = "0.2.6"                                                
 wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
 
 # --- [MEMBERS]
-rasm-mcp       = { path = "libs/rust/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP every Rasm MCP product and `rasm-mcp-bridge` serve through
-rasm-telemetry = { path = "libs/rust/telemetry", version = "1.0.0" } # Subscriber, per-signal OTLP exporters, resource, and panic hook every Rasm executable runs its entry under
+rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry every Rasm executable runs under: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
+rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP every Rasm MCP product and `rasm-mcp-bridge` serve through
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

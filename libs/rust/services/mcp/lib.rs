@@ -1,4 +1,4 @@
-#![feature(associated_type_defaults, error_reporter, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
+#![feature(associated_type_defaults, default_field_values, error_reporter, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
 use core::{error::Error, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error};
 use std::{
@@ -460,7 +460,7 @@ where
         let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
         validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
     };
-    telemetry.run(&command, [], "info,rmcp=warn,rmcp::service=error", Identity::new(), |_| {
+    telemetry.run(&command, rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. }, io::stderr, Identity::new(), |_| {
         let runtime = runtime::Runtime::new().map_err(|source| Failed::Io { operation: Operation::Runtime, source })?;
         let hosted = runtime.block_on(listening);
         runtime.shutdown_background();
