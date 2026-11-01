@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, Equal, flow, Match, Number, Option, Order, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Face as HarfBuzzFace, Variation } from 'harfbuzzjs';
@@ -107,7 +107,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const { face: chosen, variations: given } = yield* Option.match(selection, {
             onNone: () =>
                 Effect.map(
-                    Unmatched.single('face in collection', Option.none())(faces, ({ names }) => Option.toArray(names.postscriptName)),
+                    Unmatched.single(faces, 'face in collection', Option.none(), ({ names }) => Option.toArray(names.postscriptName)),
                     (face) => ({ face, variations: face.base.variations }),
                 ),
             onSome: () => Effect.mapError(Option.match(listed, { onNone: () => generated, onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),

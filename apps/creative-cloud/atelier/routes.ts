@@ -1,6 +1,6 @@
 import { Automation, Exited, type Installation, Pid, type RunningInstance } from '@rasm/automation';
 import { Instructions } from '@rasm/mcp';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, Function, Option, type Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { InDesignScript } from '#/indesign-script';
@@ -11,7 +11,7 @@ import type { status } from '#/status';
 const runs = (installation: Installation) => (row: typeof RunningInstance.Type) => row.url.href === installation.url.href && !Schema.is(Exited)(row.state);
 const instance = Effect.fnUntraced(function* <E, R>(found: Effect.Effect<Installation, E, R>, pid: Option.Option<number>) {
     const [installation, rows] = yield* Effect.all([found, Automation.use((automation) => SubscriptionRef.get(automation.instances))]);
-    return { installation, pid: yield* Unmatched.single(`running instance of ${installation.name}`, Option.map(pid, String))(rows.filter(runs(installation)).map(Struct.get('pid')), (each) => [String(each)]) };
+    return { installation, pid: yield* Unmatched.single(rows.filter(runs(installation)).map(Struct.get('pid')), `running instance of ${installation.name}`, Option.map(pid, String), (each) => [String(each)]) };
 });
 const candidates = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
     Automation.use((automation) =>
@@ -24,7 +24,11 @@ const candidates = (hosts: Predicate.Predicate<Installation>) => (given: Option.
             (installed, docked) => installed.filter((row) => hosts(row) && (Option.isSome(given) || docked.some(runs(row)))),
         ),
     );
-const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.flatMap(candidates(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in Dock' }), given)(rows, (row) => [row.name]));
+const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
+    Effect.flatMap(
+        candidates(hosts)(given),
+        Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in Dock' }), given, (row) => [row.name]),
+    );
 const routes = Effect.fnUntraced(function* (names: readonly string[], { refused }: Effect.Success<typeof status>) {
     const [installed, hosts] = yield* Effect.all([Automation.use(Struct.get('installed')), InDesignScript.use(Struct.get('hosts'))]);
     const listed = (holds: Predicate.Predicate<Installation>) => Schema.Literals(Array.intersection(names, installed.filter(holds).map(Struct.get('name')))).annotate({ description: 'Installed Adobe application' });

@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, Schema } from 'effect';
 import { read } from '#/dom/encoding';
 import { Model } from '#/dom/model';
@@ -16,7 +16,7 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
                 const every = app.menuActions.everyItem();
                 return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
             }),
-        ).pipe(Effect.flatMap((rows) => Unmatched.matching('menu area', area)(rows, (row) => [row.area])));
+        ).pipe(Effect.flatMap(Unmatched.matching('menu area', area, (row) => [row.area])));
     }
 }
 

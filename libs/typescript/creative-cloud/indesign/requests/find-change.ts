@@ -1,5 +1,5 @@
 import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, String, Struct } from 'effect';
 import { read } from '#/dom/encoding';
 import { active, owner, resolve } from '#/dom/location';

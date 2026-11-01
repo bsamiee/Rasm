@@ -1,5 +1,5 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, Cause, Effect, flow, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { decoder } from '#/dom/decoding';
 import { unavailable } from '#/dom/dictionary';

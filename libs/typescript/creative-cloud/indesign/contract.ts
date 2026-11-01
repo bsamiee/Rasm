@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
 import { Model } from '#/dom/model';
@@ -17,6 +17,10 @@ import { Preflight } from '#/requests/preflight';
 import { Remove } from '#/requests/remove';
 import { Render } from '#/requests/render';
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+const error = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@rasm/indesign/contract/ScriptPreferences', { error: Schema.ErrorInstance() }) {
@@ -31,18 +35,18 @@ class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@ras
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Contract = RpcGroup.make(
-    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Unmatched.Refusal }),
-    Rpc.make('change', { payload: Change, success: Change.Result, error: Unmatched.Refusal }),
-    Rpc.make('create', { payload: Create, success: Reference, error: Unmatched.Refusal }),
-    Rpc.make('remove', { payload: Remove, success: Reference, error: Unmatched.Refusal }),
-    Rpc.make('execute_script', { payload: ExecuteScript, success: ExecuteScript.Result, error: Unmatched.Refusal }),
-    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Unmatched.Refusal }),
-    Rpc.make('font', { payload: Font, success: Font.Result, error: Unmatched.Refusal }),
-    Rpc.make('kind', { payload: Kind, success: Kind.Result, error: Unmatched.Refusal }),
-    Rpc.make('render', { payload: Render, success: Render.Result, error: Unmatched.Refusal }),
-    Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Unmatched.Refusal }),
-    Rpc.make('invoke', { payload: Invoke, success: Menu.Action, error: Unmatched.Refusal }),
-    Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Unmatched.Refusal }),
+    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error }),
+    Rpc.make('change', { payload: Change, success: Change.Result, error }),
+    Rpc.make('create', { payload: Create, success: Reference, error }),
+    Rpc.make('remove', { payload: Remove, success: Reference, error }),
+    Rpc.make('execute_script', { payload: ExecuteScript, success: ExecuteScript.Result, error }),
+    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error }),
+    Rpc.make('font', { payload: Font, success: Font.Result, error }),
+    Rpc.make('kind', { payload: Kind, success: Kind.Result, error }),
+    Rpc.make('render', { payload: Render, success: Render.Result, error }),
+    Rpc.make('menu', { payload: Menu, success: Menu.Result, error }),
+    Rpc.make('invoke', { payload: Invoke, success: Menu.Action, error }),
+    Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error }),
 ).middleware(ScriptPreferences);
 const handlers = Layer.merge(
     Contract.toLayer({

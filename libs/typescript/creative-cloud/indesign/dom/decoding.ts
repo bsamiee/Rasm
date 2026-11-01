@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, type Cause, Effect, flow, Match, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
 import { declared, type Member } from '#/dom/dictionary';
 import { record } from '#/dom/encoding';
@@ -20,7 +20,7 @@ const byName = Effect.fnUntraced(function* (type: string, name: string, scope: O
         onNone: () => Effect.succeed<unknown>(name),
         onSome: ([document, field]) => {
             const listed: unknown = Reflect.get(document, field);
-            return Unmatched.single(type, Option.some(name))((model.collection(listed) ? listed.everyItem().getElements() : Array.ensure(listed)).filter(model.named), (each) => [each.toSpecifier(), each.name]);
+            return Unmatched.single((model.collection(listed) ? listed.everyItem().getElements() : Array.ensure(listed)).filter(model.named), type, Option.some(name), (each) => [each.toSpecifier(), each.name]);
         },
     });
 });
@@ -36,7 +36,7 @@ const fontByName = Effect.fn('fontByName')(function* (name: string) {
         const used = open.fonts.everyItem();
         return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ names: [label] as const, font: () => open.fonts.item(index) }]));
     });
-    return (yield* Unmatched.single('font', Option.some(name))([...installed, ...missing], Struct.get('names'))).font();
+    return (yield* Unmatched.single([...installed, ...missing], 'font', Option.some(name), Struct.get('names'))).font();
 });
 const decoder = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 'type' | 'description'>>): ((value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model>) => {
     const scope = Effect.map(Effect.all([owner(target), Effect.option(active)]), ([held, open]) => Option.orElse(held, () => open));

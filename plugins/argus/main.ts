@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
 import { main, READ_ONLY, registerTool } from '@rasm/mcp';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
@@ -337,7 +337,7 @@ const initialize = Effect.fn('initialize')(function* () {
     }).pipe(Scope.provide(scope));
     const languages = new Map(servers.flatMap((entry) => Object.entries(entry[1].extensionToLanguage).map(([extension, languageId]) => [extension, { entry, languageId }] as const)));
     const serve = Effect.fn('serve')(function* (file: string) {
-        const [, language] = yield* Unmatched.single('language server for extension', Option.some(extname(file)))([...languages], ([extension]) => [extension]);
+        const [, language] = yield* Unmatched.single(languages, 'language server for extension', Option.some(extname(file)), ([extension]) => [extension]);
         const server = yield* RcMap.get(running, language.entry);
         return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };
     });

@@ -1,5 +1,5 @@
 import type { BaseCollection, Document, Enumeration, Enumerator, InDesignDOMObject, Page, PageItem, ReadonlyNamedDOMObject, Spread, Text, TextFrame } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, Cause, Context, Effect, flow, Option, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { Class, declared, type Member, unavailable } from '#/dom/dictionary';
 

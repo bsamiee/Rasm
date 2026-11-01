@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, Cause, Effect, Option, Record, Schema, Struct } from 'effect';
 import { decoder } from '#/dom/decoding';
 import { active, resolveObject } from '#/dom/location';

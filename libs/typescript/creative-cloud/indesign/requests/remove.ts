@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Cache, Cause, Effect, Option, Predicate, Record } from 'effect';
 import { resolveObject } from '#/dom/location';
 import { Model } from '#/dom/model';

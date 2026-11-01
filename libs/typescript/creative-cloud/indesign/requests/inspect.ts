@@ -1,5 +1,5 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import type { Uxp } from '@rasm/uxp';
 import { Array, Cache, Cause, Effect, flow, Option, pipe, Record, Result, Schema, Struct } from 'effect';
 import { ApplicationView } from '#/application-view';

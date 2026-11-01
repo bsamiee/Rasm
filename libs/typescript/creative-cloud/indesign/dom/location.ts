@@ -1,5 +1,5 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, Effect, Equal, Iterable, Option, Record, Struct } from 'effect';
 import { Model } from '#/dom/model';
 

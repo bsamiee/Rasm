@@ -1,5 +1,5 @@
-import { Unmatched } from '@rasm/search';
-import { Array, Cause, Data, Deferred, Duration, Effect, Latch, Layer, Option, type Predicate, Schedule, Stream, Struct, SubscriptionRef } from 'effect';
+import { Unmatched } from '@rasm/search/unmatched';
+import { Array, Data, Deferred, Duration, Effect, Latch, Layer, Option, type Predicate, Schedule, Stream, Struct, SubscriptionRef } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, type RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -47,12 +47,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any>(
         peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
         changes: Stream.map(SubscriptionRef.changes(links), Array.map(Struct.get('peer'))),
         call: (serves: Predicate.Predicate<typeof Peer.Type>) =>
-            SubscriptionRef.get(links).pipe(
-                Effect.map(Array.filter(({ peer }) => serves(peer))),
-                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError('No linked plugin serves application')),
-                Effect.flatMap((serving) => Unmatched.single('linked plugin serving application', Option.none())(serving, ({ peer }) => [`${peer.extension} in ${peer.application.href}`])),
-                Effect.map(Struct.get('client')),
-            ),
+            SubscriptionRef.get(links).pipe(Effect.map(Array.filter(({ peer }) => serves(peer))), Effect.flatMap(Unmatched.single('linked plugin serving application', Option.none(), ({ peer }) => [`${peer.extension} in ${peer.application.href}`])), Effect.map(Struct.get('client'))),
     };
 });
 

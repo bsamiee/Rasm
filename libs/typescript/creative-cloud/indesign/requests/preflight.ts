@@ -1,5 +1,5 @@
 import type { Document, PreflightProcess } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import { resolve } from '#/dom/location';
 import { Model } from '#/dom/model';
@@ -87,7 +87,7 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     const { app } = yield* Model;
     const { preflightOff, preflightWorkingProfile: working } = document.preflightOptions;
     const profiles = [...app.preflightProfiles.everyItem().getElements(), ...document.preflightProfiles.everyItem().getElements()];
-    const byName = (name: string) => Unmatched.single('preflight profile', Option.some(name))(profiles, (each) => [each.name]);
+    const byName = (name: string) => Unmatched.single(profiles, 'preflight profile', Option.some(name), (each) => [each.name]);
     const live = Option.map(
         Option.liftPredicate(document, () => !preflightOff),
         (open) => open.activeProcess,

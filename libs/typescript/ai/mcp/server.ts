@@ -1,4 +1,4 @@
-import { ranked } from '@rasm/search';
+import { ranked } from '@rasm/search/ranked';
 import { Array, Cause, Context, Deferred, Effect, Exit, Formatter, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, type Schema } from 'effect';
 import { McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';

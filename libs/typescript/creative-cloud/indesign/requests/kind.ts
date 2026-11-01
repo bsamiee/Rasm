@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cache, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { Field, Member, Method, undeclared } from '#/dom/dictionary';
 import { Model } from '#/dom/model';
@@ -18,7 +18,7 @@ class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')
             const model = yield* Model;
             const { classes, enumerations, enumeration, rows, lineage, members } = model;
             const declaration = Effect.fnUntraced(function* (query: string) {
-                const name = yield* Unmatched.single('class or enumeration', Option.some(query))([...classes, ...enumerations], Array.of);
+                const name = yield* Unmatched.single([...classes, ...enumerations], 'class or enumeration', Option.some(query), Array.of);
                 const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
                 const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
                 const type: unknown = Reflect.get(model, name);

@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Cause, Effect, Option, Schema } from 'effect';
 import { Model } from '#/dom/model';
 import { Mutation } from '#/dom/transactions';
@@ -12,11 +12,12 @@ class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([S
     }
 
     run() {
-        const { action } = this;
-        return Effect.flatMap(
-            Effect.flatMap(Menu.make({ area: Option.none() }).run(), (rows) => Unmatched.single('menu action', Option.some(String(action)))(rows, ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name])),
-            (chosen) => this.commit(Model.use(({ app }) => Effect.as(Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) }), chosen))),
-        );
+        return Menu.make({ area: Option.none() })
+            .run()
+            .pipe(
+                Effect.flatMap(Unmatched.single('menu action', Option.some(String(this.action)), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name])),
+                Effect.flatMap((chosen) => this.commit(Model.use(({ app }) => Effect.as(Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) }), chosen)))),
+            );
     }
 }
 

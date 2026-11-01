@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Cause, Context, Duration, Effect, identity, Layer, Option, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'effect/rpc';
@@ -27,7 +27,11 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
             installations,
             instances,
             installed,
-            located: (query: string) => Effect.flatMap(installed, (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.name])),
+            located: (query: string) =>
+                Effect.flatMap(
+                    installed,
+                    Unmatched.single('installed Adobe application', Option.some(query), (row) => [row.name]),
+                ),
             script: (pid: number, source: string) =>
                 client
                     .script({
