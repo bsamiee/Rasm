@@ -4,19 +4,13 @@ Types reach pydantic through a core schema, built from an annotation, from `Anno
 
 ## [01]-[PYDANTIC_TYPES]
 
-Values with a format pydantic states take its type, and a type it lacks comes from one pydantic-extra-types module (`coordinate`, `timezone_name`, `mime_types`, `phone_numbers`, `currency_code`), a module over a backend (`pycountry`, `phonenumbers`) raising `RuntimeError` naming it when absent:
-- `HttpUrl` normalizes with a trailing `/`, `ByteSize` reads `"1 KiB"` as `1024`, and `Json[T]` parses text before it validates `T`
+Values with a format pydantic states take its type in place of a `str` field and a validator:
+- `HttpUrl` appends `/` to a bare host until `url_preserve_empty_path=True`, `ByteSize` reads `"1 KiB"` as `1024`, and `Json[T]` parses text before it validates `T`
 - `InstanceOf[T]` checks by `isinstance` and publishes the schema of `T`, `ImportString` imports a dotted path
-- Constraint aliases (`PositiveInt`, `FiniteFloat`, `FutureDate`, `FilePath`, `UUID7`) compose like any `Annotated` alias
-- `EmailStr` and `NameEmail` read through `email-validator`, which the `pydantic[email]` extra supplies
-- `Coordinate` reads `"41.4,-81.9"` or a pair and dumps `{"latitude", "longitude"}`
-- `MimeType` accepts types the `mimetypes` registry knows alone, `image/x-exr` fails with `mime_type`
-- `PhoneNumberValidator(default_region=, number_format="E164")` in `Annotated[str, ...]` validates and formats a number
-- Extra types report their own error types (`TimeZoneName`, `InvalidCurrency`, `mime_type`)
 
 ## [02]-[CUSTOM_TYPES]
 
-`Annotated` hooks serve a type the code does not own: `AfterValidator`, `PlainSerializer`, `WithJsonSchema`, `ValidateAs(FromType, build)`, and `GetPydanticSchema(lambda source, handler: ...)` for a one-off core schema. Records that parse from text and write back as text own their schema through `__get_pydantic_core_schema__(cls, source, handler)`. `json_or_python_schema` accepts text from JSON and an instance or text from Python, a pattern on its `str_schema` refuses text before `parsed` reads it, and `serialization=` writes each record back as text. `Version` orders by its parts:
+`Annotated` hooks serve a type the code does not own: `AfterValidator`, `PlainSerializer`, `WithJsonSchema`, and `GetPydanticSchema(lambda source, handler: ...)` for a one-off core schema. Records that parse from text and write back as text own their schema through `__get_pydantic_core_schema__(cls, source, handler)`. `json_or_python_schema` accepts text from JSON and an instance or text from Python, a pattern on its `str_schema` refuses text before `parsed` reads it, and `serialization=` writes each record back as text. `Version` orders by its parts:
 
 ```python
 class Version(msgspec.Struct, frozen=True, order=True):
@@ -48,7 +42,6 @@ JSON input `"1.x"` fails as `string_pattern_mismatch`, and the validation schema
 - `handler(source)` or `handler.generate_schema(inner)` delegates to the schema pydantic builds, a generic custom type reads its parameter there
 - `core_schema.no_info_after_validator_function`, `chain_schema`, `union_schema`, and `is_instance_schema` compose like `Annotated` modes
 - `SchemaValidator(core_schema.typed_dict_schema(...))` and `SchemaSerializer` validate and dump shapes no annotation spells
-- Ruff `PLW3201` reports both hooks until `lint.pylint.allow-dunder-method-names` lists them
 
 ## [03]-[STRUCT_FIELDS]
 

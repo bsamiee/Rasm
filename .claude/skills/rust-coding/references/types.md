@@ -1,10 +1,10 @@
 # [TYPES]
 
-Covers algebraic types, from state counting and constrained values to typestate, persistent snapshots, and arenas.
+Covers algebraic type design and constrained values.
 
 ## [01]-[STATE_COUNTING]
 
-Shipments hold the fields every shipment shares, a route enum holds what varies by path, and a booking holds one variant per valid state with exactly that state's data:
+Fields every parcel holds sit in one record, and each varying field composes `Option`, `Result`, and tuples until its count of values equals the domain's count of states:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
@@ -14,83 +14,62 @@ pub enum Zone {
     International,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Route {
-    Direct(Zone),
-    Relayed { inbound: Zone, outbound: Zone },
-}
-
 #[derive(Debug)]
-pub enum Booking {
-    Requested { since: Timestamp },
-    Settled(Result<Label, CarrierError>),
-}
-
-#[derive(Debug)]
-pub struct Shipment {
-    pub id: ShipmentId,
-    pub route: Route,
-    pub booking: Option<Booking>,
+pub struct Parcel {
+    pub id: ParcelUuid,
+    pub route: (Zone, Option<Zone>),
+    pub booking: Option<(Timestamp, Option<Result<Label, CarrierError>>)>,
 }
 
 #[must_use]
-pub fn charge(tariff: &EnumMap<Zone, Decimal>, route: Route) -> Option<Decimal> {
-    match route {
-        Route::Direct(zone) => Some(tariff[zone]),
-        Route::Relayed { inbound, outbound } => tariff[inbound].checked_add(tariff[outbound]),
-    }
-}
+pub fn charge(tariff: &EnumMap<Zone, Decimal>, (origin, relay): (Zone, Option<Zone>)) -> Option<Decimal> { relay.map_or(Some(tariff[origin]), |zone| tariff[origin].checked_add(tariff[zone])) }
 ```
 
-Unbooked shipments are `None`, and `Settled` holds a `Result`, so a consumer reaches a label through `?`, `map`, and `ok` with no variant pair restating success and failure. Enums exist for states no standard sum names, here a request holding its instant. `EnumMap` indexing has no absent case, `enum_map!` builds a tariff through a `match` that fails to compile when a zone is missing, and `EnumMap::from_fn` computes each entry from its key when entries follow a rule. Facts a variant determines (a charge, a transit time) are one function matching the enum, and other consumers pass `Route` onward. `Label` and `CarrierError` are placeholders.
+`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the exact count of a route enum with `Direct` and `Relayed` variants. `booking` counts an unbooked parcel, a request pending since its instant, and a request finished with a label or a carrier error, and a consumer reaches the label through `?`, `map`, and `ok`. An enum is declared for a fieldless key set like `Zone`, or where states hold the same type of data (`Delivered { at }` beside `Returned { at }`) that no composition of standard sums tells apart. `EnumMap` indexing has no absent case, and `EnumMap::from_fn` with a `match` over the key builds a tariff that fails to compile when a zone lacks an entry, or computes each entry from its key when entries follow a rule. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward. `Label` and `CarrierError` are placeholders.
 
 ## [02]-[CONSTRAINED_VALUES]
 
-`nutype` declares a rule on its type, and the generated `try_new` is the one path to a value:
+Rules beyond a literal integer range take `nutype`, and a literal range takes a `bounded_integer` alias:
 
 ```rust
-#[nutype(
-    validate(greater_or_equal = 1, less_or_equal = 10_000),
-    derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display, TryFrom, Serialize, Deserialize)
-)]
-pub struct Quantity(u32);
-
 #[nutype(
     sanitize(trim, lowercase),
     validate(not_empty, len_char_max = 254, predicate = |text: &str| text.contains('@')),
-    derive(Debug, Clone, PartialEq, Eq, Hash, Display, AsRef, Serialize, Deserialize)
+    derive(Debug, Clone, PartialEq, Eq, Hash, Display, AsRef, FromStr, Serialize, Deserialize)
 )]
 pub struct Email(String);
+
+pub type Rating = BoundedU8<1, 5>;
 ```
 
-`Quantity::try_new(count)` returns `Result<Quantity, QuantityError>` with one variant per violated validator, `into_inner` returns the `u32`, and derived `TryFrom` and `Deserialize` call `try_new` at a boundary. Sanitizers run before validators, so an `Email` holds trimmed lowercase text. Ranges with literal bounds take `bounded_integer` (`BoundedU16<1, 500>`, `new` returning `Option`, `const_new::<50>()` checked at compile time) and a nonzero count `NonZero<u32>`, each with no declaration.
+`Email::try_new(text)` trims and lowercases before validating, and returns an `EmailError` naming the violated validator (`NotEmptyViolated`, `LenCharMaxViolated`, `PredicateViolated`). Derived `FromStr` and `Deserialize` run the same path at a boundary, and `into_inner` returns the `String`. `Rating::new(stars)` returns `Option`, `Rating::const_new::<3>()` rejects an out-of-range constant at compile time, `Deserialize` rejects one on decode, and the `schemars1` feature writes both bounds into a derived schema.
 
-Identifiers name their entity through `TypedUuid<Kind>`, and one macro states the kind shape once for every entity:
+One `impl_typed_uuid_kinds!` row per entity states its identifier type:
 
 ```rust
-macro_rules! entities {
-    ($($name:ident),+ $(,)?) => {$(
-        #[derive(Debug)]
-        pub struct ${concat($name, Kind)};
-
-        impl TypedUuidKind for ${concat($name, Kind)} {
-            fn tag() -> TypedUuidTag { const { TypedUuidTag::new(stringify!($name)) } }
-        }
-
-        pub type ${concat($name, Id)} = TypedUuid<${concat($name, Kind)}>;
-    )+};
+impl_typed_uuid_kinds! {
+    kinds = {
+        Parcel = {},
+        Order = {},
+        Customer = {},
+    },
 }
-
-entities!(Shipment, Order, Customer);
 ```
 
-`${concat(..)}` under the `macro_metavar_expr_concat` gate derives `ShipmentKind` and `ShipmentId` from one name, `stringify!` derives the tag from the same name, and an inline `const` block rejects an invalid tag at compile time. `ShipmentId::new_v7(stamp)` creates a creation-ordered identifier from the `uuid::Timestamp` that `Timestamp::from_unix(&context, seconds, nanos)` builds from a caller's instant, the caller's `ContextV7` ordering identifiers created within one millisecond.
+Each row derives an uninhabited `ParcelKind`, its tag `parcel`, and the alias `ParcelUuid` for `TypedUuid<ParcelKind>`. `ParcelUuid::new_v7(stamp)` creates a creation-ordered identifier from the `uuid::Timestamp` that `Timestamp::from_unix(&context, seconds, nanos)` builds from a caller's instant, the caller's `ContextV7` ordering identifiers created within one millisecond.
 
 ## [03]-[TYPESTATE]
 
-Generic state parameters hold each state's data, and a transition consumes an order in one state and returns it in the next:
+Generic state parameters hold each state's data, marker impls declare the lifecycle's transitions, and one function moves an order along any of them:
 
 ```rust
+#[derive(Debug, Clone)]
+pub struct Order<S> {
+    pub id: OrderUuid,
+    pub lines: NEVec<Line>,
+    pub state: S,
+}
+
 #[derive(Debug, Clone)]
 pub struct Draft;
 
@@ -105,36 +84,38 @@ pub struct Paid {
     pub reference: PaymentReference,
 }
 
-#[derive(Debug, Clone)]
-pub struct Order<S> {
-    pub id: OrderId,
-    pub lines: NEVec<Line>,
-    pub state: S,
+pub trait Precedes<T> {}
+
+impl Precedes<Placed> for Draft {}
+impl Precedes<Paid> for Placed {}
+
+#[must_use]
+pub fn advance<S, T>(order: Order<S>, state: T) -> Order<T>
+where S: Precedes<T> {
+    Order { state, ..order }
 }
-
-#[must_use]
-pub fn place(order: Order<Draft>, at: Timestamp) -> Order<Placed> { Order { state: Placed { at }, ..order } }
-
-#[must_use]
-pub fn pay(order: Order<Placed>, at: Timestamp, reference: PaymentReference) -> Order<Paid> { Order { state: Paid { at, reference }, ..order } }
 ```
 
-`pay` accepts only a placed order, and a paid order has no `place`. `..order` copies every unchanged field while `S` changes, under the `type_changing_struct_update` gate. Stored or inspected orders are an enum over the state types (`enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }`) that a load matches once. States holding no data sit in a `PhantomData<S>` field, and `#[derive_where(Debug, Clone)]` derives each trait without bounding `S`. `Line` and `PaymentReference` are placeholders.
+`advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule keeps other crates from adding a transition between these states. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once. `Line` and `PaymentReference` are placeholders.
 
 ## [04]-[SNAPSHOTS]
 
-Versions many readers keep sit in `imbl` collections, each transition (`update`, `alter`, `without`) returns a successor sharing every node off its changed path, and a consumer reacting to change diffs successive versions of an `OrdMap`:
+Each `imbl` transition (`update`, `alter`, `without`) returns a successor sharing every node off its changed path, and a consumer reacting to change diffs successive versions:
 
 ```rust
-pub fn changes(before: &OrdMap<CustomerId, Decimal>, after: &OrdMap<CustomerId, Decimal>) -> impl Iterator<Item = (CustomerId, Option<Decimal>)> {
+pub fn changes<'map, K, V>(before: &'map OrdMap<K, V>, after: &'map OrdMap<K, V>) -> impl Iterator<Item = (&'map K, Option<&'map V>)>
+where
+    K: Ord,
+    V: PartialEq,
+{
     before.diff(after).map(|change| match change {
-        DiffItem::Add(customer, balance) | DiffItem::Update { old: _, new: (customer, balance) } => (*customer, Some(*balance)),
-        DiffItem::Remove(customer, _) => (*customer, None),
+        DiffItem::Add(key, value) | DiffItem::Update { new: (key, value), .. } => (key, Some(value)),
+        DiffItem::Remove(key, _) => (key, None),
     })
 }
 ```
 
-`diff` skips each subtree the versions share, so a successor compared against its predecessor reads its changed paths alone, and a removed customer reports `None`. `alter` reads a key's present value and returns the successor in one call, its `None` removing the key. A `Vector` of versions holds an undo history at the cost of changed paths. Each access costs a logarithmic factor over `std` collections, a fit for a state broadcast to tasks or compared across versions.
+`diff` skips nodes both versions share and reads changed paths alone. Removed keys report `None`. `alter` reads a key's present value and returns the successor in one call, its `None` removing the key. A `Vector` of versions holds an undo history at the cost of changed paths. Each access costs a logarithmic factor over `std` collections.
 
 ## [05]-[ARENAS]
 
@@ -146,9 +127,9 @@ new_key_type! {
 }
 
 #[must_use]
-pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Lane> {
-    DiGraphMap::from_edges(hubs.iter().flat_map(|(from, hub)| hub.lanes.iter().filter_map(move |(to, lane)| hubs.contains_key(*to).then_some((from, *to, lane)))))
+pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Link> {
+    DiGraphMap::from_edges(hubs.iter().flat_map(|(from, hub)| hub.links.iter().filter_map(move |(to, link)| hubs.contains_key(*to).then_some((from, *to, link)))))
 }
 ```
 
-`SlotMap` issues a generational key per hub, so a key held past its hub's removal reads `None` from `get` and fails `contains_key`, and the graph leaves out each lane to a removed hub. Edges borrow each `Lane` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks the hubs reachable from `origin`, and `toposort(&graph, None)` orders the linked hubs or returns the `Cycle` naming one on it. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`. `Hub` holds its outgoing `lanes` as `(HubKey, Lane)` pairs, and `Lane` is a placeholder.
+`SlotMap` issues a generational key per hub. A key held past its hub's removal reads `None` from `get` and fails `contains_key`, and the graph leaves out each link to a removed hub. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks the hubs reachable from `origin`, and `toposort(&graph, None)` orders the linked hubs or returns the `Cycle` naming one on it. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`. `Hub` holds its outgoing `links` as `(HubKey, Link)` pairs, and `Link` is a placeholder.

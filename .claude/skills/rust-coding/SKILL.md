@@ -5,17 +5,17 @@ description: "Use when writing or reviewing Rust, covering functional design wit
 
 # [RUST_CODING]
 
-Covers Rust design decisions on the workspace nightly, from signature shape to host boundary. `thiserror`, `validated`, `nonempty-collections`, `nutype`, `derive_more`, `strum`, `enum-map`, `itertools`, `tokio`, `tokio-util`, `futures`, `serde`, `jiff`, and `tracing` are part of the language, every example uses their types as vocabulary.
+Covers Rust design decisions. `thiserror`, `sysexits`, `validated`, `nonempty-collections`, `nutype`, `derive_more`, `strum`, `enum-map`, `itertools`, `tokio`, `tokio-util`, `futures`, `serde`, `jiff`, and `tracing` are part of the language, and every example uses their types.
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Worked flows for closures as values, from combinators and rule tables to the composition root
-- [02]-[TYPES](references/types.md): Worked flows for algebraic types, from state counting and constrained values to typestate
-- [03]-[RESULTS](references/results.md): Worked flows for `Option` and `Result` pipelines, accumulated validation, and the crate error
-- [04]-[TRAITS](references/traits.md): Capability traits, associated types, dispatch selection, and conversions between types
-- [05]-[ITERATORS](references/iterators.md): Lazy pipelines, fallible folds, grouping, generator blocks, and data parallelism
-- [06]-[ASYNC](references/async.md): Effects at the boundary, from task scopes and cancellation to streams and shared state
-- [07]-[BOUNDARIES](references/boundaries.md): Wire decode into domain types, encode back out, and translation at the host
-- [08]-[LANGUAGE_FEATURES](references/language-features.md): Nightly features that reshape declarations, with when each applies
+- [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
+- [02]-[TYPES](references/types.md): Algebraic type design and constrained values
+- [03]-[RESULTS](references/results.md): `Option`, `Result`, and `Validated` pipelines over the crate error
+- [04]-[TRAITS](references/traits.md): Capability traits, trait objects, and conversions
+- [05]-[ITERATORS](references/iterators.md): Iterator pipelines, generator blocks, and data parallelism
+- [06]-[ASYNC](references/async.md): Async effects, task scopes, streams, and shared state
+- [07]-[BOUNDARIES](references/boundaries.md): Wire decode, encode, configuration, and the host entry point
+- [08]-[LANGUAGE_FEATURES](references/language-features.md): Nightly features that replace a hand-written form
 
 ## [01]-[FUNCTIONS]
 
@@ -30,7 +30,6 @@ Function signatures are contracts, parameter types state every value a function 
 |  [05]   | Return a function      | `fn(Policy) -> impl Fn(&Order) -> Decision`                          |
 |  [06]   | Perform an effect      | `async fn(&impl Store, Order) -> Result<(), E>`                      |
 
-- Closure parameters take the least demanding trait their body calls: `FnOnce` for one call, `FnMut` for repeated calls, `Fn` for shared calls
 - Async callbacks take `impl AsyncFn(A) -> B`, an async closure (`async |order| ...`) supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
@@ -43,12 +42,12 @@ Function signatures are contracts, parameter types state every value a function 
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
 - Helpers one function reads nest inside it, a module-level function has more than one caller
 
-### [01.1]-[HONEST_SIGNATURES]
+### [01.1]-[TOTAL_FUNCTIONS]
 
-Functions honor their signature when each declared input produces a declared output. A panic is an outcome the signature omits, and indexing, `unwrap`, integer overflow, and division by zero are panics. Correct a dishonest contract by narrowing the input to a constructed type or widening the output:
+Functions are total when each declared input produces a declared output. A panic is an outcome the signature omits, and indexing, `unwrap`, integer overflow, and division by zero panic. Make a partial function total by narrowing the input to a constructed type or widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - `fn parse(&str) -> u16` hides failed parses, `fn parse(&str) -> Result<u16, ParseIntError>` states every outcome
-- `slice.get(index)` returns `Option<&T>`, `checked_*` arithmetic returns `Option<T>`, `strict_*` arithmetic states that overflow is a defect
+- `slice.get(index)` returns `Option<&T>` in place of indexing
 - Absence is `None`, and every value of the inner type keeps its meaning
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
 - Outputs borrow from inputs when they are views (`fn lines(&self) -> &[Line]`), and own their data when the function builds it
@@ -62,18 +61,11 @@ Functions are pure when their result depends only on their arguments and evaluat
 pub fn expired(token: &Token, now: Timestamp, leeway: SignedDuration) -> bool { now.duration_since(token.expires) > leeway }
 ```
 
-Pure functions take no `async`, no `&mut` parameter, and no capability trait, and a public pure function carries `#[must_use]` since discarding its result discards its only effect. `Timestamp::now()`, `Zoned::now()`, and seeded generators appear at the composition root, which passes their values inward.
+Pure functions take no `async`, no `&mut` parameter, and no capability trait, and a public pure function takes `#[must_use]`. `Timestamp::now()`, `Zoned::now()`, and seeded generators appear at the composition root, which passes their values inward.
 
 ### [01.3]-[HIGHER_ORDER_FUNCTIONS]
 
-Higher-order functions accept a function, return one, or both. A higher-order function owns the stable control flow and its caller supplies the varying rule: `Iterator::filter` owns iteration and its caller owns inclusion, `Option::unwrap_or_else` owns absence and its caller owns the fallback. A factory turns configuration into behavior, and its returned closure captures the configuration by move:
-
-```rust
-#[must_use]
-pub fn within(window: Range<Timestamp>) -> impl Fn(&Reading) -> bool { move |reading| window.contains(&reading.at) }
-```
-
-Order parameters for left-to-right application: dependencies and configuration known at the composition root, then a policy selecting behavior, then the runtime value. Dependencies are capability traits or closures: a clock reading is a `Timestamp`, a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`. A composition root passes each consumer only the capabilities it calls.
+Higher-order functions own the stable control flow and their caller supplies the varying rule: `Iterator::filter` owns iteration and its caller owns inclusion, `Option::unwrap_or_else` owns absence and its caller owns the fallback. Order parameters for left-to-right application: dependencies and configuration known at the composition root, then a policy selecting behavior, then the runtime value. Dependencies are capability traits or closures: a validator `Fn(T) -> Result<T, E>`, a lookup `AsyncFn(OrderId) -> Result<Option<Order>, E>`.
 
 Select the form by the call site:
 - Closure parameter when one operation varies per call
@@ -98,7 +90,6 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - `fold` with a seed holds any other reduction, `try_fold` a dependent reduction that stops at its first failure
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, an arm nests no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
-- `bool::then` and `bool::then_some` produce an `Option` from a condition
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call
 
 ### [02.1]-[PATTERN_MATCHING]
@@ -118,11 +109,10 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 ```
 
 - Matches over a workspace enum list every variant, a new variant then fails each match that must handle it
-- Wildcard arms stay for a foreign `#[non_exhaustive]` enum and for open ranges of a primitive
+- Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
 - Slice patterns (`[first, .., last]`, `[]`) recognize sequence shape, `@` binds a value a nested pattern tests
-- `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `String`, `Box`, and `Vec` directly
-- `matches!` produces a `bool` from one pattern, a `match` produces every other value
+- `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
 
 ### [02.2]-[RECURSION]
@@ -132,7 +122,7 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 | [INDEX] | [APPROACH]                    | [USE_WHEN]                                          | [COST]                         |
 | :-----: | :---------------------------- | :-------------------------------------------------- | :----------------------------- |
 |  [01]   | Direct recursion              | Depth bounded by a small known value or tree height | Each level holds a stack frame |
-|  [02]   | `iter::successors`            | Unbounded depth, intermediate states are meaningful | One state lives per step       |
+|  [02]   | `iter::successors`            | Unbounded depth, intermediate states are meaningful | Holds one state per step       |
 |  [03]   | `try_fold` over a state range | Unbounded depth, only the final state or failure    | Intermediate states are lost   |
 |  [04]   | Arena with typed keys         | Shared or cyclic successors                         | Graph built before the walk    |
 
@@ -140,7 +130,7 @@ Recursive enums box their recursive fields, and a fold over them takes one funct
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting the values a type has exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. A declared type is rare: std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts, a tuple or closure holds an intermediate value no consumer names, and a public alias names one generic instantiation (`TypedUuid<OrderKind>`).
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting the values a type has exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts, a tuple or closure holds an intermediate value no consumer names, and a public alias names one generic instantiation (`TypedUuid<OrderKind>`).
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 
@@ -159,7 +149,6 @@ pub enum Delivery {
 - Data shared by every variant sits in a struct beside a field holding the enum
 - Variants differing only by a tag are one struct keyed by a fieldless enum, `EnumMap<Kind, V>` holds one value per variant
 - Flags with fields meaningful for one flag value become one variant per valid state
-- Variants are alternatives with their own data, a variant never embeds a sibling
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
 
@@ -169,10 +158,10 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum
 - `derive_more` derives `From`, `Into`, `AsRef`, and `Display` on a newtype with no invariant
 - `NonZero<T>` holds a nonzero integer, `bounded_integer` a range of integers, `NotNan<f64>` an ordered float key
-- `TypedUuid<Kind>` names the entity an identifier refers to, distinct entities never share an identifier type
+- `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
-- `uom` quantities hold physical values whose dimensions the compiler checks
-- Records with a rule across fields keep them private behind one constructor returning the crate error
+- `uom` quantities hold physical values with dimensions the compiler checks
+- Rules across fields take `nutype` over a standard type of that shape (`Range<Timestamp>`), else over a declared record
 - Public fields hold values no rule constrains
 
 ### [03.3]-[OWNERSHIP]
@@ -187,10 +176,8 @@ Ownership states who decides a value's lifetime, and the parameter mode states w
 |  [04]   | Share across tasks for reading        | `Arc<T>`, `Arc<str>`, `Arc<[T]>` |
 |  [05]   | Return owned or borrowed by input     | `Cow<'_, T>` result              |
 
-- Functions take the borrowed form of an owned type (`&str` over `&String`, `&[T]` over `&Vec<T>`)
 - Functions storing an argument take it by value, the caller decides whether to clone
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
-- `Rc` holds sharing inside one thread, `Arc` across threads, `Arc::clone(&handle)` names the shared copy
 - Interior mutability belongs to boundary types that own shared state, domain types hold none
 
 ### [03.4]-[IMMUTABILITY]
@@ -199,13 +186,13 @@ Values are fixed once built, and a state transition consumes the old state and r
 
 ```rust
 impl Account {
-    pub fn deposit(self, amount: Cents) -> Result<Self, LedgerError> {
-        let balance: Cents = self.balance.checked_add(amount).ok_or(LedgerError::Refused { account: self.id, reason: Refusal::Overflow })?;
-        Ok(Self { balance, ..self })
+    pub fn post(self, amount: Decimal) -> Result<Self, LedgerError> {
+        self.balance.checked_add(amount).ok_or(LedgerError::Refused { account: self.id, reason: Refusal::Overflow }).map(|balance| Self { balance, ..self })
     }
 }
 ```
 
+- `Account` holds an `id` and a `balance`, and one signed `amount` states a credit and a debit alike
 - Bindings stay immutable, `mut` stays on a local that a function builds and returns
 - Struct update syntax (`..self`) copies the unchanged fields of the replaced state, a changed type parameter included
 - `&mut self` methods stay on a type whose purpose is an owned buffer (a builder, a parser cursor)
@@ -215,7 +202,7 @@ Select collections by their most frequent operation:
 | [INDEX] | [OPERATION]                          | [COLLECTION]                     |
 | :-----: | :----------------------------------- | :------------------------------- |
 |  [01]   | Ordered reads of an owned sequence   | `Vec<T>`, `Box<[T]>` once frozen |
-|  [02]   | Snapshots shared or versioned        | `imbl::Vector`, `imbl::HashMap`  |
+|  [02]   | Snapshots shared or versioned        | `imbl::Vector`, `imbl::OrdMap`   |
 |  [03]   | Keyed lookups with output order read | `IndexMap`, `IndexSet`           |
 |  [04]   | Keyed lookups in key order           | `BTreeMap`, `BTreeSet`           |
 |  [05]   | Keyed lookups with no order read     | `HashMap`, `HashSet`             |
@@ -225,7 +212,7 @@ Select collections by their most frequent operation:
 
 ### [03.5]-[TYPESTATE]
 
-States with different operations are different types, and an operation invalid in a state does not exist on it. Typestate fits a lifecycle a single owner drives through fixed steps, an enum fits a state a consumer inspects or stores.
+States with different operations are different types, each holding only the operations valid in its state. Typestate fits a lifecycle a single owner drives through fixed steps, an enum fits a state a consumer inspects or stores.
 
 ## [04]-[RESULTS]
 
@@ -233,7 +220,7 @@ Every fallible function returns its outcome as a value, and one type serves one 
 
 | [INDEX] | [TYPE]                             | [CONCERN]                                          |
 | :-----: | :--------------------------------- | :------------------------------------------------- |
-|  [01]   | `Option<T>`                        | Absence that carries no reason                     |
+|  [01]   | `Option<T>`                        | Absence that holds no reason                       |
 |  [02]   | `Result<T, E>`                     | Expected failure, `?` stops at the first           |
 |  [03]   | `Validated<T, E>`                  | Independent checks, every failure in an `NEVec<E>` |
 |  [04]   | `ControlFlow<B, C>`                | Early exit from a fold with a value, not a failure |
@@ -256,23 +243,32 @@ Give each step a function and select the operator by the step's signature and by
 |  [07]   | Items, failures kept apart     | `partition_result`                     | Splits successes from failures  |
 |  [08]   | `Option<Result<T, E>>`         | `transpose`                            | Swaps nesting for `?`           |
 
-- Independent steps join through `Validated` first, and `.ok()?` binds the joined result
-- One `impl From<E> for NEVec<E>` per crate error lets `?` lift a dependent step into an accumulating function
-- `try` blocks scope `?` to a block whose value is a `Result`, a helper function exists only for a name
+Each dependent chain binds through `?`, and independent chains join through `Validated`:
+
+```rust
+#[must_use]
+pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: AccountId, to: AccountId, amount: Decimal) -> Validated<[Account; 2], LedgerError> {
+    let posted = |account: AccountId, change: Decimal| accounts.get(&account).cloned().ok_or(LedgerError::Refused { account, reason: Refusal::Missing })?.post(change);
+    Validated::from(posted(from, -amount)).map2(Validated::from(posted(to, amount)), |source, target| [source, target])
+}
+```
+
+- Failures of independent chains all reach the caller: a missing source beside an overflowing target
+- `try` blocks scope `?` to a block of `Option` or `Result`, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and a panic is a defect: a violated invariant the types could not express. Each crate declares one error enum named for the crate with one variant per source, a domain refusal or each foreign error type, holding the typed subject a reader needs. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names:
+Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for the crate with one variant per source, a domain refusal or each foreign error type, holding the typed subject a reader needs. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
 #[display(rename_all = "lowercase")]
 pub enum Refusal {
+    Missing,
     Overflow,
     Frozen,
-    Closed,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -285,15 +281,29 @@ pub enum LedgerError {
 ```
 
 - Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
-- Fields named `source` hold the foreign error a variant wraps, `#[from]` stays for a foreign error mapping to one variant with no subject
+- Fields named `source` hold the foreign error a variant wraps
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, forwarding their own message
 - Boundaries add the subject a foreign error lacks (the path, the key) by `map_err` into a variant holding both, an `io::Error` included
 - Consumers branch on variants, message text is for people
-- Generated `nutype` errors convert into the crate error through `#[from]` on its own variant
-- Findings a check collects into a report without failing are an enum, one variant per finding kind rendering its message
 
 ### [04.3]-[EXIT]
 
-Hosts run the composed effect once and translate its result into the host's vocabulary: `main` returns `ExitCode`, a request handler returns a response, and each matches the crate error's variants. The host logs each failure that reaches its translation as `Report::new(&error)`, inner layers return their result unlogged.
+Hosts run the composed effect once and translate its result into an exit status. The crate error states each translation once as a conversion into `sysexits::ExitCode`, a generic host bounds its error `Into<ExitCode>`, and a host holding several failures returns the first one's status:
+
+```rust
+impl From<LedgerError> for ExitCode {
+    fn from(value: LedgerError) -> Self {
+        match value {
+            LedgerError::Refused { account: _, reason: Refusal::Missing } => Self::NoInput,
+            LedgerError::Refused { account: _, reason: Refusal::Overflow } => Self::DataErr,
+            LedgerError::Refused { account: _, reason: Refusal::Frozen } => Self::NoPerm,
+            LedgerError::Store { account: _, source: _ } => Self::IoErr,
+        }
+    }
+}
+```
+
+A variant wrapping an `io::Error` converts its source, the status following the error's kind. Hosts log each failure that reaches their translation as `Report::new(&error)`, inner layers return their result unlogged.
 
 ## [05]-[TRAITS]
 
@@ -317,33 +327,43 @@ Traits state a capability a consumer needs. An associated type states an output 
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl
 - Parameters take the target type, callers convert with `.into()` at the call site
 
+Bounds state what a generic body reads, and `Borrow` in an associated type bound accepts owned and borrowed elements through one signature:
+
+```rust
+#[must_use]
+pub fn peak<I>(readings: I) -> Option<Celsius>
+where I: IntoIterator<Item: Borrow<Reading>> {
+    readings.into_iter().map(|reading| reading.borrow().celsius).max()
+}
+```
+
+`peak(&readings)` reads a borrowed `Vec`, `peak(readings)` consumes it, and `peak(iter::once(reading))` reads one value.
+
 ### [05.1]-[DERIVES]
 
 Implementations a derive generates are derived, and a hand-written `impl` states only behavior no derive covers:
 
-| [INDEX] | [CAPABILITY]                            | [DERIVE]                                                 |
-| :-----: | :-------------------------------------- | :------------------------------------------------------- |
-|  [01]   | Error message and source chain          | `thiserror::Error`                                       |
-|  [02]   | Text name and parse of a fieldless enum | `derive_more` `Display` and `FromStr` with `rename_all`  |
-|  [03]   | Variant list, count, and discriminants  | `strum` `VariantArray`, `EnumCount`, `EnumDiscriminants` |
-|  [04]   | One value per variant                   | `enum_map::Enum`                                         |
-|  [05]   | Checked newtype and its error           | `nutype`                                                 |
-|  [06]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                    |
-|  [07]   | Traits on a phantom-typed generic       | `derive_where`                                           |
-|  [08]   | Wire encode and decode                  | `serde`, field codecs through `serde_with`               |
-|  [09]   | Field mapping between domain and wire   | `o2o`                                                    |
+| [INDEX] | [CAPABILITY]                            | [DERIVE]                                                             |
+| :-----: | :-------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | Error message and source chain          | `thiserror::Error`                                                   |
+|  [02]   | Text name and parse of a fieldless enum | `derive_more` `Display` and `FromStr` with `rename_all`              |
+|  [03]   | Variant list, count, and discriminants  | `strum` `VariantArray`, `EnumCount`, `EnumDiscriminants`, `FromRepr` |
+|  [04]   | One value per variant                   | `enum_map::Enum`                                                     |
+|  [05]   | Checked newtype and its error           | `nutype`                                                             |
+|  [06]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                |
+|  [07]   | Traits on a `PhantomData` generic       | `derive_where`                                                       |
+|  [08]   | Wire encode and decode                  | `serde`, field codecs through `serde_with`                           |
+|  [09]   | Field mapping between domain and wire   | `o2o`                                                                |
 
 ## [06]-[EFFECTS]
 
 Pure functions hold the domain, async functions hold I/O, and the binary's `main` starts the runtime and runs the composed effect once:
 - Libraries return futures and streams, start no runtime, and every task they spawn has an owner that joins it
-- Tasks spawn inside a scope that awaits them: `JoinSet`, `TaskTracker`, `AbortOnDropHandle`, or a bounded `buffer_unordered`
+- Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, `timeout` bounds one future
-- Blocking or CPU-bound work runs on `spawn_blocking` or a `rayon` pool, a runtime worker runs futures alone
-- Receivers, intervals, and listeners become streams through `tokio_stream::wrappers`, combinators replace a `while let` over `recv`
-- Futures many consumers await are one `.shared()` future
+- Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, a commit is a step after the work
-- Operations at a boundary open a span with `#[instrument]`, events carry typed fields, an error field records `Report::new(&error)`
+- Operations at a boundary open a span with `#[instrument]`, and events record typed fields
 
 Dependency structure and concurrency bound select the combinator:
 
@@ -353,6 +373,17 @@ Dependency structure and concurrency bound select the combinator:
 |  [02]   | Collection of independent effects | `buffer_unordered(n)`, collected to `Validated` | At most `n` at once, joins every failure    |
 |  [03]   | Ordered results                   | `buffered(n)`                                   | At most `n` at once, results in input order |
 |  [04]   | Dependent effects                 | `.await?` in sequence                           | Serial, stops at the first failure          |
+
+Independent I/O over a collection runs concurrently on the current task through a stream, under a bound the caller passes:
+
+```rust
+pub async fn fetch_all<S>(source: &S, limit: NonZero<usize>, ids: impl IntoIterator<Item = ItemId>) -> Result<Vec<Item>, NEVec<SourceError>>
+where S: Source {
+    stream::iter(ids).map(|id| source.fetch(id)).buffered(limit.get()).collect::<Vec<_>>().await.into_iter().collect::<Validated<Vec<_>, _>>().ok()
+}
+```
+
+`buffered(0)` polls no fetch, and the bound takes `NonZero`. Every fetch runs to its outcome, and `Validated` keeps each failure for the caller. Concurrency on one task needs no `Send`, no `Arc`, and no `'static` capture, and fits I/O that waits more than it computes.
 
 Shared state takes the construct its access pattern states, and values that change together sit in one construct that owns both the value and its notification:
 
@@ -373,7 +404,6 @@ Failure policies are distinct operations the application composes around a libra
 Numeric facts come from the type or package that states them:
 - Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect, `saturating_*` where clamping rules
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
-- Literals take their type from their use or a suffix (`1_u32`)
 - Tolerances are values a caller passes, and floats compare within them
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`

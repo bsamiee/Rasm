@@ -1,37 +1,35 @@
 # [GENERICS]
 
-Covers code generic over the types it serves, from constraints and opaque returns to derived conformances, packs, and macros.
+Code generic over the types it serves, from constraints and opaque returns to derived conformances, packs, value generics, and macros.
 
 ## [01]-[CONSTRAINTS]
 
-Constraints name the narrowest protocol a body calls, a standard protocol before a declared one. Named generic parameters state a type or `let` length shared across positions, an element type relating values to a result or a length making `[N of T]` arguments of different lengths a compile error. An `any P<A>` argument opens to its concrete type at a `some P<A>` parameter, so one function serves a single value and a stored existential:
+Constraints name the narrowest protocol a body calls, a standard protocol before a declared one. An `any P<A>` argument opens to its concrete type at a `some P<A>` parameter, and one function serves a single value and a stored existential:
 
 ```swift
-func percentile<Element: Comparable>(_ values: some Collection<Element>, at fraction: Double = 0.5) -> Element? {
-    values.sorted().dropFirst(Int(Double(values.count) * fraction)).first
+func median<Element: Comparable>(_ values: some Collection<Element>) -> Element? {
+    values.sorted().dropFirst(values.count / 2).first
 }
 
 let sources: [any Collection<Decimal>] = [prices, fees.values]
-let medians: [Decimal?] = sources.map { source in percentile(source) }
+let medians: [Decimal?] = sources.map { source in median(source) }
 ```
 
-`prices` is a `[Decimal]` and `fees` a `[String: Decimal]`. `percentile` counts before a second pass and takes `Collection` where one pass takes `Sequence`. Members of `any P<A>` with types reading only constrained associated types (`first`, `count`) run on the existential directly.
+`prices` is a `[Decimal]` and `fees` a `[String: Decimal]`. `median` counts before a second pass and takes `Collection` where one pass takes `Sequence`. Members of `any P<A>` with types reading only constrained associated types (`first`, `count`) run on the existential directly.
 
 ## [02]-[OPAQUE_RETURNS]
 
-Opaque returns hide a concrete type from callers while the compiler keeps it, so a lazy chain returns as `some Collection<Element>` with no box per element access. Every return path yields one concrete type, so a choice between chains becomes a parameter of one chain:
+Lazy chains over a `some` parameter have a type no signature names and return as `some Collection<Element>` with no box per element access. Every return path yields one concrete type, and a choice between chains becomes a parameter of one chain:
 
 ```swift
-func pending(_ orders: some Collection<Order>, before cutoff: Date = .distantFuture) -> some Collection<Order.ID> {
-    orders.lazy.filter { order in order.placed < cutoff }.map(\.id)
+func overdrawn(_ accounts: some Collection<Account>, below limit: Decimal = 0) -> some Collection<Account.ID> {
+    accounts.lazy.filter { account in account.balance < limit }.map(\.id)
 }
 ```
 
-`Order` is `Identifiable` with a `placed` date, and the default cutoff keeps every order. Lazy results recompute on each pass, a caller reading one twice takes `Array(_:)` once.
-
 ## [03]-[DERIVED_CONFORMANCES]
 
-Requirements state what a conformer supplies, and a constrained extension derives every other operation once. Requirements dispatch through the conformance and extension members bind statically, so an operation a conformer replaces is a requirement with its default in an extension. Conformance to a standard protocol (`Collection`, `AsyncSequence`) derives every standard algorithm, and a conditional conformance derives a container's capability from its elements:
+Requirements dispatch through the conformance and other extension members bind statically, and an operation a conformer replaces is a requirement with its default in an extension. A conditional conformance derives a container's capability from its elements:
 
 ```swift
 protocol Costed<Cost> {
@@ -49,29 +47,40 @@ extension Optional: Costed where Wrapped: Costed {
 }
 ```
 
-`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. `.zero` comes from `AdditiveArithmetic`, so an empty array and an absent value cost nothing in every cost type. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members.
+`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. `.zero` from `AdditiveArithmetic` prices an empty array and an absent value at nothing in every cost type. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. A `@MainActor` type whose conformance generic code reads off the main actor (a `@concurrent` function, a task) states it `nonisolated` (`final class Draft: nonisolated Decodable`), its witnesses initializing the type or reading a struct's stored properties.
 
 ## [04]-[PARAMETER_PACKS]
 
-Parameter packs state a list of types of any length with each element's type kept, so one declaration serves every arity. Key paths as pack arguments project rows into typed tuples, each column type inferred from its key path:
+Parameter packs state a list of types of any length with each element's type kept, and one declaration serves every arity. Key paths as pack arguments project rows into typed tuples, each column type inferred from its key path:
 
 ```swift
 func projected<Row, each Value>(_ rows: [Row], _ fields: repeat KeyPath<Row, each Value>) -> [(repeat each Value)] {
     rows.map { row in (repeat row[keyPath: each fields]) }
 }
 
-let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity, \.price)
+let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity.rawValue, \.unitPrice)
 ```
 
-`lines` is a `[Line]` with `sku`, `quantity`, and `price`. `repeat` expands its pattern once per pack element inside a tuple, an argument list, or a generic argument list. Packs expanded in one pattern (`repeat (each Key, each Value)`) share a length, and the compiler rejects a call with packs of different lengths.
+`lines` is a `[Line]`.
 
-## [05]-[MACROS]
+## [05]-[VALUE_GENERICS]
 
-Macros derive members from a declaration's own syntax, so a declaration states each case or stored property once. `@CasePathable` gives each case a `Hashable` key path, and a table keyed by case takes its keys from the enum:
+Integer generic parameters state a length shared across positions: the compiler infers `N` from the argument types, rejects arguments of different lengths, and `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
 
 ```swift
-let counts: [PartialCaseKeyPath<Delivery>: Int] = Dictionary(grouping: deliveries, by: \.case).mapValues(\.count)
-let report: [(path: PartialCaseKeyPath<Delivery>, count: Int)] = Delivery.allCasePaths.map { path in (path, counts[path, default: 0]) }
+func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction: Double = 0.5) -> [N of Double] {
+    InlineArray { index in from[index] + (to[index] - from[index]) * fraction }
+}
 ```
 
-`deliveries` is a `[Delivery]` of a `@CasePathable` enum. `case` returns a value's case key path and `allCasePaths` lists every case in declaration order, so a new case enters the report with no edit.
+`N` reads as an `Int` value in the body, and `init(first:next:)` unfolds each element from its predecessor (`InlineArray(first: 1) { previous in previous * 2 }`).
+
+## [06]-[MACROS]
+
+`@CasePathable` gives each case a `Hashable` key path, `allCasePaths` lists them in declaration order, and a report over every case takes its rows from the enum:
+
+```swift
+let report: [(path: PartialCaseKeyPath<Delivery>, count: Int)] = Delivery.allCasePaths.map { path in (path, deliveries.count { delivery in delivery.is(path) }) }
+```
+
+`deliveries` is a `[Delivery]` of a `@CasePathable` enum, and a new case enters the report with no edit. `case` returns a value's key path, the key of a table or a grouping by case.

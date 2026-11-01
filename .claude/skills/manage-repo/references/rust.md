@@ -118,5 +118,5 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Module files take `foo.rs` beside `foo/`, a `foo/mod.rs` beside `foo.rs` fails the build
 - Modules beside `Cargo.toml` take no `build`, `tests`, `examples`, or `benches` name, Cargo builds or discovers each as a target
 - Types parallel to a dependency's family take its word order, a router beside `<Kind>Router` is `<Kind>Router`, a conversion `Into<Target>`
-- Public items sit in public modules reached by path, `pub_use` fails a re-export
+- Public items sit in public modules reached by path, ast-grep `no-public-reexport` fails a written re-export
 - Crate roots close with their `mod` lines under `[COMPOSITION]`

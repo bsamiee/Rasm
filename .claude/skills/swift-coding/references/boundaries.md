@@ -1,10 +1,10 @@
 # [BOUNDARIES]
 
-Covers values crossing a module's edge, from decoding external data to file metadata, child processes, command lines, and logs.
+Values crossing a module boundary, from decoding external data to file metadata, child processes, command lines, and logs.
 
 ## [01]-[DECODING]
 
-Constraints sit on a field's type, and one failable `init?(rawValue:)` serves decoding, memberwise construction, and argument parsing:
+`Line` holds its quantity rule in a `Bounded` field type:
 
 ```swift
 struct Bounded<let low: Int, let high: Int>: RawRepresentable, Codable, Sendable {
@@ -23,12 +23,10 @@ struct Line: Codable, Sendable {
 }
 ```
 
-- Integer generic parameters state a range in the field declaration, one type serves every bounded integer field
-- `RawRepresentable` over `Int` supplies `init(from:)` and `encode(to:)`, and a `nil` raw value throws `DecodingError.dataCorrupted`
-- Synthesized coders read `quantity` through `Bounded` under the property name, and each decoding error holds the field's coding path
+- `RawRepresentable` over `Int` supplies `init(from:)` and `encode(to:)`, and a `nil` raw value throws `DecodingError.dataCorrupted` at the field's coding path
 - Key strategies (`.convertFromSnakeCase`) derive wire spellings, `CodingKeys` hold a key no strategy derives in converted spelling (`unitPrice`)
 
-Synthesized `Codable` for an enum with payloads nests fields under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` that reads the discriminator and decodes the payload from the same decoder:
+Synthesized `Codable` for an enum with associated values nests fields under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` that reads the discriminator and decodes associated values from the same decoder:
 
 ```swift
 @CasePathable
@@ -56,27 +54,26 @@ enum Event: Decodable, Sendable {
 }
 ```
 
-- `Line(from: decoder)` reads payload fields beside `kind`, and the hand coder reads the discriminator alone
+- `Line(from: decoder)` reads `Line` fields beside `kind`, and the hand coder reads the discriminator alone
 - `unknown(kind:)` keeps a case a newer producer sends as data, and every switch over `Event` handles it
 
 ## [02]-[PATHS]
 
-Names from outside join a root through `lexicallyResolving(_:)`, and `stat()` reads a host metadata record whole:
+Names from outside resolve beneath a root directory's descriptor, and `stat` reads a host metadata record whole:
 
 ```swift
-func attachment(_ name: FilePath, under root: FilePath) throws(OrderError) -> Stat {
-    guard let path: FilePath = root.lexicallyResolving(name) else { throw OrderError(subject: name.string, reason: .outOfRange) }
-    do { return try path.stat() } catch { throw OrderError(subject: path.string, reason: .unreadable(error)) }
+func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError) -> Stat {
+    do { return try name.stat(relativeTo: root, flags: .resolveBeneath) } catch { throw OrderError(subject: name.string, reason: .unreadable(error)) }
 }
 ```
 
-- `OrderError` is the module's error type, with reasons `outOfRange`, `unreadable(any Error)`, and `exited(TerminationStatus, standardError: String)`
-- `lexicallyResolving(_:)` ignores a root in the name and returns `nil` where `..` escapes, and symlinks inside a root still reach outside
-- `stat()` throws `Errno` typed, so `catch` binds `Errno` and the cause keeps its host code
+- `.resolveBeneath` makes the kernel refuse a name whose resolution leaves the root through `..`, a leading `/`, or a symlink, and the refusal is `ENOTCAPABLE`
+- `FileDescriptor.open(root, .readOnly, options: .directory)` opens the root once, and a rename of its path after the open moves no read
+- `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
 
 ## [03]-[PROCESSES]
 
-`Configuration` holds one command as a value. A session with a process-group teardown makes a cancelled caller stop its child and every process that child started. Body forms fold standard output as it streams while standard error collects under a limit:
+`Configuration` holds one command as a value. A session with a process-group teardown makes a cancelled caller or a throwing body stop its child and every process that child started. Body forms fold standard output as it streams while standard error collects under a limit:
 
 ```swift
 extension PlatformOptions {
@@ -89,7 +86,7 @@ extension PlatformOptions {
 }
 
 extension Configuration {
-    func reduceLines<Value: Sendable>(into initial: Value, limit: Int = 1 << 16, _ update: (inout Value, String) -> Void) async throws(OrderError) -> Value {
+    func reduceLines<Value: Sendable>(into initial: Value, limit: Int = 1 << 16, _ update: @Sendable (inout Value, String) -> Void) async throws(OrderError) -> Value {
         let subject: String = "\(executable) \(arguments)"
         let result: ExecutionResult<Value, SequenceOutput, StringOutput<UTF8>>
         do {
@@ -97,7 +94,7 @@ extension Configuration {
                 try await execution.standardOutput.strings(separatedBy: .lineBreaks, bufferingPolicy: .maxLineLength(limit)).reduce(into: initial, update)
             }
         } catch {
-            throw OrderError(subject: subject, reason: .unreadable(error))
+            throw OrderError(subject: subject, reason: .failed(error))
         }
         guard result.terminationStatus.isSuccess else {
             throw OrderError(subject: subject, reason: .exited(result.terminationStatus, standardError: result.standardError))
@@ -112,15 +109,15 @@ func revisions(in directory: FilePath) async throws(OrderError) -> [String] {
 }
 ```
 
-- `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails, a started process reports through `terminationStatus`
-- `isSuccess` decides the outcome, and a failure keeps `TerminationStatus` and standard error whole
-- `limit` bounds standard error and each output line, a longer one throws, and memory stays flat however long the output runs
+- `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails
+- Started processes report through `terminationStatus`, and a failed exit keeps it and standard error whole in `exited(TerminationStatus, standardError: String)`
+- `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
 
 ## [04]-[COMMAND_LINES]
 
-Commands declare arguments as properties, and the parser builds each value through `ExpressibleByArgument`. A `RawRepresentable` type over an `ExpressibleByArgument` raw value conforms with an empty extension, so the rule that rejects a wire value rejects an argument:
+Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, with arguments as properties the parser builds through `ExpressibleByArgument`. A `RawRepresentable` type over an `ExpressibleByArgument` raw value conforms with an empty extension, and the rule that rejects a wire value rejects an argument:
 
 ```swift
 extension Bounded: ExpressibleByArgument {}
@@ -139,20 +136,20 @@ struct Report: ParsableCommand {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let lines: [Line] = try decoder.decode([Event].self, from: Data(contentsOf: log)).compactMap(\.placed)
-        print(lines.filter { line in line.quantity.rawValue >= minimum.rawValue }.map { line in line.unitPrice * Decimal(line.quantity.rawValue) }.reduce(0, +))
+        print(lines.filter { line in line.quantity.rawValue >= minimum.rawValue }.reduce(Decimal.zero) { sum, line in sum + line.unitPrice * Decimal(line.quantity.rawValue) })
     }
 }
 ```
 
 - `nil` from `init?(rawValue:)` prints the rejected value with usage and exits with a validation status
 - `validate()` holds a rule reading more than one property, a rule of one value belongs to its type
-- `transform:` adapts a host type the parser lacks (`URL`), `AsyncParsableCommand` serves a `run` that awaits
+- `transform:` adapts a host type the parser lacks (`URL`)
 - Errors `run` throws print as `LocalizedError.errorDescription` or `description` and exit with `EXIT_FAILURE`, a thrown `ExitCode` sets the status
 - `print` writes results from `run` of the `@main` type alone, diagnostics go to `Logger`
 
 ## [05]-[LOGGING]
 
-`Logger` derives a subsystem from the bundle and a category from an owning type, so no call site spells either:
+`Logger` derives a subsystem from the bundle and a category from an owning type, with neither spelled at a call site:
 
 ```swift
 extension Logger {
@@ -162,7 +159,7 @@ extension Logger {
 }
 ```
 
-Each interpolation's privacy follows the value it marks:
+Each interpolation states `privacy:` by the value it marks:
 
 | [INDEX] | [VALUE]                               | [PRIVACY]               |
 | :-----: | :------------------------------------ | :---------------------- |

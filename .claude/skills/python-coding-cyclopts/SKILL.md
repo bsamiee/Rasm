@@ -5,11 +5,11 @@ description: "Use when writing or reviewing a cyclopts command-line application,
 
 # [PYTHON_CODING_CYCLOPTS]
 
-Covers cyclopts applications from command registration through parameter binding, user classes, meta apps, configuration, and completion to an exit code. Snippets build on python-coding's `Fault`, `Outcome`, and `Reason` with an `UNWRITABLE` reason.
+Covers cyclopts applications from command registration to exit code.
 
 ## [01]-[COMMANDS]
 
-Commands are boundary functions with their signature as their command line: positional-only parameters are arguments, keyword-only parameters are options, a `*args` tail takes remaining tokens, and a docstring `Args` section is per-parameter help. Options shared across commands are one `type` alias over `Annotated`:
+Command signatures are their command lines: positional-only parameters are arguments, keyword-only parameters options, a `*args` tail takes remaining tokens, and docstring `Args` lines give each parameter's help. Options shared across commands are one `type` alias over `Annotated`:
 
 ```python
 type Executable = Annotated[ResolvedExistingFile, Parameter(env_var="HOST_PATH")]
@@ -23,56 +23,52 @@ async def launch(folder: Path, /, *arguments: str, executable: Executable) -> Ou
         arguments: Host arguments, after `--` when one opens with `-`.
         executable: Host executable.
     """
-    failed = partial(Fault.of, Reason.FAILED, executable.name)
     try:
         done = await anyio.run_process((executable, *arguments), cwd=folder, stdout=None, stderr=None, check=False)
     except OSError as error:
-        return Error(failed(error))
-    return catch(done.check_returncode, exception=CalledProcessError)().map(lambda _: 0).map_error(failed)
+        return Error(Fault.of(Reason.FAILED, executable.name, error))
+    return Ok(done.returncode)
 ```
 
-`launch <folder> -- -c <code>` passes `-c` to the host, tokens after `--executable <path>` join `arguments`, and `HOST_PATH` fills an omitted `--executable`. Registration reads a command's signature at once or at its first use:
+`launch <folder> -- -c <code>` passes `-c` to the host, `HOST_PATH` fills an omitted `--executable`, and host status becomes command value. Registration reads a command's signature at once or at its first use:
 - `@app.command` evaluates every annotation at registration, `lazy` imports resolve, and a class declared after its command or a name imported under `TYPE_CHECKING` raises `NameError`
-- `@app.command` and `app.command(f)` return their function unchanged, and both checkers keep its signature for direct calls
-- `"<module>:<attr>"` registrations import their module when the command runs, prints its own `--help`, or `app["<name>"]` reads it
+- `"<module>:<attr>"` registrations import their module at the command's run, its own `--help`, or an `app["<name>"]` read
 - Root `--help` lists a path registration with its `help=` text alone, blank without one, and imports no command module
-- Import paths naming no module raise raw `ImportError` at first run outside `CycloptsError`, `app["<name>"]` over each name resolves every path
-- Names derive from `__name__` (lowercase, `_` to `-`, outer `_` stripped), `name=` replaces a name and `alias=` adds runnable names
+- Names derive from `__name__` (lowercase, `_` to `-`, outer `_` stripped), `name=` replaces a name, `alias=` adds runnable names, and `synonym=` adds words that fail with a suggestion of the command
 - `app.command(App(name="<group>"))` nests a command group, `app.command(<app>, name="*")` merges its commands into their parent
-- Decorators under `@app.command` apply `functools.wraps` to keep the parameters and docstring cyclopts reads
 - `async def` commands run under `asyncio.run` from `app()` or trio under `App(backend="trio")`, `await app.run_async(tokens)` inside a loop
-- `version=` unset reads an installed distribution named like the root import package, then its `__version__`, else prints `0.0.0`
-- Distributions named apart from their import package pass `version=partial(importlib.metadata.version, "<distribution>")`
+- Unset `version=` reads an installed distribution named like the root import package, then its `__version__`, else prints `0.0.0`, and apps with a distribution named apart pass `version=partial(importlib.metadata.version, "<distribution>")`
 
 ## [02]-[PARAMETERS]
 
 Hints decide coercion, and `Annotated[T, Parameter(...)]` configures one parameter:
 
-| [INDEX] | [HINT]           | [COERCION]                                                                         |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `bool` option    | Flag with `--no-<name>`, `--<name>=<value>` takes `true`, `yes`, `1`, `false`, `0` |
-|  [02]   | `int`            | `0x`, `0o`, and `0b` prefixes, a decimal rounds half to even (`2.5` to `2`)        |
-|  [03]   | Union            | Members left to right, `int \| str` reads `5` as `int`, `str \| int` as text       |
-|  [04]   | `T \| None`      | `none` and `null` give `None` unless `str` precedes `None`                         |
-|  [05]   | `Enum`           | Member names through `name_transform` (`dark-red`), values rejected                |
-|  [06]   | `Literal`        | Listed values alone, help lists each                                               |
-|  [07]   | `list[T]` option | One token per occurrence, `consume_multiple=True` takes a run                      |
-|  [08]   | Scalar option    | Second occurrence raises `RepeatArgumentError`                                     |
-|  [09]   | `dict[str, T]`   | `--<name>.<key> <value>`, a JSON object fails coercion                             |
-|  [10]   | `timedelta`      | Unit runs (`30s`, `1h30m`)                                                         |
+| [INDEX] | [HINT]           | [COERCION]                                                                                             |
+| :-----: | :--------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `bool` option    | Flag with `--no-<name>`, `--<name>=<value>` takes `true`, `yes`, `false`, `no` or an initial, `1`, `0` |
+|  [02]   | `int`            | `0x`, `0o`, and `0b` prefixes, a decimal rounds half to even (`2.5` to `2`)                            |
+|  [03]   | Union            | Members left to right, `int \| str` reads `5` as `int`, `str \| int` as text                           |
+|  [04]   | `T \| None`      | `none` and `null` give `None` unless `str` precedes `None`                                             |
+|  [05]   | `Enum`           | Member names through `name_transform` (`dark-red`), values rejected                                    |
+|  [06]   | `Flag` enum      | `--<name>.<member>` flag per member or repeated `--<name> <member>`, members OR together               |
+|  [07]   | `list[T]` option | One token per occurrence, `--empty-<name>` gives `[]`, `consume_multiple=True` takes a run             |
+|  [08]   | Scalar option    | Second occurrence raises `RepeatArgumentError`, `allow_repeating=True` keeps the last                  |
+|  [09]   | `dict[str, T]`   | `--<name>.<key> <value>`, a JSON object fails coercion                                                 |
+|  [10]   | `timedelta`      | Unit runs (`30s`, `1h30m`)                                                                             |
+|  [11]   | `StdioPath`      | `-` reads stdin and writes stdout through every `Path` read and write method, unbound ones included    |
 
-`Parameter` options merge attribute by attribute from inner to outer `Annotated`, and an outer `validator=` or `converter=` replaces the inner one whole:
+Bounds on a parameter are `cyclopts.types` aliases or `validators` members. Cyclopts checks `annotated_types` and pydantic `Field` bounds on a plain parameter only while `pydantic` sits in `sys.modules`, and never checks `msgspec.Meta`. `Parameter` options merge attribute by attribute from inner to outer `Annotated`, and an outer `validator=` or `converter=` replaces the inner one whole:
 - `Annotated[PositiveInt, Parameter(validator=validators.Number(modulo=2))]` accepts `-2`, and `Annotated[ExistingPath, Parameter(validator=validators.Path(ext="txt"))]` accepts a missing file
 - Aliases adding a check restate every check they keep (`validators.Number(gt=0, modulo=2)`)
 - `cyclopts.types` aliases adding `converter=` alone (`ResolvedExistingFile`) keep their inner validator
 - Validators run on defaults, `n: PositiveInt = -1` fails an empty command line with `ValidationError`
-- Generic aliases (`type Pair[T] = tuple[T, T]` as `Pair[int]`) register and fail every parse with `'typing.TypeAliasType' object is not callable`
-- `negative=()` drops `--no-<name>`, `count=True` on an `int` counts `-vvv`, `allow_leading_hyphen=True` takes values opening with `-`
-- `App(default_parameter=Parameter(...))` sets defaults for every parameter of every command under it
+- Generic aliases (`type Pair[T] = tuple[T, T]` as `Pair[int]`) drop their `Parameter` and fail every parse with `'typing.TypeAliasType' object is not callable`
+- `negative=()` drops `--no-<name>` and `--empty-<name>`, `count=True` on an `int` counts `-vvv`, `allow_leading_hyphen=True` takes values opening with `-`
+- `App(default_parameter=Parameter(short_alias=True))` derives each option's short flag from its initial, uppercase once the lowercase is taken (`--host` as `-H` beside `-h` for help)
 
 ## [03]-[USER_CLASSES]
 
-Commands sharing a set of options take one user class under `@Parameter(name="*")`, each field an option with its docstring `Attributes` line as help, and fields without a default are required options:
+Commands sharing a set of options take one pydantic model under `@Parameter(name="*")`, each field an option with its docstring `Attributes` line as help, and fields without a default are required options:
 
 ```python
 @Parameter(name="*", group=Group("Remote", sort_key=1))
@@ -103,47 +99,18 @@ def locate(path: str, /, *, remote: Remote) -> Outcome[str]:
     return Ok(urljoin(remote.origin, path))
 ```
 
-`locate /a --host <host>` returns `https://<host>:443/a`, `--port 0` reports pydantic's message, and help groups `Remote` fields in their own panel. Class kinds decide which library coerces and validates:
+`locate /a --host <host>` returns `https://<host>:443/a`, `--port 0` exits 2 with pydantic's message, and help groups `Remote` fields in their own panel. Class kinds decide which library coerces and validates:
 
-| [INDEX] | [CLASS]                 | [BINDING]                                                              |
-| :-----: | :---------------------- | :--------------------------------------------------------------------- |
-|  [01]   | Pydantic model          | Pydantic coerces and validates every field, a refusal exits 2          |
-|  [02]   | `attrs` class           | Cyclopts coerces, a validator's `ValueError` escapes with exit code 1  |
-|  [03]   | Dataclass, `NamedTuple` | Cyclopts coerces, fields hold no bound                                 |
-|  [04]   | `TypedDict`             | `**fields: Unpack[<TypedDict>]` binds each field as a top-level option |
-|  [05]   | `msgspec.Struct`        | `--<name> <token>` passes one raw token to its constructor             |
+| [INDEX] | [CLASS]          | [BINDING]                                                                    |
+| :-----: | :--------------- | :--------------------------------------------------------------------------- |
+|  [01]   | Pydantic model   | Pydantic coerces and validates every field through a `TypeAdapter`, exits 2  |
+|  [02]   | `attrs` class    | Cyclopts coerces, a validator's `ValueError` escapes with exit code 1        |
+|  [03]   | `TypedDict`      | `**fields: Unpack[<TypedDict>]` binds each field as a top-level option       |
+|  [04]   | `msgspec.Struct` | `--<name> <token>` puts the raw token string in its first field, unchecked   |
 
-Classes under `Parameter(name="*")` with every field defaulted need a default instance, and registration raises `ValueError` without one. Cyclopts ignores `msgspec.Meta`, and records with `Meta` bounds enter through a `TypedDict` typed by the record's own aliases and one `convert`:
-
-```python
-type Size = Annotated[int, msgspec.Meta(ge=1)]
-type Depth = Annotated[int, msgspec.Meta(ge=0)]
-
-
-class Fields(TypedDict):
-    size: Size
-    depth: NotRequired[Depth]
-
-
-class Limits(msgspec.Struct, frozen=True, kw_only=True):
-    size: Size
-    depth: Depth = 0
-
-
-@catch(exception=msgspec.ValidationError)
-def _limits(fields: Fields, /) -> Limits:
-    return msgspec.convert(fields, Limits)
-
-
-def limit(**fields: Unpack[Fields]) -> Outcome[Limits]:
-    """Validate limits for one batch."""
-    return _limits(fields).map_error(partial(Fault.of, Reason.INVALID, Limits.__name__))
-```
-
-`--size 0` reaches `convert` and exits 1 with `` Expected `int` >= 1 - at `$.size` ``, and `--size x` fails at parse with exit code 2:
-- Omitted `NotRequired` keys stay absent, and an unknown option raises `UnknownOptionError`
-- `TypedDict` fields typed `ReadOnly[T]` fail every parse with `Cannot instantiate typing.ReadOnly`
-- `--<name>.<field>` on a `msgspec.Struct` parameter fails, and `accepts_keys=True` changes nothing
+- Classes under `Parameter(name="*")` with every field defaulted need a default instance, and registration raises `ValueError` without one
+- Dataclass, `attrs`, and pydantic parameters bind `--<name>.<field>` keys or one JSON object token (`--box '{"w": 3}'`), and keys on a `msgspec.Struct` parameter fail whatever `accepts_keys` holds
+- Omitted `NotRequired` keys of a `TypedDict` stay absent, and fields typed `ReadOnly[T]` fail every parse with `Cannot instantiate typing.ReadOnly`
 
 ## [04]-[VALIDATION]
 
@@ -159,18 +126,18 @@ Validators take `(type_, value)` with `type_` stripped of `Annotated` and return
 |  [06]   | `validator=` on an `App`       | Command   | Supplied arguments as keywords           |
 
 - Converters take `(type_, tokens)` and read each `Token.value`
-- `Group("<title>", validator=...)` names a help panel and validates its members together, `Parameter(group=...)` places a parameter in it
-- `LimitedChoice(1, 2)` fails a call that supplies no member, `allow_none=True` accepts it
+- `Group("<title>", validator=validators.LimitedChoice(1, 2))` fails a call that supplies no member of the group, `allow_none=True` accepts it
 - `App(validator=f)` checks its own default command after binding, `app.command(f, validator=v)` checks one command
-- Command validators report a `ValueError` as `Invalid values for command "<name>"`
 - Root `App(validator=f)` refusals raise `NotImplementedError` from the error panel and exit 1, a named command or group refusal exits 2
-- `msgspec.ValidationError` is a `ValueError`, a validator calling `convert` against a record alias reports its message on the option
+- `Parameter(validator=lambda _, value: msgspec.convert(value, Size))` checks a `Meta` alias (`Size`) at parse and reports its `msgspec.ValidationError`, a `ValueError`, as `` Expected `int` >= 1 `` on the option
 
 ## [05]-[META_APPS]
 
-Meta apps own options every command shares and the scope each command runs in. `session` binds its own options, `parse_args` binds every other token without calling, and `ignored` maps each `parse=False` parameter of the command to its type for `session` to supply by name:
+Meta apps own options every command shares and the scope each command runs in. `session` binds its own options, `parse_args` binds every other token to a command without calling it, and `ignored` maps each `SUPPLIED` command parameter to its type for `session` to supply by type:
 
 ```python
+SUPPLIED = Parameter(parse=False)
+
 app = App(name="tool", result_action=(exited, "sys_exit"))
 app.meta.group_parameters = Group("Session", sort_key=0)
 
@@ -184,28 +151,27 @@ def session(*tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=T
     """
     command, bound, ignored = app.parse_args(tokens)
     with TemporaryDirectory(delete=not keep) as scratch:
-        supplied = frozendict(scratch=Path(scratch), now=datetime.now(UTC))
-        return command(*bound.args, **bound.kwargs, **{name: supplied[name] for name in ignored})
+        supplied = frozendict({Path: Path(scratch), datetime: datetime.now(UTC)})
+        return command(*bound.args, **bound.kwargs, **{name: supplied[kind] for name, kind in ignored.items()})
 
 
 @app.command
-def stamp(name: str, /, *, scratch: Annotated[Path, Parameter(parse=False)], now: Annotated[datetime, Parameter(parse=False)]) -> Outcome[Path]:
+def stamp(name: str, /, *, scratch: Annotated[Path, SUPPLIED], now: Annotated[datetime, SUPPLIED]) -> Outcome[Path]:
     """Write the start time into a scratch file.
 
     Args:
         name: Scratch file name.
     """
-    target = scratch / name
-    return catch(target.write_text, exception=OSError)(now.isoformat(), encoding="utf-8").map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
+    return changed(Path.write_text, scratch / name, now.isoformat())
 
 
 if __name__ == "__main__":
     app.meta()
 ```
 
-`exited` is the entry's result action, and `stamp --help` lists `--keep` in its `Session` panel. Entry call and parse mode decide binding:
-- `app.meta()` is the entry call, and `app()` skips `session` and leaves every `parse=False` parameter unfilled
-- `parse=False` removes a parameter from binding and rejects its option, on a positional parameter without a default it raises `ValueError`
+`stamp --help` lists `--keep` in its `Session` panel, and `--scratch` is an unknown option. Entry call and parse mode decide binding:
+- `app.meta()` is the entry call, and `app()` skips `session` and leaves every unparsed parameter unfilled
+- `parse=` takes a regex searched against each parameter name or a `bool`, and `parse=False` on a positional parameter without a default raises `ValueError`
 - Meta apps answer `--help` and `--version` before `session` runs
 - `parse_args` applies no `result_action`, a nested `app(tokens)` inside `session` returns its command result, and the meta app maps it once
 - `parse_mode="fallthrough"` (default) binds a meta option after the command name, and a command option of one name wins
@@ -214,7 +180,7 @@ if __name__ == "__main__":
 
 ## [06]-[CONFIGURATION]
 
-`App(config=...)` takes one source or a sequence, and each source fills arguments a command line and every earlier source left unset. Values resolve from a command line, then `Parameter(env_var=...)`, then each source in order, then a signature default:
+`App(config=...)` takes one source or a sequence, and values resolve from a command line, then `Parameter(env_var=...)`, then each source in order, then a signature default:
 
 ```python
 app = App(name="tool", config=(config.Env("TOOL_", command=True), config.Toml("tool.toml", search_parents=True)))
@@ -227,22 +193,23 @@ app = App(name="tool", config=(config.Env("TOOL_", command=True), config.Toml("t
 |  [03]   | `config.Dict(mapping)`        | File keys from memory                       |
 
 - `config.Env` names a variable for every parameter, positional ones and user class fields included, `command=False` drops the command segment
-- Help lists each variable `config.Env` or `env_var=` names, and `env_var=` stays for a variable its host names (`HOST_PATH`)
+- Help lists each variable `config.Env` or `env_var=` names, and `env_var=` names a variable a host defines (`HOST_PATH`)
 - `search_parents=True` finds a file in the working folder or an ancestor, and a missing file supplies nothing
 - `must_exist=True` raises raw `FileNotFoundError` at parse outside `CycloptsError`
 - `root_keys=("tool", "<name>")` reads a `pyproject.toml` table, and keys at its root fill the default command
 - Unknown keys in file and dict sources raise `UnknownOptionError` unless `allow_unknown=True`, unknown variables pass unread
-- Source values pass the coercion and validators tokens pass, and errors name their source (`TOOL_WRITE_COUNT from env`)
+- Source values pass the coercion and validators tokens pass, and errors name their source (`TOOL_WRITE_COUNT provided by env`)
+- Variables for a multi-token hint split on whitespace, a `Path` collection on `os.pathsep`, and `Parameter(env_var_split=...)` replaces the split
 
 ## [07]-[COMPLETION]
 
-`--install-completion` from `app.register_install_completion_command()` writes a script for the running shell and sources it from its startup file. Scripts hold every command, option, and `Literal` or `Enum` choice, and `completer=` lists values a run alone knows from sibling values in its context:
+`--install-completion` from `app.register_install_completion_command()` writes a script for the running shell and sources it from its startup file. Scripts hold every command, option, and `Literal` or `Enum` choice, `Path` hints complete through the shell's own file completion, and `completer=` lists values a run alone knows from sibling values in its context:
 
 ```python
 def entries(context: CompletionContext, /) -> dict[str, str]:
     match context["root"].value:
         case Path() as root:
-            return {entry.name: "folder" if entry.is_dir() else entry.suffix for entry in root.iterdir() if entry.name.startswith(context.incomplete)}
+            return {entry.name: "folder" if entry.info.is_dir() else entry.suffix for entry in root.iterdir()}
         case _:
             return {}
 
@@ -254,32 +221,30 @@ def remove(name: Annotated[str, Parameter(completer=entries)], /, *, root: Resol
         name: File name under the folder.
         root: Folder holding the file.
     """
-    target = root / name
-    return catch(target.unlink, exception=OSError)().map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
+    return changed(Path.unlink, root / name)
 ```
 
-`remove --root <folder> <Tab>` offers each entry of `<folder>` with its kind, and no candidate before `--root`:
-- `generate_completion` and `--install-completion` import every command module a path registration names
-- Each completion of a `completer` parameter runs `<prog> __complete <words>` and imports its command's module
-- `context["<name>"].value` holds a sibling's coerced value, its default when omitted, or `UNSET` when coercion fails, and no validator runs
+`remove --root <folder> <Tab>` offers each entry of `<folder>` with its kind, and offers none until `--root` or `TOOL_ROOT` names a folder:
+- Shell scripts prefix-match every candidate against the typed word, and `context.incomplete` narrows a costly lookup alone
+- `context["<name>"].value` holds a sibling's coerced value from tokens, environment, or config, its default when omitted, or `UNSET` when coercion fails, and no validator runs
 - Completers return a `str`, an iterable of values or `(value, description)` pairs, or a `{value: description}` mapping
 - Cyclopts discards a completer's exception, and its parameter offers no candidate
+- `generate_completion` and `--install-completion` import every command module a path registration names, and each `completer` completion runs `<prog> __complete <words>` and imports its command's module
 
 ## [08]-[ENTRY]
 
-Entry modules hold one `App`, one registration by import path per command, and one result action. `exited` maps help, a status, a value, a failed child, and faults:
+Entry modules hold one `App`, one registration by import path per command with its `help=` summary, and one result action. `exited` maps help, a status, a value, and faults:
 
 ```python
 """Run host executables in prepared folders."""
 
-lazy import subprocess
 lazy import sys
 
 from cyclopts import App, Parameter, config
 lazy from expression import Result
 lazy import msgspec
 
-lazy from tool.faults import Fault, Outcome
+lazy from tool.faults import Outcome
 
 
 def exited(result: Outcome[object] | None, /) -> int:
@@ -291,18 +256,15 @@ def exited(result: Outcome[object] | None, /) -> int:
         case Result(tag="ok", ok=value):
             sys.stdout.buffer.write(msgspec.json.encode(value, enc_hook=str) + b"\n")
             return 0
-        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=status)) as fault,)):
-            sys.stderr.write(f"{fault.message}\n")
-            return status
         case Result(error=faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
             return 1
 
 
 app = App(name="tool", help=__doc__, result_action=(exited, "sys_exit"), config=config.Env("TOOL_", command=False), default_parameter=Parameter(negative=()))
-app.command("tool.runs:launch")
-app.command("tool.remote:locate")
-app.command("tool.entries:remove")
+app.command("tool.runs:launch", help="Run the host executable inside a folder.")
+app.command("tool.remote:locate", help="Print the address of a server path.")
+app.command("tool.entries:remove", help="Remove one file under a folder.")
 app.register_install_completion_command()
 
 if __name__ == "__main__":
@@ -319,8 +281,7 @@ if __name__ == "__main__":
 |  [04]   | `"return_value"`                      | Returns a command result                   |
 |  [05]   | Callable                              | Returns a value for its next pipeline step |
 
-- Pipelines run left to right, and an unknown mode name raises `ValueError` at `App` construction
 - Results with a zero-argument `__cyclopts_returncode__` set the code in every mode that exits or returns one
-- Parse and validation failures print a panel to stderr and exit 2, help and version print to stdout, exit 0, and pass `None` on
+- Parse and validation failures print a panel to stderr and exit 2, `error_formatter=str` prints the bare message, and help and version print to stdout, exit 0, and pass `None` on
 - Exceptions a command raises escape `app()` under every error setting and exit 1 with a traceback, `KeyboardInterrupt` exits 130
 - Embedded calls `app(tokens, result_action="return_value", exit_on_error=False, print_error=False)` return a command result and raise a `CycloptsError` for a parse failure

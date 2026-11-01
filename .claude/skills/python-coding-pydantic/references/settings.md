@@ -1,6 +1,6 @@
 # [SETTINGS]
 
-`BaseSettings.__init__` runs each source, merges their mappings, and validates the merged mapping once. `model_validate` runs the same sources and ignores a call's `extra`, `strict`, and `context`.
+`BaseSettings.__init__` and `model_validate` run each source, merge their mappings, and validate the merged mapping once.
 
 ## [01]-[SOURCES]
 
@@ -11,8 +11,7 @@ Each source class reads configuration keys of its store (`env_file`, `secrets_di
 - File sources subclass `InitSettingsSource`, read field names or aliases, map nested tables onto nested models, and read a missing file as empty
 - Cloud sources take their store address as constructor arguments (vault `url`, `project_id`, `secret_id`, `ssm_path`)
 - Cloud sources subclass `EnvSettingsSource`, and prefix, nested delimiter, and JSON decoding apply to secret names
-- `AzureKeyVaultSettingsSource` lists vault secrets in its constructor, an unreachable vault fails while `settings_customise_sources` builds its tuple
-- Use `python-coding-cyclopts` for command lines
+- `AzureKeyVaultSettingsSource` lists vault secrets in its constructor, an unreachable vault fails while `settings_customise_sources` builds its tuple, and nested names split on `--`
 
 ## [02]-[PRECEDENCE]
 
@@ -29,17 +28,17 @@ Environment names are field names, case-insensitive, with `env_prefix` before ea
 - `case_sensitive=True` matches the prefixed name exactly (`APP_name` for field `name`)
 - `env_nested_delimiter="__"` splits `APP_STORE__PORT` into `{"store": {"port": ...}}` under a declared field alone
 - `list`, `set`, `dict`, `tuple`, and model fields decode their value as JSON, an undecodable value raises `SettingsError`
-- `type Csv = Annotated[list[int], NoDecode, BeforeValidator(split)]` passes `1,2,3` raw to `split`, `enable_decoding=False` covers every field
-- `env_ignore_empty=True` leaves a field at its default for an empty variable, an empty string otherwise fails as input
+- `type Csv = Annotated[list[int], NoDecode, BeforeValidator(split)]` passes `1,2,3` raw to `split`, `enable_decoding=False` covers every field and `ForceDecode` restores one
+- `env_ignore_empty=True` leaves a field at its default for an empty variable, otherwise the empty string validates as input
 - `env_parse_none_str="null"` reads the literal as `None`, `env_parse_enums=True` reads member names beside values
 - `strict=True` accepts environment strings for `int` and `bool`, init keywords stay strict
-- `AliasChoices("SVC_URL", "url")` on `validation_alias` reads the first present name, an alias bypasses `env_prefix`
+- `AliasChoices("SVC_URL", "url")` on `validation_alias` reads the first present name, an alias bypasses `env_prefix` until `env_prefix_target="alias"` or `"all"`
 - Validation errors hold a field's `loc` (`("store", "port")`) with no variable name or source
 
 ## [04]-[DOTENV]
 
 Dotenv keys pass through `extra`, and an unknown key under `extra="forbid"` fails as `extra_forbidden` with a lowercased `loc`:
-- `extra="ignore"` drops unknown keys, `dotenv_filtering="match_prefix"` passes prefixed keys alone
+- `extra="ignore"` drops unknown keys, `dotenv_filtering="match_prefix"` passes prefixed keys alone, `"only_existing"` passes field keys alone
 - Unprefixed keys equal to a field name stay unread under `env_prefix` and raise nothing
 - `env_file` sequences load in order with later files winning, environment variables win over every dotenv value
 - `_env_file=None` on the constructor reads no dotenv for one call
@@ -47,12 +46,13 @@ Dotenv keys pass through `extra`, and an unknown key under `extra="forbid"` fail
 ## [05]-[SECRETS]
 
 Secret fields are `SecretStr`, and `secrets_dir` reads one file per field named `<prefix><field>`, stripped of surrounding whitespace:
-- Missing `secrets_dir` directories warn `directory "<dir>" does not exist`
+- `NestedSecretsSettingsSource(file_secret_settings)` in the tuple with `secrets_dir_missing="error"` raises `SettingsError` for a missing directory, the plain source warns
+- `secrets_prefix`, `secrets_case_sensitive`, and `secrets_dir_max_size` configure the nested source alone
 
 ## [06]-[LIFETIME]
 
 Each construction builds fresh sources and rereads environment and files:
-- `Settings.settings_cached()` keeps one instance per exact class and process, built once under a lock and typed `Self`
+- `settings_cached()` keys its instance by exact class and builds it under a lock
 - Cached instances keep stale values after an environment change until `settings_clear_cache()` on the class
 - Nested models a settings field names precede the settings class, a forward reference warns `IncompleteFieldDefinitionWarning`
 - Sources skip decoding a field with an unresolved forward reference, its JSON variable fails validation as a raw string

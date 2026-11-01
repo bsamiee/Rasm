@@ -1,52 +1,53 @@
 # [NUMERICS]
 
-Covers numeric passes through package members, from solvers and grid operators to buffer ownership, floating-point scopes, random streams, and tables.
+Covers whole-array numeric passes.
 
 ## [01]-[PACKAGE_MEMBERS]
 
-Numeric facts are members of referenced packages, and a pass calls its fact's member over a whole array:
+Select the member by the fact a pass computes:
 
-| [INDEX] | [FACT]                                      | [MEMBER]                                                                         |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------- |
-|  [01]   | Root per array element                      | `elementwise.bracket_root`, then `elementwise.find_root`                         |
-|  [02]   | Minimum, least squares                      | `sp.optimize.minimize`, `sp.optimize.least_squares`                              |
-|  [03]   | Integral per array element                  | `sp.integrate.tanhsinh`                                                          |
-|  [04]   | Vector or multivariate integral             | `sp.integrate.quad_vec`, `sp.integrate.cubature`                                 |
-|  [05]   | Infinite series                             | `sp.integrate.nsum`                                                              |
-|  [06]   | Initial value problem                       | `sp.integrate.solve_ivp`                                                         |
-|  [07]   | Interpolating spline                        | `sp.interpolate.make_interp_spline`                                              |
-|  [08]   | Recurrence `y[i] = a * x[i] + b * y[i - 1]` | `sp.signal.lfilter([a], [1, -b], x)`                                             |
-|  [09]   | Prefix sum, running extreme                 | `np.cumulative_sum`, `ufunc.accumulate`                                          |
-|  [10]   | Grouped sum or count                        | `np.bincount(keys, weights=..., minlength=n)`                                    |
-|  [11]   | Window statistic                            | `sp.ndimage` filter, else a `np.lib.stride_tricks.sliding_window_view` reduction |
-|  [12]   | Derivative at any order                     | `findiff.Diff(axis, spacing) ** order`                                           |
+| [INDEX] | [FACT]                                      | [MEMBER]                                                                                 |
+| :-----: | :------------------------------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | Root or minimum per array element           | `elementwise.bracket_root` then `find_root`, `bracket_minimum` then `find_minimum`       |
+|  [02]   | Derivative of a callable                    | `sp.differentiate.derivative` per element, `jacobian`, `hessian`                         |
+|  [03]   | Derivative of samples at any order          | `findiff.Diff(axis, spacing) ** order`                                                   |
+|  [04]   | Integral or series per array element        | `sp.integrate.tanhsinh`, `sp.integrate.nsum`                                             |
+|  [05]   | Vector or multivariate integral             | `sp.integrate.quad_vec`, `sp.integrate.cubature`                                         |
+|  [06]   | Running area under samples                  | `sp.integrate.cumulative_trapezoid`                                                      |
+|  [07]   | Interpolating spline                        | `sp.interpolate.make_interp_spline`                                                      |
+|  [08]   | Smoothing spline with no tuned penalty      | `sp.interpolate.make_smoothing_spline`                                                   |
+|  [09]   | Polynomial fit, antiderivative              | `np.polynomial.Polynomial.fit`, `Polynomial.integ`                                       |
+|  [10]   | Recurrence `y[i] = a * x[i] + b * y[i - 1]` | `sp.signal.lfilter([a], [1, -b], x)`                                                     |
+|  [11]   | Recurrence with any other step              | `jax.lax.scan(step, carry, xs)` under `jax.jit`                                          |
+|  [12]   | Sum over any span, running extreme          | `np.cumulative_sum(include_initial=True)` differenced at span bounds, `ufunc.accumulate` |
+|  [13]   | Grouped sum or count                        | `np.bincount(keys, weights=..., minlength=n)`, keys from `np.unique_inverse(labels)`     |
+|  [14]   | Grouped extreme                             | `np.maximum.at(<filled buffer>, keys, values)`                                           |
+|  [15]   | Window statistic                            | Named `sp.ndimage` filter or `sp.ndimage.vectorized_filter(values, <reduction>, size=n)` |
+|  [16]   | Row-wise dot, stacked matrix-vector product | `np.vecdot`, `np.matvec`                                                                 |
 
-Loops that converge, bisect, step, or sum a series are calls to the member for their fact:
-- Elementwise members (`find_root`, `tanhsinh`, `nsum`) take arrays of brackets and `args`, and solve every element in one call
-- Elementwise results hold per-element `success` and `status` arrays, a failed element reads `nan` beside its solved siblings
-- `elementwise` imports as `from scipy.optimize import elementwise`, every other member reads through `import scipy as sp`
-- Code under `jax.jit`, `jax.grad`, or `jax.vmap` takes `optimistix.root_find`, `quadax.quadgk`, and `diffrax.diffeqsolve`
-- Traced linear solves, scans, and grouped sums take `lineax.linear_solve`, `jax.lax.associative_scan`, and `jax.ops.segment_sum`
-- Quantities with units enter as `pint.Quantity`, and `quantity.m_as(<unit>)` hands a member its magnitude
-
-`Fault`, `Reason`, and `Outcome` are the package faults, and `crossing` reads both failures of a bracketed search through one builder:
+Loops that converge, bisect, step, or sum a series are calls to the member for their fact, and `roots` expands a bracket from each guess and refines every element in one call each:
 
 ```python
-def crossing(curve: Callable[[float], float], low: float, high: float, /) -> Outcome[float]:
-    missed = partial(Fault.of, Reason.ABSENT, "curve", member=f"root on [{low}, {high}]")
-    return (
-        catch(sp.optimize.root_scalar, exception=ValueError)(curve, bracket=(low, high))
-        .map_error(missed)
-        .filter_with(lambda found: found.converged, missed)
-        .map(lambda found: found.root)
-    )
+type Samples = npt.NDArray[np.float64]
+
+
+def roots[*Ts](curve: Callable[[Samples, *Ts], Samples], guess: Samples, /, *args: *Ts) -> Outcome[Samples]:
+    found = elementwise.find_root(curve, elementwise.bracket_root(curve, guess, args=args).bracket, args=args)
+    return Ok(found).filter_with(lambda result: bool(result.success.all()), partial(Fault.of, Reason.ABSENT, "curve", member="root")).map(lambda result: np.asarray(result.x))
 ```
 
-`crossing(math.cos, 0.0, 3.0)` returns `Ok(1.5707963267948966)`. A bracket with no sign change raises `ValueError` and becomes its fault's cause, and a search that stops unconverged keeps its `RootResults` as cause.
+`roots(lambda x, level: np.cos(x) - level, np.zeros(3), levels)` solves `cos(x) = level` for every level at once, and a level past 1 fails the pass:
+- Per-element parameters enter through `args`, broadcast against the guesses
+- Results hold per-element `success` and `status`, a failed element reads `nan` beside its solved siblings
+- Refused results stay the fault's cause
+- `elementwise` imports as `from scipy.optimize import elementwise`, every other member reads through `import scipy as sp`
+- Code under `jax.jit`, `jax.grad`, or `jax.vmap` takes `optimistix.root_find`, `quadax.quadgk`, `diffrax.diffeqsolve`, `lineax.linear_solve`, and `jax.ops.segment_sum`
+- JAX computes `float64` input in `float32` until `jax.config.update("jax_enable_x64", True)` runs at startup
+- Quantities with units enter as `pint.Quantity`, and `quantity.m_as(<unit>)` hands a member its magnitude
 
 ## [02]-[OPERATORS]
 
-Linear operators over a grid are package values, and evolution under one operator is one call. `Samples` is `npt.NDArray[np.float64]`, `LaplacianNd` builds the discrete Laplacian of a grid of any dimension, and `expm_multiply` applies its exponential at evenly spaced times:
+Linear operators over a grid are package values, and evolution under one operator is one call. `LaplacianNd` builds the discrete Laplacian of a grid of any dimension, and `expm_multiply` applies its exponential at evenly spaced times:
 
 ```python
 def diffused(heat: Samples, span: float, count: int, /) -> Samples:
@@ -56,34 +57,23 @@ def diffused(heat: Samples, span: float, count: int, /) -> Samples:
 
 `diffused(heat, span, count)` returns `count` snapshots from `heat` to `span`, diffusivity times time over squared spacing, for a rod, plate, or volume alike:
 - `expm_multiply` holds its accuracy at any `span`, with no step size or stability bound
-- `boundary_conditions="neumann"` (default) insulates every edge and conserves the total
-- `boundary_conditions="dirichlet"` holds zero past every edge, and `"periodic"` joins opposite edges
-- `tosparse()` hands `expm_multiply` the trace it reads, and a bare `LaplacianNd` estimates it with a warning
+- `boundary_conditions="neumann"` (default) insulates every edge and conserves the total, `"dirichlet"` holds zero past every edge, and `"periodic"` joins opposite edges
+- `tosparse()` hands `expm_multiply` the trace it reads
 
 ## [03]-[OWNERSHIP]
 
-Basic slices are views of their base, and fancy and boolean indexing return copies. Passes return a new array, arrays a function receives stay unwritten, and `out=` targets a buffer the pass allocated:
+Passes return a new array, arrays a function receives stay unwritten, and `out=` targets a buffer the pass allocated:
 
 ```python
-def filled(samples: Samples, /) -> Samples:
-    known = np.flatnonzero(~np.isnan(samples))
-    return np.interp(np.arange(samples.size), known, samples[known])
+def kernel(offsets: Samples, width: float, /) -> Samples:
+    weights = np.exp(-0.5 * np.square(offsets / width))
+    return np.divide(weights, weights.sum(axis=-1, keepdims=True), out=weights)
 ```
 
-`filled` interpolates each `NaN` between its valid neighbors and returns every valid sample exactly, `samples[known]` reads a copy, and `samples` keeps its gaps. Each operation returns a view or a copy:
-
-| [INDEX] | [OPERATION]                                | [RESULT]                |
-| :-----: | :----------------------------------------- | :---------------------- |
-|  [01]   | Basic slice (`a[1:]`, `a[:, ::2]`), `.T`   | View                    |
-|  [02]   | `np.asarray` over an array of its dtype    | Same array              |
-|  [03]   | Fancy or boolean index read                | Copy                    |
-|  [04]   | `reshape`, `ravel`                         | View or copy by strides |
-|  [05]   | `flatten`, `copy`, `astype`                | Copy                    |
-|  [06]   | `astype(<dtype>, copy=False)` at its dtype | Same array              |
-|  [07]   | `sliding_window_view`                      | Read-only view          |
-
-Writes reach their base by form:
-- Functions returning a view alias their caller's array, a later write by either side changes both
+`kernel` divides the one array its `exp` allocated in place, each row of weights sums to 1, and `offsets` stays unwritten. Each call states whether its result aliases its input:
+- `np.asarray(<x>, copy=False)` and `reshape(<shape>, copy=False)` return a view or raise `ValueError`, and the default `copy=None` copies only where it must
+- `astype(<dtype>, copy=False)` returns the array itself when its dtype already matches
+- `sliding_window_view` and `broadcast_to` return read-only views
 - Writes reach `a` through one index expression on `a` itself (`a[mask] = value`)
 - Ufuncs buffer overlapping operands, `np.add(a[:-1], a[1:], out=a[1:])` over an owned `a` returns sums of the original values
 
@@ -97,17 +87,16 @@ def _falloff(distance: Samples, /) -> Samples:
     return np.exp(-distance * distance)
 
 
-@catch(exception=FloatingPointError)
+@caught(FloatingPointError)
 @np.errstate(all="raise")
-def _glow(distance: Samples, weight: Samples, /) -> Samples:
+def glow(distance: Samples, weight: Samples, /) -> Samples:
     return _falloff(distance) / weight
 ```
 
-`_glow` returns `Ok` holding zero for a distant sample with an underflowing `exp` and an `Error` holding `FloatingPointError` for a zero weight. Each `errstate` keyword names one error kind:
+`glow` returns `Ok` holding zero for a distant sample with an underflowing `exp` and fails with `glow failed. divide by zero encountered in divide` for a zero weight. Each `errstate` keyword names one error kind:
 - `divide` covers division by zero and `log(0)`, `invalid` covers `0 / 0`, `inf - inf`, and `sqrt` of a negative
 - `over` covers float overflow and integer scalar overflow (`np.int8(127) + np.int8(1)`)
 - Integer array arithmetic wraps under `all="raise"` and raises nothing
-- `np.mean` over an empty array warns and raises `FloatingPointError` under `invalid="raise"`
 - Scopes are context variables, anyio tasks and `to_thread.run_sync` calls run under their caller's scope
 
 ## [05]-[RANDOM_STREAMS]
@@ -125,13 +114,11 @@ def trials(key: bytes, points: Samples, scale: float, count: int, /) -> tuple[Sa
 
 `trials(key, points, scale, 2)` equals `trials(key, points, scale, 3)[:2]`, and equal keys draw equal samples in any run and call order:
 - `stream(key, *path)` equals the child `Generator.spawn` returns at that path, and `stream(key, 1, 0)` equals `stream(key, 1).spawn(1)[0]`
-- `normal(points, scale)` broadcasts its location over `points`, one draw per element
 - Calls drawing a whole shape read their stream in C order, `normal(size=(2, 3))` equals six scalar draws in any split
-- Consumers take a `Generator` argument, and callers derive each stream from the key and path its draws depend on
 
 ## [06]-[TABLES]
 
-Module tables hold one row per tier, and a pass indexes them with a whole array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
+Module-level arrays lock with `setflags(write=False)` once built, and a tier table holds one row per tier a pass indexes with a whole array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
 
 ```python
 TIERS: Samples = np.array(((-np.inf, 0.0), (3.2, 0.5), (3.6, 1.0)))
@@ -144,6 +131,5 @@ def weighted(volts: Samples, /) -> Samples:
 
 `weighted` maps each reading to its tier weight in one pass, and a value on a floor falls in that floor's tier:
 - `NaN` readings sort past every floor and read the top tier's weight
-- Writes into a locked table raise `ValueError` from item assignment, `out=`, and `fill` alike
-- Views of a locked table (`TIERS[:, 0]`) are read-only, and `setflags(write=True)` on one raises `ValueError`
+- Writes into a locked table or its views raise `ValueError` from item assignment, `out=`, `fill`, and `setflags(write=True)` alike
 - `weighted` returns a writable copy its caller owns

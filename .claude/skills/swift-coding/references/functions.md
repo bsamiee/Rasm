@@ -1,18 +1,10 @@
 # [FUNCTIONS]
 
-Covers functions as values, from the effects a closure type states to the capabilities an entry point hands each consumer.
+Functions as values and the effects, errors, and dependencies their types state.
 
 ## [01]-[EFFECT_ANNOTATIONS]
 
-Closure parameters take the fewest annotations their use requires, so callers pass the most closures. A closure called before return runs on its caller's executor, reads state isolated to its caller, and takes no `@Sendable`:
-
-| [INDEX] | [CLOSURE_RUNS]               | [PARAMETER_TYPE]                                       |
-| :-----: | :--------------------------- | :----------------------------------------------------- |
-|  [01]   | Before return, on caller     | `(T) async throws(E) -> U`                             |
-|  [02]   | Once, in another isolation   | `sending (T) throws(E) -> U`                           |
-|  [03]   | Concurrently, in child tasks | `@escaping @Sendable (T) async throws(E) -> U`         |
-|  [04]   | Stored, where formed         | `@escaping @isolated(any) @Sendable (T) async -> Void` |
-|  [05]   | Stored, on main actor        | `@escaping @MainActor (T) -> Void`                     |
+Closure parameters take the fewest annotations their use requires, and callers pass the most closures:
 
 ```swift
 func measured<Value, Failure: Error, C: Clock<Duration>>(on clock: C, _ work: () async throws(Failure) -> Value) async throws(Failure) -> (value: Value, elapsed: Duration) {
@@ -21,23 +13,13 @@ func measured<Value, Failure: Error, C: Clock<Duration>>(on clock: C, _ work: ()
 }
 ```
 
-- `measured` keeps the value and error type that `Clock.measure` drops, its rethrowing closure returns `Void` and widens to `any Error`
-- `sending` closures capture non-`Sendable` locals the caller stops using, and a `Task` the callee starts takes one as `sending @escaping`
-- Holders call a stored `@isolated(any)` closure with `await` from any isolation, and its `isolation` property names the actor it runs on
+- `Clock.measure` takes a `Void` closure and rethrows `any Error`, `measured` keeps the closure's value and error type
+- Closures run once in another isolation take `sending (T) throws(E) -> U` and capture non-`Sendable` locals the caller stops using
+- Closures stored to run where they were formed take `@escaping @isolated(any) @Sendable (T) async -> Void`, holders call them with `await` from any isolation, and the `isolation` property names the actor each runs on
 
 ## [02]-[FUNCTION_REFERENCES]
 
-Declarations are function values by name, and a closure passing its arguments unchanged to one declaration is that declaration's reference:
-
-| [INDEX] | [DECLARATION]    | [REFERENCE]                     | [TYPE]                                             |
-| :-----: | :--------------- | :------------------------------ | :------------------------------------------------- |
-|  [01]   | Key path literal | `\Reading.level`                | `(Reading) -> Int`                                 |
-|  [02]   | Initializer      | `SKU.init`                      | `(String) throws(OrderError) -> SKU`               |
-|  [03]   | Enum case        | `Delivery.inTransit(tracking:)` | `(String) -> Delivery`                             |
-|  [04]   | Bound method     | `catalog.price(of:)`            | `(SKU) throws(OrderError) -> Decimal`              |
-|  [05]   | Unbound method   | `Catalog.price(of:)`            | `(Catalog) -> (SKU) throws(OrderError) -> Decimal` |
-
-Swift has no curried declarations, and a bound method is its partial application: the receiver holds the values the entry point fixes, the argument is the per-call value, and `catalog.price(of:)` is the function a consumer receives:
+Swift has no curried declarations, and a bound method is their partial application: the receiver holds values the entry point fixes, the argument is the per-call value, and `catalog.price(of:)` is the function a consumer receives:
 
 ```swift
 func prices(of codes: [String], in catalog: Catalog) throws(OrderError) -> [Decimal] {
@@ -45,11 +27,11 @@ func prices(of codes: [String], in catalog: Catalog) throws(OrderError) -> [Deci
 }
 ```
 
-Each reference keeps its typed throw, so `map` keeps `OrderError` through both steps with no closure literal.
+References keep their typed throw, and `map` keeps `OrderError` through both steps with no closure literal.
 
 ## [03]-[RULES_AS_VALUES]
 
-Rules a consumer stores, compares, or shows are package values whose members are the functions: a `ClosedRange` or `Set` tests membership, a `KeyPathComparator` orders. Rules nobody reads back are closures:
+Rules a consumer stores, compares, or shows are package values with the functions as members: a `ClosedRange` or `Set` tests membership, a `KeyPathComparator` orders. Rules nobody reads back are closures:
 
 ```swift
 func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [KeyPathComparator<Reading>] = [KeyPathComparator(\Reading.level, order: .reverse)]) -> [Reading] {
@@ -57,11 +39,11 @@ func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [K
 }
 ```
 
-`band` decodes from configuration and a settings view shows its bounds, and `order` is `Hashable` and `Sendable`, so a view stores the user's sort and passes it unchanged.
+`band` decodes from configuration, where an inverted pair fails with `DecodingError.dataCorrupted`, and a settings view shows its bounds. `order` is `Hashable` and `Sendable`, and a view stores the user's sort and passes it unchanged.
 
-## [04]-[CAPABILITIES]
+## [04]-[DEPENDENCIES]
 
-Operations that read and write one record are one requirement taking the transition as a `sending` closure, so the conformance runs read, transition, and write as one isolated step:
+Libraries own their host calls, take each value an application decides as a defaulted parameter, and build host configuration inside. Operations that read and write one record are one requirement taking the transition as a `sending` closure, and the conformance runs read, transition, and write as one isolated step:
 
 ```swift
 protocol Store<Record>: Sendable {
@@ -76,4 +58,4 @@ func debit(_ id: Account.ID, by amount: Decimal, in store: some Store<Account>) 
 }
 ```
 
-`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between the read and the write, and `load`, whose storage cannot fail, drops `throws`. Consumers reading one operation receive the bound requirement, `store.load` typed `(Account.ID) async throws(OrderError) -> Account?`, formed on `some Store<Account>` since an actor's own methods take no partial application. Library functions take each value an app decides (a bundle prefix, a poll interval, a retry count) as a parameter the entry point supplies, a host configuration value whole when the caller sets every field, and the caller's facts alone when the function builds the rest.
+`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness over storage that cannot fail drops `throws`. Actor-isolated methods take no partial application, and a consumer reading one operation receives the requirement bound on `some Store<Account>`: `store.load`, typed `(Account.ID) async throws(OrderError) -> Account?`.

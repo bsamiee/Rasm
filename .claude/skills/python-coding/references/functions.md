@@ -1,25 +1,8 @@
 # [FUNCTIONS]
 
-Covers functions as values, from bound dependencies and operator families to dispatch, iteration, recursion, pipelines, and records of functions.
+Covers functions bound, passed, and returned as values.
 
-## [01]-[SPECIALIZATION]
-
-`hashed` takes its reader as a function, its path as the subject, and its seed as a keyword policy with a default. `partial` binds the reader once and leaves the seed open to each caller, and binds the host hash's own keyword into the step `map` applies. `Outcome` is the package result and `content` the package byte reader:
-
-```python
-def hashed(read: Callable[[Path], Outcome[bytes]], path: Path, /, *, seed: int = 0) -> Outcome[int]:
-    return read(path).map(partial(xxhash.xxh3_64_intdigest, seed=seed))
-
-
-identity = partial(hashed, content)
-```
-
-`identity(path)` and `identity(path, seed=7)` hash one file under each seed, and an unreadable path returns the reader's fault:
-- Both checkers check the arguments a `partial` binds, and ty keeps every remaining parameter, keyword policies included, refusing a `Callable` slot they fail
-- Partials type as `partial[R]` under mypy and fit any slot returning `R`
-- Nested partials flatten (`partial(identity, seed=7).func is hashed`), and a call-site keyword overrides a bound one
-
-## [02]-[OPERATOR_FAMILIES]
+## [01]-[OPERATOR_FAMILIES]
 
 Members that differ by the function they apply are one method and one `partialmethod` per member. `Term` is an expression over named inputs, each operator binds the function it applies, and nothing evaluates until `at` reads an environment:
 
@@ -28,22 +11,20 @@ class Term(msgspec.Struct, frozen=True):
     at: Callable[[Mapping[str, float]], float]
 
     def _joined(self, op: Callable[[float, float], float], other: Term | float, /) -> Term:
-        right = other.at if isinstance(other, Term) else lambda _: other
-        return Term(lambda env: op(self.at(env), right(env)))
+        return Term(lambda env: op(self.at(env), other.at(env) if isinstance(other, Term) else other))
 
     __add__ = __radd__ = partialmethod(_joined, operator.add)
     __mul__ = __rmul__ = partialmethod(_joined, operator.mul)
     __sub__ = partialmethod(_joined, operator.sub)
-    __rsub__ = partialmethod(_joined, lambda a, b: b - a)
+    __rsub__ = partialmethod(_joined, flip(operator.sub))
     __truediv__ = partialmethod(_joined, operator.truediv)
 ```
 
 `x = Term(lambda env: env["x"])` reads one input, and `(1.0 - 0.5 * x * x).at({"x": 2.0})` returns `-1.0`:
-- Both checkers type each operator's result as `Term` and check no operand, `_joined` decides every operand type
-- Commutative operators bind the forward and reflected names to one `partialmethod`, a noncommutative reflected operator swaps its operands
-- `partial` stored as a class attribute binds as a method, `partialmethod` states that binding and `staticmethod(partial(...))` keeps a call unbound
+- Commutative operators bind the forward and reflected names to one `partialmethod`, a noncommutative reflected operator binds `flip(op)`
+- `partialmethod` passes the instance before its bound arguments, and a `partial` class attribute passes it after them
 
-## [03]-[DISPATCH]
+## [02]-[DISPATCH]
 
 Decisions over values read a member that states the decision or a table built once. `graded` maps each error to a grade through sorted breaks, and `max` reads the worst grade from the `IntEnum` order:
 
@@ -58,60 +39,32 @@ def graded(errors: Iterable[float], /, *, breaks: tuple[float, float] = (0.5, 0.
     return max((Grade(bisect(breaks, error)) for error in errors), default=Grade.PASS)
 ```
 
-`Grade` values count the breaks below each grade, `breaks` types one break per member past the first, and an empty input grades `PASS` through `default`. Select the form by the decision:
+`Grade` values count the breaks below each grade, `breaks` types one break per member past the first, and an empty input grades `PASS` through `default`. Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect.
 
-| [INDEX] | [DECISION]              | [FORM]                                                                        |
-| :-----: | :---------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Lookup table built once | `frozendict` keyed by the object answering it (enum member, leaf type, tuple) |
-|  [02]   | Threshold               | `bisect` over sorted breaks into an `IntEnum` or a label tuple                |
-|  [03]   | Worst or best of a set  | `max` or `min` over an `IntEnum` with `default=`                              |
+## [03]-[ITERATION]
 
-- Tables hold facts no rule states, a value following a rule (a scale, an ordinal, a product of factors) computes from its parameters
-- Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect
-- Tables keyed by a type resolve a subclass through `next(TABLE[base] for base in kind.__mro__ if base in TABLE)`
+Select the member by the operation:
 
-## [04]-[ITERATION]
+| [INDEX] | [OPERATION]              | [MEMBER]                                       |
+| :-----: | :----------------------- | :--------------------------------------------- |
+|  [01]   | Parallel apply           | `map(f, a, b, strict=True)`                    |
+|  [02]   | Neighbor pairs with ends | `pairwise((None, *items, None))`               |
+|  [03]   | Fixed chunks             | `batched(items, size, strict=True)`            |
+|  [04]   | Sorted merge             | `heapq.merge(*runs, key=f)` over sorted inputs |
+|  [05]   | Chunked reads            | `iter(partial(stream.read, size), b"")`        |
 
-Iterators produce values lazily and once, and a consumer that stops early computes only what it read. Select the member by the operation:
-
-| [INDEX] | [OPERATION]      | [MEMBER]                                              |
-| :-----: | :--------------- | :---------------------------------------------------- |
-|  [01]   | Parallel walk    | `zip(a, b, strict=True)`                              |
-|  [02]   | Transpose        | `zip(*rows, strict=True)`                             |
-|  [03]   | Neighbor pairs   | `pairwise`, `pairwise((None, *items, None))` for ends |
-|  [04]   | Fixed chunks     | `batched(items, size, strict=True)`                   |
-|  [05]   | Cross product    | `product(kinds, tiers)`                               |
-|  [06]   | Running fold     | `accumulate(items, f, initial=seed)`                  |
-|  [07]   | Single fold      | `reduce(f, items, seed)`                              |
-|  [08]   | Consecutive runs | `groupby` over input ordered by key                   |
-|  [09]   | Top n            | `heapq.nlargest(n, items, key=f)`                     |
-|  [10]   | Sorted merge     | `heapq.merge(*runs, key=f)` over sorted inputs        |
-|  [11]   | Chunked reads    | `iter(partial(stream.read, size), b"")`               |
-
-`filled` carries each reading across the ticks before the next one, each adjacent pair bounding one `range`:
+`filled` repeats each reading across the ticks before the next one, each adjacent pair bounding one `range`:
 
 ```python
 def filled[V](readings: Sequence[tuple[int, V]], /, *, step: int = 1) -> tuple[tuple[int, V], ...]:
     return (*((tick, value) for (start, value), (end, _) in pairwise(readings) for tick in range(start, end, step)), *readings[-1:])
 ```
 
-`filled(((0, 1.0), (3, 2.0)))` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`, and `readings[-1:]` closes with the last reading, or with nothing for empty input:
-- Fold seeds are their operator's identity (`0`, `1`, `()`), and a fold returns its seed for empty input
-- Generator functions separate producing values from transforming them, each stage takes an iterable and delegates through `yield from`
-- Values read twice are a `tuple`, and a spent iterator yields nothing on a second pass
+`filled(((0, 1.0), (3, 2.0)))` returns `((0, 1.0), (1, 1.0), (2, 1.0), (3, 2.0))`, and `readings[-1:]` closes with the last reading, or with nothing for empty input.
 
-## [05]-[RECURSION]
+## [04]-[RECURSION]
 
-Python performs no tail-call optimization and bounds recursion depth, and depth and successor sharing select the form:
-
-| [INDEX] | [APPROACH]                   | [USE_WHEN]                            | [COST]                         |
-| :-----: | :--------------------------- | :------------------------------------ | :----------------------------- |
-|  [01]   | Recursive `match` with `*`   | Tree depth small and bounded          | Each level grows the stack     |
-|  [02]   | `reduce` or `accumulate`     | Linear recursion over a sequence      | `reduce` keeps no intermediate |
-|  [03]   | `graphlib.TopologicalSorter` | Shared successors in an acyclic graph | `prepare` raises `CycleError`  |
-|  [04]   | `deque` worklist with `seen` | Cyclic successors                     | Mutation stays inside the walk |
-
-Recursive folds return a tuple per node and flatten children through unpacking (`tuple(*leaves(child) for child in node.children)`). `generations` yields each batch of nodes with every predecessor done, one batch per longest-path layer:
+Walks over an acyclic graph whose nodes share successors run through `graphlib.TopologicalSorter`, with no recursion depth and no node visited twice. `generations` yields each batch of nodes with every predecessor done, one batch per longest-path layer, from a sorter it owns:
 
 ```python
 def generations[K: Hashable](graph: Mapping[K, Iterable[K]], /) -> Iterator[tuple[K, ...]]:
@@ -119,33 +72,33 @@ def generations[K: Hashable](graph: Mapping[K, Iterable[K]], /) -> Iterator[tupl
     sorter.prepare()
     while sorter.is_active():
         ready = sorter.get_ready()
-        sorter.done(*ready)
         yield ready
+        sorter.done(*ready)
 ```
 
-`graph` maps each node to its predecessors, `{"c": ("a", "b"), "b": ("a",), "d": ()}` yields `a` and `d`, then `b`, then `c`, and nodes of one batch can run in parallel. Sorters are local state their generator owns.
+`graph` maps each node to its predecessors, `{"c": ("a", "b"), "b": ("a",), "d": ()}` yields `a` and `d`, then `b`, then `c`, and nodes of one batch can run in parallel. A scheduler calling `done` per finished node in place of per batch starts each node once its own predecessors finish.
 
-## [06]-[PIPELINES]
+## [05]-[PIPELINES]
 
-Pipelines name a composition of unary steps once and apply it where each value enters. `slug` normalizes text left to right, and `tier` pipes text through `slug` into a raising enum lookup that `catch` converts:
+`compose(f, g)` names a pipeline of unary steps once and applies it where each value enters, and `pipe(value, f, g)` runs steps on one value. `slug` normalizes text left to right, and `tide` applies it before a raising enum lookup that `catch` converts:
 
 ```python
-slug: Callable[[str], str] = compose(str.strip, str.casefold, partial(re.compile(r"[\s_]+").sub, "-"))
+slug: Callable[[str], str] = compose(str.strip, str.casefold, partial(re.compile(r"[\s-]+").sub, "_"))
 
 
-def tier(text: str, /) -> Outcome[Tier]:
-    return pipe(text, slug, catch(Tier, exception=ValueError)).map_error(partial(Fault.of, Reason.INVALID, repr(text)))
+def tide(text: str, /) -> Outcome[Tide]:
+    return catch(Tide, exception=ValueError)(slug(text)).map_error(partial(Fault.of, Reason.INVALID, repr(text)))
 ```
 
-`Tier` is a `StrEnum` with a `"high-water"` member, and `tier(" High_Water ")` returns it:
-- Unbound methods (`str.strip`, `str.casefold`) are unary steps over their subject
-- Steps fixing a later argument bind a method of the fixed object, `partial(pattern.sub, "-")` leaves the text parameter open
-- `catch(Tier, exception=ValueError)` keeps `Tier` as its value type
-- `compose` takes at most nine steps and `pipe` sixteen, and a longer chain splits into named compositions with the same behavior, composition being associative
+`Tide` is a `StrEnum` with an `auto()` member `HIGH_WATER`, and `tide(" High-Water ")` returns it:
+- Steps fixing a later argument bind a method of the fixed object, `partial(pattern.sub, "_")` leaves the text parameter open
+- `compose` types at most nine steps and `pipe` sixteen, and a longer chain splits into named compositions
+- `compose` returns a closure no worker pickles, and a step crossing `to_process` or `to_interpreter` is a top-level `def` or a `partial` over one
+- `Result` and `Option` chains stay fluent method calls
 
-## [07]-[STRATEGIES]
+## [06]-[STRATEGIES]
 
-Behavior that varies by format or backend is a generic record of functions with one instance per variant, its type parameter the value its functions pass each other. `Grammar` splits text into numbered units of its own type and holds rules over that type, and `REPORTS` holds each grammar as its bound `report` method:
+Behavior that varies by format or backend is a generic record of functions with one instance per variant, its type parameter the value its functions pass each other. `Grammar` splits text into numbered units of its own type and holds rules over that type:
 
 ```python
 class Grammar[U](msgspec.Struct, frozen=True, kw_only=True):
@@ -166,5 +119,5 @@ REPORTS: frozendict[str, Callable[[str], tuple[str, ...]]] = frozendict({
 ```
 
 `REPORTS[path.suffix](text)` reports one file, `REPORTS[".py"]("x = 1  # LOUD\n")` returns `("1: shouted comment",)`, and a new format adds one entry:
-- Type arguments type each lambda parameter under both checkers, and mypy infers `U` from a lambda as `Any`
-- `U` is invariant (returned by `units`, taken by each rule), no `Grammar[object]` holds both instances, and their bound methods share one type
+- Each instance names its type argument (`Grammar[str]`) to type its lambda parameters
+- Invariant `U` leaves instances no common `Grammar` type, and variant tables hold bound `report` methods

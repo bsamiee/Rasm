@@ -1,6 +1,6 @@
 # [MESSAGEPACK]
 
-Covers MessagePack extension types for out-of-band references and the values MessagePack encodes apart from JSON.
+Covers MessagePack extension types for out-of-band references and values MessagePack encodes differently from JSON.
 
 ## [01]-[REFERENCES]
 
@@ -25,29 +25,21 @@ def linked[H: Hashable](kind: type[H], record: msgspec.Struct, /) -> Linked[H]:
     return Linked(data=data, handles=tuple(table))
 
 
-def _resolved[H: Hashable](handles: tuple[H, ...], code: int, data: memoryview, /) -> H | msgspec.msgpack.Ext:
+def resolved[H: Hashable](handles: tuple[H, ...], code: int, data: memoryview, /) -> H | msgspec.msgpack.Ext:
     return handles[int.from_bytes(data)] if code == Linked.code else msgspec.msgpack.Ext(code, bytes(data))
-
-
-@catch(exception=msgspec.DecodeError)
-def _unlinked[T, H: Hashable](form: type[T], held: Linked[H], /) -> T:
-    record: T = msgspec.msgpack.decode(held.data, type=form, ext_hook=partial(_resolved, held.handles))
-    return record
-
-
-def unlinked[T, H: Hashable](form: type[T], held: Linked[H], /) -> Outcome[T]:
-    return _unlinked(form, held).map_error(partial(Fault.of, Reason.INVALID, form.__name__))
 ```
 
-`unlinked(<Record>, linked(<Handle>, record))` returns a record holding the same handle objects, and a second table of equal length rebinds every field to its handles:
+`msgspec.msgpack.decode(held.data, type=<Record>, ext_hook=partial(resolved, held.handles))` returns a record holding the same handle objects, and a second table of equal length rebinds every field to its handles:
 - Codes 0 to 127 belong to applications, and negative codes to MessagePack (`-1` for timestamps)
-- Fields typed as the handle class refuse an `ext_hook` result of another class at their path with no `dec_hook`
-- `ext_hook` raises propagate raw, and a table shorter than its indexes raises `IndexError` past `catch`
+- Fields typed as the handle class refuse an `ext_hook` result of another class at their path (`` Expected `Handle`, got `Other` - at `$.handle` ``)
+- `ext_hook` raises propagate raw, and a table shorter than its indexes raises `IndexError` past a `DecodeError` catch
 - Codes other than `Linked.code` decode as `msgspec.msgpack.Ext` values, as in a decode with no `ext_hook`
 
 ## [02]-[ENCODING]
 
-MessagePack writes integers, datetimes, and non-finite floats apart from JSON:
+MessagePack differs from JSON on integers, binary, datetimes, UUIDs, and non-finite floats:
 - Integers outside `-2**63` to `2**64 - 1` raise `OverflowError`, and JSON writes them whole
+- `bytes` fields refuse `str` items, and a `memoryview` target views its `bin` payload inside the input buffer, which stays alive while the view does
 - Aware `datetime` encodes as the timestamp extension, and naive `datetime` as ISO text
+- `Encoder(uuid_format="bytes")` writes a `UUID` as its 16 bytes, an option the JSON encoder lacks
 - `NaN` and infinities encode as floats and decode back unchanged

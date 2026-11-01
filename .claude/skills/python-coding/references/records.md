@@ -1,27 +1,30 @@
 # [RECORDS]
 
-Covers record flows from decode to transition, with keyed diffs, declared graphs, recursive unions, histories, and array fields.
+Covers records from decode through transition.
 
 ## [01]-[LIFECYCLE]
 
-Records state each rule once, a bound only decodes set as `Meta` on its field and a bound a transition moves in `__post_init__`, and a transition reaches that rule through `structs.replace`. `reserving` books or releases stock by a signed amount. `Fault`, `Outcome`, and `Reason` are the package faults:
+Fallible transitions reach `__post_init__` through `replaced`, and its `ValueError` returns as an `INVALID` fault:
 
 ```python
 class Stock(msgspec.Struct, frozen=True, kw_only=True):
-    count: Annotated[int, msgspec.Meta(ge=1)]
+    count: int
     reserved: int = 0
 
     def __post_init__(self) -> None:
         if not 0 <= self.reserved <= self.count:
-            raise ValueError(self.reserved)
+            raise ValueError(f"reserved {self.reserved} outside 0 to {self.count}")
 
     def reserving(self, delta: int, /) -> Outcome[Self]:
-        return catch(partial(msgspec.structs.replace, self), exception=ValueError)(reserved=self.reserved + delta).map_error(partial(Fault.of, Reason.OUTSIDE, "reserved", member=f"0 to {self.count}"))
+        return replaced(self, reserved=self.reserved + delta)
+
+
+def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
+    return catch(partial(msgspec.structs.replace, record), exception=ValueError)(**changes).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
 ```
 
-`msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `4`, and `reserving(2)` twice fails with `reserved accepts 0 to 3, not 4`:
-- Transitions catch the `ValueError` of `__post_init__` around `structs.replace`, and the rule a decode enforces is the rule a transition enforces
-- Each refused value `__post_init__` raises is both decode message and fault `cause`
+`msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`, and `reserving(2)` twice fails with `Stock is invalid. reserved 4 outside 0 to 3`:
+- `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters
 
 ## [02]-[KEYED_DIFFS]
 
@@ -33,7 +36,6 @@ def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K,
 ```
 
 `case (None, new):` matches an insertion, `case (old, None):` a deletion, and `case (old, new):` a change:
-- Record snapshots compare by every field, a change in any field yields a pair
 - `msgspec.json.encode` writes `null` for a missing side, and `type=frozendict[str, tuple[V | None, V | None]]` reads it back
 
 ## [03]-[DECLARED_GRAPHS]
@@ -60,7 +62,7 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
 
 ## [04]-[RECURSIVE_UNIONS]
 
-Recursive unions take a package type for each leaf and one record for each node, and each operation over them is one function with one recursive `match`. Quantifiers differing only in the function they apply are one `Group` keyed by `mode`, and each table key is its function's `__name__`:
+Recursive unions take a package type for each leaf and one record for each node, and each operation over them is one function with one recursive `match`. `Group.mode` names a quantifier `QUANTIFIERS` holds:
 
 ```python
 type Condition = str | Group
@@ -75,14 +77,14 @@ def none(held: Iterable[bool], /) -> bool:
     return not any(held)
 
 
-QUANTIFIERS: frozendict[str, Callable[[Iterable[bool]], bool]] = frozendict({quantifier.__name__: quantifier for quantifier in (all, any, none)})
+QUANTIFIERS = frozendict({quantifier.__name__: quantifier for quantifier in (all, any, none)})
 
 
 def holds(condition: Condition, facts: frozenset[str], /) -> bool:
     match condition:
         case Group(mode=mode, members=members):
             return QUANTIFIERS[mode](holds(member, facts) for member in members)
-        case _:
+        case str():
             return condition in facts
 
 
@@ -94,16 +96,11 @@ def unmet(condition: Condition, facts: frozenset[str], /) -> tuple[Condition, ..
             return () if holds(condition, facts) else (condition,)
 ```
 
-`msgspec.json.decode(raw, type=Condition)` reads `{"mode": "all", "members": ["gpu", {"mode": "none", "members": ["busy"]}, {"mode": "any", "members": ["a", "b"]}]}`, and `unmet` with facts `{"gpu", "busy"}` returns the `none` and `any` groups, a disjunction failing as one part:
-- Unions of `str` and one untagged record decode by JSON kind with no tag field
-- `type` aliases evaluate at first use, `Condition` above `Group` resolves once it exists
-- Decodes validate every level (`` Expected `str | object`, got `int` - at `$.members[0]` ``, `` Invalid enum value 'some' - at `$.mode` ``)
-- New quantifiers add one function and its name as a `Literal` value
-- `all` and `any` stop at the first deciding member
+`msgspec.json.decode(raw, type=Condition)` reads `{"mode": "all", "members": ["gpu", {"mode": "none", "members": ["busy"]}, {"mode": "any", "members": ["a", "b"]}]}`, and `unmet` with facts `{"gpu", "busy"}` returns the `none` and `any` groups, a disjunction failing as one part.
 
 ## [05]-[TRANSITIONS]
 
-Transitions are methods of the state record, and `reduce(History.added, entries, start)` replays a history while `accumulate(entries, History.added, initial=start)` yields `start` and each later state. `History` holds its merge interval beside its entries, newest first:
+Transitions are methods of the state record. `reduce(History.added, entries, start)` replays a history, and `accumulate(entries, History.added, initial=start)` yields `start` and each later state. `History` holds its merge interval beside its entries, newest first:
 
 ```python
 class History[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -119,12 +116,11 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
 ```
 
 Entries within `interval` of the newest entry replace it, and every other entry goes first: entries at `0s`, `0.5s`, and `2s` under a `1s` interval leave the ones at `2s` and `0.5s`:
-- `case ((moment, _), *rest)` binds the newest entry's moment and every older entry, and its guard reads `interval` from the record
-- Configuration a record holds leaves unbound `History.added` as the `(state, event) -> state` step `reduce` and `accumulate` take, with no `partial`
+- Generic records decode per parameterization, `type=History[str]` refuses an `int` entry at `$.past[0][1]`
 
 ## [06]-[ARRAY_FIELDS]
 
-`Trace` checks its array's shape in `__post_init__` and derives each new array through a whole-array call. `Samples` is the package float array type:
+`Trace` checks its array's shape in `__post_init__`, and each new array derives through a whole-array call:
 
 ```python
 class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -133,17 +129,17 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def __post_init__(self) -> None:
         if self.step <= 0.0 or self.volts.ndim != 1 or self.volts.size < 2:
-            raise ValueError(self)
+            raise ValueError(f"step {self.step} over shape {self.volts.shape}")
 
     @property
     def slopes(self) -> Samples:
         return np.diff(self.volts) / self.step
 
-    def clipped(self, floor: float, /) -> Self:
-        return msgspec.structs.replace(self, volts=np.maximum(self.volts, floor))
+    def windowed(self, start: int, stop: int, /) -> Outcome[Self]:
+        return replaced(self, volts=self.volts[start:stop])
 ```
 
 Records holding an array take `eq=False` and compare and hash by identity, a default record's `==` raises `ValueError` on the array's truth value and `hash` raises `TypeError`:
-- Frozen records refuse field assignment and leave array elements writable
+- Frozen records refuse field assignment and leave array elements writable, and `windowed` holds a view of its parent's buffer
 - Codecs refuse an `ndarray` field (`` Expected `numpy.ndarray`, got `list` - at `$.volts` ``), and a wire record holds `tuple[float, ...]`
 - Per-channel values take the shape their consumer takes whole, a `tuple[float, float, float]` for one color and one `(n, 3)` array for many

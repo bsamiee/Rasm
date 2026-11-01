@@ -37,8 +37,7 @@ Host references go stale after their event, and code holds the form that survive
 |  [12]   | Struct with a class a write refines  | `Light.type`, interface `socket_type`         | Re-read from its owner after the write       |
 |  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write         | `properties.inputs` re-read after each write |
 |  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps   | Read through its owner after the call        |
-|  [15]   | `ui_styles` item                     | Theme reset, preset load                      | Re-read from its owner                       |
-|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it      | Item `identifier`                            |
+|  [15]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it      | Item `identifier`                            |
 
 Stale references fail by kind:
 - Stale ID, `object_instances` item, `to_mesh()` mesh, and GeometrySet component references raise `ReferenceError` on every read
@@ -63,9 +62,9 @@ Creation, removal, selection, and scope follow host rules:
 Removing an object leaves its data at zero users, and removals name objects with the data no other user holds in one `batch_remove`:
 
 ```python
-def purged(objects: tuple[bpy.types.Object, ...]) -> None:
-    held: frozenset[bpy.types.ID] = frozenset(objects)
-    users: dict[bpy.types.ID, set[bpy.types.ID]] = bpy.data.user_map(subset={obj.data for obj in objects if obj.data is not None})
+def purged(objects: tuple[bpy.types.Object, ...], /) -> None:
+    held = frozenset(objects)
+    users = bpy.data.user_map(subset=tuple(item.data for item in objects if item.data is not None))
     bpy.data.batch_remove(ids=(*objects, *(block for block, holders in users.items() if holders <= held)))
 ```
 
@@ -87,34 +86,26 @@ Identity and lookup follow host keys:
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
 - Collections can hold `None` items (`texture_slots`), and iteration enumerates before skipping `None` to keep host indices
 
-Data paths and msgbus paths hold member, index, and `["<name>"]` key steps as a tuple, a tuple prefix answering containment, and render text once at the call taking it:
+Keys and drivers go through the holding struct's own `keyframe_insert(member)` and `driver_add(member)`, and every call taking a path string takes the one the struct derives through `path_from_id(member)`, collection items keyed by name:
 
 ```python
-type Step = str | int | tuple[str]
+type Struct = bpy.types.bpy_struct[object]
 
 
-def spelled(step: Step) -> str:
-    match step:
-        case str():
-            return f".{step}"
-        case int():
-            return f"[{step}]"
-        case (key,):
-            return f'["{bpy.utils.escape_identifier(key)}"]'
-
-
-def path(*steps: Step) -> str:
-    return "".join(map(spelled, steps)).removeprefix(".")
+def targeted(target: bpy.types.DriverTarget, source: Struct, member: str, /) -> None:
+    owner: bpy.types.ID = source.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    target.id_type, target.id, target.data_path = owner.id_type, owner, source.path_from_id(member)
 ```
 
-`path("render", "views", 0, "name")` resolves on a scene, and `obj.keyframe_insert(path(('<key>',)))` keys a custom property with quotes in its name. Generated expression text quotes values through `repr`.
+`targeted(variable.targets[0], modifier, "width")` drives from `modifiers["Bevel"].width` on the modifier's object:
+- ID property keys pass as `f'["{bpy.utils.escape_identifier(key)}"]'`, and registered properties pass by identifier
+- `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`, `CurveMapping`, `Stereo3dFormat`)
+- `path_from_module()` returns a full path with the ID, and nested structs with no ID path join their member name to the holding struct's path
+- Generated expression text quotes values through `repr`
 
 ## [02]-[OPERATORS]
 
-Operators read context and act on the whole selection, and a per-object loop compounds edits and the costs each call pays:
-- Context resolve
-- View-layer update before the call and again after a `FINISHED` answer
-- Undo bookkeeping
+Operators read context and act on the whole selection, each call paying a context resolve, a view-layer update before the call and after a `FINISHED` answer, and undo bookkeeping, so a per-object loop compounds both edits and costs.
 
 Work takes its data API form where one member does it, and a stock operator, `bpy_extras`, `_bpy_internal`, or bundled add-on member where Blender includes the procedure:
 
@@ -136,26 +127,24 @@ Overrides reach the members an operator reads alone:
 - `screen=` of another workspace switches the window's workspace and the active object's mode for the block
 - Areas outside the screen and regions outside the area raise `TypeError` at `__enter__`, and members passed as `None` enter with no raise
 - `temp_override` accepts unknown keywords with no raise
-- `logging_set(True)` called on the override before its `with` prints each member an operator reads with the calling line
 - Background runs hold `window` and `screen` with no area, and an editor operator's override takes the `VIEW_3D` area from `window.screen.areas` with its `WINDOW` region
 
-`object.join` reads `active_object` and `selected_editable_objects` and leaves the joined meshes at zero users:
+Host refusals (`RuntimeError`, `TypeError`, or `ValueError` by call) enter the package fault at the call, the exception kept as `cause`. `object.join` reads `active_object` and `selected_editable_objects` and leaves the joined meshes at zero users, so one `batch_remove` after the call clears them on a join and nothing on a refusal:
 
 ```python
-def merged(context: bpy.types.Context, target: bpy.types.Object, items: tuple[bpy.types.Object, ...]) -> Result[None, RuntimeError]:
-    joined: tuple[bpy.types.ID, ...] = tuple(item.data for item in items if item.data is not None)
+def merged(context: bpy.types.Context, target: bpy.types.Object, items: Sequence[bpy.types.Object], /) -> Outcome[bpy.types.Object]:
+    joined = tuple(item.data for item in items if item.data is not None)
     with context.temp_override(active_object=target, selected_editable_objects=[target, *items]):
         answer = catch(bpy.ops.object.join, exception=RuntimeError)()
-    return answer.map(lambda _: bpy.data.batch_remove(ids=tuple(block for block in joined if block.users == 0)))
+    bpy.data.batch_remove(ids=tuple(block for block in joined if block.users == 0))
+    return answer.map(lambda _: target).map_error(partial(Fault.of, Reason.FAILED, target.name))
 ```
 
 Calls and their answers:
-- Script calls fill unset properties from scene settings (`object.bake` from `scene.render.bake`) and user preferences (align, Edit Mode entry)
-- Calls pass every value their result depends on
+- Script calls fill unset properties from scene settings (`object.bake` from `scene.render.bake`) and user preferences (align, Edit Mode entry), and calls pass every value their result depends on
 - `'INVOKE_DEFAULT'` runs `invoke`, and `wm.call_menu` crashes a background run under either call form
 - Failing `poll` raises `RuntimeError("Operator bpy.ops.<op>.poll() ...")`
-- `ERROR`, `ERROR_INVALID_INPUT`, `ERROR_INVALID_CONTEXT`, and `ERROR_OUT_OF_MEMORY` reports raise `RuntimeError` under either return set
-- `INFO` and `WARNING` reports print
+- `ERROR`, `ERROR_INVALID_INPUT`, `ERROR_INVALID_CONTEXT`, and `ERROR_OUT_OF_MEMORY` reports raise `RuntimeError` carrying the report text under either return set
 - `FINISHED` reports that a stock operator ran (`mesh.fill_grid` on an odd loop adds no face), and work depending on its effect reads the data it wrote
 - Calls answer `{'FINISHED'}`, `{'RUNNING_MODAL'}`, `{'INTERFACE'}`, `{'CANCELLED'}`, or `{'PASS_THROUGH'}`, and code reads `CANCELLED` and `PASS_THROUGH` as a refusal
 - Work behind `RUNNING_MODAL` or `INTERFACE` finishes after the call in a GUI session, dependent reads running from a later timer step
@@ -163,17 +152,18 @@ Calls and their answers:
 - `window.workspace` and file-browser `params` writes apply one event-loop pass later, dependent work running from a timer or modal step
 - `area.type` and `show_region_*` writes apply inside the write
 
-Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`, and a raising call keeps its writes, the created set leaving through one `batch_remove`:
+Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`, and a raising call keeps its writes, so a refusal removes the created set. One function serves every importer:
 
 ```python
-def imported(source: Path) -> Result[frozenset[bpy.types.ID], RuntimeError]:
+def imported(importer: Callable[..., object], source: Path, /) -> Outcome[frozenset[bpy.types.ID]]:
     before = frozenset(bpy.data.all_ids)
-    answer = catch(bpy.ops.wm.obj_import, exception=RuntimeError)(filepath=str(source))
+    answer = catch(importer, exception=RuntimeError)(filepath=str(source))
     created = frozenset(bpy.data.all_ids) - before
-    if answer.is_error():
-        bpy.data.batch_remove(ids=tuple(created))
-    return answer.map(lambda _: created)
+    bpy.data.batch_remove(ids=tuple(created if answer.is_error() else ()))
+    return answer.map(lambda _: created).map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
 ```
+
+`imported(bpy.ops.wm.obj_import, source)` answers the created mesh and object, and an unreadable file answers one fault holding the importer's report.
 
 ## [03]-[EVALUATION]
 
@@ -210,33 +200,28 @@ Evaluation follows host rules:
 
 ## [04]-[PROPERTIES]
 
-Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes, passing Blender's own keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`) and a `use_<name>` `BoolProperty` beside each value it switches. Enum items copying an RNA enum derive from its `enum_items` as 5-tuples keeping each item's `value`, and update callbacks act on `self.id_data` in place of the active item:
+Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes, passing Blender's own keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`) and a `use_<name>` `BoolProperty` beside each value it switches. A property mirroring an RNA enum takes its items as 5-tuples keeping each item's `value` and its default from the RNA property, and update callbacks act on `self.id_data` in place of the active item:
 
 ```python
-type Struct = bpy.types.bpy_struct[object]
+def copied(member: bpy.types.EnumProperty, /) -> tuple[tuple[str, str, str, str, int], ...]:
+    return tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in member.enum_items)
 
 
-def copied(owner: type[Struct], member: str) -> tuple[tuple[str, str, str, str, int], ...]:
-    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    match rna.properties[member]:
-        case bpy.types.EnumProperty(enum_items=items):
-            return tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in items)
-        case other:
-            raise TypeError(f"{rna.identifier}.{member} is {other.type}, not ENUM")
-
-
-def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context) -> None:
+def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context, /) -> None:
     owner: bpy.types.ID = self.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     owner.update_tag()
 
 
+light: bpy.types.EnumProperty = bpy.types.Light.bl_rna.properties["type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+
+
 class Lamp(bpy.types.PropertyGroup):
-    kind: bpy.props.EnumProperty(name="Kind", items=copied(bpy.types.Light, "type"), default="SUN", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Kind", items=copied(light), default=light.default, update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_reach: bpy.props.BoolProperty(name="Reach", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     reach: bpy.props.FloatProperty(name="Reach", subtype="DISTANCE", min=0.0, soft_max=100.0, default=10.0, update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 ```
 
-`kind` stores `AREA` as 4, its `Light.type` value, where a 3-tuple list stores its position 3.
+`kind` starts at `POINT` and stores `AREA` as 4, its `Light.type` value, where a 3-tuple list stores its position 3.
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -248,11 +233,9 @@ class Lamp(bpy.types.PropertyGroup):
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
 - `FloatProperty` and `FloatVectorProperty` take their unit from `subtype` (`DISTANCE` and `XYZ_LENGTH` read `unit` `LENGTH`), and a `unit` the subtype lacks logs an enum mismatch on each read of `subtype`
 - `get` and `set` hold values stored outside Blender, `set` needing `get` and `get` alone making the property read-only
-- `get_transform(self, stored_value, is_set)` and `set_transform(self, new_value, stored_raw_value, is_set)` transform stored values
-- `set_transform` results clamp to the hard range, `get` and `get_transform` results reach readers unclamped, and a wrong type prints `TypeError`
+- `get_transform(self, stored_value, is_set)` and `set_transform(self, new_value, stored_raw_value, is_set)` transform stored values, `set_transform` results clamping to the hard range while `get` and `get_transform` results reach readers unclamped
 - `update`, `get`, `set`, and transform callbacks can run in a threaded context per data-block, call no operator, and touch their own ID alone
 - Dynamic `items` callbacks keep their strings referenced, answer a `None` context, and number items stably per identifier, a dynamic `EnumProperty` taking an integer default
-- `ENUM_FLAG` items number by powers of 2
 - `FILE_PATH` and `DIR_PATH` properties accepting `//` declare `PATH_SUPPORTS_BLEND_RELATIVE`
 - Operator property update callbacks receive properties alone as `self`, with the window manager as `id_data`
 
@@ -261,11 +244,7 @@ Registered values read and write through the host:
 - `ob["prop"] = value` on a registered name creates a separate custom property
 - `property_unset` resets a value, and `is_property_set(name)` counts a value reused from the last run as unset, `ghost=False` counting it as set
 - Walks over every writable member reach view state (`cursor_location`, `is_dirty`) and `PASSWORD`-subtype tokens (`auth_token`, `access_token`), and captures name the members they keep
-- Caches over geometry key on `foreach_get` buffers, a member walk over a mesh paying per face
 - `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` answers whether the member is editable now
-- Data paths (`driver_add`, `keyframe_insert`, `path_resolve`) name a registered property by identifier, `["name"]` resolving ID properties alone
-- `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`, `CurveMapping`, `Stereo3dFormat`)
-- `path_from_module()` returns a full path with the ID, and nested structs with no ID path join their member name to the holding struct's path
 
 ## [05]-[UNDO]
 
@@ -297,7 +276,6 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 - Depsgraph `*_post` handlers read the scene and depsgraph they receive
 - `frame_set` fires `frame_change_pre` and `frame_change_post` alone
 - `frame_change_pre` writes data for the frame, and `frame_change_post` handlers read evaluated results
-- Timer functions return seconds until their next call, `None` stopping the timer
 - Raising native timers unregister permanently, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
 - GPU calls outside a GPU context raise `SystemError`
@@ -326,13 +304,26 @@ Each entry point translates the result once into the host's form:
 |  [09]   | `register_cli_command` function | Exit status 0 or 1                                                         |
 |  [10]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
 
-Faults and exceptions stay apart:
-- Host refusals raise `RuntimeError`, `TypeError`, or `ValueError` by call
+Helpers below an operator body return their faults in the result, and the body reports each one once:
+
+```python
+def answered[T](operator: bpy.types.Operator, outcome: Outcome[T], /) -> set["rna_enums.OperatorReturnItems"]:
+    match outcome:
+        case Result(tag="ok"):
+            return {"FINISHED"}
+        case Result(error=faults):
+            for fault in faults:
+                operator.report({"ERROR"}, fault.message)
+            return {"CANCELLED"}
+```
+
+`execute` returns `answered(self, merged(context, target, items))`, and a script caller receives the reports as one `RuntimeError`.
+
+Host answers that raise nothing still decide the result:
 - Host calls answering `None` (`links.new` across trees) or an invalid result (`NodeLink.is_valid` false) become faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing
 - `modifiers.move` past a pinned modifier keeps the order with no raise or report, and code reads the order after the call
-- Helpers below an operator body return report entries in their result, and the body calls `report` once per entry
 
 Values cross the boundary in host units and axes:
 - Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and decoded values hold SI quantities

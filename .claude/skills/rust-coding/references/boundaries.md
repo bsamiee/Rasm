@@ -1,10 +1,10 @@
 # [BOUNDARIES]
 
-Covers where untyped data meets the domain, from decoding text and bytes into constructed types to encoding output and composing the host.
+Covers untyped data entering and leaving domain types.
 
 ## [01]-[DECODE]
 
-Decoding is the one place untrusted data becomes domain values, and a record of constrained fields decodes valid with no check of its own. A rule across fields constrains the whole value, and `nutype` over a standard type states it in one declaration:
+Decoding is the one place untrusted data becomes domain values, and `nutype` states a rule across fields with its wire form in one declaration:
 
 ```rust
 #[nutype(
@@ -14,13 +14,13 @@ Decoding is the one place untrusted data becomes domain values, and a record of 
 pub struct Window(Range<Timestamp>);
 ```
 
-`Window` decodes from `{"start": .., "end": ..}`, rejects an unknown key or an end at or before its start, encodes through the same shape, and reaches `Range` members (`window.contains(&now)`) through `Deref`. Wire shapes no standard type matches become a record declared as the inner type, and a domain enum spelled as flat wire fields decodes through `#[serde(try_from = "<Wire>")]`.
+`Window` decodes from and encodes to `{"start": .., "end": ..}`, rejects an unknown key or an end at or before its start, and reaches `Range` members (`window.contains(&now)`) through `Deref`. Domain enums spelled as flat wire fields decodes through `#[serde(try_from = "<Wire>")]`.
 
-Decoders name the failing value: `toml` errors hold its key path and source excerpt, `axum::Json` rejections its field path. A `serde_json::Deserializer` a program drives decodes through `serde_path_to_error::deserialize`, and `Deserializer::end` then rejects trailing input.
+Decode errors name the failing path: `toml` errors and `axum::Json` rejections hold it, and a `serde_json::Deserializer` a program drives decodes through `serde_path_to_error::deserialize`, then `Deserializer::end` rejects trailing input.
 
 ## [02]-[TAGGED_UNIONS]
 
-Enums cross a boundary with one tag declaration, and fields every variant shares sit on a record that flattens the enum beside them:
+Enums cross a boundary with one tag declaration, and fields every variant shares sit on a record flattening the enum beside them:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -35,18 +35,20 @@ pub struct Event {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Change {
     Created,
-    Renamed { name: Label },
+    Renamed {
+        name: Label,
+    },
     Removed,
     #[serde(other)]
     Unknown,
 }
 ```
 
-`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Consumers of a stream that producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, and a known tag with malformed fields fails. Closed protocols reject an unknown tag at decode. Errors a boundary encodes take the same form: the crate error derives `Serialize` under a tag with `#[serde(skip)]` on each `source`, and its reason enum serializes through `serde_with::SerializeDisplay` from the `Display` that names each reason.
+`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Consumers of a stream that producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, and a known tag with malformed fields fails. Closed protocols reject an unknown tag at decode. Encoded outcomes and errors take the same form: an outcome is a tagged enum of its cases in place of `Result`'s `{"Ok": ..}`, and the crate error derives `Serialize` under a tag with `#[serde(skip)]` on each `source`, its reason enum serializing through `serde_with::SerializeDisplay` from its `Display`.
 
 ## [03]-[FIELD_CODECS]
 
-Field encodings sit on the field, and the field keeps its domain type:
+Encodings sit on the field, and the field keeps its domain type:
 
 | [INDEX] | [WIRE]                         | [DECLARATION]                                |
 | :-----: | :----------------------------- | :------------------------------------------- |
@@ -60,7 +62,7 @@ Field encodings sit on the field, and the field keeps its domain type:
 |  [08]   | Undeclared keys rejected       | `#[serde(deny_unknown_fields)]`              |
 |  [09]   | Field names in another case    | `#[serde(rename_all = "camelCase")]`         |
 
-`#[serde_as]` and `#[skip_serializing_none]` precede the derive. One `#[serde_as]` enables every codec on the type, codecs compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), an `Option` field under `serde_as` decodes an absent key as `None`, and a derived `JsonSchema` describes each field's wire form through the `#[schemars(with)]` that `serde_as` writes. Configuration and requests a program owns reject undeclared keys, so a misspelled key fails at decode. Records a program passes through keep undeclared keys in `rest`, and an encode writes back what it read. `RawValue` copies a forwarded value's bytes unparsed inside a record whose fields decode without `flatten`.
+`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every codec on the type. Codecs compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), an `Option` codec decodes an absent key as `None`, and a derived `JsonSchema` reads each codec's wire form. Records a program owns reject undeclared keys, and records it passes through keep them in `rest`, the one `Value` field, and an encode writes back what it read. `RawValue` copies a forwarded value's bytes unparsed inside a record whose fields decode without `flatten`.
 
 ## [04]-[BINARY]
 
@@ -82,11 +84,11 @@ pub struct Frame {
 }
 ```
 
-`Frame::read(&mut Cursor::new(bytes))` returns `BinResult<Frame>`, and `binrw::Error` names the stream position of a bad magic or a rejected quantity. `Quantity` is a `nutype` over `u32`. Length prefixes are `temp` on read and computed from the collection on write, so the collection is the one record of its length. `#[binrw]` precedes the derives and removes temporary fields before they run.
+`Frame::read(&mut Cursor::new(bytes))` returns `BinResult<Frame>`, and `binrw::Error` names the stream position of a bad magic or a rejected quantity. `Quantity` is a `nutype` over `u32`. Length prefixes are `temp` on read and computed from the collection on write, and `#[binrw]` precedes the derives to remove temporary fields before they run.
 
 ## [05]-[CONFIGURATION]
 
-Invocation values (settings path, secrets, verbosity) decode from arguments and environment through `clap`, service settings decode from one file, and each setting has one source:
+Invocation values (settings path, secrets, telemetry) decode from arguments and environment through `clap`, service settings from one file, each setting from one source:
 
 ```rust
 #[derive(Debug, Parser)]
@@ -97,11 +99,11 @@ pub struct Args {
     #[arg(long, env, hide_env_values = true)]
     pub token: SecretString,
     #[command(flatten)]
-    pub verbosity: Verbosity<InfoLevel>,
+    pub telemetry: Options,
 }
 ```
 
-Flags and variable names derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call that sends it. `Verbosity` adds `-v` and `-q` flags that resolve to a tracing level filter. Arguments hold values the program reads, and a variable a dependency reads (`RUST_LOG`) reaches that dependency untouched. Settings declare each default on its field:
+Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. `Options` from the workspace telemetry crate adds the log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -112,26 +114,26 @@ pub struct Settings {
     pub windows: Vec<Window> = Vec::new(),
 }
 
-pub async fn settings(path: &Utf8Path) -> Result<Settings, ServiceError> {
+pub async fn decoded<T>(path: &Utf8Path) -> Result<T, ServiceError>
+where T: DeserializeOwned {
     let text = fs::read_to_string(path).await.map_err(|source| ServiceError::Read { path: path.to_owned(), source })?;
-    toml::from_str(&text).map_err(|source| ServiceError::Settings { path: path.to_owned(), source })
+    toml::from_str(&text).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
 }
 ```
 
-`#[serde(default)]` fills each absent key from its field default, `timeout = "30s"` decodes through `SignedDuration`'s friendly format, and every value decodes into its domain type. `ServiceError` is the crate error.
+`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, and `Read` and `Decode` each hold the path beside the `io::Error` or `toml` error they wrap.
 
 ## [06]-[HOST]
 
-`main` holds a program's only global effects: it parses arguments, installs a subscriber, runs the composed effect, and translates its result:
+`main` holds a program's only global effects:
 
 ```rust
 #[tokio::main]
 async fn main() -> ExitCode {
-    let args = Args::parse();
-    let filter = EnvFilter::from_default_env().add_directive(args.verbosity.tracing_level_filter().into());
-    tracing_subscriber::fmt().with_env_filter(filter).with_writer(io::stderr).init();
-    run(args).await.inspect_err(|failure| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(failure), "service stopped")).err().as_ref().map_or(ExitCode::SUCCESS, exit_code)
+    let Err(failure) = run(Args::parse()).await else { return ExitCode::Ok };
+    tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(&failure), "service stopped");
+    failure.into()
 }
 ```
 
-`-v` and `-q` set the level of every target, and a `RUST_LOG` directive naming a target refines it. Logs write to stderr, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.
+`Options::run` holds this body for a workspace host, after it installs the subscriber, exporters, propagators, and panic hook. Logs write to stderr, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.

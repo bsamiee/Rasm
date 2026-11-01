@@ -1,10 +1,10 @@
 # [TRAITS]
 
-Covers traits as capabilities, from associated types, proxies, and trait objects to async capabilities, bounded operations, and conversions.
+Covers traits as capabilities and conversions.
 
 ## [01]-[CAPABILITIES]
 
-Capability traits hold required methods, default methods derived from them, and associated types each implementor fixes. `auto_impl` derives the forwarding implementations for references and handles:
+Capability traits with a generic default method keep it off the vtable:
 
 ```rust
 #[auto_impl(&, Arc, Box)]
@@ -16,23 +16,23 @@ pub trait Codec {
     fn encode(&self, value: &Self::Value) -> Bytes;
 
     #[auto_impl(keep_default_for(&, Arc, Box))]
-    fn decode_all<I>(&self, frames: I) -> Validated<Vec<Self::Value>, (usize, Self::Error)>
+    fn decode_all<I>(&self, frames: I) -> Validated<Vec<Self::Value>, Self::Error>
     where
         I: IntoIterator<Item: AsRef<[u8]>>,
         Self: Sized,
     {
-        frames.into_iter().enumerate().map(|(index, frame)| self.decode(frame.as_ref()).map_err(|error| (index, error))).collect()
+        frames.into_iter().map(|frame| self.decode(frame.as_ref())).collect()
     }
 }
 ```
 
-Consumers fix one associated type and bound another in one clause: `C: Codec<Value = Reading, Error: Into<StoreError>>`. `where Self: Sized` keeps the generic `decode_all` off the vtable, so `Box<dyn Codec<Value = Reading, Error = CodecError> + Send + Sync>` names every associated type and auto trait its holder needs. `keep_default_for` lets each proxy keep the default in place of forwarding it, the generated impls relax to `T: ?Sized`, and the boxed trait object passes to that consumer and reaches `decode_all` through the default. Implementations of a package trait write the required methods their role answers, and its provided methods stand.
+Consumers fix one associated type and bound another in one clause: `C: Codec<Value = Reading, Error: Into<StoreError>>`. `where Self: Sized` keeps the generic `decode_all` off the vtable, and `Box<dyn Codec<Value = Reading, Error = CodecError> + Send + Sync>` names every associated type and auto trait its holder needs. `keep_default_for` lets each proxy keep the default in place of forwarding it, the generated impls relax to `T: ?Sized`, and the boxed trait object passes to that consumer and reaches `decode_all` through the default.
 
 ## [02]-[ASYNC_CAPABILITIES]
 
-`async fn` in a trait leaves each future's `Send` open: a spawning consumer bounds the one method it spawns, `S: Store<load(..): Send> + Send + Sync + 'static`, a single-threaded consumer states no bound, and an implementation whose other futures hold a non-`Send` value still serves both.
+Implementations holding a non-`Send` value in an unspawned method's future serve spawning and single-threaded consumers alike, each consumer bounding only the futures it spawns.
 
-Implementations chosen at run time go through `dynosaur`, which generates a dynamic type that boxes each returned future. Boxed futures keep only the bounds their trait states, so a trait whose erased handles reach spawned tasks declares `Send` on its supertraits and on each method's future:
+`dynosaur` boxes each future its dynamic type returns with only the bounds its trait states. Traits with erased handles reaching spawned tasks declare `Send` on their supertraits and on each method's future:
 
 ```rust
 #[dynosaur::dynosaur(pub DynArchive = dyn(box) Archive)]
@@ -46,29 +46,14 @@ where A: Archive {
 }
 ```
 
-Implementors write `async fn put`. `DynArchive::new_box(archive)` and `DynArchive::new_arc(archive)` erase a concrete archive, and `dynosaur` implements `Archive` for `Box<T>`, `&T`, and `&mut T` with `T: ?Sized`. One `replicate` serves a slice of one concrete archive with static dispatch and a `Vec<Box<DynArchive<'_>>>` mixing archives chosen at run time, and every target's failure reaches the caller.
+Implementors write `async fn put`, and `DynArchive::new_box` or `DynArchive::new_arc` erases a concrete archive. `dynosaur` implements `Archive` for `Box<T>`, `&T`, and `&mut T` with `T: ?Sized`, and one `replicate` serves a slice of one concrete archive with static dispatch and a `Vec<Box<DynArchive<'_>>>` mixing archives chosen at run time. Every target's failure reaches the caller. `dynosaur` rejects `where Self: Sized`, and a generic default method belongs to an `auto_impl` trait.
 
-## [03]-[BOUNDED_OPERATIONS]
+## [03]-[CONVERSIONS]
 
-Operations over a foreign type, or over every type meeting a bound, are generic functions whose bound states what the body reads. `Borrow` in an associated type bound accepts owned and borrowed elements through one signature:
-
-```rust
-#[must_use]
-pub fn peak<I>(readings: I) -> Option<Celsius>
-where I: IntoIterator<Item: Borrow<Reading>> {
-    readings.into_iter().map(|reading| reading.borrow().celsius).max()
-}
-```
-
-`Reading` holds an ordered `celsius`, `peak(&readings)` reads a borrowed `Vec`, `peak(readings)` consumes it, and `peak(iter::once(reading))` reads one value. Foreign types sharing no trait stay apart, each consumer takes each by its own type, and no crate trait unifies them.
-
-## [04]-[CONVERSIONS]
-
-Fieldless enums derive their discriminant conversion and their text form, and each spelling rule is stated once:
+Fieldless enums with a `#[repr]` discriminant derive it and their text from `strum`, and `serialize_all` states the spelling once:
 
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::TryFrom, strum::Display, strum::EnumString)]
-#[try_from(repr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::FromRepr, strum::Display, strum::EnumString)]
 #[repr(u8)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Channel {
@@ -78,4 +63,4 @@ pub enum Channel {
 }
 ```
 
-`Channel::try_from(byte)` returns `Result<Channel, TryFromReprError<u8>>`, and a boundary adds the offset the rejection lacks: `.map_err(|source| FrameError::Channel { offset, source })`. `serialize_all` drives `Display` and `FromStr` alike, so `Channel::Diagnostic.to_string()` and `"diagnostic".parse::<Channel>()` round-trip through one spelling. A generic host states the conversion it reads as a bound on the target, `for<'error> u8: From<&'error E>`, and each crate error implements `From<&LedgerError> for u8` once.
+`Channel::from_repr(byte)` is a `const fn` returning `Option<Channel>`, and a boundary names the rejection with its subject: `.ok_or(FrameError::Channel { offset, byte })`. `Display` and `FromStr` read one spelling, and `Channel::Diagnostic.to_string()` and `"diagnostic".parse::<Channel>()` round-trip.
