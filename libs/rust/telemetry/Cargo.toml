@@ -19,11 +19,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "run"
-path = "../../../tests/rust/libs/telemetry/run.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]

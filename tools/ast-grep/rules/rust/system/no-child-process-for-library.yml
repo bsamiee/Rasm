@@ -71,7 +71,7 @@ transform:
     PDF_TEXT: replace($IMAGE, replace='^pdftotext$', by='pdf_oxide')
     PDF_RASTER: replace($PDF_TEXT, replace='^pdftoppm$', by='hayro')
     SVG: replace($PDF_RASTER, replace='^rsvg-convert$', by='resvg')
-    MERMAID: replace($SVG, replace='^mmdc$', by='mermaid-rs-renderer')
+    MERMAID: replace($SVG, replace='^mmdc$', by='merman')
     DATABASE: replace($MERMAID, replace='^(sqlite3|psql)$', by='sqlx')
     JSON: replace($DATABASE, replace='^jq$', by='serde_json')
     METADATA: replace($JSON, replace='^cargo$', by='cargo_metadata')

@@ -64,6 +64,7 @@ strum        = { version = "0.28.0", features = ["derive"] }                    
 
 # --- [COLLECTIONS]
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
+datasketches          = { version = "0.6.0", features = ["tdigest"] }             # Mergeable t-digest quantile sketches that chunk reductions merge and freeze
 enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
 fastbloom             = "0.17.0"                                                  # Bloom filters that precheck membership
 fst                   = { version = "0.4.7", features = ["levenshtein"] }         # Finite-state sets and maps with prefix, range, and fuzzy queries
@@ -74,7 +75,6 @@ roaring               = "0.12.0"                                                
 rust-lapper           = "2.0.0-beta.1"                                            # Interval overlap and stabbing queries
 slotmap               = "1.1.1"                                                   # Generational-index arenas holding graph and scene nodes
 smallvec              = { version = "2.0.0-beta.4", features = ["std", "serde"] } # Inline small vectors that spill to heap
-tdigests              = "1.0.1"                                                   # Mergeable quantile estimates over streams
 
 # --- [CRDT]
 loro = "1.17.1" # Loro documents with text, list, map, and tree history
@@ -188,7 +188,7 @@ qbsdiff           = "1.4.4"                                                     
 sevenz-rust2      = { version = "0.24.2", features = ["zstd"] }                                                                                                          # 7z archives
 snap              = "1.1.2"                                                                                                                                              # Snappy frames
 tar               = "0.4.46"                                                                                                                                             # Tar archives
-zip               = { version = "9.2.0", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
+zip               = { version = "9.2.1", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
 zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
@@ -250,7 +250,7 @@ protovalidate-buffa = { version = "0.7.2", features = ["json"] }                
 rmcp                = { version = "3.8.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-client-reqwest", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process and Streamable HTTP servers
 
 # --- [TRANSFER]
-object_store = { version = "0.14.2", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores
+object_store = { version = "0.13.2", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion 55 and deltalake 1.1 link, `cloud` under each store feature adds reqwest 0.12 on ring and chrono
 reqwest_dav  = "0.3.3"                                                            # WebDAV transfers
 russh        = "0.65.0"                                                           # SSH clients and servers reaching remote workers
 russh-sftp   = "3.0.1"                                                            # SFTP over SSH channels
@@ -323,7 +323,7 @@ snowflake-api    = "0.14.0"                                                     
 sqlx             = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "postgres", "sqlite-bundled", "sqlite-load-extension", "mysql", "uuid", "rust_decimal", "sqlx-toml"] } # PostgreSQL, SQLite, and MySQL pools with compile-time query checks, SQLite extensions (sqlite-vec `vec0`) load for checks through `sqlx.toml` with no `unsafe` run-time load
 surrealdb        = "3.3.5"                                                                                                                                                                          # SurrealDB queries
 tiberius         = { version = "0.13.0", default-features = false, features = ["tds80", "winauth", "rustls", "sql-browser-tokio", "rust_decimal"] }                                                 # SQL Server client, default `native-tls` links platform TLS beside rustls
-turso            = { version = "0.8.3", default-features = false, features = ["sync", "fts"] }                                                                                                      # SQLite-compatible embedded database with concurrent writes and cloud sync, default `mimalloc` replaces global allocator
+turso            = { version = "0.9.0-pre.2", default-features = false, features = ["sync", "fts"] }                                                                                                # SQLite-compatible embedded database with concurrent writes and cloud sync, default `mimalloc` replaces global allocator
 
 # --- [SEARCH]
 elasticsearch   = { version = "9.1.0-alpha.1", default-features = false, features = ["rustls-tls"] } # Elasticsearch indexes and search, default `native-tls` links platform TLS beside rustls, sole alternative `rustls-tls` runs reqwest 0.12 on ring
@@ -357,170 +357,203 @@ tokio-modbus = { version = "0.17.0", features = ["tcp-server", "rtu-server"] } #
 tokio-serial = "5.5.0"                                                         # Async serial ports
 
 # --- [COLUMNAR]
-adbc_core            = "0.25.0"                                                                                   # Database access through ADBC returning record batches
-adbc_driver_manager  = "0.25.0"                                                                                   # ADBC drivers loaded from shared libraries
-arrow                = { version = "60.1.0", features = ["ipc_compression", "ffi", "prettyprint"] }               # Columnar record batches and IPC
-arrow-flight         = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                            # Arrow Flight and Flight SQL
-datafusion           = "55.2.0"                                                                                   # SQL query engine over Arrow and object stores
-datafusion-substrait = "55.2.0"                                                                                   # DataFusion plans converted to and from Substrait
-deltalake            = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                     # Delta Lake tables
-iceberg              = "0.10.1"                                                                                   # Apache Iceberg tables
-iceberg-catalog-rest = "0.10.1"                                                                                   # Iceberg REST catalogs
-parquet              = { version = "60.1.0", features = ["object_store"] }                                        # Parquet files read and written as record batches
-polars               = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] } # Dataframes with lazy query engine
-substrait            = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                        # Substrait plan model
+adbc_core                  = "0.25.0"                                                                                           # Database access through ADBC returning record batches
+adbc_driver_manager        = "0.25.0"                                                                                           # ADBC drivers loaded from shared libraries
+arrow                      = { version = "59.3.2", features = ["ipc_compression", "canonical_extension_types", "prettyprint"] } # Columnar record batches, IPC under ZSTD, and canonical extension types carrying units, at the release DataFusion 55 and deltalake 1.1 link
+arrow-flight               = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                                    # Arrow Flight and Flight SQL
+datafusion                 = "55.2.0"                                                                                           # SQL query engine over Arrow and object stores
+datafusion-functions-json  = "0.55.6"                                                                                           # JSON path functions registered on DataFusion sessions
+datafusion-substrait       = "55.2.0"                                                                                           # DataFusion plans converted to and from Substrait
+datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                      # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
+deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                             # Delta Lake tables
+iceberg                    = "0.10.1"                                                                                           # Apache Iceberg tables
+iceberg-catalog-rest       = "0.10.1"                                                                                           # Iceberg REST catalogs
+parquet                    = { version = "59.3.2", features = ["object_store"] }                                                # Parquet files read and written as record batches over object stores
+polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] }         # Dataframes with lazy query engine
+serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                                    # Typed records encoded into and decoded from record batches, schema traced from the record type
+substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                                # Substrait plan model
 
 # --- [ARRAYS]
-hdf5-metno = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
-icechunk   = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds aws-sdk-s3 on hyper 0.14 and rustls 0.21 with ring beside aws-lc-rs
-netcdf     = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
-zarrs      = { version = "0.23.14", features = ["async", "jiff"] }                                                                                                                         # Zarr chunked arrays
+hdf5-metno         = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
+icechunk           = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds aws-sdk-s3 on hyper 0.14 and rustls 0.21 with ring beside aws-lc-rs
+netcdf             = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
+zarrs              = { version = "0.23.14", features = ["async", "jiff", "pcodec", "bitround"] }                                                                                                   # Zarr chunked arrays with sharding, pcodec numeric compression, and bit rounding
+zarrs_icechunk     = { version = "0.6.0", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Icechunk sessions as zarrs async stores, default `s3` adds aws-sdk-s3 beside object_store
+zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
-dashu        = "0.6.2"                                                # Arbitrary-precision integers, rationals, and floats
-faer         = "0.24.4"                                               # Dense and sparse decompositions and solves
-gauss-quad   = { version = "0.3.2", features = ["std"] }              # Gaussian quadrature rules
-glam         = { version = "0.34.1", features = ["serde"] }           # SIMD f32 vector and matrix math in graphics code
-inari        = "2.0.0"                                                # Interval arithmetic with verified enclosures
-iso_currency = { version = "0.7.1", features = ["with-serde"] }       # ISO 4217 currency codes and minor units
-nalgebra     = { version = "0.35.0", features = ["serde-serialize"] } # Fixed-size vectors, points, and transforms shared by geometry crates
-ndarray      = { version = "0.17.2", features = ["rayon", "serde"] }  # N-dimensional arrays holding image planes and analysis data
-num-dual     = "0.15.1"                                               # Forward-mode automatic differentiation
-rand         = { version = "0.10.3", features = ["chacha"] }          # Seeded generators passed into domain functions
-rand_distr   = "0.6.0"                                                # Sampling distributions over passed-in generators
-realfft      = "3.5.1"                                                # Real-input FFT at half complex-input work
-rust_decimal = { version = "1.43.0", features = ["serde-with-str"] }  # Fixed-scale decimals holding money and exact values
-rustfft      = "6.4.1"                                                # FFT of any length
-statrs       = "0.19.1"                                               # Distributions and descriptive statistics
-twofloat     = "0.8.4"                                                # Double-double arithmetic in ill-conditioned predicates
-uom          = { version = "0.38.0", features = ["use_serde"] }       # Quantities with dimensions checked at compile time
+average        = { version = "0.17.0", default-features = false, features = ["std", "rayon"] }                  # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
+csaps          = "0.5.0"                                                                                        # Cubic smoothing splines over samples and grids
+dashu          = "0.6.2"                                                                                        # Arbitrary-precision integers, rationals, and floats
+faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] } # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
+gauss-quad     = { version = "0.3.2", default-features = false, features = ["rayon"] }                          # Gauss-Legendre and other quadrature rules over parallel nodes, default `libm` swaps std math for libm
+glam           = { version = "0.34.2", features = ["serde"] }                                                   # SIMD f32 vector and matrix math in graphics code
+glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                 # parry poses converted to and from nalgebra isometries
+inari          = "2.0.0"                                                                                        # Interval arithmetic with verified enclosures
+iso_currency   = { version = "0.7.1", features = ["with-serde"] }                                               # ISO 4217 currency codes and minor units
+nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033"] }                      # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values
+ndarray        = { version = "0.17.2", features = ["rayon", "serde"] }                                          # N-dimensional arrays holding grids, matrices, and analysis data
+ndarray-interp = "0.6.0"                                                                                        # Bilinear and cubic interpolation over ndarray grids at sample points
+num-dual       = "0.15.1"                                                                                       # Forward-mode automatic differentiation
+rand           = { version = "0.10.3", features = ["chacha"] }                                                  # Seeded generators passed into domain functions
+rand_distr     = "0.6.0"                                                                                        # Sampling distributions over passed-in generators
+rust_decimal   = { version = "1.43.0", features = ["serde-with-str"] }                                          # Fixed-scale decimals holding money and exact values
+sobol_burley   = "0.5.0"                                                                                        # Owen-scrambled Sobol sequences for low-discrepancy sampling
+statrs         = "0.19.1"                                                                                       # Distributions and descriptive statistics
+twofloat       = "0.8.4"                                                                                        # Double-double arithmetic in ill-conditioned predicates
+uom            = { version = "0.38.0", features = ["use_serde"] }                                               # Quantities with dimensions checked at compile time
+
+# --- [SIGNALS]
+apodize      = "1.0.0"                                     # Hann, Hamming, Blackman, and Nuttall windows
+biquad       = "0.6.0"                                     # Second-order IIR sections in transposed direct form
+ndarray-conv = { version = "0.6.1", features = ["rayon"] } # FFT convolution over ndarray planes
+ndrustfft    = "0.6.2"                                     # FFT, real FFT, and DCT along ndarray axes
+realfft      = "3.5.1"                                     # Real-input FFT at half complex-input work
+rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
-argmin      = "0.11.0"                                                                           # Gradient, quasi-Newton, simplex, and trust-region minimization
-argmin-math = { version = "0.5.1", features = ["faer_latest"] }                                  # Linear algebra backend of argmin solvers
+argmin      = "0.11.0"                                                                           # Brent root brackets, default `rand` adds rand 0.9 beside rand 0.10
+argmin-math = "0.5.1"                                                                            # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
 clarabel    = "0.11.1"                                                                           # Conic interior-point solves
 diffsol     = "0.18.0"                                                                           # ODE and DAE solvers with sensitivities
-fmi         = "0.8.0"                                                                            # FMU co-simulation and model exchange
+fmi         = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] }       # FMU co-simulation and model exchange over FMI 2 and 3, default `ls-bus` adds the FMI 3 bus layer
 good_lp     = { version = "1.15.3", default-features = false, features = ["clarabel", "highs"] } # LP and MIP models over HiGHS and Clarabel, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
 kasuari     = "0.4.13"                                                                           # Cassowary constraint solving of layouts
 nlopt       = "0.8.1"                                                                            # Constrained local and global optimization
 nuts-rs     = { version = "0.19.1", features = ["ndarray"] }                                     # No-U-Turn sampling
 
 # --- [GRAPHS]
-petgraph         = { version = "0.8.3", features = ["serde-1", "rayon"] } # Graph structures with traversal, ordering, and shortest paths
-petgraph-graphml = "5.0.0"                                                # GraphML output of graphs
-rust-sugiyama    = "0.4.0"                                                # Layered placement of directed graphs
-rustworkx-core   = "0.18.1"                                               # Centrality, community, and layout algorithms over graphs
+dugong           = "0.9.3"                                                                           # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
+leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon", "petgraph"] } # Leiden community detection over petgraph graphs, default `cli` adds clap and `gryf` a second graph library
+manatee          = "0.9.3"                                                                           # Force-directed fCoSE layout with constraints, at the release merman-render links
+petgraph         = { version = "0.8.3", features = ["serde-1", "rayon"] }                            # Graph structures with traversal, ordering, and shortest paths
+petgraph-graphml = "5.0.0"                                                                           # GraphML output of graphs
+rustworkx-core   = "0.18.1"                                                                          # Centrality, DAG layers and longest paths, cuts, colorings, matchings, Steiner trees, and line graphs over petgraph
 
 # --- [GEOMETRY]
-cavalier_contours = "0.9.0"                                         # Polyline offsets and booleans with arc segments
-curvo             = "0.3.3"                                         # NURBS curves and surfaces
-fidget            = "0.5.1"                                         # Implicit surfaces evaluated, meshed, and rendered
-jagua-rs          = { version = "1.1.0", features = ["spp"] }       # Collision detection inside 2D irregular nesting
-k                 = "0.32.0"                                        # Forward and inverse kinematics of serial chains
-kiddo             = "6.3.0"                                         # k-d tree nearest-neighbor queries
-manifold-rust     = "0.19.2"                                        # Manifold mesh booleans
-meshopt           = "0.7.0"                                         # Mesh simplification, vertex cache optimization, and compression
-parry3d-f64       = { version = "0.31.1", features = ["parallel"] } # 3D distances, intersections, ray casts, and contacts over f64 shapes
-rapier3d-f64      = { version = "0.36.1", features = ["parallel"] } # Rigid-body dynamics
-spade             = "2.15.1"                                        # Constrained Delaunay triangulation and Voronoi duals
-urdf-rs           = "0.10.0"                                        # URDF robot descriptions
+cavalier_contours = { version = "0.9.0", features = ["serde"] }                                           # Polyline offsets and booleans with arc segments
+curvo             = "0.3.3"                                                                               # NURBS curves and surfaces
+fidget            = { version = "0.5.1", default-features = false, features = ["jit", "mesh", "shapes"] } # Implicit surfaces built from shape trees, JIT-evaluated and meshed by octree, default `gui`, `rhai`, `wgpu`, and `raster` add UI, scripting, GPU, and raster stacks
+jagua-rs          = { version = "1.1.0", features = ["spp"] }                                             # Collision detection inside 2D irregular nesting
+k                 = "0.32.0"                                                                              # Forward and inverse kinematics of serial chains
+kiddo             = { version = "6.3.0", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest-neighbor queries built in parallel, default `fixed` adds fixed-point coordinates
+manifold-rust     = { version = "0.19.2", features = ["parallel"] }                                       # Manifold solids with booleans, extrusion, revolution, slicing, and decomposition
+meshopt           = "0.7.0"                                                                               # Mesh simplification, vertex cache optimization, and EXT_meshopt_compression buffers
+parry3d-f64       = { version = "0.31.1", features = ["parallel"] }                                       # 3D distances, intersections, ray casts, and contacts over f64 shapes
+rapier3d-f64      = { version = "0.36.1", features = ["parallel"] }                                       # Rigid-body dynamics
+spade             = "2.15.1"                                                                              # Constrained Delaunay triangulation and Voronoi duals
+urdf-rs           = "0.10.0"                                                                              # URDF robot descriptions
 
 # --- [INTERCHANGE]
-acadrust      = "0.6.8"                                                    # DWG and DXF drawings
-e57           = "0.11.13"                                                  # E57 point clouds
-gltf          = { version = "1.4.1", features = ["extensions", "extras"] } # glTF and GLB
-ifc-lite-core = "27.1.0"                                                   # IFC building models
-las           = { version = "0.11.2", features = ["laz-parallel"] }        # LAS and LAZ point clouds
-openusd       = "0.8.0"                                                    # USD stages
-ply-rs-bw     = "4.0.1"                                                    # PLY meshes and point clouds
-russimp       = { version = "3.2.1", features = ["prebuilt"] }             # Assimp-supported 3D formats
-stl_io        = "0.11.0"                                                   # STL meshes
-tobj          = "4.0.5"                                                    # Wavefront OBJ and MTL
+acadrust        = "0.6.8"                                                                                                                                                                                                                                                                                             # DWG and DXF drawings with plot styles, sheet sets, and layouts
+e57             = { version = "0.11.13", features = ["crc32c"] }                                                                                                                                                                                                                                                      # E57 point clouds with page checksums through the crc32c crate
+gltf            = { version = "1.4.1", features = ["extensions", "extras", "KHR_lights_punctual", "KHR_materials_emissive_strength", "KHR_materials_ior", "KHR_materials_specular", "KHR_materials_transmission", "KHR_materials_unlit", "KHR_materials_variants", "KHR_materials_volume", "KHR_texture_transform"] } # glTF and GLB with lights, PBR material extensions, variants, and texture transforms
+las             = { version = "0.11.2", features = ["laz-parallel"] }                                                                                                                                                                                                                                                 # LAS and LAZ point clouds
+openusd         = { version = "0.8.0", features = ["mmap"] }                                                                                                                                                                                                                                                          # USD stages read from memory maps and authored
+openusd-schemas = { version = "0.8.0", features = ["geom", "shade", "lux", "semantics"] }                                                                                                                                                                                                                             # Typed UsdGeom, UsdShade, UsdLux, and UsdSemantics prims over openusd stages
+ply-rs-bw       = "4.0.1"                                                                                                                                                                                                                                                                                             # PLY meshes and point clouds
+stl_io          = "0.11.0"                                                                                                                                                                                                                                                                                            # STL meshes
+threemf         = "0.8.1"                                                                                                                                                                                                                                                                                             # 3MF fabrication packages
+tobj            = { version = "4.0.5", features = ["use_f64"] }                                                                                                                                                                                                                                                       # Wavefront OBJ and MTL in f64
 
 # --- [GEOSPATIAL]
-flatgeobuf        = { version = "6.0.1", default-features = false, features = ["http"] }                                                                                 # FlatGeobuf files and HTTP range reads, default `default-tls` links platform TLS through reqwest 0.12 native-tls beside rustls
-gdal              = { version = "0.19.0", features = ["array"] }                                                                                                         # GDAL rasters and OGR vectors
-geo               = { version = "0.33.1", features = ["use-serde"] }                                                                                                     # Planar predicates, booleans, buffers, simplification, and triangulation
-geo-types         = { version = "0.7.20", features = ["serde"] }                                                                                                         # Geometry primitives shared by georust crates
-geoarrow-array    = "0.9.0"                                                                                                                                              # GeoArrow geometry arrays
-geoarrow-expr-geo = "0.9.0"                                                                                                                                              # georust operations on GeoArrow arrays
-geoarrow-schema   = "0.9.0"                                                                                                                                              # GeoArrow extension types
-geohash           = "0.13.2"                                                                                                                                             # Geohash cells
-geojson           = "1.0.0"                                                                                                                                              # GeoJSON
-geoparquet        = { version = "0.9.0", features = ["async"] }                                                                                                          # GeoParquet
-geozero           = { version = "0.15.1", features = ["with-mvt", "with-gpkg"] }                                                                                         # Streaming conversion between WKB, WKT, GeoJSON, MVT, and GeoPackage
-grib              = { version = "0.20.2", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-libaec"] } # GRIB2 fields, default `jpeg2000-unpack-with-openjpeg` builds OpenJPEG C beside hayro
-h3o               = { version = "0.11.0", features = ["geo"] }                                                                                                           # H3 hexagonal cells
-kml               = "0.15.0"                                                                                                                                             # KML and KMZ
-osmpbf            = "0.3.8"                                                                                                                                              # OpenStreetMap PBF extracts
-pmtiles           = { version = "0.26.0", features = ["brotli", "http-async", "moka", "object-store", "reqwest-rustls", "tilejson", "write", "zstd"] }                   # PMTiles archives read from memory maps, HTTPS, and object stores, and written
-proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                  # CRS transforms with PROJ database
-rstar             = "0.13.0"                                                                                                                                             # R*-tree envelope and nearest queries
-shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                      # Shapefiles
-solar-positioning = "0.7.2"                                                                                                                                              # Solar positions
-stac              = { version = "0.17.7", features = ["std", "geo", "geoparquet", "async"] }                                                                             # STAC catalogs, items, and collections
-stac-io           = { version = "0.3.5", features = ["store-aws", "geoparquet"] }                                                                                        # STAC reads and writes over object stores
-tzf-rs            = "2.1.4"                                                                                                                                              # Time zones from coordinates
+cityjson-json     = "0.11.0"                                                                                                                                                                  # CityJSON and CityJSONSeq models and feature streams
+cityjson-types    = "0.11.0"                                                                                                                                                                  # CityJSON 2.0 city objects, boundaries, and transforms
+contour           = "0.13.1"                                                                                                                                                                  # Contour lines, polygons, and isobands over grids
+eulumdat-daylight = "0.7.1"                                                                                                                                                                   # Perez and CIE sky radiance distributions
+flatgeobuf        = { version = "6.0.1", default-features = false, features = ["http"] }                                                                                                      # FlatGeobuf files and HTTP range reads, default `default-tls` links platform TLS through reqwest 0.12 native-tls beside rustls
+gdal              = { version = "0.19.0", features = ["array"] }                                                                                                                              # GDAL rasters and OGR vectors
+geo               = { version = "0.33.1", features = ["serde"] }                                                                                                                              # Planar predicates, booleans, buffers, simplification, and triangulation
+geo-traits        = "0.3.0"                                                                                                                                                                   # Geometry access traits GeoArrow and GeoParquet values read through
+geo-types         = { version = "0.7.20", features = ["serde"] }                                                                                                                              # Geometry primitives shared by georust crates
+geoarrow-array    = "0.9.0"                                                                                                                                                                   # GeoArrow geometry arrays
+geoarrow-expr-geo = "0.9.0"                                                                                                                                                                   # georust operations on GeoArrow arrays
+geoarrow-schema   = "0.9.0"                                                                                                                                                                   # GeoArrow extension types
+geohash           = "0.13.2"                                                                                                                                                                  # Geohash cells
+geojson           = "1.0.0"                                                                                                                                                                   # GeoJSON
+geoparquet        = { version = "0.9.0", features = ["async"] }                                                                                                                               # GeoParquet
+geozero           = { version = "0.15.1", default-features = false, features = ["with-geo", "with-wkb", "with-mvt"] }                                                                         # Streaming conversion between WKB, geo-types, and MVT, default `with-geojson` adds geojson 0.24 beside geojson 1
+grib              = { version = "0.20.2", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-rust-aec", "gridpoints-proj"] } # GRIB2 fields with Lambert and polar grid points, default `jpeg2000-unpack-with-openjpeg` builds OpenJPEG C beside hayro
+h3o               = { version = "0.11.0", features = ["geo"] }                                                                                                                                # H3 hexagonal cells
+kml               = "0.15.0"                                                                                                                                                                  # KML and KMZ, default `zip` turns on zip `time` beside jiff
+osmpbf            = "0.3.8"                                                                                                                                                                   # OpenStreetMap PBF extracts
+pmtiles           = { version = "0.26.0", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                                        # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links object_store 0.14 beside DataFusion's
+proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                                       # CRS transforms with PROJ database, `Transform` over geo-types geometries
+rstar             = "0.13.0"                                                                                                                                                                  # R*-tree envelope and nearest queries
+shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                                           # Shapefiles
+solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                                       # SPA and Grena solar positions and events, default `chrono` adds chrono beside jiff
+stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                                                # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
+stac-io           = "0.3.5"                                                                                                                                                                   # STAC reads, writes, and API searches
+thermalcomfort    = { version = "4.6.2", features = ["std"] }                                                                                                                                 # PMV, UTCI, adaptive comfort, and psychrometrics
+tzf-rs            = { version = "2.1.4", default-features = false, features = ["bundled"] }                                                                                                   # Time zones from coordinates, default `clap` adds a CLI
 
 # --- [COLOR]
 color       = { version = "0.3.3", features = ["serde"] }                  # CSS color parsing, serialization, interpolation, and gamut mapping
 colorgrad   = { version = "0.9.0", features = ["preset", "named-colors"] } # Color gradients and colormaps
-colorimetry = "0.1.0"                                                      # CIE observers and spectral integration
+colorimetry = { version = "0.1.0", features = ["cct"] }                    # CIE observers, Planckian illuminants, and correlated color temperature, links nalgebra 0.33 and geo 0.29 beside the catalog
 moxcms      = "0.9.1"                                                      # ICC profile transforms
 palette     = { version = "0.7.7", features = ["serializing"] }            # Typed color spaces, conversions, and chromatic adaptation
 
 # --- [IMAGING]
-exr               = "1.74.2"                                      # Multi-layer OpenEXR
-fast_image_resize = { version = "6.1.0", features = ["rayon"] }   # SIMD resampling of previews and downscales
-image             = "0.25.10"                                     # Raster decode, encode, and conversion
-image-compare     = "0.5.0"                                       # Structural similarity between images
-imagesize         = "0.15.0"                                      # Image dimensions read from header bytes
-intel_tex_2       = "0.5.0"                                       # BCn, ASTC, and ETC1 texture compression
-jxl-oxide         = { version = "0.12.6", features = ["moxcms"] } # JPEG XL decoding
-ktx2              = "0.5.0"                                       # KTX2 texture containers
-libvips           = "2.3.0"                                       # Streaming decode, downscale, and ICC over libvips
-nom-exif          = "3.8.0"                                       # EXIF and QuickTime metadata
-opencv            = "0.101.1"                                     # Image processing, camera calibration, feature matching, and video
-oxipng            = "10.2.1"                                      # Lossless PNG optimization
-tiff              = { version = "0.11.3", features = ["zstd"] }   # TIFF and DNG containers with tag access
-turbojpeg         = "1.5.1"                                       # JPEG encode and decode through libjpeg-turbo
+exr               = "1.74.2"                                                                                               # Multi-layer OpenEXR
+fast_image_resize = { version = "6.1.0", features = ["rayon"] }                                                            # SIMD resampling of previews and downscales
+image             = { version = "0.25.10", default-features = false, features = ["rayon", "png", "jpeg", "tiff", "webp"] } # PNG, JPEG, TIFF, and WebP raster decode, encode, and conversion, default `default-formats` adds AVIF through rav1e, EXR, DDS, HDR, and other codecs
+image-compare     = "0.5.0"                                                                                                # Structural similarity between images
+imagesize         = "0.15.0"                                                                                               # Image dimensions read from header bytes
+intel_tex_2       = "0.5.0"                                                                                                # BCn, ASTC, and ETC1 texture compression
+jxl-oxide         = { version = "0.12.6", features = ["moxcms"] }                                                          # JPEG XL decoding
+ktx2              = "0.5.0"                                                                                                # KTX2 texture containers
+libvips           = "2.3.0"                                                                                                # Streaming decode, downscale, and ICC over libvips
+nom-exif          = "3.8.0"                                                                                                # EXIF and QuickTime metadata
+opencv            = "0.101.1"                                                                                              # Image processing, camera calibration, feature matching, and video
+oxipng            = "10.2.1"                                                                                               # Lossless PNG optimization
+tiff              = { version = "0.11.3", features = ["zstd"] }                                                            # TIFF and DNG containers with tag access and multi-page image sequences
+turbojpeg         = "1.5.1"                                                                                                # JPEG encode and decode through libjpeg-turbo
 
 # --- [TYPOGRAPHY]
-fontdb      = "0.24.0"                                    # System and file font discovery
-harfrust    = "0.15.0"                                    # Text shaping
-parley      = "0.12.0"                                    # Rich text layout with bidi, line breaking, and fallback
-skrifa      = "0.49.0"                                    # Font metrics, outlines, axes, and charmaps
-subsetter   = "0.2.6"                                     # Font subsetting with variable instancing
-write-fonts = { version = "0.55.0", features = ["read"] } # Font table compilation
+fontdb      = { version = "0.23.0", default-features = false, features = ["std"] } # Font faces loaded from caller bytes into the database usvg reads, at the release krilla-svg and typst link, defaults `fs`, `memmap`, and `fontconfig` scan system fonts
+harfrust    = "0.15.0"                                                             # Text shaping
+parley      = { version = "0.12.0", default-features = false, features = ["std"] } # Rich text layout with bidi, line breaking, and fallback over caller fonts, default `system` scans system fonts
+skrifa      = "0.49.0"                                                             # Font metrics, outlines, axes, and charmaps
+subsetter   = "0.2.6"                                                              # Font subsetting with variable instancing
+write-fonts = { version = "0.55.0", features = ["read"] }                          # Font table compilation
 
 # --- [GRAPHICS]
-kurbo       = "0.13.1" # 2D Bezier paths, affine transforms, offsets, and arc lengths
-linesweeper = "0.5.0"  # Boolean operations on curved paths
-resvg       = "0.49.0" # SVG rasterization
-tiny-skia   = "0.12.0" # CPU rasterization of paths, gradients, and patterns
-usvg        = "0.49.0" # SVG parsing and normalization
-wgpu        = "30.0.1" # WebGPU compute and rendering over native backends
+kurbo       = { version = "0.13.1", features = ["serde"] }                          # 2D Bezier paths, affine transforms, offsets, and arc lengths
+linesweeper = "0.5.0"                                                               # Boolean operations on curved paths
+resvg       = "0.49.0"                                                              # SVG rasterization
+tiny-skia   = "0.12.0"                                                              # CPU rasterization of paths, gradients, and patterns
+usvg        = { version = "0.47.0", default-features = false, features = ["text"] } # SVG parsing and normalization with text over caller fonts, at the release krilla-svg and typst link, defaults `system-fonts` and `memmap-fonts` scan system fonts
+wgpu        = "30.0.1"                                                              # WebGPU compute and rendering over native backends
 
 # --- [VISUALIZATION]
-mermaid-rs-renderer = "0.3.1"  # Mermaid diagrams rendered without browser
-plotly              = "0.14.1" # Plotly chart documents
+merman = { version = "0.9.3", default-features = false, features = ["all-diagrams", "svg", "layout-cytoscape", "native-fonts"] } # Mermaid diagrams parsed, laid out, and rendered to SVG against caller font bytes, defaults add ELK layout and math
+plotly = "0.14.1"                                                                                                                # Plotly chart documents
 
 # --- [DOCUMENTS]
-calamine         = { version = "0.37.0", features = ["dates"] }                                     # XLSX, XLSB, XLS, and ODS reading
-chromiumoxide    = "0.9.1"                                                                          # HTML printed to PDF through Chromium
-docx-rs          = "0.4.22"                                                                         # DOCX reading and writing
-hayro            = "0.8.0"                                                                          # PDF rasterization
-ironcalc         = "0.9.1"                                                                          # Spreadsheet formula evaluation
-krilla           = { version = "0.8.2", features = ["rayon"] }                                      # PDF creation with subsetting, tagging, and PDF/A and PDF/UA export
-lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }   # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
-office-crypto    = "0.4.0"                                                                          # Encrypted Office documents decrypted
-pdf_oxide        = { version = "0.3.78", features = ["parallel"] }                                  # PDF text, structure, and form extraction
-rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] } # Streaming XLSX writing with formats, tables, and charts
-spreadsheet-ods  = "1.0.4"                                                                          # ODS spreadsheets
-typst            = "0.15.1"                                                                         # Typst typesetting
-typst-pdf        = "0.15.1"                                                                         # Typst documents exported to PDF
-umya-spreadsheet = "3.1.1"                                                                          # XLSX read-modify-write with styles
+calamine         = "0.37.0"                                                                                  # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
+chromiumoxide    = "0.9.1"                                                                                   # HTML printed to PDF through Chromium
+docx-rs          = "0.4.22"                                                                                  # DOCX reading and writing
+hayro            = "0.8.0"                                                                                   # PDF rasterization
+hayro-svg        = "0.8.0"                                                                                   # PDF pages converted to SVG
+hayro-syntax     = "0.8.0"                                                                                   # PDF object, page, and stream parsing hayro renders from
+ironcalc         = "0.9.1"                                                                                   # Spreadsheet formula evaluation
+krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                        # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
+krilla-svg       = "0.8.1"                                                                                   # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
+lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }            # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
+office-crypto    = "0.4.0"                                                                                   # Encrypted Office documents decrypted
+pdf_oxide        = { version = "0.3.78", features = ["parallel", "signatures", "jpeg2000", "ocr-tract"] }    # PDF text, path, table, and form extraction, editing, PAdES signing, OCR, and PDF/A, UA, and X validation
+rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] }          # Streaming XLSX writing with formats, tables, and charts
+spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }               # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, zip 6 turns on `time`
+typst            = "0.15.1"                                                                                  # Typst typesetting
+typst-bundle     = "0.15.1"                                                                                  # Typst documents exported as multi-file bundles
+typst-html       = "0.15.1"                                                                                  # Typst documents exported to HTML
+typst-kit        = { version = "0.15.1", features = ["embedded-fonts", "system-files", "emit-diagnostics"] } # Typst file stores, font stores over embedded and caller fonts, Universe packages over a caller's downloader, and diagnostics, `scan-fonts` scans system fonts
+typst-layout     = "0.15.1"                                                                                  # Typst paged layout
+typst-pdf        = "0.15.1"                                                                                  # Typst documents exported to PDF
+typst-render     = "0.15.1"                                                                                  # Typst pages rendered to PNG
+typst-svg        = "0.15.1"                                                                                  # Typst pages exported to SVG
+umya-spreadsheet = "4.0.0-beta.1"                                                                            # XLSX read-modify-write with styles
 
 # --- [MEDIA]
 c2pa        = { version = "0.91.7", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
