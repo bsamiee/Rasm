@@ -11,11 +11,11 @@ extension NSRunningApplication {
         longestSide: Int? = nil,
         configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(),
     ) async throws(ApplicationFailure) -> (output: SCScreenshotOutput, windows: [CGWindowID]) {
-        let process: String = String(processIdentifier)
+        let process: String = "process \(processIdentifier)"
         let content: SCShareableContent = try await Result { try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) }
-            .mapError { error in ApplicationFailure(subject: process, reason: .content(error)) }.get()
+            .mapError { error in ApplicationFailure(subject: "ScreenCaptureKit shareable content of \(process)", reason: .host(error)) }.get()
         let owned: [SCWindow] = content.windows.filter { window in window.owningApplication?.processID == processIdentifier }
-        guard !owned.isEmpty else { throw ApplicationFailure(subject: process, reason: .noWindow) }
+        guard !owned.isEmpty else { throw ApplicationFailure(subject: process, reason: .absent("on-screen window")) }
         let covered: (SCDisplay) -> CGFloat = { display in
             owned.map(\.frame).map(display.frame.intersection).reduce(0) { (area: CGFloat, overlap: CGRect) in area + overlap.width * overlap.height }
         }
@@ -23,12 +23,12 @@ extension NSRunningApplication {
             switch window {
                 case .some(let id):
                     owned.first { window in window.windowID == id }.map { window in .success((SCContentFilter(desktopIndependentWindow: window), [window])) }
-                        ?? .failure(ApplicationFailure(subject: "window \(id)", reason: .absent))
+                        ?? .failure(ApplicationFailure(subject: process, reason: .absent("on-screen window \(id)")))
                 case .none:
                     content.displays.filter { display in covered(display) > 0 }.max { left, right in covered(left) < covered(right) }.map { display in
                         let shown: [SCWindow] = owned.filter { window in display.frame.intersects(window.frame) }
                         return .success((SCContentFilter(display: display, including: shown), shown))
-                    } ?? .failure(ApplicationFailure(subject: process, reason: .noDisplay))
+                    } ?? .failure(ApplicationFailure(subject: process, reason: .absent("display showing its windows")))
             }
         let (filter, captured): (SCContentFilter, [SCWindow]) = try chosen.get()
         configuration.sourceRect = captured.map(\.frame).reduce(CGRect.null) { union, frame in union.union(frame) }.intersection(filter.contentRect).offsetBy(
@@ -46,18 +46,17 @@ extension SCContentFilter {
         configuration.width = Int((native.width * scale).rounded())
         configuration.height = Int((native.height * scale).rounded())
         return try await Result { try await SCScreenshotManager.captureScreenshot(contentFilter: self, configuration: configuration) }
-            .mapError { error in ApplicationFailure(subject: "\(contentRect)", reason: .capture(error)) }.get()
+            .mapError { error in ApplicationFailure(subject: "ScreenCaptureKit capture of \(contentRect)", reason: .host(error)) }.get()
     }
 }
 
 extension CGImage {
     public func data(as type: UTType) throws(ApplicationFailure) -> Data {
         let data: CFMutableData = CFDataCreateMutable(nil, 0)
-        guard let destination: CGImageDestination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else {
-            throw ApplicationFailure(subject: type.identifier, reason: .unencodable)
-        }
+        let unencodable: ApplicationFailure = ApplicationFailure(subject: "ImageIO", reason: .absent("\(type.identifier) encoder"))
+        guard let destination: CGImageDestination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else { throw unencodable }
         CGImageDestinationAddImage(destination, self, nil)
-        guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: type.identifier, reason: .unencodable) }
+        guard CGImageDestinationFinalize(destination) else { throw unencodable }
         return data as Data
     }
 }

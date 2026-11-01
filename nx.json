@@ -60,8 +60,7 @@
                 "options": {
                     "cwd": "{projectRoot}",
                     "commands": [
-                        { "command": "mkdir -p \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false },
-                        "set -o pipefail; version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -skipMacroValidation clean build LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\" {args} | tee \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/xcodebuild.log\"",
+                        "version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -skipMacroValidation build LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\" {args}",
                         { "command": "xcode-build-server config -project {projectName}.xcodeproj -scheme {projectName} --build_root \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false }
                     ],
                     "parallel": false
@@ -218,7 +217,17 @@
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
                 "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
-                "command": "swiftlint analyze --quiet --compiler-log-path \"$XCODE_DERIVED_DATA_PATH/xcodebuild.log\" {projectRoot}",
+                "executor": "nx:run-commands",
+                "options": {
+                    "commands": [
+                        {
+                            "command": "set -o pipefail; xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -skipMacroValidation -showBuildSettingsForIndex -json | jq '[.[] | to_entries[] | select(.value.swiftASTCommandArguments) | {file: .key, arguments: .value.swiftASTCommandArguments}]' > \"$XCODE_DERIVED_DATA_PATH/compile_commands.json\"",
+                            "forwardAllArgs": false
+                        },
+                        "swiftlint analyze --quiet --compile-commands \"$XCODE_DERIVED_DATA_PATH/compile_commands.json\" {projectRoot}"
+                    ],
+                    "parallel": false
+                },
                 "dependsOn": [ "build" ],
                 "inputs": [ "default", "^default", "swift", "xcode", "swiftlint" ],
                 "cache": true

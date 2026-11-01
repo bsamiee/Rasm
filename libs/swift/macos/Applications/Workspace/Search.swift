@@ -80,7 +80,7 @@ extension Installation {
     static func listed(_ paths: [String?]) async -> Result<[Self], AggregateError<ApplicationFailure>> {
         traverse(paths.enumerated()) { index, path in
             (path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
-                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath)))
+                ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .absent(NSMetadataItemPathKey))))
                 .aggregated(\.self)
         }
     }

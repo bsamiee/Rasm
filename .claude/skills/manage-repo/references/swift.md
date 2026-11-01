@@ -108,7 +108,10 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - Rules with an open fix or false-positive defect are off until a release fixes it (`trailing_closure`, `void_function_in_ternary`)
 - `nesting` caps declaration depth, an ast-grep rule caps closure and control depth
 - `custom_rules` is unset, its regexes match text where ast-grep matches syntax
-- `unused_import` is off, `swiftlint analyze` keeps the `\#` in logged macro plugin paths and reports imports a macro expansion uses
+- Logged command lines escape `#` in a macro plugin path, `swiftlint analyze` keeps the `\#` and its SourceKit replay finds no macro plugin
+- Xcode apps analyze through `--compile-commands` over `-showBuildSettingsForIndex` `swiftASTCommandArguments`, which hold each argument unescaped
+- Package sources run `swiftlint lint` alone until a SwiftLint release unescapes `\#`: `xcodebuild` lists no settings for a package scheme and native `debug.yaml` holds no `swift-compiler` command
+- `unused_import` is off, analyze reports imports a macro expansion uses
 
 ## [09]-[PERIPHERY]
 

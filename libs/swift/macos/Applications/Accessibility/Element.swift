@@ -28,7 +28,7 @@ public struct FailedRead: Codable, Hashable, Sendable {
     public let error: AXError.RawValue
 }
 
-public struct Element: Hashable, Sendable {
+public struct Element: Encodable, Hashable, Sendable {
     public let id: Data
     public let window: CGWindowID?
     public let role: String
@@ -41,31 +41,7 @@ public struct Element: Hashable, Sendable {
     public let controls: [Control]
     public let actions: [String]
     public let unreadable: [FailedRead]
-
-    public var requiresAnswer: Bool { role == kAXSheetRole || modal == true || subrole == kAXSystemDialogSubrole }
-}
-
-extension Element: Encodable {
-    private enum Key: CodingKey {
-        case id, window, role, subrole, modal, identifier, description, title, text, controls, actions, unreadable, requiresAnswer
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try fields.encode(id, forKey: .id)
-        try fields.encodeIfPresent(window, forKey: .window)
-        try fields.encode(role, forKey: .role)
-        try fields.encodeIfPresent(subrole, forKey: .subrole)
-        try fields.encodeIfPresent(modal, forKey: .modal)
-        try fields.encodeIfPresent(identifier, forKey: .identifier)
-        try fields.encodeIfPresent(description, forKey: .description)
-        try fields.encodeIfPresent(title, forKey: .title)
-        try fields.encode(text, forKey: .text)
-        try fields.encode(controls, forKey: .controls)
-        try fields.encode(actions, forKey: .actions)
-        try fields.encode(unreadable, forKey: .unreadable)
-        try fields.encode(requiresAnswer, forKey: .requiresAnswer)
-    }
+    public let requiresAnswer: Bool
 }
 
 private struct Part {
@@ -124,13 +100,14 @@ extension AXUIElement {
             ? element(kAXParentAttribute).flatMap { parent throws(ApplicationFailure) in try parent.label(parent.values([])) }
             : (read[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
         let (id, actions): (Data, [String]) = try (token, actionNames())
+        let (subrole, modal): (String?, Bool?) = (read[kAXSubroleAttribute] as? String, read[kAXModalAttribute] as? Bool)
         let build: ([String], [Control], [FailedRead]) -> Element = { text, controls, unreadable in
             Element(
                 id: id,
                 window: window,
                 role: role,
-                subrole: read[kAXSubroleAttribute] as? String,
-                modal: read[kAXModalAttribute] as? Bool,
+                subrole: subrole,
+                modal: modal,
                 identifier: read[kAXIdentifierAttribute] as? String,
                 description: read[kAXDescriptionAttribute] as? String,
                 title: title,
@@ -138,6 +115,7 @@ extension AXUIElement {
                 controls: controls,
                 actions: actions,
                 unreadable: unreadable,
+                requiresAnswer: role == kAXSheetRole || modal == true || subrole == kAXSystemDialogSubrole,
             )
         }
         let outline: Element = build([], [], [])

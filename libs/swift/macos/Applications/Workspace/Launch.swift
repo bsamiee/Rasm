@@ -30,7 +30,7 @@ extension NSWorkspace {
             try await documents.isEmpty
                 ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
         }
-        .mapError { error in ApplicationFailure(subject: path, reason: .open(error)) }.get()
+        .mapError { error in ApplicationFailure(subject: "Launch Services open \(path)", reason: .host(error)) }.get()
         try await instance.finishedLaunching()
         return instance
     }
@@ -42,7 +42,7 @@ extension NSRunningApplication {
             .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values.first { _ in true }
         switch finished {
             case true?: return
-            case false?: throw ApplicationFailure(subject: String(processIdentifier), reason: .terminated)
+            case false?: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
             case nil: throw ApplicationFailure(subject: "launch of process \(processIdentifier)", reason: .cancelled(CancellationError()))
         }
     }

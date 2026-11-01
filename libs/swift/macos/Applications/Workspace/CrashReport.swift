@@ -48,7 +48,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let files: [URL] =
             FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) { url, error in
                 if case .failure(let error) = Result(catching: { try ifPresent { () throws -> Void in throw error } }) {
-                    unlisted.withLock { failures in failures.append(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .file(error))) }
+                    unlisted.withLock { failures in failures.append(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error))) }
                 }
                 return true
             }?
@@ -57,7 +57,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
             switch Result(catching: { try url.resourceValues(forKeys: keys) }) {
                 case .success(let values) where values.isRegularFile == true: read(url).map { read in (read: read, date: values.contentModificationDate) }
                 case .success: nil
-                case .failure(let error): (read: .failure(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .file(error))), date: nil)
+                case .failure(let error): (read: .failure(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error))), date: nil)
             }
         }
         .sorted(using: KeyPathComparator(\.date, order: .reverse)).map(\.read)
@@ -78,7 +78,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         switch Result(catching: { try ifPresent { try Self(contentsOf: file) }.flatMap(\.self) }) {
             case .success(.some(let report)): .success(report)
             case .success(.none): nil
-            case .failure(let error): .failure(ApplicationFailure(subject: file.path(percentEncoded: false), reason: .file(error)))
+            case .failure(let error): .failure(ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error)))
         }
     }
 }

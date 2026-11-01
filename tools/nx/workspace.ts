@@ -444,8 +444,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
             '.': {
                 root: '.',
                 targets: {
-                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], outputs: [`{workspaceRoot}/${check.SWIFTPM_BUILD_DIR}/swiftc.log`], options: { env: check } },
-                    'lint:swiftlint:analyze': { options: { env: check, args: targets.map(({ path }) => path) } },
+                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], options: { env: check } },
                 },
             },
         },

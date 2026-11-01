@@ -30,15 +30,14 @@ extension ElementAction {
     public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let named: String = "element \(element.base64EncodedString())"
-            guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else {
-                throw ApplicationFailure(subject: named, reason: .absent)
-            }
+            let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open \(named)"))
+            guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
             func written(_ value: String) throws(ApplicationFailure) -> AXError {
                 var settable: DarwinBoolean = false
                 let checked: AXError = unsafe AXUIElementIsAttributeSettable(node, kAXValueAttribute as CFString, &settable)
                 return switch (checked, settable.boolValue) {
                     case (.success, true): AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString)
-                    case (.success, false): throw ApplicationFailure(subject: named, reason: .unsettable)
+                    case (.success, false): throw ApplicationFailure(subject: named, reason: .absent("settable \(kAXValueAttribute)"))
                     case (let error, _): throw ApplicationFailure(subject: description, reason: .refused(error))
                 }
             }
@@ -50,7 +49,7 @@ extension ElementAction {
                 }
             switch (outcome, node.process) {
                 case (.success, _): return
-                case (.invalidUIElement, _): throw ApplicationFailure(subject: named, reason: .absent)
+                case (.invalidUIElement, _): throw absent
                 case (.cannotComplete, .some(let pid)) where vanished(pid): throw ApplicationFailure(subject: String(pid), reason: .noProcess)
                 case (.cannotComplete, _): throw ApplicationFailure(subject: description, reason: .unanswered(self))
                 case (let error, _): throw ApplicationFailure(subject: description, reason: .refused(error))

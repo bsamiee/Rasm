@@ -49,8 +49,8 @@ extension Installation {
                 bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
             )
         }
-        .mapError { error in ApplicationFailure(subject: path, reason: .file(error)) }.get()
-        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noBundleIdentifier) }
+        .mapError { error in ApplicationFailure(subject: path, reason: .host(error)) }.get()
+        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .absent("CFBundleIdentifier")) }
         self.init(
             url: bundle,
             identifier: identifier,

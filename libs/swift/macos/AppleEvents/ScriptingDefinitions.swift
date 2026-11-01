@@ -7,12 +7,7 @@ public import Foundation
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public actor ScriptingDefinitions {
-    private struct Held {
-        let processes: Set<pid_t>
-        let reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>
-    }
-
-    private var held: [URL: Held] = [:]
+    private var held: [URL: (processes: Set<pid_t>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
 
     public init() {}
 
@@ -24,7 +19,7 @@ public actor ScriptingDefinitions {
                 case .some, .none:
                     Task { await Result { () async throws(AppleEventFailure) in try ScriptingDictionary(definition: await installation.scriptingDefinition()) } }
             }
-        held[installation.url] = Held(processes: processes, reading: reading)
+        held[installation.url] = (processes, reading)
         let read: Result<ScriptingDictionary, AppleEventFailure> = await reading.value
         if read.is(\.failure), held[installation.url]?.reading == reading { held[installation.url] = nil }
         return try read.get()
