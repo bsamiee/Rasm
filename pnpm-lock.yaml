@@ -2476,28 +2476,6 @@ importers:
 
   plugins/function-hooks: {}
 
-  tests/typescript/e2e-portfolio:
-    dependencies:
-      '@axe-core/playwright':
-        specifier: 'catalog:'
-        version: 4.14.1-e9cf392.0.sha-e9cf392(playwright-core@1.65.0-alpha-2026-11-01)
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.65.0-alpha-2026-11-01
-      '@rasm/hosting':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/web/hosting
-      '@rasm/portfolio':
-        specifier: workspace:*
-        version: link:../../../apps/web/portfolio
-      '@rasm/test-support':
-        specifier: workspace:*
-        version: link:../support
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-
   tests/typescript/support:
     dependencies:
       '@playwright/test':
