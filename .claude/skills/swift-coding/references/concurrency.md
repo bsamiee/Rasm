@@ -68,7 +68,7 @@ Each finished read starts the next pending key, and at most `width` reads run at
 
 ## [03]-[DEADLINES]
 
-Deadlines are instants, and a deadline passed down a call tree bounds every nested step at one moment. The work races a sleep to the deadline in one group, and the first outcome decides:
+Deadlines passed down a call tree are instants, and one instant bounds every nested step. The work races a sleep to the deadline in one group, and the first outcome decides:
 
 ```swift
 func value<Value: Sendable, Failure: Error, C: Clock>(
@@ -78,8 +78,8 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
     expired: Failure,
 ) async throws(Failure) -> Value {
     try await withTaskGroup(of: Result<Value, Failure>?.self) { group in
-        group.addTask { await Result(catching: work) }
-        group.addTask { (try? await clock.sleep(until: deadline, tolerance: nil)).map { .failure(expired) } }
+        group.addTask(name: "work") { await Result(catching: work) }
+        group.addTask(name: "deadline") { (try? await clock.sleep(until: deadline, tolerance: nil)).map { .failure(expired) } }
         defer { group.cancelAll() }
         for await case let outcome? in group { return outcome }
         preconditionFailure("Group holding the work yields its outcome")
@@ -89,6 +89,9 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
 ```
 
 `expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, a group never ends with nothing left, and a fallback outcome naming `expired` reports a timeout that never happened.
+
+- Steps with a budget of their own and no deadline handed down (one child process, one request) take a `Duration` and sleep `for:` it
+- Rivals that end only by failing (a lease heartbeat) return `Never`, and a closure calling one fills the `Value` slot of a two-child race
 
 ## [04]-[ACTORS]
 

@@ -117,7 +117,9 @@ enum Request: Decodable, Sendable {
             case .status(let pid):
                 return try await .value(running(pid).instance.state(walking: walked))
             case .launch(let url):
-                return try await .value(Launched(pid: NSWorkspace.shared.launch(adobeInstallation(at: url)).processIdentifier))
+                let instance: NSRunningApplication = try await NSWorkspace.shared.launch(adobeInstallation(at: url))
+                try await instance.finishedLaunching()
+                return .value(Launched(pid: instance.processIdentifier))
             case .perform(let pid, let actions):
                 _ = try running(pid)
                 for action: ElementAction in actions { try await action.perform(in: pid) }

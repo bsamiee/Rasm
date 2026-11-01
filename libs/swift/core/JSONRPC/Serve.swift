@@ -72,10 +72,9 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
     }
     @concurrent @Sendable func answer(_ id: JSONValue, _ method: String, _ params: JSONValue?, acknowledged acks: AsyncStream<Void>) async {
         let outcome: Result<Response, AggregateError<Reason>> = await Result { () async throws(AggregateError<Reason>) -> Response in
-            let request: Request = try Result { try JSONValue.object([method: params ?? .object([:])]).decode(Request.self) }.aggregated(Reason.die).get()
-            return try await Result { () async throws(Failure) in try await perform(request) }
-                .mapError(AggregateError.init(failing:))
-                .get()
+            let request: Request
+            do { request = try JSONValue.object([method: params ?? .object([:])]).decode(Request.self) } catch { throw AggregateError(first: .die(error)) }
+            do throws(Failure) { return try await perform(request) } catch { throw AggregateError(failing: error) }
         }
         switch outcome {
             case .success(.value(let value?)): send(id, answering: method) { try result(id, value) }

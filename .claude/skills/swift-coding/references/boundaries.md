@@ -62,6 +62,7 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 - `.resolveBeneath` makes the kernel refuse with `ENOTCAPABLE` a name resolving outside the root through `..`, a leading `/`, or a symlink
 - `FileDescriptor.open(root, .readOnly, options: .directory)` opens the root once, and a rename of its path after the open moves no read
 - `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
+- C calls fail by returned status (`posix_spawn*`) or by `-1` or `NULL` with global `errno`, read as `Errno(rawValue:)`
 
 ## [03]-[PROCESSES]
 
@@ -106,6 +107,7 @@ let revisions: [String] = try await log.reduceLines(into: []) { hashes, hash in 
 - `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
+- Processes the caller can signal report exit through `kqueue` `EVFILT_PROC` `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status and `NOTE_EXIT_DETAIL_MASK` bits
 
 ## [04]-[COMMAND_LINES]
 

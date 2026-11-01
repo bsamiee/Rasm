@@ -60,7 +60,7 @@ utils:
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
     default-value:
         any:
-            - kind: 'boolean_literal, integer_literal, real_literal, line_string_literal, array_literal, dictionary_literal'
+            - kind: 'nil_literal, boolean_literal, integer_literal, real_literal, line_string_literal, array_literal, dictionary_literal'
             - kind: prefix_expression
               has: {field: operation, regex: '^\.$'}
               not: {has: {field: target, regex: '^none$'}}
@@ -137,4 +137,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` discards the error for `nil` or a default'
-note: 'Hold the call in `Result { try <call> }` and recover through `flatMapError` or a `.failure` match'
+note: 'Catch the error the default answers in `catch <pattern>` and let every other error propagate'

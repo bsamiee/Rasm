@@ -57,4 +57,4 @@ func debit(_ id: Account.ID, by amount: Decimal, in store: some Store<Account>) 
 }
 ```
 
-`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness over infallible storage drops `throws`. Actor-isolated methods take no partial application, and a one-operation consumer receives a requirement bound on `some Store<Account>` (`store.load`).
+`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness narrows the requirement's error, `throws(DecodingError)` for an untyped requirement or no `throws` over infallible storage. Actor-isolated methods take no partial application, and a one-operation consumer receives a requirement bound on `some Store<Account>` (`store.load`).

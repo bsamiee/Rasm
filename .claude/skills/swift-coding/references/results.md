@@ -2,98 +2,119 @@
 
 ## [01]-[ACCUMULATION]
 
-Independent steps read their own input alone, and a caller receives every rejection at once:
+Independent steps read their own input alone, and a caller receives every rejection at once. Aggregates hold a first element beside the rest, and a failable init over a collection is the one path to no aggregate:
 
 ```swift
-struct Failures<Failure: Error>: Error {
-    let all: [Failure]
+struct AggregateError<Element: Sendable>: Error {
+    let first: Element
+    let remaining: [Element]
+
+    var errors: [Element] { [first] + remaining }
 }
 
-func combine<each Value, Failure: Error>(_ results: repeat Result<each Value, Failure>) throws(Failures<Failure>) -> (repeat each Value) {
-    do {
-        return try (repeat (each results).get())
-    } catch {
-        var failures: [Failure] = []
-        for case .failure(let failure) in repeat each results {
-            failures.append(failure)
-        }
-        throw Failures(all: failures)
+extension AggregateError {
+    init?(_ elements: some Collection<Element>) {
+        guard let first: Element = elements.first else { return nil }
+        self.init(first: first, remaining: Array(elements.dropFirst()))
     }
 }
 
-func combine<Value, Failure: Error>(_ results: [Result<Value, Failure>]) throws(Failures<Failure>) -> [Value] {
-    let failures: [Failure] = results.compactMap { result in result[case: \.failure] }
-    guard failures.isEmpty else { throw Failures(all: failures) }
-    return results.compactMap { result in result[case: \.success] }
+extension AggregateError: LocalizedError, CustomNSError where Element: Error {
+    var errorDescription: String? { errors.map(\.localizedDescription).joined(separator: "\n") }
+
+    var errorUserInfo: [String: Any] { [NSMultipleUnderlyingErrorsKey: errors] }
+}
+
+extension Result {
+    func aggregated<Element: Sendable>(_ transform: (Failure) -> Element) -> Result<Success, AggregateError<Element>> {
+        mapError { failure in AggregateError(first: transform(failure), remaining: []) }
+    }
+}
+
+func combine<each Value, Element>(_ results: repeat Result<each Value, AggregateError<Element>>) -> Result<(repeat each Value), AggregateError<Element>> {
+    var elements: [Element] = []
+    for case .failure(let aggregate) in repeat each results { elements += aggregate.errors }
+    return AggregateError(elements).map(Result.failure) ?? Result { () throws(AggregateError<Element>) in (repeat try (each results).get()) }
+}
+
+func traverse<Input, Value, Element>(_ inputs: some Sequence<Input>, _ transform: (Input) -> Result<Value, AggregateError<Element>>) -> Result<[Value], AggregateError<Element>> {
+    let results: [Result<Value, AggregateError<Element>>] = inputs.map(transform)
+    return AggregateError(results.compactMap { result in result[case: \.failure] }.flatMap(\.errors)).map(Result.failure)
+        ?? .success(results.compactMap { result in result[case: \.success] })
 }
 ```
 
-Results with different value types build a tuple through `get()`, and the first failure makes `combine` collect every failure in one pack iteration. CasePaths makes `Result` case-pathable, and `[case: \.failure]` reads one case of an array element without a `switch`.
+- `init?` in an extension keeps the memberwise `init(first:remaining:)`, and no value states an empty aggregate
+- `Element` needs `Sendable` alone, and `aggregated { failure in (field: <name>, failure) }` keys each rejection to its input
+- `Error` bridging holds where `Element` is an error, and a reader of the bridged `NSError` finds every element under `NSMultipleUnderlyingErrorsKey`
+- `combine` and `traverse` return `Result`, `traverse` nests inside `combine`, and the caller converts once through `get()`, each leaf lifting its failure through `aggregated(\.self)`
+- Pack iteration collects every failure in one pass, and CasePaths makes `Result` case-pathable for `[case: \.failure]`
 
 ## [02]-[VALIDATION]
 
-Throwing initializers build a record from raw input with every field rejection at once, each field's rule held by its type. `map(Result.success)` lifts a failable constructor into a `Result` with its rejection beside it, and `Result(catching:)` lifts a throwing one:
+Throwing initializers build a record from raw input with every field rejection at once, each field's rule held by its type. `map(Result.success)` lifts a failable constructor into a `Result` with its rejection beside it, `Result(catching:)` lifts a throwing one, and `traverse` validates a list field inside the same `combine`:
 
 ```swift
-struct Order: Sendable {
-    let quantity: Bounded<1, 999>
-    let sku: SKU
+struct Spread: Sendable {
+    let lots: Bounded<1, 999>
+    let legs: [Contract]
 
-    init(quantity: Int, sku: String) throws(Failures<OrderError>) {
-        (self.quantity, self.sku) = try combine(
-            Bounded(rawValue: quantity).map(Result.success) ?? .failure(OrderError(subject: "quantity \(quantity)", reason: .outOfRange)),
-            Result { () throws(OrderError) in try SKU(sku) },
+    init(lots: Int, legs: [String]) throws(AggregateError<OrderError>) {
+        (self.lots, self.legs) = try combine(
+            (Bounded(rawValue: lots).map(Result.success) ?? .failure(OrderError(subject: "lots \(lots)", reason: .outOfRange))).aggregated(\.self),
+            traverse(legs) { leg in Result { () throws(OrderError) in try Contract(leg) }.aggregated(\.self) },
         )
+        .get()
     }
 }
 ```
 
-`OrderError.Reason` holds `outOfRange` beside its other cases. Cross-field rules run on the values `combine` returns.
+`Contract(_:)` parses an exchange contract code and throws `OrderError`, and `OrderError.Reason` holds `outOfRange` beside its other cases. A rejected lot count and every unparsable leg arrive in one aggregate, and cross-field rules run on the values `combine` returns.
 
 ## [03]-[WORKFLOWS]
 
-Dependent steps run in sequence, and the first throw ends the workflow. Workflows behind validation lift the dependent steps' error into `Failures`:
+Dependent steps run in sequence, and the first throw ends the workflow. Workflows behind validation lift the dependent steps' error into a one-element aggregate:
 
 ```swift
-func checkout(quantity: Int, sku: String, in catalog: Catalog, balance: Decimal) throws(Failures<OrderError>) -> Decimal {
-    let order: Order = try Order(quantity: quantity, sku: sku)
+func freeCollateral(lots: Int, legs: [String], in book: Book, posted: Decimal) throws(AggregateError<OrderError>) -> Decimal {
+    let spread: Spread = try Spread(lots: lots, legs: legs)
     do throws(OrderError) {
-        let total: Decimal = try catalog.price(of: order.sku) * Decimal(order.quantity.rawValue)
-        guard total <= balance else { throw OrderError(subject: "\(total) against \(balance)", reason: .insufficientFunds(shortBy: total - balance)) }
-        return balance - total
+        let required: Decimal = try book.margin(of: spread.legs) * Decimal(spread.lots.rawValue)
+        guard required <= posted else { throw OrderError(subject: "\(required) against \(posted)", reason: .insufficientFunds(shortBy: required - posted)) }
+        return posted - required
     } catch {
-        throw Failures(all: [error])
+        throw AggregateError(first: error, remaining: [])
     }
 }
 ```
 
-`do throws(OrderError)` types `error` in its `catch`. Untyped `do` bodies infer their error type from `try` sites alone, and a `throw` statement inside widens it to `any Error`.
+`book.margin(of:)` throws `OrderError`. `do throws(OrderError)` types `error` in its `catch`. Untyped `do` bodies infer their error type from `try` sites alone, and a `throw` statement inside widens it to `any Error`.
 
 ## [04]-[TASK_RESULTS]
 
 Tasks, task groups, and `async let` fail with `any Error` alone:
 
 ```swift
-func prices(of skus: Set<String>, fetch: @escaping @Sendable (String) async throws(OrderError) -> Decimal) async throws(Failures<OrderError>) -> [String: Decimal] {
-    let results: [Result<(String, Decimal), OrderError>] = await withTaskGroup { group in
-        for sku: String in skus {
-            group.addTask { await Result { () async throws(OrderError) in try await (sku, fetch(sku)) } }
+func quotes(of contracts: Set<Contract>, fetch: @escaping @Sendable (Contract) async throws(OrderError) -> Decimal) async throws(AggregateError<OrderError>) -> [Contract: Decimal] {
+    let results: [Result<(Contract, Decimal), OrderError>] = await withTaskGroup { group in
+        for contract: Contract in contracts {
+            group.addTask { await Result { () async throws(OrderError) in try await (contract, fetch(contract)) } }
         }
         return await Array(group)
     }
-    return try Dictionary(uniqueKeysWithValues: combine(results))
+    return try traverse(results) { result in result.aggregated(\.self) }.map { quotes in Dictionary(uniqueKeysWithValues: quotes) }.get()
 }
 ```
 
-Concurrency declares the async `Result(catching:)`, and AsyncAlgorithms builds an `Array` from the group in completion order. Every fetch runs, and `combine` keeps each key beside its price. A fixed count of steps binds each `async let` to a `Result` and reads every binding in one `try await combine(price, stock)`.
+`Contract` is `Hashable` and `Sendable`. Concurrency declares the async `Result(catching:)`, and AsyncAlgorithms builds an `Array` from the group in completion order. Every fetch runs, and `traverse` keeps each contract beside its quote. A fixed count of steps binds each `async let` to a `Result` and reads every binding in one `combine`.
 
 ## [05]-[ENTRY_POINTS]
 
 `@main` types state application values, adapt host APIs, then run the work and map its error to host terms once (exit code, response status, text):
 
 ```swift
-func exitCode(for failures: Failures<OrderError>) -> ExitCode {
-    ExitCode(failures.all.contains { failure in failure.reason.is(\.unreadable) } ? EX_IOERR : EX_DATAERR)
+func exitCode(for failures: AggregateError<OrderError>) -> ExitCode {
+    ExitCode(failures.errors.contains { failure in failure.reason.is(\.unreadable) } ? EX_IOERR : EX_DATAERR)
 }
 ```
 

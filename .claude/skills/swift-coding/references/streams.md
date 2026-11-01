@@ -19,6 +19,7 @@ func values<Value: Sendable, Token: Sendable>(
 
 - `values(observe: monitor.observe, remove: monitor.remove)` registers at the call, and the stream holds the token until its consumer stops
 - Wake signals are an `AsyncStream<Void>` at `.bufferingNewest(1)`, and wakes arriving between reads coalesce into one
+- C callbacks take `Unmanaged.passUnretained(owner).toOpaque()` as context and yield through `fromOpaque(_:).takeUnretainedValue()`, the owner removing the source in `deinit`
 - `yield` returns `.terminated` after the consumer stops, and a producer on a thread of its own reads it to stop producing
 
 ## [02]-[TYPED_FAILURE]
@@ -38,6 +39,7 @@ func total(of url: URL, price: (String) throws(OrderError) -> Decimal) async thr
 `mapError` types the failure `URL.lines` throws untyped, and a fold over a typed failure is one `for try await` loop throwing that failure.
 
 - Non-throwing `map`, `filter`, `prefix`, and AsyncAlgorithms operators keep `Failure`, a throwing transform closure widens it to `any Error`
+- Sources failing only at start throw from the call and return an `AsyncStream`, `AsyncThrowingStream.makeStream` fixes `Failure` to `any Error`
 - `Failure` ends the sequence, and one element's failure in a source that continues is an element: `map` to `Result<T, E>` over a `Never` failure
 - Any source of `merge`, `combineLatest`, or `zip` that fails cancels the others and ends the joined sequence with its failure
 

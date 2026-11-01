@@ -14,7 +14,7 @@ Code uses each module's types wherever they state a value, as part of the langua
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
+- Names come from domain vocabulary and members of the packages in use, a file takes the name of the concept it holds, and no name is coined
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
@@ -61,7 +61,7 @@ func total<E: Error>(of lines: [Line], pricedBy price: (Line) throws(E) -> Decim
 
 ### [01.2]-[PURITY]
 
-Current instant and user locale enter as arguments, and a function that waits or measures takes `some Clock<Duration>`.
+Current instant, user locale, and random source (`inout some RandomNumberGenerator`) enter as arguments, and a function that waits or measures takes `some Clock<Duration>`.
 
 ### [01.3]-[DEPENDENCIES]
 
@@ -170,36 +170,30 @@ Each state a consumer inspects is a distinct case. Counting a type's values (str
 
 One form serves one concern:
 
-| [INDEX] | [FORM]                      | [CONCERN]                                                         |
-| :-----: | :-------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `T?`                        | Absence with no reason                                            |
-|  [02]   | `throws(E) -> T`            | Expected failure of a step, `try` binds and the first throw stops |
-|  [03]   | `async throws(E) -> T`      | Expected failure of a step that suspends                          |
-|  [04]   | `Result<T, E>`              | Outcome stored, collected, or handed to a callback as a value     |
-|  [05]   | `throws(Failures<E>)`       | Every failure of independent steps, accumulated                   |
-|  [06]   | `some AsyncSequence<T, E>`  | Values over time with one failure that ends the sequence          |
-|  [07]   | `Task<Result<T, E>, Never>` | Work started now and joined later, its typed outcome a value      |
+| [INDEX] | [FORM]                         | [CONCERN]                                                         |
+| :-----: | :----------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `T?`                           | Absence with no reason                                            |
+|  [02]   | `throws(E) -> T`               | Expected failure of a step, `try` binds and the first throw stops |
+|  [03]   | `async throws(E) -> T`         | Expected failure of a step that suspends                          |
+|  [04]   | `Result<T, E>`                 | Outcome stored, collected, or handed to a callback as a value     |
+|  [05]   | `Result<T, AggregateError<E>>` | Every failure of independent steps, at least one                  |
+|  [06]   | `some AsyncSequence<T, E>`     | Values over time with one failure that ends the sequence          |
+|  [07]   | `Task<Result<T, E>, Never>`    | Work started now and joined later, its typed outcome a value      |
 
 ### [04.1]-[COMPOSITION]
 
 Step signatures and the dependence between steps select the operator:
 
-| [INDEX] | [SIGNATURE]                   | [OPERATOR]                    | [BEHAVIOR]                                           |
-| :-----: | :---------------------------- | :---------------------------- | :--------------------------------------------------- |
-|  [01]   | `T -> U`                      | `map`                         | Transforms a present value, keeps the form           |
-|  [02]   | `T -> U?`                     | `flatMap`, `compactMap`       | Continues with a step that can find nothing          |
-|  [03]   | `T throws(E) -> U`            | One `try` over the expression | Continues with a dependent step, first throw ends it |
-|  [04]   | Independent `Result` values   | `combine` over a pack         | Runs every step, keeps every failure together        |
-|  [05]   | `[T]` with `T throws(E) -> U` | `map` with a throwing closure | Stops at the first failure                           |
-|  [06]   | `[Result<U, E>]`              | `combine` over an array       | Keeps every success or every failure                 |
+| [INDEX] | [SIGNATURE]                     | [OPERATOR]                    | [BEHAVIOR]                                           |
+| :-----: | :------------------------------ | :---------------------------- | :--------------------------------------------------- |
+|  [01]   | `T -> U`                        | `map`                         | Transforms a present value, keeps the form           |
+|  [02]   | `T -> U?`                       | `flatMap`, `compactMap`       | Continues with a step that can find nothing          |
+|  [03]   | `T throws(E) -> U`              | One `try` over the expression | Continues with a dependent step, first throw ends it |
+|  [04]   | Independent aggregate `Result`s | `combine` over a pack         | Runs every step, keeps every failure together        |
+|  [05]   | `[T]` with `T throws(E) -> U`   | `map` with a throwing closure | Stops at the first failure                           |
+|  [06]   | `[T]` with an aggregate step    | `traverse`                    | Runs every step, keeps every success or failure      |
 
-`Failures` and both `combine` overloads sit once in a module every throwing module imports:
-
-```swift
-func subtotal(of lines: [Line], pricedBy price: (Line) -> Result<Decimal, OrderError>) throws(Failures<OrderError>) -> Decimal {
-    try combine(lines.map(price)).reduce(0, +)
-}
-```
+`AggregateError`, `combine`, and `traverse` sit once in a module every throwing module imports, and `aggregated` lifts one step's failure into an aggregate.
 
 - Steps stay in one outcome form through the pipeline
 - Nested optionals and nested results stay nested, and consumers match the inner layer once
@@ -209,7 +203,7 @@ func subtotal(of lines: [Line], pricedBy price: (Line) -> Result<Decimal, OrderE
 Each throwing module declares one error type: a struct holding the rejected subject and a `@CasePathable` reason enum, its text derived from both:
 
 ```swift
-struct OrderError: Error, CustomStringConvertible {
+struct OrderError: LocalizedError, CustomNSError {
     @CasePathable
     enum Reason: Sendable {
         case missing
@@ -220,15 +214,24 @@ struct OrderError: Error, CustomStringConvertible {
     let subject: String
     let reason: Reason
 
-    var description: String { "\(reason): \(subject)" }
+    var errorDescription: String? { "\(reason): \(subject)" }
+
+    var errorUserInfo: [String: Any] {
+        switch reason {
+            case .unreadable(let cause): [NSUnderlyingErrorKey: cause]
+            case .missing, .insufficientFunds: [:]
+        }
+    }
 }
 ```
 
+- `localizedDescription`, ArgumentParser, and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
 - `Error` refines `Sendable`, every reason fact is `Sendable`, and a cause crosses tasks whole
 - Reason cases name the rule, and a case holds a fact only where some of its failures have one (a shortfall, a host cause)
 - Subjects name the rejected value as the caller wrote it with the facts its reason reads (`"debit 120 against 100"`)
 - Host causes stay whole in a reason case of the host's thrown type (`Errno`, `DecodingError`, `AXError`), an untyped `throws` in an `any Error` case
-- Host calls convert at the call, the `do` block holds the host call alone and its `catch` throws the module error
+- Host calls convert at the call, `do` holds the host call alone and its `catch` throws the module error
+- Fallbacks answering one failure catch its pattern (`catch DecodingError.typeMismatch`, `catch let error where error.reason.is(\.missing)`), the rest propagate
 - `CancellationError` passes through as the cancelled outcome
 - Consumers classify by `reason`, one case through `is(\.<case>)` and every case through an exhaustive `switch`
 
@@ -275,7 +278,7 @@ Values over time are `some AsyncSequence<Element, Failure>` in signatures. Deliv
 |  [08]   | Consumers sharing one source          | `share(bufferingPolicy:)`                            |
 |  [09]   | Lines of a child process              | `strings(separatedBy:bufferingPolicy:)`              |
 
-Request-response work stays a function, and a stream holds values a consumer reads in order.
+Request-response work and one-shot waits stay an `async throws(E)` function, and a stream holds values a consumer reads in order.
 
 ## [08]-[BOUNDARIES]
 
@@ -302,7 +305,7 @@ enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Coda
 - Synthesized `Codable` holds every wire mapping, and `init(from:)` is hand-written only where a stored type lacks `Codable` or a field names the case
 - Untyped host values (`Any`, `CFTypeRef`) decode through one generic read that checks the type
 - Host types stand where they state the value: a caller passes the host's configuration and receives its output whole
-- Host enums stay the host's type, and the wire spelling is one `switch` in the encoder that writes it
+- Host enums stay the host's type, and the wire spelling is one `switch` in the encoder that writes it, `@unknown default` writing the raw value
 - Names a host enumerates (attribute names, actions, settability) derive from its query at the read
 - `FileDescriptor` and `Errno` from System state the host's file API and its failures
 

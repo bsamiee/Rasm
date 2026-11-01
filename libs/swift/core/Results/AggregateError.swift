@@ -11,10 +11,9 @@ public struct AggregateError<Element: Sendable>: Error {
         self.remaining = remaining
     }
 
-    public init?(_ errors: some Sequence<Element>) {
-        let elements: [Element] = Array(errors)
-        guard let first: Element = elements.first else { return nil }
-        self.init(first: first, remaining: Array(elements.dropFirst()))
+    public init?(_ errors: some Collection<Element>) {
+        guard let first: Element = errors.first else { return nil }
+        self.init(first: first, remaining: Array(errors.dropFirst()))
     }
 
     public var errors: [Element] { [first] + remaining }
