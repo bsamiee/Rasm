@@ -1,46 +1,65 @@
-"""Owned Viewer nodes of offered and pinned entries, entering-frame reads delivered to a caller's consumer, and scoped pass-through captures of an entry's input."""
+"""Owned Viewer nodes of offered and pinned entries with the row of buttons viewing and clearing them, entering-frame reads delivered to a caller's consumer and the measure command form over them, and scoped pass-through captures of an entry's input."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack, nullcontext
-from functools import cached_property, partial
-from typing import ClassVar, Final
+from functools import cached_property, partial, update_wrapper
+from typing import ClassVar, Final, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some, try_downcast
 from expression.collections import Block
 import msgspec
 import PyOpenColorIO
 
+from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.ids.images import read
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import Setting
+from blender.bpy.data.rna.conditions import Condition, Job, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.addressing import Keyed, owned
 from blender.bpy.nodes.changes import Added, Connected, made, Removed
-from blender.bpy.nodes.desired import End, INPUTS, Interface, Link, OUTPUTS
+from blender.bpy.nodes.desired import End, INPUTS, Link, OUTPUTS
 from blender.bpy.nodes.graphs import Expr, group_input
+from blender.bpy.nodes.interfaces import Interface
 from blender.bpy.nodes.trees import links_of, socket_at
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.effects import CompositorEffect, Named, VIEWER
-from blender.bpy.render.compositor.entries import added_entry, EffectRows
+from blender.bpy.render.compositor.entries import EffectRows
 from blender.bpy.render.compositor.inputs import grouped
+from blender.bpy.render.compositor.placement import added_entry
 from blender.bpy.render.outputs.results import built, INTERMEDIATES
+from blender.bpy.ui.layout.rows import pressed, RowDraw
 from blender.bpy.ui.screens.areas import AreaQuery, EditorState
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Region
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
+
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]]
+
+
+class Measure(Protocol):
+    """Read of an entry's entering frame writing what it measures into the entry, answering whether it wrote, its name titling the undo step."""
+
+    __name__: str
+
+    def __call__(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile, /) -> Outcome[bool]:
+        """Measures the frame into the entry."""
+        ...
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -88,6 +107,33 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             )
         )
 
+    def measuring(self, measure: Measure, /, *, icon: Option["rna_enums.IconItems"] = Nothing, condition: Option[Condition] = Nothing) -> Operator[Named]:
+        """Builds the command measuring the named entry's entering frame, keyed, described, and undo-titled by the measure, available while no render runs and the condition holds."""
+        running = Job(kind="RENDER")
+        return Operator(
+            form=Named, run=update_wrapper(partial(self.measured, measure), measure), undo=Nothing, icon=icon, condition=Some(condition.map(lambda held: running & held).default_value(running))
+        )
+
+    def measured(self, measure: Measure, call: Call[Named]) -> Outcome[Answer]:
+        """Views the named entry's input, the completed frame read by the measure."""
+        title = bpy.path.display_name(measure.__name__)
+
+        def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
+            return measure(identity, scene, entry, file).map(lambda wrote: Some(title) if wrote else Nothing)
+
+        return (
+            rooted(bpy.types.Scene, call.context)
+            .bind(
+                lambda scene: (
+                    Option
+                    .of_optional(scene.compositor_effects.get(call.properties.name))
+                    .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=call.properties.name))
+                    .bind(lambda entry: self.entering(call.identity, scene, entry, consumed))
+                )
+            )
+            .map(lambda _: Done())
+        )
+
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Yields the pending cell and the completion handler capturing the compositor result for deferred delivery."""
@@ -119,6 +165,7 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     rows: EffectRows[R]
     entering: ClassVar[End] = End(node=INPUTS, socket=COLOR_INPUT.key)
     leaving: ClassVar[End] = End(node=OUTPUTS, socket=COLOR_RESULT.key)
+    ends: ClassVar[tuple[tuple[str, End], ...]] = (("Input", entering), ("Result", leaving))
 
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect[R]]]]:
         """Finds named offered or pinned entry with its offered effect, skipping user groups."""
@@ -172,6 +219,17 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the entering-frame read and the view and clear commands."""
         return Ok((READ, self.viewing, self.clearing))
+
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Returns the row of Input, Result, and Clear buttons over the drawing entry."""
+        return Ok(partial(self.shown, identity))
+
+    def shown(self, identity: Identity, layout: bpy.types.UILayout, holder: Struct, _context: bpy.types.Context) -> None:
+        """Draws the buttons viewing the entry's input and result and clearing its Viewer."""
+        for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
+            line = layout.row(align=True)
+            viewed = (pressed(line, identity, Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
+            alerted(line, accumulated((*viewed, pressed(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -279,4 +337,4 @@ composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("re
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["READ", "Arm", "Consume", "ViewTarget", "ViewerRead", "Viewers", "capturing", "cleared", "composites", "shown"]
+__all__ = ["READ", "Arm", "Consume", "Measure", "ViewTarget", "ViewerRead", "Viewers", "capturing", "cleared", "composites", "shown"]

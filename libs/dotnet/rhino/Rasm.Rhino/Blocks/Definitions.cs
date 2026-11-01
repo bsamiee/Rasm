@@ -114,7 +114,7 @@ public static class Definitions {
             (Products.Released(static () => Evicted(static _ => true))
              >> Subscriptions.Inline<InstanceDefinitionTableEventArgs>(static h => RhinoDoc.InstanceDefinitionTableEvent += h, static h => RhinoDoc.InstanceDefinitionTableEvent -= h)
                  .Attach(static args => IO.lift(() => Evicted(key => key.Document == args.Document.RuntimeSerialNumber && key.Definition == args.InstanceDefinitionIndex))))
-            .Scoped(Session.Scope)).As());
+            .Scoped()).As());
 
     private static Unit Evicted(Func<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), bool> stale) =>
         atomic(() => {

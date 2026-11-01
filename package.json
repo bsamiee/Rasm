@@ -360,8 +360,6 @@
             },
             "rewrite": { "dependsOn": [ "grammar" ], "parallelism": false },
             "typecheck": { "dependsOn": [ "typecheck:*" ] },
-            "typecheck:ty": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ] },
-            "typecheck:mypy": { "inputs": [ "python", "pythonFiles" ] },
             "typecheck:tsc": { "command": "tsc --pretty false", "inputs": [ "^default", "typescript", "{workspaceRoot}/**/*.{ts,json}" ] },
             "typecheck:swift": { "executor": "nx:run-commands", "options": { "commands": [ "mkdir -p \"$SWIFTPM_BUILD_DIR\"", "swift package clean", "set -o pipefail; swift build -v --disable-automatic-resolution 2>&1 | tee \"$SWIFTPM_BUILD_DIR/swiftc.log\"" ], "parallel": false }, "parallelism": false },
             "typecheck:javac": {
@@ -376,8 +374,9 @@
                 "inputs": [ "dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/lint-dotnet-format.binlog" ]
             },
-            "lint:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check", "ruff format --check" ] }, "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml" ] },
-            "lint:refurb": { "inputs": [ "python", "pythonFiles" ] },
+            "lint:ruff": { "dependsOn": [ { "target": "lint:ruff:*", "params": "forward" } ] },
+            "lint:ruff:check": { "command": "ruff check" },
+            "lint:ruff:format": { "command": "ruff format --check" },
             "lint:deptry": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python apps", "inputs": [ "python", "pythonFiles" ] },
             "lint:biome": {
                 "command": "biome check --error-on-warnings",
@@ -385,34 +384,24 @@
             },
             "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rust", "rustFiles", "{workspaceRoot}/**/Cargo.toml", "{workspaceRoot}/rustfmt.toml" ] },
             "lint:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format lint --strict --parallel", "inputs": [ "swiftFiles", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
-            "lint:swiftlint": {
-                "executor": "nx:run-commands",
-                "options": { "commands": [ { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet", "forwardAllArgs": false }, "swiftlint analyze --quiet --compiler-log-path \"$SWIFTPM_BUILD_DIR/swiftc.log\"" ], "parallel": false },
-                "dependsOn": [ "typecheck:swift" ],
-                "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
-                "inputs": [ "swiftlint", "swiftFiles", { "externalDependencies": [] }, { "dependentTasksOutputFiles": "**/swiftc.log" } ]
-            },
+            "lint:swiftlint": { "dependsOn": [ "lint:swiftlint:lint", { "target": "lint:swiftlint:analyze", "params": "forward" } ] },
+            "lint:swiftlint:lint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet" },
+            "lint:swiftlint:analyze": { "command": "swiftlint analyze --quiet --compiler-log-path \"$SWIFTPM_BUILD_DIR/swiftc.log\"", "dependsOn": [ "typecheck:swift" ], "inputs": [ "...", { "dependentTasksOutputFiles": "**/swiftc.log" } ] },
             "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*" ] },
             "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "runtime": "xcodebuild -version" } ] },
             "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
-            "lint:pmd": {
-                "executor": "nx:run-commands",
-                "options": {
-                    "commands": [
-                        {
-                            "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
-                            "forwardAllArgs": false
-                        },
-                        "fd --hidden --extension java --exec-batch pmd cpd --language java",
-                        "fd --hidden --extension py --exec-batch pmd cpd --language python",
-                        "fd --hidden --extension swift --exec-batch pmd cpd --language swift"
-                    ],
-                    "args": [ "--minimum-tokens", "100" ]
-                },
-                "inputs": [ "javaFiles", "swiftFiles", "{workspaceRoot}/**/*.py", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
+            "lint:pmd": { "dependsOn": [ "lint:pmd:check", { "target": "lint:pmd:cpd-*", "params": "forward" } ] },
+            "lint:pmd:check": {
+                "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
+                "inputs": [ "javaFiles", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
-            "lint:tombi": { "executor": "nx:run-commands", "options": { "commands": [ "tombi lint --error-on-warnings", "tombi format --check" ], "parallel": false }, "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ] },
+            "lint:pmd:cpd-java": { "command": "fd --hidden --extension java --exec-batch pmd cpd --language java", "inputs": [ "...", "javaFiles" ] },
+            "lint:pmd:cpd-python": { "command": "fd --hidden --extension py --exec-batch pmd cpd --language python", "inputs": [ "...", "{workspaceRoot}/**/*.py" ] },
+            "lint:pmd:cpd-swift": { "command": "fd --hidden --extension swift --exec-batch pmd cpd --language swift", "inputs": [ "...", "swiftFiles" ] },
+            "lint:tombi": { "dependsOn": [ { "target": "lint:tombi:*", "params": "forward" } ] },
+            "lint:tombi:lint": { "command": "tombi lint --error-on-warnings" },
+            "lint:tombi:format": { "command": "tombi format --check" },
             "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "python", "yamlFiles" ] },
             "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
             "lint:actionlint": {
@@ -421,28 +410,6 @@
             },
             "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "shellFiles", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
             "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "inputs": [ "shellFiles", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
-            "lint:ast-grep": {
-                "dependsOn": [ "grammar" ],
-                "inputs": [
-                    "pythonFiles",
-                    "rustFiles",
-                    "swiftFiles",
-                    "javaFiles",
-                    "yamlFiles",
-                    "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
-                    "{workspaceRoot}/**/*.cs",
-                    "{workspaceRoot}/**/*.{cjs,js,mjs,jsx}",
-                    "{workspaceRoot}/**/*.{html,htm,xhtml}",
-                    "{workspaceRoot}/**/*.{py3,bzl,bazel}",
-                    "{workspaceRoot}/**/*.{ts,tsx}",
-                    "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
-                    "{workspaceRoot}/**/NuGet.config",
-                    "{workspaceRoot}/**/*.sql",
-                    { "externalDependencies": [] },
-                    { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version" }
-                ]
-            },
             "format": { "executor": "./:format", "dependsOn": [ "format:dotnet-format", { "projects": [ "tag:language:dotnet" ], "target": "format" } ], "parallelism": false },
             "format:files": { "executor": "./:format" },
             "format:dotnet-format": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "...", "restore" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/format-dotnet-format.binlog" ] },

@@ -78,7 +78,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         if !expanded_externally(cx, expr.span)
             && let results = tried(expr)
-            && let &[first, second, ..] = results.as_slice()
+            && let &[first, second, ..] = &results
             && get_parent_expr(cx, expr).is_none_or(|parent| tried(parent).len() < 2)
         {
             let help = if let ExprKind::Array(_) = expr.kind { String::from("collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`") } else { combined(results.len()) };

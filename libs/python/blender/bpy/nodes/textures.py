@@ -1,17 +1,18 @@
-"""Stock nodes as expressions: settings records split into the node's RNA members and input sockets over the coordinate sockets each node reads."""
+"""Stock nodes as expressions: settings records split into the node's RNA members and input sockets over the coordinate sockets each node reads, the inputs declared as group sockets the way the stock node declares them, and textures evolving over time by their dimensions."""
 
 from collections.abc import Callable
 import math
 from types import MemberDescriptorType
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 import bpy
 from expression import Nothing, Option
 import msgspec
-import msgspec.structs
 
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.nodes.desired import Members
-from blender.bpy.nodes.graphs import Expr, Shape, Term
+from blender.bpy.nodes.graphs import Expr, Scalar, Shape, Term, xyz
+from blender.bpy.nodes.interfaces import Socket, StockInput
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -27,6 +28,23 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
     kind: ClassVar[type[bpy.types.Node]]
     coordinates: ClassVar[tuple[str, ...]] = ("Vector", "W")
 
+    @property
+    def members(self) -> Members:
+        """Values of the fields the node's RNA declares, by member name."""
+        rna = self.kind.bl_rna.properties
+        return {field: getattr(self, field) for field in self.__struct_fields__ if field in rna}
+
+    @property
+    def inputs(self) -> dict[str, str]:
+        """Input socket identifier by field name, for every field the node's RNA declares no member of."""
+        rna = self.kind.bl_rna.properties
+        return {field: bpy.path.display_name(field) for field in self.__struct_fields__ if field not in rna}
+
+    @property
+    def sockets(self) -> tuple[Socket, ...]:
+        """Group sockets of every input field at its value by field name, each declared as the stock node declares its input, for a panel `InterfacePanel.of` prefixes."""
+        return tuple(Socket(key=field, kind=StockInput(node=self.kind, input=identifier), default_value=getattr(self, field)) for field, identifier in self.inputs.items())
+
     def node(self, *operands: Term, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
         """Builds the node over its coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
 
@@ -34,26 +52,21 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
             *operands: Coordinate operands in `coordinates` order, such as `Vector` and `W`, later coordinates keeping the node's own values.
             socket: Output identifier read, else position among the enabled outputs, the first enabled output by default.
             shape: Socket class of the output read.
-            linked: Operand per input field member descriptor in place of its record value, such as a group input animating it.
+            linked: Operand per input field member descriptor in place of its record value, such as the group input of its socket.
 
         Returns:
             Output expression.
         """
-        rna = self.kind.bl_rna.properties
-        fields = msgspec.structs.fields(self)
-        inputs = tuple(
-            (bpy.path.display_name(field.name), linked.bind(lambda read: read(getattr(type(self), field.name))).default_value(getattr(self, field.name))) for field in fields if field.name not in rna
-        )
-        members: Members = {field.name: getattr(self, field.name) for field in fields if field.name in rna}
-        return Expr(kind=self.kind, inputs=(*zip(self.coordinates, operands), *inputs), members=members, socket=socket, shape=shape)
+        inputs = tuple((identifier, linked.bind(lambda read: read(getattr(type(self), field))).default_value(getattr(self, field))) for field, identifier in self.inputs.items())
+        return Expr(kind=self.kind, inputs=(*zip(self.coordinates, operands), *inputs), members=self.members, socket=socket, shape=shape)
 
 
 class Noise(NodeSettings, frozen=True, kw_only=True):
     """Noise Texture node: distorted fractal Perlin noise."""
 
     kind = bpy.types.ShaderNodeTexNoise
-    noise_dimensions: str = "3D"
-    noise_type: str = "FBM"
+    noise_dimensions: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexNoise, ("noise_dimensions",), bpy.types.EnumProperty)] = "3D"
+    noise_type: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexNoise, ("noise_type",), bpy.types.EnumProperty)] = "FBM"
     normalize: bool = True
     scale: float = 5.0
     detail: float = 2.0
@@ -68,9 +81,9 @@ class Voronoi(NodeSettings, frozen=True, kw_only=True):
     """Voronoi Texture node: fractal cellular distances, colors, and feature points."""
 
     kind = bpy.types.ShaderNodeTexVoronoi
-    voronoi_dimensions: str = "3D"
-    feature: str = "F1"
-    distance: str = "EUCLIDEAN"
+    voronoi_dimensions: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexVoronoi, ("voronoi_dimensions",), bpy.types.EnumProperty)] = "3D"
+    feature: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexVoronoi, ("feature",), bpy.types.EnumProperty)] = "F1"
+    distance: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexVoronoi, ("distance",), bpy.types.EnumProperty)] = "EUCLIDEAN"
     normalize: bool = False
     scale: float = 5.0
     detail: float = 0.0
@@ -86,10 +99,10 @@ class Wave(NodeSettings, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexWave
     coordinates = ("Vector",)
-    wave_type: str = "BANDS"
-    bands_direction: str = "X"
-    rings_direction: str = "X"
-    wave_profile: str = "SIN"
+    wave_type: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexWave, ("wave_type",), bpy.types.EnumProperty)] = "BANDS"
+    bands_direction: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexWave, ("bands_direction",), bpy.types.EnumProperty)] = "X"
+    rings_direction: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexWave, ("rings_direction",), bpy.types.EnumProperty)] = "X"
+    wave_profile: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexWave, ("wave_profile",), bpy.types.EnumProperty)] = "SIN"
     scale: float = 5.0
     distortion: float = 0.0
     detail: float = 2.0
@@ -113,7 +126,7 @@ class Gabor(NodeSettings, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexGabor
     coordinates = ("Vector",)
-    gabor_type: str = "2D"
+    gabor_type: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexGabor, ("gabor_type",), bpy.types.EnumProperty)] = "2D"
     scale: float = 5.0
     frequency: float = 2.0
     anisotropy: float = 1.0
@@ -125,7 +138,7 @@ class White(NodeSettings, frozen=True, kw_only=True):
     """White Noise Texture node: a uniform value and color hashed from the coordinates themselves."""
 
     kind = bpy.types.ShaderNodeTexWhiteNoise
-    noise_dimensions: str = "3D"
+    noise_dimensions: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeTexWhiteNoise, ("noise_dimensions",), bpy.types.EnumProperty)] = "3D"
 
 
 class MapRange(NodeSettings, frozen=True, kw_only=True):
@@ -133,7 +146,7 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeMapRange
     coordinates = ("Value",)
-    interpolation_type: str = "LINEAR"
+    interpolation_type: Annotated[str, Descriptor.declared(bpy.types.ShaderNodeMapRange, ("interpolation_type",), bpy.types.EnumProperty)] = "LINEAR"
     clamp: bool = True
     from_min: float = 0.0
     from_max: float = 1.0
@@ -142,6 +155,42 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
     steps: float = 4.0
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def dimensions(texture: Texture, /) -> int:
+    """Coordinate axes a texture reads by its dimensions member, Wave and Magic reading three."""
+    match texture:
+        case Noise(noise_dimensions=held) | White(noise_dimensions=held) | Voronoi(voronoi_dimensions=held) | Gabor(gabor_type=held):
+            return int(held[0])
+        case _:
+            return 3
+
+
+def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+    """Builds a texture node at a point evolving over time by its dimensions: one reading the point's X as W, three taking time as Z, four as W, and two staying still.
+
+    Args:
+        texture: Texture settings.
+        point: Coordinate the texture reads.
+        time: Evolution coordinate.
+        socket: Output identifier read, else position among the enabled outputs.
+        shape: Socket class of the output read.
+        linked: Operand per input field member descriptor in place of its record value.
+
+    Returns:
+        Output expression.
+    """
+    match dimensions(texture):
+        case 1:
+            coordinates: tuple[Term, ...] = (point, point["X"])
+        case 3:
+            coordinates = (point + xyz(z=time), time)
+        case _:
+            coordinates = (point, time)
+    return texture.node(*coordinates, socket=socket, shape=shape, linked=linked)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "White"]
+__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "White", "dimensions", "evolving"]

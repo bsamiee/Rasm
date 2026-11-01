@@ -1,12 +1,17 @@
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
+using Rasm.UI.Layout;
+using Rasm.UI.Media;
 using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using Rasm.UI.Typography;
 using SkiaSharp;
 
 namespace Rasm.UI.Rendering;
+
+// --- [MODELS] --------------------------------------------------------------------------
+internal sealed record MarkKey(Figure Figure, PlotFrame Frame, Pen Pen);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Marks {
@@ -15,49 +20,47 @@ internal static class Marks {
     private const int CellsPerMesh = ushort.MaxValue / 4;
 
     private static readonly int[] Quad = [0, 1, 2, 0, 2, 3];
+    private static readonly float[] Coverage = [0f, 0f, 0f, 1f];
+    private static readonly float[] Luma = [FilterFunction.Luma.X, FilterFunction.Luma.Y, FilterFunction.Luma.Z, 0f];
 
     private static readonly SKRuntimeShaderBuilder Lookup = SKRuntimeEffect.BuildShader($$"""
         uniform shader values;
         uniform shader ramp;
+        uniform half4 weights;
         half4 main(float2 p) {
-            half v = values.eval(p).a;
+            half v = dot(values.eval(p), weights);
             return v < 0.0 ? half4(0.0) : ramp.eval(float2((v * {{Steps - 1}}.0) + 0.5, 0.5));
         }
         """);
-    private static readonly SKRuntimeColorFilterBuilder Table = SKRuntimeEffect.BuildColorFilter($$"""
-        uniform shader ramp;
-        half4 main(half4 c) { return ramp.eval(float2((c.a * {{Steps - 1}}.0) + 0.5, 0.5)); }
-        """);
 
     // --- [MARKS]
-    internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame) {
-        RoleStyle style = layout.Style;
-        PaintCache cache = pass.Cache;
-        Pen pen = context.Pen(style);
-        MarkKey key = new(figure, frame, pen);
-        Option<SKColorF> lead = Lead(layout, context);
-        if (figure is Figure.Field field) {
-            Field(canvas, pass, layout, key, field, lead);
+    internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame) =>
+        figure.SwitchPartially(
+            (Canvas: canvas, Pass: pass, Layout: layout, Context: context, Key: new MarkKey(figure, frame, context.Pen(layout.Style)), Lead: context.Lead(layout)),
+            @default: static (held, _) => Traced(held.Canvas, held.Pass, held.Layout, held.Context, held.Key, held.Lead),
+            points: static (held, points) => Points(held.Canvas, held.Pass, held.Layout, held.Context, held.Key, points, held.Lead),
+            field: static (held, field) => Field(held.Canvas, held.Pass, held.Layout, held.Key, field, held.Lead));
+
+    private static void Points(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, MarkKey key, Figure.Points points, Option<SKColorF> lead) {
+        if (points is not { Marker.IsNone: true, Sizes.IsNone: true, Values.IsNone: true, Opacity.IsNone: true }) {
+            _ = lead.Iter(color => Sprites(canvas, pass, layout, key, color, points.Marker, Placed(points, key.Frame, key.Pen)));
             return;
         }
-        if (figure is Figure.Points { Marker.IsNone: true, Sizes.IsNone: true, Values.IsNone: true, Opacity.IsNone: true } dots) {
-            Seq<SKPaint> paints = Edged(pass, layout, context, figure, frame, pen);
-            canvas.DrawPicture(cache.Dots.GetOrAdd((key, paints), () => {
-                Seq<SKPoint> points = dots.At.Map(frame.Point).Strict();
-                using SKPictureRecorder recorder = new();
-                SKCanvas recording = recorder.BeginRecording(Reach(points, pen.Stroke));
-                _ = paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, [.. points], paint));
-                return recorder.EndRecording();
-            }));
-            return;
-        }
-        if (figure is Figure.Points sprites) {
-            _ = lead.Iter(color => Sprites(canvas, pass, layout, key, color, sprites.Marker, Placed(sprites, frame, pen)));
-            return;
-        }
+        Seq<SKPaint> paints = Edged(pass, layout, context, points, key.Frame, key.Pen);
+        canvas.DrawPicture(pass.Cache.Dots.GetOrAdd((key, paints), () => {
+            Seq<SKPoint> at = points.At.Map(key.Frame.Point).Strict();
+            using SKPictureRecorder recorder = new();
+            SKCanvas recording = recorder.BeginRecording(Reach(at, key.Pen.Stroke));
+            _ = paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, [.. at], paint));
+            return recorder.EndRecording();
+        }));
+    }
+
+    private static void Traced(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, MarkKey key, Option<SKColorF> lead) {
+        (RoleStyle style, PaintCache cache, Figure figure, PlotFrame frame, Pen pen) = (layout.Style, pass.Cache, key.Figure, key.Frame, key.Pen);
         if (!style.Fills.IsEmpty) {
             Outline.Traced interior = cache.Interiors.GetOrAdd(key, () => Outline.Of(path => figure.Interior(path, frame, pen)));
-            Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = Some(style.Blend) }, fill, interior)).Somes().Strict();
+            Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = style.Look.Blend }, fill, interior)).Somes().Strict();
             using SKAutoCanvasRestore covered = new(canvas);
             _ = fills.Iter(fill => fill(canvas));
         }
@@ -68,14 +71,11 @@ internal static class Marks {
             Sprites(canvas, pass, layout, key, color, Some(group.Key), toSeq(group).Map(static placed => (placed.At, placed.Degrees, Diameter: placed.Marker.Size, Value: Option<float>.None, Opacity: 1f)))));
     }
 
-    private static Option<SKColorF> Lead(LayoutNode layout, Context context) =>
-        (layout.Style.Strokes.Head.Map(static stroke => stroke.Color) | layout.Style.Solid).Bind(value => context.Color(value, layout));
-
     private static Seq<SKPaint> Edged(Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame, Pen pen) {
         float weight = figure.Weight(frame, pen);
-        uint ordinal = layout.Node.Series.Map(static held => held.Ordinal).IfNone(0u);
+        uint ordinal = layout.View.Series.Map(static held => held.Ordinal).IfNone(0u);
         return layout.Style.Strokes.Choose(stroke => context.Color(stroke.Color, layout)
-            .Map(color => pass.Cache.Stroke(stroke, color.WithAlpha(color.Alpha * weight), pen.Stroke, ordinal, pass.Clock, Some(layout.Style.Blend)))).Strict();
+            .Map(color => pass.Cache.Stroke(stroke, color.WithAlpha(color.Alpha * weight), pen.Stroke, ordinal, pass.Clock, layout.Style.Look.Blend))).Strict();
     }
 
     // --- [SPRITES]
@@ -91,7 +91,7 @@ internal static class Marks {
     private static void Sprites(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, SKColorF color, Option<Marker> marker,
         Seq<(SKPoint At, float Degrees, float Diameter, Option<float> Value, float Opacity)> placed) {
         float scale = key.Pen.Density;
-        float diameter = placed.Map(static sprite => sprite.Diameter).Fold(0f, float.Max);
+        float diameter = placed.Map(static sprite => sprite.Diameter).Max(0f);
         Option<SKImage> sheet = pass.Cache.Sprites.GetOrAdd((layout, marker, diameter, scale), () => Sheet(pass, layout, marker, diameter, scale));
         _ = sheet.Iter(image => canvas.DrawPicture(pass.Cache.Atlases.GetOrAdd((key, marker, color), () => {
             using SKPictureRecorder recorder = new();
@@ -114,13 +114,12 @@ internal static class Marks {
         (from at in value
          from fraction in Fraction.Validated(at).ToOption()
          from ramp in layout.Style.Look.Scale
-         from stop in ramp.At(fraction)
-         from mapped in layout.Cascade.Theme.Color(stop, layout.Style)
+         from mapped in Resolved(layout, ramp)(fraction)
          select mapped).IfNone(color);
 
     private static Option<SKImage> Sheet(Painter.Pass pass, LayoutNode layout, Option<Marker> marker, float diameter, float scale) =>
         pass.Cache.Rasterized(new SKSize(diameter, diameter), scale, SKColorType.RgbaF16, canvas => _ = marker.Match(
-            Some: shown => pass.Cache.Art(layout, shown.Art).Iter(media => media.Draw(canvas, media.Fitted(SKRect.Create(diameter, diameter)), shown.Art.Tinted ? Some(pass.Cache.Tint(media, SKColors.White)) : None)),
+            Some: shown => pass.Cache.Art(layout, shown.Art).Iter(media => media.Draw(canvas, media.Fitted(SKRect.Create(diameter, diameter)), pass.Cache.Tint(media, shown.Art, static () => Some((SKColorF)SKColors.White)))),
             None: () => {
                 using SKPaint disc = new() { IsAntialias = true, Color = SKColors.White };
                 canvas.DrawCircle(diameter / 2f, diameter / 2f, diameter / 2f, disc);
@@ -129,8 +128,8 @@ internal static class Marks {
 
     // --- [FIELDS]
     private static void Field(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, Figure.Field field, Option<SKColorF> lead) =>
-        _ = pass.Cache.Fields.GetOrAdd((key, lead), () => Ramp(layout.Style.Look.Scale.Match<Func<Fraction, Option<SKColorF>>>(
-                Some: scale => fraction => scale.At(fraction).Bind(stop => layout.Cascade.Theme.Color(stop, layout.Style)),
+        _ = pass.Cache.Fields.GetOrAdd((key, lead), () => Ramp(layout.Style.Look.Scale.Match(
+                Some: scale => Resolved(layout, scale),
                 None: () => fraction => lead.Map(color => color.WithAlpha(color.Alpha * (float)fraction))))
             .Map(ramp => FieldPaint(ramp, field, key.Frame))).Iter(paint => {
                 if (key.Frame.Plane.Separable) canvas.DrawPath(pass.Cache.Interiors.GetOrAdd(key, () => Outline.Of(path => field.Interior(path, key.Frame, key.Pen))).Path, paint);
@@ -148,11 +147,27 @@ internal static class Marks {
         TensorPrimitives.ConvertToHalf(fractions, cells);
         using SKImage values = SKImage.FromPixelCopy(new SKImageInfo(field.Columns, field.Rows, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(cells.AsSpan()));
         using SKShader raw = values.ToRawShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Nearest), frame.Matrix.PreConcat(SKMatrix.CreateScale(1f / field.Columns, 1f / field.Rows)));
-        using SKRuntimeEffectUniforms uniforms = new(Lookup.Effect);
-        using SKRuntimeEffectChildren children = new(Lookup.Effect) { ["values"] = raw, ["ramp"] = colors };
-        using SKShader shader = Lookup.Effect.ToShader(uniforms, children);
+        using SKShader shader = Looked(raw, colors, Coverage);
         return new SKPaint { IsAntialias = true, Shader = shader };
     }
+
+    internal static Option<SKPaint> Valued(LayoutNode layout, ColorRamp scale, SKImage source, SKRect target, SKSamplingOptions sampling, bool alphaOnly) =>
+        Ramp(Resolved(layout, scale)).Map(ramp => {
+            using SKImage owned = ramp;
+            using SKShader colors = owned.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
+            using SKShader raw = source.ToRawShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, sampling, ImageFit.Mapping(SKRect.Create(source.Width, source.Height), target));
+            using SKShader shader = Looked(raw, colors, alphaOnly ? Coverage : Luma);
+            return new SKPaint { IsAntialias = true, Shader = shader, Blender = layout.Style.Look.Blend.ValueUnsafe() };
+        });
+
+    private static SKShader Looked(SKShader values, SKShader colors, float[] weights) {
+        using SKRuntimeEffectUniforms uniforms = new(Lookup.Effect) { ["weights"] = weights };
+        using SKRuntimeEffectChildren children = new(Lookup.Effect) { ["values"] = values, ["ramp"] = colors };
+        return Lookup.Effect.ToShader(uniforms, children);
+    }
+
+    private static Func<Fraction, Option<SKColorF>> Resolved(LayoutNode layout, ColorRamp scale) =>
+        fraction => scale.At(fraction).Bind(stop => layout.Cascade.Theme.Color(stop, layout.Style));
 
     private static float[] Fractions(Figure.Field field) {
         float[] fractions = field.Values.Values.ToArray();
@@ -180,10 +195,10 @@ internal static class Marks {
     }
 
     private static Option<SKImage> Ramp(Func<Fraction, Option<SKColorF>> at) {
-        Seq<Option<SKColorF>> stops = toSeq(Range(0, Steps)).Map(step => Fraction.Validated(step / (Steps - 1f)).ToOption().Bind(at)).Strict();
+        Seq<Option<SKColorF>> stops = Fraction.Partition(Steps).Map(at).Strict();
         if (!stops.Exists(static stop => stop.IsSome)) return None;
         float[] channels = [.. stops.Map(static stop => stop.IfNone(SKColors.Transparent)).Bind(static color => Seq(color.Red, color.Green, color.Blue, color.Alpha))];
-        return SKImage.FromPixelCopy(new SKImageInfo(Steps, 1, SKColorType.RgbaF32, SKAlphaType.Unpremul, SKColorSpace.CreateSrgb()), MemoryMarshal.AsBytes(channels.AsSpan()));
+        return SKImage.FromPixelCopy(new SKImageInfo(Steps, 1, SKColorType.RgbaF32, SKAlphaType.Unpremul, SKColorSpace.Srgb), MemoryMarshal.AsBytes(channels.AsSpan()));
     }
 
     // --- [LABELS]
@@ -194,36 +209,5 @@ internal static class Marks {
             Outline.Traced along = pass.Cache.Contours.GetOrAdd(key, () => Outline.Of(path => label.Along.Edges(path, frame, pen)));
             _ = pass.Cache.Labels.GetOrAdd((layout.Typeset, key), () => Typesetting.Along(layout.Typeset, along.Path, label.Offset))
                 .Iter(blob => canvas.DrawText(blob, 0f, 0f, pass.Cache.Solid(color)));
-        });
-
-    // --- [IMAGES]
-    internal static void Image(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Node.Image image) {
-        SKRect content = layout.ContentBox;
-        _ = pass.Cache.Frame(layout, image, pass.Now).Iter(source => {
-            SKRect target = image.Fit.Fitted(content, new SKSize(image.Source.Info.Width, image.Source.Info.Height));
-            SKRect device = context.Device.MapRect(target);
-            bool alphaOnly = source.ColorType is SKColorType.Alpha8 or SKColorType.Alpha16 or SKColorType.AlphaF16;
-            Option<SKColorF> color = alphaOnly && image.Scale.IsNone ? Lead(layout, context) : None;
-            SKPaint paint = pass.Cache.Images.GetOrAdd((layout, color, alphaOnly), () => {
-                using SKColorFilter? ramp = image.Scale.Bind(scale => RampFilter(layout, scale, alphaOnly)).ValueUnsafe();
-                return new SKPaint { IsAntialias = true, Blender = layout.Style.Blend, ColorF = color.IfNone(SKColors.Black), ColorFilter = ramp };
-            });
-            using SKAutoCanvasRestore restore = new(canvas);
-            canvas.ClipRect(content, antialias: true);
-            canvas.DrawImage(source, target, image.Rendering.Sampling(MathF.Min(device.Width / source.Width, device.Height / source.Height)), paint);
-        });
-    }
-
-    private static Option<SKColorFilter> RampFilter(LayoutNode layout, ColorRamp scale, bool alphaOnly) =>
-        Ramp(fraction => scale.At(fraction).Bind(stop => layout.Cascade.Theme.Color(stop, layout.Style))).Map(lut => {
-            using SKImage owned = lut;
-            using SKShader colors = owned.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
-            using SKRuntimeEffectUniforms uniforms = new(Table.Effect);
-            using SKRuntimeEffectChildren children = new(Table.Effect) { ["ramp"] = colors };
-            using SKColorFilter mapped = Table.Effect.ToColorFilter(uniforms, children);
-            using SKColorFilter valued = SKColorFilter.CreateColorMatrix(alphaOnly
-                ? [0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f]
-                : [1f, 0f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 0f, 0f]);
-            return SKColorFilter.CreateCompose(mapped, valued);
         });
 }

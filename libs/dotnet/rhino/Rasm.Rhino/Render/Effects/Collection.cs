@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
@@ -15,8 +16,7 @@ namespace Rasm.Rhino.Render.Effects;
 public abstract partial record EffectSource {
     public sealed record Document(RhinoDoc Doc) : EffectSource {
         public HostEvent<Unit> Changed =>
-            Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h)
-                .Documents().In(Doc.RuntimeSerialNumber).Choose(static _ => Some(unit));
+            Documents.PropertiesChanged.Documents().In(Doc.RuntimeSerialNumber).Choose(static _ => Some(unit));
     }
 
     public sealed record Section(EtoPostEffectCollapsibleSection Host) : EffectSource;
@@ -57,7 +57,9 @@ public static class EffectList {
 
     // --- [STATE]
     public static IO<TState> State<TState>(RenderSettings settings, Guid effect, TState @default) where TState : notnull =>
-        Within(settings, (_, held) => IO.lift(() => Resolved(held, effect)).Bind(data => Recalled(Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default)));
+        Within(settings, (_, held) => held.Find(data => data.Id == effect).Match(
+            Some: data => Recalled(Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default),
+            None: () => IO.pure(@default)));
 
     public static IO<TState> State<TState>(EffectSource source, Guid effect, TState @default) where TState : notnull =>
         source.Switch(
@@ -108,6 +110,32 @@ public static class EffectList {
     private static Step<PostEffectCollection> Tuned(Guid effect, string text) =>
         new(effects => Found(effects, effect).Bind(data => Products.Accepted(() => data.SetParameter(StateKey, text))).Map(_ => effects), $"tuned {effect}");
 
+    // --- [RUNNING]
+    private static readonly AtomHashMap<int, (PostEffect Effect, Func<string, bool> Holds)> Running = AtomHashMap<int, (PostEffect Effect, Func<string, bool> Holds)>();
+
+    internal static IO<Unit> Following =>
+        Documents.PropertiesChanged.Attach(static args => Synced(args.Document));
+
+    internal static Unit Held(PostEffect effect, Func<string, bool> holds) => Running.AddOrUpdate(effect.SerialNumber, (effect, holds));
+
+    internal static Unit Released(PostEffect effect) => Running.Remove(effect.SerialNumber);
+
+    private static IO<Unit> Synced(RhinoDoc changed) =>
+        from running in IO.lift(static () => toSeq(Running.Values).Strict())
+        from tuned in when(!running.IsEmpty,
+            from stored in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static documents => Products.Each(documents.Map(static doc =>
+                RenderSettingsSources.Read(doc, static scope => Within(scope.Settings, static (_, held) =>
+                        held.Traverse(static data => Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey).Map(text => text.Map(stored => (data.Id, stored)))).As()
+                            .Map(static rows => toHashMap(rows.Somes()))))
+                    .Map(states => (doc.RuntimeSerialNumber, States: states)))))
+            let current = toHashMap(stored)
+            from synced in Products.Each(current.Find(changed.RuntimeSerialNumber).ToSeq().Bind(states => running.Choose(instance =>
+                from text in states.Find(instance.Effect.Id)
+                where !current.Values.Exists(other => other.Find(instance.Effect.Id).Exists(instance.Holds))
+                select Products.Accepted(() => instance.Effect.SetParam(StateKey, text)))))
+            select unit).As()
+        select unit;
+
     // --- [CODEC]
     internal static string Encoded<TState>(TState state) where TState : notnull => JsonSerializer.Serialize(state, ArchivableDictionaries.Options);
 
@@ -132,10 +160,8 @@ public static class EffectList {
     private static Guid ToneMapper(PostEffectCollection effects) =>
         ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(Internals.ToneMappingStage, out Guid id), id));
 
-    private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) => held.Find(data => data.Id == id).ToFin(Missing(id));
-
     private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
-        Products.Many(() => effects, required: false).Bind(held => IO.lift(() => Resolved(held, id)));
+        Products.Many(() => effects, required: false).Bind(held => IO.lift(() => held.Find(data => data.Id == id).ToFin(Missing(id))));
 
     private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
 }

@@ -10,8 +10,9 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import Interface, InterfacePanel, NodeGroup, Socket
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, math, mixed
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.view_layers.passes import EMISSION, ENVIRONMENT, Family, OCCLUSION, PassFlags, PassRequest
 from blender.bpy.render.view_layers.sources import lobed
@@ -36,6 +37,10 @@ TERMS: Final[tuple[tuple[Key, LightPass, str], ...]] = (
     ("environment", ENVIRONMENT, "Gain of background seen by camera, dropped under transparent film"),
 )
 _GAIN: Final = Socket(key="gain", kind=bpy.types.NodeSocketFloat, min_value=-32.0, max_value=32.0)
+_STRENGTH: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloatFactor, description="Ambient occlusion strength over family light", default_value=1.0)
+_TINT: Final = Socket(key="tint", kind=bpy.types.NodeSocketColor, description="Color multiplying group light", default_value=(1.0, 1.0, 1.0, 1.0))
+_OCCLUSION: Final[Key] = "occlusion"
+_GROUP: Final[Key] = "group"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -61,42 +66,24 @@ class Recombined(Case, frozen=True, kw_only=True):
         """Gain panels of the summed terms, each panel's toggle keeping its term."""
         match self.recombination:
             case Lobes():
-                strength = Socket(
-                    key="occlusion_strength",
-                    name="Strength",
-                    kind=bpy.types.NodeSocketFloatFactor,
-                    description="Ambient occlusion strength over family light",
-                    min_value=0.0,
-                    max_value=1.0,
-                    default_value=1.0,
-                )
                 return Interface(
                     panels=(
                         *(
-                            InterfacePanel(
-                                key=key,
-                                name=bpy.path.display_name(key),
-                                description=description,
-                                toggle=Some(True),
-                                inputs=(msgspec.structs.replace(_GAIN, key=f"{key}_gain", name="Gain", description=f"{description} in stops"),),
-                            )
+                            InterfacePanel.of(key, Interface(inputs=(msgspec.structs.replace(_GAIN, description=f"{description} in stops"),)), description=description, toggle=Some(True))
                             for key, _, description in TERMS
                         ),
-                        InterfacePanel(key="occlusion", name="Occlusion", description="Ambient occlusion over family light", toggle=Some(False), inputs=(strength,)),
+                        InterfacePanel.of(_OCCLUSION, Interface(inputs=(_STRENGTH,)), description="Ambient occlusion over family light", toggle=Some(False)),
                     )
                 )
             case LightGroups(groups=groups):
                 return Interface(
                     panels=tuple(
-                        InterfacePanel(
-                            key=f"group_{index}",
+                        InterfacePanel.of(
+                            item_key(_GROUP, index),
+                            Interface(inputs=(msgspec.structs.replace(_GAIN, description="Group light in stops"), _TINT)),
                             name=name,
                             description="View layer light group",
                             toggle=Some(True),
-                            inputs=(
-                                msgspec.structs.replace(_GAIN, key=f"group_{index}_gain", name="Gain", description="Group light in stops"),
-                                Socket(key=f"group_{index}_tint", name="Tint", kind=bpy.types.NodeSocketColor, description="Color multiplying group light", default_value=(1.0, 1.0, 1.0, 1.0)),
-                            ),
                         )
                         for index, name in enumerate(groups, 1)
                     )
@@ -136,13 +123,13 @@ class Recombined(Case, frozen=True, kw_only=True):
         Returns:
             `Ok` of beauty with render alpha. `Error` of every absent pass and `absent` naming the sum when no term is offered.
         """
-        sockets = {name: msgspec.structs.replace(render, socket=identifier, shape=bpy.types.NodeSocketColor) for name, identifier in offered.items()}
+        sockets = {name: render.at(identifier, bpy.types.NodeSocketColor) for name, identifier in offered.items()}
 
         def socket(name: str) -> Outcome[Expr]:
             return Option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(offered)), member=name))
 
         def gained(source: Expr, key: Key) -> Expr:
-            return source * (math("POWER", 2.0, outer(f"{key}_gain")) * outer(key))
+            return source * (math("POWER", 2.0, outer(item_key(key, _GAIN.key))) * outer(key))
 
         def total(terms: tuple[Expr, ...], requested: Key) -> Outcome[Expr]:
             return Ok(sum(terms[1:], terms[0])) if terms else Error(Fault.of(Reason.ABSENT, repr(tuple(offered)), member=requested))
@@ -164,16 +151,16 @@ class Recombined(Case, frozen=True, kw_only=True):
                             return lobed(flags.families[family], sockets, lobe).map(lambda placed: Ok((key, placed, Some(family))))
 
                 def lobes(terms: Mapping[Key, Expr]) -> Outcome[Expr]:
-                    strength = math("MULTIPLY", outer("occlusion"), outer("occlusion_strength"))
+                    strength = math("MULTIPLY", outer(_OCCLUSION), outer(item_key(_OCCLUSION, _STRENGTH.key)))
                     light = total(tuple(gained(terms[key], key) for key, _ in families if key in terms), ", ".join(key for key, _ in families))
-                    return light.map(lambda lit: sum((gained(terms[key], key) for key, held in kept if not isinstance(held, Family)), mixed(strength, lit, terms["occlusion"], blend="MULTIPLY")))
+                    return light.map(lambda lit: sum((gained(terms[key], key) for key, held in kept if not isinstance(held, Family)), mixed(strength, lit, terms[_OCCLUSION], blend="MULTIPLY")))
 
-                occluded = socket(OCCLUSION.prop.name).map(lambda source: ("occlusion", source, Nothing))
+                occluded = socket(OCCLUSION.prop.name).map(lambda source: (_OCCLUSION, source, Nothing))
                 return accumulated((*(answer for key, held in kept for answer in term(key, held).to_list()), occluded)).bind(lambda terms: finished(terms, lobes))
             case LightGroups(groups=groups):
 
                 def grouped(terms: Mapping[Key, Expr]) -> Outcome[Expr]:
-                    tinted = tuple(gained(mixed(1.0, terms[name], outer(f"group_{index}_tint"), blend="MULTIPLY"), f"group_{index}") for index, name in enumerate(groups, 1))
+                    tinted = tuple(gained(mixed(1.0, terms[name], outer(item_key(_GROUP, index, _TINT.key)), blend="MULTIPLY"), item_key(_GROUP, index)) for index, name in enumerate(groups, 1))
                     return total(tinted, "groups")
 
                 return accumulated(socket(f"Combined_{name}") for name in groups).bind(lambda sources: finished(tuple((name, source, Nothing) for name, source in zip(groups, sources)), grouped))

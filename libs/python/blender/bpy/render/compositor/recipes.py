@@ -13,9 +13,10 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rna
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Entry
-from blender.bpy.render.compositor.entries import appended, EffectRows, relocated
+from blender.bpy.render.compositor.effects import CompositorEffect, Entry
+from blender.bpy.render.compositor.entries import EffectRows
 from blender.bpy.render.compositor.inputs import captured, hold, PreviewFrame, rebased, regrouped, restored
+from blender.bpy.render.compositor.placement import Enabled, relocated
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Name
 
@@ -85,7 +86,7 @@ def applied[R: Case](
                     Option
                     .of_optional(native.get(name))
                     .map(lambda entry: row.write(identity, scene, entry, value.structure, preview=preview).map(lambda _: entry))
-                    .default_with(lambda: appended(identity, scene, row, value.structure, preview=preview, name=Some(name)))
+                    .default_with(lambda: row.appended(identity, scene, value.structure, preview=preview, name=Some(name)))
                 ).bind(
                     lambda entry: paired(
                         value.captured.map(lambda values: restored(identity, entry, values)).default_value(Ok(False)),

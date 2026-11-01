@@ -52,7 +52,8 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
 - Checkers, writers, and type checkers run as `lint:<tool>`, `format:<tool>`, and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
 - `<tool>` names the program implementing the command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
-- One target runs a tool's subcommands, languages, and runtimes as one cache entry, a second target stays where its own entry saves reruns
+- Checkers run each subcommand, language, and runtime as a `<kind>:<tool>:<part>` target, a `<kind>:<tool>` parent holds `dependsOn` alone and forwards arguments to the part taking them
+- Checker command lists hold dependent steps alone, a list stops at its first failure or terminates its siblings and hides their findings
 - Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
 - Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)

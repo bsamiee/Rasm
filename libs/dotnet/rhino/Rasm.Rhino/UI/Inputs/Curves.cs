@@ -134,13 +134,13 @@ public sealed record CurveRow(IterableNE<CurveLane> Lanes) : IRow<CurveRow> {
             when(args.Key is Keys.Delete or Keys.Backspace, Removed(active, view).Bind(_ => IO.lift(() => { args.Handled = true; })).Bind(_ => shown)).As())
         from chooser in toSeq(first.Lanes).Count is 1
             ? IO.pure(Option<(Control Control, IO<Unit> Refresh)>.None)
-            : CommandRows.Button(new Command<Invoke>.Choice(new CommandFace("curve-lanes", label.English), None, toSeq(first.Lanes).Map(lane =>
-                    new Command<Invoke>.Run(new CommandFace(lane.Name, lane.Caption), None, new Invoke.Effect(_ => Laned(latest, view, lane.Name).Bind(_ => shown))) {
+            : CommandRows.Button(new Command<Invoke>.Choice(new CommandFace("curve-lanes", label.English), toSeq(first.Lanes).Map(lane =>
+                    new Command<Invoke>.Run(new CommandFace(lane.Name, lane.Caption), new Invoke.Effect(_ => Laned(latest, view, lane.Name).Bind(_ => shown))) {
                         Marked = new RowRule(_ => IO.lift(() => string.Equals(view.State.Lane.Name, lane.Name, StringComparison.Ordinal))),
                     })), IconSlot.Small, scope).Map(static held => Some(held))
         from picker in first.Pick.Traverse(read => CommandRows.Button(
                 new Command<Invoke>.Run(
-                    new CommandFace("curve-pick", "Pick Point") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.SVGEditorEyeDropperSvg)) }, None,
+                    new CommandFace("curve-pick", "Pick Point") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.SVGEditorEyeDropperSvg)) },
                     new Invoke.Effect(_ => read(view.State.Lane.Name).Bind(xs => Inserted(active, view, xs)).Bind(_ => shown))),
                 IconSlot.Small, scope)).As()
         from body in chooser.Match(
@@ -149,7 +149,7 @@ public sealed record CurveRow(IterableNE<CurveLane> Lanes) : IRow<CurveRow> {
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
             }).Map(static stack => (Control)stack),
             None: () => IO.pure<Control>(view))
-        select new RowCells(body, shown.Bind(_ => (chooser.Map(static held => held.Refresh) + picker.Map(static held => held.Refresh)).Traverse(static refresh => refresh).As()).Map(unit)) {
+        select new RowCells(body, shown.Bind(_ => Products.Each(chooser.Map(static held => held.Refresh).ToSeq() + picker.Map(static held => held.Refresh).ToSeq())).Map(unit)) {
             Pick = picker.Map(static held => held.Control),
             Lines = [new RowLine(Some("Input"), across.Control), new RowLine(Some("Output"), along.Control)],
             Menu = [Commands(active, view, shown)],
@@ -181,21 +181,22 @@ public sealed record CurveRow(IterableNE<CurveLane> Lanes) : IRow<CurveRow> {
 
     private static Seq<Command<Invoke>> Commands(IO<CurveLane> active, Surface<CurvePlot> view, IO<Unit> shown) => [
         new Command<Invoke>.Run(new CommandFace("curve-reset", "Reset Curve"),
-            Some(new RowRule(_ => active.Map(static lane => lane.Rest.Exists(rest => rest != lane.Points)))),
             new Invoke.Effect(_ =>
                 from lane in active
                 from reset in lane.Rest.Traverse(rest => lane.Edited(EditPhase.Commit.Of(rest))).As()
                 from cleared in view.Show(view.State with { Picked = None })
                 from redrawn in shown
-                select unit)),
+                select unit)) {
+            Enabled = new RowRule(_ => active.Map(static lane => lane.Rest.Exists(rest => rest != lane.Points))),
+        },
         new Command<Invoke>.Run(new CommandFace("curve-underlay", "Underlay"),
-            Some(new RowRule(_ => active.Map(static lane => lane.Underlay.IsSome))),
             new Invoke.Effect(_ =>
                 from lane in active
                 from underlay in view.State.Underlay.IsSome ? IO.pure(Option<Seq<float>>.None) : lane.Underlay.Traverse(static read => read).As()
                 from changed in view.Show(view.State with { Underlay = underlay })
                 from redrawn in shown
                 select unit)) {
+            Enabled = new RowRule(_ => active.Map(static lane => lane.Underlay.IsSome)),
             Marked = new RowRule(_ => IO.lift(() => view.State.Underlay.IsSome)),
         },
     ];

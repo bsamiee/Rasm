@@ -10,7 +10,8 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.extension.identity import Identity
-from blender.bpy.ui.drawing.canvas import Align, Canvas, captured, Chart, DrawType, Label, Layer, Offscreen, Rect, TRACE
+from blender.bpy.ui.drawing.canvas import Align, Canvas, captured, DrawType, Offscreen, Rect
+from blender.bpy.ui.drawing.charts import Chart, Label, Layer, TRACE
 from blender.bpy.ui.drawing.handlers import Drawing, Handled, hooked, Overlay, Refresh, refreshing, Signal
 from blender.bpy.ui.resources.theme import Checker, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery

@@ -37,7 +37,8 @@ public sealed partial class FileExtension {
         validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault($"value = '{value}'", RhinoReason.Unqualified);
 }
 
-[ValueObject<int>(SkipFactoryMethods = true)]
+[ValueObject<int>]
+[ValidationError<RhinoFault>]
 public sealed partial class OutputVersion : IMinMaxValue<OutputVersion> {
     public static OutputVersion MinValue { get; } = new(1);
 
@@ -45,16 +46,23 @@ public sealed partial class OutputVersion : IMinMaxValue<OutputVersion> {
 
     public Fin<OutputVersion> Next() => _value < MaxValue._value ? Validated(_value + 1) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"next of {_value}"), RhinoReason.Outside);
 
-    public static Fin<OutputVersion> Validated(int value) => RhinoFault.Unless(value >= MinValue._value, RhinoReason.Outside, value).Map(_ => new OutputVersion(value));
+    public static Fin<OutputVersion> Validated(int value) => TryCreate(value, out OutputVersion? version, out RhinoFault? fault) ? version : fault;
+
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
+        validationError = value >= MinValue._value ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
 }
 
-[ValueObject<int>(SkipFactoryMethods = true)]
+[ValueObject<int>]
+[ValidationError<RhinoFault>]
 public sealed partial class SequenceNumber : IMinMaxValue<SequenceNumber> {
     public static SequenceNumber MinValue { get; } = new(0);
 
     public static SequenceNumber MaxValue { get; } = new(int.MaxValue);
 
-    public static Fin<SequenceNumber> Validated(int value) => RhinoFault.Unless(value >= MinValue._value, RhinoReason.Outside, value).Map(_ => new SequenceNumber(value));
+    public static Fin<SequenceNumber> Validated(int value) => TryCreate(value, out SequenceNumber? number, out RhinoFault? fault) ? number : fault;
+
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
+        validationError = value >= MinValue._value ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
 }
 
 [Union]
@@ -97,13 +105,16 @@ public abstract partial record OutputFolder : IConvertible<string> {
 
     public sealed record BesideDocument(Seq<NamePart> Segments) : OutputFolder;
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) {
-        Fin<Option<OutputFolder>> parsed = Optional(value).Traverse(static text => text.StartsWith(DocumentMark, StringComparison.Ordinal)
-            ? toSeq(text[DocumentMark.Length..].Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)).Traverse(NamePart.Validated).As()
+    public static Fin<OutputFolder> Validated(string value) =>
+        value.StartsWith(DocumentMark, StringComparison.Ordinal)
+            ? toSeq(value[DocumentMark.Length..].Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)).Traverse(NamePart.Validated).As()
                 .Map(static segments => (OutputFolder)new BesideDocument(segments))
-            : new Absolute(text)).As();
+            : new Absolute(value);
+
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) {
+        Fin<Option<OutputFolder>> parsed = Optional(value).Traverse(Validated).As();
         item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
-        return parsed.Match(Succ: static _ => null, Fail: static error => error.Filter<RhinoFault>().Head as RhinoFault);
+        return Conversions.Rejection(parsed);
     }
 
     public string ToValue() => Switch(
@@ -124,12 +135,15 @@ public abstract partial record Stem : IConvertible<string> {
 
     public sealed record Literal(NamePart Value) : Stem;
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) {
-        Fin<Option<Stem>> parsed = Optional(value).Traverse(static text => Conversions.Present(text).Match(
+    public static Fin<Stem> Validated(string value) =>
+        Conversions.Present(value).Match(
             Some: static named => NamePart.Validated(named).Map(static part => (Stem)new Literal(part)),
-            None: static () => new DocumentName())).As();
+            None: static () => new DocumentName());
+
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) {
+        Fin<Option<Stem>> parsed = Optional(value).Traverse(Validated).As();
         item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
-        return parsed.Match(Succ: static _ => null, Fail: static error => error.Filter<RhinoFault>().Head as RhinoFault);
+        return Conversions.Rejection(parsed);
     }
 
     public string ToValue() => Switch(

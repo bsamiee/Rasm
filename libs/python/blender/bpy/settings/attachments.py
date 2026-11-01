@@ -1,10 +1,11 @@
-"""Form group attachments with value locks, histories, startup seeds, before and after recovery, storage removal, and window manager groups saved in text blocks."""
+"""Form group attachments with property callbacks bound to the extension, value locks, histories, startup seeds, before and after recovery, storage removal, and window manager groups saved in text blocks."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 import datetime
 from functools import partial
 import inspect
+from types import MappingProxyType
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
@@ -16,8 +17,8 @@ import msgspec
 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import embedded
-from blender.bpy.data.rna.descriptors import custom_read, Descriptor
-from blender.bpy.data.rna.mirrors import annotated, Changed, nested, pointed, Updated
+from blender.bpy.data.rna.descriptors import custom_read, Descriptor, stored
+from blender.bpy.data.rna.mirrors import annotated, Callbacks, Changed, Declared, pointed
 from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct
 from blender.bpy.data.rna.restoration import Endpoints, native, NativeTree, NativeValue, persisted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
@@ -293,8 +294,8 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
     # --- [PERSISTENCE]
 
     def stored(self, host: Host) -> bool:
-        """Returns whether host system properties hold attachment."""
-        return host.is_property_set(self.name, ghost=False)
+        """Returns whether a write left values in host's attachment, the empty group a read creates holding none."""
+        return stored(host, self.name)
 
     def seeded(self, seed: Snapshot) -> Outcome[None]:
         """Writes seed snapshot to hosts without stored attachment."""
@@ -309,13 +310,14 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
 
 class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Pointer property to a form group on its owner class, with startup seed and change callback."""
+    """Pointer property to a form group on its owner class, with startup seed, change callback, and the property callbacks bound to the extension each form property registers with."""
 
     key: Key
     form: type[G]
     owner: type[Host]
     seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing
     changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = Nothing
+    callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks]]]] = Nothing
 
     # --- [BINDING]
 
@@ -329,20 +331,26 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
         """Returns host form group through the registered binding."""
         return self.bound(identity).map(lambda attached: attached.struct(host))
 
+    def fields(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+        """Draws every form field of the group the context's owner holds, an operator dialog's draw editing the attachment, nothing where the context reaches no group."""
+        for group in rooted(self.owner, context).bind(lambda host: self.read(identity, host)).to_option().to_list():
+            for name in annotated(self.form):
+                layout.prop(group, name)
+
     # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Yields form groups, pointer, and seed while the change callback runs after each value property's declared update."""
-        groups: tuple[type[bpy.types.PropertyGroup], ...] = (*nested(self.form), self.form)
+        """Yields form groups, pointer, and seed while each form property holds the callbacks the extension binds and the change callback runs after each value property's declared update."""
         with ExitStack() as stack:
-            declared: tuple[Updated | type[bpy.types.PropertyGroup], ...] = self.changed.map(lambda build: (Updated(groups=groups, change=stack.enter_context(build(identity))),)).default_value(groups)
+            callbacks = self.callbacks.map(lambda build: stack.enter_context(build(identity))).default_value(MappingProxyType({}))
+            declared = Declared(form=self.form, callbacks=callbacks, change=self.changed.map(lambda build: stack.enter_context(build(identity))))
             overridable: set[rna_enums.PropertyOverrideFlagItems] = {"LIBRARY_OVERRIDABLE"}
             pointing = partial(bpy.props.PointerProperty, type=self.form, override=overridable)
             pointer = Option.of_optional(inspect.getdoc(self.form)).map(lambda doc: pointing(description=doc)).default_with(pointing)
             yield identity.identifier(self.key).map(
                 lambda name: (
-                    *declared,
+                    declared,
                     (Band.ATTACHMENTS, pointed(self.owner, name, pointer)),
                     *(Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded)) for seed in self.seed.to_list()),
                 )

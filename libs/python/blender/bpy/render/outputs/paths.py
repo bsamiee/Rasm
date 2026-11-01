@@ -23,13 +23,17 @@ from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.mirrors import Changed
 from blender.bpy.data.rna.paths import definition, rooted
-from blender.bpy.data.rna.snapshots import assigned
+from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.events import Handler, located, runtime, Subscription
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.files.sessions import BlendFile
 from blender.bpy.render.outputs.formats import FileItems
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
+from blender.bpy.settings.presets import Preset
+from blender.bpy.ui.layout.rows import OperatorButton
+from blender.bpy.ui.layout.sections import Section
+from blender.bpy.ui.layout.values import Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.stores import existing, removed
 from blender.rendering.outputs.naming import Field, Fields, Number, NumberField, Output, OutputName, Slot, stepped, Word
@@ -410,7 +414,9 @@ def output_folder(call: Call[Empty]) -> Outcome[Answer]:
 
 
 class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene grammar attachment with replace, version, take, and folder commands."""
+    """Scene grammar attachment with replace, version, take, and folder commands, and the section of take and folder over the grammar store and its presets."""
+
+    key: ClassVar[Key] = "output_paths"
 
     @staticmethod
     @contextmanager
@@ -423,6 +429,9 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     attachment: ClassVar[Attachment[Outputs]] = Attachment(key="outputs", form=Outputs, owner=bpy.types.Scene, changed=Some(changed))
     prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
+    section: ClassVar[Section[Outputs]] = Section(
+        key=key, rows=(OperatorButton(target=output_take), OperatorButton(target=output_folder)), store=Some(Store(attachment=attachment, presets=Some(Preset(key=key, form=Snapshot))))
+    )
 
     def bound(self, identity: Identity) -> Outcome[Pathed]:
         """Binds registered scene settings."""

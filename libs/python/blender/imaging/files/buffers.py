@@ -1,11 +1,13 @@
-"""OpenImageIO buffers: stored channel depths, integer codings, checked reads, fits, and alpha association.
+"""OpenImageIO buffers: stored channel depths, integer codings, checked reads, fits, window-keeping resizes, and alpha association.
 
 `unassociated` and `associated` round trip keeping color at zero alpha, and `premultiplied` associates straight color.
 """
 
 from collections.abc import Callable
 from enum import auto, Enum, IntEnum
+from fractions import Fraction
 import functools
+import math
 from typing import Final, Literal, overload
 
 from expression import Ok, Option
@@ -127,6 +129,25 @@ def fitted(values: npt.NDArray[np.float32], size: tuple[int, int], /, *, filtern
     )
 
 
+def rescaled(spec: OpenImageIO.ImageSpec, width: int, /) -> OpenImageIO.ImageSpec:
+    """Returns a copy of `spec` with its display window at `width` and its aspect, the data window scaled with it and grown outward to whole pixels."""
+    height = max(1, round(Fraction(spec.full_height * width, spec.full_width)))
+    across, down = Fraction(width, spec.full_width), Fraction(height, spec.full_height)
+    left, upper = math.floor((spec.x - spec.full_x) * across), math.floor((spec.y - spec.full_y) * down)
+    right, lower = math.ceil((spec.x + spec.width - spec.full_x) * across), math.ceil((spec.y + spec.height - spec.full_y) * down)
+    scaled = OpenImageIO.ImageSpec(spec)
+    scaled.x, scaled.y, scaled.width, scaled.height = left, upper, right - left, lower - upper
+    scaled.full_x, scaled.full_y, scaled.full_width, scaled.full_height = 0, 0, width, height
+    return scaled
+
+
+def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, /, *, filtername: str = "") -> Outcome[OpenImageIO.ImageBuf]:
+    """Returns the buffer resampled through `filtername` into the data and display windows of `spec`, display window onto display window, or image fault."""
+    target = OpenImageIO.ImageBuf(spec)
+    OpenImageIO.ImageBufAlgo.resize(target, image, filtername=filtername, roi=target.roi)
+    return checked(target)
+
+
 # --- [ASSOCIATION]
 
 
@@ -155,4 +176,4 @@ def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.flo
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Coded", "Coding", "Depth", "IntegerDepth", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "unassociated"]
+__all__ = ["Coded", "Coding", "Depth", "IntegerDepth", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "rescaled", "resized", "unassociated"]

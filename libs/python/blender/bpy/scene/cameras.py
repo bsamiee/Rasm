@@ -6,6 +6,7 @@ from typing import Final
 from bl_ui.properties_data_camera import CAMERA_PT_presets, DATA_PT_camera_display_composition_guides
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
+from bpy_extras.view3d_utils import location_3d_to_region_2d
 from expression import Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 from mathutils import Vector
@@ -19,7 +20,9 @@ from blender.bpy.data.rna.paths import RnaPath, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.settings.attachments import Recovery
-from blender.bpy.ui.layout.rows import Layout, Member, Opens, Property
+from blender.bpy.ui.drawing.canvas import Rect
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Layout, Opens, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
@@ -78,6 +81,23 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
     return paired(typed(bpy.types.Camera, f"{item!r}.data", item.data), fit).map(lambda pair: fitted(*pair))
 
 
+def camera_frame(scene: bpy.types.Scene, region: bpy.types.Region, view: bpy.types.RegionView3D, bounds: Rect, /) -> Option[Rect]:
+    """Returns the region pixels the scene camera's frame covers inside `bounds`, `Nothing` without a scene camera, for a corner behind the view, or for a frame outside the bounds."""
+    corners = tuple(
+        Option.of_optional(location_3d_to_region_2d(region, view, camera.matrix_world @ corner))
+        for camera in Option.of_optional(scene.camera).to_list()
+        for lens in Option.of_optional(try_downcast(bpy.types.Camera, camera.data)).to_list()
+        for corner in lens.view_frame(scene=scene)
+    )
+    return (
+        Some(np.asarray(tuple(point.to_tuple() for corner in corners for point in corner.to_list()), np.float64).reshape(-1, 2))
+        .filter(lambda points: 0 < len(points) == len(corners))
+        .map(lambda points: (np.maximum(points.min(axis=0), (bounds.x, bounds.y)), np.minimum(points.max(axis=0), (bounds.x + bounds.width, bounds.y + bounds.height))))
+        .map(lambda ends: Rect(x=float(ends[0][0]), y=float(ends[0][1]), width=float(ends[1][0] - ends[0][0]), height=float(ends[1][1] - ends[0][1])))
+        .filter(lambda rect: rect.width > 0.0 and rect.height > 0.0)
+    )
+
+
 # --- [REQUIREMENTS]
 
 
@@ -125,7 +145,6 @@ _PASSEPARTOUT: Final = (_camera_row("show_passepartout"), _camera_row("passepart
 camera_menu: Final = Append(target=VIEW3D_MT_object_context_menu, rows=_PASSEPARTOUT, condition=Some(_CAMERA_VIEW & _SCENE_CAMERA))
 camera_display: Final = Section(
     key="camera_display",
-    title="Camera Display",
     rows=(
         *map(_camera_row, ("lens", "lens_unit")),
         *_PASSEPARTOUT,
@@ -139,7 +158,6 @@ camera_display: Final = Section(
 )
 camera_views: Final = Section(
     key="render_views",
-    title="Render Views",
     rows=(
         Property(target=Member(root=bpy.types.Scene, path=("render", "use_multiview"))),
         Property(target=Member(root=bpy.types.Scene, path=("render", "views_format")), condition=Some(_MULTIVIEW)),
@@ -153,4 +171,4 @@ camera_views: Final = Section(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["camera_display", "camera_menu", "camera_type", "camera_views", "framed", "released", "render_cameras", "required", "widened"]
+__all__ = ["camera_display", "camera_frame", "camera_menu", "camera_type", "camera_views", "framed", "released", "render_cameras", "required", "widened"]

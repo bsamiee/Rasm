@@ -14,7 +14,7 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.data.rna.mirrors import held_choices
+from blender.bpy.data.rna.mirrors import EnumItem, held_choices
 from blender.bpy.extension.identity import Identity, Key
 from blender.records.faults import Fault, Outcome, Reason
 from blender.records.stores import RecordFile
@@ -47,7 +47,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         added = sorted(users.keys() - self.stock.keys(), key=lambda stem: (stem.casefold(), stem))
         return {**{stem: users.get(stem, value) for stem, value in self.stock.items()}, **{stem: users[stem] for stem in added}}
 
-    def entries(self, identity: Identity, *_: object) -> tuple[tuple[str, str, str, str, int], ...]:
+    def entries(self, identity: Identity, *_: object) -> tuple[EnumItem, ...]:
         """Returns enum items with a value fixed per stem, held while the listing stands so the strings Blender reads stay referenced.
 
         Stock stems read title-cased, user files keep their typed name and take their path as tooltip.

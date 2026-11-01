@@ -32,6 +32,8 @@ public static class Products {
     public static IO<Unit> Accepted(Func<bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         IO.lift(() => call() ? Fin.Succ(unit) : new RhinoFault(Label(member), RhinoReason.Declined));
 
+    public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase => Of(() => source.Duplicate() as T, member);
+
     private static IO<Option<T>> Present<T>(Func<T?> call, string label) where T : class =>
         IO.lift(call).Bind(product => Optional(product).Traverse(held => Owning(held, label, None)).As());
 

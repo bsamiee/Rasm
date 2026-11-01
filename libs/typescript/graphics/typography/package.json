@@ -1,7 +1,7 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Font faces by PostScript name at an instance and point size, with table reads and text shaping",
+    "description": "Fonts as typed faces through to shaped text",
     "sideEffects": false,
     "type": "module",
     "imports": {

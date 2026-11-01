@@ -6,17 +6,16 @@ using Rhino.Display;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Rhino {
-    internal static class Refused {
-        internal static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+    public static class Products {
+        public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
+    }
+
+    public static class Conversions {
+        public static Fin<T> Required<T>(T? value) where T : class => Optional(value).ToFin(Error.New("missing"));
     }
 
     internal static class Missing {
         internal static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
-    }
-
-    internal static class DisposalOps {
-        internal static IO<TResult> Found<T, TResult>(Func<T?> acquire, string member, Func<T, IO<TResult>> body) where T : class, IDisposable =>
-            IO.lift(() => Refused.UnlessFound(acquire(), member)).Bind(body);
     }
 }
 
@@ -27,18 +26,16 @@ internal static class LeakedMode {
     internal static Guid Current(RhinoViewport viewport) => {|#1:viewport.DisplayMode|}.Id;
 
     internal static IO<DisplayModeDescription> Displayed(Guid id) =>
-        from display in IO.lift(() => Missing.Unless({|#3:DisplayModeDescription.GetDisplayMode(id)|}, nameof(DisplayModeDescription.GetDisplayMode)))
+        from display in IO.lift(() => Missing.Unless({|#2:DisplayModeDescription.GetDisplayMode(id)|}, nameof(DisplayModeDescription.GetDisplayMode)))
         select display;
 
-    internal static Fin<Guid> Named(string name) => Refused.UnlessFound({|#2:DisplayModeDescription.FindByName(name)|}, nameof(DisplayModeDescription.FindByName)).Map(static mode => mode.Id);
+    internal static Fin<Guid> Named(string name) => Conversions.Required({|#3:DisplayModeDescription.FindByName(name)|}).Map(static mode => mode.Id);
 }
 
 internal static class ReleasedMode {
-    internal static IO<Guid> Current(RhinoViewport viewport) =>
-        DisposalOps.Found(() => viewport.DisplayMode, nameof(RhinoViewport.DisplayMode), static mode => IO.pure(mode.Id));
+    internal static IO<Guid> Current(RhinoViewport viewport) => Products.Of(() => viewport.DisplayMode).Map(static mode => mode.Id);
 
-    internal static IO<TValue> With<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
-        DisposalOps.Found(() => DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode), body);
+    internal static IO<DisplayModeDescription> Held(Guid id) => Products.Of(() => DisplayModeDescription.GetDisplayMode(id));
 
     internal static Guid Used(string name) {
         using DisplayModeDescription mode = DisplayModeDescription.FindByName(name);

@@ -192,7 +192,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let (parent, name) = (cx.tcx.parent(callee), cx.tcx.item_name(callee));
         let counterpart = match self.calls.get(&callee) {
             Some(&counterpart @ Counterpart::Buffered(_)) => Some((counterpart, impl_owner(cx.tcx, callee).opt_def_id().and_then(|owner| self.handles.get(&owner).copied().flatten()))),
-            Some(&counterpart) => Some((counterpart, None)),
+            Some(&counterpart @ (Counterpart::Async(_) | Counterpart::Awaited | Counterpart::Offloaded)) => Some((counterpart, None)),
             None if self.owners.contains(&parent) =>
                 Some((lookup_path(cx.tcx, PathNS::Value, &[Symbol::intern("fs_err"), sym::tokio, name]).first().map_or(Counterpart::Offloaded, |&method| Counterpart::Async(method)), None)),
             None =>

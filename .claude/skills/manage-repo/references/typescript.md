@@ -80,6 +80,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Overrides disable rules where a host requires the form (a loader's default export, CSF stories beside components, `cf-worker` namespace imports)
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
+- `.claude/workflows` stays out of `files.includes`, Workflow scripts await and return at top level
 
 ## [06]-[HOST_PACKAGING]
 

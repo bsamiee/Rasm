@@ -1,64 +1,59 @@
+using Rasm.UI.Layout;
+using Rasm.UI.Media;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+internal sealed record FillKey(LayoutNode Layout, int Index, HashMap<Interaction, float> StateLayers, SKRect Frame, float Scale, float Clock, Option<SKPoint> Pointer);
+
 internal sealed record FillContext(Painter.Pass Pass, LayoutNode Layout, Context Context, SKRect Frame, int Index) {
     internal Option<SKBlender> Blend { get; init; }
 
     internal Option<SKColorF> Color(ColorValue value) => Context.Color(value, Layout, Layout.Style.Look.StateLayers);
 
-    internal float Metric(Metric metric) => Layout.Style.Metrics[metric];
+    internal FillKey Key(float scale, bool timed, bool pointing) => new(Layout, Index, Context.StateLayers, Frame, scale, timed ? Pass.Clock : 0f, pointing ? Pass.PointerAt(Layout) : None);
 
-    internal FillKey Key(float scale, float clock, Option<SKPoint> pointer) => new(Layout, Index, Context.StateLayers, Frame, scale, clock, pointer);
-
-    internal FilterTarget Target => new(Pass.Cache.Space, Frame, Color, Metric, material => Fills.Shader(this, material)) { Corners = Layout.Corners, Clock = Pass.Clock, Pointer = Pass.PointerAt(Layout) };
+    internal PaintTarget Target =>
+        new(Pass.Cache.Space, Frame, Color, metric => Layout.Style.Metrics[metric], glyph => Pass.Cache.Art(Layout, glyph).Bind(static media => media.Still)) {
+            Corners = Layout.Corners, Clock = Pass.Clock, Pointer = Pass.PointerAt(Layout),
+        };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Fills {
     // --- [FILLS]
     internal static Option<Action<SKCanvas>> Fill(FillContext held, Material material, Outline shape) =>
-        material.SwitchPartially(
-            (Held: held, Shape: shape),
-            @default: static (state, material) => state.Held.Pass.Cache.Brushes.GetOrAdd(state.Held.Key(0f, 0f, None), () => Shader(state.Held, material).Map(shader => Shaded(state.Held, shader, dither: material is Material.Gradient)))
-                .Map(paint => Filled(state.Shape, paint)),
-            drawn: static (state, drawn) => (drawn.Timed || drawn.Pointing) switch {
-                var live => state.Held.Pass.Cache.Brushes.GetOrAdd(
-                        live ? state.Held.Key(0f, drawn.Timed ? state.Held.Pass.Clock : 0f, Pointer(state.Held, drawn)) : state.Held.Key(state.Held.Context.Scale, 0f, None),
-                        () => (live
-                            ? Shader(state.Held, drawn)
-                            : Shader(state.Held with { Frame = SKRect.Create(state.Held.Frame.Size) }, drawn).Bind(shader => state.Held.Pass.Cache.Rastered(shader, state.Held.Frame, state.Held.Context.Scale)))
-                            .Map(shader => Shaded(state.Held, shader, dither: false)))
-                    .Map(paint => Filled(state.Shape, paint)),
-            },
-            glass: static (state, glass) => Some<Action<SKCanvas>>(canvas => Glass(canvas, state.Held, glass, state.Shape)),
-            hatch: static (state, hatch) => state.Held.Pass.Cache.Brushes.GetOrAdd(state.Held.Key(0f, 0f, None), () => state.Held.Color(hatch.Color).Map(color => {
-                using SKPathEffect lines = hatch.Effect();
-                return new SKPaint { IsAntialias = true, ColorF = color, PathEffect = lines, Blender = state.Held.Blend.ValueUnsafe() };
-            }))
-                .Map(paint => Clipped(state.Shape, canvas => state.Shape.Draw(canvas, paint))),
-            skin: static (state, skin) => state.Held.Pass.Cache.Brushes.GetOrAdd(state.Held.Key(0f, 0f, None), () => Some(new SKPaint { IsAntialias = true, Blender = state.Held.Blend.ValueUnsafe() }))
-                .Map(paint => Clipped(state.Shape, canvas => canvas.DrawImageNinePatch(skin.Source, skin.Center, state.Held.Frame, SKFilterMode.Linear, paint))));
+        material is Material.Glass glass
+            ? Some<Action<SKCanvas>>(canvas => Glass(canvas, held, glass, shape))
+            : held.Pass.Cache.Brushes.GetOrAdd(held.Key(material is Material.Drawn { Timed: false, Pointing: false } ? held.Context.Scale : 0f, material.Timed, material.Pointing), () => Brush(held, material))
+                .Map(paint => material.SwitchPartially<(Outline Shape, SKPaint Paint, SKRect Frame), Action<SKCanvas>>(
+                    (shape, paint, held.Frame),
+                    @default: static (state, _) => canvas => state.Shape.Draw(canvas, state.Paint),
+                    hatch: static (state, _) => Clipped(state.Shape, canvas => state.Shape.Draw(canvas, state.Paint)),
+                    skin: static (state, skin) => Clipped(state.Shape, canvas => canvas.DrawImageNinePatch(skin.Source, skin.Center, state.Frame, SKFilterMode.Linear, state.Paint))));
 
-    internal static Option<SKShader> Shader(FillContext held, Material material) =>
+    private static Option<SKPaint> Brush(FillContext held, Material material) =>
         material.SwitchPartially(
             held,
-            @default: static (_, _) => Option<SKShader>.None,
-            solid: static (state, solid) => state.Color(solid.Color).Map(static color => SKShader.CreateColor(color, SKColorSpace.CreateSrgb())),
-            gradient: static (state, gradient) => gradient.Shader(state.Frame, state.Color),
-            drawn: static (state, drawn) => Shader(state, drawn),
-            noise: static (state, noise) => Some(noise.Shader(state.Frame)),
-            image: static (state, image) => Some(image.Shader(state.Frame)),
-            art: static (state, art) => art.Shader(state.Frame, glyph => state.Pass.Cache.Art(state.Layout, glyph).Bind(static media => media.Still)));
+            @default: static (state, material) => material.Shader(state.Target).Map(shader => Shaded(state, shader, dither: material is Material.Gradient)),
+            drawn: static (state, drawn) => (drawn.Timed || drawn.Pointing
+                    ? drawn.Shader(state.Target)
+                    : drawn.Shader((state with { Frame = SKRect.Create(state.Frame.Size) }).Target).Bind(shader => state.Pass.Cache.Rastered(shader, state.Frame, state.Context.Scale)))
+                .Map(shader => Shaded(state, shader, dither: false)),
+            hatch: static (state, hatch) => state.Color(hatch.Color).Map(color => {
+                using SKPathEffect lines = hatch.Effect();
+                return new SKPaint { IsAntialias = true, ColorF = color, PathEffect = lines, Blender = state.Blend.ValueUnsafe() };
+            }),
+            skin: static (state, _) => Some(new SKPaint { IsAntialias = true, Blender = state.Blend.ValueUnsafe() }));
 
     // --- [GLASS]
-    private static readonly SKRuntimeShaderBuilder Matte = SKRuntimeEffect.BuildShader("""
+    private const string Edge = """
         uniform float2 size;
         uniform float4 corners;
         uniform float smoothing;
-        half4 main(float2 p) {
+        float3 edge(float2 p) {
             float2 c = p - (size * 0.5);
             float r = c.x > 0.0 ? (c.y > 0.0 ? corners.z : corners.y) : (c.y > 0.0 ? corners.w : corners.x);
             float2 q = abs(c) - (size * 0.5) + r;
@@ -66,42 +61,75 @@ internal static class Fills {
             float k = 2.0 + (2.0 * smoothing);
             float d = pow(pow(m.x, k) + pow(m.y, k), 1.0 / k) + min(max(q.x, q.y), 0.0) - r;
             float2 g = (q.x > 0.0 && q.y > 0.0) ? pow(m, float2(k - 1.0)) : (q.x > q.y ? float2(1.0, 0.0) : float2(0.0, 1.0));
+            return float3(normalize(g) * sign(c), d);
+        }
+        """;
+
+    private static readonly SKRuntimeShaderBuilder Matte = SKRuntimeEffect.BuildShader(Edge + """
+        half4 main(float2 p) {
+            float3 e = edge(p);
             float rim = max(max(max(corners.x, corners.y), max(corners.z, corners.w)), 1.0);
-            float2 shift = normalize(g) * sign(c) * (1.0 - smoothstep(0.0, rim, -d));
+            float2 shift = e.xy * (1.0 - smoothstep(0.0, rim, -e.z));
             return half4(half2(0.5 - (0.5 * shift)), 0.5, 1.0);
         }
         """);
 
+    private static readonly SKRuntimeShaderBuilder Rim = SKRuntimeEffect.BuildShader(Edge + """
+        half4 main(float2 p) {
+            float2 n = edge(p).xy;
+            return half4(half(n.y * n.y), 0.0, 0.0, 1.0);
+        }
+        """);
+
+    private static readonly SKRuntimeBlenderBuilder Lightness = SKRuntimeEffect.BuildBlender("""
+        uniform float2 side;
+        uniform float2 end;
+        half4 main(half4 src, half4 dst) {
+            float3 c = float3(toLinearSrgb(dst.a > 0.0 ? dst.rgb / dst.a : half3(0.0)));
+            float3 lms = pow(max(float3(dot(float3(0.4122214708, 0.5363325363, 0.0514459929), c), dot(float3(0.2119034982, 0.6806995451, 0.1073969566), c), dot(float3(0.0883024619, 0.2817188376, 0.6299787005), c)), 0.0), float3(1.0 / 3.0));
+            float3 lab = float3(dot(float3(0.2104542553, 0.7936177850, -0.0040720468), lms), dot(float3(1.9779984951, -2.4285922050, 0.4505937099), lms), dot(float3(0.0259040371, 0.7827717662, -0.8086757660), lms));
+            float2 curve = mix(side, end, float(src.r));
+            float lightness = curve.x * pow(max(lab.x, 0.0), curve.y);
+            float3 shifted = float3(lightness, lab.yz * (lab.x > 0.0 ? lightness / lab.x : 0.0));
+            float3 root = float3(dot(float3(1.0, 0.3963377774, 0.2158037573), shifted), dot(float3(1.0, -0.1055613458, -0.0638541728), shifted), dot(float3(1.0, -0.0894841775, -1.2914855480), shifted));
+            float3 cone = root * root * root;
+            float3 rgb = float3(dot(float3(4.0767416621, -3.3077115913, 0.2309699292), cone), dot(float3(-1.2684380046, 2.6097574011, -0.3413193965), cone), dot(float3(-0.0041960863, -0.7034186147, 1.7076147010), cone));
+            return half4(fromLinearSrgb(half3(rgb)) * dst.a, dst.a);
+        }
+        """);
+
     private static void Glass(SKCanvas canvas, FillContext held, Material.Glass glass, Outline shape) {
-        Option<SKImageFilter> backdrop = held.Pass.Cache.Backdrops.GetOrAdd(held.Key(held.Context.Scale, glass.Timed ? held.Pass.Clock : 0f, glass.Pointing ? held.Pass.PointerAt(held.Layout) : None), () => Backdrop(held, glass));
+        _ = held.Pass.Cache.Brushes.GetOrAdd(held.Key(held.Context.Scale, timed: false, pointing: false), () => Rimmed(held, glass)).Iter(paint => {
+            using SKAutoCanvasRestore outside = new(canvas);
+            shape.Clip(canvas, SKClipOperation.Difference);
+            _ = held.Pass.Outlined(held.Layout, held.Frame, Material.Glass.Band(held.Context.Scale)).Iter(band => band.Draw(canvas, paint));
+        });
+        Option<SKImageFilter> backdrop = held.Pass.Cache.Backdrops.GetOrAdd(held.Key(held.Context.Scale, glass.Timed, glass.Pointing), () => Filter.Chained(glass.Backdrop + (
+            from refraction in glass.Refraction
+            from map in held.Pass.Cache.Mattes.GetOrAdd((held.Frame.Size, held.Layout.Corners, held.Layout.Smoothing, held.Context.Scale), () => Displacement(held))
+            select (Filter)new Filter.Displace(new Material.Image(map), refraction)).ToSeq(), held.Target));
         shape.Clip(canvas, SKClipOperation.Intersect);
         _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Bounds = held.Frame, Backdrop = backdrop.ValueUnsafe(), Flags = held.Pass.Cache.Precision });
     }
 
-    private static Option<SKImageFilter> Backdrop(FillContext held, Material.Glass glass) {
-        Option<SKImageFilter> chained = Filter.Chained(glass.Backdrop, held.Target);
-        return (from refraction in glass.Refraction
-                from map in held.Pass.Cache.Mattes.GetOrAdd((held.Frame.Size, held.Layout.Corners, held.Layout.Smoothing, held.Context.Scale), () => Displacement(held))
-                select Displaced(map, refraction, held.Frame, chained))
-            | chained;
+    private static SKShader Edged(SKRuntimeEffect effect, FillContext held, SKMatrix local) {
+        using SKRuntimeEffectUniforms uniforms = new(effect) { ["size"] = held.Frame.Size, ["corners"] = held.Layout.Corners.Clockwise.ToArray(), ["smoothing"] = held.Layout.Smoothing };
+        using SKRuntimeEffectChildren children = new(effect);
+        return effect.ToShader(uniforms, children, local);
     }
 
     private static Option<SKImage> Displacement(FillContext held) {
-        Corners corners = held.Layout.Corners;
-        using SKRuntimeEffectUniforms uniforms = new(Matte.Effect) {
-            ["size"] = held.Frame.Size, ["corners"] = new float[] { corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft }, ["smoothing"] = held.Layout.Smoothing,
-        };
-        using SKRuntimeEffectChildren children = new(Matte.Effect);
-        using SKShader shader = Matte.Effect.ToShader(uniforms, children);
+        using SKShader shader = Edged(Matte.Effect, held, SKMatrix.Identity);
         using SKPaint paint = new() { Shader = shader };
         return held.Pass.Cache.Rasterized(held.Frame.Size, held.Context.Scale, SKColorType.RgbaF16, canvas => canvas.DrawRect(SKRect.Create(held.Frame.Size), paint));
     }
 
-    private static SKImageFilter Displaced(SKImage map, float refraction, SKRect frame, Option<SKImageFilter> chained) {
-        using SKImageFilter field = SKImageFilter.CreateImage(map, SKRect.Create(map.Width, map.Height), frame, new SKSamplingOptions(SKFilterMode.Linear));
-        SKImageFilter displaced = SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, refraction, field, chained.ValueUnsafe());
-        _ = chained.Iter(static held => held.Dispose());
-        return displaced;
+    private static Option<SKPaint> Rimmed(FillContext held, Material.Glass glass) {
+        (SKPoint side, SKPoint end) = glass.Rim(held.Layout.Style.Conditions.Contains(Condition.Dark));
+        using SKShader shader = Edged(Rim.Effect, held, SKMatrix.CreateTranslation(held.Frame.Left, held.Frame.Top));
+        using SKRuntimeEffectUniforms curves = new(Lightness.Effect) { ["side"] = side, ["end"] = end };
+        using SKBlender blender = Lightness.Effect.ToBlender(curves);
+        return new SKPaint { IsAntialias = true, Shader = shader, Blender = blender };
     }
 
     // --- [PAINTS]
@@ -109,13 +137,6 @@ internal static class Fills {
         using SKShader owned = shader;
         return new SKPaint { IsAntialias = true, Shader = owned, IsDither = dither, Blender = held.Blend.ValueUnsafe() };
     }
-
-    private static Option<SKShader> Shader(FillContext held, Material.Drawn drawn) =>
-        drawn.Shader(held.Frame, held.Color, held.Metric, material => Shader(held, material), held.Layout.Corners, drawn.Timed ? held.Pass.Clock : 0f, Pointer(held, drawn));
-
-    private static Option<SKPoint> Pointer(FillContext held, Material.Drawn drawn) => drawn.Pointing ? held.Pass.PointerAt(held.Layout) : None;
-
-    private static Action<SKCanvas> Filled(Outline shape, SKPaint paint) => canvas => shape.Draw(canvas, paint);
 
     private static Action<SKCanvas> Clipped(Outline shape, Action<SKCanvas> draw) =>
         canvas => {

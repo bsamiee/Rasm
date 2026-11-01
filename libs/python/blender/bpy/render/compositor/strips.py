@@ -5,18 +5,19 @@ from functools import cached_property, partial
 from pathlib import Path
 from typing import ClassVar, Final
 
+from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.calls import Called, Opened, Placement
 from blender.bpy.commands.invocations import Popup
 from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import AllOf, Present, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.mirrors import choices, held_choices, itemized
+from blender.bpy.data.rna.mirrors import Callbacks, choices, EnumItem, held_choices, rebound
 from blender.bpy.data.rna.paths import rna, RnaPath, rooted, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
@@ -24,8 +25,8 @@ from blender.bpy.files.assets import AssetMark, published
 from blender.bpy.nodes.changes import made
 from blender.bpy.render.compositor.effects import CompositorEffect, Entry
 from blender.bpy.render.compositor.entries import Choice, EffectRows
-from blender.bpy.ui.layout.rows import OperatorButton
-from blender.bpy.ui.surfaces.menus import Dropdown, Menu
+from blender.bpy.ui.layout.rows import Opens, OperatorButton
+from blender.bpy.ui.surfaces.menus import Append, Dropdown, Menu
 from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Case
 
@@ -33,11 +34,12 @@ from blender.records.fields import Case
 
 _ACTIVE: Final[RnaPath] = ("workspace", "sequencer_scene", "sequence_editor", "active_strip")
 _STRIP: Final[Key] = "strip"
+_COMPOSITOR: Final = "COMPOSITOR"
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
 
-def libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str, str, int], ...]:
+def libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """User asset library items of the context preferences."""
     return held_choices(
         tuple(
@@ -71,7 +73,7 @@ class Saving(bpy.types.PropertyGroup):
 
 
 class Strips[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Strip placement command for the standalone effects of a set of rows and the menu listing them."""
+    """Strip placement command for the standalone effects of a set of rows, the menu listing them that the stock strip modifier add menu opens, and the command saving the active effect group as an asset."""
 
     active: ClassVar[Descriptor[bpy.types.PointerProperty]] = Descriptor.declared(bpy.types.Context, _ACTIVE, bpy.types.PointerProperty)
     placeable: ClassVar[AllOf] = Present(descriptor=active) & ~Setting(descriptor=Descriptor.declared(bpy.types.Context, (*_ACTIVE, "type"), bpy.types.EnumProperty), accepted=("SOUND",))
@@ -80,7 +82,7 @@ class Strips[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def placing(self) -> Operator[Striping]:
         """Command running the chosen standalone effect on the active strip, an item per standalone row under its key, title, and record documentation."""
-        form = itemized(Striping, kind=choices((row.kind, row.title, row.description) for row in self.rows.standalone))
+        form = rebound(Striping, kind=Callbacks(items=choices((row.kind, row.title, row.description) for row in self.rows.standalone)))
         return Operator(condition=Some(Strips.placeable), form=form, run=self.add_strip_effect)
 
     @cached_property
@@ -109,10 +111,10 @@ class Strips[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     holder: bpy.types.Strip | bpy.types.StripModifier
                     match call.properties.placement:
                         case "MODIFIER":
-                            holder = strip.modifiers.new(name=effect.title, type="COMPOSITOR")
+                            holder = strip.modifiers.new(name=effect.title, type=_COMPOSITOR)
                             rollback.callback(strip.modifiers.remove, holder)
                         case _:
-                            holder = editor.strips.new_effect(name=effect.title, type="COMPOSITOR", channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip)
+                            holder = editor.strips.new_effect(name=effect.title, type=_COMPOSITOR, channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip)
                             rollback.callback(editor.strips.remove, holder)
                     return holder
 
@@ -132,8 +134,14 @@ class Strips[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return paired(target, offered).bind(lambda pair: rooted(bpy.types.Scene, call.context).bind(pair[1].seeded).bind(lambda record: built(*pair[0], pair[1], record)))
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
-        """Returns strip group ownerships, the placement command, and its menu."""
-        return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_{_STRIP}") for row in self.rows.standalone for owner in row.ownerships), self.placing, self.menu))
+        """Returns strip group ownerships, the placement command, its menu with the stock strip modifier add menu opening it, and the asset save command."""
+        return Ok((
+            *(msgspec.structs.replace(owner, key=f"{owner.key}_{_STRIP}") for row in self.rows.standalone for owner in row.ownerships),
+            self.placing,
+            self.menu,
+            Append(target=SEQUENCER_MT_modifier_add, rows=(Opens(target=Opened(self.menu.key, Called.MENU)),)),
+            save_effect,
+        ))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

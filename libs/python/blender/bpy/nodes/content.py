@@ -1,4 +1,4 @@
-"""Node content the node's own members cannot state, each case reading, writing, and comparing itself on a live node: color ramps, curve maps, loaded images and their frame windows, and images generated from planes."""
+"""Node content the node's own members cannot state, each case reading, writing, and comparing itself on a live node: color ramps and curve maps kept as edited in drawn editors, loaded images and their frame windows, and images generated from planes."""
 
 from collections.abc import Callable, Mapping
 from functools import partial
@@ -15,14 +15,14 @@ import numpy.typing as npt
 
 from blender.bpy.data.ids.images import filled, loaded, Tag
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership
-from blender.bpy.data.rna.descriptors import Descriptor, differing, Value, written
+from blender.bpy.data.rna.descriptors import differing, Value, written
 from blender.bpy.data.rna.paths import definition, RnaPath, struct_at
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.desired import Content
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Unit
-from blender.records.stores import ContentHash
+from blender.records.stores import content_hash, ContentHash
 from blender.records.trees import Owner, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -30,6 +30,31 @@ from blender.records.trees import Owner, Tree
 type Points = tuple[tuple[float, float], ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [EDITED]
+
+
+class Edited(Content, frozen=True, kw_only=True):
+    """Node content a drawn editor edits in place: a node takes it again only once it differs from the content the node last took, so editor edits stand until the record changes, `read` returning them for the record."""
+
+    @classmethod
+    def read(cls, live: bpy.types.Node, /) -> Outcome[Self]:
+        """Reads the content a live node holds, editor edits included.
+
+        Raises:
+            NotImplementedError: For a case declaring no read.
+        """
+        raise NotImplementedError(cls.__name__)
+
+    @override
+    def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
+        """Whether the live node last took this content, edits made since in its editor kept."""
+        return Ok(Mark.read(identity, live).bind(lambda mark: mark.content) == Some(content_hash(type(self), self)))
+
+    def stamped(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
+        """Marks the live node as having last taken this content, after a write."""
+        return _stamped(identity, live, Some(content_hash(type(self), self)))
+
 
 # --- [RAMPS]
 
@@ -41,7 +66,7 @@ class Stop(msgspec.Struct, frozen=True, kw_only=True):
     color: tuple[float, float, float]
 
 
-class Ramp(Content, frozen=True, kw_only=True):
+class Ramp(Edited, frozen=True, kw_only=True):
     """`ColorRamp` elements and interpolation members holding host identifiers, the host refusing a bad identifier or stop count at the write."""
 
     stops: tuple[Stop, ...] = (Stop(position=0.0, color=(0.0, 0.0, 0.0)), Stop(position=1.0, color=(1.0, 1.0, 1.0)))
@@ -50,17 +75,17 @@ class Ramp(Content, frozen=True, kw_only=True):
     hue_interpolation: str = "NEAR"
 
     @classmethod
-    def read(cls, ramp: bpy.types.ColorRamp) -> Self:
-        """Reads elements in host order through `foreach_get` with the ramp's interpolation members."""
-        positions, colors = np.empty(len(ramp.elements), dtype=np.float32), np.empty((len(ramp.elements), 4), dtype=np.float32)
-        ramp.elements.foreach_get("position", positions)
-        ramp.elements.foreach_get("color", colors.reshape(-1))
-        return cls(
-            stops=tuple(Stop(position=position, color=(red, green, blue)) for position, (red, green, blue, _) in zip(positions.tolist(), colors.tolist())),
-            interpolation=ramp.interpolation,
-            color_mode=ramp.color_mode,
-            hue_interpolation=ramp.hue_interpolation,
-        )
+    @override
+    def read(cls, live: bpy.types.Node | bpy.types.Texture, /) -> Outcome[Self]:
+        """Reads elements in host order through `foreach_get` with the interpolation members of the ramp a node or texture holds."""
+
+        def stops(ramp: bpy.types.ColorRamp) -> tuple[Stop, ...]:
+            positions, colors = np.empty(len(ramp.elements), dtype=np.float32), np.empty((len(ramp.elements), 4), dtype=np.float32)
+            ramp.elements.foreach_get("position", positions)
+            ramp.elements.foreach_get("color", colors.reshape(-1))
+            return tuple(Stop(position=position, color=(red, green, blue)) for position, (red, green, blue, _) in zip(positions.tolist(), colors.tolist()))
+
+        return _ramp(live).map(lambda ramp: cls(stops=stops(ramp), interpolation=ramp.interpolation, color_mode=ramp.color_mode, hue_interpolation=ramp.hue_interpolation))
 
     @property
     def table(self) -> npt.NDArray[np.float32]:
@@ -81,16 +106,8 @@ class Ramp(Content, frozen=True, kw_only=True):
         return Snapshot(struct=bpy.types.ColorRamp.__name__, tree=tree).apply(ramp).outcome
 
     @override
-    def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        def held(ramp: bpy.types.ColorRamp) -> bool:
-            now = self.read(ramp)
-            return (now.interpolation, now.color_mode, now.hue_interpolation) == (self.interpolation, self.color_mode, self.hue_interpolation) and np.array_equal(now.table, self.table)
-
-        return _ramp(live).map(held)
-
-    @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return _ramp(live).bind(self.applied)
+        return _ramp(live).bind(self.applied).bind(lambda _: self.stamped(live, identity))
 
 
 # --- [CURVES]
@@ -112,13 +129,34 @@ class CurveAxes(msgspec.Struct, frozen=True, kw_only=True):
         return (y - self.slope * x - self.offset) / self.scale
 
 
-class CurvePoints(Content, frozen=True, kw_only=True):
+class CurvePoints(Edited, frozen=True, kw_only=True):
     """Curve map points with view bounds and evaluation clipping, `handle` a `CurveMapPoint.handle_type` identifier."""
 
     maps: tuple[Points, *tuple[Points, ...]]
     clip: Option[tuple[float, float, float, float]] = Nothing
     handle: str = "VECTOR"
     clipped: bool = False
+
+    @classmethod
+    @override
+    def read(cls, live: bpy.types.Node, /) -> Outcome[Self]:
+        """Reads the points of every curve the node's mapping holds, its view bounds and clipping, and the handle of its first point."""
+
+        def held(mapping: bpy.types.CurveMapping) -> Outcome[Self]:
+            match tuple(tuple((point.location.x, point.location.y) for point in curve.points) for curve in mapping.curves):
+                case (first, *rest) if first:
+                    return Ok(
+                        cls(
+                            maps=(first, *rest),
+                            clip=Some((mapping.clip_min_x, mapping.clip_min_y, mapping.clip_max_x, mapping.clip_max_y)),
+                            handle=mapping.curves[0].points[0].handle_type,
+                            clipped=mapping.use_clip,
+                        )
+                    )
+                case _:
+                    return Error(Fault.of(Reason.ABSENT, repr(mapping), member="curves"))
+
+        return struct_at(live, ("mapping",), bpy.types.CurveMapping).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="mapping")).bind(held)
 
     @property
     def tree(self) -> Tree[Value, RnaPath, RnaPath]:
@@ -138,27 +176,14 @@ class CurvePoints(Content, frozen=True, kw_only=True):
         )
 
     @override
-    def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        desired = self.tree
-        return (
-            accumulated(Descriptor.resolve(type(live), root, bpy.types.Property) for root in desired.roots)
-            .bind(lambda roots: Snapshot.capture(live, Some(roots)))
-            .map(
-                lambda held: all(
-                    key in held.tree.owners and held.tree.owners[key].children == owner.children and all(not differing(struct, owner.values) for struct in struct_at(live, key).to_list())
-                    for key, owner in desired.owners.items()
-                )
-            )
-        )
-
-    @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        def refreshed(_: object) -> None:
+        def refreshed(_: object) -> Outcome[None]:
             for curves in struct_at(live, ("mapping",), bpy.types.CurveMapping).to_list():
                 curves.reset_view()
                 curves.update()
+            return self.stamped(live, identity)
 
-        return Snapshot(struct=definition(live).identifier, tree=self.tree).apply(live).outcome.map(refreshed)
+        return Snapshot(struct=definition(live).identifier, tree=self.tree).apply(live).outcome.bind(refreshed)
 
 
 # --- [IMAGES]
@@ -264,16 +289,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return self.made(identity).bind(
-            lambda image: written(live, ("image",), image.to_optional()).bind(
-                lambda _: (
-                    Mark
-                    .read(identity, live)
-                    .map(lambda mark: msgspec.structs.replace(mark, content=Some(self.content) if image.is_none() else Nothing).write(identity, live))
-                    .default_value(Error(Fault.of(Reason.ABSENT, repr(live), member=identity.manifest.id)))
-                )
-            )
-        )
+        return self.made(identity).bind(lambda image: written(live, ("image",), image.to_optional()).bind(lambda _: _stamped(identity, live, Some(self.content) if image.is_none() else Nothing)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -282,6 +298,16 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 def _ramp(holder: bpy.types.Node | bpy.types.Texture) -> Outcome[bpy.types.ColorRamp]:
     """Holder's `color_ramp`, else `absent` fault naming it."""
     return struct_at(holder, ("color_ramp",), bpy.types.ColorRamp).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(holder), member="color_ramp"))
+
+
+def _stamped(identity: Identity, live: bpy.types.Node, content: Option[ContentHash]) -> Outcome[None]:
+    """Writes the content stamp of a live node's ownership mark, `absent` fault for an unmarked node."""
+    return (
+        Mark
+        .read(identity, live)
+        .map(lambda mark: msgspec.structs.replace(mark, content=content).write(identity, live))
+        .default_value(Error(Fault.of(Reason.ABSENT, repr(live), member=identity.manifest.id)))
+    )
 
 
 def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:
@@ -297,4 +323,4 @@ def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.Com
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CurveAxes", "CurvePoints", "Generated", "ImageFrames", "Loaded", "Points", "Ramp", "Stop"]
+__all__ = ["CurveAxes", "CurvePoints", "Edited", "Generated", "ImageFrames", "Loaded", "Points", "Ramp", "Stop"]

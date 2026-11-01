@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect runtime, manifest schema, entries, and WebSocket RPC for Adobe UXP plugins and scripts",
+    "description": "Effect programs running inside Adobe hosts",
     "sideEffects": false,
     "type": "module",
     "imports": {

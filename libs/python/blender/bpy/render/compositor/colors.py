@@ -14,8 +14,8 @@ import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import Interface, NodeGroup, Socket
 from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
+from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
 from blender.imaging.color.processors import lin_to_log, luma
 from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 
@@ -76,7 +76,7 @@ def straight(image: Term) -> Expr:
 
 def premultiplied(image: Term) -> Expr:
     """Multiplies straight color by its alpha through Alpha Convert."""
-    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image), ("Type", "To Premultiplied")), socket="Image", shape=bpy.types.NodeSocketColor)
+    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image),), socket="Image", shape=bpy.types.NodeSocketColor)
 
 
 def with_alpha(image: Term, alpha: Term, *, masked: bool = False) -> Expr:

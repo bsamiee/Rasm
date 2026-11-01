@@ -2,7 +2,6 @@
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
-from enum import Enum
 from functools import partial, wraps
 from itertools import dropwhile
 import operator
@@ -22,7 +21,8 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.files.assets import AssetMark
-from blender.bpy.ui.layout.rows import acquired, layout_method, Line, Member, Opens, OperatorButton, Property, realized, Row, RowContent, RowDraw
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import acquired, layout_method, Line, Opens, OperatorButton, Property, realized, Row, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import reached
 from blender.bpy.ui.layout.values import Captured, Listing, Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
@@ -51,10 +51,10 @@ class Dropdown(msgspec.Struct, frozen=True, kw_only=True):
     search: bool = False
 
 
-class Submenus[G: Enum](msgspec.Struct, frozen=True, kw_only=True):
-    """Entries filed into one submenu per group in group declaration order, the native add-menu form."""
+class Submenus(msgspec.Struct, frozen=True, kw_only=True):
+    """Entries filed into one submenu per group key in the order keys first appear, each titled with its key's display name, the native add-menu form."""
 
-    entries: tuple[tuple[G, RowContent], ...]
+    entries: tuple[tuple[Key, RowContent], ...]
     search: bool = False
 
 
@@ -76,7 +76,7 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
 
     key: Key
     description: str
-    body: Dropdown | Submenus[Enum] | Pie
+    body: Dropdown | Submenus | Pie
     title: Option[str] = Nothing
     condition: Option[Condition] = Nothing
 
@@ -96,18 +96,15 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
                 submenus: tuple[Menu, ...] = ()
                 drawing = partial(_ordered, identity, rows, order)
             case Submenus(entries=entries, search=search):
-                present = frozenset(held for held, _ in entries)
                 submenus = tuple(
                     Menu(
-                        key=f"{self.key}_{group.name.lower()}",
-                        title=Some(bpy.path.display_name(group.name.lower())),
-                        description=f"{bpy.path.display_name(group.name.lower())}: {self.description}",
-                        body=Dropdown(entries=tuple(row for held, row in entries if held is group)),
+                        key=f"{self.key}_{group}",
+                        title=Some(bpy.path.display_name(group)),
+                        description=f"{bpy.path.display_name(group)}: {self.description}",
+                        body=Dropdown(entries=tuple(row for held, row in entries if held == group)),
                         condition=self.condition,
                     )
-                    for kind in dict.fromkeys(type(held) for held, _ in entries)
-                    for group in kind
-                    if group in present
+                    for group in dict.fromkeys(held for held, _ in entries)
                 )
                 rows = tuple(Opens(target=Opened(group.key, Called.MENU)) for group in submenus)
                 drawing = partial(realized, rows, identity)
@@ -177,7 +174,7 @@ class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
         """Resolves the hovered button test once, a member's property and an operator's type definition read at realization."""
         match self.hovered:
             case Member() as member:
-                return member.resolved().map(lambda held: partial(_hovered, "button_prop", partial(operator.eq, held.descriptor.prop)))
+                return member.realized(identity).map(lambda held: partial(_hovered, "button_prop", partial(operator.eq, held.descriptor.prop)))
             case type() as kind:
                 return Ok(partial(_hovered, "button_pointer", lambda pointer: isinstance(pointer, kind)))
             case command:
@@ -393,7 +390,7 @@ def _radial_drawing(identity: Identity, slots: tuple[Option[_Slot], ...]) -> Out
     """Realizes each slot up to the last one holding an entry, a property slot holding a boolean or enum, into the pie draw, a button slot drawing as the pie's own item and a plain draw in a column taking one slot."""
 
     def slot(row: _Slot) -> Outcome[tuple[RowDraw, bool]]:
-        checked = row.target.resolved().bind(lambda held: held.accepts((bpy.types.BoolProperty, bpy.types.EnumProperty))).map(lambda _: None) if isinstance(row, Property) else Ok(None)
+        checked = row.target.realized(identity).bind(lambda held: held.accepts((bpy.types.BoolProperty, bpy.types.EnumProperty))).map(lambda _: None) if isinstance(row, Property) else Ok(None)
         return checked.bind(lambda _: realized((row,), identity)).map(lambda draw: (draw, isinstance(row, Line)))
 
     filled = reversed(tuple(dropwhile(Option.is_none, reversed(slots))))

@@ -15,16 +15,18 @@ public sealed record HueRange(Vector3 Center, Vector3 Width, Vector3 Softness) {
         return Inside(outside.X, Softness.X) * Inside(outside.Y, Softness.Y) * Inside(outside.Z, Softness.Z);
     }
 
-    public Action<Span<Vector4>> Graded(GradingStyle style, float shift, float saturation, float stops) =>
-        float.Exp2(stops) switch {
-            var gain => ToneCurve.Graded(color => style.ToHsy(color) switch {
-                var hsy => Vector3.Lerp(color, style.FromHsy(new Vector3(hsy.X + shift, hsy.Y * saturation, hsy.Z)) * gain, Membership(style, hsy)),
+    public Action<Span<Vector4>> Graded(GradingStyle style, Gamut working, float shift, float saturation, float stops) =>
+        (float.Exp2(stops), working.Luminance) switch {
+            var (gain, weights) => ToneCurve.Graded(color => style.ToHsy(color, weights) switch {
+                var hsy => Vector3.Lerp(color, style.FromHsy(new Vector3(hsy.X + shift, hsy.Y * saturation, hsy.Z), weights) * gain, Membership(style, hsy)),
             }),
         };
 
-    public Action<Span<Vector4>> Isolated(GradingStyle style, Gamut gamut) =>
-        gamut.Luminance switch {
-            var luminance => ToneCurve.Graded(color => Vector3.Lerp(new Vector3(Vector3.Dot(luminance, color)), color, Membership(style, style.ToHsy(color)))),
+    public Action<Span<Vector4>> Isolated(GradingStyle style, Gamut working) =>
+        working.Luminance switch {
+            var weights => ToneCurve.Graded(color => style.ToHsy(color, weights) switch {
+                var hsy => Vector3.Lerp(new Vector3(hsy.Z), color, Membership(style, hsy)),
+            }),
         };
 
     private static float Inside(float outside, float softness) => outside <= 0f ? 1f : 1f - DistanceField.SmoothStep(0f, softness, outside);

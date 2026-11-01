@@ -14,7 +14,7 @@ public abstract record DocumentFrame {
     internal abstract IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader);
 }
 
-public sealed record ArchiveFrame<T>(
+public record ArchiveFrame<T>(
     uint TypeCode,
     DictionaryCodec<T> Codec,
     T Empty,

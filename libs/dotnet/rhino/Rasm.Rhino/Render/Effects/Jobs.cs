@@ -13,19 +13,26 @@ internal sealed class EffectJob(Func<Rectangle, PostEffectJobChannels, IO<Unit>>
 
     // --- [RUNS]
     public static IO<Unit> Run<TState>(PostEffect effect, PostEffectPipeline pipeline, Rectangle rect, TState state, EffectDefinition<TState> definition) where TState : notnull =>
-        definition.Threaded
-            ? (from job in use(() => new EffectJob((area, access) => Pass(access.GetChannel, access.GetChannel, area, state, definition, commit: false)))
+        from held in IO.lift(() => (Channels.Extent(pipeline), definition.Scope(state)) switch {
+            var (extent, scope) => (Extent: extent, Area: scope.Area(extent, rect), scope.Parallel, Rendering: pipeline.IsRendering, Channels: definition.Channels(state)),
+        })
+        let execute = fun((Rectangle area, HashMap<RenderWindow.StandardChannels, ReadOnlyMemory2D<float>> inputs, Memory2D<float> rgba) =>
+            definition.Execute(state, new EffectFrame(area, held.Extent, held.Rendering, inputs, rgba)))
+        from ran in held.Parallel
+            ? (from job in use(() => new EffectJob((area, access) => Pass(access.GetChannel, access.GetChannel, area, held.Channels, execute, commit: false)))
                from engine in Products.Of(pipeline.ThreadEngine)
-               from ran in Products.Accepted(() => engine.RunPostEffect(job, pipeline, effect, rect, Channels.Required(definition.Channels)))
+               from ran in Products.Accepted(() => engine.RunPostEffect(job, pipeline, effect, held.Area, Channels.Required(held.Channels)))
                select ran).Bracket()
-            : Pass(pipeline.GetChannelForRead, pipeline.GetChannelForWrite, rect, state, definition, commit: true);
+            : Pass(pipeline.GetChannelForRead, pipeline.GetChannelForWrite, held.Area, held.Channels, execute, commit: true)
+        select ran;
 
-    private static IO<Unit> Pass<TState>(
-        Func<Guid, PostEffectChannel?> read, Func<Guid, PostEffectChannel?> write, Rectangle rect, TState state, EffectDefinition<TState> definition, bool commit) where TState : notnull =>
+    private static IO<Unit> Pass(
+        Func<Guid, PostEffectChannel?> read, Func<Guid, PostEffectChannel?> write, Rectangle rect, Seq<RenderWindow.StandardChannels> channels,
+        Func<Rectangle, HashMap<RenderWindow.StandardChannels, ReadOnlyMemory2D<float>>, Memory2D<float>, IO<Unit>> execute, bool commit) =>
         from rgba in Channels.Read(read, RenderWindow.StandardChannels.RGBA, rect)
-        from inputs in definition.Channels.Filter(static channel => channel is not RenderWindow.StandardChannels.RGBA).Distinct()
-            .TraverseM(channel => Channels.Read(read, channel, rect).Map(pixels => (channel, (ReadOnlyMemory2D<float>)pixels))).As()
-        from ran in IO.lift(() => definition.Execute(state, new EffectFrame(rect, toHashMap(inputs), rgba)))
+        from inputs in channels.Filter(static channel => channel is not RenderWindow.StandardChannels.RGBA).Distinct()
+            .TraverseM(channel => Channels.Offered(read, channel, rect).Map(pixels => pixels.Map(offered => (channel, (ReadOnlyMemory2D<float>)offered)))).As()
+        from ran in execute(rect, toHashMap(inputs.Somes()), rgba)
         from written in Channels.Write(write, rect, rgba, commit)
         select unit;
 }

@@ -1,0 +1,395 @@
+"""Chart edits on images: the commands placing, sampling, flipping, turning, centering, resetting, and viewing the shown image's chart, its corner cage and flip buttons, and its section rows."""
+
+from collections.abc import Callable
+from enum import Enum
+from functools import cached_property, partial, update_wrapper
+import math
+from typing import ClassVar
+
+import bpy
+from expression import Ok, Option, Result, Some
+from mathutils import Matrix
+import msgspec
+import numpy as np
+import numpy.typing as npt
+import PyOpenColorIO
+
+from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.invocations import Popup
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.data.ids.images import Tag
+from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.rna.mirrors import enum_choices
+from blender.bpy.data.rna.paths import root_in, rooted
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.reports import alerted
+from blender.bpy.nodes.content import Generated
+from blender.bpy.render.review.charts import ChartImage, Charting, Need, PlacedChart
+from blender.bpy.settings.attachments import Attached
+from blender.bpy.ui.images.views import framed, FrameRegion, HANDLE
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import grouped, Layout, OperatorButton, Property, RowContent
+from blender.bpy.ui.resources.icons import Glyph
+from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos
+from blender.imaging.color.calibration import ChartPlacement, Clipped, Colors, Finding, PublishedChart, Reversed, Skewed, Wide
+from blender.imaging.geometry.frames import Homography, Quad, StMap
+from blender.imaging.geometry.panoramas import PanoramaView
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.stores import content_hash
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Located = tuple[bpy.types.Image, PlacedChart, Attached[ChartImage]]
+
+
+class Mirror(Enum):
+    """Patch order mirror axis, valued by its corner permutation in `Quad` corner order."""
+
+    ACROSS = (1, 0, 3, 2)
+    UPRIGHT = (3, 2, 1, 0)
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class ChartFraming(bpy.types.PropertyGroup):
+    """Share of the view width a framed chart spans."""
+
+    share: bpy.props.FloatProperty(name="Share", description="View width chart spans", subtype="FACTOR", min=0.01, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class Flipping(bpy.types.PropertyGroup):
+    """Flip axis."""
+
+    mirror: bpy.props.EnumProperty(name="Mirror", description="Patch order mirror axis", items=enum_choices(Mirror))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Commands, corner cage, and flip buttons over the shown image's chart, the buttons drawn under the `across` and `upright` glyphs."""
+
+    across: Glyph
+    upright: Glyph
+    charting: ClassVar[Charting] = Charting()
+
+    # --- [COMMANDS]
+
+    def located(self, identity: Identity, context: bpy.types.Context) -> Outcome[_Located]:
+        """Returns the shown image, its drawn chart, and the chart attachment, absent fault while the editor shows no charted image."""
+        return self.charting.charts.bound(identity).bind(
+            lambda chart: self.charting.charted(identity, context).bind(
+                lambda found: found.map(lambda pair: (*pair, chart)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.area), member=chart.name))
+            )
+        )
+
+    def edited[T: bpy.types.PropertyGroup](self, change: Callable[[Call[T], bpy.types.Image, PlacedChart], Outcome[PlacedChart]], call: Call[T]) -> Outcome[Answer]:
+        """Writes the shown chart's change, unchanged while the change keeps it."""
+
+        def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage]) -> Outcome[Answer]:
+            return change(call, image, record).bind(
+                lambda revised: Ok(Unchanged(reason=f"{image.name} chart unchanged")) if revised == record else self.charting.placed.write(chart.struct(image), revised).map(lambda _: Done())
+            )
+
+        return self.located(call.identity, call.context).bind(lambda found: kept(*found))
+
+    def moved[T: bpy.types.PropertyGroup](self, move: Callable[[Call[T], npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]], call: Call[T]) -> Outcome[Answer]:
+        """Writes the shown chart's corners as a move carries them in its alignment frame."""
+        return self.edited(
+            lambda each, image, record: Result[Option[Homography], Faults].bind(
+                record.placement.aligned,
+                lambda aligned: (
+                    aligned
+                    .to_result_with(lambda: Fault.of(Need.PLACED, image.name))
+                    .bind(lambda homography: move(each, homography.quad.samples))
+                    .map(lambda samples: msgspec.structs.replace(record, placement=record.placement.realigned(Quad.of(samples))))
+                ),
+            ),
+            call,
+        )
+
+    def place_chart(self, call: Call[Empty]) -> Outcome[Answer]:
+        """Place a square-cell chart at shown image center."""
+
+        def placed(image: bpy.types.Image, chart: Attached[ChartImage], ratio: float) -> Outcome[None]:
+            return self.charting.placed.write(chart.struct(image), PlacedChart(placement=self.charting.seated(PublishedChart[chart.struct(image).chart], ratio)))
+
+        image = _shown(call.context).to_result_with(partial(Fault.of, Reason.ABSENT, repr(call.context.space_data), member="image"))
+        return paired(image, self.charting.charts.bound(call.identity)).bind(lambda pair: self.charting.aspect(call.context, pair[0]).bind(lambda ratio: placed(*pair, ratio))).map(lambda _: Done())
+
+    def sample_chart(self, call: Call[Empty]) -> Outcome[Answer]:
+        """Measure each patch's mean color."""
+
+        def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], plane: npt.NDArray[np.float32]) -> Outcome[Answer]:
+            return (
+                Result[Option[Colors], Faults]
+                .bind(record.placement.means(plane), lambda found: found.to_result_with(lambda: Fault.of(Need.PLACED, image.name)))
+                .bind(lambda samples: self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, samples=samples)))
+                .map(lambda _: Done(notes=(("INFO", f"Sampled {image.name}"),)))
+            )
+
+        return self.located(call.identity, call.context).bind(lambda found: self.charting.planed(call.context, found[0]).bind(lambda plane: kept(*found, plane)))
+
+    def warned(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+        """Draws the shown chart's placement findings above the sample confirmation."""
+
+        def described(finding: Finding, chart: PublishedChart) -> str:
+            match finding:
+                case Reversed():
+                    return "Chart reads reversed"
+                case Skewed(narrowest=narrowest, widest=widest):
+                    return f"Corner angles run {math.degrees(narrowest):.0f} to {math.degrees(widest):.0f} degrees"
+                case Wide(field_of_view=field_of_view):
+                    return f"View spans {math.degrees(field_of_view):.0f} degrees"
+                case Clipped(patches=patches):
+                    names = tuple(chart.checker.data)
+                    return f"Patches {', '.join(names[index] for index in patches)} leave image"
+
+        def listed(image: bpy.types.Image, record: PlacedChart, ratio: float) -> Outcome[str]:
+            return record.placement.findings(ratio).map(
+                lambda found: found.map(lambda held: ", ".join(described(finding, record.placement.chart) for finding in held) or "No placement finding").default_value(
+                    Need.PLACED.format(subject=image.name)
+                )
+            )
+
+        found = self.located(identity, context).bind(lambda held: self.charting.aspect(context, held[0]).bind(lambda ratio: listed(held[0], held[1], ratio)))
+        for text in found.to_option().to_list():
+            layout.label(text=text, icon="ERROR")
+        alerted(layout, found)
+
+    @staticmethod
+    def clear_samples(_call: Call[Empty], _image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
+        """Remove patch samples."""
+        return Ok(msgspec.structs.replace(record, samples=()))
+
+    def reset_chart(self, call: Call[Empty], image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
+        """Reset chart layout."""
+        return self.charting.aspect(call.context, image).map(lambda ratio: msgspec.structs.replace(record, placement=self.charting.seated(record.placement.chart, ratio)))
+
+    @staticmethod
+    def leave_view(call: Call[Empty], image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
+        """Show panorama holding chart."""
+        return (
+            rooted(bpy.types.SpaceImageEditor, call.context)
+            .bind(lambda space: written(space, ("image",), image))
+            .map(lambda _: msgspec.structs.replace(record, placement=msgspec.structs.replace(record.placement, panorama=None)))
+        )
+
+    @staticmethod
+    def flip_chart(call: Call[Flipping], samples: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+        """Mirror patch order inside chart corners."""
+        return Ok(samples[list(Mirror[call.properties.mirror].value)])
+
+    @staticmethod
+    def turn_chart(_call: Call[Empty], samples: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+        """Rotate patch order a quarter turn."""
+        return Ok(np.roll(samples, 1, axis=0))
+
+    @staticmethod
+    def center_chart(call: Call[Empty], samples: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+        """Center chart in visible frame."""
+
+        def middle(region: bpy.types.Region) -> npt.NDArray[np.float64]:
+            frame = framed(region)
+            return np.array(((region.width / 2 - frame.x) / frame.width, (region.height / 2 - frame.y) / frame.height, 1.0), np.float64)
+
+        return rooted(bpy.types.Region, call.context).map(lambda region: samples + (middle(region) - samples.mean(axis=0)) * (1.0, 1.0, 0.0))
+
+    def view_chart(self, call: Call[ChartFraming]) -> Outcome[Answer]:
+        """Show panorama chart in a rectilinear view."""
+
+        def baked(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], placement: ChartPlacement, plane: npt.NDArray[np.float32]) -> Outcome[Answer]:
+            view = Option.of_optional(placement.panorama).default_with(PanoramaView)
+            width = max(1, math.ceil(plane.shape[1] * view.view.field_of_view / math.tau))
+            height = max(1, math.ceil(width / view.view.aspect))
+
+            def warped() -> Outcome[Option[npt.NDArray[np.float32]]]:
+                return StMap.bake(width, height, view.to_panorama, view.source.extension, source_size=(plane.shape[1], plane.shape[0])).warp(plane).map(Some)
+
+            return (
+                Generated(
+                    ownership=self.charting.views,
+                    content=content_hash(PanoramaView, view, arrays=(plane,)),
+                    name=f"{image.name} View",
+                    plane=warped,
+                    tag=Tag(space=Some(PyOpenColorIO.ROLE_SCENE_LINEAR)),
+                )
+                .made(call.identity, of=Some(image))
+                .bind(
+                    lambda shown: accumulated(
+                        paired(
+                            self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=placement)),
+                            rooted(bpy.types.SpaceImageEditor, call.context).bind(lambda space: written(space, ("image",), made)),
+                        )
+                        for made in shown.to_list()
+                    )
+                )
+                .map(lambda _: Done(notes=(("INFO", f"Viewing {image.name} chart"),)))
+            )
+
+        return self.located(call.identity, call.context).bind(
+            lambda found: (
+                (Some(found[1].placement) if found[1].placement.panorama is not None else found[1].placement.framed(call.properties.share))
+                .to_result_with(lambda: Fault.of(Need.PLACED, found[0].name))
+                .bind(lambda placement: self.charting.planed(call.context, found[0]).bind(lambda plane: baked(*found, placement, plane)))
+            )
+        )
+
+    @cached_property
+    def placing(self) -> Operator[Empty]:
+        """Command seating the chosen chart on the shown image."""
+        return Operator.of(Empty, condition=Some(self.charting.imaged))(self.place_chart)
+
+    @cached_property
+    def sampling(self) -> Operator[Empty]:
+        """Command sampling the shown chart's patches after a dialog listing its placement findings."""
+        return Operator.of(Empty, condition=Some(self.charting.imaged), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog, confirm_text="Sample"))), draw=Some(self.warned))(
+            self.sample_chart
+        )
+
+    @cached_property
+    def clearing(self) -> Operator[Empty]:
+        """Command clearing the shown chart's samples after a confirmation."""
+        return Operator(
+            condition=Some(self.charting.imaged),
+            form=Empty,
+            run=update_wrapper(partial(self.edited, self.clear_samples), self.clear_samples),
+            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))),
+        )
+
+    @cached_property
+    def flipping(self) -> Operator[Flipping]:
+        """Command mirroring the shown chart's patch order."""
+        return Operator(condition=Some(self.charting.imaged), form=Flipping, run=update_wrapper(partial(self.moved, self.flip_chart), self.flip_chart))
+
+    @cached_property
+    def turning(self) -> Operator[Empty]:
+        """Command turning the shown chart's patch order."""
+        return Operator(icon=Some("FILE_REFRESH"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.moved, self.turn_chart), self.turn_chart))
+
+    @cached_property
+    def centering(self) -> Operator[Empty]:
+        """Command centering the shown chart in the visible frame."""
+        return Operator(icon=Some("ALIGN_CENTER"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.moved, self.center_chart), self.center_chart))
+
+    @cached_property
+    def resetting(self) -> Operator[Empty]:
+        """Command seating the shown chart again."""
+        return Operator(icon=Some("LOOP_BACK"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.edited, self.reset_chart), self.reset_chart))
+
+    @cached_property
+    def viewing(self) -> Operator[ChartFraming]:
+        """Command showing the shown panorama chart in a rectilinear view."""
+        return Operator.of(ChartFraming, icon=Some("ZOOM_SELECTED"), condition=Some(self.charting.imaged), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))))(self.view_chart)
+
+    @cached_property
+    def leaving(self) -> Operator[Empty]:
+        """Command returning from a chart view to its panorama."""
+        return Operator(icon=Some("SCREEN_BACK"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.edited, self.leave_view), self.leave_view))
+
+    # --- [HANDLES]
+
+    def quad(self, identity: Identity, context: bpy.types.Context) -> Outcome[Option[Quad]]:
+        """Returns the shown chart's corners in its alignment frame, Nothing while a corner falls behind its view."""
+
+        def framed_quad(record: PlacedChart) -> Option[Quad]:
+            placement = record.placement
+            samples = Option.of_optional(placement.panorama).map(lambda panorama: panorama.to_view(placement.quad.samples)).default_value(placement.quad.samples)
+            return Some(samples).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(Quad.of)
+
+        return self.charting.charted(identity, context).map(lambda found: found.bind(lambda pair: framed_quad(pair[1])))
+
+    def requad(self, identity: Identity, context: bpy.types.Context, quad: Quad) -> Outcome[None]:
+        """Writes the shown chart's corners an edit of its alignment frame gives."""
+
+        def realigned(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage]) -> Outcome[None]:
+            placement = record.placement
+            return self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=msgspec.structs.replace(placement, quad=placement.realigned(quad).quad)))
+
+        return self.located(identity, context).bind(lambda found: realigned(*found))
+
+    def edge(self, identity: Identity, corners: tuple[int, int], context: bpy.types.Context) -> Outcome[Option[Matrix]]:
+        """Places a flip button at the middle of the shown chart's edge between two corners."""
+        return self.quad(identity, context).map(
+            lambda found: found.bind(
+                lambda quad: Option.of_optional(context.region).map(framed).map(lambda frame: quad.samples[list(corners), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
+            ).map(lambda at: Matrix.Translation((*at, 0.0)))
+        )
+
+    # --- [ROWS]
+
+    @property
+    def rows(self) -> tuple[RowContent, ...]:
+        """Shown image's chart fields and the chart command groups."""
+        return (
+            *(Property(target=Member(root=self.charting.charts, path=(name,), reach=Some(_shown))) for name in ("shown", "chart", "opacity")),
+            Layout(rows=tuple(OperatorButton(target=command) for command in (self.placing, self.sampling, self.clearing)), container=Some(grouped)),
+            Layout(
+                rows=(
+                    *(
+                        OperatorButton(target=Placement(self.flipping, {"mirror": mirror.name}), keywords={"text": ""}, icon=Some(glyph))
+                        for mirror, glyph in ((Mirror.ACROSS, self.across), (Mirror.UPRIGHT, self.upright))
+                    ),
+                    *(OperatorButton(target=command, keywords={"text": ""}) for command in (self.turning, self.centering, self.resetting, self.viewing, self.leaving)),
+                ),
+                container=Some(grouped),
+            ),
+        )
+
+    # --- [REGISTRATION]
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Charts the edits read."""
+        return (self.charting,)
+
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Returns the commands, the corner cage, and the flip buttons."""
+        imaged = self.charting.imaged
+        flips = tuple(
+            GizmoPart(
+                kind="GIZMO_GT_button_2d",
+                place=partial(self.edge, identity, corners),
+                bind=(Placement(self.flipping, {"mirror": mirror.name}),),
+                glyph=Some(glyph),
+                properties={"scale_basis": HANDLE, "draw_options": frozenset({"OUTLINE", "BACKDROP"})},
+                role=lambda ui: (ui.wcol_tool.inner, ui.wcol_tool.inner_sel),
+            )
+            for corners, glyph, mirror in (((0, 1), self.across, Mirror.ACROSS), ((0, 3), self.upright, Mirror.UPRIGHT))
+        )
+        return Ok((
+            self.placing,
+            self.sampling,
+            self.clearing,
+            self.flipping,
+            self.turning,
+            self.centering,
+            self.resetting,
+            self.viewing,
+            self.leaving,
+            FrameRegion(
+                key="chart_corners",
+                read=partial(self.quad, identity),
+                write=partial(self.requad, identity),
+                transform=frozenset({"TRANSLATE", "ROTATE", "SCALE"}),
+                corners=True,
+                shown=imaged,
+                refreshes=self.charting.refreshes(identity),
+            ),
+            Gizmos(key="chart", space="IMAGE_EDITOR", parts=flips, condition=Some(imaged)),
+        ))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _shown(context: bpy.types.Context) -> Option[bpy.types.Image]:
+    """Returns the image the context's image editor shows."""
+    return root_in(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image))
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["ChartEditing", "ChartFraming", "Flipping", "Mirror"]

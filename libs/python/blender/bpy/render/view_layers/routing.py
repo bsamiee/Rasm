@@ -18,7 +18,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.data.rna.mirrors import held_choices
+from blender.bpy.data.rna.mirrors import EnumItem, held_choices
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, runtime, Subscription
@@ -26,15 +26,17 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.changes import Changes, made, reconciled
-from blender.bpy.nodes.desired import FrameNode, Interface, Link, NodeGroup, Socket
+from blender.bpy.nodes.desired import FrameNode, Link
 from blender.bpy.nodes.functions import built, lowered
 from blender.bpy.nodes.graphs import Expr, group_input
+from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
+from blender.bpy.render.outputs.exports import Layering
 from blender.bpy.render.outputs.formats import extension
 from blender.bpy.render.outputs.paths import NodePaths, OutputPath, Outputs, Pathed, ScenePaths, today
 from blender.bpy.render.outputs.results import Written
 from blender.bpy.render.view_layers.layers import LAYER, LayerTag, Role
 from blender.bpy.render.view_layers.passes import Derived, EMISSION, ENVIRONMENT, Family, Flags, layer_of, listed, OCCLUSION, PassFlags, PassRequest, required, synced, used
-from blender.bpy.render.view_layers.sources import filed, FileSplit, Filing, filings, ids_recolor, layer_name, lobe, NUKE_CHANNELS, Recoloring, ROUTING, Routing, sources
+from blender.bpy.render.view_layers.sources import document, filed, FileSplit, Filing, filings, ids_recolor, layer_name, lobe, NUKE_CHANNELS, Recoloring, ROUTING, Routing, sources
 from blender.bpy.settings.attachments import Attached
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, Line, OperatorButton, realized, RowDraw
@@ -95,15 +97,17 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         """Builds the File Output node of one filing of a view layer under its routing at today's scene path, for term filters filing what they read."""
         return layer_of(scene, view).bind(lambda layer: self.pathed.path(scene, today()).bind(lambda path: filed(self.pathed, path, view, filing, key, nuke=self.routing.struct(layer).nuke)))
 
-    def framed(self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: OutputPath, index: int, layer: bpy.types.ViewLayer) -> Outcome[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
-        """Plans frame, Render Layers node, sources, and File Output nodes of one used layer."""
+    def framed(
+        self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: Outcome[OutputPath], index: int, layer: bpy.types.ViewLayer
+    ) -> Outcome[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
+        """Plans frame, Render Layers node, sources, and File Output nodes of one used layer, the output path read only by File Output nodes."""
         prefix = f"layer_{index}"
         rendered = Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": layer.name}, label=Some(f"{prefix}_render"))
         routing, record = self.routing.struct(layer), self.layers.struct(layer)
 
         def planned(plan: Mapping[Key, Filing]) -> Outcome[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
             return (
-                accumulated(filed(self.pathed, path, layer.name, filing, key, nuke=routing.nuke) for key, filing in plan.items())
+                (path.bind(lambda at: accumulated(filed(self.pathed, at, layer.name, filing, key, nuke=routing.nuke) for key, filing in plan.items())) if plan else Ok(()))
                 .bind(lambda files: lowered(bpy.types.CompositorNodeTree, rendered, *files))
                 .map(
                     lambda merged: (
@@ -123,7 +127,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             .bind(lambda filed_out: planned(MappingProxyType({f"{prefix}_{filing.output.name.lower()}_{'layered' if filing.format.layered else 'exr'}": filing for filing in filed_out})))
         )
 
-    def planned(self, scene: bpy.types.Scene, tree: Option[bpy.types.NodeTree], path: OutputPath) -> Outcome[tuple[NodeGroup, dict[bpy.types.ViewLayer, LayerPlan]]]:
+    def planned(self, scene: bpy.types.Scene, tree: Option[bpy.types.NodeTree], path: Outcome[OutputPath]) -> Outcome[tuple[NodeGroup, dict[bpy.types.ViewLayer, LayerPlan]]]:
         """Plans scene routing group, reading offered sockets from held tree."""
         held = tree.map(lambda found: owned(found, self.identity)).default_value({})
         layers = used(scene)
@@ -131,7 +135,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             lambda frames: grouped(frames).map(lambda group: (group, {layer: plan for layer, (_, _, plan) in zip(layers, frames)}))
         )
 
-    def reconciled(self, scene: bpy.types.Scene, context: bpy.types.Context, path: OutputPath) -> Outcome[Changes]:
+    def reconciled(self, scene: bpy.types.Scene, context: bpy.types.Context, path: Outcome[OutputPath]) -> Outcome[Changes]:
         """Reconciles passes, AOVs, light groups, and routing to scene settings, File Output nodes and items taking their formats, called after overrides apply or revert."""
         flags = PassFlags.of()
 
@@ -151,13 +155,13 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
     def placed(self, scene: bpy.types.Scene, path: OutputPath) -> Outcome[OutputPath]:
         """Stores path as the scene's render path, then reconciles routing to it."""
-        return self.pathed.placed(scene, path).bind(lambda _: self.reconciled(scene, bpy.context, path)).map(lambda _: path)
+        return self.pathed.placed(scene, path).bind(lambda _: self.reconciled(scene, bpy.context, Ok(path))).map(lambda _: path)
 
     def refreshed(self, context: bpy.types.Context, day: datetime.date) -> Outcome[None]:
         """Reconciles every editable scene with stored layer routing at `day`, owned runtime scenes skipped."""
 
         def refresh(scene: bpy.types.Scene) -> Outcome[Changes]:
-            return self.pathed.path(scene, day).bind(lambda path: self.reconciled(scene, context, path))
+            return self.reconciled(scene, context, self.pathed.path(scene, day))
 
         return rooted(bpy.types.BlendData, context).bind(
             lambda data: accumulated(
@@ -211,12 +215,13 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PassSet(Line, frozen=True):
-    """Row of pass routing."""
+    """Row of pass routing, its layering the ID document export of a written frame."""
 
     key: ClassVar[Key] = ROUTING.key
     prerequisites: ClassVar[tuple[Registrable, ...]] = (ROUTING, LAYER, ScenePaths.attachment)
     presets: ClassVar[Preset[PassPreset]] = Preset(key=key, form=PassPreset)
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key=key, saved=Saved.USED)
+    layering: ClassVar[Layering] = Layering(key=key, document=document)
     title: ClassVar[str] = bpy.path.display_name(key)
 
     @staticmethod
@@ -227,9 +232,9 @@ class PassSet(Line, frozen=True):
         )
 
     def written(self, scene: bpy.types.Scene, frame: int, identity: Identity, *, path: Option[OutputPath] = Nothing) -> Outcome[tuple[Written, ...]]:
-        """Returns files scene File Output nodes wrote for a frame at `path` or scene path, the finishing files callable."""
+        """Returns files the File Output nodes of the scene's routing tree wrote for a frame at `path` or scene path, the finishing files callable, none without a routing tree."""
 
-        def files(routing: PassRouting, path: OutputPath, layer: bpy.types.ViewLayer, live: bpy.types.CompositorNodeOutputFile, filing: Filing) -> Outcome[tuple[Written, ...]]:
+        def files(routing: PassRouting, layer: bpy.types.ViewLayer, live: bpy.types.CompositorNodeOutputFile, filing: Filing, path: OutputPath) -> Outcome[tuple[Written, ...]]:
             nuke = routing.routing.struct(layer).nuke
             names = tuple(layer_name(source.name, nuke=nuke) for source in filing.sources)
 
@@ -256,15 +261,14 @@ class PassSet(Line, frozen=True):
                 .map(lambda found: tuple(file for option in found for file in option.to_list()))
             )
 
-        def collected(routing: PassRouting, path: OutputPath) -> Outcome[tuple[Written, ...]]:
-            tree = routing.held(scene)
-            held = tree.map(lambda found: owned(found, identity)).default_value({})
+        def collected(routing: PassRouting, tree: bpy.types.NodeTree) -> Outcome[tuple[Written, ...]]:
+            held, chosen = owned(tree, identity), path.map(Ok).default_with(lambda: routing.pathed.path(scene, today()))
             return (
                 routing
-                .planned(scene, tree, path)
+                .planned(scene, Some(tree), chosen)
                 .bind(
                     lambda planned: accumulated(
-                        files(routing, path, layer, live, filing)
+                        chosen.bind(functools.partial(files, routing, layer, live, filing))
                         for layer, plan in planned[1].items()
                         for key, filing in plan.filings.items()
                         for live in (held.get(key),)
@@ -274,7 +278,7 @@ class PassSet(Line, frozen=True):
                 .map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
             )
 
-        return self.bound(identity).bind(lambda routing: path.map(Ok).default_with(lambda: routing.pathed.path(scene, today())).bind(lambda chosen: collected(routing, chosen)))
+        return self.bound(identity).bind(lambda routing: routing.held(scene).map(functools.partial(collected, routing)).default_value(Ok(())))
 
     @staticmethod
     def commands(identity: Identity) -> tuple[Operator[Empty] | Operator[Recoloring] | Operator[bpy.types.PropertyGroup], ...]:
@@ -307,7 +311,7 @@ class PassSet(Line, frozen=True):
 
     def section(self, retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing) -> Section[Routing]:
         """Returns File Output section over context layer routing store."""
-        return Section(key=self.key, title="File Output", rows=(self,), store=Some(Store(attachment=ROUTING, retention=retention)))
+        return Section(key=self.key, title=Some("File Output"), rows=(self,), store=Some(Store(attachment=ROUTING, retention=retention)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -337,15 +341,13 @@ def unfiled(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[tup
 
     def searched(routing: PassRouting, layer: bpy.types.ViewLayer, scene: bpy.types.Scene) -> Outcome[tuple[tuple[str, str, str], ...]]:
         taken = {row.name for row in routing.routing.struct(layer).files}
-        return routing.pathed.path(scene, today()).bind(
-            lambda path: routing.planned(scene, routing.held(scene), path).map(
-                lambda planned: tuple(
-                    (source.name, source.name, f"{layer.name} pass {source.name}")
-                    for plan in Option.of_optional(planned[1].get(layer)).to_list()
-                    for filing in plan.filings.values()
-                    for source in filing.sources
-                    if source.name not in taken
-                )
+        return routing.planned(scene, routing.held(scene), routing.pathed.path(scene, today())).map(
+            lambda planned: tuple(
+                (source.name, source.name, f"{layer.name} pass {source.name}")
+                for plan in Option.of_optional(planned[1].get(layer)).to_list()
+                for filing in plan.filings.values()
+                for source in filing.sources
+                if source.name not in taken
             )
         )
 
@@ -357,7 +359,7 @@ def passes_update(call: Call[Empty]) -> Outcome[Answer]:
     """Reconcile scene pass routing and File Output nodes."""
     return (
         paired(PassSet.bound(call.identity), rooted(bpy.types.Scene, call.context))
-        .bind(lambda pair: pair[0].pathed.path(pair[1], today()).bind(lambda path: pair[0].reconciled(pair[1], call.context, path)))
+        .bind(lambda pair: pair[0].reconciled(pair[1], call.context, pair[0].pathed.path(pair[1], today())))
         .map(lambda _: Done())
     )
 
@@ -378,7 +380,7 @@ def pass_file_add(call: Call[bpy.types.PropertyGroup]) -> Outcome[Answer]:
 def _adding(package: str) -> Operator[bpy.types.PropertyGroup]:
     """Builds the file row command of an extension once, its search listing the context layer's unfiled sources."""
 
-    def items(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str, str, int], ...]:
+    def items(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
         rows = Option.of_optional(context).map(lambda held: Identity.read(package).bind(lambda identity: unfiled(identity, held)).default_value(())).default_value(())
         return held_choices(rows)
 

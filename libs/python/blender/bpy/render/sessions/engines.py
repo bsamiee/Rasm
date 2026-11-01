@@ -1,12 +1,13 @@
-"""Render engine classes built from callback bodies taking the host's own callback parameters, the replay engine, and engine sample reads."""
+"""Render engine classes built from callback bodies taking the host's own callback parameters, the replay engine with the tiles a saved multilayer render replays, and engine sample reads."""
 
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from types import MappingProxyType
-from typing import ClassVar, Final, Literal, TYPE_CHECKING
+from typing import ClassVar, Final, Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +17,9 @@ from blender.bpy.data.rna.paths import Native, struct_at
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.reports import rendered
+from blender.bpy.render.outputs.framing import Border, Framing
 from blender.bpy.render.outputs.results import COMBINED
+from blender.imaging.files.multilayer import Layer, Multilayer
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -55,6 +58,34 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     planes: tuple[tuple[EnginePass, npt.NDArray[np.float32]], *tuple[tuple[EnginePass, npt.NDArray[np.float32]], ...]]
     view: str = ""
     stamps: tuple[tuple[str, str], ...] = ()
+
+    @classmethod
+    def replayed(cls, file: Multilayer, scene: bpy.types.Scene, /) -> Outcome[Mapping[str, tuple[Self, ...]]]:
+        """Returns the tiles of each scene view layer a saved multilayer render holds, one per view, under the first part's header stamps.
+
+        Planes a file holds at the whole canvas of a border render are cropped to the border window the engine writes.
+        """
+        names = tuple(sorted((layer.name for layer in scene.view_layers), key=len, reverse=True))
+        framing = Framing.of(scene.render)
+        (width, height), window = framing.bounds
+        stamps = tuple((key, value) for part in file.parts[:1] for key, value in part.header.items())
+
+        def cropped(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+            bordered = isinstance(framing.extent, Border) and values.shape[:2] == (height, width)
+            return np.ascontiguousarray(values[window.ybegin : window.yend, window.xbegin : window.xend] if bordered else values)
+
+        def plane(owner: str, layer: Layer) -> Outcome[tuple[str, str, EnginePass, npt.NDArray[np.float32]]]:
+            declared = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(layer.channels))
+            return file.plane(layer, layer.channels).map(lambda values: (owner, file.parts[layer.part].header.get("view", ""), declared, cropped(values)))
+
+        def grouped(planes: tuple[tuple[str, str, EnginePass, npt.NDArray[np.float32]], ...]) -> Mapping[str, tuple[Self, ...]]:
+            held = {key: tuple((declared, values) for owner, view, declared, values in planes if (owner, view) == key) for key in dict.fromkeys((owner, view) for owner, view, _, _ in planes)}
+            return {
+                layer: tuple(cls(x=0, y=0, planes=(found[0], *found[1:]), view=view, stamps=stamps) for (owner, view), found in held.items() if owner == layer)
+                for layer in dict.fromkeys(owner for owner, _ in held)
+            }
+
+        return accumulated(plane(owner, layer) for layer in file.layers for owner in Block.of_seq(names).filter(lambda name: layer.name.startswith(f"{name}.")).try_head().to_list()).map(grouped)
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):

@@ -13,7 +13,7 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, tallied, Unchanged
-from blender.bpy.data.rna.conditions import Condition
+from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.identity import Identity
@@ -74,6 +74,15 @@ class Entity(enum.Flag):
         return Descriptor.declared(bpy.types.ViewLayer, (f"use_pass_cryptomatte_{str(self.name).lower()}",), bpy.types.BoolProperty)
 
     @property
+    def index(self) -> Option[tuple[Descriptor[bpy.types.BoolProperty], str]]:
+        """View layer flag and pass name of the kind's index pass, which Cycles alone writes, Nothing for a kind the view layer holds no index flag of."""
+        return (
+            Some(f"use_pass_{str(self.name).lower()}_index")
+            .filter(lambda flag: flag in bpy.types.ViewLayer.bl_rna.properties)
+            .map(lambda flag: (Descriptor.declared(bpy.types.ViewLayer, (flag,), bpy.types.BoolProperty), f"{self.label} Index"))
+        )
+
+    @property
     def color(self) -> Descriptor[bpy.types.FloatProperty]:
         """Display color member of the blocks the kind names."""
         return (
@@ -93,6 +102,10 @@ class Entity(enum.Flag):
 EMISSION: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_emit",), bpy.types.BoolProperty)
 ENVIRONMENT: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_environment",), bpy.types.BoolProperty)
 OCCLUSION: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_ambient_occlusion",), bpy.types.BoolProperty)
+DENOISING_ALBEDO: Final = "Denoising Albedo"
+DENOISING_NORMAL: Final = "Denoising Normal"
+_ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
+_CYCLES: Final = Setting(descriptor=_ENGINE, accepted=("CYCLES",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -167,6 +180,23 @@ class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
     def depth(cls, layer: str, *, precise: bool) -> Self:
         """Returns Depth pass request of a layer."""
         return cls(layer=layer, flags=frozenset({Descriptor.declared(bpy.types.ViewLayer, ("use_pass_z",), bpy.types.BoolProperty)}), precise=precise)
+
+    @classmethod
+    def indexed(cls, layer: str, kinds: Entity) -> Self:
+        """Returns the request of the kinds' index passes under Cycles, the one engine writing them."""
+        return cls(layer=layer, flags=frozenset(flag for kind in kinds for flag, _ in kind.index.to_list()), condition=Some(_CYCLES))
+
+    @classmethod
+    def matted(cls, layer: str, kinds: Entity) -> Self:
+        """Returns the request of the kinds' Cryptomatte passes under Cycles or EEVEE, the engines writing them."""
+        return cls(layer=layer, flags=frozenset(kind.flag for kind in kinds), condition=Some(Setting(descriptor=_ENGINE, accepted=("CYCLES", "BLENDER_EEVEE"))))
+
+    @classmethod
+    def denoising(cls, layer: str) -> Outcome[Self]:
+        """Returns the request of Cycles' denoising data passes under Cycles, `DENOISING_ALBEDO` and `DENOISING_NORMAL` among them, refused while Cycles holds no layer settings."""
+        return Descriptor.resolve(bpy.types.ViewLayer, ("cycles", "denoising_store_passes"), bpy.types.BoolProperty).map(
+            lambda flag: cls(layer=layer, flags=frozenset({flag}), condition=Some(_CYCLES))
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -302,4 +332,23 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EMISSION", "ENVIRONMENT", "OCCLUSION", "Derived", "Entity", "Family", "Flags", "PassFlags", "PassRequest", "layer_of", "listed", "required", "soloed", "spread", "synced", "used"]
+__all__ = [
+    "DENOISING_ALBEDO",
+    "DENOISING_NORMAL",
+    "EMISSION",
+    "ENVIRONMENT",
+    "OCCLUSION",
+    "Derived",
+    "Entity",
+    "Family",
+    "Flags",
+    "PassFlags",
+    "PassRequest",
+    "layer_of",
+    "listed",
+    "required",
+    "soloed",
+    "spread",
+    "synced",
+    "used",
+]

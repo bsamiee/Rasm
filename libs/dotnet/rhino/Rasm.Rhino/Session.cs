@@ -61,9 +61,7 @@ public static partial class Session {
 
     public static async Task<Fin<T>> RunSafeAsync<T>(IO<T> effect, CancellationToken token) {
         using EnvIO environment = EnvIO.New(token: token, syncContext: SynchronizationContext.Current);
-        Task<T> run = effect.RunAsync(environment).AsTask();
-        _ = await run.ContinueWith(static _ => unit, TaskScheduler.Default).ConfigureAwait(false);
-        return run.IsCompletedSuccessfully ? await run.ConfigureAwait(false) : run.Exception is { } fault ? Error.New(fault.InnerExceptions is [var single] ? single : fault) : Errors.Cancelled;
+        return await effect.RunSafeAsync(environment).ConfigureAwait(false);
     }
 
     public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
@@ -92,6 +90,8 @@ public static partial class Session {
             });
 
         public IO<T> Scoped(EnvIO scope) => IO.liftVAsync(_ => effect.RunAsync(scope));
+
+        public IO<T> Scoped() => IO.liftVAsync(_ => effect.RunAsync(Scope));
     }
 
     // --- [LOGS]

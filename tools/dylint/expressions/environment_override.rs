@@ -9,12 +9,6 @@ use rustc_middle::ty::{AdtDef, TyCtxt};
 
 use crate::{expanded_externally, method_call_on, path, paths, pointee, resolve};
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const SPAN_ATTRIBUTE_LIMIT: &str = "OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT";
-const SPAN_EVENT_LIMIT: &str = "OTEL_SPAN_EVENT_COUNT_LIMIT";
-const SPAN_LINK_LIMIT: &str = "OTEL_SPAN_LINK_COUNT_LIMIT";
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
@@ -30,6 +24,9 @@ lint!(Pass; ENVIRONMENT_OVERRIDE: "builder calls overriding a value that a depen
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        const SPAN_ATTRIBUTE_LIMIT: &str = "OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT";
+        const SPAN_EVENT_LIMIT: &str = "OTEL_SPAN_EVENT_COUNT_LIMIT";
+        const SPAN_LINK_LIMIT: &str = "OTEL_SPAN_LINK_COUNT_LIMIT";
         Self {
             setters: resolve::<&[&str]>(
                 tcx,

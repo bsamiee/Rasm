@@ -19,7 +19,7 @@ public static class Points {
     // --- [NORMALS]
     public static IO<PointCloud> Normals(PointCloud cloud, int neighbours) =>
         from estimated in IO.lift(() => Estimated(cloud, neighbours))
-        from copy in Products.Of(() => cloud.Duplicate() as PointCloud)
+        from copy in Products.Copied(cloud)
         from written in IO.lift(() => estimated.Iter((index, normal) => copy[index].Normal = normal))
         select copy;
 

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Streamable HTTP MCP servers from Effect tools, resources, and RPC groups with telemetry",
+    "description": "Effect programs exposed to agents as tools",
     "sideEffects": false,
     "type": "module",
     "imports": {

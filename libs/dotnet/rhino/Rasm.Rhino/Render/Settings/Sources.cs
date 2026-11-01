@@ -61,7 +61,7 @@ public static class RenderSettingsSources {
 
     private static IO<Unit> Committed(RhinoDoc doc, RenderSettings next) =>
         IO.lift(() => doc.UndoRecordingIsActive).Bind(open => open
-            ? Commits.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings), settings => IO.lift(() => doc.RenderSettings = settings).Map(static _ => unit), next.Duplicate())
+            ? Commits.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings.Duplicate()), settings => IO.lift(() => doc.RenderSettings = settings).Map(static _ => unit), next.Duplicate())
             : IO.lift(() => doc.RenderSettings = next).Map(static _ => unit));
 
     // --- [DICTIONARY]

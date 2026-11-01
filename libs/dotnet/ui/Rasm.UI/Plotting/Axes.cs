@@ -3,13 +3,14 @@ using System.Globalization;
 using System.Numerics.Tensors;
 using MathNet.Numerics;
 using NodaTime.Text;
+using Rasm.UI.Motion;
 using SuperLinq;
 
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject(SkipFactoryMethods = true)]
-public sealed partial class AxisRange {
+public sealed partial class AxisRange : IInterpolated<AxisRange> {
     public static AxisRange Unit { get; } = new(0f, 1f);
 
     public float From { get; }
@@ -30,13 +31,13 @@ public sealed partial class AxisRange {
     public static Fin<AxisRange> Validated(float from, float to) =>
         UIFault.Unless(float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0, UIReason.Range, (from, to)).Map(_ => new AxisRange(from, to));
 
-    internal Option<AxisRange> Toward(AxisRange to, float progress) => Validated(float.Lerp(From, to.From, progress), float.Lerp(To, to.To, progress)).ToOption();
+    public Option<AxisRange> Toward(AxisRange to, float progress) => Validated(float.Lerp(From, to.From, progress), float.Lerp(To, to.To, progress)).ToOption();
 }
 
 public sealed record Tick(float Value, bool Major);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Axis {
+public abstract partial record Axis : IInterpolated<Axis> {
     private const float Resolution = 0.01f;
 
     private Axis(AxisRange domain) => Domain = domain;
@@ -47,9 +48,9 @@ public abstract partial record Axis {
 
     public int Decimals => Places.IfNone(() => Nice(Resolution * MathF.Abs(Domain.Span)).Map(Digits).IfNone(0));
 
-    public virtual float Fraction(float value) => (value - Domain.From) / Domain.Span;
+    public float Fraction(float value) => (Transformed(value) - Start) / Depth;
 
-    public virtual float Value(float fraction) => Domain.From + (fraction * Domain.Span);
+    public float Value(float fraction) => Inverted(Start + (fraction * Depth));
 
     public abstract Seq<Tick> Ticks(float least);
 
@@ -57,13 +58,21 @@ public abstract partial record Axis {
 
     public virtual Option<Axis> WithDomain(AxisRange range) => Some(this with { Domain = range });
 
+    public Option<Axis> Toward(Axis to, float progress) => Some(to with { Domain = Domain }).Filter(same => same == this).Bind(_ => Domain.Toward(to.Domain, progress)).Bind(WithDomain);
+
+    public Fin<float> Parsed(AxisRange band, string text, CultureInfo culture) =>
+        float.TryParse(text, NumberStyles.Float, culture, out float parsed)
+            ? UIFault.Unless(Contains(band, parsed), UIReason.Range, parsed).Map(_ => parsed)
+            : new UIFault(text, UIReason.Unreadable);
+
     internal static int Digits(float step) => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)));
 
     internal virtual float Bandwidth => 1f;
 
-    internal virtual void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-        TensorPrimitives.Subtract(values, Domain.From, into);
-        TensorPrimitives.Divide(into, Domain.Span, into);
+    internal void Fractions(ReadOnlySpan<float> values, Span<float> into) {
+        Transformed(values, into);
+        TensorPrimitives.Subtract(into, Start, into);
+        TensorPrimitives.Divide(into, Depth, into);
     }
 
     internal virtual float Wrapped(float fraction) => fraction;
@@ -77,7 +86,11 @@ public abstract partial record Axis {
     internal virtual Seq<(float Low, float High)> Spans(AxisRange band) =>
         (Fraction(band.From), Fraction(band.To)) switch { var (from, to) => [(float.Min(from, to), float.Max(from, to))] };
 
-    internal abstract float Snapped(float value, int steps, float least);
+    internal virtual float Snapped(float value, int steps, float least) {
+        Seq<float> ticks = Ticks(least).Map(static tick => tick.Value).Strict();
+        float at = Fraction(value);
+        return Constrained(ticks.IsEmpty ? value : ticks[int.Clamp(toSeq(Range(0, ticks.Count)).MinBy(index => MathF.Abs(Fraction(ticks[index]) - at)) + steps, 0, ticks.Count - 1)]);
+    }
 
     internal virtual string Formatted(float value, CultureInfo culture) => value.ToString(Pattern(Decimals), culture);
 
@@ -86,16 +99,26 @@ public abstract partial record Axis {
         return MathF.Abs(Domain.Span) >= pixels * (MathF.BitIncrement(largest) - largest);
     }
 
-    internal Option<Axis> Toward(Axis to, float progress) => Some(to with { Domain = Domain }).Filter(same => same == this).Bind(_ => Domain.Toward(to.Domain, progress)).Bind(WithDomain);
+    private protected float Start => Transformed(Domain.From);
 
-    private protected float Ticked(float value, int steps, float least) {
-        Seq<float> ticks = Ticks(least).Map(static tick => tick.Value).Strict();
-        float at = Fraction(value);
-        return ticks.IsEmpty ? value : ticks[int.Clamp(toSeq(Range(0, ticks.Count)).MinBy(index => MathF.Abs(Fraction(ticks[index]) - at)) + steps, 0, ticks.Count - 1)];
-    }
+    private protected float Depth => Transformed(Domain.To) - Start;
+
+    private protected virtual float Transformed(float value) => value;
+
+    private protected virtual float Inverted(float transformed) => transformed;
+
+    private protected virtual void Transformed(ReadOnlySpan<float> values, Span<float> into) => values.CopyTo(into);
 
     private protected float Rounded(float value, int steps, Option<float> step) =>
         step.Map(held => Constrained((MathF.Round(value / held, MidpointRounding.ToEven) + (steps * MathF.Sign(Domain.Span))) * held)).IfNone(value);
+
+    private protected static void Mirrored(ReadOnlySpan<float> values, Span<float> into, Action<Span<float>> magnitude) {
+        using IMemoryOwner<float> owner = MemoryPool<float>.Shared.Rent(values.Length);
+        Span<float> held = owner.Memory.Span[..values.Length];
+        TensorPrimitives.Abs(values, held);
+        magnitude(held);
+        TensorPrimitives.CopySign(held, values, into);
+    }
 
     private protected static string Pattern(int places) => $"#,0.{new string('#', places)};;0";
 
@@ -107,13 +130,6 @@ public abstract partial record Axis {
     public sealed record Linear(AxisRange Domain) : Axis(Domain) {
         public Factor Exponent { get; init; } = Factor.Unit;
 
-        private float Start => Raised(Domain.From, (float)Exponent);
-        private float Depth => Raised(Domain.To, (float)Exponent) - Start;
-
-        public override float Fraction(float value) => (Raised(value, (float)Exponent) - Start) / Depth;
-
-        public override float Value(float fraction) => Raised(Start + (fraction * Depth), 1f / (float)Exponent);
-
         public override Seq<Tick> Ticks(float least) =>
             Nice(least * MathF.Abs(Domain.Span)).Map(step => {
                 int divisions = MathF.Round(step / float.Exp10(MathF.Floor(MathF.Log10(step))), MidpointRounding.ToEven) is 2f ? 4 : 5;
@@ -122,28 +138,22 @@ public abstract partial record Axis {
                 return toSeq(Range(first, int.Max(0, (int)MathF.Floor(Domain.High / minor) - first + 1))).Map(multiple => new Tick(multiple * minor, multiple % divisions is 0));
             }).IfNone([]);
 
-        internal override void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-            TensorPrimitives.Abs(values, into);
-            TensorPrimitives.Pow(into, (float)Exponent, into);
-            TensorPrimitives.CopySign(into, values, into);
-            TensorPrimitives.Subtract(into, Start, into);
-            TensorPrimitives.Divide(into, Depth, into);
-        }
-
         internal override float Snapped(float value, int steps, float least) => Rounded(value, steps, Nice(least * MathF.Abs(Domain.Span)));
+
+        private protected override float Transformed(float value) => Raised(value, (float)Exponent);
+
+        private protected override float Inverted(float transformed) => Raised(transformed, 1f / (float)Exponent);
+
+        private protected override void Transformed(ReadOnlySpan<float> values, Span<float> into) {
+            if (Exponent == Factor.Unit) values.CopyTo(into);
+            else Mirrored(values, into, held => TensorPrimitives.Pow(held, (float)Exponent, held));
+        }
 
         private static float Raised(float value, float exponent) => MathF.CopySign(MathF.Pow(MathF.Abs(value), exponent), value);
     }
 
     public sealed record SymLog(AxisRange Domain) : Axis(Domain) {
         public Factor Constant { get; init; } = Factor.Unit;
-
-        private float Start => Transformed(Domain.From);
-        private float Depth => Transformed(Domain.To) - Start;
-
-        public override float Fraction(float value) => (Transformed(value) - Start) / Depth;
-
-        public override float Value(float fraction) => (Start + (fraction * Depth)) switch { var at => MathF.CopySign(float.ExpM1(MathF.Abs(at)), at) * (float)Constant };
 
         public override Seq<Tick> Ticks(float least) {
             float factor = float.Exp10(float.Max(1f, MathF.Ceiling(least * MathF.Abs(Depth) / MathF.Log(10f))));
@@ -152,20 +162,15 @@ public abstract partial record Axis {
             return majors.Count >= 3 ? majors.Map(static at => new Tick(at, Major: true)) : new Linear(Domain).Ticks(least);
         }
 
-        internal override void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-            using IMemoryOwner<float> magnitude = MemoryPool<float>.Shared.Rent(values.Length);
-            Span<float> held = magnitude.Memory.Span[..values.Length];
-            TensorPrimitives.Abs(values, held);
-            TensorPrimitives.Divide(held, (float)Constant, held);
-            TensorPrimitives.LogP1(held, held);
-            TensorPrimitives.CopySign(held, values, into);
-            TensorPrimitives.Subtract(into, Start, into);
-            TensorPrimitives.Divide(into, Depth, into);
-        }
+        private protected override float Transformed(float value) => MathF.CopySign(float.LogP1(MathF.Abs(value) / (float)Constant), value);
 
-        internal override float Snapped(float value, int steps, float least) => Ticked(value, steps, least);
+        private protected override float Inverted(float transformed) => MathF.CopySign(float.ExpM1(MathF.Abs(transformed)), transformed) * (float)Constant;
 
-        private float Transformed(float value) => MathF.CopySign(float.LogP1(MathF.Abs(value) / (float)Constant), value);
+        private protected override void Transformed(ReadOnlySpan<float> values, Span<float> into) =>
+            Mirrored(values, into, held => {
+                TensorPrimitives.Divide(held, (float)Constant, held);
+                TensorPrimitives.LogP1(held, held);
+            });
     }
 
     public sealed record Log : Axis {
@@ -175,12 +180,6 @@ public abstract partial record Axis {
         private Log(AxisRange domain, float @base) : base(domain) => Base = @base;
 
         public float Base { get; }
-
-        private float Depth => MathF.Log(Domain.To / Domain.From);
-
-        public override float Fraction(float value) => MathF.Log(value / Domain.From) / Depth;
-
-        public override float Value(float fraction) => Domain.From * MathF.Exp(fraction * Depth);
 
         public static Fin<Log> Validated(AxisRange domain, float @base) => UIFault.Unless(domain.Low > 0f && @base > 1f, UIReason.Range, (domain, @base)).Map(_ => new Log(domain, @base));
 
@@ -202,14 +201,6 @@ public abstract partial record Axis {
             return toSeq((majors + minors).OrderBy(tick => Fraction(tick.Value)));
         }
 
-        internal override void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-            TensorPrimitives.Divide(values, Domain.From, into);
-            TensorPrimitives.Log(into, into);
-            TensorPrimitives.Divide(into, Depth, into);
-        }
-
-        internal override float Snapped(float value, int steps, float least) => Constrained(Ticked(value, steps, least));
-
         internal override string Formatted(float value, CultureInfo culture) {
             float power = MathF.Log(value, Base);
             float whole = MathF.Round(power, MidpointRounding.ToEven);
@@ -217,6 +208,12 @@ public abstract partial record Axis {
                 ? string.Concat(Base.ToString(culture), string.Concat(((int)whole).ToString(CultureInfo.InvariantCulture).Select(static digit => Superscripts[digit is '-' ? 10 : digit - '0'])))
                 : value.ToString(Pattern(Places.IfNone(() => int.Max(0, 2 - (int)MathF.Floor(MathF.Log10(value))))), culture);
         }
+
+        private protected override float Transformed(float value) => MathF.Log(value);
+
+        private protected override float Inverted(float transformed) => MathF.Exp(transformed);
+
+        private protected override void Transformed(ReadOnlySpan<float> values, Span<float> into) => TensorPrimitives.Log(values, into);
     }
 
     public sealed record Time(AxisRange Domain, Instant Origin, DateTimeZone Zone) : Axis(Domain) {
@@ -238,8 +235,6 @@ public abstract partial record Axis {
             Seq<float> minors = Steps.TakeWhile(step => step != major).Last.Map(Placed).IfNone([]).Filter(at => !kept.Contains(at));
             return toSeq(majors.Map(static at => new Tick(at, Major: true)).Concat(minors.Map(static at => new Tick(at, Major: false))).OrderBy(static tick => tick.Value));
         }
-
-        internal override float Snapped(float value, int steps, float least) => Constrained(Ticked(value, steps, least));
 
         internal override string Formatted(float value, CultureInfo culture) =>
             LocalDateTimePattern.Create(Chosen(Resolution).Unit switch {
@@ -299,19 +294,19 @@ public abstract partial record Axis {
         private int Indexed(float value) => int.Clamp((int)value, 0, Labels.Count - 1);
     }
 
-    public sealed record Scale(AxisRange Domain, Func<float, AxisRange, float> Forward, Func<float, AxisRange, float> Inverse) : Axis(Domain) {
-        public override float Fraction(float value) => Forward(value, Domain);
-
-        public override float Value(float fraction) => Inverse(fraction, Domain);
-
+    public sealed record Scale(AxisRange Domain, Func<float, float> Forward, Func<float, float> Inverse) : Axis(Domain) {
         public override Seq<Tick> Ticks(float least) =>
             least > 0f ? toSeq(Range(0, (int)MathF.Floor(1f / least) + 1)).Map(index => Snapped(Value(index * least), 0, least)).Distinct().Map(static at => new Tick(at, Major: true)) : [];
 
-        internal override void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-            for (int index = 0; index < values.Length; index++) into[index] = Forward(values[index], Domain);
-        }
-
         internal override float Snapped(float value, int steps, float least) => Rounded(value, steps, Nice(MathF.Abs(Value(Fraction(value) + least) - value)));
+
+        private protected override float Transformed(float value) => Forward(value);
+
+        private protected override float Inverted(float transformed) => Inverse(transformed);
+
+        private protected override void Transformed(ReadOnlySpan<float> values, Span<float> into) {
+            for (int index = 0; index < values.Length; index++) into[index] = Forward(values[index]);
+        }
     }
 
     public sealed record Periodic(AxisRange Domain, int Grid, int Snap) : Axis(Domain) {

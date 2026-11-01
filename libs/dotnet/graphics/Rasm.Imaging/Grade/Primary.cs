@@ -7,8 +7,8 @@ namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GradingRgbm(float Red, float Green, float Blue, float Master) {
+    public Vector3 Product => new Vector3(Red, Green, Blue) * Master;
     internal Vector3 Sum => new Vector3(Red, Green, Blue) + new Vector3(Master);
-    internal Vector3 Product => new Vector3(Red, Green, Blue) * Master;
 
     public static GradingRgbm FromWheel(Gamut gamut, float hue, float strength, float luma) =>
         new Unicolour(Configuration.Default, ColourSpace.Oklab, 1d, 0.5d * strength * float.Cos(hue), 0.5d * strength * float.Sin(hue)).ConvertToConfiguration(gamut.Configuration).RgbLinear switch { var tint => new((float)tint.R, (float)tint.G, (float)tint.B, float.Exp2(luma)) };
@@ -36,7 +36,7 @@ public sealed record GradingPrimary(
             var (zero, one) => new(zero, one, one, zero, zero, zero, one, 1f, 0f, style.Map(log: -0.2f, linear: Metering.MiddleGray, video: Metering.MiddleGray), 0f, 1f, float.NegativeInfinity, float.PositiveInfinity),
         };
 
-    public Option<Action<Span<Vector4>>> Graded(GradingStyle style) {
+    public Option<Action<Span<Vector4>>> Graded(GradingStyle style, Gamut working) {
         static Vector3 Nonzero(Vector3 value) => Vector3.ConditionalSelect(Vector3.IsZero(value), Vector3.One, value);
         float span = float.Max(PivotWhite - PivotBlack, 0.01f);
         (Vector3 offset, float anchor, Vector3 scale, float black, float white, Vector3 power) = style.Map(
@@ -44,7 +44,7 @@ public sealed record GradingPrimary(
             linear: (Offset.Sum, 0f, Vector3.Exp(Exposure.Sum * float.Log(2f)), 0f, Metering.MiddleGray * float.Exp2(Pivot), Vector3.Max(Contrast.Product, new(0.01f))),
             video: (Offset.Sum + Lift.Sum, PivotBlack, new Vector3(span) / Nonzero((new Vector3(PivotWhite) / Nonzero(Gain.Product)) + Lift.Sum - new Vector3(PivotBlack)),
                 PivotBlack, PivotBlack + span, Vector3.One / Vector3.Max(Gamma.Product, new(0.01f))));
-        (Vector3 luma, float range) = (Gamut.StandardRgb.Luminance, white - black);
+        (Vector3 luma, float range) = (working.Luminance, white - black);
         return this with { Pivot = Neutral(style).Pivot, PivotBlack = 0f, PivotWhite = 1f } == Neutral(style) ? None : Some(ToneCurve.Graded(Corrected));
 
         Vector3 Corrected(Vector3 color) {
@@ -58,11 +58,11 @@ public sealed record GradingPrimary(
     }
 }
 
-public sealed record GradientMap(ReadOnlyMemory<Vector4> Stops) {
+public sealed record GradientMap(Seq<Vector4> Stops) {
     public Action<Span<Vector4>> Graded(Gamut gamut) {
-        (float top, Vector3 luminance, ReadOnlyMemory<Vector4> stops) = (Stops.Length - 1, gamut.Luminance, Stops);
+        (float top, Vector3 luminance, Vector4[] stops) = (Stops.Count - 1, gamut.Luminance, [.. Stops]);
         return row => {
-            ReadOnlySpan<Vector4> table = stops.Span;
+            ReadOnlySpan<Vector4> table = stops;
             foreach (ref Vector4 pixel in row) {
                 float position = float.Clamp(float.Cbrt(Vector3.Dot(luminance, pixel.AsVector3())), 0f, 1f) * top;
                 int low = int.Clamp((int)float.MaxNumber(position, 0f), 0, int.Max(table.Length - 2, 0));

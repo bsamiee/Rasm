@@ -24,6 +24,8 @@ public sealed partial class HelpTopic {
 
     public static Option<HelpTopic> Of(Option<HelpTopic> row) => row || ViewCatalog.Current.Definition.Help;
 
+    public static IO<Unit> Shown(Option<HelpTopic> row) => Of(row).Traverse(static topic => topic.Show).As().Map(unit);
+
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
             ? (trimmed, default(RhinoFault))

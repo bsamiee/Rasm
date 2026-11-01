@@ -187,11 +187,7 @@ class SunLight(msgspec.Struct, frozen=True, kw_only=True):
     def section(self) -> Section[SunSetup]:
         """Returns scene sun setup with solar caption, and place and remove buttons."""
         return Section(
-            key="sun",
-            title="Sun",
-            rows=(SolarCaption(),),
-            header=(OperatorButton(target=sun_place), OperatorButton(target=sun_remove)),
-            store=Some(Store(attachment=SunLight.attachment, retention=self.retention)),
+            key="sun", rows=(SolarCaption(),), header=(OperatorButton(target=sun_place), OperatorButton(target=sun_remove)), store=Some(Store(attachment=SunLight.attachment, retention=self.retention))
         )
 
 

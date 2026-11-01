@@ -34,7 +34,7 @@ internal sealed class AsyncContext : AsyncRenderContext {
     public Option<RenderWork> Work => works.Value.Map(static owned => owned.Value);
 
     public IO<bool> Start(RenderWindow window, IO<RenderWork> open, LocalizeStringPair caption) =>
-        (from work in Products.Replace(works, open).Scoped(Session.Scope)
+        (from work in Products.Replace(works, open).Scoped()
          from control in work.Ready.Traverse(ready => IO.lift(() => {
              ExecutionControl registered = new(ready);
              window.RegisterPostEffectExecutionControl(registered);
@@ -42,14 +42,14 @@ internal sealed class AsyncContext : AsyncRenderContext {
          })).As()
          from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
          select started)
-        .Catch(error => Products.Each(Seq(IO.lift(StopRendering), Products.Clear(works).Scoped(Session.Scope))).Map(static _ => unit) >> IO.fail<bool>(error)).As();
+        .Catch(error => Products.Each(Seq(IO.lift(StopRendering), Products.Clear(works).Scoped())).Map(static _ => unit) >> IO.fail<bool>(error)).As();
 
     public override void StopRendering() =>
         _ = Session.Run(Products.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))));
 
     protected override void Dispose(bool isDisposing) {
         if (isDisposing) {
-            _ = Session.Run(Products.Clear(works).Scoped(Session.Scope));
+            _ = Session.Run(Products.Clear(works).Scoped());
             cancellation.Dispose();
         }
         base.Dispose(isDisposing);

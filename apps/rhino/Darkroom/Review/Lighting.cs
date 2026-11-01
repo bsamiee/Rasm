@@ -1,15 +1,15 @@
 using System.Numerics;
-using CommunityToolkit.HighPerformance;
+using Darkroom.Chain;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
-using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
+using Rasm.Rhino.Document;
 using Rasm.Rhino.Objects;
+using Rasm.Rhino.Persistence;
+using Rhino;
 using Rhino.Display;
 using UnitsNet;
-using Wacton.Unicolour;
 
 namespace Darkroom.Review;
 
@@ -49,9 +49,7 @@ public sealed record ReferenceScene {
         Blob[] blobs = [.. Blobs, .. toSeq(Range(0, Dapples)).Map(_ => new Blob(
             new Vector2(random.Uniform(-1d, 1d), random.Uniform(-1d, 1d)), random.Uniform(8d, 22d), random.Uniform(0.3d, 0.8d), Tint)).Strict()];
         PixelFrame frame = new(System.Drawing.Point.Empty, size, size);
-        Span2D<Vector4> pixels = frame.View.Span;
-        for (int row = 0; row < size.Height; row++) {
-            Span<Vector4> line = pixels.GetRowSpan(row);
+        frame.Rows((line, _, row) => {
             for (int column = 0; column < line.Length; column++) {
                 Vector2 point = new((((2f * column) + 1f) / size.Width) - 1f, 1f - (((2f * row) + 1f) / size.Height));
                 Vector3 light = (Base + float.Max(((point.X + 1f) * Gradient.X / 2f) + ((point.Y + 1f) * Gradient.Y / 2f), 0f)) * Tint;
@@ -61,7 +59,7 @@ public sealed record ReferenceScene {
                 Vector3 rimmed = (light * banded) + new Vector3(float.Pow(float.Clamp(point.Length() - 0.5f, 0f, 1f), 1.4f) * Rim);
                 line[column] = new Vector4(rimmed * (1f - (float.Min(point.LengthSquared(), 1f) * Vignette)), 1f);
             }
-        }
+        });
         return frame;
     }
 }
@@ -223,72 +221,45 @@ public sealed partial class ReferenceDistribution {
     private partial ReferenceScene Roll(Random random);
 }
 
-public sealed record DistantLight(Vector3 Direction, Vector3 Color, double Stops) {
-    public static DistantLight Of(RigLight light) =>
-        (light.Axes.Toward, light.Color.Switch(blackbody: static blackbody => Lights.Blackbody((double)blackbody.Kelvin.Kelvins), linear: static linear => linear.Filter.Light)) switch {
-            var (toward, emission) => new(
-                new Vector3((float)toward.X, (float)toward.Y, (float)toward.Z), new Vector3(emission.Light.R, emission.Light.G, emission.Light.B) / (float)emission.Luminance, light.Stops),
-        };
-
-    public static PixelFrame Sphere(Seq<DistantLight> lights, PixelExtent size) {
-        (Vector3 Direction, Vector3 Gain)[] sources = [.. lights.Map(static light => (light.Direction, light.Color * (float)double.Exp2(light.Stops)))];
-        float radius = size.ShortSide / 2f;
-        PixelFrame frame = new(System.Drawing.Point.Empty, size, size);
-        Span2D<Vector4> pixels = frame.View.Span;
-        for (int row = 0; row < size.Height; row++) {
-            Span<Vector4> line = pixels.GetRowSpan(row);
-            for (int column = 0; column < line.Length; column++) {
-                Vector2 disc = new((column + 0.5f - (size.Width / 2f)) / radius, ((size.Height / 2f) - row - 0.5f) / radius);
-                float distance = disc.Length();
-                Vector2 rim = distance > 1f ? disc / distance : disc;
-                Vector3 normal = new(rim, float.Sqrt(float.Max(1f - rim.LengthSquared(), 0f)));
-                Vector3 lit = Vector3.Zero;
-                foreach ((Vector3 direction, Vector3 gain) in sources)
-                    lit += gain * float.Max(Vector3.Dot(normal, direction), 0f);
-                float coverage = float.Clamp(((1f - distance) * radius) + 0.5f, 0f, 1f);
-                line[column] = coverage > 0f ? new Vector4(lit, coverage) : Vector4.Zero;
-            }
-        }
-        return frame;
-    }
-}
-
 public sealed record RigReference(Vector3 KeyColor, Vector3 FillColor, Vector2 Direction, float Ratio, float Hardness) {
     public static RigReference Of(LightingReading reading) =>
         reading.Gels.Match(Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color), None: () => (Key: reading.KeyColor, Fill: reading.FillColor)) switch {
-            var (key, fill) => new RigReference(Linear(reading.Gamut, key), Linear(reading.Gamut, fill), reading.Direction, reading.Ratio, reading.Hardness),
-        };
-
-    private static Vector3 Linear(Gamut gamut, Vector3 color) =>
-        new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z).ConvertToConfiguration(Gamut.StandardRgb.Configuration).RgbLinear switch {
-            var rgb => new Vector3((float)rgb.R, (float)rgb.G, (float)rgb.B),
+            var (key, fill) => reading.Gamut.MatrixTo(ChainScene.Working.Gamut) switch {
+                var toRender => new RigReference(Vector3.Transform(key, toRender), Vector3.Transform(fill, toRender), reading.Direction, reading.Ratio, reading.Hardness),
+            },
         };
 }
 
 public sealed record RigLayout(
     RigReference Reference, RigEmitter Key, double KeySoftness, Angle FillSize, Option<double> Fill, Option<double> Rim, ColorFilter Tint, double ColorSaturation, double Distance) {
-    public Fin<Seq<RigLight>> Rows =>
+    private static readonly Vector3d InverseSquared = new(0d, 0d, 1d);
+
+    public Fin<Seq<RigLight>> Rigged =>
         (Azimuth: Angle.FromRadians(Reference.Direction.X * Math.PI / 2d),
          Elevation: Angle.FromRadians(Reference.Direction.Y * Math.PI / 2d),
          Size: Angle.FromRadians(Reference.Hardness > 0f ? Math.Atan2(KeySoftness * Reference.Ratio, Reference.Hardness) : Math.PI / 2d),
          Key: Peaked(Reference.KeyColor)) switch {
              var held => (Seq(
-                     Row(LightRole.Key, Key, held.Azimuth, held.Elevation, held.Size, 0d, held.Key),
-                     Row(LightRole.Fill, new RigEmitter.RectangularLight(), -held.Azimuth, Angle.Zero, FillSize, Fill.IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
-                 + Rim.Map(rim => Row(LightRole.Rim, Key, Angle.FromRadians(Math.IEEERemainder(held.Azimuth.Radians.ToDouble() + Math.PI, Math.Tau)), held.Elevation, held.Size, rim, held.Key)).ToSeq())
+                     Row("key", Key, held.Azimuth, held.Elevation, held.Size, 0d, held.Key),
+                     Row("fill", new RigEmitter.RectangularLight(), -held.Azimuth, Angle.Zero, FillSize, Fill.IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
+                 + Rim.Map(rim => Row("rim", Key, Angle.FromRadians(Math.IEEERemainder(held.Azimuth.Radians.ToDouble() + Math.PI, Math.Tau)), held.Elevation, held.Size, rim, held.Key)).ToSeq())
                  .Traverse(static light => light)
                  .As(),
          };
 
+    public IO<Seq<(string Slot, Guid Id, bool Created)>> Placed(RhinoDoc doc, KeyName name, RigTarget target, RigBasis basis, double level) =>
+        IO.lift(Rigged)
+            .Bind(lights => LightRigs.Reconcile(doc, new LightRig(name, target, basis, level, Angle.Zero, Angle.Zero, lights), (string)name, new RedrawPolicy.AllViews(Deferred: true)))
+            .Map(static committed => committed.Value);
+
     private static Color4f Peaked(Vector3 color) => color == Vector3.Zero ? Color4f.White : Lights.Peaked(color.X, color.Y, color.Z).Light;
 
-    private Fin<RigLight> Row(LightRole role, RigEmitter emitter, Angle azimuth, Angle elevation, Angle size, double stops, Color4f color) =>
-        ColorFilter.TryCreate(
-            Tint.Red * (1d + (ColorSaturation * (color.R - 1d))),
-            Tint.Green * (1d + (ColorSaturation * (color.G - 1d))),
-            Tint.Blue * (1d + (ColorSaturation * (color.B - 1d))), out ColorFilter? filter, out RhinoFault? fault)
-            ? new RigLight(role, emitter, azimuth, elevation, Distance, size, stops, new RigColor.Linear(filter), Light.Attenuation.InverseSquared)
-            : fault;
+    private Fin<RigLight> Row(string slot, RigEmitter emitter, Angle azimuth, Angle elevation, Angle size, double stops, Color4f color) =>
+        ColorFilter.Validated(
+                Tint.Red * (1d + (ColorSaturation * (color.R - 1d))),
+                Tint.Green * (1d + (ColorSaturation * (color.G - 1d))),
+                Tint.Blue * (1d + (ColorSaturation * (color.B - 1d))))
+            .Map(filter => new RigLight(slot, slot, emitter, azimuth, elevation, Distance, size, stops, new LightColor.Linear(filter), InverseSquared));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

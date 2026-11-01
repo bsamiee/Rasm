@@ -7,6 +7,10 @@ using NetTopologySuite.Algorithm;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.Operation.Buffer;
 using NetTopologySuite.Simplify;
+using Rasm.UI.Motion;
+using Rasm.UI.Input;
+using Rasm.UI.Media;
+using Rasm.UI.Typography;
 using RBush;
 using SkiaSharp;
 using SuperLinq;
@@ -20,7 +24,7 @@ internal sealed record Pen(float Stroke, float Spacing) {
     public static Pen Hit { get; } = new(0f, 0f);
 
     public float Icon { get; init; }
-    public SKMatrix Device { get; init { field = value; inverse = value.TryInvert(out SKMatrix inverted) ? Some(inverted) : None; } } = SKMatrix.Identity;
+    public SKMatrix Device { get; init { field = value; inverse = value.Inverse; } } = SKMatrix.Identity;
 
     internal float Density => Device.MapRadius(1f);
 
@@ -61,20 +65,9 @@ public sealed partial class Interpolation {
         (Spline.Filter(_ => knots.Count >= 3).Map(held => Splined(knots, at, density, held)) | Bump.Filter(_ => knots.Count >= 2).Map(along => Bumped(knots, density, along))).IfNone(knots);
 
     internal void Edges(SKPathBuilder path, Seq<SKPoint> knots, double[] at, float density, bool closed) =>
-        _ = Bump.Filter(_ => knots.Count >= 2).Match(
-            Some: along => Curved(path, knots, along, closed),
-            None: () => path.AddPoly([.. Spline.IsSome ? Traced(knots, at, density) : Simplified(knots, 0.5f / density, closed)], closed));
+        path.AddPoly([.. this == Linear ? Simplified(knots, 0.5f / density, closed) : Traced(knots, at, density)], closed);
 
     internal static double[] Chords(Seq<SKPoint> knots) => [.. toSeq(knots.AsIterable().Window(2, static pair => (double)SKPoint.Distance(pair[0], pair[1]))).Scan(0d, static (length, step) => length + step)];
-
-    private static void Curved(SKPathBuilder path, Seq<SKPoint> knots, PhysicalAxis along, bool closed) {
-        path.MoveTo(knots[0]);
-        foreach ((SKPoint from, SKPoint to) in knots.AsIterable().Window(2, static pair => (pair[0], pair[1]))) {
-            float middle = (along.Of(from) + along.Of(to)) / 2f;
-            path.CubicTo((SKPoint)along.With(from, middle), (SKPoint)along.With(to, middle), to);
-        }
-        if (closed) path.Close();
-    }
 
     private static Seq<SKPoint> Splined(Seq<SKPoint> knots, double[] at, float density, Func<double[], double[], CubicSpline> spline) {
         (CubicSpline across, CubicSpline up) = (spline(at, [.. knots.Map(static knot => (double)knot.X)]), spline(at, [.. knots.Map(static knot => (double)knot.Y)]));
@@ -96,15 +89,15 @@ public sealed partial class Interpolation {
               select at(index, step / (float)steps)).Add(knots[knots.Count - 1]);
 
     private static Seq<SKPoint> Simplified(Seq<SKPoint> knots, float tolerance, bool closed) =>
-        knots.Count < 3 ? knots : toSeq(DouglasPeuckerSimplifier.Simplify(GeometryFactory.Default.CreateLineString(Figure.Coordinates(closed ? knots + knots.Take(1) : knots)), tolerance).Coordinates)
-            .Map(Figure.Point) switch { var line => closed && line.Count > 1 ? line.Init : line, };
+        knots.Count < 3 ? knots : toSeq(DouglasPeuckerSimplifier.Simplify(GeometryFactory.Default.CreateLineString((closed ? knots + knots.Take(1) : knots).Coordinates), tolerance).Coordinates)
+            .Map(static at => at.Point) switch { var line => closed && line.Count > 1 ? line.Init : line, };
 }
 
 public sealed record Marker(GlyphSource Art, float Size);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Floor {
-    internal Option<Floor> Toward(Floor to, float progress) =>
+public abstract partial record Floor : IInterpolated<Floor> {
+    public Option<Floor> Toward(Floor to, float progress) =>
         Switch(
             (To: to, Progress: progress),
             baseline: static (held, from) => held.To is Baseline other ? Some<Floor>(new Baseline(float.Lerp(from.Value, other.Value, held.Progress))) : None,
@@ -116,34 +109,28 @@ public abstract partial record Floor {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
-public abstract partial record Figure {
+public abstract partial record Figure : IInterpolated<Figure> {
     public bool Continuous => this is Path or Curve or Graph;
 
-    internal virtual void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) { }
+    public virtual Seq<Datum> Data => [];
 
-    internal virtual void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) { }
-
-    internal virtual bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
-
-    internal virtual Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => None;
-
-    internal Option<Figure> Toward(Figure to, float progress) =>
+    public Option<Figure> Toward(Figure to, float progress) =>
         Switch<(Figure To, float Progress), Option<Figure>>(
             (to, progress),
             path: static (held, source) => held.To is Path other && source.Vertices.Count == other.Vertices.Count && source.Holes.Map(static hole => hole.Count) == other.Holes.Map(static hole => hole.Count)
                 ? Some<Figure>(other with {
                     Vertices = Lerped(source.Vertices, other.Vertices, held.Progress),
                     Holes = toSeq(source.Holes.Zip(other.Holes, (one, two) => Lerped(one, two, held.Progress))),
-                    Widths = Blended(source.Widths, other.Widths, (one, two) => one.Toward(two, held.Progress)),
+                    Widths = Blended(source.Widths, other.Widths, held.Progress),
                 })
                 : None,
             region: static (held, source) => held.To is Region other
-                ? Some<Figure>(other with { First = Blended(source.First, other.First, (one, two) => one.Toward(two, held.Progress)), Second = Blended(source.Second, other.Second, (one, two) => one.Toward(two, held.Progress)) })
+                ? Some<Figure>(other with { First = Blended(source.First, other.First, held.Progress), Second = Blended(source.Second, other.Second, held.Progress) })
                 : None,
             curve: static (held, source) => held.To is Curve other
                 ? from domain in source.Domain.Toward(other.Domain, held.Progress)
                   from samples in source.Samples.Toward(other.Samples, held.Progress)
-                  select (Figure)(other with { Domain = domain, Samples = samples, Fill = Blended(source.Fill, other.Fill, (one, two) => one.Toward(two, held.Progress)) })
+                  select (Figure)(other with { Domain = domain, Samples = samples, Fill = Blended(source.Fill, other.Fill, held.Progress) })
                 : None,
             graph: static (held, source) => held.To is Graph other
                 ? source.Domain.Toward(other.Domain, held.Progress).Map(domain => (Figure)(other with { Domain = domain, Function = at => float.Lerp(source.Function(at), other.Function(at), held.Progress) }))
@@ -152,9 +139,9 @@ public abstract partial record Figure {
             points: static (held, source) => held.To is Points other && source.At.Count == other.At.Count
                 ? Some<Figure>(other with {
                     At = Lerped(source.At, other.At, held.Progress),
-                    Values = Blended(source.Values, other.Values, (one, two) => one.Toward(two, held.Progress)),
-                    Sizes = Blended(source.Sizes, other.Sizes, (one, two) => one.Toward(two, held.Progress)),
-                    Opacity = Blended(source.Opacity, other.Opacity, (one, two) => one.Toward(two, held.Progress)),
+                    Values = Blended(source.Values, other.Values, held.Progress),
+                    Sizes = Blended(source.Sizes, other.Sizes, held.Progress),
+                    Opacity = Blended(source.Opacity, other.Opacity, held.Progress),
                 })
                 : None,
             bars: static (held, source) => held.To is Bars other
@@ -170,9 +157,22 @@ public abstract partial record Figure {
                 : None,
             label: static (held, source) => held.To is Label other ? source.Along.Toward(other.Along, held.Progress).Map(along => (Figure)(other with { Along = along })) : None);
 
-    public virtual Seq<Datum> Data => [];
+    internal virtual void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) { }
 
-    internal Option<Datum> DatumAt(int index) => Data.Find(datum => datum.Index == index);
+    internal virtual void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) { }
+
+    internal virtual bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
+
+    internal virtual Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => None;
+
+    internal Option<Datum> Stepped(PlotPlane plane, Option<Datum> current, Bearing toward) {
+        Seq<Datum> data = Data;
+        int last = data.Count - 1;
+        int index = toward.Granularity.Distance(1f, int.Max(1, data.Filter(datum => plane.Contains(PhysicalAxis.Horizontal, None, datum.Value.X)).Count)).Match(
+            Some: stride => current.Map(datum => datum.Index + (toward.Sign * (int)stride)).IfNone(toward.Sign > 0 ? 0 : last),
+            None: () => toward.Sign > 0 ? last : 0);
+        return int.Clamp(index, 0, int.Max(0, last)) switch { var at => data.Find(datum => datum.Index == at) };
+    }
 
     internal virtual float Weight(PlotFrame frame, Pen pen) => 1f;
 
@@ -180,32 +180,19 @@ public abstract partial record Figure {
 
     internal virtual Seq<(Marker Marker, SKPoint At, float Degrees)> Markers(SKPath edge) => [];
 
-    internal static Coordinate[] Coordinates(Seq<SKPoint> line) => [.. line.Map(static at => new Coordinate(at.X, at.Y))];
-
-    internal static SKPoint Point(Coordinate at) => new((float)at.X, (float)at.Y);
-
-    internal static Seq<SKPoint> Ring(LineString line) => toSeq(line.IsClosed ? line.Coordinates[..^1] : line.Coordinates).Map(Point);
-
     private static Seq<Vector2> Lerped(Seq<Vector2> from, Seq<Vector2> to, float progress) => toSeq(from.Zip(to, (one, two) => Vector2.Lerp(one, two, progress)));
 
-    private static Option<T> Blended<T>(Option<T> from, Option<T> to, Func<T, T, Option<T>> toward) => to.Map(target => from.Bind(source => toward(source, target)).IfNone(target));
+    private static Option<T> Blended<T>(Option<T> from, Option<T> to, float progress) where T : IInterpolated<T> => to.Map(target => from.Bind(source => source.Toward(target, progress)).IfNone(target));
 
-    private static float Reach(Seq<SKPoint> line, SKPoint at) => line.IsEmpty ? float.PositiveInfinity : (float)DistanceComputer.PointToSegmentString(new Coordinate(at.X, at.Y), Coordinates(line));
+    private static float Reach(Seq<SKPoint> line, SKPoint at) => line.IsEmpty ? float.PositiveInfinity : (float)DistanceComputer.PointToSegmentString(at.Coordinate, line.Coordinates);
 
     private static bool Inside(Seq<Seq<SKPoint>> rings, SKPoint at) =>
-        rings.Filter(static ring => !ring.IsEmpty).Count(ring => PointLocation.IsInRing(new Coordinate(at.X, at.Y), Coordinates(ring + ring.Take(1)))) % 2 is 1;
+        rings.Filter(static ring => !ring.IsEmpty).Count(ring => PointLocation.IsInRing(at.Coordinate, (ring + ring.Take(1)).Coordinates)) % 2 is 1;
 
     private static void Filled(SKPathBuilder path, Seq<Seq<SKPoint>> rings) {
         if (rings.Count > 1) path.FillType = SKPathFillType.EvenOdd;
         _ = rings.Iter(ring => path.AddPoly([.. ring], close: true));
     }
-
-    private static Seq<Seq<SKPoint>> Rings(Geometry geometry) =>
-        geometry switch {
-            Polygon polygon => Ring(polygon.ExteriorRing).Cons(toSeq(polygon.InteriorRings).Map(Ring)),
-            GeometryCollection collection => toSeq(collection.Geometries).Bind(Rings),
-            _ => [],
-        };
 
     private static float Distance(SKPoint point, SKPoint local, Option<PhysicalAxis> along) =>
         along.Match(Some: axis => MathF.Abs(axis.Of((Vector2)point - (Vector2)local)), None: () => SKPoint.Distance(point, local));
@@ -265,8 +252,8 @@ public abstract partial record Figure {
         private Seq<SKPoint> Knots(PlotFrame frame, Pen pen, Seq<Vector2> loop, bool closed) =>
             (Interpolation == Interpolation.Linear, loop) switch {
                 (true, [var from, var to]) when !closed && frame.Plane.Separable => pen.Snapped(frame.Point(from), frame.Point(to)) switch { var (start, end) => Seq(start, end) },
-                (true, _) => toSeq(frame.Traced(loop, closed, pen).DistinctUntilChanged()),
-                _ => toSeq(loop.Map(frame.Point).DistinctUntilChanged()),
+                (true, _) => toSeq(frame.Walked(loop.Map(frame.Plane.Fraction), closed, pen).DistinctUntilChanged()),
+                _ => toSeq(frame.Points(loop).DistinctUntilChanged()),
             };
 
         private Option<Seq<Seq<SKPoint>>> Ribbon(PlotFrame frame) =>
@@ -274,7 +261,9 @@ public abstract partial record Figure {
                 double[] distances = new double[widths.Values.Length];
                 TensorPrimitives.ConvertTruncating(widths.Values.Span, distances);
                 TensorPrimitives.Multiply(distances, 0.5d, distances);
-                return Rings(VariableBuffer.Buffer(GeometryFactory.Default.CreateLineString(Coordinates(Vertices.Map(frame.Point))), distances));
+                return VariableBuffer.Buffer(GeometryFactory.Default.CreateLineString(frame.Points(Vertices).Coordinates), distances).Paths
+                    .Bind(static ring => ring.Vertices.Cons(ring.Holes))
+                    .Map(static ring => ring.Map(static at => (SKPoint)at));
             });
     }
 
@@ -289,7 +278,7 @@ public abstract partial record Figure {
 
         internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => frame.Contains(local, First, Second);
 
-        internal static Option<Region> Spanning(float left, float right, float low, float high) =>
+        public static Option<Region> Spanning(float left, float right, float low, float high) =>
             (AxisRange.Validated(left, right), AxisRange.Validated(low, high)).Apply(static (across, up) => new Region { First = Some(across), Second = Some(up) }).As().ToOption();
     }
 
@@ -322,7 +311,7 @@ public abstract partial record Figure {
                         (upper, under) => held.Curve.Traced(held.Frame, held.Pen, upper) + held.Curve.Traced(held.Frame, held.Pen, under).Rev())),
                 })).IfNone([]);
 
-        private Seq<(int Start, int End)> Shared(PlotFrame frame, Option<Samples> paired) => Samples.Finite(Samples.Visible(frame, Domain), paired);
+        private Seq<(int Start, int End)> Shared(PlotFrame frame, Option<Samples> paired) => Samples.Runs(Samples.Visible(frame, Domain), paired);
 
         private Seq<Seq<Vector2>> Runs(PlotFrame frame, Pen pen, Samples samples, Seq<(int Start, int End)> runs) =>
             samples.Decimated(frame, Domain, Columns(frame, pen), runs).Map(run => Step.Match(
@@ -397,7 +386,7 @@ public abstract partial record Figure {
         internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
             Indexed.Nearest(Trees.GetValue(this, static points => Indexed.Tree(points.At)), frame, local, along, index => Distance(frame.Point(At[index]), local, along)).Map(index => new Datum(index, At[index]));
 
-        private Seq<(SKPoint At, Option<float> Size)> Dots(PlotFrame frame) => Marker.IsSome ? [] : At.Map((at, index) => (frame.Point(at), Sizes.Bind(sizes => sizes.At(index))));
+        private Seq<(SKPoint At, Option<float> Size)> Dots(PlotFrame frame) => Marker.IsSome ? [] : frame.Points(At).Map((at, index) => (at, Sizes.Bind(sizes => sizes.At(index))));
     }
 
     public sealed record Bars(AxisRange Domain, Samples Values) : Figure {
@@ -419,7 +408,7 @@ public abstract partial record Figure {
         private Option<Region> Bar(PlotFrame frame, int index) {
             float slot = Values.Slot(Domain);
             float half = (float)Width * frame.Plane.Bandwidth * MathF.Abs(slot) / 2f;
-            float center = Domain.From + (index * slot);
+            float center = Values.Across(Domain, index);
             return from value in Values.At(index)
                    from floor in Floor.Switch(index, baseline: static (_, baseline) => Some(baseline.Value), lower: static (at, lower) => lower.Samples.At(at))
                    from bar in Region.Spanning(center - half, center + half, floor, value)
@@ -451,7 +440,7 @@ public abstract partial record Figure {
     }
 
     public sealed record Field : Figure {
-        private Field(int columns, int rows, Samples values) => (Columns, Rows, Values) = (columns, rows, values);
+        internal Field(int columns, int rows, Samples values) => (Columns, Rows, Values) = (columns, rows, values);
 
         public int Columns { get; }
         public int Rows { get; }

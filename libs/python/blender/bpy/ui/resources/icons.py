@@ -113,12 +113,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             yield branded.map(lambda _: None)
 
         with identity.reports.deferred(retinted) as later:
-            yield Ok((
-                PREVIEWS,
-                ICONS,
-                (Band.RESOURCES, tinted()),
-                *(Subscription(owner=owner, setting=definition(owner).properties[member], body=lambda: Ok(later())) for owner, member in self.watched),
-            ))
+            yield Ok((ICONS, (Band.RESOURCES, tinted()), *(Subscription(owner=owner, setting=definition(owner).properties[member], body=lambda: Ok(later())) for owner, member in self.watched)))
 
     # --- [READING]
 
@@ -155,7 +150,7 @@ def _text_color() -> Color:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-ICONS: Final = Resource[IconSet](made=lambda identity: nullcontext(IconSet.loaded(identity)))
+ICONS: Final = Resource[IconSet](made=lambda identity: nullcontext(IconSet.loaded(identity)), prerequisites=(PREVIEWS,))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

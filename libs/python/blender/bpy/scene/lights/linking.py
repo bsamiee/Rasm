@@ -18,7 +18,7 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import entry, founded, Member, relinked
 from blender.bpy.scene.objects import focused
-from blender.bpy.ui.layout import rows
+from blender.bpy.ui.layout import members, rows
 from blender.records.faults import accumulated, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -59,8 +59,8 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
 
         def linking(link: Descriptor[bpy.types.PointerProperty]) -> Outcome[rows.RowDraw]:
             stock = (rows.OperatorButton(target=Placement(_LINKERS[link])), rows.OperatorButton(target=Placement(bpy.ops.object.light_linking_unlink_from_collection)))
-            view = rows.Member(root=bpy.types.ObjectLightLinking, path=(link.prop.identifier,), reach=Some(reach))
-            return rows.bound((view,), lambda located, layout, _holder, _context: layout.template_light_linking_collection(layout, *located[0][1])).bind(
+            view = members.Member(root=bpy.types.ObjectLightLinking, path=(link.prop.identifier,), reach=Some(reach))
+            return members.bound((view,), lambda located, layout, _holder, _context: layout.template_light_linking_collection(layout, *located[0][1])).bind(
                 lambda shown: rows.realized((shown, *stock), identity)
             )
 

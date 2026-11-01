@@ -29,7 +29,8 @@ from blender.bpy.nodes.desired import Graph, Members
 from blender.bpy.nodes.graphs import Expr, mixed, Term
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.records.faults import Fault, Outcome, Reason
@@ -124,7 +125,6 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         """Returns environment, world settings, and place and restore buttons."""
         return Section(
             key="environment",
-            title="Environment",
             rows=tuple(Property(target=Member(root=bpy.types.Context, path=("scene", "world", member))) for member in ("sun_threshold", "lightgroup")),
             header=(OperatorButton(target=environment_place), OperatorButton(target=environment_restore)),
             store=Some(Store(attachment=self.attachment, host=Some(Member(root=bpy.types.Context, path=("scene", "world", "node_tree"))), retention=self.retention)),

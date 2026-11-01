@@ -56,16 +56,16 @@ public abstract partial record Thumbnail {
 
 [SmartEnum]
 public sealed partial class ImageZoom {
-    public static readonly ImageZoom Fit = new(new CommandFace("image-fit", "Fit") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_ZoomExtentsSvg)) }, Keys.Application | Keys.D0,
+    public static readonly ImageZoom Fit = new(new CommandFace("image-fit", "Fit") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_ZoomExtentsSvg)) }, Keys.D0,
         static (image, viewport) => image.Width > 0 && image.Height > 0
             ? float.Min((float)viewport.Width / image.Width, (float)viewport.Height / image.Height) switch { var scale => Size.Round(new SizeF(image.Width * scale, image.Height * scale)) }
             : image);
 
-    public static readonly ImageZoom ActualSize = new(new CommandFace("image-actual", "Actual Size") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_Zoom1To1SvgSvg_Zoom1To1Svg)) }, Keys.Application | Keys.D1,
+    public static readonly ImageZoom ActualSize = new(new CommandFace("image-actual", "Actual Size") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_Zoom1To1SvgSvg_Zoom1To1Svg)) }, Keys.D1,
         static (image, _) => image);
 
     public CommandFace Face { get; }
-    public Keys Shortcut { get; }
+    public Keys Key { get; }
 
     [UseDelegateFromConstructor]
     internal partial Size Sized(Size image, Size viewport);
@@ -112,8 +112,8 @@ public sealed record ImageRow(ReadoutSource<Loading<Bitmap>> Image) : IRow<Image
     private static Command<Invoke> Zoomed(Atom<(Loading<Bitmap> Image, ImageZoom Zoom)> held, IO<Unit> shown, ImageZoom zoom) =>
         new Command<Invoke>.Run(
             zoom.Face,
-            Some(new RowRule(_ => held.ValueIO.Map(static state => state.Image.Held.IsSome))),
-            new Invoke.Effect(_ => held.SwapIO(state => state with { Zoom = zoom }).Bind(_ => shown)) { Shortcut = Some(zoom.Shortcut) }) {
+            new Invoke.Effect(_ => held.SwapIO(state => state with { Zoom = zoom }).Bind(_ => shown)) { Shortcut = Some(Application.Instance.CommonModifier | zoom.Key) }) {
+            Enabled = new RowRule(_ => held.ValueIO.Map(static state => state.Image.Held.IsSome)),
             Marked = new RowRule(_ => held.ValueIO.Map(state => state.Zoom == zoom)),
         };
 }

@@ -5,6 +5,7 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using Emgu.CV.Util;
+using MathNet.Numerics;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 
@@ -48,8 +49,8 @@ public sealed class PointSpread(Seq<Mat> kernels) : IDisposable {
         CvInvoke.ExtractChannel(spectrum, energy, 0);
         foreach ((float wavelength, Vector3 matching) in rows) {
             double scale = reference * firstZero * pupil.Circumradius / airy / wavelength;
-            double[] columns = [.. Enumerable.Range(0, width).Select(x => Sinc(scale / grid * (x - (size.Width - 1))))];
-            double[] lines = [.. Enumerable.Range(0, height).Select(y => Sinc(scale / grid * (y - (size.Height - 1))))];
+            double[] columns = [.. Enumerable.Range(0, width).Select(x => Trig.Sinc(scale / grid * (x - (size.Width - 1))))];
+            double[] lines = [.. Enumerable.Range(0, height).Select(y => Trig.Sinc(scale / grid * (y - (size.Height - 1))))];
             Span2D<double> weights = footprint.View<double>();
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++)
@@ -63,8 +64,6 @@ public sealed class PointSpread(Seq<Mat> kernels) : IDisposable {
                 CvInvoke.ScaleAdd(light, (double)matching[component] / total[component], planes[component], planes[component]);
         }
         return new(toSeq(planes));
-
-        static double Sinc(double t) => t is 0d ? 1d : double.SinPi(t) / (double.Pi * t);
     }
 
     public void Convolve(Mat light, BorderType border = BorderType.Constant) {
@@ -149,7 +148,7 @@ public static class Glare {
             using Mat coarse = pyramid[level];
             using Mat fine = level > 0 ? pyramid[level - 1] : new Mat(light, new Rectangle(Point.Empty, light.Size));
             using Mat up = new();
-            CvInvoke.PyrUp(coarse, up, BorderType.Replicate);
+            CvInvoke.PyrUp(coarse, up);
             using Mat cropped = new(up, new Rectangle(Point.Empty, fine.Size));
             CvInvoke.AddWeighted(fine, 1d / (levels - level + 1), cropped, (double)(levels - level) / (levels - level + 1), 0d, fine);
         }

@@ -1,47 +1,49 @@
+using Rasm.Rhino;
+
 namespace Darkroom.Chain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class Derivations : IDisposable {
-    private readonly Lock sync = new();
-    private HashMap<Delegate, (object Key, object Value)> derived;
-    private Option<HashMap<Delegate, (object Key, IDisposable Value)>> held = Some(HashMap<Delegate, (object Key, IDisposable Value)>());
+public sealed class Derivations {
+    private readonly Derivations root;
+    private readonly string owner;
+    private readonly Atom<HashMap<(string Owner, Delegate Derive), (object Key, object Value)>> derived;
+    private readonly Lock sync;
+    private HashMap<(string Owner, Delegate Open), (object Key, IDisposable Value)> held;
+
+    public Derivations() => (root, owner, derived, sync) = (this, "", Atom(HashMap<(string Owner, Delegate Derive), (object Key, object Value)>()), new Lock());
+
+    private Derivations(Derivations root, string owner) => (this.root, this.owner, derived, sync) = (root, owner, root.derived, root.sync);
+
+    // --- [SCOPES]
+    public Derivations Owned(string kind) => new(root, kind);
 
     // --- [VALUES]
-    public TValue Derived<TKey, TValue>(TKey key, Func<TKey, TValue> derive) where TKey : notnull where TValue : notnull {
-        lock (sync) {
-            ObjectDisposedException.ThrowIf(held.IsNone, this);
-            return derived.Find(derive).Filter(kept => kept.Key.Equals(key)).Map(static kept => (TValue)kept.Value).IfNone(() => {
-                TValue value = derive(key);
-                derived = derived.AddOrUpdate(derive, (key, value));
-                return value;
-            });
-        }
-    }
+    public TValue Derived<TKey, TValue>(TKey key, Func<TKey, TValue> derive) where TKey : notnull where TValue : notnull =>
+        derived.Value.Find((owner, derive)).Filter(kept => kept.Key.Equals(key)).Map(static kept => (TValue)kept.Value).IfNone(() => {
+            TValue value = derive(key);
+            _ = derived.Swap(values => values.AddOrUpdate((owner, derive), (key, value)));
+            return value;
+        });
 
     // --- [RESOURCES]
-    public Fin<TResult> Held<TKey, TResource, TResult>(TKey key, Func<TKey, Fin<TResource>> open, Func<TResource, Fin<TResult>> use)
+    public Fin<TResult> Held<TKey, TResource, TResult>(TKey key, Func<TKey, Fin<TResource>> open, Func<TResource, Fin<TResult>> run)
         where TKey : notnull
         where TResource : IDisposable {
         lock (sync) {
-            return held.ToFin(Errors.Cancelled).Bind(resources => resources.Find(open).Filter(kept => kept.Key.Equals(key)).Match(
-                Some: kept => Used((TResource)kept.Value, use),
-                None: () => Try.lift(() => open(key)).Run().Bind(static Fin<TResource> (opened) => opened).Bind(opened => {
-                    Fin<Unit> released = resources.Find(open).Map(static kept => Try.lift(kept.Value.Dispose).Run()).IfNone(unit);
-                    held = Some(resources.AddOrUpdate(open, (key, opened)));
-                    return released.Bind(_ => Used(opened, use));
-                })));
+            return root.held.Find((owner, open)) switch {
+                var kept => kept.Filter(found => found.Key.Equals(key)).Match(
+                    Some: found => run((TResource)found.Value),
+                    None: () => {
+                        Fin<TResource> opened = Acquired(kept, open, key);
+                        root.held = opened.Match(Succ: fresh => root.held.AddOrUpdate((owner, open), (key, fresh)), Fail: _ => root.held.Remove((owner, open)));
+                        return opened.Bind(run);
+                    }),
+            };
         }
     }
 
-    private static Fin<TResult> Used<TResource, TResult>(TResource resource, Func<TResource, Fin<TResult>> use) =>
-        Try.lift(() => use(resource)).Run().Bind(static Fin<TResult> (result) => result);
-
-    // --- [RELEASE]
-    public void Dispose() {
-        lock (sync) {
-            Seq<IDisposable> closed = held.ToSeq().Bind(static resources => toSeq(resources.Values).Map(static kept => kept.Value));
-            (held, derived) = (None, HashMap<Delegate, (object Key, object Value)>());
-            _ = closed.Map(static resource => Try.lift(resource.Dispose).Run()).Strict().Traverse(static released => released).As().ThrowIfFail();
-        }
-    }
+    private static Fin<TResource> Acquired<TKey, TResource>(Option<(object Key, IDisposable Value)> stale, Func<TKey, Fin<TResource>> open, TKey key) where TResource : IDisposable =>
+        (from released in stale.Traverse(static found => release(found.Value)).As()
+         from opened in IO.lift(() => open(key)).Bind(static opened => use(() => opened))
+         select opened).Scoped().RunSafe();
 }

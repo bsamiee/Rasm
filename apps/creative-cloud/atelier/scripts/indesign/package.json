@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-indesign-script",
     "private": true,
-    "description": "UXP script serving one InDesign contract request per do script run",
+    "description": "Document model served to agents from inside the host",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

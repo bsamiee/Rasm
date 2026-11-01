@@ -1,13 +1,14 @@
 using System.Drawing;
 using System.Globalization;
+using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
+using Rhino.Render.PostEffects;
 using UnitsNet;
 using Wacton.Unicolour;
-using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Objects;
 
@@ -22,6 +23,8 @@ public sealed partial class ColorFilter {
     public double Blue { get; }
 
     public Emission Light => Lights.Peaked(Red, Green, Blue);
+
+    public static Fin<ColorFilter> Validated(double red, double green, double blue) => TryCreate(red, green, blue, out ColorFilter? filter, out RhinoFault? fault) ? filter : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
@@ -151,6 +154,13 @@ public static class Lights {
         (from settings in use(() => doc.RenderSettings)
          from flow in use(() => settings.LinearWorkflow)
          select flow.PreProcessColors ? flow.PreProcessGamma : 1f).Bracket();
+
+    public static IO<Option<float>> PostProcessGamma(RhinoDoc doc) =>
+        (from settings in use(() => doc.RenderSettings)
+         from flow in use(() => settings.LinearWorkflow)
+         from effects in Products.Of(() => settings.PostEffects)
+         from held in Products.Many(() => effects, required: false)
+         select Some(flow.PostProcessGamma).Filter(_ => held.Exists(static data => data.Id == PostEffectUuids.Gamma && data.On && data.Shown))).Bracket();
 
     // --- [STAGE]
     public static Stage<Light> Stage(RhinoDoc doc, Guid id) =>

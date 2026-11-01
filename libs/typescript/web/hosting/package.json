@@ -1,7 +1,7 @@
 {
     "name": "@rasm/hosting",
     "private": true,
-    "description": "Web app hosting on edge Worker or Node server with server-rendered pages, schema-encoded hydration data, one signed-in user header from OpenAI Sites, Cloudflare Access, or authenticating proxy, R2 or S3 object storage, Worker config schema every hosting target maps, and HTTP API boundaries",
+    "description": "One web app served the same on edge and server runtimes",
     "sideEffects": false,
     "type": "module",
     "imports": {

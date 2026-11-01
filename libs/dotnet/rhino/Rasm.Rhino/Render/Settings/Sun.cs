@@ -159,7 +159,7 @@ public sealed partial class SunWindow {
         TryCreate(start, end, step, out SunWindow? window, out RhinoFault? fault) ? window : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref LocalDateTime start, ref LocalDateTime end, ref Period step) =>
-        validationError = Rule(start, end, step).Match(Succ: static _ => null, Fail: static error => error.Filter<RhinoFault>().Head as RhinoFault);
+        validationError = Conversions.Rejection(Rule(start, end, step));
 
     private static Fin<Unit> Rule(LocalDateTime start, LocalDateTime end, Period step) =>
         (RhinoFault.Unless(start <= end, RhinoReason.Invalid, (start, end)),

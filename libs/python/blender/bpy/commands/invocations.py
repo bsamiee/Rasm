@@ -67,7 +67,7 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
 
         def built(names: tuple[str, ...]) -> Acquisitions:
             redo = {"bl_options": base.bl_options | {"UNDO"}} if self.call.func == bpy.types.WindowManager.invoke_props_popup else {}
-            return (type(base.__name__, (base,), {"invoke": body.invoking(partial(opened, names)), **redo}),)
+            return (_derived(base, body, {"invoke": body.invoking(partial(opened, names)), **redo}),)
 
         return (
             _accepted(self.call.func, (*self.call.keywords, *(("message",) if self.message.is_some() else ())))
@@ -118,9 +118,9 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
 
         def built(_names: tuple[str, ...]) -> Acquisitions:
             return (
-                type(
-                    base.__name__,
-                    (base,),
+                _derived(
+                    base,
+                    body,
                     {
                         "__annotations__": {"suppress": bpy.props.BoolProperty(name="Do not show again", options={"SKIP_SAVE"})},
                         "draw": draw,
@@ -150,9 +150,9 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             return body.chose(operator, context, tuple(Path(directory, item.name) for item in files if item.name) or tuple(Path(path) for path in (filepath,) if path))
 
         return Ok((
-            type(
-                base.__name__,
-                (ImportHelper, base),
+            _derived(
+                base,
+                body,
                 {
                     "__annotations__": {
                         "filter_glob": _globbed(self.extensions),
@@ -163,6 +163,7 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "execute": execute,
                     "invoke": body.invoking(lambda operator, context, _event: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=self.confirm_text))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 },
+                mixins=(ImportHelper,),
             ),
         ))
 
@@ -185,9 +186,9 @@ class Folder(msgspec.Struct, frozen=True):
             return Ok({"RUNNING_MODAL"})
 
         return Ok((
-            type(
-                base.__name__,
-                (base,),
+            _derived(
+                base,
+                body,
                 {
                     "__annotations__": {
                         "directory": bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"}),
@@ -233,9 +234,9 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         destined = {"check_existing": bpy.props.BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"}), "replacing": bpy.props.BoolProperty(options={"HIDDEN", "SKIP_SAVE"})}
         return Ok((
-            type(
-                base.__name__,
-                (ExportHelper, base),
+            _derived(
+                base,
+                body,
                 {
                     "__annotations__": {"filter_glob": _globbed(self.extensions), **(destined if self.destinations.is_some() else {})},
                     "filename_ext": property(extension),
@@ -243,6 +244,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "execute": execute,
                     "invoke": body.invoking(lambda operator, context, event: Ok(ExportHelper.invoke(operator, context, event))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 },
+                mixins=(ExportHelper,),
             ),
         ))
 
@@ -253,12 +255,18 @@ class Pick(msgspec.Struct, frozen=True, kw_only=True):
     asks: ClassVar[bool] = False
     cursor: "rna_enums.WindowCursorItems"
 
-    def classed[T: bpy.types.PropertyGroup](self, _body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
+    def classed[T: bpy.types.PropertyGroup](self, body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
         """Derives the class declaring `DEPENDS_ON_CURSOR` with the pending cursor."""
-        return Ok((type(base.__name__, (base,), {"bl_options": base.bl_options | {"DEPENDS_ON_CURSOR"}, "bl_cursor_pending": self.cursor}),))
+        return Ok((_derived(base, body, {"bl_options": base.bl_options | {"DEPENDS_ON_CURSOR"}, "bl_cursor_pending": self.cursor}),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _derived[T: bpy.types.PropertyGroup](base: type[bpy.types.Operator], body: Body[T], namespace: dict[str, object], /, *, mixins: tuple[type, ...] = ()) -> type[bpy.types.Operator]:
+    """Returns the class an invoke form registers in place of base, after the mixins, stating the command's primary property again since Blender reads it from a class's own namespace alone."""
+    derived: type[bpy.types.Operator] = type(base.__name__, (*mixins, base), {**body.command.property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
+    return derived
 
 
 def _accepted(function: Callable[..., object], named: tuple[str, ...], /) -> Outcome[tuple[str, ...]]:

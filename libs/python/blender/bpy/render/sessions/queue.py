@@ -37,6 +37,7 @@ from blender.bpy.settings.attachments import TextRecord
 from blender.bpy.ui.layout import rows
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.screens.areas import AreaQuery, EditorState
+from blender.bpy.ui.surfaces.panels import Preference
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.stores import content_hash, RecordFile
 from blender.rendering.batch import supervision
@@ -56,15 +57,13 @@ _PAUSABLE: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D,
 
 
 class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Render queue commands, status timer, section with its progress row, and preferences section, each frame running through `render` and each plan revised through `planning`."""
+    """Render queue commands, status timer, section with its progress row, and the preference its setup commands sit beside, each frame running through `render` and each plan revised through `planning`."""
 
     sets: RenderSet[C]
-    settings: Callable[[Identity], Outcome[Queueing]]
     render: Render = native
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
     key: ClassVar[Key] = "render_queue"
-    title: ClassVar[str] = bpy.path.display_name(key)
 
     # --- [COMMANDS]
 
@@ -80,7 +79,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
                     lambda counts: (type(queueing.target).__name__, f"{len(plan.scopes)} jobs, {sum(counts)} frames")
                 )
 
-            return paired(dispatcher.planned(context, form, datetime.datetime.now(datetime.UTC)), dispatcher.settings(dispatcher.identity)).bind(lambda pair: counted(*pair))
+            return paired(dispatcher.planned(context, form, datetime.datetime.now(datetime.UTC)), dispatcher.preference.read(dispatcher.identity)).bind(lambda pair: counted(*pair))
 
         return Operator.of(
             Dispatch,
@@ -117,12 +116,12 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         return (self.record, QUEUES, PRODUCTIONS, *self.sets.prerequisites, FrameSize.attachment, *PassSet.prerequisites)
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
-        """Binds dispatcher to identity stores, render sets, routing, render, planning, and settings."""
+        """Binds dispatcher to identity stores, render sets, routing, render, planning, and queue preference."""
         host = accumulated(identity.identifier(command) for command in RunCommand).map(
             lambda names: HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands=dict(zip(RunCommand, names)))
         )
         return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet.bound(identity), QueueRun.record.attachment.bound(identity)).map(
-            lambda parts: Dispatcher(identity, *parts, self.render, self.planning, self.settings)
+            lambda parts: Dispatcher(identity, *parts, self.render, self.planning, self.preference)
         )
 
     @staticmethod
@@ -155,8 +154,8 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             ).default_with(lambda: (bpy.app.translations.pgettext_iface("Preparing"), 0.0))
 
         runs = (
-            self
-            .settings(identity)
+            self.preference
+            .read(identity)
             .map(lambda queueing: tuple(work(held, queueing.stale) for held in identity.held[QUEUES].observed.to_list()))
             .default_with(lambda faults: tuple((fault.message, 0.0) for fault in faults))
         )
@@ -164,28 +163,21 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     @property
     def section(self) -> Section:
-        """Queue section: dispatch, run progress read from session state at draw, status, and run controls."""
+        """Queue section: dispatch, run progress read from session state at draw, status, and run controls, the queue registering what the progress reads."""
         return Section(
             key=self.key,
-            title=self.title,
             rows=(
                 rows.OperatorButton(target=self.dispatching),
-                rows.Layout(rows=lambda identity: Ok((rows.Label(text=partial(self.progressed, identity), function=rows.FUNCTIONS["progress"]),))),
+                rows.Layout(rows=lambda identity: Ok((rows.Label(text=partial(self.progressed, identity), function=rows.FUNCTIONS["progress"]),)), prerequisites=(self,)),
                 rows.Status(),
-                rows.Layout(rows=tuple(rows.OperatorButton(target=command, keywords={"text": ""}) for command in self.controls), container=Some(lambda layout: layout.row(align=True))),
+                rows.Layout(rows=tuple(rows.OperatorButton(target=command, keywords={"text": ""}) for command in self.controls), container=Some(rows.aligned)),
             ),
         )
 
-    @property
-    def preferences(self) -> tuple[Section, ...]:
-        """Preferences section of Manager reads, job type install, and notice test."""
-        return (
-            Section(
-                key=f"{self.key}_setup",
-                title=self.title,
-                rows=(rows.Layout(rows=tuple(rows.OperatorButton(target=command) for command in self.setup), container=Some(lambda layout: layout.row(align=True))),),
-            ),
-        )
+    @cached_property
+    def preference(self) -> Preference[Queueing]:
+        """Queue preferences with Manager reads, job type install, and notice test after the fields."""
+        return Preference(key=self.key, form=Queueing, rows=(rows.Layout(rows=tuple(rows.OperatorButton(target=command) for command in self.setup), container=Some(rows.aligned)),))
 
     # --- [REGISTRATION]
 
@@ -202,6 +194,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
                     self.dispatching,
                     *self.controls,
                     *self.setup,
+                    self.preference,
                     Timer(body=dispatcher.watched),
                     Handler(handlers=bpy.app.handlers.load_post, body=lambda: dispatcher.watched().map(lambda _: None)),
                 ))
@@ -244,7 +237,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
         )
 
     return (
-        paired(dispatcher.planned(context, call.properties, moment), dispatcher.settings(identity), rooted(bpy.types.WindowManager, context))
+        paired(dispatcher.planned(context, call.properties, moment), dispatcher.preference.read(identity), rooted(bpy.types.WindowManager, context))
         .bind(lambda parts: gated(parts[0], parts[1]).map(lambda _: parts))
         .bind(lambda parts: written(*parts))
         .bind(lambda done: dispatcher.watched().map(lambda _: done))
@@ -268,7 +261,7 @@ def resume(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
             else Error(Fault.of(Reason.OUTSIDE, str(dispatcher.host.path(queue.stem, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))
         )
 
-    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1])).bind(lambda done: dispatcher.watched().map(lambda _: done))
+    return paired(dispatcher.kept(), dispatcher.preference.read(call.identity)).bind(lambda pair: resent(*pair[0], pair[1])).bind(lambda done: dispatcher.watched().map(lambda _: done))
 
 
 def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -282,7 +275,7 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
         stopped: Outcome[None] = supervision.stop(progress)
         return Result[None, Faults].bind(stopped, ended)
 
-    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
+    return paired(dispatcher.kept(), dispatcher.preference.read(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
 
 
 def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -311,7 +304,7 @@ def cancel_shutdown(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     def cancelling(progress: Progress, queueing: Queueing) -> Outcome[Done]:
         return cancelled(progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),))) if queueing.shutdown else Error(Fault.of(Reason.ABSENT, repr(queueing), member="shutdown"))
 
-    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1]))
+    return paired(dispatcher.kept(), dispatcher.preference.read(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1]))
 
 
 # --- [SETUP]
@@ -347,7 +340,7 @@ def read_manager(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     def noted(manager: Manager) -> Done:
         return Done(notes=(("INFO", f"Job type {'installed' if manager.job_type.is_some() else 'missing'}"), *(("INFO", f"Worker tag {tag.name}") for tag in manager.tags)))
 
-    return dispatcher.settings(call.identity).bind(flamenco).bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried))).map(noted)
+    return dispatcher.preference.read(call.identity).bind(flamenco).bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried))).map(noted)
 
 
 def install_job_type(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -361,12 +354,14 @@ def install_job_type(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]
 
         return written().map_error(partial(Fault.of, Reason.UNWRITABLE, folder)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
-    return dispatcher.settings(call.identity).bind(lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(call.context.preferences), member="scripts"))))
+    return dispatcher.preference.read(call.identity).bind(
+        lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(call.context.preferences), member="scripts")))
+    )
 
 
 def post_test_notice(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Posts a test notice to the listener topic."""
-    return dispatcher.settings(call.identity).bind(lambda queueing: dispatcher.posted(queueing.listener, Test())).map(lambda _: Done(notes=(("INFO", "Notice posted"),)))
+    return dispatcher.preference.read(call.identity).bind(lambda queueing: dispatcher.posted(queueing.listener, Test())).map(lambda _: Done(notes=(("INFO", "Notice posted"),)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

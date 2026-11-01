@@ -28,7 +28,8 @@ from blender.bpy.nodes.graphs import Expr, mixed
 from blender.bpy.nodes.trees import active_output, emptied, feeds, nested, socket_at, tree_of
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import acquired, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.surfaces.menus import Append
@@ -83,9 +84,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 
     def section(self) -> Section[MeshLight]:
         """Returns mesh light section of active object."""
-        return Section(
-            key="mesh_light", title="Mesh Light", store=Some(Store(attachment=MeshLights.attachment, host=Some(Member(root=bpy.types.LayerObjects, path=("active",))), retention=self.retention))
-        )
+        return Section(key="mesh_light", store=Some(Store(attachment=MeshLights.attachment, host=Some(Member(root=bpy.types.LayerObjects, path=("active",))), retention=self.retention)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

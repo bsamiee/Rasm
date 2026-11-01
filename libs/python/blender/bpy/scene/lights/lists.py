@@ -20,7 +20,8 @@ from blender.bpy.scene.lights.emitters import emitters, emitting, picked, streng
 from blender.bpy.scene.objects import focused, ObjectState, reconciled
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton, Property
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import acquired, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Outcome, paired
@@ -75,7 +76,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
 
         return Section(
             key="light_list",
-            title="Lights",
+            title=Some("Lights"),
             rows=(
                 ItemList[bpy.types.PropertyGroup, bpy.types.Object](
                     key="emitters",

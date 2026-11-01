@@ -1,17 +1,23 @@
-"""Signed distance fields of planar primitives over node expressions, their smooth booleans and morphs, distance-ramp coverage, and gradient parameters."""
+"""Signed distance fields of planar primitives over node expressions, polygons and stars through an angular fold, their smooth booleans and morphs, distance-ramp coverage, gradient parameters, and periodic profiles."""
 
+from collections.abc import Callable
 from enum import Enum
 from functools import reduce
 from itertools import starmap
-from math import cos, pi, sin, tau
-from typing import Literal, Self, TYPE_CHECKING
+from math import pi, tau
+from typing import Final, get_args, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option
+from expression import Option, Some
 import msgspec
 
-from blender.bpy.nodes.graphs import equal, Expr, math, mixed, Scalar, switched, vector, where, xyz
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.nodes.desired import MenuItem, MenuItems
+from blender.bpy.nodes.functions import EXPRESSIONS
+from blender.bpy.nodes.graphs import equal, Expr, math, menus, mixed, Scalar, switched, vector, where, xyz
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.render.compositor.coordinates import FrameSpace
+from blender.imaging.geometry.arithmetic import periodic, WaveProfile
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -31,6 +37,19 @@ class Join(Enum):
         self.outer, self.inner = outer, inner
         self.widest: Option[rna_enums.NodeMathItems] = Option.of_optional(widest)
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_WAVE_PROFILE: Final = Descriptor.declared(bpy.types.ShaderNodeTexWave, ("wave_profile",), bpy.types.EnumProperty).prop
+_PROFILE: Final = Socket(
+    key="profile",
+    kind=bpy.types.NodeSocketMenu,
+    description="Periodic profile of each cycle",
+    default_value=_WAVE_PROFILE.enum_items[_WAVE_PROFILE.default].name,
+    items=Some(MenuItems.of(_WAVE_PROFILE)),
+)
+_STEPS: Final = Socket(key="steps", kind=bpy.types.NodeSocketInt, description="Levels each cycle holds past its first, continuous at 0 and a square wave at 1 over Saw", min_value=0)
+PROFILE: Final = Interface(inputs=(_PROFILE, _STEPS))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -155,13 +174,18 @@ def triangle(point: Expr, a: Expr, b: Expr, c: Expr, roundness: Expr) -> Bounded
     return Bounded(distance=polygonal(point, (first, second, third), incircle * roundness), width=incircle * 2.0)
 
 
-def polygon(point: Expr, radius: Expr, sides: int, inset: Expr, roundness: Expr) -> Bounded:
-    """Regular polygon of `sides` outer vertices, side midpoints pulled toward the center into a star by `inset`."""
+def polygon(point: Expr, radius: Expr, sides: Scalar, inset: Expr, roundness: Expr) -> Bounded:
+    """Regular polygon of `sides` outer vertices, the first straight up, side midpoints pulled toward the center into a star by `inset`, measured in the one sector its angular fold maps every point into."""
     rounding = radius * roundness
     outer = radius - rounding
-    inner = outer * ((1.0 - inset) * cos(pi / sides))
-    first, *rest = (vector("SCALE", (cos(pi / 2.0 + pi * index / sides), sin(pi / 2.0 + pi * index / sides), 0.0), inner if index % 2 else outer) for index in range(2 * sides))
-    return Bounded(distance=polygonal(point, (first, *rest), rounding), width=(inner + rounding) * 2.0)
+    sector = math("DIVIDE", pi, sides)
+    inner = outer * (1.0 - inset) * math("COSINE", sector)
+    turn = abs(math("FLOORED_MODULO", math("ARCTAN2", point["X"], point["Y"]) + sector, sector * 2.0) - sector)
+    folded = vector("SCALE", xyz(math("SINE", turn), math("COSINE", turn)), vector("LENGTH", point))
+    tip, edge = xyz(0.0, outer), vector("SCALE", xyz(math("SINE", sector), math("COSINE", sector)), inner)
+    chord = edge - tip
+    distance = stroke(folded, tip, edge, 0.0, 0.0).distance
+    return Bounded(distance=where(chord["X"] * (folded["Y"] - outer) - chord["Y"] * folded["X"] < 0.0, -distance, distance) - rounding, width=(inner + rounding) * 2.0)
 
 
 def heart(point: Expr, height: Expr) -> Bounded:
@@ -248,9 +272,26 @@ def rectangular(local: Expr, width: Expr, height: Expr) -> Expr:
     return math("MAXIMUM", folded["X"], folded["Y"])
 
 
+def profiled(read: Callable[[Socket], Expr], cycles: tuple[Expr, *tuple[Expr, ...]]) -> tuple[Expr, ...]:
+    """Periodic profiles in [0, 1] at cycle coordinates, one period per unit, through one Menu Switch over the `PROFILE` menu, held at `steps` levels above zero.
+
+    Args:
+        read: Group input of a `PROFILE` socket, such as `partial(shell.input, panel)` over the panel holding it.
+        cycles: Cycle coordinates in output order.
+
+    Returns:
+        Profile per cycle coordinate.
+    """
+    steps = read(_STEPS)
+    items = {item.identifier: MenuItem(name=item.name, description=item.description) for item in _WAVE_PROFILE.enum_items}
+    waves = menus(read(_PROFILE), {items[profile]: tuple(periodic(profile, cycle, EXPRESSIONS) for cycle in cycles) for profile in get_args(WaveProfile.__value__)})
+    return tuple(switched(steps, wave, math("MINIMUM", math("FLOOR", wave * (steps + 1.0)) / steps, 1.0)) for wave in waves)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "PROFILE",
     "Bounded",
     "Join",
     "angular",
@@ -266,6 +307,7 @@ __all__ = [
     "linear",
     "polygon",
     "polygonal",
+    "profiled",
     "radial",
     "rectangular",
     "rotated",

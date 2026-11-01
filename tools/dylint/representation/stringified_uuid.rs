@@ -44,7 +44,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .map(|(field, value)| (field.name, value));
         let assigned = match (place(cx, expr), access(cx, expr)) {
             (Some(Place::Field(field)), Access::Assigned(value)) => Some((cx.tcx.item_name(field), value)),
-            (Some(Place::Field(_)), Access::Copied | Access::Borrowed | Access::Moved | Access::Mutated) | (Some(Place::Static(_) | Place::Local(_) | Place::Parameter(_)) | None, _) => None,
+            (Some(Place::Field(_)), Access::Copied | Access::Borrowed | Access::Moved | Access::Mutated)
+            | (Some(Place::Static(_) | Place::Local(_) | Place::Parameter(_)) | None, Access::Copied | Access::Borrowed | Access::Moved | Access::Mutated | Access::Assigned(_)) => None,
         };
         for (field, span) in built.chain(assigned).filter_map(|(field, value)| Some((field, rendered(value)?))) {
             span_lint_hir_and_then(cx, STRINGIFIED_UUID, expr.hir_id, span, format!("field `{field}` holds a `Uuid` rendered to text"), |diag| {

@@ -1,6 +1,6 @@
 """Scrambled Sobol integration with replicate error, pixel footprint integrals, and soft disc populations splatted with occlusion into rasters."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 import math
 import sys
@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.stats import qmc, sem
 
-from blender.imaging.geometry.arithmetic import smoothstep
+from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
 from blender.imaging.geometry.frames import Raster, Region
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import NonNegative, Positive, Seed, Unit
@@ -71,12 +71,12 @@ class Disc(msgspec.Struct, frozen=True, kw_only=True):
 class Population(msgspec.Struct, frozen=True, kw_only=True):
     """Soft discs in square cells with presence, size, fade, and edge, each cell drawing stable uniforms from a caller draw source of (keys, stream, count)."""
 
-    spacing: Positive = 0.01
-    density: Unit = 0.5
-    size: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=0.5)] = 0.2
-    variation: Unit = 0.5
-    spread: NonNegative = 1.0
-    softness: Unit = 0.5
+    spacing: Annotated[Positive, msgspec.Meta(description="Cell width")] = 0.01
+    density: Annotated[Unit, msgspec.Meta(description="Share of cells holding a disc")] = 0.5
+    size: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=0.5, description="Disc diameter over cell width")] = 0.2
+    variation: Annotated[Unit, msgspec.Meta(description="Diameter shrink share below size")] = 0.5
+    spread: Annotated[NonNegative, msgspec.Meta(description="Per-disc gain drop in stops")] = 1.0
+    softness: Annotated[Unit, msgspec.Meta(description="Edge fade over radius before pixel filtering")] = 0.5
 
     def covering(self, bounds: Region) -> npt.NDArray[np.int64]:
         """Returns cells with discs able to intersect global bounds, rows bottom first."""
@@ -91,16 +91,14 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         kept = values[:, 0] < self.density
         return cells[kept], values[kept]
 
-    def placed(
-        self, cells: npt.NDArray[np.int64], values: npt.NDArray[np.float64], spacing: float, scale: float | npt.NDArray[np.float64] = 1.0
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Returns centers, radii, and peak gains of occupied cells from their uniforms at lattice spacing and depth scale."""
-        return (cells[:, :2] + 0.25 + 0.5 * values[:, 4:6]) * spacing, self.spacing * scale * self.size * (1.0 - self.variation * values[:, 1]) / 2.0, np.exp2(-self.spread * values[:, 2])
+    def placed[V: Elementwise, B](self, cell: tuple[V, V], draws: Sequence[V], ns: Namespace[V, B], *, spacing: float, scale: V | float = 1.0) -> tuple[V, V, V, V]:
+        """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms at lattice `spacing` and depth `scale`, over any namespace."""
+        return placement(cell, draws, ns, spacing=spacing, diameter=self.spacing * self.size, variation=self.variation, spread=self.spread, scale=scale)
 
     def discs(self, bounds: Region, draws: _Draws, stream: int = 0) -> tuple[Disc, ...]:
         """Returns occupied members of cells covering global bounds, in cell order."""
         cells, values = self.occupied(self.covering(bounds), draws, stream)
-        centers, radii, gains = self.placed(cells, values, self.spacing)
+        centers, radii, gains = self._placements(cells, values)
         return tuple(
             Disc(cell=tuple(cell), center=(center[0], center[1]), radius=radius, gain=gain, tone=tone)
             for cell, center, radius, gain, tone in zip(cells.tolist(), centers.tolist(), radii.tolist(), gains.tolist(), values[:, 3].tolist())
@@ -117,7 +115,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         @np.errstate(over="raise", divide="raise", invalid="raise")
         def computed() -> Estimate[npt.NDArray[np.float64]]:
             cells, values = self.occupied(self.covering(raster.bounds), draws, stream)
-            centers, radii, gains = self.placed(cells, values, self.spacing)
+            centers, radii, gains = self._placements(cells, values)
             paints = np.column_stack((np.ones(len(values)), np.array([paint(tone) for tone in values[:, 3].tolist()], dtype=np.float64).reshape(-1)))
             area = float(np.prod(raster.step))
 
@@ -144,8 +142,37 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
         return computed().map_error(partial(Fault.of, Reason.FAILED, repr(self)))
 
+    def _placements(self, cells: npt.NDArray[np.int64], values: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Returns `(discs, 2)` centers, radii, and peak gains of occupied cells and their uniforms at the population's own spacing."""
+        column, row = cells[:, :2].T.astype(np.float64)
+        across, up, radii, gains = self.placed((column, row), tuple(values.T), np, spacing=self.spacing)
+        return np.column_stack((across, up)), radii, gains
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def placement[V: Elementwise, B](
+    cell: tuple[V, V], draws: Sequence[V], ns: Namespace[V, B], *, spacing: V | float, diameter: V | float, variation: V | float, spread: V | float, scale: V | float = 1.0
+) -> tuple[V, V, V, V]:
+    """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms, every population value an operand of the namespace, such as group inputs over node expressions.
+
+    Args:
+        cell: Lattice column and row.
+        draws: Six uniforms of the cell: presence, size, gain, tone, and two center offsets.
+        ns: Namespace of the operands.
+        spacing: Lattice spacing.
+        diameter: Largest disc diameter at unit scale.
+        variation: Diameter shrink share below the largest.
+        spread: Gain drop in stops at the largest draw.
+        scale: Depth scale of the radius.
+
+    Returns:
+        Center abscissa, center ordinate, radius, and peak gain.
+    """
+    column, row = cell
+    _, size, gain, _, across, up = draws
+    return (column + 0.25 + across * 0.5) * spacing, (row + 0.25 + up * 0.5) * spacing, (1.0 - size * variation) * scale * (diameter * 0.5), ns.exp2(gain * spread * -1.0)
 
 
 def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
@@ -189,4 +216,4 @@ def transmitted(gains: npt.NDArray[np.float64], coverage: npt.NDArray[np.float64
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Disc", "Estimate", "Population", "Precision", "footprint", "integrated", "transmitted"]
+__all__ = ["Disc", "Estimate", "Population", "Precision", "footprint", "integrated", "placement", "transmitted"]

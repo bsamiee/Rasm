@@ -86,7 +86,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             if let Some((awaited, built)) =
                 for_each_expr_without_closures(for_loop.body, |inner| desugar_await(inner).and_then(joined).map_or(ControlFlow::Continue(()), |built| ControlFlow::Break((inner, built))))
-                && (matches!(built, Built::Iterated | Built::Before) || !exits())
+                && match built {
+                    Built::Iterated | Built::Before => true,
+                    Built::Inside => !exits(),
+                }
             {
                 let items = snippet(cx, for_loop.arg.span, "..");
                 let message = match built {

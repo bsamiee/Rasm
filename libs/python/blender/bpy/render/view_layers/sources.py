@@ -22,9 +22,9 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.mirrors import choices, enum_choices, flagged
 from blender.bpy.data.rna.paths import RnaPath, rooted
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.desired import Interface, NodeGroup, Socket
 from blender.bpy.nodes.functions import built, placed
 from blender.bpy.nodes.graphs import Expr, group_input, rgba, Term, xyz
+from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
 from blender.bpy.nodes.trees import base_socket, DATA_TYPES
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.outputs.formats import FileItem, FileItems, OutputFormat

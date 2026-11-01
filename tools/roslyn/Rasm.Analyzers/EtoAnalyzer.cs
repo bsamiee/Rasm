@@ -18,21 +18,21 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         Category,
         "Cached system font disposed, read without release",
         "`{1}` disposes font `SystemFonts.{0}` caches for every caller, read the font without a release",
-        "`SystemFonts` fonts reach no `Dispose`, `using`, `use`, `release`, acquire, holder, or retaining call, directly or through bindings");
+        "`SystemFonts` fonts reach no `Dispose`, `using`, `use`, `release`, acquire, or retaining call, directly or through bindings");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
         Category,
         "Eto container acquired by plain dispose, detach children before `Dispose`",
         "`{0}` disposes `{1}` with children attached, acquire `{1}` through `use` with a release detaching children before `Dispose`",
-        "Plain-dispose acquires, holders, and retaining calls of `Eto.Forms.Container` detach earlier-held or `StackLayout` children before `Dispose`");
+        "Plain-dispose acquires and retaining calls of `Eto.Forms.Container` detach earlier-held or `StackLayout` children before `Dispose`");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM2203",
         Category,
-        "Retained control disposed on failure, delete the release",
-        "`{0}` disposes `{1}` on failure after `{2}` handed `{1}` to an owner, delete the release",
-        "Failure releases skip `Eto.Widget` values a plain-dispose acquire or retaining call handed to an owner earlier on one path");
+        "Retained control transferred, pass it without `Transfer`",
+        "`{0}` disposes `{1}` on failure after `{2}` handed `{1}` to an owner, pass `{1}` to its consumer without `Transfer`",
+        "`Products.Transfer` takes no `Eto.Widget` value a retaining call handed to an owner earlier on one path");
 
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
@@ -54,11 +54,11 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         Compilation compilation = context.Compilation;
         (SystemSymbols system, EtoSymbols eto, RasmRhinoSymbols rasm) = (new(compilation), new(compilation), new(compilation));
         if (!eto.Handlers.IsEmpty) Handlers(context, eto.Handlers);
+        if (rasm.Session is { } callbacks) Natives(context, system, eto, new MacSymbols(compilation), rasm, callbacks);
         if (Lifetimes.Of(system, rasm, new LanguageExtSymbols(compilation)) is not { } lifetimes) return;
         if (eto is { SystemFonts: { } fonts, Font: { } font }) Fonts(context, lifetimes, fonts, font);
         if (eto is { Container: { } container, Control: { } control }) Frames(context, lifetimes, container, control, eto.StackLayout);
-        if (eto.Widget is { } widget && !lifetimes.Failures.IsEmpty) Failures(context, lifetimes, widget);
-        if (rasm.Session is { } callbacks) Natives(context, lifetimes, system, eto, new MacSymbols(compilation), rasm, callbacks);
+        if (eto.Widget is { } widget && !lifetimes.Transfers.IsEmpty) Transfers(context, lifetimes, widget);
     }
 
     // --- [FONTS]
@@ -119,58 +119,31 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             : Consumer(call) is IInvocationOperation outer && Lifetimes.Handed(outer, held).FirstOrDefault() is { } chained ? chained
             : Lifetimes.Handed(call, held).FirstOrDefault();
         IEnumerable<IOperation> Children(ISymbol? holder, IOperation site, IOperation? origin, Reading reading) =>
-            Created(origin)
-                .Concat(holder is null ? [] : References(holder, site, reading).SelectMany(Attached))
-                .Concat(holder is ILocalSymbol local ? Bindings(local, reading).SelectMany(Created) : []);
-        bool Disposing(IOperation release) =>
-            Lambda(release) is { Symbol.Parameters.Length: 1 } function && Sole(function.Body) is IInvocationOperation { Instance: { } instance } call
-            && lifetimes.Disposes(call.TargetMethod) && Stripped(instance) is IParameterReferenceOperation reference
-            && SymbolEqualityComparer.Default.Equals(reference.Parameter, function.Symbol.Parameters[0]);
-        (string Owner, ITypeSymbol Held, ISymbol? Holder, IOperation? Origin)? Acquired(IOperation operation, Reading reading) =>
-            operation switch {
-                IInvocationOperation call when Among(call.TargetMethod, plain) =>
-                    (Label(call), call.TargetMethod.TypeArguments[0], Holder(call, call.TargetMethod.TypeArguments[0], reading), call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0)),
-                IInvocationOperation { Arguments.Length: 1 } call when lifetimes.Retaining(call, call.Arguments[0].Parameter!) && Stripped(call.Arguments[0].Value).Type is { } handed =>
-                    (Label(call), handed, Held(call.Arguments[0].Value, reading), call.Arguments[0]),
-                IObjectCreationOperation { Constructor: { } constructor, Type: INamedTypeSymbol { TypeArguments.Length: 1 } lease, Arguments.Length: 2 } creation
-                    when Among(constructor, lifetimes.Holders) && Disposing(creation.Arguments[1].Value) =>
-                    (Label(constructor), lease.TypeArguments[0], Held(creation.Arguments[0].Value, reading), creation.Arguments[0]),
-                _ => null,
-            };
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.ObjectCreation], (operation, analysis) => {
-            if (operation.SemanticModel is not { } model) return [];
+            Created(origin).Concat(new[] { holder, origin is IArgumentOperation { Value: var handed } ? Held(handed, reading) : null }
+                .OfType<ISymbol>()
+                .Distinct(SymbolEqualityComparer.Default)
+                .SelectMany(held => References(held, site, reading).SelectMany(Attached).Concat(held is ILocalSymbol local ? Bindings(local, reading).SelectMany(Created) : [])));
+        (string Owner, ITypeSymbol Held, ISymbol? Holder, IOperation? Origin)? Acquired(IInvocationOperation call, Reading reading) =>
+            Among(call.TargetMethod, plain)
+                ? (Label(call), call.TargetMethod.TypeArguments[0], Holder(call, call.TargetMethod.TypeArguments[0], reading), call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0))
+            : call.Arguments is { Length: 1 } arguments && arguments[0] is { Parameter: { } parameter, Value: var value } && lifetimes.Retaining(call, parameter) && Stripped(value).Type is { } handed
+                ? (Label(call), handed, Held(value, reading), arguments[0])
+            : null;
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, analysis) => {
+            if (call.SemanticModel is not { } model) return [];
             Reading reading = new(model, analysis.CancellationToken);
-            return Acquired(operation, reading) is { } acquired && Derives(acquired.Held, container)
-                && Children(acquired.Holder, operation, acquired.Origin, reading).Any(child => Hazard(child, acquired.Held, operation.Syntax.SpanStart, reading))
-                    ? [Diagnostic.Create(Framed, operation.Syntax.GetLocation(), acquired.Owner, acquired.Held.Name)]
+            return Acquired(call, reading) is { } acquired && Derives(acquired.Held, container)
+                && Children(acquired.Holder, call, acquired.Origin, reading).Any(child => Hazard(child, acquired.Held, call.Syntax.SpanStart, reading))
+                    ? [Diagnostic.Create(Framed, call.Syntax.GetLocation(), acquired.Owner, acquired.Held.Name)]
                     : [];
         });
     }
 
-    // --- [FAILURES]
-    private static void Failures(CompilationStartAnalysisContext context, Lifetimes lifetimes, INamedTypeSymbol widget) {
-        ImmutableArray<IMethodSymbol> handing = [
-            .. lifetimes.Acquires.Where(method => method.Parameters.Length > 1 && lifetimes.Plain(method) && Same(method.Parameters[method.Parameters.Length - 1].Type, lifetimes.Action)),
-        ];
-        IEnumerable<(IOperation Site, ISymbol Held)> Disposed(IOperation release, Reading reading) =>
-            release.DescendantsAndSelf()
-                .SelectMany(step => step switch {
-                    IInvocationOperation { Instance: { } instance } call when lifetimes.Disposes(call.TargetMethod) => [(Site: step, Value: instance)],
-                    IMethodReferenceOperation { Instance: { } instance } reference when lifetimes.Disposes(reference.Method) => [(Site: step, Value: instance)],
-                    IInvocationOperation call when Among(call.TargetMethod, lifetimes.Releases) =>
-                        call.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(value => (Site: step, Value: value)),
-                    _ => [],
-                })
-                .Where(disposed => Derives(Stripped(disposed.Value).Type, widget))
-                .Select(disposed => (disposed.Site, Held: Held(disposed.Value, reading)))
-                .Where(static disposed => disposed.Held is not null)
-                .Select(static disposed => (disposed.Site, disposed.Held!))
-                .Distinct();
+    // --- [TRANSFERS]
+    private static void Transfers(CompilationStartAnalysisContext context, Lifetimes lifetimes, INamedTypeSymbol widget) {
         string? Origin(IOperation? value, Reading reading, ImmutableHashSet<ISymbol> seen) =>
             value is null ? null : Stripped(value) switch {
-                IInvocationOperation call when Among(call.TargetMethod, handing) => Label(call),
-                IInvocationOperation call when Among(call.TargetMethod, lifetimes.Failures) =>
-                    Origin(call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0)?.Value, reading, seen),
+                IInvocationOperation call when Among(call.TargetMethod, lifetimes.Retains) => Label(call),
                 ITranslatedQueryOperation { Syntax: QueryExpressionSyntax { Body.SelectOrGroup: SelectClauseSyntax select } } =>
                     Origin(reading.Model.GetOperation(select.Expression, reading.Token), reading, seen),
                 var reference when Held(reference, reading) is { } held => Source(held, reading, seen),
@@ -187,28 +160,27 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             && Consumer(lambda) is IDelegateCreationOperation creation && Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation call } argument
                 ? Origin(call.Instance ?? (call.TargetMethod.IsExtensionMethod && argument.Parameter?.Ordinal is not 0 ? call.Arguments[0].Value : null), reading, seen.Add(held))
                 : null;
-        string? Retained(ISymbol held, IOperation failure, Reading reading) =>
-            References(held, failure, reading)
-                .Where(reference => reference.Syntax.Span.End <= failure.Syntax.SpanStart)
+        string? Retained(ISymbol held, IOperation transfer, Reading reading) =>
+            References(held, transfer, reading)
+                .Where(reference => reference.Syntax.Span.End <= transfer.Syntax.SpanStart)
                 .Select(static reference => Consumer(reference))
                 .OfType<IArgumentOperation>()
                 .Select(argument => argument is { Parent: IInvocationOperation call, Parameter: { } parameter } && lifetimes.Retaining(call, parameter) ? Label(call) : null)
                 .FirstOrDefault(static owner => owner is not null);
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (failure, analysis) => {
-            if (!Among(failure.TargetMethod, lifetimes.Failures) || failure.SemanticModel is not { } model
-                || failure.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 1) is not { } release) return [];
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (transfer, analysis) => {
+            if (!Among(transfer.TargetMethod, lifetimes.Transfers) || transfer.SemanticModel is not { } model
+                || transfer.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0) is not { Value: var value } || !Derives(Stripped(value).Type, widget)) return [];
             Reading reading = new(model, analysis.CancellationToken);
-            return Disposed(release.Value, reading)
-                .Select(disposed => (disposed.Site, disposed.Held, Owner: Retained(disposed.Held, failure, reading) ?? Source(disposed.Held, reading, [])))
-                .Where(static found => found.Owner is not null)
-                .Select(static found => Diagnostic.Create(Twice, found.Site.Syntax.GetLocation(), found.Site.Syntax, found.Held.Name, found.Owner));
+            return Held(value, reading) is { } held && (Retained(held, transfer, reading) ?? Source(held, reading, [])) is { } owner
+                ? [Diagnostic.Create(Twice, transfer.Syntax.GetLocation(), Label(transfer), held.Name, owner)]
+                : [];
         });
     }
 
     // --- [NATIVES]
-    private static void Natives(CompilationStartAnalysisContext context, Lifetimes lifetimes, SystemSymbols system, EtoSymbols eto, MacSymbols mac, RasmRhinoSymbols rasm, INamedTypeSymbol callbacks) {
+    private static void Natives(CompilationStartAnalysisContext context, SystemSymbols system, EtoSymbols eto, MacSymbols mac, RasmRhinoSymbols rasm, INamedTypeSymbol callbacks) {
         (INamedTypeSymbol? register, INamedTypeSymbol? export, INamedTypeSymbol? pointer, INamedTypeSymbol? callers, INamedTypeSymbol? widget) = (mac.Register, mac.Export, system.FunctionPointer, system.CallersOnly, eto.Widget);
-        (ImmutableArray<IMethodSymbol> boundaries, ImmutableArray<IMethodSymbol> producers, ImmutableArray<IMethodSymbol> adders) = (rasm.Boundaries, rasm.Producers, eto.AddMethod);
+        (ImmutableArray<IMethodSymbol> boundaries, ImmutableArray<IMethodSymbol> adders) = (rasm.Boundaries, eto.AddMethod);
         bool Wrapper(INamedTypeSymbol type) =>
             Marked(type, register) is { } data
             && ((data.ConstructorArguments.Length > 1 && data.ConstructorArguments[1].Value is true) || data.NamedArguments.Any(static named => named.Value.Value is true && string.Equals(named.Key, "IsWrapper", StringComparison.Ordinal)));
@@ -216,18 +188,10 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         bool Wrapped(IMethodSymbol method) => method.IsOverride && Bound(Overridden(method).Last().ContainingType);
         bool Overriding(IMethodSymbol method, INamedTypeSymbol? root) =>
             root is not null && method.IsOverride && Overridden(method).Last() is var origin && !Sourced(origin) && Derives(origin.ContainingType, root);
-        bool Produced(IOperation? value, Reading reading, int depth) =>
-            value is not null && depth > 0 && Stripped(value) switch {
-                IInvocationOperation call when Among(call.TargetMethod, producers) => true,
-                IInvocationOperation call when Among(call.TargetMethod, lifetimes.Lifts) => call.Arguments.Any(argument => Produced(argument.Value, reading, depth - 1)),
-                var reference when Held(reference, reading) is { } held => Bindings(held, reading).Any(bound => Produced(bound, reading, depth - 1)),
-                _ => false,
-            };
         IOperation? Bodied(IMethodSymbol method, Reading reading) => Declarations(method, reading).OfType<IMethodBodyOperation>().Select(Body).FirstOrDefault();
         bool Routed(IOperation step, Reading reading, int depth) =>
             step.ConstantValue.HasValue || step is IDefaultValueOperation
             || (step is IInvocationOperation call && (Among(call.TargetMethod, boundaries)
-                || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Produced(call.Instance, reading, 4))
                 || (depth > 0 && Sourced(call.TargetMethod) && Bodied(call.TargetMethod, reading) is IBlockOperation body && Sole(body) is { } inner && Routed(inner, reading, depth - 1))));
         static bool Rooted(IOperation? instance) => instance is not null && Stripped(instance) is IInstanceReferenceOperation;
         static bool Inherited(ISymbol member) => !Sourced(member) && member.ContainingType is { SpecialType: not SpecialType.System_Object };
@@ -267,7 +231,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 IDelegateCreationOperation { Type: { } type } creation when Marked(type, pointer) is not null =>
                     Checked(Implementation(creation, reading), reading).Select(escape => (type.Name, escape.Site, escape.Run)),
                 IInvocationOperation call when Bound(call.TargetMethod.ContainingType) || Among(call.TargetMethod, adders) =>
-                    call.Arguments.Where(argument => argument.Parameter?.Type is { TypeKind: TypeKind.Delegate } handed && Marked(handed, pointer) is null && !Produced(argument.Value, reading, 4))
+                    call.Arguments.Where(argument => argument.Parameter?.Type is { TypeKind: TypeKind.Delegate } handed && Marked(handed, pointer) is null)
                         .SelectMany(argument => Checked(Implementation(argument.Value, reading), reading))
                         .Select(escape => (Label(call.TargetMethod), escape.Site, escape.Run)),
                 _ => [],

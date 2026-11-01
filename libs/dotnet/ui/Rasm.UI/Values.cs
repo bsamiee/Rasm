@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using Rasm.UI.Motion;
 using SkiaSharp;
 
 namespace Rasm.UI;
@@ -25,7 +26,7 @@ public sealed partial class PhysicalAxis {
 }
 
 [ValueObject<float>(SkipFactoryMethods = true)]
-public sealed partial class Fraction {
+public sealed partial class Fraction : IInterpolated<Fraction> {
     public static Fraction MinValue { get; } = new(0f);
     public static Fraction Half { get; } = new(0.5f);
     public static Fraction MaxValue { get; } = new(1f);
@@ -33,6 +34,10 @@ public sealed partial class Fraction {
     public Fraction Complement => new(1f - _value);
 
     public Fraction Midpoint(Fraction other) => new((_value + other._value) / 2f);
+
+    public Option<Fraction> Toward(Fraction to, float progress) => new Fraction(float.Clamp(float.Lerp(_value, to._value, progress), 0f, 1f));
+
+    public static Seq<Fraction> Partition(int count) => toSeq(Range(0, count)).Map(index => new Fraction(index / float.Max(count - 1, 1)));
 
     public static Fin<Fraction> Validated(float value) => UIFault.Unless(value is >= 0f and <= 1f, UIReason.Range, value).Map(_ => new Fraction(value));
 }
@@ -64,42 +69,6 @@ public sealed partial class Limits {
     public static Fin<Limits> Validated(float min, float max) => UIFault.Unless(float.IsFinite(min) && min >= 0f && max >= min, UIReason.Order, (min, max)).Map(_ => new Limits(min, max));
 }
 
-[ComplexValueObject(SkipFactoryMethods = true)]
-public sealed partial class Corners {
-    public static Corners Square { get; } = new(0f, 0f, 0f, 0f);
-
-    public float TopLeft { get; }
-    public float TopRight { get; }
-    public float BottomRight { get; }
-    public float BottomLeft { get; }
-
-    public Option<float> Uniform => Seq(TopRight, BottomRight, BottomLeft).ForAll(radius => radius.CompareTo(TopLeft) is 0) ? Some(TopLeft) : None;
-
-    public static Fin<Corners> Validated(float topLeft, float topRight, float bottomRight, float bottomLeft) =>
-        UIFault.Unless(Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f), UIReason.Range, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new Corners(topLeft, topRight, bottomRight, bottomLeft));
-
-    internal static Corners Round(float radius) => new(radius, radius, radius, radius);
-
-    internal Corners Within(SKRect outer, SKRect inner) {
-        (float Left, float Top, float Right, float Bottom) gap =
-            (float.Max(0f, inner.Left - outer.Left), float.Max(0f, inner.Top - outer.Top), float.Max(0f, outer.Right - inner.Right), float.Max(0f, outer.Bottom - inner.Bottom));
-        return new(Concentric(TopLeft, gap.Left, gap.Top), Concentric(TopRight, gap.Right, gap.Top), Concentric(BottomRight, gap.Right, gap.Bottom), Concentric(BottomLeft, gap.Left, gap.Bottom));
-    }
-
-    internal Corners Fitted(SKSize size) =>
-        Seq((Length: size.Width, Radii: TopLeft + TopRight), (Length: size.Height, Radii: TopRight + BottomRight), (Length: size.Width, Radii: BottomRight + BottomLeft), (Length: size.Height, Radii: BottomLeft + TopLeft))
-            .Fold(1f, static (least, edge) => edge.Radii > edge.Length ? float.Min(least, edge.Length / edge.Radii) : least) switch {
-                < 1f and var scale => Each(radius => radius * scale),
-                _ => this,
-            };
-
-    internal Corners Grown(float by) => Each(radius => radius > 0f ? float.Max(0f, radius + by) : 0f);
-
-    private Corners Each(Func<float, float> radius) => new(radius(TopLeft), radius(TopRight), radius(BottomRight), radius(BottomLeft));
-
-    private static float Concentric(float outer, float across, float down) => float.Max(0f, outer - float.Max(across, down));
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class UIReason {
@@ -118,4 +87,17 @@ public sealed record UIFault(string Subject, UIReason Reason, Option<int> Index 
     : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
     public static Fin<Unit> Unless<T>(bool flag, UIReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
         flag ? unit : new UIFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+internal static class TextInfoExtensions {
+    extension(TextInfo text) {
+        internal string Listed(Seq<string> items) => string.Join($"{text.ListSeparator} ", items);
+    }
+}
+
+internal static class TransformExtensions {
+    extension(SKMatrix matrix) {
+        internal Option<SKMatrix> Inverse => matrix.TryInvert(out SKMatrix inverted) ? Some(inverted) : None;
+    }
 }

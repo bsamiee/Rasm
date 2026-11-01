@@ -1,21 +1,21 @@
 """Callbacks on host events: app handler lists, msgbus properties, and main-loop timers."""
 
 from collections.abc import Callable, Generator
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Flag
 from functools import reduce
 import inspect
 from operator import or_
 from pathlib import Path
 from threading import Event
-from typing import Self
+from typing import Final, Self
 
 import bpy
 from expression import Nothing, Ok, Option
 import msgspec
 
 from blender.bpy.data.rna.paths import Struct
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Resource
 from blender.records.faults import Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -46,11 +46,10 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[None]:
-        """Holds one persistent callback on the handler list until scope exit, running body over the leading host arguments it takes, skipping the extension's runtime scenes."""
+        """Joins the extension's one persistent dispatcher on the handler list until scope exit, appending it with the list's first call and removing it with the last, the call running body over the leading host arguments it takes and skipping the extension's runtime scenes."""
         body = identity.reports.reported(self.body)
         count = sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values())
 
-        @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
         def called(*arguments: object) -> None:
             """Runs body over the arguments it takes, the host passing both to a callback declaring no single positional parameter."""
             match arguments:
@@ -59,9 +58,22 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 case _:
                     _ = body(*arguments[:count])
 
+        lists, key = identity.held[DISPATCHERS], id(self.handlers)
+        if key not in lists:
+            lists[key] = (_dispatching(calls := list[Callable[..., None]]()), calls)
+            self.handlers.append(lists[key][0])
+        dispatched, calls = lists[key]
+
+        def left() -> None:
+            """Drops the call, and the dispatcher with the list's last call."""
+            calls.remove(called)
+            if not calls:
+                self.handlers.remove(dispatched)
+                del lists[key]
+
         with ExitStack() as stack:
-            self.handlers.append(called)
-            stack.callback(self.handlers.remove, called)
+            calls.append(called)
+            stack.callback(left)
             yield
 
 
@@ -143,7 +155,24 @@ class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return Ok((Handler(handlers=bpy.app.handlers.load_post, body=reloaded), Timer(body=once)))
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+DISPATCHERS: Final = Resource[dict[int, tuple[Callable[..., None], list[Callable[..., None]]]]](made=lambda _identity: nullcontext({}))
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _dispatching(calls: list[Callable[..., None]], /) -> Callable[..., None]:
+    """Builds the persistent callback running each joined call over the host arguments in join order, a call leaving during the pass skipped."""
+
+    def dispatched(*arguments: object) -> None:
+        for each in tuple(calls):
+            if each in calls:
+                each(*arguments)
+
+    persisted: Callable[..., None] = bpy.app.handlers.persistent(dispatched)
+    return persisted
 
 
 def runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
@@ -172,4 +201,4 @@ def updated(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "Handler", "Startup", "Subscription", "Timer", "located", "runtime", "updated"]
+__all__ = ["DISPATCHERS", "Change", "Handler", "Startup", "Subscription", "Timer", "located", "runtime", "updated"]

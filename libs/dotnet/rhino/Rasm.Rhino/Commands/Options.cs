@@ -92,11 +92,12 @@ public static class OptionSpecs {
         new(caption, (getter, name) => IO.lift(() => OptionType.Indexed(getter.AddOption(name, value.Map(static text => new LocalizeStringPair(text, text)).ValueUnsafe(), hidden)))
             .Map(index => new AddedOption<T>(index, chosen)));
 
-    public static OptionSpec<T> Of<T, TValue>(string caption, Func<GetBaseClass, LocalizeStringPair, TValue, IO<AddedOption<TValue>>> add, TValue initial, Func<TValue, IO<T>> chosen) =>
-        new(caption, (getter, name) => add(getter, name, initial).Map(added => new AddedOption<T>(added.Index, option => added.Read(option).Bind(chosen))));
+    public static OptionSpec<T> Of<T, TValue>(
+        Func<GetBaseClass, LocalizeStringPair, TValue, IO<AddedOption<TValue>>> add, TValue initial, Func<TValue, IO<T>> chosen, [CallerArgumentExpression(nameof(initial))] string caption = "") =>
+        new(caption[(caption.LastIndexOfAny(['.', ')', ' ']) + 1)..], (getter, name) => add(getter, name, initial).Map(added => new AddedOption<T>(added.Index, option => added.Read(option).Bind(chosen))));
 
     public static IO<OptionSpec<T>> Seeded<T, TValue>(string caption, Preference<TValue> preference, Func<GetBaseClass, LocalizeStringPair, TValue, IO<AddedOption<TValue>>> add, Func<TValue, IO<T>> chosen) =>
-        preference.Read.Map(held => Of(caption, add, held, value => preference.Write(value) >> chosen(value)));
+        preference.Read.Map(held => Of(add, held, value => preference.Write(value) >> chosen(value), caption));
 }
 
 public static class CommandOptions {

@@ -128,7 +128,7 @@ public static class Preferences {
             .Map(Restored);
 
     public static IO<Unit> Hold(params Seq<IO<IO<Unit>>> swaps) =>
-        Swap(swaps).Bind(static restore => Products.Released(() => Session.Run(restore))).Scoped(Session.Scope);
+        Swap(swaps).Bind(static restore => Products.Released(() => Session.Run(restore))).Scoped();
 
     private static IO<Unit> Restored(Seq<IO<Unit>> restores) => Products.Each(restores).Map(static _ => unit);
 

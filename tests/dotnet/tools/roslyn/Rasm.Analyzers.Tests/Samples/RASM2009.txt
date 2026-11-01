@@ -7,13 +7,12 @@ using Rhino.Display;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Rhino {
-    internal static class Refused {
-        internal static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+    public static class Products {
+        public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
     }
 
-    internal static class DisposalOps {
-        internal static IO<TResult> Found<T, TResult>(Func<T?> acquire, string member, Func<T, IO<TResult>> body) where T : class =>
-            IO.lift(() => Refused.UnlessFound(acquire(), member)).Bind(body);
+    public static class Conversions {
+        public static Fin<T> Required<T>(T? value) where T : class => Optional(value).ToFin(Error.New("missing"));
     }
 }
 
@@ -29,9 +28,9 @@ internal static class TrustedGrayscale {
 }
 
 internal static class CheckedGrayscale {
-    internal static IO<Bitmap> Refusing(ZBufferCapture capture) => IO.lift(() => Refused.UnlessFound(capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib)));
+    internal static Fin<Bitmap> Required(ZBufferCapture capture) => Conversions.Required(capture.GrayscaleDib());
 
     internal static Option<Bitmap> Wrapped(ZBufferCapture capture) => Optional(capture.GrayscaleDib());
 
-    internal static IO<Size> Found(ZBufferCapture capture) => DisposalOps.Found(() => capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib), static gray => IO.pure(gray.Size));
+    internal static IO<Size> Acquired(ZBufferCapture capture) => Products.Of(() => capture.GrayscaleDib()).Map(static gray => gray.Size);
 }

@@ -42,10 +42,8 @@ public sealed partial class IconSlot {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Icons {
     // --- [EMBEDDED]
-    public static IO<Option<IconResource>> PlugInImage() =>
-        IO.lift(static () => Session.Assembly switch {
-            var assembly => Optional(assembly.GetCustomAttribute<PlugInImageAttribute>()).Map(image => new IconResource(assembly, image.Resource)),
-        });
+    public static Option<IconResource> PlugInImage(Assembly plugIn) =>
+        Optional(plugIn.GetCustomAttribute<PlugInImageAttribute>()).Map(image => new IconResource(plugIn, image.Resource));
 
     // --- [ETO]
     public static IO<Eto.Drawing.Icon> Frames(IconResource icon, Eto.Drawing.Size logical) =>
@@ -65,6 +63,8 @@ public static class Icons {
 
     public static IO<Bitmap> Raster(IconResource icon, Size pixels) =>
         IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Bitmaps.TryGet(icon.Id, pixels), call: icon.Id));
+
+    public static IO<Icon> DrawingIcon(IconResource icon, IconSlot slot) => slot.Pixels.Bind(pixels => DrawingIcon(icon, pixels));
 
     public static IO<Icon> DrawingIcon(IconResource icon, Size pixels) =>
         IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Icons.TryGet(icon.Id, pixels), call: icon.Id));

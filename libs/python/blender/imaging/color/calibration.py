@@ -26,6 +26,9 @@ from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Rgb = tuple[float, float, float]
+type Colors = tuple[Rgb, ...]
+
 
 class PublishedChart(IntEnum):
     """Published color charts, each holding its reference data in printed grid order."""
@@ -80,7 +83,7 @@ class PublishedChart(IntEnum):
         """Patch columns and rows of chart grid."""
         return np.array((self.checker.columns, self.checker.rows), dtype=np.int64)
 
-    def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[tuple[tuple[float, float, float], ...]]:
+    def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[Colors]:
         """Returns white-adapted patch RGB in `colorspace`, or color faults."""
         patches = colour.xyY_to_XYZ(np.array(tuple(self.checker.data.values()), dtype=np.float64))
         white = np.asarray(colour.xy_to_XYZ(self.checker.illuminant), dtype=np.float64)
@@ -96,7 +99,7 @@ class PublishedChart(IntEnum):
                     patches.astype(np.float32),
                 )
             )
-            .map(lambda rgb: msgspec.convert(rgb.tolist(), tuple[tuple[float, float, float], ...]))
+            .map(lambda rgb: msgspec.convert(rgb.tolist(), Colors))
         )
 
 
@@ -201,7 +204,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
         return self.aligned.map(lambda aligned: aligned.map(listed))
 
-    def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[tuple[tuple[float, float, float], ...]]]:
+    def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[Colors]]:
         """Returns alpha-weighted patch means, or absence when chart cannot align."""
         shape, channels = self.chart.shape, plane.shape[2]
         repeat = np.array([axis == OpenImageIO.Wrap.Periodic for axis in self.extension])
@@ -210,7 +213,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             grid = samples[..., :2] * shape
             return np.concatenate(((np.floor(grid) + 0.5 + (grid % 1.0 - 0.5) * self.footprint) / shape, samples[..., 2:]), axis=-1)
 
-        def sampled(homography: Homography) -> Outcome[tuple[tuple[float, float, float], ...]]:
+        def sampled(homography: Homography) -> Outcome[Colors]:
             mapping = self.mapping(homography)
             corners = mapping(Quad().samples)[:, :2]
             edges = np.roll(corners, -1, axis=0) - corners
@@ -224,7 +227,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .warp(plane)
                 .map(lambda warped: warped.reshape(shape[1], side, shape[0], side, channels).sum(axis=(1, 3), dtype=np.float64).reshape(-1, channels))
                 .map(lambda sums: np.divide(sums[:, :3], sums[:, 3:], out=np.zeros_like(sums[:, :3]), where=sums[:, 3:] > 0.0))
-                .map(lambda means: msgspec.convert(means.tolist(), tuple[tuple[float, float, float], ...]))
+                .map(lambda means: msgspec.convert(means.tolist(), Colors))
             )
 
         return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing)))
@@ -244,7 +247,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     """Invertible output-channel RGB rows with factored exposure in stops."""
 
-    gained: tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    gained: tuple[Rgb, Rgb, Rgb] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
     exposure: Stops = 0.0
 
     def __post_init__(self) -> None:
@@ -253,7 +256,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
             raise ValueError(f"matrix condition {self.condition:.3g} reaches {_CEILING:.3g}")
 
     @classmethod
-    def fit(cls, samples: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...]) -> Outcome[Self]:
+    def fit(cls, samples: tuple[tuple[Rgb, Rgb], ...]) -> Outcome[Self]:
         """Returns the Cheung 2004 linear fit of measured onto reference colors, or numeric and ill-conditioned fit faults."""
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
         return (
@@ -277,13 +280,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.convert({"gained": np.linalg.inv(np.array(self.gained, dtype=np.float64)).tolist(), "exposure": -self.exposure}, type(self))
 
     def normalized(
-        self,
-        source: tuple[float, float, float],
-        target: tuple[float, float, float],
-        config: PyOpenColorIO.Config,
-        *,
-        source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
-        target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
+        self, source: Rgb, target: Rgb, config: PyOpenColorIO.Config, *, source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR, target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR
     ) -> Outcome[Option[Self]]:
         """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance or a ratio past the stop range."""
 
@@ -308,4 +305,4 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibration", "ChartPlacement", "Clipped", "Finding", "PublishedChart", "Reversed", "Skewed", "Wide"]
+__all__ = ["Calibration", "ChartPlacement", "Clipped", "Colors", "Finding", "PublishedChart", "Reversed", "Rgb", "Skewed", "Wide"]

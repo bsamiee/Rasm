@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Numerics;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using Wacton.Unicolour;
@@ -6,7 +7,10 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Gamut {
+[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
+[ValidationError<ImagingFault>]
+public sealed partial record Gamut : IConvertible<string> {
+    private const string PrimariesForm = "primaries";
     private static readonly WhitePoint D65 = Illuminant.D65.GetWhitePoint(Observer.Degree2);
 
     private readonly (Vector2 Red, Vector2 Green, Vector2 Blue, Vector2 White) primaries;
@@ -17,38 +21,41 @@ public sealed record Gamut {
         primaries = (Point(rgb.ChromaticityR), Point(rgb.ChromaticityG), Point(rgb.ChromaticityB), Point(rgb.WhitePoint.Chromaticity));
     }
 
-    public static Gamut StandardRgb { get; } = new(RgbConfiguration.StandardRgb) { InteropId = "lin_rec709_scene", Cicp = CicpColorPrimaries.ItuRBt709_6 };
-    public static Gamut DisplayP3 { get; } = new(RgbConfiguration.DisplayP3) { InteropId = "lin_p3d65_scene", Cicp = CicpColorPrimaries.SmpteEg432_1 };
-    public static Gamut Rec2020 { get; } = new(RgbConfiguration.Rec2020) { InteropId = "lin_rec2020_scene", Cicp = CicpColorPrimaries.ItuRBt2020_2 };
-    public static Gamut Rec601Line625 { get; } = new(RgbConfiguration.Rec601Line625) { Cicp = CicpColorPrimaries.ItuRBt601_7_625 };
-    public static Gamut Rec601Line525 { get; } = new(RgbConfiguration.Rec601Line525) { Cicp = CicpColorPrimaries.ItuRBt601_7_525 };
-    public static Gamut A98 { get; } = new(RgbConfiguration.A98) { InteropId = "lin_adobergb_scene" };
-    public static Gamut Acescg { get; } = new(RgbConfiguration.Acescg) { InteropId = "lin_ap1_scene" };
-    public static Gamut Aces20651 { get; } = new(RgbConfiguration.Aces20651) { InteropId = "lin_ap0_scene" };
-    public static Gamut ProPhoto { get; } = new(RgbConfiguration.ProPhoto);
-    public static Gamut EGamut { get; } = Primaries(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805), "E-Gamut") with { InteropId = "blender:lin_egamut_scene" };
-    public static Gamut ArriWideGamut3 { get; } = Primaries(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102), "ARRI Wide Gamut 3");
-    public static Gamut ArriWideGamut4 { get; } = Primaries(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308), "ARRI Wide Gamut 4");
-    public static Gamut SGamut3 { get; } = Primaries(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05), "S-Gamut3");
-    public static Gamut SGamut3Cine { get; } = Primaries(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087), "S-Gamut3.Cine");
-    public static Gamut VeniceSGamut3 { get; } = Primaries(new(0.740464264304292, 0.27936437475066), new(0.089241145423286, 0.893809528608105), new(0.110488236673827, -0.052579333080476), "Venice S-Gamut3");
-    public static Gamut VeniceSGamut3Cine { get; } = Primaries(new(0.775901871567345, 0.274502392854799), new(0.188682902773355, 0.828684937020288), new(0.101337382499301, -0.089187517306263), "Venice S-Gamut3.Cine");
-    public static Gamut CinemaGamut { get; } = Primaries(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1), "Cinema Gamut");
-    public static Gamut RedWideGamutRgb { get; } = Primaries(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589), "REDWideGamutRGB");
-    public static Gamut VGamut { get; } = Primaries(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03), "V-Gamut");
-    public static Gamut DGamut { get; } = Primaries(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08), "D-Gamut");
-    public static Gamut ProtuneNative { get; } = Primaries(new(0.698480461493841, 0.193026445370121), new(0.329555378387345, 1.024596624134644), new(0.108442631407675, -0.034678569754016), "Protune Native");
-    public static Gamut BlackmagicWideGamut { get; } = Primaries(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452), "Blackmagic Wide Gamut");
-    public static Gamut DaVinciWideGamut { get; } = Primaries(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155), "DaVinci Wide Gamut");
-    public static Gamut AppleWideGamut { get; } = Primaries(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076), "Apple Wide Gamut");
+    public static Gamut StandardRgb { get; } = new(RgbConfiguration.StandardRgb) { Key = "standard-rgb", InteropId = "lin_rec709_scene", Cicp = CicpColorPrimaries.ItuRBt709_6 };
+    public static Gamut DisplayP3 { get; } = new(RgbConfiguration.DisplayP3) { Key = "display-p3", InteropId = "lin_p3d65_scene", Cicp = CicpColorPrimaries.SmpteEg432_1 };
+    public static Gamut Rec2020 { get; } = new(RgbConfiguration.Rec2020) { Key = "rec2020", InteropId = "lin_rec2020_scene", Cicp = CicpColorPrimaries.ItuRBt2020_2 };
+    public static Gamut Rec601Line625 { get; } = new(RgbConfiguration.Rec601Line625) { Key = "rec601-line-625", Cicp = CicpColorPrimaries.ItuRBt601_7_625 };
+    public static Gamut Rec601Line525 { get; } = new(RgbConfiguration.Rec601Line525) { Key = "rec601-line-525", Cicp = CicpColorPrimaries.ItuRBt601_7_525 };
+    public static Gamut A98 { get; } = new(RgbConfiguration.A98) { Key = "a98", InteropId = "lin_adobergb_scene" };
+    public static Gamut Acescg { get; } = new(RgbConfiguration.Acescg) { Key = "acescg", InteropId = "lin_ap1_scene" };
+    public static Gamut Aces20651 { get; } = new(RgbConfiguration.Aces20651) { Key = "aces20651", InteropId = "lin_ap0_scene" };
+    public static Gamut ProPhoto { get; } = new(RgbConfiguration.ProPhoto) { Key = "pro-photo" };
+    public static Gamut EGamut { get; } = Primaries(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805), "E-Gamut", "e-gamut") with { InteropId = "blender:lin_egamut_scene" };
+    public static Gamut ArriWideGamut3 { get; } = Primaries(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102), "ARRI Wide Gamut 3", "arri-wide-gamut-3");
+    public static Gamut ArriWideGamut4 { get; } = Primaries(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308), "ARRI Wide Gamut 4", "arri-wide-gamut-4");
+    public static Gamut SGamut3 { get; } = Primaries(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05), "S-Gamut3", "s-gamut3");
+    public static Gamut SGamut3Cine { get; } = Primaries(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087), "S-Gamut3.Cine", "s-gamut3-cine");
+    public static Gamut VeniceSGamut3 { get; } = Primaries(new(0.740464264304292, 0.27936437475066), new(0.089241145423286, 0.893809528608105), new(0.110488236673827, -0.052579333080476), "Venice S-Gamut3", "venice-s-gamut3");
+    public static Gamut VeniceSGamut3Cine { get; } = Primaries(new(0.775901871567345, 0.274502392854799), new(0.188682902773355, 0.828684937020288), new(0.101337382499301, -0.089187517306263), "Venice S-Gamut3.Cine", "venice-s-gamut3-cine");
+    public static Gamut CinemaGamut { get; } = Primaries(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1), "Cinema Gamut", "cinema-gamut");
+    public static Gamut RedWideGamutRgb { get; } = Primaries(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589), "REDWideGamutRGB", "red-wide-gamut-rgb");
+    public static Gamut VGamut { get; } = Primaries(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03), "V-Gamut", "v-gamut");
+    public static Gamut DGamut { get; } = Primaries(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08), "D-Gamut", "d-gamut");
+    public static Gamut ProtuneNative { get; } = Primaries(new(0.698480461493841, 0.193026445370121), new(0.329555378387345, 1.024596624134644), new(0.108442631407675, -0.034678569754016), "Protune Native", "protune-native");
+    public static Gamut BlackmagicWideGamut { get; } = Primaries(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452), "Blackmagic Wide Gamut", "blackmagic-wide-gamut");
+    public static Gamut DaVinciWideGamut { get; } = Primaries(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155), "DaVinci Wide Gamut", "davinci-wide-gamut");
+    public static Gamut AppleWideGamut { get; } = Primaries(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076), "Apple Wide Gamut", "apple-wide-gamut");
 
     public static Seq<Gamut> Known { get; } = [
         StandardRgb, DisplayP3, Rec2020, Rec601Line625, Rec601Line525, A98, Acescg, Aces20651, ProPhoto, EGamut, ArriWideGamut3, ArriWideGamut4, SGamut3, SGamut3Cine,
         VeniceSGamut3, VeniceSGamut3Cine, CinemaGamut, RedWideGamutRgb, VGamut, DGamut, ProtuneNative, BlackmagicWideGamut, DaVinciWideGamut, AppleWideGamut,
     ];
 
+    private static readonly FrozenDictionary<string, Gamut> Named = Known.ToFrozenDictionary(static gamut => gamut.ToValue(), StringComparer.Ordinal);
+
     public RgbConfiguration Rgb { get; }
     public Configuration Configuration { get; }
+    public Option<string> Key { get; private init; }
     public Option<string> InteropId { get; private init; }
     public Option<CicpColorPrimaries> Cicp { get; private init; }
     public Matrix4x4 ToXyz { get; }
@@ -60,6 +67,26 @@ public sealed record Gamut {
     public bool Equals([NotNullWhen(true)] Gamut? other) => other is not null && primaries == other.primaries;
 
     public override int GetHashCode() => primaries.GetHashCode();
+
+    public string ToValue() =>
+        Key.IfNone(() => string.Join(':', PrimariesForm.Cons(Seq(Rgb.ChromaticityR, Rgb.ChromaticityG, Rgb.ChromaticityB, Rgb.WhitePoint.Chromaticity)
+            .Bind(static point => Seq(point.X, point.Y)).Map(static value => value.ToString("R", CultureInfo.InvariantCulture)))));
+
+    public static Fin<Gamut> Read(string value) =>
+        Named.TryGetValue(value, out Gamut? named) ? named
+            : toSeq(value.Split(':')) switch {
+                var parts => parts.Tail.Traverse(Coordinate).As().Bind(xy => (parts[0], xy.Count) switch {
+                    (PrimariesForm, 8) => Of(new Chromaticity(xy[0], xy[1]), new Chromaticity(xy[2], xy[3]), new Chromaticity(xy[4], xy[5]), new WhitePoint(xy[6], xy[7])),
+                    _ => ImagingFault.Of(ImagingReason.UnknownFormat, value),
+                }),
+            };
+
+    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Gamut? item) {
+        (item, ImagingFault? fault) = Optional(value).Match(
+            Some: static text => Read(text).Match(Succ: static gamut => ((Gamut?)gamut, (ImagingFault?)null), Fail: static error => (null, error.Filter<ImagingFault>().Head as ImagingFault)),
+            None: static () => (null, null));
+        return fault;
+    }
 
     public Matrix4x4 MatrixTo(Gamut target) => Columns(Configuration, ColourSpace.RgbLinear, target.Configuration, ColourSpace.RgbLinear);
 
@@ -108,12 +135,16 @@ public sealed record Gamut {
             var (first, second, third) => new Vector3((float)first, (float)second, (float)third),
         });
 
-    private static Gamut Primaries(Chromaticity red, Chromaticity green, Chromaticity blue, string name) => new(new RgbConfiguration(red, green, blue, D65, identity, identity, name));
+    private static Gamut Primaries(Chromaticity red, Chromaticity green, Chromaticity blue, string name, string key) => new(new RgbConfiguration(red, green, blue, D65, identity, identity, name)) { Key = key };
+
+    private static Fin<double> Coordinate(string text) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double coordinate) ? coordinate : ImagingFault.Of(ImagingReason.Malformed, text);
 
     private static Vector2 Point(Chromaticity chromaticity) => new((float)chromaticity.X, (float)chromaticity.Y);
 }
 
-[ComplexValueObject(SkipFactoryMethods = true)]
+[ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class GamutCompression : IFixedFunction {
     public static GamutCompression Reference { get; } = new(new Vector3(0.815f, 0.803f, 0.880f), new Vector3(1.147f, 1.264f, 1.312f), 1.2f);
 
@@ -140,11 +171,14 @@ public sealed partial class GamutCompression : IFixedFunction {
     }
 
     public static Fin<GamutCompression> Validated(Vector3 threshold, Vector3 limit, float power) =>
-        ImagingFault.Unless(
+        TryCreate(threshold, limit, power, out GamutCompression? compression, out ImagingFault? fault) ? compression : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
+        validationError =
             Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One) & Vector3.IsFinite(limit))
-                && float.IsFinite(power) && power > 0f,
-            ImagingReason.Range, (threshold, limit, power))
-            .Map(_ => new GamutCompression(threshold, limit, power));
+            && float.IsFinite(power) && power > 0f
+                ? null
+                : ImagingFault.Of(ImagingReason.Range, (threshold, limit, power));
 
     private static Vector3 Raised(Vector3 value, float power) => new(float.Pow(value.X, power), float.Pow(value.Y, power), float.Pow(value.Z, power));
 }

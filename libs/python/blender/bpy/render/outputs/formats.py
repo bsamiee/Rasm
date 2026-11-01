@@ -224,6 +224,16 @@ def depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
             return Nothing
 
 
+def code_step(settings: bpy.types.ImageFormatSettings) -> float:
+    """Returns the value between adjacent integer codes the format stores, 0 for a linear format, which stores floats."""
+    return 0.0 if settings.has_linear_colorspace else 1.0 / (2 ** int(settings.color_depth) - 1)
+
+
+def rounds_straight(settings: bpy.types.ImageFormatSettings) -> bool:
+    """Whether the writer rounds straight color, as every integer format holding alpha does but 16-bit TIFF, which stores associated alpha."""
+    return not settings.has_linear_colorspace and settings.color_mode == "RGBA" and not (settings.file_format == "TIFF" and settings.color_depth == "16")
+
+
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
     """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
     return Option.of_optional(_EXTENSIONS.get(f"{settings.file_format}_{settings.jpeg2k_codec}" if settings.file_format == "JPEG2000" else settings.file_format))
@@ -265,4 +275,4 @@ format_listing: Final = Listing(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FILE_FORMATS", "Colorspace", "FileItem", "FileItems", "OutputFormat", "Stereo3dFormat", "depth", "extension", "format_listing", "owners", "pointer"]
+__all__ = ["FILE_FORMATS", "Colorspace", "FileItem", "FileItems", "OutputFormat", "Stereo3dFormat", "code_step", "depth", "extension", "format_listing", "owners", "pointer", "rounds_straight"]

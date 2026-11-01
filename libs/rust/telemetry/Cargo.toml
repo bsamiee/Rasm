@@ -3,12 +3,12 @@
 [package]
 name                 = "rasm-telemetry"
 version.workspace    = true
-categories           = ["development-tools::debugging"]
 edition.workspace    = true
-keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
-license.workspace    = true
+description          = "Process telemetry under OpenTelemetry conventions"
 repository.workspace = true
-description          = "Process telemetry with stderr JSON logs, per-signal OTLP export, propagators, and panic hook"
+license.workspace    = true
+keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
+categories           = ["development-tools::debugging"]
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -24,11 +24,6 @@ bench   = false
 name = "run"
 path = "../../../tests/rust/libs/telemetry/run.rs"
 
-# --- [LINTS] ----------------------------------------------------------------------------
-
-[lints]
-workspace = true
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
@@ -36,16 +31,21 @@ nonempty-collections               = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
-opentelemetry                      = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-log                                = { workspace = true }
-tracing                            = { workspace = true }
-tracing-log                        = { workspace = true }
-opentelemetry_sdk                  = { workspace = true }
-tracing-subscriber                 = { workspace = true }
 json-subscriber                    = { workspace = true }
+log                                = { workspace = true }
+opentelemetry                      = { workspace = true }
 opentelemetry-appender-tracing     = { workspace = true }
 opentelemetry-otlp                 = { workspace = true }
 opentelemetry-resource-detectors   = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk                  = { workspace = true }
+tracing                            = { workspace = true }
+tracing-log                        = { workspace = true }
 tracing-opentelemetry              = { workspace = true }
+tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

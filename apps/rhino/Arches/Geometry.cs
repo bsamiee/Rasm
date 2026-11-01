@@ -1,6 +1,6 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using Rasm.Rhino;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Curves;
 
 namespace Arches;
 
@@ -22,6 +22,22 @@ internal sealed record ArchSpan {
     public Point3d Apex(double height) => Midpoint + (Frame.YAxis * height);
 }
 
+// --- [ERRORS] --------------------------------------------------------------------------
+[SmartEnum]
+internal sealed partial class ArchReason {
+    public static readonly ArchReason Planeless = new("baseline and normal spanning no plane");
+    public static readonly ArchReason SpanNarrow = new("span admitting no rise ratio of the arch type");
+    public static readonly ArchReason RiseOutside = new("rise outside the rises the span admits");
+    public static readonly ArchReason LobesOutside = new("lobe count outside the counts the arch admits");
+
+    public string Message { get; }
+}
+
+internal sealed record ArchFault(string Subject, ArchReason Reason) : Expected($"{Reason.Message}: {Subject}", 0) {
+    public static Fin<Unit> Unless<T>(bool flag, ArchReason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
+        flag ? unit : new ArchFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchGeometry {
     // --- [RISES]
@@ -30,99 +46,28 @@ internal static class ArchGeometry {
     internal static readonly double PersianRise = double.Sqrt(((1 + HaunchRadius) * (1 + HaunchRadius)) - 0.25) - CrownDepth;
     internal static readonly double EquilateralRise = double.Sqrt(3) / 2;
     internal static readonly double OgeeRise = (1 + double.Sqrt(2)) / 2;
+    internal static readonly double BasketRise = (3 - double.Sqrt(3)) / 4;
+    internal static readonly double KeelRise = (1 + double.Sqrt(3)) / 4;
 
-    // --- [SPANNED_ARCHES]
-    internal static IO<Seq<Curve>> Semicircular(ArchSpan span) =>
-        Products.Made(new ArcCurve(new Arc(span.Baseline.From, span.Frame.YAxis, span.Baseline.To))).Map(static curve => Seq<Curve>(curve));
-
-    internal static IO<Seq<Curve>> Equilateral(ArchSpan span) =>
-        Symmetric(span, Seq(new Arc(span.Frame, span.Baseline.Length, double.Pi / 3)));
-
-    internal static IO<Seq<Curve>> Persian(ArchSpan span) =>
-        FourCentered(span, span.Frame, span.Baseline.Length * HaunchRadius, span.Baseline.From - (span.Frame.YAxis * (span.Baseline.Length * CrownDepth)));
-
-    internal static IO<Seq<Curve>> BasketHandle(ArchSpan span) {
-        double quarter = span.Baseline.Length / 4;
-        Point3d haunch = span.Baseline.PointAt(0.25);
-        Point3d crown = span.Midpoint - (span.Frame.YAxis * (span.Baseline.Length * EquilateralRise / 2));
-        return Symmetric(span, Seq(
-            new Arc(new Circle(span.Frame, haunch, quarter), new Interval(2 * double.Pi / 3, double.Pi)),
-            new Arc(new Circle(span.Frame, crown, crown.DistanceTo(haunch) + quarter), new Interval(double.Pi / 2, 2 * double.Pi / 3))));
-    }
-
-    internal static IO<Seq<Curve>> Keel(ArchSpan span) {
-        double quarter = span.Baseline.Length / 4;
-        Point3d crown = span.Baseline.PointAt(0.25) + (span.Frame.YAxis * quarter);
-        Point3d haunch = span.Baseline.To + (span.Frame.YAxis * quarter);
-        return Symmetric(span, Seq(
-            new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), quarter), new Interval(double.Pi / 2, double.Pi)),
-            new Arc(span.Frame, crown, span.Baseline.Length / 2, double.Pi / 3)));
-    }
-
-    internal static IO<Seq<Curve>> TentedOgee(ArchSpan span) {
-        double height = span.Baseline.Length * EquilateralRise;
-        Point3d apex = span.Apex(height);
-        Point3d haunchEnd = new Line(span.Baseline.To, apex).PointAtLength(span.Baseline.Length / 2);
-        Line haunchLine = new(span.Baseline.To, haunchEnd);
-        Plane haunchFrame = new(haunchLine.From, haunchLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, haunchLine.Direction));
-        Point3d haunch = haunchLine.PointAt(0.5) - (haunchFrame.YAxis * (haunchLine.Length * EquilateralRise));
-        Point3d crown = span.Baseline.To + (span.Frame.YAxis * height);
-        Interval sweep = new(2 * double.Pi / 3, double.Pi);
-        return Symmetric(span, Seq(
-            new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), sweep),
-            new Arc(new Circle(new Plane(crown, span.Frame.XAxis, -span.Frame.YAxis), crown.DistanceTo(apex)), sweep)));
-    }
-
-    // --- [RAISED_ARCHES]
+    // --- [RISEN_ARCHES]
     internal static IO<Seq<Curve>> Circular(ArchSpan span, Point3d apex) =>
-        Products.Made(new ArcCurve(new Arc(span.Baseline.From, apex, span.Baseline.To))).Map(static curve => Seq<Curve>(curve));
+        Products.Many<Curve>(() => [new ArcCurve(new Arc(span.Baseline.From, apex, span.Baseline.To))]);
 
     internal static IO<Seq<Curve>> Gothic(ArchSpan span, Point3d apex) {
         double length = span.Baseline.Length;
         Line rise = new(span.Midpoint, apex);
-        double height = rise.Length;
-        double radius = (height * (height / length)) + (length / 4);
-        Point3d center = span.Baseline.To - (span.Frame.XAxis * radius);
-        return Symmetric(span, Seq(new Arc(
-            new Circle(new Plane(center, span.Frame.XAxis, rise.Direction), radius),
-            2 * double.Atan2(length / 2, height))));
+        double radius = (rise.Length * (rise.Length / length)) + (length / 4);
+        return Symmetric(span, Seq(new Arc(new Circle(new Plane(span.Baseline.To - (span.Frame.XAxis * radius), span.Frame.XAxis, rise.Direction), radius), 2 * double.Atan2(length / 2, rise.Length))));
     }
 
     internal static IO<Seq<Curve>> PointedHorseshoe(ArchSpan span, Point3d apex) {
         double length = span.Baseline.Length;
         Line rise = new(span.Midpoint, apex);
-        double height = rise.Length;
-        double offset = (height - (5.0 / 12 * length * (length / height))) / 2;
-        Point3d center = span.Baseline.PointAt(1.0 / 3) + (rise.UnitTangent * offset);
-        Circle circle = new(new Plane(center, span.Frame.XAxis, rise.Direction), center.DistanceTo(span.Baseline.To));
-        return Symmetric(span, Seq(new Arc(circle, new Interval(-double.Atan2(offset, length * 2 / 3), Vector3d.VectorAngle(span.Frame.XAxis, apex - center)))));
-    }
-
-    internal static IO<Seq<Curve>> DepressedThreeCentered(ArchSpan span, Point3d apex) {
-        Line rise = new(span.Midpoint, apex);
-        double half = span.Baseline.Length / 2;
-        double height = rise.Length;
-        double ratio = height / half;
-        double diagonal = new Line(span.Baseline.From, apex).Length / half;
-        double radius = height / 2 * diagonal * (1 + (ratio / (diagonal + 1)));
-        Point3d haunch = span.Baseline.From + (span.Frame.XAxis * radius);
-        Point3d crown = rise.From + (rise.UnitTangent * ((radius - half) / ratio));
-        double angle = Vector3d.VectorAngle(span.Frame.XAxis, (rise.UnitTangent * half) - (span.Frame.XAxis * height));
-        Plane frame = new(rise.From, span.Frame.XAxis, rise.Direction);
-        return Symmetric(span, Seq(
-            new Arc(new Circle(frame, haunch, radius), new Interval(angle, double.Pi)),
-            new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(double.Pi / 2, angle))));
-    }
-
-    internal static IO<Seq<Curve>> Tudor(ArchSpan span, Point3d apex) {
-        double length = span.Baseline.Length;
-        Line rise = new(span.Midpoint, apex);
-        double ratio = rise.Length / length;
-        double offset = (2 * ratio * ratio) - 0.5;
-        double square = (16 * ratio * ratio) - 1;
-        double linear = 8 * offset * ratio;
-        double depth = (double.Sqrt((linear * linear) - (4 * square * ((offset * offset) - 0.25))) - linear) / (2 * square);
-        return FourCentered(span, new Plane(span.Midpoint, span.Frame.XAxis, rise.Direction), length / 4, span.Baseline.PointAt(0.25) - (rise.UnitTangent * (length * depth)));
+        double offset = (rise.Length - (5d / 12 * length * (length / rise.Length))) / 2;
+        Point3d center = span.Baseline.PointAt(1d / 3) + (rise.UnitTangent * offset);
+        return Symmetric(span, Seq(new Arc(
+            new Circle(new Plane(center, span.Frame.XAxis, rise.Direction), center.DistanceTo(span.Baseline.To)),
+            new Interval(-double.Atan2(offset, length * 2 / 3), Vector3d.VectorAngle(span.Frame.XAxis, apex - center)))));
     }
 
     internal static IO<Seq<Curve>> Ogee(ArchSpan span, Point3d apex, double haunch) {
@@ -143,20 +88,76 @@ internal static class ArchGeometry {
         double ratio = rise.Length / length;
         Point3d haunch = span.Baseline.To + (rise.UnitTangent * (length * ((ratio / 4) + (1 / (16 * ratio)))));
         Point3d crown = span.Midpoint + (rise.UnitTangent * (length * ((3 * ratio / 4) - (1 / (16 * ratio)))));
-        Point3d diagonalMidpoint = new Line(span.Baseline.To, apex).PointAt(0.5);
+        Point3d diagonal = new Line(span.Baseline.To, apex).PointAt(0.5);
         Plane frame = new(span.Midpoint, span.Frame.XAxis, rise.Direction);
         return Symmetric(span, Seq(
-            new Arc(new Circle(new Plane(haunch, frame.XAxis, -frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-frame.XAxis, diagonalMidpoint - haunch))),
-            new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(frame.XAxis, diagonalMidpoint - crown), double.Pi / 2))));
+            new Arc(new Circle(new Plane(haunch, frame.XAxis, -frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-frame.XAxis, diagonal - haunch))),
+            new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(frame.XAxis, diagonal - crown), double.Pi / 2))));
+    }
+
+    internal static IO<Seq<Curve>> Tented(ArchSpan span, Point3d apex) {
+        Line haunchLine = new(span.Baseline.To, new Line(span.Baseline.To, apex).PointAtLength(span.Baseline.Length / 2));
+        Plane haunchFrame = new(haunchLine.From, haunchLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, haunchLine.Direction));
+        Point3d haunch = haunchLine.PointAt(0.5) - (haunchFrame.YAxis * (haunchLine.Length * EquilateralRise));
+        Point3d crown = span.Baseline.To + (apex - span.Midpoint);
+        Interval sweep = new(2 * double.Pi / 3, double.Pi);
+        return Symmetric(span, Seq(
+            new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), sweep),
+            new Arc(new Circle(new Plane(crown, span.Frame.XAxis, -span.Frame.YAxis), crown.DistanceTo(apex)), sweep)));
+    }
+
+    internal static IO<Seq<Curve>> BasketHandle(ArchSpan span) {
+        double quarter = span.Baseline.Length / 4;
+        Point3d haunch = span.Baseline.PointAt(0.25);
+        Point3d crown = span.Midpoint - (span.Frame.YAxis * (span.Baseline.Length * EquilateralRise / 2));
+        return Symmetric(span, Seq(
+            new Arc(new Circle(span.Frame, haunch, quarter), new Interval(2 * double.Pi / 3, double.Pi)),
+            new Arc(new Circle(span.Frame, crown, crown.DistanceTo(haunch) + quarter), new Interval(double.Pi / 2, 2 * double.Pi / 3))));
+    }
+
+    internal static IO<Seq<Curve>> DepressedThreeCentered(ArchSpan span, Point3d apex) {
+        Line rise = new(span.Midpoint, apex);
+        double half = span.Baseline.Length / 2;
+        double ratio = rise.Length / half;
+        double diagonal = new Line(span.Baseline.From, apex).Length / half;
+        double radius = rise.Length / 2 * diagonal * (1 + (ratio / (diagonal + 1)));
+        Point3d haunch = span.Baseline.From + (span.Frame.XAxis * radius);
+        Point3d crown = rise.From + (rise.UnitTangent * ((radius - half) / ratio));
+        double angle = Vector3d.VectorAngle(span.Frame.XAxis, (rise.UnitTangent * half) - (span.Frame.XAxis * rise.Length));
+        Plane frame = new(rise.From, span.Frame.XAxis, rise.Direction);
+        return Symmetric(span, Seq(
+            new Arc(new Circle(frame, haunch, radius), new Interval(angle, double.Pi)),
+            new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(double.Pi / 2, angle))));
+    }
+
+    internal static IO<Seq<Curve>> Tudor(ArchSpan span, Point3d apex) {
+        double length = span.Baseline.Length;
+        Line rise = new(span.Midpoint, apex);
+        double ratio = rise.Length / length;
+        double offset = (2 * ratio * ratio) - 0.5;
+        double square = (16 * ratio * ratio) - 1;
+        double linear = 8 * offset * ratio;
+        double depth = (double.Sqrt((linear * linear) - (4 * square * ((offset * offset) - 0.25))) - linear) / (2 * square);
+        return FourCentered(span, new Plane(span.Midpoint, span.Frame.XAxis, rise.Direction), length / 4, span.Baseline.PointAt(0.25) - (rise.UnitTangent * (length * depth)));
+    }
+
+    internal static IO<Seq<Curve>> Persian(ArchSpan span) =>
+        FourCentered(span, span.Frame, span.Baseline.Length * HaunchRadius, span.Baseline.From - (span.Frame.YAxis * (span.Baseline.Length * CrownDepth)));
+
+    internal static IO<Seq<Curve>> Keel(ArchSpan span) {
+        double quarter = span.Baseline.Length / 4;
+        return Symmetric(span, Seq(
+            new Arc(new Circle(new Plane(span.Baseline.To + (span.Frame.YAxis * quarter), span.Frame.XAxis, -span.Frame.YAxis), quarter), new Interval(double.Pi / 2, double.Pi)),
+            new Arc(span.Frame, span.Baseline.PointAt(0.25) + (span.Frame.YAxis * quarter), span.Baseline.Length / 2, double.Pi / 3)));
     }
 
     internal static IO<Seq<Curve>> Parabolic(ArchSpan span, Point3d apex) =>
-        Products.Made(NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)).Map(static curve => Seq<Curve>(curve));
+        Products.Many<Curve>(() => [NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)]);
 
     internal static IO<Seq<Curve>> Elliptical(ArchSpan span, Point3d apex) =>
-        new Conic.EllipseArc(new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex)), new Interval(0, double.Pi))
-            .ToNurbs()
-            .Map(static curve => Seq<Curve>(curve));
+        from ellipse in Products.Of(() => new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex)).ToNurbsCurve())
+        from half in Products.Many<Curve>(() => [ellipse.Trim(0d, double.Pi)])
+        select half;
 
     private static IO<Seq<Curve>> FourCentered(ArchSpan span, Plane frame, double haunchRadius, Point3d crown) {
         Point3d haunch = span.Baseline.To - (frame.XAxis * haunchRadius);
@@ -169,31 +170,21 @@ internal static class ArchGeometry {
     internal static IO<Seq<Curve>> Trefoil(ArchSpan span, bool pointed) {
         double quarter = span.Baseline.Length / 4;
         Arc springing = new(span.Frame, span.Baseline.PointAt(0.75), quarter, double.Pi / 2);
-        Arc crown = pointed
+        return Symmetric(span, Seq(springing, pointed
             ? new Arc(span.Frame, springing.EndPoint - (span.Frame.XAxis * (quarter * 2)), quarter * 2, double.Pi / 3)
-            : new Arc(span.Frame, span.Midpoint + (span.Frame.YAxis * quarter), quarter, double.Pi / 2);
-        return Symmetric(span, Seq(springing, crown));
+            : new Arc(span.Frame, span.Midpoint + (span.Frame.YAxis * quarter), quarter, double.Pi / 2)));
     }
 
-    internal static IO<Seq<Curve>> Cinquefoil(ArchSpan span, bool pointed) {
-        const int divisions = 4;
-        Arc guide = FoilGuide(span, pointed, divisions);
-        Func<double, Point3d> at = FoilDivisions(guide, divisions);
-        Point3d crownEnd = at(3);
-        Line crownLine = new(Transform.Mirror(guide.EndPoint, span.Frame.XAxis) * crownEnd, crownEnd);
-        Arc crown = pointed
-            ? new Arc(new Plane(crownLine.From, crownLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, crownLine.Direction)), crownLine.Length, double.Pi / 3)
-            : FoilCrown(span.Frame, at(divisions), crownEnd);
-        return Symmetric(span, Seq(FoilSpringing(span.Frame, at(0), at(1)), FoilLobe(span.Frame, at(2), at(1), crownEnd), crown));
-    }
-
-    internal static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, int lobes, Tolerances tolerances) {
+    internal static IO<Seq<Curve>> Foils(ArchSpan span, bool pointed, int lobes, bool pointedCrown) {
         double divisions = lobes - 1;
-        Func<double, Point3d> at = FoilDivisions(FoilGuide(span, pointed, divisions), divisions);
-        double lobe = at(0).DistanceTo(at(1));
-        return IO.lift(ArchFault.Unless(lobe > tolerances.Absolute, ArchReason.LobeShort, (lobes, lobe, tolerances.Absolute)))
-            .Bind(_ => Symmetric(span, FoilSpringing(span.Frame, at(0), at(1)).Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => FoilLobe(span.Frame, at(index + 1), at(index), at(index + 2))))
-                .Add(FoilCrown(span.Frame, at(divisions), at(divisions - 1)))));
+        Arc guide = FoilGuide(span, pointed, divisions);
+        Func<double, Point3d> at = index => guide.PointAt(guide.AngleDomain.ParameterAt(index / divisions));
+        Line crownLine = new(Transform.Mirror(guide.EndPoint, span.Frame.XAxis) * at(divisions - 1), at(divisions - 1));
+        return Symmetric(span, FoilSpringing(span.Frame, at(0), at(1))
+            .Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => FoilLobe(span.Frame, at(index + 1), at(index), at(index + 2))))
+            .Add(pointedCrown
+                ? new Arc(new Plane(crownLine.From, crownLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, crownLine.Direction)), crownLine.Length, double.Pi / 3)
+                : new Arc(new Circle(span.Frame, at(divisions), at(divisions).DistanceTo(at(divisions - 1))), new Interval(-Vector3d.VectorAngle(span.Frame.XAxis, at(divisions - 1) - at(divisions)), double.Pi / 2))));
     }
 
     private static Arc FoilGuide(ArchSpan span, bool pointed, double divisions) {
@@ -202,23 +193,17 @@ internal static class ArchGeometry {
         return new Arc(span.Frame, span.Midpoint + (span.Frame.XAxis * (centerFactor * radius)), radius, sweep);
     }
 
-    private static Func<double, Point3d> FoilDivisions(Arc guide, double divisions) =>
-        index => guide.PointAt(guide.AngleDomain.ParameterAt(index / divisions));
-
     private static Arc FoilSpringing(Plane frame, Point3d center, Point3d through) =>
         new(frame, center, center.DistanceTo(through), Vector3d.VectorAngle(frame.XAxis, through - center));
 
     private static Arc FoilLobe(Plane frame, Point3d center, Point3d from, Point3d to) =>
         new(new Circle(frame, center, center.DistanceTo(from)), new Interval(-Vector3d.VectorAngle(frame.XAxis, from - center), Vector3d.VectorAngle(frame.XAxis, to - center)));
 
-    private static Arc FoilCrown(Plane frame, Point3d top, Point3d previous) =>
-        new(new Circle(frame, top, top.DistanceTo(previous)), new Interval(-Vector3d.VectorAngle(frame.XAxis, previous - top), double.Pi / 2));
-
     // --- [SYMMETRY]
     private static IO<Seq<Curve>> Symmetric(ArchSpan span, Seq<Arc> arcs) =>
         Transform.Mirror(span.Midpoint, span.Frame.XAxis) switch {
-            var mirror => Products.Made<Curve>(arcs.Bind(arc => Seq(
-                new Arc(new Circle(new Plane(mirror * arc.Center, mirror * arc.Plane.XAxis, mirror * arc.Plane.YAxis), arc.Radius), arc.AngleDomain),
-                new Arc(new Circle(new Plane(arc.Center, arc.Plane.XAxis, -arc.Plane.YAxis), arc.Radius), new Interval(-arc.EndAngle, -arc.StartAngle)))).Map(static arc => new ArcCurve(arc))),
+            var mirror => Products.Many(() => arcs.Bind(arc => Seq(
+                new Arc(mirror * arc.StartPoint, mirror * arc.MidPoint, mirror * arc.EndPoint),
+                new Arc(arc.EndPoint, arc.MidPoint, arc.StartPoint))).Map(static arc => (Curve)new ArcCurve(arc))),
         };
 }

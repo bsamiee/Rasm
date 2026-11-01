@@ -29,7 +29,8 @@ from blender.bpy.scene.collections import LayerPath, walked
 from blender.bpy.scene.materials import Clay, material, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, Member, OperatorButton, pressed, Property, RowContent
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, OperatorButton, pressed, Property, RowContent
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.tables import Branch, Matrix, TreeMatrix
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
@@ -299,7 +300,10 @@ def view_layer_copy(call: Call[Clipboard]) -> Outcome[Answer]:
     """Copy active view layer settings or its collection states."""
     part = Part[call.properties.part]
     return (
-        paired(rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: Snapshot.capture(layer if part is Part.LAYER else layer.layer_collection)), rooted(bpy.types.WindowManager, call.context))
+        paired(
+            rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: Snapshot.capture(layer if part is Part.LAYER else layer.layer_collection, owned=call.identity.owns)),
+            rooted(bpy.types.WindowManager, call.context),
+        )
         .map(lambda pair: pair[0].copied(pair[1]))
         .map(lambda _: Done())
     )
@@ -405,7 +409,7 @@ def _enumerated(command: Operator[Clipboard] | Operator[Overriding], member: str
 LAYER: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
 LAYERS: Final = Section(
     key="layers",
-    title="View Layers",
+    title=Some("View Layers"),
     rows=(
         Layout(
             rows=(
@@ -435,7 +439,6 @@ LAYERS: Final = Section(
 )
 OVERRIDES: Final = Section(
     key="layer_overrides",
-    title="Layer Overrides",
     rows=(
         Matrix(
             scope=ViewLayers(),
@@ -455,7 +458,7 @@ OVERRIDES: Final = Section(
         Matrix(scope=Scenes(), settings=(("cycles", "samples"),)),
     ),
 )
-COLLECTIONS: Final = Section(key="collection_states", title="Collections", rows=(Layout(rows=_restrictions, prerequisites=(collection_state,)),))
+COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"), rows=(Layout(rows=_restrictions, prerequisites=(collection_state,)),))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

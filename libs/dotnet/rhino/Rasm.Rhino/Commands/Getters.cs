@@ -110,6 +110,7 @@ public sealed record StageTrail<TStage>(TStage Current, Seq<TStage> Earlier);
 
 public sealed record StageKit<TStage, TValue>(
     Func<TStage, IO<StageStep<TStage, TValue>>> Advance,
+    Func<TStage, IO<StageStep<TStage, TValue>>> Replace,
     Func<Error, IO<StageStep<TStage, TValue>>> Retry,
     Func<TValue, IO<StageStep<TStage, TValue>>> Done,
     Accepts<StageStep<TStage, TValue>> Accept);
@@ -120,7 +121,7 @@ public abstract partial record StageStep<TStage, TValue> {
         from step in prompt(trail.Current, Kit(trail)).Catch(Getters.Retried, static error => IO.pure<StageStep<TStage, TValue>>(new Retry(error)))
         from next in step.Switch(
             trail,
-            advance: static (at, advance) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(new StageTrail<TStage>(advance.Stage, at.Current.Cons(at.Earlier)))),
+            advance: static (at, advance) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(advance.Undoable ? new StageTrail<TStage>(advance.Stage, at.Current.Cons(at.Earlier)) : at with { Current = advance.Stage })),
             back: static (_, back) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(new StageTrail<TStage>(back.Stage, back.Earlier))),
             retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(Session.Messages(retry.Rejection))).Map(_ => Next.Loop<StageTrail<TStage>, TValue>(at)),
             done: static (_, done) => IO.pure(Next.Done<StageTrail<TStage>, TValue>(done.Value)))
@@ -128,12 +129,13 @@ public abstract partial record StageStep<TStage, TValue> {
 
     private static StageKit<TStage, TValue> Kit(StageTrail<TStage> trail) =>
         new(
-            static stage => IO.pure<StageStep<TStage, TValue>>(new Advance(stage)),
+            static stage => IO.pure<StageStep<TStage, TValue>>(new Advance(stage, Undoable: true)),
+            static stage => IO.pure<StageStep<TStage, TValue>>(new Advance(stage, Undoable: false)),
             static error => IO.pure<StageStep<TStage, TValue>>(new Retry(error)),
             static value => IO.pure<StageStep<TStage, TValue>>(new Done(value)),
             new Accepts<StageStep<TStage, TValue>> { Undo = trail.Earlier.Head.Map(earlier => IO.pure<StageStep<TStage, TValue>>(new Back(earlier, trail.Earlier.Tail))) });
 
-    public sealed record Advance(TStage Stage) : StageStep<TStage, TValue>;
+    public sealed record Advance(TStage Stage, bool Undoable) : StageStep<TStage, TValue>;
 
     public sealed record Back : StageStep<TStage, TValue> {
         internal Back(TStage stage, Seq<TStage> earlier) => (Stage, Earlier) = (stage, earlier);
@@ -246,21 +248,17 @@ public static class Getters {
         where TGetter : GetPoint =>
         Run(
             create,
-            request,
+            request.Handlers.IsEmpty ? request : request with { Accept = request.Accept with { Message = request.Accept.Message | Some(Unhandled<T>) } },
             doc,
             getter =>
                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter)).As()
                 from result in IO.lift(() => {
-                    getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
                     getter.FullFrameRedrawDuringGet |= request.FullFrame;
-                    if (request.Default.Case is Point3d point)
-                        getter.SetDefaultPoint(point);
+                    _ = request.Default.Iter(getter.SetDefaultPoint);
                     return get(getter);
                 })
                 select result,
-            getter => request.Handlers.IsEmpty
-                ? Seq(answered(getter))
-                : Seq(answered(getter), new Route<T>(GetResult.CustomMessage, Posted(getter, request.Accept.Message.IfNone(Unhandled<T>)))));
+            getter => Seq(answered(getter)));
 
     private static IO<T> World<T>(GetPoint getter, RhinoDoc doc, Func<WorldPick, IO<T>> picked) =>
         from reference in Products.Maybe(() => getter.PointOnObject())

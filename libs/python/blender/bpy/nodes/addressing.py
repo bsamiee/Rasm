@@ -13,7 +13,8 @@ import msgspec
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.desired import Addressing, Content, DesiredItem, Interface, InterfacePanel, Socket
+from blender.bpy.nodes.desired import Addressing, Content
+from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, Socket
 from blender.bpy.nodes.trees import socket_at
 from blender.records.faults import Fault, Outcome, Reason
 

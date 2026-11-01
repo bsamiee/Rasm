@@ -84,7 +84,7 @@ public sealed class DefinedChangeFeed : ChangeQueue {
         Collect(IO.lift(() => new SceneBatch { Transforms = new(toSeq(dynamicObjectTransforms).Map(static moved => (moved.MeshInstanceId, moved.Transform)), tryAdd: false) }));
 
     protected override void ApplyDynamicLightChanges(List<global::Rhino.Geometry.Light> dynamicLightChanges) =>
-        Collect(toSeq(dynamicLightChanges).TraverseM(static lent => Copied(lent)).As()
+        Collect(toSeq(dynamicLightChanges).TraverseM(static lent => Products.Copied(lent)).As()
             .Map(static copies => new SceneBatch { DynamicLights = new(copies.Map(static copy => (copy.Id, copy)), tryAdd: false) }));
 
     protected override void ApplyRenderSettingsChanges(RenderSettings rs) =>
@@ -98,7 +98,7 @@ public sealed class DefinedChangeFeed : ChangeQueue {
         Collect(IO.lift(() => new SceneBatch { Skylight = Some(new SceneSkylight(skylight.Enabled, skylight.UsesCustomEnvironment, skylight.ShadowIntensity)) }));
 
     protected override void ApplySunChanges(global::Rhino.Geometry.Light sun) =>
-        Collect(Copied(sun).Map(static copy => new SceneBatch { Sun = Some(copy) }));
+        Collect(Products.Copied(sun).Map(static copy => new SceneBatch { Sun = Some(copy) }));
 
     protected override void ApplyLightChanges(List<global::Rhino.Render.ChangeQueue.Light> lightChanges) =>
         Collect(
@@ -107,7 +107,7 @@ public sealed class DefinedChangeFeed : ChangeQueue {
                 ? IO.pure((light.Id, Option<SceneLight>.None))
                 : from data in Products.Of(() => light.Data)
                   from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera).Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
-                  from copy in Copied(data)
+                  from copy in Products.Copied(data)
                   select (light.Id, Some(new SceneLight(copy, Conversions.Present(light.MaterialId))))).As()
             select new SceneBatch { Lights = new(rows, tryAdd: false) });
 
@@ -116,10 +116,10 @@ public sealed class DefinedChangeFeed : ChangeQueue {
 
     protected override void ApplyMeshChanges(Guid[] deleted, List<global::Rhino.Render.ChangeQueue.Mesh> added) =>
         Collect(toSeq(added).TraverseM(static source =>
-                from meshes in toSeq(source.GetMeshes()).TraverseM(static lent => Copied(lent)).As()
+                from meshes in toSeq(source.GetMeshes()).TraverseM(static lent => Products.Copied(lent)).As()
                 from mappings in toSeq(source.Mappings).TraverseM(static channel => Products.Of(() => channel.Mapping).Map(mapping => new SceneMapping(channel.Channel, channel.Local, mapping))).As()
                 from attributes in Products.Maybe(() => source.Attributes?.Duplicate())
-                from original in Optional(source.Object).TraverseM(static held => Copied(held.Geometry)).As()
+                from original in Optional(source.Object).TraverseM(static held => Products.Copied(held.Geometry)).As()
                 select (Id: source.Id(), Mesh: new SceneMesh(meshes, mappings, source.OcsTransform, attributes, original))).As()
             .Map(meshes => new SceneBatch {
                 Meshes = new(toSeq(deleted).Map(static id => (id, Option<SceneMesh>.None)).Concat(meshes.Map(static mesh => (mesh.Id, Some(mesh.Mesh)))), tryAdd: false),
@@ -155,8 +155,6 @@ public sealed class DefinedChangeFeed : ChangeQueue {
         Collect(IO.lift(() => new SceneBatch { Display = Some(new SceneDisplay(displayPipelineAttributes.Id, displayPipelineAttributes.RealtimeRenderPasses)) }));
 
     // --- [COPIES]
-    private static IO<T> Copied<T>(T lent) where T : GeometryBase => Products.Of(() => lent.Duplicate() as T);
-
     private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<ClippingPlane> planes) =>
         toSeq(planes).TraverseM(static plane => Products.Maybe(() => plane.Attributes?.Duplicate())
             .Map(attributes => (plane.Id, Some(new SceneClip(plane.IsEnabled, plane.Plane, toSeq(plane.ViewIds), attributes))))).As();

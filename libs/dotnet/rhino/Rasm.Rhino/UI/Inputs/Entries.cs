@@ -37,12 +37,7 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
                 static (held, handler) => held.TextChanged += handler,
                 static (held, handler) => held.TextChanged -= handler),
             static _ => true,
-            Some(Subscriptions.Merged(
-                Subscriptions.Inline<EventArgs>(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h).Choose(static _ => Some(unit)),
-                Subscriptions.Inline<KeyEventArgs>(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h).Choose(args => Conversions.Present(args.KeyData == entry.Commit, args).Map(static held => {
-                    held.Handled = true;
-                    return unit;
-                })))),
+            Some(Entries.Settled(entry.Field, entry.Commit)),
             first.Value, edit => latest.Bind(row => row.Edited(edit)))
         let shown = latest.Bind(row => show(row.Value))
         from escaped in Subscriptions.Inline<KeyEventArgs>(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h).Attach(args =>
@@ -74,10 +69,19 @@ internal static class Entries {
         from box in use(static () => new PasswordBox())
         select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
 
+    // --- [SETTLING]
+    internal static HostEvent<Unit> Settled(TextControl field, Keys commit) =>
+        Subscriptions.Merged(
+            Subscriptions.Inline<EventArgs>(h => field.LostFocus += h, h => field.LostFocus -= h).Choose(static _ => Some(unit)),
+            Subscriptions.Inline<KeyEventArgs>(h => field.KeyDown += h, h => field.KeyDown -= h).Choose(args => Conversions.Present(args.KeyData == commit, args).Map(static held => {
+                held.Handled = true;
+                return unit;
+            })));
+
     // --- [BROWSING]
     internal static IO<Control> Browsed(LocalizeStringPair title, FileBrowse browse, Seq<FileTypeRow> types, TextControl box, Func<string, IO<Unit>> commit, RowScope scope) =>
         from picked in CommandRows.Button(
-            new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) }, None,
+            new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) },
                 new Invoke.Effect(held =>
                     from current in IO.lift(() => box.Text)
                     from path in browse.Asked(title, current, types, held).Catch(Session.Cancellation, static _ => IO.pure(Option<string>.None))

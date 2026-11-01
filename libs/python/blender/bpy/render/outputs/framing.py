@@ -2,6 +2,7 @@
 
 from fractions import Fraction
 from functools import partial
+import math
 from typing import ClassVar, Final, Self
 
 from bl_ui.properties_output import RENDER_PT_format, RENDER_PT_frame_range
@@ -80,6 +81,16 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
         return self.resolution_x * self.resolution_percentage // 100, self.resolution_y * self.resolution_percentage // 100
 
     @property
+    def pixel_aspect(self) -> float:
+        """Displayed width over height of one pixel."""
+        return self.pixel_aspect_x / self.pixel_aspect_y
+
+    @property
+    def aspect(self) -> float:
+        """Displayed width over height of the frame, which the percentage leaves unchanged."""
+        return self.resolution_x * self.pixel_aspect / self.resolution_y
+
+    @property
     def padding(self) -> tuple[int, int]:
         """Overscan pixels beyond each edge per axis."""
         width, height = self.size
@@ -106,6 +117,11 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the pixels a render covers, the canvas of a whole frame and the window of a border."""
         canvas, window = self.bounds
         return (window.width, window.height) if isinstance(self.extent, Border) else canvas
+
+    def scaled(self, ratio: Fraction) -> Self:
+        """Returns the framing at full percentage with each frame side scaled by `ratio`, rounded up to a whole pixel."""
+        width, height = self.size
+        return msgspec.structs.replace(self, resolution_x=math.ceil(width * ratio), resolution_y=math.ceil(height * ratio), resolution_percentage=100)
 
     def rendered(self) -> Outcome[tuple[Self, tuple[int, int]]]:
         """Validates pixels, folding overscan into resolution within the host's resolution bounds."""

@@ -88,7 +88,7 @@ public sealed record RhinoTheme(string Name) {
          from released in Products.Released(() => Session.Run(Restored(latest) >> Flush))
          from flushed in Flush
          from followed in ThemeChanged.Attach(_ => Switched(latest))
-         select unit).Scoped(Session.Scope);
+         select unit).Scoped();
 
     private IO<(bool Dark, IO<Unit> Restore)> Colored =>
         from dark in Running

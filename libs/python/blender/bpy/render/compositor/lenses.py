@@ -1,4 +1,4 @@
-"""Scene camera node forms: Camera Info reads, points seen through the camera, lens tilts and re-aims, imaging lens and panorama maps over node expressions, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
+"""Scene camera node forms: camera reads and projections, lens tilts and re-aims, imaging point maps and radial lens maps over a frame, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
 
 from collections.abc import Callable, Mapping
 from types import MappingProxyType
@@ -10,7 +10,8 @@ import msgspec
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.functions import EXPRESSIONS, grouped
-from blender.bpy.nodes.graphs import equal, Expr, inverted, math, projected, Scalar, switched, Term, vector, xyz
+from blender.bpy.nodes.graphs import equal, Expr, inverted, math, projected, Scalar, Shape, switched, Term, vector, xyz
+from blender.bpy.nodes.interfaces import fielded, Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor.coordinates import FrameSpace
 from blender.bpy.render.compositor.shapes import rotated
 from blender.imaging.geometry.arithmetic import Namespace
@@ -18,14 +19,21 @@ from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.geometry.panoramas import ImagePoint
 from blender.records.fields import member
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type PointMap = Callable[[ImagePoint[Expr], Namespace[Expr, Expr]], ImagePoint[Expr]]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_IRIS: Final = MappingProxyType({
-    member(Aperture, lambda kind: kind.blades): "Flaps",
-    member(Aperture, lambda kind: kind.rotation): "Angle",
-    member(Aperture, lambda kind: kind.roundness): "Roundness",
-    member(Aperture, lambda kind: kind.obstruction): "Catadioptric Size",
+_BOKEH: Final = MappingProxyType({
+    member(Aperture, lambda kind: kind.blades): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Flaps"),
+    member(Aperture, lambda kind: kind.rotation): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Angle"),
+    member(Aperture, lambda kind: kind.roundness): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Roundness"),
+    member(Aperture, lambda kind: kind.obstruction): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Catadioptric Size"),
 })
+IRIS: Final = InterfacePanel.of(
+    "iris", Interface(inputs=tuple(msgspec.structs.replace(socket, kind=_BOKEH[getattr(Aperture, socket.key)]) for socket in fielded(Aperture()).inputs)), description="Bokeh iris outline"
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,22 +54,18 @@ class Sighted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             direction: Boolean operand choosing the object's axis over its location.
 
         Returns:
-            Device positions as frame fractions, the gate of points ahead, and the depth a Depth pass occludes them at.
+            Frame fractions with the gate of points ahead in Z, that gate, and the depth a Depth pass occludes them at.
         """
-        camera = Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", _camera()),), socket="Location", shape=bpy.types.NodeSocketVector)
         located = Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", target),), socket="Location", shape=bpy.types.NodeSocketVector)
         axis = Expr(
             kind=bpy.types.FunctionNodeRotateVector,
-            inputs=(("Vector", (0.0, 0.0, 1.0)), ("Rotation", msgspec.structs.replace(located, socket="Rotation"))),
+            inputs=(("Vector", (0.0, 0.0, 1.0)), ("Rotation", located.at("Rotation", bpy.types.NodeSocketRotation))),
             socket="Vector",
             shape=bpy.types.NodeSocketVector,
         )
-        inverse = Expr(kind=bpy.types.FunctionNodeInvertRotation, inputs=(("Rotation", msgspec.structs.replace(camera, socket="Rotation")),), socket="Rotation")
-        local = Expr(
-            kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", switched(direction, located - camera, axis)), ("Rotation", inverse)), socket="Vector", shape=bpy.types.NodeSocketVector
-        )
-        device = projected(local, lensed("Projection Matrix"))
-        return cls(position=vector("MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)), ahead=local["Z"] < 0.0, depth=switched(direction, -local["Z"], lensed("Clip End")))
+        local = unturned(switched(direction, located - camera("Location", bpy.types.NodeSocketVector), axis))
+        position = seen(local, lensed("Projection Matrix"))
+        return cls(position=position, ahead=position["Z"], depth=switched(direction, -local["Z"], lensed("Clip End")))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -71,7 +75,33 @@ class Sighted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 def lensed(socket: str) -> Expr:
     """Reads one Camera Info output of the scene camera, nodes keyed `camera` and `lens`."""
-    return Expr(kind=bpy.types.GeometryNodeCameraInfo, inputs=(("Camera", _camera()),), socket=socket).named("lens")
+    return Expr(kind=bpy.types.GeometryNodeCameraInfo, inputs=(("Camera", _active()),), socket=socket).named("lens")
+
+
+def camera(socket: str, shape: Shape = bpy.types.NodeSocketFloat, /) -> Expr:
+    """Reads one Object Info output of the scene camera, such as its world `Location` or `Rotation`, in a socket class's shape."""
+    return Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", _active()),), socket=socket, shape=shape)
+
+
+def unturned(direction: Term) -> Expr:
+    """Turns a world vector into the scene camera's space by the inverse of its world rotation."""
+    inverse = Expr(kind=bpy.types.FunctionNodeInvertRotation, inputs=(("Rotation", camera("Rotation", bpy.types.NodeSocketRotation)),), socket="Rotation")
+    return Expr(kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", direction), ("Rotation", inverse)), socket="Vector", shape=bpy.types.NodeSocketVector)
+
+
+def seen(local: Expr, lens: Expr, coverage: Scalar = 1.0) -> Expr:
+    """Projects a camera-space point or direction through a projection matrix to frame fractions, its coverage in Z where it lies ahead of the camera and 0 behind.
+
+    Args:
+        local: Camera-space point or direction.
+        lens: Camera projection matrix, such as `lensed("Projection Matrix")`.
+        coverage: Coverage kept ahead of the camera.
+
+    Returns:
+        Frame fractions from the bottom-left corner with front-facing coverage in Z.
+    """
+    position = vector("MULTIPLY_ADD", projected(local, lens), (0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
+    return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (local["Z"] < 0.0) * coverage, position)
 
 
 def tilted(uv: Expr, lens: Expr, heading: Scalar, elevation: Scalar, *, forward: bool = False) -> Expr:
@@ -93,8 +123,7 @@ def tilted(uv: Expr, lens: Expr, heading: Scalar, elevation: Scalar, *, forward:
         if forward
         else rotated(rotated(ray, heading, axis="Y_AXIS"), math("MULTIPLY", elevation, -1.0), axis="X_AXIS")
     )
-    position = vector("MULTIPLY_ADD", projected(turned, lens), (0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
-    return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (turned["Z"] < 0.0) * uv["Z"], position)
+    return seen(turned, lens, uv["Z"])
 
 
 def reaimed(fraction: Expr, lens: Expr, heading: Expr, elevation: Expr, share: Scalar, *, forward: bool) -> Expr:
@@ -137,7 +166,7 @@ def confusion(depth: Expr, f_number: Expr, meters: Expr, limit: Scalar) -> Expr:
     return switched(lensed("Is Orthographic"), switched(equal(gap, 0.0), math("MINIMUM", radius, limit), limit), 0.0)
 
 
-def _camera() -> Expr:
+def _active() -> Expr:
     """Active Camera output keyed `camera`."""
     return Expr(kind=bpy.types.GeometryNodeInputActiveCamera, socket="Active Camera").named("camera")
 
@@ -154,7 +183,7 @@ def chief_ray(image: Annotated[Expr, bpy.types.NodeSocketColor]) -> Mapping[Key,
 # --- [MAPS]
 
 
-def mapped(position: Expr, transform: Callable[[ImagePoint[Expr], Namespace[Expr, Expr]], ImagePoint[Expr]]) -> Expr:
+def mapped(position: Expr, transform: PointMap) -> Expr:
     """Evaluates an imaging point map over the components of a position vector, coverage in Z.
 
     Args:
@@ -168,14 +197,38 @@ def mapped(position: Expr, transform: Callable[[ImagePoint[Expr], Namespace[Expr
     return xyz(s, t, coverage)
 
 
+def radial(frame: FrameSpace, transform: PointMap) -> Expr:
+    """Maps displayed frame positions through a radial lens map of unit aspect, displayed offsets from the frame center entering as fractions about 0.5.
+
+    Args:
+        frame: Displayed camera frame of the source.
+        transform: Radial map over node expressions, such as `Radial(distortion=..., scale=..., aspect=1.0).to_rectilinear` or its `to_lens`.
+
+    Returns:
+        Camera frame fractions with the map's real-branch coverage in Z.
+    """
+    held = mapped(vector("ADD", frame.point - frame.extent * 0.5, (0.5, 0.5, 1.0)), transform)
+    fraction = vector("DIVIDE", xyz(held["X"] - 0.5, held["Y"] - 0.5) + frame.extent * 0.5, frame.extent)
+    return xyz(fraction["X"], fraction["Y"], held["Z"])
+
+
 # --- [IRIS]
 
 
-def iris(read: Callable[[object], Scalar], shift: Scalar = 0.0) -> Expr:
-    """Builds the Bokeh Image node of an aperture, each `Aperture` field read at the Bokeh Image input it pairs with by member, with a bokeh color shift."""
-    return Expr(kind=bpy.types.CompositorNodeBokehImage, inputs=(*((socket, read(field)) for field, socket in _IRIS.items()), ("Color Shift", shift)), socket="Image", shape=bpy.types.NodeSocketColor)
+def iris(read: Callable[[Socket], Scalar], shift: Scalar = 0.0) -> Expr:
+    """Builds the Bokeh Image node of the `IRIS` aperture, each panel socket read into the Bokeh Image input it declares, with a bokeh color shift.
+
+    Args:
+        read: Group input of a declaring socket, such as `Shell.input` or a reader prefixing the key of a panel nesting `IRIS`.
+        shift: Bokeh color shift, toward blue above 0.
+
+    Returns:
+        Bokeh Image `Image` expression.
+    """
+    inputs = tuple((stock.input, read(socket)) for socket in IRIS.inputs for stock in socket.stock.to_list())
+    return Expr(kind=bpy.types.CompositorNodeBokehImage, inputs=(*inputs, ("Color Shift", shift)), socket="Image", shape=bpy.types.NodeSocketColor)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Sighted", "chief_ray", "confusion", "iris", "lensed", "mapped", "reaimed", "tilted"]
+__all__ = ["IRIS", "PointMap", "Sighted", "camera", "chief_ray", "confusion", "iris", "lensed", "mapped", "radial", "reaimed", "seen", "tilted", "unturned"]

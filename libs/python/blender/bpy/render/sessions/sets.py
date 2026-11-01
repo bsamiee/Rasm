@@ -51,7 +51,8 @@ from blender.bpy.render.view_layers.passes import used
 from blender.bpy.settings.attachments import Attachment, Recovery, TextRecord
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import Layout, Member, Opens, OperatorButton, Property, RowContent
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Layout, Opens, OperatorButton, Property, RowContent
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.tables import Matrix
 from blender.bpy.ui.layout.values import Captured, menu_key
@@ -78,14 +79,14 @@ class Converting(bpy.types.PropertyGroup):
 
 
 class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Render set stores, commands binding the set's members on call, menus, and section over what its capture holds."""
+    """Render set stores, commands binding the set's members on call, menus, and section over the settings its categories sync and what its capture holds."""
 
     key: ClassVar[Key] = KEY
-    title: ClassVar[str] = bpy.path.display_name(KEY)
     record: ClassVar[TextRecord[Sets]] = TextRecord(key="render_set", form=Sets)
     scenes: ClassVar[Attachment[SceneMembership]] = Attachment(key="render_set", form=SceneMembership, owner=bpy.types.Scene)
     layers: ClassVar[Attachment[Membership]] = Attachment(key="render_set", form=Membership, owner=bpy.types.ViewLayer)
     capture: Capture[C]
+    categories: tuple[Category, ...] = ()
 
     # --- [BINDING]
 
@@ -100,7 +101,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
             accumulated(
                 (parsed(setting) if isinstance(setting, str) else Ok(setting)).bind(lambda path: Descriptor.resolve(category.root, path, bpy.types.Property)) for setting in category.settings
             ).map(lambda found: (category, found))
-            for category in self.capture.categories
+            for category in self.categories
         )
         return paired(self.record.attachment.bound(identity), self.scenes.bound(identity), self.layers.bound(identity), selections, Recovery.endpoints(identity, "render_set_sync")).map(
             lambda joined: Members(identity=identity, sets=joined[0], scenes=joined[1], layers=joined[2], categories=MappingProxyType(dict(joined[3])), recovery=joined[4])
@@ -149,7 +150,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                 invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
                 draw=Some(partial(confirmed, self.bound, partial(message, category), ())),
             )(Over(self.bound, partial(render_set_sync, category)))
-            for category in self.capture.categories
+            for category in self.categories
         )
 
     @property
@@ -187,7 +188,6 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
             *(
                 Section(
                     key=category.key,
-                    title=category.title,
                     header=(Opens(target=Opened(menu_key(category.preset), Called.MENU), keywords={"text": ""}, icon=Some("PRESET")), OperatorButton(target=sync, keywords={"text": ""})),
                     rows=(
                         Matrix(
@@ -198,18 +198,17 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                         ),
                     ),
                 )
-                for category, sync in zip(self.capture.categories, self.syncs)
+                for category, sync in zip(self.categories, self.syncs)
             ),
         )
 
     @property
     def section(self) -> Section:
-        """Render set section: setup presets in its header, then rows over the members the drawing identity binds."""
+        """Render set section: setup presets in its header, then rows over the members the drawing identity binds, the set registering what they read."""
         return Section(
             key=self.key,
-            title=self.title,
             header=(Opens(target=Opened(menu_key(Preset(key=KEY, form=self.capture.form)), Called.MENU), keywords={"text": ""}, icon=Some("PRESET")),),
-            rows=(Layout(rows=lambda identity: self.bound(identity).map(self.rows)),),
+            rows=(Layout(rows=lambda identity: self.bound(identity).map(self.rows), prerequisites=(self,)),),
         )
 
     # --- [REGISTRATION]
@@ -248,7 +247,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                             entries=(
                                 *(OperatorButton(target=placed) for placed in self.listed),
                                 Opens(target=Opened(listing.key, Called.MENU)),
-                                *(Opens(target=Opened(menu_key(category.preset), Called.MENU)) for category in self.capture.categories),
+                                *(Opens(target=Opened(menu_key(category.preset), Called.MENU)) for category in self.categories),
                             )
                         ),
                     ),
@@ -260,7 +259,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                                 selection=tuple(descriptor.path for descriptor in members.categories[category]),
                             )
                         )
-                        for category in self.capture.categories
+                        for category in self.categories
                     ),
                 )
 

@@ -15,7 +15,6 @@ namespace Rasm.Rhino.PlugIns;
 public sealed record ComputeEndpoint(string Path, Type Type);
 
 public sealed record PlugInDefinition {
-    public required TimeProvider Clock { get; init; }
     public Option<PlugInLoadTime> LoadTime { get; init; }
     public Option<LicenseDefinition> License { get; init; }
     public Seq<Guid> Dependencies { get; init; }

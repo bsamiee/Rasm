@@ -1,10 +1,9 @@
+using System.Globalization;
 using System.Numerics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
-using Rasm.Rhino.UI;
-using Rasm.UI.Controls;
 using Rhino.Render;
 
 namespace Darkroom.Queue;
@@ -12,6 +11,9 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FrameMark(ContentKey Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
     public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Written).ToDuration();
+
+    public string Stages(TimeProvider clock) =>
+        string.Join(", ", toSeq(FrameStage.Items).Map(stage => string.Create(CultureInfo.InvariantCulture, $"{stage.Key} {stage.Of(this, clock):-H:mm:ss.fff}")));
 }
 
 [SmartEnum<string>]
@@ -27,27 +29,19 @@ public sealed partial class FrameStage {
 public sealed record QueueEstimate(long Landed, long Total) {
     public Option<Duration> Remaining { get; init; }
     public Option<Instant> Finish { get; init; }
-    public Option<FrameMark> Last { get; init; }
 
     // --- [ETA]
-    public static QueueEstimate Idle { get; } = new(0, 0);
+    public static QueueEstimate Running(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, now, Mean);
 
-    public Content<Unit> Work =>
-        Total == 0 ? new Content<Unit>.Empty(nameof(Idle))
-        : Landed < Total ? new Content<Unit>.Pending { Work = Progress.Validated(Landed, Total).ToOption() }
-        : new Content<Unit>.Ready(unit);
+    public static QueueEstimate Sampled(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, now, static times => times.At(1) | times.Head);
 
-    public static QueueEstimate Running(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now) => Of(batch, record, last, now, Mean);
-
-    public static QueueEstimate Sampled(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, None, now, static times => times.At(1) | times.Head);
-
-    public string Description(DateTimeZone zone, IPlugInViews views) =>
+    public string Description(DateTimeZone zone) =>
         (Remaining, Finish)
-            .Apply((left, at) => RowText.Localize("{0:-H:mm:ss} left, finishing {1:g}, {2} of {3} frames rendered", views, arguments: [left, at.InZone(zone).LocalDateTime, Landed, Total]).Local)
+            .Apply((left, at) => LocalText.Of("{0:-H:mm:ss} left, finishing {1:g}, {2} of {3} frames rendered", left, at.InZone(zone).LocalDateTime, Landed, Total).Local)
             .As()
-            .IfNone(() => RowText.Localize("{0} of {1} frames rendered", views, arguments: [Landed, Total]).Local);
+            .IfNone(() => LocalText.Of("{0} of {1} frames rendered", Landed, Total).Local);
 
-    private static QueueEstimate Of(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now, Func<Seq<Duration>, Option<Duration>> rate) =>
+    private static QueueEstimate Of(RenderBatch batch, QueueProgress record, Instant now, Func<Seq<Duration>, Option<Duration>> rate) =>
         batch.Entries.Map(entry => record.Entries.Find(entry.Key).IfNone(EntryProgress.Empty) switch {
             var held => (held.Times, Remaining: held.Last.Match(Some: done => entry.Frames.Numbers.Count - 1L - (int)done, None: () => entry.Frames.Numbers.Count)),
         }) switch {
@@ -55,7 +49,7 @@ public sealed record QueueEstimate(long Landed, long Total) {
                 .Traverse(row => (rate(row.Times) | Mean(rows.Bind(static held => held.Times))).Map(each => each * row.Remaining))
                 .As()
                 .Map(static parts => parts.Fold(Duration.Zero, static (sum, part) => sum + part)) switch {
-                    var remaining => new(record.Landed, batch.Frames) { Remaining = remaining, Finish = remaining.Map(left => now + left), Last = last },
+                    var remaining => new(record.Landed, batch.Frames) { Remaining = remaining, Finish = remaining.Map(left => now + left) },
                 },
         };
 

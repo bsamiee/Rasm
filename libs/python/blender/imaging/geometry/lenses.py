@@ -1,4 +1,4 @@
-"""Iris outlines and coverage kernels, radial lens distortion, chief-ray falloff, and thin-lens defocus, written once over any namespace."""
+"""Iris outlines and coverage kernels, radial lens distortion, lateral color fringes, and thin-lens defocus, written once over any namespace."""
 
 import itertools
 import math
@@ -13,7 +13,7 @@ from scipy.integrate import quad_vec
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
 from blender.imaging.geometry.panoramas import Bearing, ImagePoint, shares
-from blender.records.fields import Finite, Positive, Unit
+from blender.records.fields import Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -165,34 +165,34 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Radial(msgspec.Struct, frozen=True, kw_only=True):
-    """Circular radial distortion and zoom normalized by the displayed greater side."""
+class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
+    """Circular radial distortion, barrel above 0 and pincushion below, and zoom normalized by the displayed greater side, the distortion an elementwise value of the namespace its maps run in and the zoom one or a float."""
 
-    distortion: Finite
-    scale: Positive
+    distortion: V
+    scale: V | float
     aspect: Positive
 
-    def to_rectilinear[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
+    def to_rectilinear[B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps lens positions to rectilinear samples, covering the real branch alone."""
         s, t, coverage = point
         across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
-        strength = 4.0 * self.scale * math.sqrt(abs(self.distortion))
-        radius = ns.hypot(across * (width * strength), up * (height * strength))
-        if self.distortion < 0.0:
-            shrink = 2.0 * self.scale / (ns.sqrt(radius * radius + 1.0) + 1.0)
-            return across * shrink + 0.5, up * shrink + 0.5, coverage
-        covered = ns.less_equal(radius, 1.0)
-        shrink = ns.where(covered, 2.0 * self.scale / (ns.sqrt(ns.maximum((1.0 - radius) * (radius + 1.0), 0.0)) + 1.0), 0.0)
+        strength = ns.sqrt(ns.abs(self.distortion)) * self.scale * 4.0
+        radius = ns.hypot(across * strength * width, up * strength * height)
+        pincushion = ns.less(self.distortion, 0.0)
+        covered = ns.logical_or(pincushion, ns.less_equal(radius, 1.0))
+        root = ns.where(pincushion, radius * radius + 1.0, ns.maximum((1.0 - radius) * (radius + 1.0), 0.0))
+        shrink = ns.where(covered, self.scale * 2.0 / (ns.sqrt(root) + 1.0), 0.0)
         return across * shrink + 0.5, up * shrink + 0.5, ns.where(covered, coverage, 0.0)
 
-    def to_lens[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
+    def to_lens[B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps rectilinear positions to lens samples on the forward map's inverse branch."""
         s, t, coverage = point
         across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
-        strength = 2.0 * math.sqrt(abs(self.distortion))
-        radius = ns.hypot(across * (width * strength), up * (height * strength))
-        covered = ns.less(radius, 1.0) if self.distortion < 0.0 else ns.less_equal(radius, 1.0)
-        grow = ns.where(covered, 1.0 / ((radius * radius * math.copysign(1.0, self.distortion) + 1.0) * self.scale), 0.0)
+        strength = ns.sqrt(ns.abs(self.distortion)) * 2.0
+        radius = ns.hypot(across * strength * width, up * strength * height)
+        barrel = ns.greater_equal(self.distortion, 0.0)
+        covered = ns.logical_or(ns.less(radius, 1.0), ns.logical_and(barrel, ns.less_equal(radius, 1.0)))
+        grow = ns.where(covered, 1.0 / ((radius * radius * ns.where(barrel, 1.0, -1.0) + 1.0) * self.scale), 0.0)
         return across * grow + 0.5, up * grow + 0.5, ns.where(covered, coverage, 0.0)
 
 
@@ -210,6 +210,14 @@ class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
         return ns.abs(self.focus / depth - 1.0) * (self.focal_length**2 / (2.0 * self.f_number * self.sensor * gap) if gap else math.inf)
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def fringed[V: Elementwise, B](shift: V, ns: Namespace[V, B]) -> tuple[V, V, V]:
+    """Returns the red, green, and blue radius factors of a lateral color fringe, `shift` from -1 to 1 moving it toward blue above zero."""
+    return 1.0 - ns.maximum(shift, 0.0), 1.0 - ns.abs(shift) * 0.5, ns.minimum(shift, 0.0) + 1.0
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Aperture", "Radial", "ThinLens"]
+__all__ = ["Aperture", "Radial", "ThinLens", "fringed"]

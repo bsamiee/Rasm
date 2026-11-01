@@ -298,7 +298,7 @@ public sealed partial class LutFormat {
             cube: static (_, cube) => Some(Normalized(cube.Lattice.DomainMinimum, cube.Lattice.DomainMaximum).Add(Node(
                 Lut3DNode,
                 new XAttribute(Interpolation, JsonNamingPolicy.CamelCase.ConvertName(cube.Interpolation.ToString())),
-                Grid<float>([cube.Lattice.Size, cube.Lattice.Size, cube.Lattice.Size, 3], Transposed(cube.Lattice.Data, cube.Lattice.Size, 1f))))),
+                Grid([cube.Lattice.Size, cube.Lattice.Size, cube.Lattice.Size, 3], Transposed(cube.Lattice.Data, cube.Lattice.Size, 1f))))),
             channelCurve: static (ctf, curve) => (curve.Inverted, ctf) switch {
                 (false, _) => Some((curve.Table.HalfDomain ? [] : Normalized(curve.Table.DomainMinimum, curve.Table.DomainMaximum)).Add(Curved(Lut1DNode, curve))),
                 (true, true) => Some(Seq(Curved(InverseLut1DNode, curve)) + (curve.Table.HalfDomain ? [] : Restored(curve.Table.DomainMinimum, curve.Table.DomainMaximum))),

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using Eto;
 using Rasm.Rhino.PlugIns.Licenses;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
@@ -34,7 +35,7 @@ internal sealed class PlugInBody {
     // --- [LIFECYCLE]
     public LoadReturnCode Load(Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense, ref string errorMessage) {
         (LoadReturnCode code, errorMessage) = Session.RunSafe(
-                Loading(getLicense).Scoped(Session.Scope).Map(static _ => (LoadReturnCode.Success, ""))
+                Loading(getLicense).Scoped().Map(static _ => (LoadReturnCode.Success, ""))
                     .Catch(static error => IO.lift(() => Session.Failed(error)) >> Session.Close
                         >> IO.pure(Session.Cancellation(error) ? (LoadReturnCode.ErrorNoDialog, "") : (LoadReturnCode.ErrorShowDialog, Session.Messages(error))))
                     .As(),
@@ -49,6 +50,7 @@ internal sealed class PlugInBody {
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from views in ViewCatalog.Load(catalog)
         from rewrites in DocumentArchive.Rewrites
+        from following in EffectList.Following
         from endpoints in IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type)))
         from loaded in definition.Load.TraverseM(identity).As()
         select unit;

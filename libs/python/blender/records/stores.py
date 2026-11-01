@@ -1,4 +1,4 @@
-"""Record bytes: atomic file and folder commits, folder, file, and removal writes, typed JSON files of one record, command argument codecs, content hashes and the generators they seed, and mirror paths."""
+"""Record bytes: atomic file and folder commits, folder, file, and removal writes, typed JSON files of one record read present or absent, command argument codecs, content hashes and the generators they seed, and mirror paths."""
 
 import base64
 from collections.abc import Callable, Iterable
@@ -15,13 +15,14 @@ from typing import Annotated, Final, overload, Protocol
 
 from atomicwrites import move_atomic, replace_atomic
 import cbor2
+from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 from typing_extensions import TypeForm
 
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -63,6 +64,22 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """
         refused = partial(Fault.of, Reason.UNREADABLE, str(self.path))
         return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
+
+    def found(self) -> Outcome[Option[T]]:
+        """Decodes and validates the record a present file holds.
+
+        Returns:
+            Ok(Some(record)), Ok(Nothing) while no file sits at the path, read fault for an unreadable or invalid file.
+        """
+
+        def absent(faults: Faults) -> Outcome[Option[T]]:
+            match faults:
+                case (Fault(reason=Reason.UNREADABLE, cause=FileNotFoundError()),):
+                    return Ok(Nothing)
+                case _:
+                    return Error(faults)
+
+        return self.read().map(Some).or_else_with(absent)
 
     def written(self, value: T, *, exclusive: bool = False) -> Outcome[Path]:
         """Writes the record in sorted key order through one atomic commit.

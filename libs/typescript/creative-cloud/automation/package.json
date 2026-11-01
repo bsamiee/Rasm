@@ -1,7 +1,7 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Drives Adobe applications through a Swift helper without changing frontmost application",
+    "description": "Adobe applications driven from outside the host",
     "sideEffects": false,
     "type": "module",
     "imports": {

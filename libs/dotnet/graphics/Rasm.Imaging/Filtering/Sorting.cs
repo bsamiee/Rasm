@@ -32,7 +32,7 @@ public sealed partial class SortDirection {
             using SpanOwner<float> owner = SpanOwner<float>.Allocate(row.Length);
             Span<float> keys = owner.Span;
             for (int x = 0; x < row.Length; x++)
-                keys[x] = Vector3.Dot(metric.Axis, style.ToHsy(row[x].AsVector3()) with { Z = Vector3.Dot(luminance, row[x].AsVector3()) });
+                keys[x] = Vector3.Dot(metric.Axis, style.ToHsy(row[x].AsVector3(), luminance));
             for (int x = 0, start = 0; x <= row.Length; x++) {
                 if (x < row.Length && row[x].W > 0f && (low <= high ? keys[x] >= low && keys[x] <= high : keys[x] >= low || keys[x] <= high))
                     continue;

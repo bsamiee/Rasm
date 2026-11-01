@@ -26,7 +26,8 @@ from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attached, Attachment, Host
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.rows import Keywords, Line, Member, OperatorButton, pressed, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Keywords, Line, OperatorButton, pressed, realized, RowContent, RowDraw
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import removed

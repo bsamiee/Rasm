@@ -18,7 +18,7 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.nodes.addressing import Addressed, owned
 from blender.bpy.nodes.changes import made, valued
-from blender.bpy.nodes.desired import NodeGroup
+from blender.bpy.nodes.interfaces import NodeGroup
 from blender.bpy.nodes.trees import created, endpoints, grouped, joined, links_of, native, ordered, tree_of
 from blender.bpy.ui.drawing.handlers import hooked
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason

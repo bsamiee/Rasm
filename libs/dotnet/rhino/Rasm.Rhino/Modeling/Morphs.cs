@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
-using Rasm.Spatial;
 using Rasm.Rhino.Document.Units;
+using Rasm.Spatial;
 using Rhino.Geometry.Morphs;
 
 namespace Rasm.Rhino.Modeling;
@@ -71,7 +71,7 @@ public static class Morphs {
                 from moved in Moved(brep, index, apply)
                 from face in Products.Of<GeometryBase>(brep.Faces[0].DuplicateSurface)
                 select face)
-            : from copy in Products.Of(() => target.Duplicate() as T)
+            : from copy in Products.Copied(target)
               from deformable in Transformations.Deformable(copy, Some(index))
               from moved in Moved(deformable, index, apply)
               select deformable;
@@ -132,10 +132,11 @@ public static class Morphs {
                 from target in IO.lift(() => new Frames.Along(of.Target, new Spacing.Lengths(source.Map(static station => station.Normalized))).Stations(held))
                 from paired in IO.lift(() => RhinoFault.Unless(source.Count >= 2 && source.Count == target.Count, RhinoReason.Mismatched, (source.Count, target.Count)))
                 let parameters = source.Map(static station => station.Parameter).ToArray()
-                select Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => Flowed(of, parameters, source, target, point))));
+                let length = of.Source.Path.GetLength()
+                select Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => Flowed(of, parameters, length, source, target, point))));
 
-    private static Point3d Flowed(MorphKind.Along of, double[] parameters, Seq<Station> source, Seq<Station> target, Point3d point) =>
-        of.Source.Path.ClosestPoint(point, out double t) && of.Source.Path.GetLength() is > 0d and var length
+    private static Point3d Flowed(MorphKind.Along of, double[] parameters, double length, Seq<Station> source, Seq<Station> target, Point3d point) =>
+        length > 0d && of.Source.Path.ClosestPoint(point, out double t)
             ? (Station: System.Array.BinarySearch(parameters, t) switch { >= 0 and var exact => exact, var insert => Math.Max(~insert - 1, 0) }, Normalized: of.Source.Path.GetLength(new Interval(of.Source.Path.Domain.T0, t)) / length) switch {
                 var at => of.Target.Path.NormalizedLengthParameter(at.Normalized, out double onTarget)
                     ? of.Placement.At(Transported(of.Source.Path, source[at.Station].Frame, t), Transported(of.Target.Path, target[at.Station].Frame, onTarget), at.Normalized) * point

@@ -1,7 +1,7 @@
-#0 `DisposalOps.Acquire` disposes `StackLayout` with children attached, acquire `StackLayout` through `use` with a release detaching children before `Dispose`
-#1 `DisposalOps.Acquire` disposes `Splitter` with children attached, acquire `Splitter` through `use` with a release detaching children before `Dispose`
-#2 `DisposalOps.Acquire` disposes `TabPage` with children attached, acquire `TabPage` through `use` with a release detaching children before `Dispose`
-#3 `DisposalOps.Within` disposes `Panel` with children attached, acquire `Panel` through `use` with a release detaching children before `Dispose`
-#4 `Retained.Retain` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`
-#5 `new Disposal` disposes `Panel` with children attached, acquire `Panel` through `use` with a release detaching children before `Dispose`
-#6 `DisposalOps.Acquire` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`
+#0 `Prelude.use` disposes `StackLayout` with children attached, acquire `StackLayout` through `use` with a release detaching children before `Dispose`
+#1 `Prelude.use` disposes `Splitter` with children attached, acquire `Splitter` through `use` with a release detaching children before `Dispose`
+#2 `Prelude.use` disposes `TabPage` with children attached, acquire `TabPage` through `use` with a release detaching children before `Dispose`
+#3 `Products.Transfer` disposes `Panel` with children attached, acquire `Panel` through `use` with a release detaching children before `Dispose`
+#4 `retain` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`
+#5 `Products.Transfer` disposes `Panel` with children attached, acquire `Panel` through `use` with a release detaching children before `Dispose`
+#6 `Prelude.use` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`

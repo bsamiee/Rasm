@@ -62,7 +62,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let mut negated = false;
             let tested = peel_hir_expr_while(peel_blocks(tested), |inner| {
                 if let ExprKind::Unary(UnOp::Not, operand) = inner.kind {
-                    negated = !negated;
+                    negated.toggle();
                     Some(peel_blocks(operand))
                 } else {
                     None

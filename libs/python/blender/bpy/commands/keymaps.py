@@ -18,7 +18,7 @@ import rna_keymap_ui
 from blender.bpy.commands.calls import Called, filled, Opened, Pairs, Placement, Setting
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Band, Registrable
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -107,7 +107,7 @@ class Keymap:
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Adds each binding's items to every space of the keymap name after operator registration, each item's removal held as it is made."""
+        """Acquires each bound extension command, then adds each binding's items to every space of the keymap name after operator registration, each item's removal held as it is made."""
 
         @contextmanager
         def held(locations: tuple[Location, ...], rows: tuple[Row, ...]) -> Generator[Outcome[None]]:
@@ -131,7 +131,8 @@ class Keymap:
                 self._items = tuple(pair for pair, _ in made)
                 yield accumulated(fill for _, fill in made).map(lambda _: None)
 
-        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: ((Band.KEYMAP_ITEMS, held(*pair)),))
+        commands = tuple(dict.fromkeys(placement.operator for _, placement in self.bindings if isinstance(placement.operator, Registrable)))
+        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: (*commands, (Band.KEYMAP_ITEMS, held(*pair))))
 
     # --- [USER_ITEMS]
 

@@ -8,11 +8,9 @@ namespace Rasm.Imaging.Grade;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public abstract partial class GradingStyle {
-    public static readonly GradingStyle Log = new Encoded("log", 4f, new GradingTone(new(0.4f, 0.4f), new(0.5f, 0f), new(0.4f, 0.6f), new(0.3f, 1f), new(0.4f, 0.5f)));
+    public static readonly GradingStyle Log = new Encoded("log", 4f, new GradingTone(GradingRgbmsw.Neutral(0.4f, 0.4f), GradingRgbmsw.Neutral(0.5f, 0f), GradingRgbmsw.Neutral(0.4f, 0.6f), GradingRgbmsw.Neutral(0.3f, 1f), GradingRgbmsw.Neutral(0.4f, 0.5f)));
     public static readonly GradingStyle Linear = new SceneLinear();
-    public static readonly GradingStyle Video = new Encoded("video", 1.25f, new GradingTone(new(0.4f, 0.4f), new(0.6f, 0f), new(0.4f, 0.7f), new(0.2f, 1f), new(0.5f, 0.5f)));
-
-    private static readonly Vector3 Luma = Gamut.StandardRgb.Luminance;
+    public static readonly GradingStyle Video = new Encoded("video", 1.25f, new GradingTone(GradingRgbmsw.Neutral(0.4f, 0.4f), GradingRgbmsw.Neutral(0.6f, 0f), GradingRgbmsw.Neutral(0.4f, 0.7f), GradingRgbmsw.Neutral(0.2f, 1f), GradingRgbmsw.Neutral(0.5f, 0.5f)));
 
     internal float Top { get; }
     internal float ContrastTop { get; }
@@ -26,18 +24,18 @@ public abstract partial class GradingStyle {
 
     internal virtual Vector3 Decode(Vector3 encoded) => encoded;
 
-    public Vector3 ToHsy(Vector3 rgb) {
-        (float luma, float high, float low) = (Vector3.Dot(rgb, Luma), float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), float.Min(rgb.X, float.Min(rgb.Y, rgb.Z)));
+    public Vector3 ToHsy(Vector3 rgb, Vector3 weights) {
+        (float luma, float high, float low) = (Vector3.Dot(rgb, weights), float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), float.Min(rgb.X, float.Min(rgb.Y, rgb.Z)));
         float hue = high == low ? 0f
             : (rgb.X == high ? 1f + ((rgb.Y - rgb.Z) / (high - low)) : rgb.Y == high ? 3f + ((rgb.Z - rgb.X) / (high - low)) : 5f + ((rgb.X - rgb.Y) / (high - low))) / 6f;
         return new(hue, Saturation(Vector3.Sum(rgb), luma, Vector3.Sum(Vector3.Abs(rgb - new Vector3(luma)))), luma);
     }
 
-    public Vector3 FromHsy(Vector3 hsy) {
+    public Vector3 FromHsy(Vector3 hsy, Vector3 weights) {
         float turn = hsy.X - (1f / 6f) + (hsy.Z < 0f ? 0.5f : 0f);
         float sextant = (turn - float.Floor(turn)) * 6f;
         Vector3 hexcone = Vector3.Clamp(new(float.Abs(sextant - 3f) - 1f, 2f - float.Abs(sextant - 2f), 2f - float.Abs(sextant - 4f)), Vector3.Zero, Vector3.One);
-        Vector3 chroma = (hexcone * (hsy.Z / Vector3.Dot(hexcone, Luma))) - new Vector3(hsy.Z);
+        Vector3 chroma = (hexcone * (hsy.Z / Vector3.Dot(hexcone, weights))) - new Vector3(hsy.Z);
         return new Vector3(hsy.Z) + (Gain(hsy.Y, Vector3.Sum(chroma) + (3f * hsy.Z), hsy.Z, Vector3.Sum(Vector3.Abs(chroma))) * chroma);
     }
 
@@ -51,7 +49,7 @@ public abstract partial class GradingStyle {
         private protected override float Gain(float saturation, float sum, float luma, float distance) => saturation / float.Max(distance * scale, 1e-10f);
     }
 
-    private sealed class SceneLinear() : GradingStyle("linear", 7.5f, 6.5f, -5.5f, 0f, -7f, 7f, new GradingTone(new(0f, 4f), new(2f, -7f), new(0f, 8f), new(-2f, 9f), new(0f, 8f))) {
+    private sealed class SceneLinear() : GradingStyle("linear", 7.5f, 6.5f, -5.5f, 0f, -7f, 7f, new GradingTone(GradingRgbmsw.Neutral(0f, 4f), GradingRgbmsw.Neutral(2f, -7f), GradingRgbmsw.Neutral(0f, 8f), GradingRgbmsw.Neutral(-2f, 9f), GradingRgbmsw.Neutral(0f, 8f))) {
         private const float Shift = -0.000157849851665374f;
         private const float Break = 0.0041318374739483946f;
         private const float Knee = 0.15f;
@@ -84,7 +82,7 @@ public abstract partial class GradingStyle {
 }
 
 public sealed record GradingRgbmsw(float Red, float Green, float Blue, float Master, float Start, float Width) {
-    public GradingRgbmsw(float start, float width) : this(1f, 1f, 1f, 1f, start, width) { }
+    public static GradingRgbmsw Neutral(float start, float width) => new(1f, 1f, 1f, 1f, start, width);
 }
 
 public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, GradingRgbmsw Midtones, GradingRgbmsw Highlights, GradingRgbmsw Whites, float SContrast = 1f) {

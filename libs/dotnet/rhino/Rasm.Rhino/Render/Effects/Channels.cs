@@ -38,7 +38,7 @@ public static class Channels {
          Inside(cpu, rect, 4))
             .Apply((_, packed, _) => Pinned(cpu, rect, packed)).As();
 
-    public static Memory2D<float> Widened(Span2D<float> native, int width) {
+    public static Memory2D<float> Widened(ReadOnlySpan2D<float> native, int width) {
         float[] rgba = GC.AllocateUninitializedArray<float>(4 * width * native.Height);
         Span2D<float> rows = new(rgba, native.Height, 4 * width);
         int components = native.Width / width;
@@ -79,6 +79,9 @@ public static class Channels {
     public static IO<Memory2D<float>> Read(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect) =>
         Opened(open, RenderWindow.ChannelId(channel), (_, cpu) => IO.lift(() => Read(cpu, rect)));
 
+    public static IO<Option<Memory2D<float>>> Offered(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect) =>
+        Available(open, RenderWindow.ChannelId(channel), (_, cpu) => IO.lift(() => Read(cpu, rect)));
+
     public static IO<Unit> Write(Func<Guid, PostEffectChannel?> open, Rectangle rect, ReadOnlyMemory2D<float> rgba, bool commit) =>
         Opened(open, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (opened, cpu) =>
             from written in IO.lift(() => Put(cpu, rect, rgba))
@@ -86,8 +89,10 @@ public static class Channels {
             select unit);
 
     public static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        (from opened in Products.Of(() => open(channel))
-         from cpu in IO.lift(() => Conversions.Required(opened.CPU()))
-         from value in body(opened, cpu)
+        Available(open, channel, body).Bind(found => IO.lift(found.ToFin(new RhinoFault(channel.ToString("D"), RhinoReason.Missing))));
+
+    public static IO<Option<T>> Available<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
+        (from opened in Products.Maybe(() => open(channel))
+         from value in opened.Traverse(held => IO.lift(() => Conversions.Required(held.CPU())).Bind(cpu => body(held, cpu))).As()
          select value).Bracket();
 }

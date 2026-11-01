@@ -1,4 +1,5 @@
 using Eto.Forms;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
@@ -87,8 +88,7 @@ public static class NumberFields {
             else field.UseViewPageUnits(units);
             units.UnitsDistanceDisplayAndPrecisionFromDoc(doc);
         })
-        from followed in Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h)
-            .Documents().In(doc.RuntimeSerialNumber)
+        from followed in Documents.PropertiesChanged.Documents().In(doc.RuntimeSerialNumber)
             .Attach(_ => IO.lift(() => units.UnitsDistanceDisplayAndPrecisionFromDoc(doc)).OnUiThread())
         select unit;
 }

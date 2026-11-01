@@ -4,15 +4,15 @@ from collections.abc import Callable
 import copy
 from functools import partial
 import pathlib
-from typing import Final
+from typing import Final, Self
 
-from expression import Option
+from expression import Ok, Option
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.color.processors import called
+from blender.imaging.color.processors import called, processor
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.stores import committed, files_copied, folder_made
 
@@ -44,13 +44,40 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         _SET_COLORSPACES(parameters, _PREFER_BASE)
         return parameters
 
-    view_transforms: tuple[PyOpenColorIO.ViewTransform, ...]
+    view_transforms: tuple[PyOpenColorIO.ViewTransform, ...] = ()
     displays: tuple[PyOpenColorIO.ColorSpace, ...] = ()
     looks: tuple[PyOpenColorIO.Look, ...] = ()
     inactive: frozenset[str] = frozenset()
     file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
     luts: tuple[pathlib.Path, ...] = ()
     merge: object = msgspec.field(default_factory=merging)
+
+    def keeping(self, base: PyOpenColorIO.Config, prior: PyOpenColorIO.Config) -> Outcome[Self]:
+        """Adds the view transforms an earlier merged config holds that neither `base` nor the build names, in their earlier order, each resolved into the operations its processor runs so no file it read stays referenced.
+
+        Returns:
+            Build, or `color` faults of an earlier transform that no longer resolves.
+        """
+        held = frozenset(base.getViewTransformNames())
+        own = {view.getName(): view for view in self.view_transforms}
+        earlier = tuple(view for view in prior.getViewTransforms() if view.getName() not in held)
+
+        def resolved(view: PyOpenColorIO.ViewTransform) -> Outcome[PyOpenColorIO.ViewTransform]:
+            copied = copy.deepcopy(view)
+
+            def ran(direction: PyOpenColorIO.ViewTransformDirection) -> Outcome[None]:
+                return (
+                    Option
+                    .of_optional(view.getTransform(direction))
+                    .map(lambda transform: processor(prior, transform).map(lambda built: copied.setTransform(built.createGroupTransform(), direction)))
+                    .default_value(Ok(None))
+                )
+
+            return paired(ran(PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE), ran(PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE)).map(lambda _: copied)
+
+        return accumulated(resolved(view) for view in earlier if view.getName() not in own).map(
+            lambda kept: msgspec.structs.replace(self, view_transforms=tuple(({view.getName(): view for view in earlier} | own | {view.getName(): view for view in kept}).values()))
+        )
 
     def staged(self, base: PyOpenColorIO.Config, stage: pathlib.Path) -> Outcome[PyOpenColorIO.Config]:
         """Merges rows into `base` with base files, LUT folders, and generated CLF tables staged in `stage`.

@@ -1,4 +1,4 @@
-"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, variance-kept tile sampling, kernel convolution, and block means."""
+"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, variance-kept tile sampling, Gaussian blur, kernel convolution, and block means."""
 
 from functools import reduce
 from itertools import product, starmap
@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.nodes.content import Generated
-from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, switched, Term, vector, where, xyz
+from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, Shape, switched, Term, vector, where, xyz
 from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, PixelGrid, uv_mapped
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -80,10 +80,7 @@ def bilateral(value: Expr, guide: Expr, coverage: Expr, frame: FrameSpace, fallb
     def blurred(lower: int, upper: int) -> Expr:
         red, green, blue, alpha = weighted * weights[lower], coverage * weights[lower], weighted * weights[upper], coverage * weights[upper]
         return Expr(
-            kind=bpy.types.CompositorNodeBlur,
-            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", frame.pixel_size((radius, radius, 0.0))), ("Type", "Fast Gaussian")),
-            socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            kind=bpy.types.CompositorNodeBlur, inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", frame.pixel_size((radius, radius, 0.0)))), socket="Image", shape=bpy.types.NodeSocketColor
         )
 
     cells = tuple((weights[index], grid[moment], grid[mass]) for lower in range(0, 2 * pairs, 2) for grid in (blurred(lower, lower + 1),) for index, (moment, mass) in zip((lower, lower + 1), sides))
@@ -132,6 +129,16 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
 # --- [CONVOLUTION]
 
 
+def blurred(image: Term, size: Term, *, shape: Shape = bpy.types.NodeSocketColor) -> Expr:
+    """Blurs an image through the exact Gaussian over a pixel size per axis, where the Blur node's default Fast Gaussian approximates it, its result read in `shape`."""
+    return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", shape=shape)
+
+
+def filtered(image: Term, kind: str) -> Expr:
+    """Filters an image through the Filter node's kernel of `kind`, a `Type` menu item such as `Laplace`, `Sobel`, or `Soften`."""
+    return Expr(kind=bpy.types.CompositorNodeFilter, inputs=(("Image", image), ("Type", kind)), socket="Image", shape=bpy.types.NodeSocketColor)
+
+
 def convolved(source: Term, kernel: Generated) -> Expr:
     """Convolves a source by a generated color kernel whose weights hold their own sums."""
     image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(kernel), socket="Image", shape=bpy.types.NodeSocketColor).named(kernel.ownership.key)
@@ -172,12 +179,7 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
     def averaged(x: int, y: int) -> tuple[Expr, Expr]:
         horizontal, vertical = candidates[x]["X"], candidates[y]["Y"]
         kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", shape=bpy.types.NodeSocketColor)
-        image = Expr(
-            kind=bpy.types.CompositorNodeConvolve,
-            inputs=(("Image", source), ("Kernel Data Type", "Float"), ("Float Kernel", kernel), ("Normalize Kernel", True)),
-            socket="Image",
-            shape=bpy.types.NodeSocketColor,
-        )
+        image = Expr(kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Float Kernel", kernel)), socket="Image", shape=bpy.types.NodeSocketColor)
         return uv_mapped(image, uv, interpolation="Nearest", extension=("Extend", "Extend")), math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
 
     (first, _), *rest = starmap(averaged, product(range(len(candidates)), repeat=2))
@@ -186,4 +188,4 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["bilateral", "block_mean", "convolved", "ranked", "tiled"]
+__all__ = ["bilateral", "block_mean", "blurred", "convolved", "filtered", "ranked", "tiled"]

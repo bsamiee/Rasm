@@ -81,9 +81,6 @@ internal static class RuiFiles {
                 new XElement("icons", icons),
                 new XElement("bitmaps")))).As());
 
-    public static IO<Unit> Write(Option<XDocument> document, string path) =>
-        IO.lift(() => document.Match(Some: held => held.Save(path), None: () => File.Delete(path)));
-
     // --- [REACH]
     private static Seq<ToolbarRow> Reached(Seq<ToolbarRow> toolbars) =>
         toolbars.Bind(static toolbar => toolbar.Cons(Reached(toolbar.Groups.Flatten().Bind(static command => command.Switch(
@@ -100,12 +97,7 @@ internal static class RuiFiles {
             menu: static menu => menu.Primary.ToSeq().Bind(Invokes) + Macros(menu.Groups)));
 
     private static Seq<(Macro Macro, CommandFace Face)> Invokes(Command<Macro>.Run run) =>
-        (run.Invoke, run.Face).Cons(run.Alternate.Map(alternate => (alternate, Alternated(run.Face, run.Invoke, alternate))).ToSeq());
-
-    private static CommandFace Alternated(CommandFace face, Macro primary, Macro alternate) =>
-        alternate.Steps.Filter(step => primary.Steps.ForAll(held => held != step)).Choose(static step => step.EnglishName) switch {
-            var names => face with { Caption = string.Join(", ", face.Caption.Cons(names)), Help = face.Help.Map(help => string.Join(", ", help.Cons(names))) },
-        };
+        (run.Invoke, run.Face).Cons(run.Alternate.Map(static alternate => (alternate.Invoke, alternate.Face)).ToSeq());
 
     // --- [IDENTIFIERS]
     private static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Face.Name}");
@@ -157,7 +149,7 @@ internal static class RuiFiles {
                 Bitmap(file, face).ToSeq(),
                 text.Of("text", face.Caption),
                 new XElement("left_macro_id", MacroId(file, run.Invoke)),
-                run.Alternate.Map(alternate => new XElement("right_macro_id", MacroId(file, alternate))).ToSeq(),
+                run.Alternate.Map(alternate => new XElement("right_macro_id", MacroId(file, alternate.Invoke))).ToSeq(),
                 link.Map(bar => new XElement("link", new XAttribute("style", "normal"), BarId(file, bar))).ToSeq())));
 
     private static XElement Spacer(Guid id) => new("tool_bar_item", new XAttribute("guid", id), new XAttribute("button_style", "spacer"));
@@ -225,7 +217,7 @@ internal static class Program {
          from references in IO.liftAsync(env => File.ReadAllLinesAsync(request.References, env.Token))
          from plugIn in RuiFiles.Load(request.PlugIn, toSeq(references))
          from document in RuiFiles.Document(plugIn)
-         from written in RuiFiles.Write(document, request.Rui)
+         from written in IO.lift(() => document.Match(Some: held => held.Save(request.Rui), None: () => File.Delete(request.Rui)))
          select written).RunSafe().Match(
             Succ: static _ => 0,
             Fail: static error => {

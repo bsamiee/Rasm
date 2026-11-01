@@ -1,34 +1,24 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
-using Thinktecture.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Darkroom.Chain;
 using Darkroom.Output;
-using Rasm.Imaging.Files;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
 using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Render;
+using Thinktecture.Text.Json.Serialization;
 
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record QueueHeartbeat(TimeSpan Interval, int Misses) {
-    public static QueueHeartbeat Default { get; } = new(TimeSpan.FromSeconds(3), 10);
-
-    public Duration Silence => (Interval * Misses).ToDuration();
-}
-
 [SmartEnum<string>]
 [JsonConverter(typeof(ThinktectureJsonConverterFactory))]
 public sealed partial class RunEnd {
@@ -45,14 +35,14 @@ public abstract partial record RunState {
     public sealed record Crashed(Instant Heard) : RunState;
 }
 
-public sealed record Relaunch(string Job, TimeSpan Delay);
+public sealed record Relaunch(string Job, Duration Delay);
 
 public sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Times, HashMap<Seq<NamePart>, OutputVersion> Versions) {
     public static EntryProgress Empty { get; } = new(None, Seq<Duration>(), HashMap<Seq<NamePart>, OutputVersion>());
 }
 
 public sealed record QueueProgress(
-    Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, TimeSpan Delay, Option<RunEnd> Ended, HashMap<ContentKey, EntryProgress> Entries) {
+    Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, HashMap<ContentKey, EntryProgress> Entries) {
     // --- [STATE]
     public bool Succeeded => Ended.Exists(static end => end == RunEnd.Succeeded);
 
@@ -63,9 +53,9 @@ public sealed record QueueProgress(
     // --- [FILE]
     public static IO<FileStream> Acquire(OutputPath path) => use(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
 
-    public static IO<Option<QueueProgress>> Read(OutputPath path) => JsonFiles.Read(path, ProgressContext.Default.ProgressRecord, static record => Fin.Succ(record.Progress));
+    public static IO<Option<QueueProgress>> Read(OutputPath path) => FilePublication.Read(path, ProgressRecord.Info, static record => Fin.Succ(record.Progress));
 
-    public static IO<Unit> Write(OutputPath path, QueueProgress progress) => JsonFiles.Write(path, ProgressRecord.Of(progress), ProgressContext.Default.ProgressRecord);
+    public static IO<Unit> Write(OutputPath path, QueueProgress progress) => FilePublication.Write(path, ProgressRecord.Of(progress), ProgressRecord.Info);
 
     public static IO<Unit> Touch(OutputPath path, TimeProvider clock) => IO.lift(() => File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime));
 
@@ -79,7 +69,7 @@ public sealed record QueueProgress(
              settings.Delay,
              None,
              toHashMap(batch.Entries.Map(entry => (entry.Key, resumed.Bind(record => record.Entries.Find(entry.Key)).IfNone(EntryProgress.Empty) with {
-                 Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version.Taken.Map(version => (output.Name.Scope, version)))),
+                 Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version is OutputVersioning.Pinned pinned ? Some((output.Name.Scope, pinned.Version)) : None)),
              }))))).Bracket();
 
     public static IO<(QueueSettings Settings, Option<QueueProgress> Prior, RunState State)> Observed(QueueContext context) =>
@@ -90,7 +80,7 @@ public sealed record QueueProgress(
                 Some: static end => IO.pure<RunState>(new RunState.Ended(end)),
                 None: () =>
                     from heard in IO.lift(() => File.GetLastWriteTimeUtc(context.Record).ToInstant())
-                    from now in IO.lift(context.Views.Clock.GetCurrentInstant)
+                    from now in IO.lift(context.Clock.GetCurrentInstant)
                     from live in Live(held)
                     select live && now - heard < settings.Heartbeat.Silence ? (RunState)new RunState.Active(held.ProcessId, heard) : new RunState.Crashed(heard)),
             None: static () => IO.pure<RunState>(new RunState.Absent()))
@@ -101,31 +91,28 @@ public sealed record QueueProgress(
             .Catch(static error => error.HasException<ArgumentException>() || error.HasException<InvalidOperationException>(), static _ => IO.pure(value: false));
 }
 
-internal sealed record ProgressRecord(string? Job, int ProcessId, DateTimeOffset ProcessStart, int Retries, TimeSpan Delay, RunEnd? Ended, ProgressRecord.Entry[] Entries) {
-    internal sealed record Entry(ContentKey Key, SequenceNumber? Last, TimeSpan[] Times, Version[] Versions);
+internal sealed record ProgressRecord(Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, Seq<ProgressRecord.Entry> Entries) {
+    internal static readonly JsonTypeInfo<ProgressRecord> Info = ArchivableDictionaries.Info<ProgressRecord>();
 
-    internal sealed record Version(NamePart[] Scope, OutputVersion Number);
+    internal sealed record Entry(ContentKey Key, Option<SequenceNumber> Last, Seq<Duration> Times, Seq<Version> Versions);
+
+    internal sealed record Version(Seq<NamePart> Scope, OutputVersion Number);
 
     internal QueueProgress Progress =>
-        new(Optional(Job), ProcessId, ProcessStart.ToInstant(), Retries, Delay, Optional(Ended), toHashMap(toSeq(Entries).Map(static entry => (entry.Key, new EntryProgress(
-            Optional(entry.Last), toSeq(entry.Times).Map(static time => time.ToDuration()), toHashMap(toSeq(entry.Versions).Map(static row => (toSeq(row.Scope), row.Number))))))));
+        new(Job, ProcessId, ProcessStart, Retries, Delay, Ended, toHashMap(Entries.Map(static entry =>
+            (entry.Key, new EntryProgress(entry.Last, entry.Times, toHashMap(entry.Versions.Map(static row => (row.Scope, row.Number))))))));
 
     internal static ProgressRecord Of(QueueProgress progress) =>
-        new(progress.Job.ValueUnsafe(), progress.ProcessId, progress.ProcessStart.ToDateTimeOffset(), progress.Retries, progress.Delay, progress.Ended.ValueUnsafe(),
+        new(progress.Job, progress.ProcessId, progress.ProcessStart, progress.Retries, progress.Delay, progress.Ended,
             [.. progress.Entries.AsIterable().Map(static row => new Entry(
                 row.Key,
-                row.Value.Last.ValueUnsafe(),
-                [.. row.Value.Times.Map(static time => time.ToTimeSpan())],
-                [.. row.Value.Versions.AsIterable().Map(static version => new Version([.. version.Key], version.Value))]))]);
+                row.Value.Last,
+                row.Value.Times,
+                [.. row.Value.Versions.AsIterable().Map(static version => new Version(version.Key, version.Value))]))]);
 }
 
-[JsonSerializable(typeof(ProgressRecord))]
-[JsonSerializable(typeof(UInt128))]
-[JsonSourceGenerationOptions(System.Text.Json.JsonSerializerDefaults.Strict, WriteIndented = true)]
-internal sealed partial class ProgressContext : JsonSerializerContext;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class QueueRuns {
+public static partial class QueueRuns {
     private const string RenderCommand = "Render";
 
     private sealed record Pending(QueueEntry<OutputPath> Entry, Seq<SequenceNumber> Frames);
@@ -136,11 +123,11 @@ public static class QueueRuns {
         public static Heard Empty { get; } = new();
 
         public Option<long> Began { get; init; }
-        public Option<(ImageFileEventArgs Event, long At)> Saved { get; init; }
+        public Option<(Guid Session, long At)> Saved { get; init; }
         public Option<Result> Ended { get; init; }
     }
 
-    private sealed record RunScope(QueueContext Context, RhinoDoc Doc, RenderBatch Batch, Atom<QueueProgress> Held, Atom<Heard> Heard, FileMetadata Metadata, Func<QueueEstimate, IO<Unit>> Docked);
+    private sealed record RunScope(QueueContext Context, RhinoDoc Doc, RenderBatch Batch, Atom<QueueProgress> Held, Atom<Heard> Heard);
 
     // --- [RUN]
     public static IO<Unit> Run(QueueContext context, RhinoDoc doc, RenderBatch batch, Option<string> job, Option<QueueProgress> resumed) =>
@@ -154,10 +141,8 @@ public static class QueueRuns {
              crashed: static _ => unit))
          from started in QueueProgress.Started(job, batch, resumed, settings)
          from held in atomIO(started)
-         from began in IO.lift(context.Views.Clock.GetTimestamp)
+         from began in IO.lift(context.Clock.GetTimestamp)
          from ran in (from written in QueueProgress.Write(context.Record, started)
-                      from now in IO.lift(context.Views.Clock.GetCurrentInstant)
-                      from shown in context.Estimate.SwapIO(_ => QueueEstimate.Running(batch, started, None, now))
                       from noticed in unless(resumed.IsSome, context.Notify(new QueueEvent.Started(batch.Entries.Count, batch.Frames))).As()
                       from rendered in (from beat in Heartbeat(context, settings.Heartbeat)
                                         from frames in Frames(context, doc, batch, held, resumed.IsNone && settings.SampleEstimate && batch.Entries.Count > 1)
@@ -170,54 +155,46 @@ public static class QueueRuns {
                      ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
                      : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error))) >> IO.fail<Unit>(error))
                  .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
-         select unit).Bracket();
+         select unit).Bracket().Fork().Bind(static forked => forked.Await);
 
     public static bool Stopping(Error error) =>
-        error.Is(Errors.Cancelled) || toSeq(error.AsIterable()).Exists(static cause => cause is RhinoFault fault && fault.Reason == RhinoReason.Exited);
+        error.Is(Errors.Cancelled) || error.AsIterable().Exists(static cause => cause is RhinoFault fault && fault.Reason == RhinoReason.Exited);
 
     private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat) =>
-        use(QueueProgress.Touch(context.Record, context.Views.Clock)
-            .Catch(error => Reported(context, error))
+        use(QueueProgress.Touch(context.Record, context.Clock)
+            .Catch(static error => IO.lift(() => Session.Failed(error)))
             .As()
-            .Repeat(Schedule.spaced(heartbeat.Interval))
+            .Repeat(Schedule.spaced(heartbeat.Interval.ToTimeSpan()))
             .Fork(), static fork => fork.Cancel);
 
     private static IO<Unit> Closed(QueueContext context, Atom<QueueProgress> held, long began, RunEnd end, Func<QueueProgress, Duration, QueueEvent> notice) =>
         (from record in held.SwapIO(was => was with { Ended = Some(end) })
-         from elapsed in IO.lift(() => context.Views.Clock.GetElapsedTime(began).ToDuration())
-         from published in Callbacks.Each(Seq(QueueProgress.Write(context.Record, record), context.Notify(notice(record, elapsed))))
+         from elapsed in IO.lift(() => context.Clock.GetElapsedTime(began).ToDuration())
+         from published in Products.Each(Seq(QueueProgress.Write(context.Record, record), context.Notify(notice(record, elapsed))))
          select unit).Uninterruptible();
-
-    private static IO<Unit> Reported(QueueContext context, Error error, [CallerMemberName] string member = "") =>
-        IO.lift(() => PlugInLog.Of(context.Views).Failed(error, typeof(QueueRuns), member));
 
     // --- [FRAMES]
     private static IO<Unit> Frames(QueueContext context, RhinoDoc doc, RenderBatch batch, Atom<QueueProgress> held, bool sampled) =>
-        (from render in IO.lift(static () => Conversions.Found(Conversions.Present(Command.LookupCommandId(RenderCommand, searchForEnglishName: true)))).OnUiThread()
+        (from render in IO.lift(static () => Conversions.Required(Conversions.Present(Command.LookupCommandId(RenderCommand, searchForEnglishName: true)))).OnUiThread()
          from heard in atomIO(Heard.Empty)
-         from dock in Notifications.Acquire().OnUiThread()
-         from listened in Listened(context, render, heard).OnUiThread()
-         from metadata in SaveSource.Metadata(doc, context.Views)
-         from ran in Mailed(new RunScope(context, doc, batch, held, heard, metadata, estimate =>
-                 from progress in Notifications.SetProgress(dock, estimate.Work)
-                 from badge in Notifications.BadgeLabel(dock, Some(estimate.Total - estimate.Landed).Filter(static left => left > 0).Map(static left => left.ToString(RowText.Culture)))
-                 select unit), sampled)
+         from listened in Listened(render, heard, context.Clock).OnUiThread()
+         from ran in Mailed(new RunScope(context, doc, batch, held, heard), sampled)
          select ran).Bracket();
 
-    private static IO<Unit> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
-        from began in EventKind.BeginCommand.Inline(args => when(args.CommandId == render,
-            IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As(), context.Views)
-        from saved in EventKind.ImageFileSaved.Inline(args =>
-            IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(unit), context.Views)
-        from ended in EventKind.EndCommand.Inline(args => when(args.CommandId == render,
-            heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Views)
+    private static IO<Unit> Listened(Guid render, Atom<Heard> heard, TimeProvider clock) =>
+        from began in Subscriptions.Inline<CommandEventArgs>(static h => Command.BeginCommand += h, static h => Command.BeginCommand -= h).Attach(args => when(args.CommandId == render,
+            IO.lift(clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As())
+        from saved in Subscriptions.Inline<ImageFileEventArgs>(static h => ImageFile.Saved += h, static h => ImageFile.Saved -= h).Attach(args =>
+            IO.lift(clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args.SessionId, at)) })).Map(unit))
+        from ended in Subscriptions.Inline<CommandEventArgs>(static h => Command.EndCommand += h, static h => Command.EndCommand -= h).Attach(args => when(args.CommandId == render,
+            heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As())
         select unit;
 
     private static IO<Unit> Mailed(RunScope scope, bool sampled) =>
-        (from post in Mailboxes.Idle<Unit, Request>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(unit))(scope.Context.Views).OnUiThread()
+        (from post in Mailboxes.Idle<Unit, Request>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(unit)).OnUiThread()
          from order in IO.lift(() => Order(scope.Batch, scope.Held.Value, sampled))
          from heads in order.Sampled.TraverseM(run => Requested(post, run)).As()
-         from estimate in unless(order.Sampled.IsEmpty, IO.lift(scope.Context.Views.Clock.GetCurrentInstant)
+         from estimate in unless(order.Sampled.IsEmpty, IO.lift(scope.Context.Clock.GetCurrentInstant)
              .Bind(now => scope.Context.Notify(new QueueEvent.Estimate(QueueEstimate.Sampled(scope.Batch, scope.Held.Value, now))))).As()
          from remaining in order.Remaining.TraverseM(run => Requested(post, run)).As()
          select unit).Bracket();
@@ -246,8 +223,7 @@ public static class QueueRuns {
 
     private static IO<Unit> Ran(RunScope scope, Pending run) =>
         from rendered in IO.lift(run.Entry.Rendered)
-        from ran in run.Entry.Override.Around(scope.Doc, scope.Context.Views,
-            Sized(scope.Doc, run.Entry.Queued, rendered).Bind(_ => Widened(scope, run, rendered)))
+        from ran in run.Entry.Override.Around(scope.Doc, Sized(scope.Doc, run.Entry.Queued, rendered).Bind(_ => Widened(scope, run, rendered)))
         select ran;
 
     private static IO<Unit> Sized(RhinoDoc doc, QueuedEntry entry, OverscanFrame rendered) =>
@@ -260,7 +236,7 @@ public static class QueueRuns {
                 RenderSettings.RenderingSources.SnapShot => Some<Action<string>>(view => settings.Snapshot = view),
                 _ => None,
             };
-            _ = placed.Iter(place => Optional(entry.View).Iter(place));
+            _ = placed.Iter(place => entry.View.Iter(place));
         }));
 
     private static IO<Unit> Widened(RunScope scope, Pending run, OverscanFrame rendered) =>
@@ -269,54 +245,58 @@ public static class QueueRuns {
             : Viewports.With(scope.Doc, new ViewportTarget.Active(), held => Cameras.Within(held.Viewport, rendered.Widen, Lit(scope, run, rendered)));
 
     private static IO<Unit> Lit(RunScope scope, Pending run, OverscanFrame rendered) =>
-        Optional(run.Entry.Queued.Sun).Match(
+        run.Entry.Queued.Sun.Match(
             Some: _ => RenderSettingsSources.Read(new RenderSettingsSource.Live(scope.Doc), static held => (from sun in use(() => held.Settings.Sun) select SunSite.Moment(sun)).Bracket())
-                .Bind(prior => Looped(scope, run, rendered).Finally(Moved(scope, prior))),
+                .Bind(prior => Looped(scope, run, rendered).Finally(Moved(scope.Doc, prior))),
             None: () => Looped(scope, run, rendered));
 
-    private static IO<Unit> Moved(RunScope scope, LocalDateTime moment) =>
-        RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
-            (from sun in use(() => held.Settings.Sun) from set in IO.lift(SunSite.SetDateTime(sun, moment, scope.Context.Views.Clock)) select set).Bracket());
+    private static IO<Unit> Moved(RhinoDoc doc, LocalDateTime moment) =>
+        RenderSettingsSources.Edit(new RenderSettingsSource.Live(doc), held =>
+            (from sun in use(() => held.Settings.Sun)
+             from site in IO.lift(() => SunSite.Read(sun))
+             from set in site.SetDateTime(sun, moment)
+             select set).Bracket());
 
     private static IO<Unit> Looped(RunScope scope, Pending run, OverscanFrame rendered) =>
         run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(unit);
 
     private static IO<Unit> Frame(RunScope scope, QueueEntry<OutputPath> entry, OverscanFrame rendered, SequenceNumber frame) =>
-        from started in IO.lift(scope.Context.Views.Clock.GetTimestamp)
-        from lit in entry.Moment(frame).Traverse(moment => Moved(scope, moment)).As()
-        from framing in (from source in use(() => new RenderSourceView(scope.Doc))
-                         from view in Products.Made(source.GetViewInfo())
-                         from read in ChainScene.Read(scope.Doc, view, rendered.Padded, entry.Frames.Time(frame))
-                         select read).Bracket()
+        from started in IO.lift(scope.Context.Clock.GetTimestamp)
+        from lit in entry.Moment(frame).Traverse(moment => Moved(scope.Doc, moment)).As()
+        from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Time(frame))
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
         let lost = new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"frame {(int)frame}"), DarkroomReason.Unsaved)
-        from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Results.Ended(result, RenderCommand).MapFail(error => Stopping(error) ? error : lost + error)))
+        from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Results.Ended(result).MapFail(error => Stopping(error) ? error : lost + error)))
         from began in IO.lift(heard.Began.ToFin(lost))
         from saved in IO.lift(heard.Saved.ToFin(lost))
-        from written in new RenderWindowSource.Rendering(saved.Event.SessionId).Open(window => new SaveSource(window, framing, rendered, Optional(entry.Queued.Region)) switch {
-            var source => entry.Outputs.Filter(output => output.Name.Number.IfNone(FrameSpan.First) == frame)
-                .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, scope.Metadata, output.Path, entry.Overwrite)).As(),
-        })
+        from metadata in SaveSource.Metadata(scope.Doc, scope.Context.Clock)
+        from written in (from window in Products.Of(() => RenderWindow.FromSessionId(saved.Session))
+                         let source = new SaveSource(window, framing, rendered, entry.Queued.Region)
+                         from outputs in entry.Outputs.Filter(output => output.Name.Number.IfNone(SequenceNumber.MinValue) == frame)
+                             .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, metadata, output.Path, entry.Overwrite)).As()
+                         select unit).Bracket()
         from closed in Documents.RunScript(scope.Doc, "_CloseRenderWindow", echo: false, display: None)
-        from peak in (from self in use(Process.GetCurrentProcess) select self.PeakWorkingSet64).Bracket()
-        from at in IO.lift(scope.Context.Views.Clock.GetTimestamp)
-        from landed in Landed(scope, new FrameMark(entry.Key, frame, started, began, saved.At, at, peak))
+        from finished in IO.lift(scope.Context.Clock.GetTimestamp)
+        from peak in OperatingSystem.IsMacOS()
+            ? IO.lift(SafeNativeMethods.PeakResident)
+            : (from self in use(Process.GetCurrentProcess) select self.PeakWorkingSet64).Bracket()
+        from landed in Landed(scope, new FrameMark(entry.Key, frame, started, began, saved.At, finished, peak))
         select unit;
 
     private static IO<Unit> Landed(RunScope scope, FrameMark mark) =>
-        from record in scope.Held.SwapIO(was => mark.Time(scope.Context.Views.Clock) switch {
-            var time => was with {
-                Entries = was.Entries.AddOrUpdate(
-                    mark.Entry,
-                    entry => entry with { Last = Some(mark.Frame), Times = entry.Times.Add(time) },
-                    () => EntryProgress.Empty with { Last = Some(mark.Frame), Times = Seq(time) }),
-            },
+        from record in scope.Held.SwapIO(was => was with {
+            Entries = was.Entries.AddOrUpdate(
+                mark.Entry,
+                entry => entry with { Last = Some(mark.Frame), Times = entry.Times.Add(mark.Time(scope.Context.Clock)) },
+                () => EntryProgress.Empty with { Last = Some(mark.Frame), Times = Seq(mark.Time(scope.Context.Clock)) }),
         })
         from written in QueueProgress.Write(scope.Context.Record, record)
-        from now in IO.lift(scope.Context.Views.Clock.GetCurrentInstant)
-        from estimate in scope.Context.Estimate.SwapIO(_ => QueueEstimate.Running(scope.Batch, record, Some(mark), now))
-        from docked in scope.Docked(estimate)
+        from now in IO.lift(scope.Context.Clock.GetCurrentInstant)
+        from estimate in IO.lift(() => QueueEstimate.Running(scope.Batch, record, now).Description(scope.Context.Clock.ToZonedClock().Zone))
+        let stages = mark.Stages(scope.Context.Clock)
+        let frame = (int)mark.Frame
+        from logged in IO.lift(() => Rendered(Session.Logger, frame, stages, mark.PeakWorkingSet, estimate))
         select unit;
 
     // --- [RESUME]
@@ -332,4 +312,8 @@ public static class QueueRuns {
                     select Option<Relaunch>.None),
              None: static () => IO.pure(Option<Relaunch>.None))
          select relaunch).Bracket();
+
+    // --- [LOGS]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Render queue frame {Frame}: {Stages}, peak working set {Peak} bytes, {Estimate}")]
+    private static partial void Rendered(ILogger logger, int frame, string stages, long peak, string estimate);
 }

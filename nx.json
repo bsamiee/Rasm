@@ -184,6 +184,35 @@
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo clippy --locked --no-deps --package {projectName}", "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ], "parallelism": false }
         ],
         "lint:*": { "cache": true },
+        "lint:ast-grep:*": {
+            "dependsOn": [ "grammar" ],
+            "inputs": [
+                "pythonFiles",
+                "rustFiles",
+                "swiftFiles",
+                "javaFiles",
+                "yamlFiles",
+                "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
+                "{workspaceRoot}/**/*.cs",
+                "{workspaceRoot}/**/*.{cjs,js,mjs,jsx}",
+                "{workspaceRoot}/**/*.{html,htm,xhtml}",
+                "{workspaceRoot}/**/*.{py3,bzl,bazel}",
+                "{workspaceRoot}/**/*.{ts,tsx}",
+                "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
+                "{workspaceRoot}/**/NuGet.config",
+                "{workspaceRoot}/**/*.sql",
+                { "externalDependencies": [] },
+                { "dependentTasksOutputFiles": "**/*.so" },
+                { "runtime": "ast-grep --version" }
+            ],
+            "cache": true
+        },
+        "typecheck:ty:*": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ], "cache": true },
+        "{typecheck:mypy,lint:refurb}:*": { "inputs": [ "python", "pythonFiles" ], "cache": true },
+        "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml" ], "cache": true },
+        "lint:swiftlint:*": { "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ], "inputs": [ "swiftlint", "swiftFiles", { "externalDependencies": [] } ], "cache": true },
+        "lint:pmd:cpd-*": { "options": { "args": [ "--minimum-tokens", "100" ] }, "inputs": [ { "externalDependencies": [] }, { "runtime": "pmd --version" } ], "cache": true },
+        "lint:tombi:*": { "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ], "cache": true },
         "lint:{dotnet-format,*.cs}": {
             "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
             "dependsOn": [ "...", { "projects": [ "directory:tools/roslyn/**" ], "target": "build" } ],
@@ -230,12 +259,7 @@
         "test": [
             { "cache": true },
             { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ] },
-            {
-                "filter": { "projects": [ "tag:language:python" ] },
-                "options": { "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" } },
-                "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support/**/*.py}" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}" ]
-            },
+            { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support/**/*.py}" ] },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
                 "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],

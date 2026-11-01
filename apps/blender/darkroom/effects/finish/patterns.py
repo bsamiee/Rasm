@@ -1,170 +1,164 @@
-"""Display structures: mosaic blocks and Voronoi cells resampling the frame, then halftone screens, tone-ranked glyphs, and pixel sort streaks replacing it."""
+"""Display structures: mosaic blocks and Voronoi cells resampling the frame, palette posterization with HSY hue retention under an ordered Bayer threshold and a luminance gradient map, then halftone screens, tone-ranked glyphs, and pixel sort streaks replacing it."""
 
 from collections.abc import Mapping
-from typing import Annotated, Final, Literal
+from types import MappingProxyType, MemberDescriptorType
+from typing import Annotated, Final
 
 import bpy
-from expression import Ok, Some
+from expression import Ok, Option, Some
 import msgspec
 import numpy as np
+import PyOpenColorIO
 
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
+from blender.bpy.nodes.content import Ramp
+from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import grouped
-from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, vector, where, xyz
-from blender.bpy.nodes.textures import White
-from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, shorter
+from blender.bpy.nodes.graphs import Expr, math, mixed, rgba, Scalar, switched, Term, vector, where, xyz
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
+from blender.bpy.nodes.textures import Linked, MapRange, Noise, Voronoi, White
+from blender.bpy.render.compositor.colors import hsy, with_alpha
+from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, shorter, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.filters import block_mean
+from blender.bpy.render.compositor.filters import block_mean, blurred
 from blender.bpy.render.compositor.inputs import Shell
-from blender.bpy.render.compositor.motion import clocked, origin
-from blender.imaging.color.processors import Domain
+from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED, timing
 from blender.imaging.sampling.tiles import stream
-from blender.records.faults import Outcome
-
-from ...chain.stages import Effect, Stage
-from ..optics.procedural import clock
+from blender.records.faults import Outcome, paired
+from blender.records.fields import Case
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_MOSAIC: Final = MenuItem(name="Mosaic", description="Replaces frame with square blocks")
-_CELLS: Final = MenuItem(name="Cells", description="Fills each Voronoi cell with image color at its site")
-_HALFTONE: Final = MenuItem(name="Halftone", description="Prints tone as dots with edges antialiased over one pixel")
-_GLYPHS: Final = MenuItem(name="Glyphs", description="Replaces text-grid cells with glyphs selected by their tone")
-_PIXEL_SORT: Final = MenuItem(name="Pixel Sort", description="Streaks pixels in a wrapped luma band along one direction")
-_MONO: Final = MenuItem(name="Mono", description="Screens luma in one ink on paper")
-_PROCESS: Final = MenuItem(name="Process", description="Prints cyan, magenta, yellow, and key screens on white paper")
+_DISTANCE: Final = Descriptor.declared(bpy.types.ShaderNodeTexVoronoi, ("distance",), bpy.types.EnumProperty)
+_CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=0.0))
+_BLOCK: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Block side over greater frame side", min_value=1e-6, default_value=0.005)
+_MOSAIC: Final = InterfacePanel.of("mosaic", Interface(inputs=(_BLOCK,)), description="Replaces frame with square blocks")
+_SPACING: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Mean cell site spacing over greater frame side", min_value=1e-6, default_value=0.0225)
+_SITE_JITTER: Final = Socket(key="jitter", kind=StockInput(node=Voronoi.kind, input="Randomness"))
+_EXPONENT: Final = Socket(key="exponent", kind=StockInput(node=Voronoi.kind, input="Exponent"))
+_CELLS: Final = InterfacePanel.of("cells", Interface(inputs=(_SPACING, _SITE_JITTER, _EXPONENT)), description="Fills each Voronoi cell with image color at its site")
+_SAMPLING: Final = Socket(key="structure", kind=bpy.types.NodeSocketMenu, description="Sampling blocks or cells", default_value=_MOSAIC.title, items=Some(MenuItems(items=(_MOSAIC.item, _CELLS.item))))
+_PITCH: Final = Socket(key="pitch", kind=bpy.types.NodeSocketFloat, description="Screen lattice spacing over greater frame side", min_value=1e-6, default_value=1 / 16)
+_ANGLE: Final = Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Screen turn about frame center", default_value=np.pi / 4)
+_DOT_JITTER: Final = Socket(key="jitter", kind=StockInput(node=Voronoi.kind, input="Randomness"), default_value=0.0)
+_DOT_COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketColor, description="Dot display color", default_value=(0.0, 0.0, 0.0, 1.0))
+_DOT_PAPER: Final = Socket(key="paper", kind=bpy.types.NodeSocketColor, description="Display color between dots", default_value=(1.0, 1.0, 1.0, 1.0))
+_MONO: Final = InterfacePanel.of("mono", Interface(inputs=(_DOT_COLOR, _DOT_PAPER)), description="Screens luma in one color on paper")
+_OFFSET: Final = Socket(key="offset", kind=bpy.types.NodeSocketVector2D, description="Lattice shift in cells")
+_SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat, description="Multiple of halftone pitch", min_value=1e-6, default_value=1.0)
+_SEPARATIONS: Final = tuple(
+    InterfacePanel.of(name, Interface(inputs=(_OFFSET, _SCALE)).defaulted({_OFFSET.key: offset}), description=f"{bpy.path.display_name(name)} screen lattice")
+    for name, offset in (("cyan", (0.772, 0.208)), ("magenta", (0.208, 0.772)), ("yellow", (0.0, 0.8)), ("key", (0.5656, 0.5656)))
+)
+_PROCESS: Final = InterfacePanel.of("process", Interface(panels=_SEPARATIONS), description="Prints cyan, magenta, yellow, and key screens on white paper")
+_SCREENS: Final = Socket(
+    key="screens", kind=bpy.types.NodeSocketMenu, description="One luma screen or four process screens", default_value=_MONO.title, items=Some(MenuItems(items=(_MONO.item, _PROCESS.item)))
+)
+_HALFTONE: Final = InterfacePanel.of(
+    "halftone", Interface(inputs=(_PITCH, _ANGLE, _DOT_JITTER, _SCREENS), panels=(_MONO, _PROCESS)), description="Prints tone as dots with edges antialiased over one pixel"
+)
+_ROWS: Final = Socket(key="rows", kind=bpy.types.NodeSocketInt, description="Glyph cells across short side", min_value=1, default_value=24)
+_TONE_JITTER: Final = Socket(key="jitter", kind=bpy.types.NodeSocketFloatFactor, description="Random shift of each cell tone")
+_GLYPH_PAPER: Final = Socket(key="paper", kind=bpy.types.NodeSocketColor, description="Display color behind glyphs", default_value=(0.0, 0.0, 0.0, 1.0))
+_GLYPH_COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketColor, description="Glyph display color", default_value=(1.0, 1.0, 1.0, 1.0))
+_TWO_TONE: Final = InterfacePanel.of("two_tone", Interface(inputs=(_GLYPH_COLOR,)), description="Draws every glyph in one color")
+_SATURATION: Final = Socket(key="saturation", kind=bpy.types.NodeSocketFloatFactor, description="Chroma of drawn colors", default_value=1.0)
+_RANDOM_COLOR: Final = InterfacePanel.of("random_color", Interface(inputs=(_SATURATION,)), description="Draws each glyph in a random hue per cell")
 _SOURCE_COLOR: Final = MenuItem(name="Source Color", description="Draws each glyph in its cell's color")
-_TWO_TONE: Final = MenuItem(name="Two Tone", description="Draws every glyph in one ink")
-_RANDOM_COLOR: Final = MenuItem(name="Random Color", description="Draws each glyph in a random hue per cell")
-_LEFT: Final = MenuItem(name="Left")
-_RIGHT: Final = MenuItem(name="Right")
-_UP: Final = MenuItem(name="Up")
-_DOWN: Final = MenuItem(name="Down")
-_CLOCK: Final = clock("clock", speed=0.0)
-_CLOCK_SPEED, _CLOCK_HOLD = _CLOCK.inputs
-_SEED: Final = Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting every random site, tone, and streak", min_value=0, max_value=2**24)
-_PIXELATION_STRUCTURE: Final = Socket(
-    key="structure", kind=bpy.types.NodeSocketMenu, description="Sampling blocks or cells", default_value=_MOSAIC.name, items=Some(MenuItems(items=(_MOSAIC, _CELLS)))
+_COLORING: Final = Socket(
+    key="coloring", kind=bpy.types.NodeSocketMenu, description="Glyph color source", default_value=_SOURCE_COLOR.name, items=Some(MenuItems(items=(_SOURCE_COLOR, _TWO_TONE.item, _RANDOM_COLOR.item)))
 )
-_MOSAIC_SIZE: Final = Socket(key="mosaic_size", name="Size", kind=bpy.types.NodeSocketFloat, description="Block side over greater frame side", min_value=1e-6, default_value=0.005)
-_CELLS_SIZE: Final = Socket(key="cells_size", name="Size", kind=bpy.types.NodeSocketFloat, description="Mean cell site spacing over greater frame side", min_value=1e-6, default_value=0.0225)
-_CELLS_JITTER: Final = Socket(
-    key="cells_jitter", name="Jitter", kind=bpy.types.NodeSocketFloatFactor, description="Site displacement within lattice cell", min_value=0.0, max_value=1.0, default_value=1.0
+_GLYPHS: Final = InterfacePanel.of(
+    "glyphs", Interface(inputs=(_ROWS, _TONE_JITTER, _GLYPH_PAPER, _COLORING), panels=(_TWO_TONE, _RANDOM_COLOR)), description="Replaces text-grid cells with glyphs selected by their tone"
 )
-_PATTERN_STRUCTURE: Final = Socket(
-    key="structure", kind=bpy.types.NodeSocketMenu, description="Cells or runs over frame", default_value=_HALFTONE.name, items=Some(MenuItems(items=(_HALFTONE, _GLYPHS, _PIXEL_SORT)))
+_HEADINGS: Final = MappingProxyType({MenuItem(name="Left"): (-1.0, 0.0, 0.0), MenuItem(name="Right"): (1.0, 0.0, 0.0), MenuItem(name="Up"): (0.0, 1.0, 0.0), MenuItem(name="Down"): (0.0, -1.0, 0.0)})
+_DIRECTION: Final = Socket(key="direction", kind=bpy.types.NodeSocketMenu, description="Streak direction", default_value="Right", items=Some(MenuItems(items=tuple(_HEADINGS))))
+_LOW: Final = Socket(key="low", kind=bpy.types.NodeSocketFloatFactor, description="Lower luma boundary, wrapping when above High")
+_HIGH: Final = Socket(key="high", kind=bpy.types.NodeSocketFloatFactor, description="Upper luma boundary", default_value=0.3)
+_LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloatFactor, description="Longest streak as a frame share", default_value=0.3)
+_SOFTNESS: Final = Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Luma blur along axis before band key over greater frame side", min_value=0.0, default_value=0.01)
+_FALLOFF: Final = Socket(key="falloff", kind=bpy.types.NodeSocketFloat, description="Key blur along axis over greater frame side", min_value=0.0, default_value=0.04)
+_SCATTER: Final = Socket(key="scatter", kind=bpy.types.NodeSocketFloatFactor, description="Run start noise", default_value=0.2)
+_CLUMP: Final = Socket(key="clump", kind=StockInput(node=Noise.kind, input="Roughness"))
+_CHUNK: Final = Socket(key="chunk", kind=bpy.types.NodeSocketFloat, description="Streak map block size over greater frame side", min_value=0.0, default_value=0.0005)
+_EDGE_FADE: Final = Socket(key="edge_fade", kind=bpy.types.NodeSocketFloatFactor, description="Streak fade toward frame ends along axis")
+_PIXEL_SORT: Final = InterfacePanel.of(
+    "pixel_sort",
+    Interface(inputs=(_DIRECTION, _LOW, _HIGH, _LENGTH, _SOFTNESS, _FALLOFF, _SCATTER, _CLUMP, _CHUNK, _EDGE_FADE)),
+    description="Streaks pixels in a wrapped luma band along one direction",
 )
-_HALFTONE_PITCH: Final = Socket(key="halftone_pitch", name="Pitch", kind=bpy.types.NodeSocketFloat, description="Screen lattice spacing over greater frame side", min_value=1e-6, default_value=1 / 16)
-_HALFTONE_ANGLE: Final = Socket(key="halftone_angle", name="Angle", kind=bpy.types.NodeSocketFloatAngle, description="Screen turn about frame center", default_value=np.pi / 4)
-_HALFTONE_JITTER: Final = Socket(key="halftone_jitter", name="Jitter", kind=bpy.types.NodeSocketFloatFactor, description="Dot displacement within cell", min_value=0.0, max_value=1.0)
-_HALFTONE_INKS: Final = Socket(
-    key="halftone_inks", name="Inks", kind=bpy.types.NodeSocketMenu, description="One luma screen or four process screens", default_value=_MONO.name, items=Some(MenuItems(items=(_MONO, _PROCESS)))
+_REPLACING: Final = Socket(
+    key="structure", kind=bpy.types.NodeSocketMenu, description="Cells or runs over frame", default_value=_HALFTONE.title, items=Some(MenuItems(items=(_HALFTONE.item, _GLYPHS.item, _PIXEL_SORT.item)))
 )
-_MONO_INK: Final = Socket(key="halftone_mono_ink", name="Ink", kind=bpy.types.NodeSocketColor, description="Dot display color", default_value=(0.0, 0.0, 0.0, 1.0))
-_MONO_PAPER: Final = Socket(key="halftone_mono_paper", name="Paper", kind=bpy.types.NodeSocketColor, description="Display color between dots", default_value=(1.0, 1.0, 1.0, 1.0))
-_PROCESS_INKS: Final = tuple(
-    InterfacePanel(
-        key=item_key("halftone_process", ink),
-        name=bpy.path.display_name(ink),
-        description=f"{bpy.path.display_name(ink)} screen lattice",
-        inputs=(
-            Socket(key=item_key("halftone_process", ink, "offset"), name="Offset", kind=bpy.types.NodeSocketVector2D, description="Lattice shift in cells", default_value=offset),
-            Socket(key=item_key("halftone_process", ink, "scale"), name="Scale", kind=bpy.types.NodeSocketFloat, description="Multiple of halftone pitch", min_value=1e-6, default_value=1.0),
-        ),
-    )
-    for ink, offset in (("cyan", (0.772, 0.208)), ("magenta", (0.208, 0.772)), ("yellow", (0.0, 0.8)), ("key", (0.5656, 0.5656)))
+_RGB: Final = MenuItem(name="RGB")
+_LUMINANCE: Final = MenuItem(name="Luminance")
+_LEVELS: Final = Socket(key="levels", kind=bpy.types.NodeSocketInt, description="Values each channel rounds to, evenly spaced from 0 to 1", min_value=2, default_value=9)
+_CHANNELS: Final = Socket(key="channels", kind=bpy.types.NodeSocketMenu, description="Each RGB channel or luminance as gray", default_value=_RGB.name, items=Some(MenuItems(items=(_RGB, _LUMINANCE))))
+_RETAIN_HUE: Final = Socket(key="retain_hue", kind=bpy.types.NodeSocketFloatFactor, description="Blend toward input hue at rounded HSY saturation and luminance")
+_STRENGTH: Final = Socket(key="value", name="Dither", kind=bpy.types.NodeSocketFloatFactor, default_value=1.0)
+_DITHER: Final = InterfacePanel.of("dither", Interface(inputs=(_STRENGTH,)), description="Ordered 8-by-8 Bayer offset of rounding threshold in levels", toggle=Some(False))
+_SIDE: Final = Socket(key="value", name="Dither Cell", kind=bpy.types.NodeSocketFloat, min_value=0.0)
+_DITHER_CELL: Final = InterfacePanel.of("dither_cell", Interface(inputs=(_SIDE,)), description="Square Bayer cell size, one pixel when off or smaller", toggle=Some(False))
+_POSTERIZE: Final = InterfacePanel.of(
+    "posterize",
+    Interface(inputs=(_LEVELS, _CHANNELS, _RETAIN_HUE), panels=(_DITHER, _DITHER_CELL)),
+    description="Rounds display values to evenly spaced levels with hue retention and Bayer dithering",
+    toggle=Some(True),
 )
-_GLYPHS_ROWS: Final = Socket(key="glyphs_rows", name="Rows", kind=bpy.types.NodeSocketInt, description="Glyph cells across short side", min_value=1, default_value=24)
-_GLYPHS_JITTER: Final = Socket(key="glyphs_jitter", name="Jitter", kind=bpy.types.NodeSocketFloatFactor, description="Random shift of each cell tone", min_value=0.0, max_value=1.0)
-_GLYPHS_PAPER: Final = Socket(key="glyphs_paper", name="Paper", kind=bpy.types.NodeSocketColor, description="Display color behind glyphs", default_value=(0.0, 0.0, 0.0, 1.0))
-_GLYPHS_COLORING: Final = Socket(
-    key="glyphs_coloring",
-    name="Coloring",
-    kind=bpy.types.NodeSocketMenu,
-    description="Glyph color source",
-    default_value=_SOURCE_COLOR.name,
-    items=Some(MenuItems(items=(_SOURCE_COLOR, _TWO_TONE, _RANDOM_COLOR))),
-)
-_TWO_TONE_INK: Final = Socket(key="glyphs_two_tone_ink", name="Ink", kind=bpy.types.NodeSocketColor, description="Glyph display color", default_value=(1.0, 1.0, 1.0, 1.0))
-_RANDOM_SATURATION: Final = Socket(
-    key="glyphs_random_color_saturation", name="Saturation", kind=bpy.types.NodeSocketFloatFactor, description="Chroma of drawn colors", min_value=0.0, max_value=1.0, default_value=1.0
-)
-_SORT_DIRECTION: Final = Socket(
-    key="pixel_sort_direction", name="Direction", kind=bpy.types.NodeSocketMenu, description="Streak direction", default_value=_RIGHT.name, items=Some(MenuItems(items=(_LEFT, _RIGHT, _UP, _DOWN)))
-)
-_SORT_LOW, _SORT_HIGH, _SORT_LENGTH, _SORT_SOFTNESS, _SORT_FALLOFF, _SORT_SCATTER, _SORT_CLUMP, _SORT_CHUNK, _SORT_EDGE_FADE = (
-    Socket(key=item_key("pixel_sort", field), name=bpy.path.display_name(field), kind=kind, description=description, min_value=low, max_value=high, default_value=default)
-    for field, kind, description, low, high, default in (
-        ("low", bpy.types.NodeSocketFloatFactor, "Lower luma boundary, wrapping when above High", 0.0, 1.0, None),
-        ("high", bpy.types.NodeSocketFloatFactor, "Upper luma boundary", 0.0, 1.0, 0.3),
-        ("length", bpy.types.NodeSocketFloatFactor, "Longest streak as a frame share", 0.0, 1.0, 0.3),
-        ("softness", bpy.types.NodeSocketFloat, "Luma blur along axis before band key over greater frame side", 0.0, None, 0.01),
-        ("falloff", bpy.types.NodeSocketFloat, "Key blur along axis over greater frame side", 0.0, None, 0.04),
-        ("scatter", bpy.types.NodeSocketFloatFactor, "Run start noise", 0.0, 1.0, 0.2),
-        ("clump", bpy.types.NodeSocketFloatFactor, "Streak field roughness across axis", 0.0, 1.0, 0.5),
-        ("chunk", bpy.types.NodeSocketFloat, "Streak map block size over greater frame side", 0.0, None, 0.0005),
-        ("edge_fade", bpy.types.NodeSocketFloatFactor, "Streak fade toward frame ends along axis", 0.0, 1.0, None),
-    )
-)
-_PIXELATION_FACE: Final = Interface(
-    inputs=(_PIXELATION_STRUCTURE, _SEED),
-    panels=(InterfacePanel(key="mosaic", name="Mosaic", inputs=(_MOSAIC_SIZE,)), InterfacePanel(key="cells", name="Cells", inputs=(_CELLS_SIZE, _CELLS_JITTER)), _CLOCK),
-)
-_PATTERN_FACE: Final = Interface(
-    inputs=(_PATTERN_STRUCTURE, _SEED),
-    panels=(
-        InterfacePanel(
-            key="halftone",
-            name="Halftone",
-            inputs=(_HALFTONE_PITCH, _HALFTONE_ANGLE, _HALFTONE_JITTER, _HALFTONE_INKS),
-            panels=(InterfacePanel(key="halftone_mono", name="Mono", inputs=(_MONO_INK, _MONO_PAPER)), InterfacePanel(key="halftone_process", name="Process", panels=_PROCESS_INKS)),
-        ),
-        InterfacePanel(
-            key="glyphs",
-            name="Glyphs",
-            inputs=(_GLYPHS_ROWS, _GLYPHS_JITTER, _GLYPHS_PAPER, _GLYPHS_COLORING),
-            panels=(InterfacePanel(key="glyphs_two_tone", name="Two Tone", inputs=(_TWO_TONE_INK,)), InterfacePanel(key="glyphs_random_color", name="Random Color", inputs=(_RANDOM_SATURATION,))),
-        ),
-        InterfacePanel(
-            key="pixel_sort", name="Pixel Sort", inputs=(_SORT_DIRECTION, _SORT_LOW, _SORT_HIGH, _SORT_LENGTH, _SORT_SOFTNESS, _SORT_FALLOFF, _SORT_SCATTER, _SORT_CLUMP, _SORT_CHUNK, _SORT_EDGE_FADE)
-        ),
-        _CLOCK,
-    ),
-)
+_GRADIENT: Final = InterfacePanel(key="gradient", name="Gradient Map", description="Luminance mapped through a color ramp", toggle=Some(False))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Pixelation(Effect, frozen=True, kw_only=True):
+class Pixelation(Case, frozen=True, kw_only=True):
     """Resamples display values into blocks or cells before palette reduction, cell borders shaped by a Voronoi distance."""
 
-    stage = Stage.PIXELATE
-    pointwise = False
-    domain = Domain.DISPLAY
-    distance: Annotated[Literal["EUCLIDEAN", "MANHATTAN", "CHEBYCHEV"], msgspec.Meta(description="Voronoi distance shaping cell borders")] = "EUCLIDEAN"
+    distance: Annotated[str, _DISTANCE, msgspec.Meta(description="Voronoi distance shaping cell borders")] = _DISTANCE.prop.default
 
 
-class Pattern(Effect, frozen=True, kw_only=True):
-    """Replaces display values with dots, glyphs, or streaks after palette reduction, glyphs drawn from characters ordered from least to most ink."""
+class Palette(Case, frozen=True, kw_only=True):
+    """Rounds display colors to evenly spaced levels, then maps luminance through a color ramp."""
 
-    stage = Stage.PATTERN
-    pointwise = False
-    domain = Domain.DISPLAY
-    glyphs: Annotated[str, msgspec.Meta(min_length=1, description="Characters ordered from least to most ink")] = " .:-=+*#%@"
+    gradient: Annotated[Ramp, msgspec.Meta(description="Scene colors along luminance 0 to 1 of the gradient map")] = Ramp()
+
+
+class Pattern(Case, frozen=True, kw_only=True):
+    """Replaces display values with dots, glyphs, or streaks after palette reduction, glyphs drawn from characters ordered from least to most coverage."""
+
+    glyphs: Annotated[str, msgspec.Meta(min_length=1, description="Characters ordered from least to most coverage")] = " .:-=+*#%@"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [LINKS]
+
+
+def _linked(table: Mapping[object, Term], /) -> Linked:
+    """Operand of each stock input field a table links, by member descriptor."""
+
+    def operand(member: MemberDescriptorType) -> Option[Term]:
+        return Option.of_optional(table.get(member))
+
+    return operand
+
+
+# --- [TONES]
+
+
+def _toned(image: Scalar) -> Expr:
+    """Display luma of an image through the RGB to BW node."""
+    return Expr(kind=bpy.types.CompositorNodeRGBToBW, inputs=(("Image", image),), socket="Val")
+
 
 # --- [SCREENS]
 
 
 @grouped(kind=bpy.types.CompositorNodeTree)
-def halftone_screen(
+def _halftone_screen(
     coordinate: Annotated[Expr, bpy.types.NodeSocketVector], offset: Annotated[Expr, bpy.types.NodeSocketVector], angle: Expr, pitch: Expr, jitter: Expr, tone: Expr
 ) -> Mapping[Key, Expr]:
-    """Unit-square ink coverage of a rotated dot lattice, antialiased over pixel derivative width.
+    """Unit-square dot coverage of a rotated dot lattice, antialiased over pixel derivative width.
 
     Args:
         coordinate: Displayed point about frame center.
@@ -172,7 +166,7 @@ def halftone_screen(
         angle: Screen turn.
         pitch: Lattice spacing.
         jitter: Dot displacement within its cell.
-        tone: Ink share each cell covers.
+        tone: Share each cell covers.
 
     Returns:
         Coverage output.
@@ -180,12 +174,7 @@ def halftone_screen(
     cosine, sine = math("COSINE", angle), math("SINE", angle)
     x, y = coordinate["X"], coordinate["Y"]
     lattice = vector("DIVIDE", xyz(math("MULTIPLY_ADD", x, cosine, y * sine), math("MULTIPLY_ADD", y, cosine, -(x * sine))), pitch) + offset
-    sites = Expr(
-        kind=bpy.types.ShaderNodeTexVoronoi,
-        inputs=(("Vector", lattice), ("Scale", 1.0), ("Detail", 0.0), ("Randomness", jitter)),
-        members={"voronoi_dimensions": "2D", "feature": "F1", "distance": "EUCLIDEAN", "normalize": False},
-        socket="Distance",
-    )
+    sites = Voronoi(voronoi_dimensions="2D", scale=1.0).node(lattice, socket="Distance", linked=Some(_linked({Voronoi.randomness: jitter})))
     disc = sites * sites * np.pi
     radius = math("MAXIMUM", sites, 0.5)
     segment = math("MULTIPLY_ADD", radius * radius, math("ARCCOSINE", 0.5 / radius), math("SQRT", radius * radius - 0.25) * -0.5)
@@ -193,13 +182,7 @@ def halftone_screen(
     grid = PixelGrid.of(area)
 
     def slope(step: tuple[float, float, float]) -> Expr:
-        neighbour = Expr(
-            kind=bpy.types.CompositorNodeMapUV,
-            inputs=(("Image", area), ("UV", grid.at(step, grid.inverse)), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
-            socket="Image",
-            shape=bpy.types.NodeSocketColor,
-        )
-        return abs(math("SUBTRACT", neighbour, area))
+        return abs(math("SUBTRACT", uv_mapped(area, grid.at(step, grid.inverse), interpolation="Nearest", extension=("Extend", "Extend")), area))
 
     width = slope((1.0, 0.0, 0.0)) + slope((0.0, 1.0, 0.0))
     inside = where(width > 0.0, math("ADD", tone, (tone - area) / width, clamp=True), area < tone)
@@ -209,137 +192,101 @@ def halftone_screen(
 # --- [STRUCTURES]
 
 
-def drawn[R: (Pixelation, Pattern)](shell: Shell[R], key: Key, instance: int = 0) -> Expr:
+def _drawn[R: (Pixelation, Pattern)](shell: Shell[R], structure: InterfacePanel, instance: int = 0) -> Expr:
     """Decorrelation origin of one structure's draws, redrawn per whole clock unit."""
-    return origin(shell.input(_SEED), stream(type(shell.record), key), math("FLOOR", clocked(shell.input(_CLOCK_SPEED), shell.input(_CLOCK_HOLD))), instance)
-
-
-def filled[R: (Pixelation, Pattern)](shell: Shell[R], uv: Expr) -> Expr:
-    """Bilinear entry color at Map UV positions."""
-    return Expr(
-        kind=bpy.types.CompositorNodeMapUV,
-        inputs=(("Image", shell.color), ("UV", uv), ("Interpolation", "Bilinear"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
-    )
-
-
-def structured[R: (Pixelation, Pattern)](shell: Shell[R], structure: Socket, choices: Mapping[MenuItem, Expr], *, covered: bool) -> Expr:
-    """Selects the structure color keeping its replacement weight, the structure's alpha when covered, else the whole frame."""
-    result = shell.menu(structure, cases=choices)
-    return result.keeping(Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", result if covered else (1.0,) * 4),), members={"mode": "RGB"}, socket="Alpha").named("structure_weight"))
+    return origin(shell.input(SEED), stream(type(shell.record), structure.key), math("FLOOR", clocked(shell.input, _CLOCK)), instance)
 
 
 def _pixelation(shell: Shell[Pixelation]) -> Outcome[Expr]:
     """Builds mosaic block means and Voronoi cells filled at their sites, each replacing the whole frame."""
     frame = shell.space
-    offset, middle, side = vector("FLOOR", drawn(shell, "cells")), vector("SCALE", frame.extent, 0.5), shell.input(_CELLS_SIZE)
-    site = Expr(
-        kind=bpy.types.ShaderNodeTexVoronoi,
-        inputs=(("Vector", (frame.point - middle) / side + offset), ("Scale", 1.0), ("Detail", 0.0), ("Randomness", shell.input(_CELLS_JITTER))),
-        members={"voronoi_dimensions": "2D", "feature": "F1", "distance": shell.record.distance, "normalize": False},
+    offset, middle, side = vector("FLOOR", _drawn(shell, _CELLS)), vector("SCALE", frame.extent, 0.5), shell.input(_CELLS, _SPACING)
+    site = Voronoi(voronoi_dimensions="2D", distance=shell.record.distance, scale=1.0).node(
+        (frame.point - middle) / side + offset,
         socket="Position",
         shape=bpy.types.NodeSocketVector,
+        linked=Some(_linked({Voronoi.randomness: shell.input(_CELLS, _SITE_JITTER), Voronoi.exponent: shell.input(_CELLS, _EXPONENT)})),
     )
-    cells = filled(shell, frame.sampled(vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent))
-    return Ok(structured(shell, _PIXELATION_STRUCTURE, {_MOSAIC: block_mean(frame, shell.color, shell.input(_MOSAIC_SIZE)), _CELLS: cells}, covered=False))
-
-
-pixelation: Final = CompositorEffect(graph=_pixelation, record=Pixelation, interface=_PIXELATION_FACE, mix=Blended(alpha=Alpha.RESULT), request=Some(precise))
+    cells = uv_mapped(shell.color, frame.sampled(vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent), extension=("Extend", "Extend"))
+    return Ok(shell.menu(_SAMPLING, cases={_MOSAIC.item: block_mean(frame, shell.color, shell.input(_MOSAIC, _BLOCK)), _CELLS.item: cells}))
 
 
 def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
-    """Builds halftone screens, tone-ranked glyph strip lookups, and pixel sort streaks, each with its own coverage."""
+    """Builds halftone screens, tone-ranked glyph strip lookups, and pixel sort streaks, each with its own coverage, kept as the structure weight."""
     source, frame = shell.color, shell.space
     centered = frame.point - vector("SCALE", frame.extent, 0.5)
 
-    def toned(image: Scalar) -> Expr:
-        return Expr(kind=bpy.types.CompositorNodeRGBToBW, inputs=(("Image", image),), socket="Val")
-
     def screened(tone: Expr, instance: int, offset: Scalar | tuple[float, ...] = (0.0, 0.0, 0.0), multiple: Scalar = 1.0) -> Expr:
-        return halftone_screen(
+        return _halftone_screen(
             coordinate=centered,
-            offset=vector("ADD", vector("FLOOR", drawn(shell, "halftone", instance)), offset),
-            angle=shell.input(_HALFTONE_ANGLE),
-            pitch=math("MULTIPLY", shell.input(_HALFTONE_PITCH), multiple),
-            jitter=shell.input(_HALFTONE_JITTER),
+            offset=vector("ADD", vector("FLOOR", _drawn(shell, _HALFTONE, instance)), offset),
+            angle=shell.input(_HALFTONE, _ANGLE),
+            pitch=math("MULTIPLY", shell.input(_HALFTONE, _PITCH), multiple),
+            jitter=shell.input(_HALFTONE, _DOT_JITTER),
             tone=tone,
         )
 
-    mono = screened(1.0 - toned(source), 0)
+    mono = screened(1.0 - _toned(source), 0)
     peak = math("MAXIMUM", math("MAXIMUM", source["Red"], source["Green"]), source["Blue"])
-    separations = vector("DIVIDE", vector("SUBTRACT", peak, source), peak)
-    tones = (separations["X"], separations["Y"], separations["Z"], 1.0 - peak)
-    clear = tuple(1.0 - screened(tone, instance, *map(shell.input, ink.inputs)) for instance, (ink, tone) in enumerate(zip(_PROCESS_INKS, tones, strict=True)))
-    inked = {
-        _MONO: with_alpha(mixed(mono, shell.input(_MONO_PAPER), shell.input(_MONO_INK)), mono),
-        _PROCESS: with_alpha(vector("SCALE", xyz(*clear[:3]), clear[3]), 1.0 - clear[0] * clear[1] * clear[2] * clear[3]),
-    }
+    separated = vector("DIVIDE", vector("SUBTRACT", peak, source), peak)
+    tones = (separated["X"], separated["Y"], separated["Z"], 1.0 - peak)
+    clear = tuple(
+        1.0 - screened(tone, instance, shell.input(_HALFTONE, _PROCESS, separation, _OFFSET), shell.input(_HALFTONE, _PROCESS, separation, _SCALE))
+        for instance, (separation, tone) in enumerate(zip(_SEPARATIONS, tones, strict=True))
+    )
+    halftone = shell.menu(
+        _HALFTONE,
+        _SCREENS,
+        cases={
+            _MONO.item: with_alpha(mixed(mono, shell.input(_HALFTONE, _MONO, _DOT_PAPER), shell.input(_HALFTONE, _MONO, _DOT_COLOR)), mono),
+            _PROCESS.item: with_alpha(vector("SCALE", xyz(*clear[:3]), clear[3]), 1.0 - clear[0] * clear[1] * clear[2] * clear[3]),
+        },
+    )
     glyphs = shell.record.glyphs
     levels = len(glyphs)
-    height = shorter(frame.extent) / shell.input(_GLYPHS_ROWS)
+    height = shorter(frame.extent) / shell.input(_GLYPHS, _ROWS)
     strip = Expr(kind=bpy.types.CompositorNodeStringToImage, inputs=(("String", "\n".join(glyphs)), ("Size", height * frame.greater), ("Wrap", False)), socket="Image", shape=bpy.types.NodeSocketColor)
     sides = dimensions(strip)
     cell = xyz(height * (sides["X"] / sides["Y"] * levels), height, 1.0)
     indices, within = vector("FLOOR", frame.point / cell), vector("FRACTION", frame.point / cell)
-    center = filled(shell, frame.sampled(vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent))
-    draw = White().node(indices + drawn(shell, "glyphs"))
-    tone = math("MULTIPLY_ADD", draw - 0.5, shell.input(_GLYPHS_JITTER), toned(center), clamp=True)
+    center = uv_mapped(source, frame.sampled(vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent), extension=("Extend", "Extend"))
+    draw = White().node(indices + _drawn(shell, _GLYPHS))
+    tone = math("MULTIPLY_ADD", draw - 0.5, shell.input(_GLYPHS, _TONE_JITTER), _toned(center), clamp=True)
     rank = (levels - 1) - math("MINIMUM", math("FLOOR", tone * levels), levels - 1)
-    mask = Expr(
-        kind=bpy.types.CompositorNodeMapUV,
-        inputs=(("Image", strip), ("UV", xyz(within["X"], (rank + within["Y"]) / levels, 1.0)), ("Interpolation", "Bilinear"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
-    )
+    mask = uv_mapped(strip, xyz(within["X"], (rank + within["Y"]) / levels, 1.0), extension=("Extend", "Extend"))
     random = Expr(
         kind=bpy.types.CompositorNodeCombineColor,
-        inputs=(("Red", msgspec.structs.replace(draw, socket="Color", shape=bpy.types.NodeSocketColor)["X"]), ("Green", shell.input(_RANDOM_SATURATION)), ("Blue", 1.0), ("Alpha", 1.0)),
+        inputs=(("Red", draw.at("Color", bpy.types.NodeSocketColor)["Red"]), ("Green", shell.input(_GLYPHS, _RANDOM_COLOR, _SATURATION)), ("Blue", 1.0), ("Alpha", 1.0)),
         members={"mode": "HSV"},
         socket="Image",
         shape=bpy.types.NodeSocketColor,
     )
-    colorings = {_SOURCE_COLOR: center, _TWO_TONE: shell.input(_TWO_TONE_INK), _RANDOM_COLOR: random}
+    color = shell.menu(_GLYPHS, _COLORING, cases={_SOURCE_COLOR: center, _TWO_TONE.item: shell.input(_GLYPHS, _TWO_TONE, _GLYPH_COLOR), _RANDOM_COLOR.item: random})
 
-    def sorting(heading: Expr) -> Expr:
+    def sorted_along(heading: Expr) -> Expr:
         axis = abs(heading)
 
-        def blurred(image: Scalar, reach: Socket) -> Expr:
-            return Expr(
-                kind=bpy.types.CompositorNodeBlur,
-                inputs=(("Image", image), ("Size", frame.pixel_size(vector("SCALE", axis, shell.input(reach)))), ("Type", "Gaussian")),
-                socket="Image",
-                shape=bpy.types.NodeSocketColor,
-            )
+        def along(image: Scalar, reach: Socket) -> Expr:
+            return blurred(image, frame.pixel_size(vector("SCALE", axis, shell.input(_PIXEL_SORT, reach))))
 
-        soft = blurred(toned(source), _SORT_SOFTNESS)
-        low, high = shell.input(_SORT_LOW), shell.input(_SORT_HIGH)
+        soft = along(_toned(source), _SOFTNESS)
+        low, high = shell.input(_PIXEL_SORT, _LOW), shell.input(_PIXEL_SORT, _HIGH)
         above, below = 1.0 - (soft < low), 1.0 - (soft > high)
         band = mixed(low > high, above * below, math("MAXIMUM", above, below))
-        grain = White(noise_dimensions="2D").node(frame.point + drawn(shell, "pixel_sort", 0))
-        streak = Expr(
-            kind=bpy.types.ShaderNodeTexNoise,
-            inputs=(
-                ("W", vector("DOT_PRODUCT", frame.fraction, (1.0, 1.0, 0.0) - axis) + math("MULTIPLY_ADD", toned(source), 2.0, -1.0) + drawn(shell, "pixel_sort", 1)["X"]),
-                ("Roughness", shell.input(_SORT_CLUMP)),
-            ),
-            members={"noise_dimensions": "1D", "noise_type": "FBM", "normalize": True},
-            socket="Fac",
+        grain = White(noise_dimensions="2D").node(frame.point + _drawn(shell, _PIXEL_SORT, 0))
+        streak = Noise(noise_dimensions="1D").node(
+            (0.0, 0.0, 0.0),
+            vector("DOT_PRODUCT", frame.fraction, (1.0, 1.0, 0.0) - axis) + math("MULTIPLY_ADD", _toned(source), 2.0, -1.0) + _drawn(shell, _PIXEL_SORT, 1)["X"],
+            linked=Some(_linked({Noise.roughness: shell.input(_PIXEL_SORT, _CLUMP)})),
         )
-        along = vector("DOT_PRODUCT", frame.fraction, axis)
-        fade = Expr(
-            kind=bpy.types.ShaderNodeMapRange,
-            inputs=(("Value", math("MINIMUM", along, 1.0 - along)), ("From Min", shell.input(_SORT_EDGE_FADE)), ("From Max", 0.0), ("To Min", 1.0), ("To Max", 0.0)),
-            members={"clamp": True},
-            socket="Result",
-        )
-        weight = math("MULTIPLY", block_mean(frame, math("MULTIPLY", blurred(band, _SORT_FALLOFF), 1.0 - grain * shell.input(_SORT_SCATTER)) * streak, shell.input(_SORT_CHUNK)), fade)
+        position = vector("DOT_PRODUCT", frame.fraction, axis)
+        fade = MapRange(from_max=0.0, to_min=1.0, to_max=0.0).node(math("MINIMUM", position, 1.0 - position), linked=Some(_linked({MapRange.from_min: shell.input(_PIXEL_SORT, _EDGE_FADE)})))
+        weight = math("MULTIPLY", block_mean(frame, math("MULTIPLY", along(band, _FALLOFF), 1.0 - grain * shell.input(_PIXEL_SORT, _SCATTER)) * streak, shell.input(_PIXEL_SORT, _CHUNK)), fade)
         displaced = Expr(
             kind=bpy.types.CompositorNodeDisplace,
             inputs=(
                 ("Image", source),
-                ("Displacement", frame.pixel_size(vector("SCALE", vector("SCALE", heading, shell.input(_SORT_LENGTH)), weight))),
-                ("Interpolation", "Bilinear"),
+                ("Displacement", frame.pixel_size(vector("SCALE", vector("SCALE", heading, shell.input(_PIXEL_SORT, _LENGTH)), weight))),
                 ("Extension X", "Extend"),
                 ("Extension Y", "Extend"),
             ),
@@ -348,15 +295,87 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
         )
         return with_alpha(mixed(weight, source, displaced), weight)
 
-    headings = {_LEFT: (-1.0, 0.0, 0.0), _RIGHT: (1.0, 0.0, 0.0), _UP: (0.0, 1.0, 0.0), _DOWN: (0.0, -1.0, 0.0)}
-    halftone, color = shell.menu(_HALFTONE_INKS, cases=inked), shell.menu(_GLYPHS_COLORING, cases=colorings)
-    heading = shell.menu(_SORT_DIRECTION, cases=headings)
-    return Ok(structured(shell, _PATTERN_STRUCTURE, {_HALFTONE: halftone, _GLYPHS: with_alpha(mixed(mask, shell.input(_GLYPHS_PAPER), color), mask), _PIXEL_SORT: sorting(heading)}, covered=True))
+    structured = shell.menu(
+        _REPLACING,
+        cases={
+            _HALFTONE.item: halftone,
+            _GLYPHS.item: with_alpha(mixed(mask, shell.input(_GLYPHS, _GLYPH_PAPER), color), mask),
+            _PIXEL_SORT.item: sorted_along(shell.menu(_PIXEL_SORT, _DIRECTION, cases=_HEADINGS)),
+        },
+    )
+    return Ok(structured.keeping(structured["Alpha"].named("structure_weight")))
 
 
-pattern: Final = CompositorEffect(graph=_pattern, record=Pattern, interface=_PATTERN_FACE, mix=Blended(alpha=Alpha.STRAIGHT), request=Some(precise))
+# --- [PALETTE]
 
+
+def _palette(shell: Shell[Palette]) -> Outcome[Expr]:
+    """Quantizes straight display color under an 8-by-8 Bayer threshold, three interleaved bit planes of the cell index, and maps luminance through the color ramp.
+
+    Args:
+        shell: Entry inputs and gradient ramp.
+
+    Returns:
+        Straight color, or the HSY group faults.
+    """
+    source = shell.color
+    spans = (1.0, 2.0, 4.0)
+    ranks = 4 ** len(spans)
+
+    chosen = shell.menu(_POSTERIZE, _CHANNELS, cases={_RGB: source, _LUMINANCE: _toned(source)})
+    cell = switched(shell.input(_POSTERIZE, _DITHER_CELL), (1.0, 1.0, 0.0), vector("MAXIMUM", (1.0, 1.0, 0.0), shell.space.pixel_size(shell.input(_POSTERIZE, _DITHER_CELL, _SIDE))))
+    indices = vector("FLOOR", vector("DIVIDE", PixelGrid.of(source).point, cell))
+    x_bits, y_bits = (vector("SNAP", indices[axis], spans) for axis in ("X", "Y"))
+    periods = tuple(2.0 * span for span in spans)
+    rank = vector("MULTIPLY_ADD", vector("MODULO", x_bits + y_bits, periods), (2.0,) * 3, vector("MODULO", y_bits, periods))
+    weights = tuple(4.0 ** (len(spans) - 1 - bit) / (span * ranks) for bit, span in enumerate(spans))
+    offset = (vector("DOT_PRODUCT", rank, weights) + (0.5 / ranks - 0.5)) * (shell.input(_POSTERIZE, _DITHER) * shell.input(_POSTERIZE, _DITHER, _STRENGTH))
+    steps = shell.input(_POSTERIZE, _LEVELS) - 1.0
+    rounded = Expr(
+        kind=bpy.types.ShaderNodeMapRange,
+        inputs=(
+            ("Vector", vector("FLOOR", vector("MULTIPLY_ADD", chosen, steps, offset) + (0.5,) * 3)),
+            ("From_Min_FLOAT3", (0.0, 0.0, 0.0)),
+            ("From_Max_FLOAT3", steps),
+            ("To_Min_FLOAT3", (0.0, 0.0, 0.0)),
+            ("To_Max_FLOAT3", (1.0, 1.0, 1.0)),
+        ),
+        members={"data_type": "FLOAT_VECTOR", "clamp": True},
+        socket="Vector",
+        shape=bpy.types.NodeSocketVector,
+    )
+
+    def finished(kept: Expr) -> Expr:
+        retention = shell.input(_POSTERIZE, _RETAIN_HUE) * chosen.at(_RGB.name)
+        posterized = switched(shell.input(_POSTERIZE), source, mixed(retention, rounded, kept))
+        ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", _toned(posterized)),), content=Some(shell.record.gradient), socket="Color", shape=bpy.types.NodeSocketColor).named(
+            "gradient_value"
+        )
+        return switched(shell.input(_GRADIENT), posterized, ramp)
+
+    forward = PyOpenColorIO.TRANSFORM_DIR_FORWARD
+    return (
+        paired(hsy(shell.config, forward, source), hsy(shell.config, forward, rounded))
+        .bind(lambda pair: hsy(shell.config, PyOpenColorIO.TRANSFORM_DIR_INVERSE, rgba(pair[0]["Red"], pair[1]["Green"], pair[1]["Blue"])))
+        .map(finished)
+    )
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+pixelation: Final = CompositorEffect(
+    _pixelation, record=Pixelation, interface=Interface(inputs=(_SAMPLING, SEED), panels=(_MOSAIC, _CELLS, _CLOCK)), mix=Blended(alpha=Alpha.RESULT), request=Some(precise), derives=(timing,)
+)
+palette: Final = CompositorEffect(_palette, record=Palette, interface=Interface(panels=(_POSTERIZE, _GRADIENT)), mix=Blended(alpha=Alpha.STRAIGHT))
+pattern: Final = CompositorEffect(
+    _pattern,
+    record=Pattern,
+    interface=Interface(inputs=(_REPLACING, SEED), panels=(_HALFTONE, _GLYPHS, _PIXEL_SORT, _CLOCK)),
+    mix=Blended(alpha=Alpha.STRAIGHT),
+    request=Some(precise),
+    derives=(timing,),
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pattern", "Pixelation", "pattern", "pixelation"]
+__all__ = ["Palette", "Pattern", "Pixelation", "palette", "pattern", "pixelation"]

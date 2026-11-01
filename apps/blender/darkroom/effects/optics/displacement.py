@@ -1,45 +1,35 @@
-"""Displacement fields composed into one warp, integrated over each pixel: twirl, waves, turbulence, sphere, luminance, bubbles, image maps, glass, and raindrops."""
+"""Displacement fields composed into one warp in the compositor and sampled with anisotropic filtering: twirl, waves, turbulence, sphere, luminance, bubbles, image maps, glass, and raindrops."""
 
-from collections.abc import Mapping
 from enum import auto, Enum
-import functools
-from math import cos, pi, sin, tau
-from pathlib import Path
-from typing import Annotated, Final, Literal
+from functools import partial, reduce
+from math import pi, tau
+from operator import add
+from typing import Annotated, Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Some
 import msgspec
-import numpy as np
-import numpy.typing as npt
-import OpenImageIO
-import PyOpenColorIO
-from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 
-from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
-from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.nodes.graphs import Expr
-from blender.bpy.render.color.spaces import UNTAGGED
-from blender.bpy.render.compositor.coordinates import Border, BORDERS
+from blender.bpy.nodes.desired import MenuItem, MenuItems
+from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, xyz
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
+from blender.bpy.render.compositor import masks
+from blender.bpy.render.compositor.colors import with_alpha
+from blender.bpy.render.compositor.coordinates import Border, extended, FrameSpace
+from blender.bpy.render.compositor.editors import FilePath
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import CameraFrame, Shell
-from blender.bpy.render.compositor.motion import Clock
-from blender.imaging.color.processors import converted, GREY, luma
-from blender.imaging.files import buffers
-from blender.imaging.files.images import ImageFile, read_file
+from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED, timing
+from blender.bpy.render.compositor.shapes import PROFILE, profiled, rotated
 from blender.imaging.geometry.arithmetic import smoothstep
-from blender.imaging.geometry.frames import displaced, Raster, slope, softened, tapped
-from blender.imaging.sampling import tiles
-from blender.imaging.sampling.integration import Estimate, Population, Precision
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Finite, NonNegative, Positive, Seed, Unit
+from blender.imaging.sampling.tiles import stream
+from blender.records.faults import Outcome, paired
+from blender.records.fields import Case
 
-from ...chain.stages import Effect, prepared, Stage
 from ..grade.exposure import LATER, later
-from .procedural import bases, Basis, clock, decoded, evaluated, fields, Perlin, profiled, WaveProfile
+from .bases import bases, Basis, Perlin, textured
+from .refraction import bubbled, BUBBLES, GLASS, lifted, LUMA, luminous, MAP, mapped, MapReading, RAINDROPS, rained, refracted
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -53,651 +43,183 @@ class Front(Enum):
     POND = auto()
 
 
-class MapReading(Enum):
-    """Source image reading as a coordinate field."""
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-    GRADIENT = auto()
-    LUMA = auto()
-    OFFSETS = auto()
-    COORDINATES = auto()
-
-
-class Surface(Enum):
-    """Periodic glass heights and a stochastic frosted height."""
-
-    BLOCKS = auto()
-    CANVAS = auto()
-    FROSTED = auto()
-    TINY_LENS = auto()
-
+_ZERO: Final = (0.0, 0.0, 0.0)
+_CENTER: Final = Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Point the field centers on in frame fractions", default_value=(0.5, 0.5))
+_TURN: Final = Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Counterclockwise turn at center", default_value=6.1)
+_REACH: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Distance where the turn reaches zero over greater frame side", min_value=0.0, default_value=0.5)
+_FALLOFF: Final = Socket(key="falloff", kind=bpy.types.NodeSocketFloat, description="Radial falloff power", min_value=0.0, default_value=1.0)
+_ARMS: Final = Socket(key="arms", kind=bpy.types.NodeSocketInt, description="Angular turn lobes, uniform at zero", min_value=0)
+_ARM_OFFSET: Final = Socket(key="arm_offset", kind=bpy.types.NodeSocketFloatAngle, description="Angular lobe turn")
+_FRONT: Final = Socket(
+    key="front", kind=bpy.types.NodeSocketMenu, description="Wave front shape and displacement direction", default_value=MenuItem.of(Front.LINEAR).name, items=Some(MenuItems.of(Front))
+)
+_AMPLITUDE: Final = Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest offset over greater frame side", min_value=0.0, default_value=0.02)
+_WAVELENGTH: Final = Socket(key="wavelength", kind=bpy.types.NodeSocketFloat, description="Distance between crests over greater frame side", min_value=0.0, default_value=tau / (20.0 * 2.0**0.5))
+_DIRECTION: Final = Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Wave travel direction")
+_PHASE: Final = Socket(key="phase", kind=bpy.types.NodeSocketFloatAngle, description="Wave phase offset")
+_WAVELENGTH_VARIATION: Final = Socket(key="wavelength", kind=bpy.types.NodeSocketFloat, description="Share each wavelength shrinks below maximum", min_value=0.0, max_value=0.999)
+_AMPLITUDE_VARIATION: Final = Socket(key="amplitude", kind=bpy.types.NodeSocketFloatFactor, description="Share each amplitude shrinks below maximum")
+_SPREAD: Final = Socket(key="spread", kind=bpy.types.NodeSocketFloatAngle, description="Angular span of wave directions")
+_AXES: Final = Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed displacement multiplier per axis", default_value=(1.0, 1.0))
+_FRONT_REACH: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Circular front reach over greater frame side", min_value=0.0, default_value=0.5)
+_BULGE: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Sphere radius over greater frame side", min_value=0.0, default_value=0.15)
+_AMOUNT: Final = Socket(key="amount", kind=bpy.types.NodeSocketFloat, description="Bulge above zero, pinch below zero", min_value=-1.0, max_value=1.0, default_value=0.1)
+_SHARES: Final = Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Bulge share per axis", min_value=0.0, max_value=1.0, default_value=(1.0, 1.0))
+_INTERPOLATION: Final = Socket(key="interpolation", kind=StockInput(node=bpy.types.CompositorNodeMapUV, input="Interpolation"), default_value="Anisotropic")
+_WAVE_CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=0.7968))
+_VARIATION: Final = InterfacePanel.of("variation", Interface(inputs=(_WAVELENGTH_VARIATION, _AMPLITUDE_VARIATION)), description="Random shrink of each superposed crest below the maximum")
+_TURBULENCE_CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=0.4992))
+_TWIRL: Final = InterfacePanel.of("twirl", Interface(inputs=(_CENTER, _REACH, _TURN, _FALLOFF, _ARMS, _ARM_OFFSET)), description="Turn about a center with a smooth falloff", toggle=Some(False))
+_WAVE: Final = InterfacePanel.of(
+    "wave",
+    Interface(inputs=(_FRONT, *PROFILE.inputs, _AMPLITUDE, _WAVELENGTH, _DIRECTION, _PHASE, _SPREAD, _AXES, _CENTER, _FRONT_REACH, SEED), panels=(_VARIATION, _WAVE_CLOCK)),
+    description="Ripple across traveling periodic wave fronts",
+    toggle=Some(False),
+)
+_SPHERE: Final = InterfacePanel.of("sphere", Interface(inputs=(_CENTER, _BULGE, _AMOUNT, _SHARES)), description="Bulge or pinch inside a circle", toggle=Some(False))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-# --- [FIELDS]
 
+class Displacement(Case, frozen=True, kw_only=True):
+    """Composes geometric, image-driven, glass, and falling-drop displacement fields into one warp, holding the superposed wave count, the turbulence basis, the map file and reading, and the borders."""
 
-class Twirl(msgspec.Struct, frozen=True, kw_only=True):
-    """Turn about a center with a smooth falloff to a radius."""
-
-    center: tuple[Finite, Finite] = (0.5, 0.5)
-    radius: Positive = 0.5
-    angle: Finite = 6.1
-    falloff: Positive = 1.0
-    arms: Annotated[int, msgspec.Meta(ge=0)] = 0
-    arm_offset: Finite = 0.0
-
-    def displaced(self, points: npt.NDArray[np.float64], extent: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Offsets turning points about the center, the turn falling smoothly to zero at the radius."""
-        arm: npt.NDArray[np.float64] = points - np.array(self.center) * extent
-        weight = smoothstep(np.clip(1.0 - (np.linalg.norm(arm, axis=-1) / self.radius) ** (1.0 / self.falloff), 0.0, 1.0)) * (
-            0.5 + 0.5 * np.cos(self.arms * (np.arctan2(arm[..., 1], arm[..., 0]) - self.arm_offset))
-        )
-        turn = -self.angle * weight
-        return arm - np.stack((arm[..., 0] * np.cos(turn) - arm[..., 1] * np.sin(turn), arm[..., 0] * np.sin(turn) + arm[..., 1] * np.cos(turn)), axis=-1, dtype=np.float64)
-
-
-class Wave(msgspec.Struct, frozen=True, kw_only=True):
-    """Ripple across traveling periodic wave fronts."""
-
-    amplitude: NonNegative = 0.02
-    wavelength: Positive = tau / (20.0 * 2.0**0.5)
-    direction: Finite = 0.0
-    phase: Finite = 0.0
-    clock: Clock = Clock(speed=0.7968)
-    profile: WaveProfile = "SIN"
-    front: Front = Front.LINEAR
-    count: Annotated[int, msgspec.Meta(ge=1)] = 1
-    wavelength_variation: Annotated[float, msgspec.Meta(ge=0.0, lt=1.0)] = 0.0
-    amplitude_variation: Unit = 0.0
-    spread: Finite = 0.0
-    axes: tuple[Finite, Finite] = (1.0, 1.0)
-    center: tuple[Finite, Finite] = (0.5, 0.5)
-    radius: Positive = 0.5
-    seed: Seed = 0
-
-    def displaced(self, points: npt.NDArray[np.float64], extent: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
-        """Offsets of every superposed crest along its front's displacement axis at the held clock of `frame` under `rate` frames per second."""
-        draws = tiles.uniforms(np.arange(self.count, dtype=np.int64)[:, None], tiles.stream(Wave, self.seed), 3)
-
-        def crest(index: int) -> npt.NDArray[np.float64]:
-            wavelength = self.wavelength * (1.0 - self.wavelength_variation * float(draws[index, 0]))
-            amplitude = self.amplitude * (1.0 - self.amplitude_variation * float(draws[index, 1])) / self.count
-            heading = self.direction + self.spread * (index - (self.count - 1.0) / 2.0) / max(self.count - 1, 1)
-            along = np.array((cos(heading), sin(heading)))
-            if self.front is Front.LINEAR:
-                travel, axis, envelope = (points - extent / 2.0) @ along, np.broadcast_to((-along[1], along[0]), points.shape), np.ones(points.shape[:-1])
-            else:
-                arm = points - np.array(self.center) * extent
-                travel = np.linalg.norm(arm, axis=-1)
-                spoke = np.divide(arm, travel[..., None], out=np.zeros_like(arm), where=travel[..., None] > 0.0)
-                tangent = np.stack((-spoke[..., 1], spoke[..., 0]), axis=-1)
-                axis = {Front.RADIAL: spoke, Front.ZIGZAG: tangent, Front.POND: (spoke + tangent) * 0.5**0.5}[self.front]
-                envelope = np.maximum(0.0, 1.0 - travel / self.radius)
-            cycles = travel / wavelength - self.clock.clock(frame, rate) + self.phase / tau + (float(draws[index, 2]) if self.count > 1 else 0.0)
-            wave = np.asarray(profiled(self.profile, cycles, np), dtype=np.float64)
-            return np.asarray(amplitude * (2.0 * wave - 1.0)[..., None] * envelope[..., None] * axis * self.axes, dtype=np.float64)
-
-        return sum((crest(index) for index in range(self.count)), np.zeros_like(points))
-
-
-class Turbulence(msgspec.Struct, frozen=True, kw_only=True):
-    """Movement along evolving procedural noise."""
-
-    amplitude: NonNegative = 0.1
-    basis: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=2.0))
-    axes: tuple[Finite, Finite] = (1.0, 1.0)
-    clock: Clock = Clock(speed=0.4992)
-    seed: Seed = 0
-
-    def displaced(self, identity: Identity, points: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
-        """Offsets of one noise per axis at the held clock of `frame` under `rate` frames per second."""
-        flat = points.reshape(-1, 2)
-        moment = np.full(len(flat), self.clock.clock(frame, rate))
-        drawn = np.stack([evaluated(identity, self.basis, flat, moment, seed=self.seed, stream=tiles.stream(Turbulence, axis))[:, 0] for axis in range(2)], axis=-1)
-        return self.amplitude * (2.0 * drawn.reshape(points.shape) - 1.0) * self.axes
-
-
-class Sphere(msgspec.Struct, frozen=True, kw_only=True):
-    """Bulge or pinch inside a circle with a hemisphere mapping."""
-
-    center: tuple[Finite, Finite] = (0.5, 0.5)
-    radius: Positive = 0.15
-    amount: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)] = 0.1
-    axes: tuple[Unit, Unit] = (1.0, 1.0)
-
-    def displaced(self, points: npt.NDArray[np.float64], extent: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Offsets moving each point inside the circle along the hemisphere mapping."""
-        arm = (points - np.array(self.center) * extent) * self.axes
-        radial = np.linalg.norm(arm, axis=-1) / self.radius
-        bounded = np.minimum(radial, 1.0)
-        target = 2.0 * np.arcsin(bounded) / pi if self.amount >= 0.0 else np.sin(pi * bounded / 2.0)
-        change = np.divide(target - bounded, bounded, out=np.zeros_like(bounded), where=(bounded > 0.0) & (radial < 1.0))
-        return np.asarray(-abs(self.amount) * change[..., None] * arm, dtype=np.float64)
-
-
-class Luma(msgspec.Struct, frozen=True, kw_only=True):
-    """Moves bright and dark content in opposite directions."""
-
-    amplitude: NonNegative = 0.02
-    direction: Finite = 0.0
-    softness: NonNegative = 0.015
-
-
-class Bubbles(msgspec.Struct, frozen=True, kw_only=True):
-    """Refracts through frame luminance height."""
-
-    amplitude: NonNegative = 0.02
-    softness: NonNegative = 0.015
-
-
-class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
-    """Drops showing an inverted, blurred view around their centers."""
-
-    drops: Population = Population(spacing=1.0 / (2.0 * 3.8), size=0.5, spread=0.0, softness=0.05)
-    refraction: NonNegative = 2.0
-    blur: NonNegative = 0.0076
-    direction: Finite = 0.0
-    clock: Clock = Clock(speed=0.010008 / drops.spacing)
-    trails: Unit = 0.0
-    seed: Seed = 0
-    strength: Finite = 0.0
-    softness: NonNegative = 0.015
-
-    def sampled(self, points: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
-        """Returns inversion offsets, drop coverage, and receding trail height at `(n, 2)` points at the held clock of `frame` under `rate` frames per second."""
-        sine, cosine = sin(self.direction), cos(self.direction)
-        turn = np.array(((cosine, sine), (-sine, cosine)))
-        spacing = self.drops.spacing
-        local = points @ turn + (0.0, self.clock.clock(frame, rate) * spacing)
-        cells, ownership = np.unique(np.floor(local / spacing).astype(np.int64), axis=0, return_inverse=True)
-        draws = tiles.uniforms(cells, tiles.stream(Raindrops, self.seed), 6)
-        centers, radii, gains = (values[ownership] for values in self.drops.placed(cells, draws, spacing))
-        present = (draws[:, 0] < self.drops.density)[ownership]
-        arm = local - centers
-
-        def edged(distance: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-            return smoothstep((distance < 1.0).astype(np.float64) if self.drops.softness == 0.0 else np.clip((1.0 - distance) / self.drops.softness, 0.0, 1.0))
-
-        drop = edged(np.linalg.norm(arm, axis=-1) / radii)
-        lag = self.trails * np.where(arm[:, 1] <= 0.0, np.maximum(0.0, 1.0 + arm[:, 1] / (centers[:, 1] - cells[ownership, 1] * spacing)), 0.0)
-        cross = np.abs(arm[:, 0]) / (0.5 * radii)
-        return (
-            np.column_stack((
-                (arm @ turn.T) * ((1.0 + self.refraction) * (drop > 0.0))[:, None],
-                np.maximum(drop, lag * edged(cross)) * gains,
-                lag * (1.0 - drop) * np.sqrt(np.maximum(0.0, 1.0 - cross * cross)),
-            ))
-            * present[:, None]
-        )
-
-
-class Map(msgspec.Struct, frozen=True, kw_only=True):
-    """Image read as luminance, slope, offsets, or absolute source coordinates, the input image without a file path."""
-
-    source: str | None = None
-    reading: MapReading = MapReading.OFFSETS
-    axes: tuple[Finite, Finite] = (0.02, 0.02)
-    tile: tuple[Positive, Positive] | None = None
-    rotation: Finite = 0.0
-    softness: NonNegative = 0.015
-
-    @property
-    def data(self) -> bool:
-        """Whether the image holds data channels read untransformed."""
-        return self.reading in {MapReading.OFFSETS, MapReading.COORDINATES}
-
-
-class Refraction(msgspec.Struct, frozen=True, kw_only=True):
-    """Refraction and blur through a periodic or frosted glass height."""
-
-    surface: Surface = Surface.FROSTED
-    size: Positive = 0.1
-    strength: Finite = 0.02
-    softness: NonNegative = 0.015
-    blur: NonNegative = 0.0
-    seed: Seed = 0
-
-    def height(self, identity: Identity, centers: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Glass height at `(rows, columns, 2)` pixel centers."""
-        cell = centers / self.size
-        fraction = cell % 1.0
-        match self.surface:
-            case Surface.BLOCKS:
-                return np.asarray(np.prod(1.0 - np.abs(2.0 * fraction - 1.0) ** 4, axis=-1), dtype=np.float64)
-            case Surface.CANVAS:
-                return np.asarray(0.5 + 0.5 * np.prod(np.sin(tau * cell), axis=-1), dtype=np.float64)
-            case Surface.TINY_LENS:
-                return np.asarray(np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1))), dtype=np.float64)
-            case Surface.FROSTED:
-                frosted = Perlin(texture=textures.Noise(noise_dimensions="2D", scale=1.0 / self.size))
-                flat = centers.reshape(-1, 2)
-                return evaluated(identity, frosted, flat, np.zeros(len(flat)), seed=self.seed, stream=tiles.stream(Refraction))[:, 0].reshape(centers.shape[:-1])
-
-
-class Displacement(Effect, frozen=True, kw_only=True):
-    """Composes geometric, image-driven, glass, and falling-drop displacement fields, decoded from the entry inputs for the CPU render, the image it prepares in `staged`."""
-
-    stage = Stage.WARP
-    pointwise = False
-    twirl: Twirl | None = None
-    wave: Wave | None = None
-    turbulence: Turbulence | None = None
-    sphere: Sphere | None = None
-    luma: Luma | None = None
-    bubbles: Bubbles | None = None
-    raindrops: Raindrops | None = None
-    map: Map | None = None
-    refraction: Refraction | None = None
+    waves: Annotated[int, msgspec.Meta(ge=1, description="Waves superposed with equal total weight")] = 1
+    turbulence: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=2.0))
+    map_source: FilePath | None = None
+    map_reading: MapReading = MapReading.OFFSETS
     extension_x: Border = Border.CLAMP
     extension_y: Border = Border.CLAMP
-    filtername: str = "triangle"
-    filterwidth: Positive = 2.0
-    staged: IdName | None = None
-
-    @property
-    def active(self) -> bool:
-        """Whether any field displaces."""
-        return any(field is not None for field in (self.twirl, self.wave, self.turbulence, self.sphere, self.luma, self.bubbles, self.raindrops, self.map, self.refraction))
-
-    def applied(
-        self,
-        identity: Identity,
-        image: OpenImageIO.ImageBuf,
-        camera: CameraFrame,
-        scene: bpy.types.Scene,
-        *,
-        luminance: npt.NDArray[np.float64],
-        gain: float,
-        mapping: Option[npt.NDArray[np.float32]],
-        precision: Precision,
-    ) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
-        """Integrates refracted color over each pixel.
-
-        Args:
-            identity: Extension owning the scratch trees evaluating procedural fields.
-            image: Associated stage input, rows top first.
-            camera: Camera frame mapping the data window into original camera units and its displayed width and height.
-            scene: Scene whose current frame the clocks hold at its frame rate.
-            luminance: Scene-linear luminance coefficients.
-            gain: Keyed gain of later exposure entries, scaling the luminance height's middle gray.
-            mapping: Linear map image, the input image when absent.
-            precision: Pixel integration and replicate error policy.
-
-        Returns:
-            Estimated image with replicate error, or image faults.
-        """
-        spec = image.spec()
-        bounds, size = camera.window(spec)
-        raster, extent = Raster(bounds=bounds, shape=(spec.height, spec.width)), np.asarray(size, dtype=np.float64)
-        frame, rate = scene.frame_current_final, scene.render.fps / scene.render.fps_base
-        wrap = (self.extension_x.value, self.extension_y.value)
-
-        def computed(source: npt.NDArray[np.float32]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
-            height, width, channels = source.shape
-            centers = raster.centers
-
-            def lifted(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
-                positive = np.maximum(buffers.unassociated(plane)[..., :3] @ luminance, 0.0)
-                return positive / (positive + GREY / gain)
-
-            base = lifted(source)
-            luma_height = softened(base, raster, self.luma.softness) if self.luma is not None else base
-            bubble_height = softened(base, raster, self.bubbles.softness) if self.bubbles is not None else base
-            rain = self.raindrops
-            rain_gradient = (
-                rain.strength * rain.drops.spacing * slope(softened(rain.sampled(centers.reshape(-1, 2), frame, rate)[:, 3].reshape(height, width), raster, rain.softness), raster)
-                if rain is not None and rain.strength != 0.0
-                else np.zeros((height, width, 2))
-            )
-            glass = self.refraction
-            glass_gradient = glass.strength * glass.size * slope(softened(glass.height(identity, centers), raster, glass.softness), raster) if glass is not None else np.zeros((height, width, 2))
-            request = Map() if self.map is None else self.map
-            plane = mapping.default_value(source)
-            map_origin, map_span = (
-                ((0.0, 0.0), tuple(extent)) if mapping.is_some() else ((raster.bounds.left, raster.bounds.bottom), (raster.bounds.right - raster.bounds.left, raster.bounds.top - raster.bounds.bottom))
-            )
-            map_step = np.array(map_span if request.tile is None else request.tile) / plane.shape[1::-1]
-            mode: Literal["wrap", "nearest"] = "nearest" if request.tile is None else "wrap"
-            map_field = np.ones((*plane.shape[:2], 3), dtype=np.float64)
-            match request.reading:
-                case MapReading.GRADIENT:
-                    level = gaussian_filter(lifted(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode=mode)
-                    map_field[..., :2] = np.stack((sobel(level, axis=1, mode=mode) / (8.0 * map_step[0]), -sobel(level, axis=0, mode=mode) / (8.0 * map_step[1])), axis=-1)
-                case MapReading.LUMA:
-                    map_field[..., :2] = (2.0 * gaussian_filter(lifted(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode=mode) - 1.0)[..., None]
-                case MapReading.OFFSETS:
-                    map_field[..., :2] = 2.0 * plane[..., :2] - 1.0
-                case MapReading.COORDINATES:
-                    map_field[..., :2] = plane[..., :2]
-                    map_field[..., 2] = plane[..., 2]
-            glass_source = source if glass is None else softened(source.astype(np.float64), raster, glass.blur).astype(np.float32)
-            drop_source = source if rain is None else softened(source.astype(np.float64), raster, rain.blur).astype(np.float32)
-
-            def rotated(points: npt.NDArray[np.float64], angle: float) -> npt.NDArray[np.float64]:
-                return points @ np.array(((cos(angle), sin(angle)), (-sin(angle), cos(angle))), dtype=np.float64)
-
-            def composed(points: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-                coverage = np.ones(points.shape[:-1], dtype=np.float64)
-                terms = (
-                    *(() if self.twirl is None else (self.twirl.displaced(points, extent),)),
-                    *(() if self.wave is None else (self.wave.displaced(points, extent, frame, rate),)),
-                    *(() if self.turbulence is None else (self.turbulence.displaced(identity, points, frame, rate),)),
-                    *(() if self.sphere is None else (self.sphere.displaced(points, extent),)),
-                    *(
-                        (self.luma.amplitude * (2.0 * tapped(luma_height, raster, points) - 1.0)[..., None] * np.array((cos(self.luma.direction), sin(self.luma.direction))),)
-                        if self.luma is not None
-                        else ()
-                    ),
-                    *(
-                        (
-                            self.bubbles.amplitude
-                            * np.stack([tapped(bubble_height, raster, points - axis) - tapped(bubble_height, raster, points + axis) for axis in np.eye(2) * self.bubbles.softness], axis=-1),
-                        )
-                        if self.bubbles is not None
-                        else ()
-                    ),
-                    *((np.stack([tapped(glass_gradient[..., axis], raster, points) for axis in range(2)], axis=-1),) if glass is not None else ()),
-                )
-                displacement = sum(terms, np.zeros_like(points))
-                if self.map is not None:
-                    local = rotated(points, -request.rotation)
-                    fraction = (local - map_origin) / map_span if request.tile is None else local / request.tile % 1.0
-                    at = np.stack(((1.0 - fraction[..., 1]) * map_field.shape[0] - 0.5, fraction[..., 0] * map_field.shape[1] - 0.5))
-                    field = np.stack([map_coordinates(map_field[..., axis], at, order=1, mode="nearest" if request.tile is None else "grid-wrap", prefilter=False) for axis in range(3)], axis=-1)
-                    if request.reading is MapReading.COORDINATES:
-                        return displacement + points - rotated(field[..., :2] * extent, request.rotation), field[..., 2]
-                    return displacement + rotated(field[..., :2] * request.axes * extent, request.rotation), coverage
-                return displacement, coverage
-
-            def dropped(points: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-                if rain is None:
-                    return np.zeros(points.shape[:-1]), np.zeros_like(points)
-                field = rain.sampled(points.reshape(-1, 2), frame, rate)
-                return field[:, 2].reshape(points.shape[:-1]), field[:, :2].reshape(points.shape) + np.stack([tapped(rain_gradient[..., axis], raster, points) for axis in range(2)], axis=-1)
-
-            def observed(points: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-                displacement, coverage = composed(points)
-                drops, refraction = dropped(points)
-                return paired(
-                    displaced(glass_source, raster, points - displacement, coverage, wrap, filtername=self.filtername, filterwidth=self.filterwidth),
-                    displaced(drop_source, raster, points - displacement - refraction, coverage, wrap, filtername=self.filtername, filterwidth=self.filterwidth),
-                ).map(lambda colors: colors[0] * (1.0 - drops[..., None]) + colors[1] * drops[..., None])
-
-            def replicated(replicate: int) -> Outcome[npt.NDArray[np.float64]]:
-                net = precision.points(2, replicate)
-                return functools.reduce(
-                    lambda total, offset: total.bind(lambda held: observed(centers + (offset - 0.5) * raster.step * (1.0, -1.0)).map(lambda term: held + term / len(net))),
-                    net,
-                    Ok(np.zeros((height, width, channels), dtype=np.float64)),
-                )
-
-            def published(observations: tuple[npt.NDArray[np.float64], ...]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
-                estimate = Estimate.of(np.stack(observations), precision)
-                return buffers.located(np.ascontiguousarray(estimate.value, dtype=np.float32), image).map(estimate.holding)
-
-            return accumulated(map(replicated, range(precision.replicates))).bind(published)
-
-        return buffers.pixels(image).bind(computed)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-@prepared.register
-def _(
-    record: Displacement,
-    identity: Identity,
-    values: Mapping[Key, Value],
-    config: PyOpenColorIO.Config,
-    image: OpenImageIO.ImageBuf,
-    precision: Precision,
-    frame: CameraFrame,
-    scene: bpy.types.Scene,
-    /,
-) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]:
-    """Integrates the displaced stage input under original camera coordinates and the keyed gain of later exposure entries, unstaged while no field displaces."""
-
-    def linear(request: Map, file: ImageFile) -> Outcome[npt.NDArray[np.float32]]:
-        return Ok(file.pixels) if request.data else converted(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), file.pixels)
-
-    def mapped(request: Map | None) -> Outcome[Option[npt.NDArray[np.float32]]]:
-        match request:
-            case Map(source=str(path)):
-                return read_file(Path(path), config, colorspace=Some(PyOpenColorIO.ROLE_DATA) if request.data else Nothing, untagged=Some(UNTAGGED)).bind(functools.partial(linear, request)).map(Some)
-            case _:
-                return Ok(Nothing)
-
-    def staged(field: Displacement) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]:
-        match values.get(LATER.key):
-            case float(gain) if field.active:
-                return paired(luma(config), mapped(field.map)).bind(
-                    lambda parts: field.applied(identity, image, frame, scene, luminance=parts[0], gain=gain, mapping=parts[1], precision=precision).map(Some)
-                )
-            case float():
-                return Ok(Nothing)
-            case found:
-                return Error(Fault.of(Reason.UNREADABLE, LATER.key, repr(found)))
-
-    return decoded(record, values).bind(staged)
+# --- [TERMS]
 
 
-def warped(shell: Shell[Displacement]) -> Outcome[Expr]:
-    """Reads the image the CPU render prepared, the stage input outside one."""
-    return Ok(shell.color if shell.record.staged is None else Expr(kind=bpy.types.CompositorNodeImage, members={"image": shell.record.staged}, socket="Image", shape=bpy.types.NodeSocketColor))
+def _twirled(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+    """Offset turning points about the center, the turn falling smoothly to zero at the radius and lobed by the arms."""
+    read = partial(shell.input, _TWIRL)
+    arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
+    falling = smoothstep(math("SUBTRACT", 1.0, math("POWER", vector("LENGTH", arm) / read(_REACH), 1.0 / read(_FALLOFF)), clamp=True))
+    lobed = math("COSINE", read(_ARMS) * (math("ARCTAN2", arm["Y"], arm["X"]) - read(_ARM_OFFSET))) * 0.5 + 0.5
+    return arm - rotated(arm, -read(_TURN) * falling * lobed)
+
+
+def _waved(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+    """Offsets of every superposed crest along its front's displacement axis at the held clock, one Menu Switch choosing profile and one choosing front."""
+    read, varied, count = partial(shell.input, _WAVE), partial(shell.input, _WAVE.panel(_VARIATION.key)), shell.record.waves
+    arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
+    travel = vector("LENGTH", arm)
+    spoke = vector("NORMALIZE", arm)
+    tangent = xyz(-spoke["Y"], spoke["X"])
+    envelope = math("MAXIMUM", 1.0 - travel / read(_FRONT_REACH), 0.0)
+    shift = read(_PHASE) / tau - clocked(shell.input, _WAVE.panel(_WAVE_CLOCK.key))
+
+    def crest(index: int) -> tuple[Expr, Expr, Expr, Expr]:
+        draw = hashed(read(SEED), float(stream(_WAVE.key)), 0.0, float(index))
+        wavelength = read(_WAVELENGTH) * (1.0 - varied(_WAVELENGTH_VARIATION) * draw["Red"])
+        amplitude = read(_AMPLITUDE) * (1.0 - varied(_AMPLITUDE_VARIATION) * draw["Green"]) / float(count)
+        heading = read(_DIRECTION) + read(_SPREAD) * ((index - (count - 1.0) / 2.0) / max(count - 1, 1))
+        along = xyz(math("COSINE", heading), math("SINE", heading))
+        phase = shift + (draw["Blue"] if count > 1 else 0.0)
+        linear = vector("DOT_PRODUCT", frame.point - frame.extent * 0.5, along) / wavelength + phase
+        return linear, travel / wavelength + phase, amplitude, xyz(-along["Y"], along["X"])
+
+    crests = tuple(map(crest, range(count)))
+    first, *rest = (cycles for held in crests for cycles in held[:2])
+    waves = profiled(read, (first, *rest))
+    swings = tuple(
+        (amplitude * (straight * 2.0 - 1.0), amplitude * (round_ * 2.0 - 1.0) * envelope, normal) for straight, round_, (_, _, amplitude, normal) in zip(waves[::2], waves[1::2], crests, strict=True)
+    )
+    fronts = {
+        Front.LINEAR: reduce(add, (vector("SCALE", normal, straight) for straight, _, normal in swings)),
+        Front.RADIAL: vector("SCALE", spoke, reduce(add, (round_ for _, round_, _ in swings))),
+        Front.ZIGZAG: vector("SCALE", tangent, reduce(add, (round_ for _, round_, _ in swings))),
+        Front.POND: vector("SCALE", (spoke + tangent) * 0.5**0.5, reduce(add, (round_ for _, round_, _ in swings))),
+    }
+    return vector("MULTIPLY", shell.menu(_WAVE, _FRONT, cases={MenuItem.of(front): held for front, held in fronts.items()}), read(_AXES))
+
+
+def _turbulent(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+    """Offsets of one evolving noise per axis at the held clock."""
+    read = partial(shell.input, _TURBULENCE)
+    (across, _), (up, _) = textured(
+        shell,
+        _TURBULENCE.panel(_BASIS.key),
+        shell.record.turbulence,
+        frame.point,
+        clocked(shell.input, _TURBULENCE.panel(_TURBULENCE_CLOCK.key)),
+        read(SEED),
+        streams=(stream(Displacement.turbulence, 0), stream(Displacement.turbulence, 1)),
+    )
+    return vector("MULTIPLY", xyz(across * 2.0 - 1.0, up * 2.0 - 1.0), read(_AXES)) * read(_AMPLITUDE)
+
+
+def _bulged(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+    """Offsets moving each point inside the circle along the hemisphere mapping, bulging above zero and pinching below."""
+    read = partial(shell.input, _SPHERE)
+    amount = read(_AMOUNT)
+    arm = vector("MULTIPLY", frame.point - vector("MULTIPLY", read(_CENTER), frame.extent), read(_SHARES))
+    radial = vector("LENGTH", arm) / read(_BULGE)
+    bounded = math("MINIMUM", radial, 1.0)
+    target = switched(amount < 0.0, math("ARCSINE", bounded) * (2.0 / pi), math("SINE", bounded * (pi / 2.0)))
+    return vector("SCALE", arm, -abs(amount) * ((target - bounded) / bounded) * (radial < 1.0))
+
+
+# --- [GRAPH]
+
+
+def _warped(shell: Shell[Displacement]) -> Outcome[Expr]:
+    """Samples the entry input at each point less the summed toggled displacement, drops mixing their inverted, blurred view over the glass view."""
+    frame, record, color = shell.space, shell.record, shell.color
+
+    def sample(source: Expr, point: Expr, coverage: Scalar) -> Expr:
+        uv = frame.sampled(point / frame.extent)
+        return extended(source, xyz(uv["X"], uv["Y"], coverage), (record.extension_x, record.extension_y), clipped=True, interpolation=shell.input(_INTERPOLATION))
+
+    def composed(parts: tuple[Expr, tuple[Expr, Scalar]]) -> Expr:
+        luminance, (map_offset, map_coverage) = parts
+        height = lifted(luminance, shell.input(LATER))
+        glass_offset, glass_source = refracted(shell, frame)
+        drops, inside, drop_source = rained(shell, frame)
+        terms = (
+            (_TWIRL, _twirled(shell, frame)),
+            (_WAVE, _waved(shell, frame)),
+            (_TURBULENCE, _turbulent(shell, frame)),
+            (_SPHERE, _bulged(shell, frame)),
+            (LUMA, luminous(shell, frame, height)),
+            (BUBBLES, bubbled(shell, frame, height)),
+            (GLASS, glass_offset),
+            (MAP, map_offset),
+        )
+        offset = reduce(add, (switched(shell.input(panel), _ZERO, term) for panel, term in terms))
+        coverage = switched(shell.input(MAP), 1.0, map_coverage)
+        seen = sample(switched(shell.input(GLASS), color, glass_source), frame.point - offset, coverage)
+        dropped = sample(drop_source, frame.point - offset - inside, coverage)
+        return switched(shell.input(RAINDROPS), seen, with_alpha(mixed(drops, seen, dropped), mixed(drops, seen["Alpha"], dropped["Alpha"])))
+
+    return paired(masks.luminance(shell.config, color), mapped(shell, frame, record.map_source, record.map_reading, shell.input(LATER))).map(composed)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+_BASIS: Final = bases("basis", Displacement().turbulence, "Noise sampled per displacement axis")
+_TURBULENCE: Final = InterfacePanel.of(
+    "turbulence", Interface(inputs=(_AMPLITUDE, _AXES, SEED), panels=(_BASIS, _TURBULENCE_CLOCK)), description="Movement along evolving procedural noise", toggle=Some(False)
+)
 displacement: Final = CompositorEffect(
-    warped,
+    _warped,
     record=Displacement,
-    interface=Interface(
-        inputs=(
-            LATER,
-            *(
-                Socket(
-                    key=f"extension_{axis}",
-                    name=bpy.path.display_name(f"extension_{axis}"),
-                    kind=bpy.types.NodeSocketMenu,
-                    description=f"Source sampling past frame edges along {axis.upper()}",
-                    default_value=MenuItem.of(Border.CLAMP).name,
-                    items=Some(BORDERS),
-                )
-                for axis in ("x", "y")
-            ),
-            Socket(key="filterwidth", name="Filter Width", kind=bpy.types.NodeSocketFloat, description="Filter support width in source pixels", min_value=0.0, default_value=2.0),
-        ),
-        panels=(
-            InterfacePanel(
-                key="twirl",
-                name="Twirl",
-                description="Turn about a center with a smooth falloff",
-                toggle=Some(False),
-                inputs=fields(
-                    "twirl",
-                    Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Point twirl turns about", default_value=(0.5, 0.5)),
-                    Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Distance where turn reaches zero", min_value=0.0, default_value=0.5),
-                    Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Counterclockwise turn at center", default_value=6.1),
-                    Socket(key="falloff", kind=bpy.types.NodeSocketFloat, description="Radial falloff power", min_value=0.0, default_value=1.0),
-                    Socket(key="arms", kind=bpy.types.NodeSocketInt, description="Angular turn lobes, uniform at zero", min_value=0),
-                    Socket(key="arm_offset", kind=bpy.types.NodeSocketFloatAngle, description="Angular lobe turn"),
-                ),
-            ),
-            InterfacePanel(
-                key="wave",
-                name="Wave",
-                description="Ripple across traveling periodic wave fronts",
-                toggle=Some(False),
-                inputs=(
-                    Socket(
-                        key="wave_front",
-                        name="Front",
-                        kind=bpy.types.NodeSocketMenu,
-                        description="Wave front shape and displacement direction",
-                        default_value=bpy.path.display_name(Wave().front.name.lower()),
-                        items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(front.name.lower())) for front in Front))),
-                    ),
-                    *fields(
-                        "wave",
-                        Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest wave offset", min_value=0.0, default_value=0.02),
-                        Socket(key="wavelength", kind=bpy.types.NodeSocketFloat, description="Distance between crests", min_value=0.0, default_value=tau / (20.0 * 2.0**0.5)),
-                        Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Wave travel direction"),
-                        Socket(key="phase", kind=bpy.types.NodeSocketFloatAngle, description="Wave phase offset"),
-                        Socket(key="count", kind=bpy.types.NodeSocketInt, description="Waves superposed with equal total weight", min_value=1, default_value=1),
-                        Socket(key="wavelength_variation", kind=bpy.types.NodeSocketFloat, description="Share each wavelength shrinks below maximum", min_value=0.0, max_value=0.999),
-                        Socket(key="amplitude_variation", kind=bpy.types.NodeSocketFloatFactor, description="Share each amplitude shrinks below maximum"),
-                        Socket(key="spread", kind=bpy.types.NodeSocketFloatAngle, description="Angular span of wave directions"),
-                        Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed displacement multiplier per axis", default_value=(1.0, 1.0)),
-                        Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Circular front center", default_value=(0.5, 0.5)),
-                        Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Circular front reach", min_value=0.0, default_value=0.5),
-                        Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting each wave's variation", min_value=0, max_value=2**24),
-                    ),
-                ),
-                panels=(clock("wave_clock", speed=Wave().clock.speed),),
-            ),
-            InterfacePanel(
-                key="turbulence",
-                name="Turbulence",
-                description="Movement along evolving procedural noise",
-                toggle=Some(False),
-                inputs=fields(
-                    "turbulence",
-                    Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest noise offset", min_value=0.0, default_value=0.1),
-                    Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed displacement multiplier per axis", default_value=(1.0, 1.0)),
-                    Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting pattern", min_value=0, max_value=2**24),
-                ),
-                panels=(bases("turbulence_basis", Turbulence().basis, "Noise sampled per displacement axis"), clock("turbulence_clock", speed=Turbulence().clock.speed)),
-            ),
-            InterfacePanel(
-                key="sphere",
-                name="Sphere",
-                description="Bulge or pinch inside a circle",
-                toggle=Some(False),
-                inputs=fields(
-                    "sphere",
-                    Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Sphere center", default_value=(0.5, 0.5)),
-                    Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Sphere radius", min_value=0.0, default_value=0.15),
-                    Socket(key="amount", kind=bpy.types.NodeSocketFloat, description="Bulge above zero, pinch below zero", min_value=-1.0, max_value=1.0, default_value=0.1),
-                    Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Bulge share per axis", min_value=0.0, max_value=1.0, default_value=(1.0, 1.0)),
-                ),
-            ),
-            InterfacePanel(
-                key="luma",
-                name="Luma",
-                description="Bright and dark content moving apart",
-                toggle=Some(False),
-                inputs=fields(
-                    "luma",
-                    Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Offset approached by bright content, black moving against it", min_value=0.0, default_value=0.02),
-                    Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Direction bright content moves"),
-                    Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Luminance height blur", min_value=0.0, default_value=0.015),
-                ),
-            ),
-            InterfacePanel(
-                key="bubbles",
-                name="Bubbles",
-                description="Refraction through frame luminance height",
-                toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("bubbles", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, min_value=0.0, default_value=default)
-                    for field, text, default in (("amplitude", "Refraction strength", 0.02), ("softness", "Height blur and finite-difference span, no displacement at zero", 0.015))
-                ),
-            ),
-            InterfacePanel(
-                key="raindrops",
-                name="Raindrops",
-                description="Drops on lens showing scene inverted",
-                toggle=Some(False),
-                inputs=fields(
-                    "raindrops",
-                    Socket(key="refraction", kind=bpy.types.NodeSocketFloat, description="Scene radii each drop shows inverted", min_value=0.0, default_value=2.0),
-                    Socket(key="blur", kind=bpy.types.NodeSocketFloat, description="View blur radius inside each drop over greater frame side", min_value=0.0, default_value=Raindrops().blur),
-                    Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Drop fall slant from straight down"),
-                    Socket(key="trails", kind=bpy.types.NodeSocketFloatFactor, description="Trail height behind each drop"),
-                    Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting drop population", min_value=0, max_value=2**24),
-                    Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Signed refraction through trail height"),
-                    Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Trail height blur radius", min_value=0.0, default_value=0.015),
-                ),
-                panels=(
-                    InterfacePanel(
-                        key="raindrops_drops",
-                        name="Drops",
-                        description="Drops placed one per cell at most",
-                        inputs=fields(
-                            "raindrops_drops",
-                            Socket(key="spacing", kind=bpy.types.NodeSocketFloat, description="Cell width over greater frame side", min_value=0.0, default_value=1.0 / (2.0 * 3.8)),
-                            Socket(key="density", kind=bpy.types.NodeSocketFloatFactor, description="Share of cells holding a drop", default_value=0.5),
-                            Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Drop diameter over cell width", min_value=0.0, max_value=0.5, default_value=0.5),
-                            Socket(key="variation", kind=bpy.types.NodeSocketFloatFactor, description="Diameter shrink share below size", default_value=0.5),
-                            Socket(key="spread", kind=bpy.types.NodeSocketFloat, description="Per-drop coverage drop in stops", min_value=0.0),
-                            Socket(key="softness", kind=bpy.types.NodeSocketFloatFactor, description="Edge fade over radius", default_value=0.05),
-                        ),
-                    ),
-                    clock("raindrops_clock", speed=Raindrops().clock.speed),
-                ),
-            ),
-            InterfacePanel(
-                key="map",
-                name="Map",
-                description="Image-driven offsets or absolute coordinates",
-                toggle=Some(False),
-                inputs=(
-                    Socket(
-                        key="map_reading",
-                        name="Reading",
-                        kind=bpy.types.NodeSocketMenu,
-                        description="Image channel meaning",
-                        default_value=bpy.path.display_name(Map().reading.name.lower()),
-                        items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(reading.name.lower())) for reading in MapReading))),
-                    ),
-                    *fields(
-                        "map",
-                        Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed offset per axis", default_value=(0.02, 0.02)),
-                        Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Map and displacement axes turn"),
-                        Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Luminance height blur radius", min_value=0.0, default_value=0.015),
-                    ),
-                ),
-                panels=(
-                    InterfacePanel(
-                        key="map_tile",
-                        name="Tile",
-                        description="Map tile size",
-                        toggle=Some(False),
-                        inputs=(Socket(key="map_tile_value", name="Value", kind=bpy.types.NodeSocketVector2D, description="Map tile size over greater frame side", default_value=(1.0, 1.0)),),
-                    ),
-                ),
-            ),
-            InterfacePanel(
-                key="refraction",
-                name="Refraction",
-                description="Refraction through glass height",
-                toggle=Some(False),
-                inputs=(
-                    Socket(
-                        key="refraction_surface",
-                        name="Surface",
-                        kind=bpy.types.NodeSocketMenu,
-                        description="Glass height function",
-                        default_value=bpy.path.display_name(Refraction().surface.name.lower()),
-                        items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(surface.name.lower())) for surface in Surface))),
-                    ),
-                    *fields(
-                        "refraction",
-                        Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Glass cell width", min_value=0.0, default_value=0.1),
-                        Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Signed displacement per unit slope in glass-cell coordinates", default_value=0.02),
-                        Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Glass height blur radius", min_value=0.0, default_value=0.015),
-                        Socket(key="blur", kind=bpy.types.NodeSocketFloat, description="Refracted image blur radius", min_value=0.0),
-                        Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting frosted height", min_value=0, max_value=2**24),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    interface=Interface(inputs=(LATER, _INTERPOLATION), panels=(_TWIRL, _WAVE, _TURBULENCE, _SPHERE, LUMA, BUBBLES, RAINDROPS, MAP, GLASS)),
     mix=Blended(alpha=Alpha.RESULT),
     request=Some(precise),
+    derives=(timing,),
     animates=Some(later),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bubbles", "Displacement", "Front", "Luma", "Map", "MapReading", "Raindrops", "Refraction", "Sphere", "Surface", "Turbulence", "Twirl", "Wave", "displacement"]
+__all__ = ["Displacement", "Front", "displacement"]

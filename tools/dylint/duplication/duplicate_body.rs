@@ -70,7 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let repeat = if let [_] = members { "repeats" } else { "repeat" };
             let values = |differing: &[HirId]| {
                 let written = differing.iter().map(|&value| snippet(cx, tcx.hir_span(value), "..")).unique().collect::<Vec<_>>();
-                let other = if let [_] = written.as_slice() { "another value" } else { "other values" };
+                let other = if let [_] = &written { "another value" } else { "other values" };
                 listify(&written, |value| format!("`{value}`")).map(|shown| format!("{other} in place of {shown}"))
             };
             let varied = with_forced_trimmed_paths!(match form {
@@ -80,7 +80,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let help = with_forced_trimmed_paths!(match form {
                 Difference::Value(Some(callee), _) => Some(format!("call `{}` directly at each call site of {every}", item_path(cx, *callee))),
                 Difference::Value(None, differing) =>
-                    Some(format!("replace {every} with one function that takes {}", if let [_] = differing.as_slice() { "the value as a parameter" } else { "the values as parameters" })),
+                    Some(format!("replace {every} with one function that takes {}", if let [_] = differing { "the value as a parameter" } else { "the values as parameters" })),
                 Difference::ConstantPerType(implemented, _) => listify(&functions.iter().filter_map(|&function| owner(cx, function)).collect::<Vec<_>>(), |held| format!("`{held}`"))
                     .map(|owners| format!("replace {owners} with one struct holding the value, one `const` per replaced type, and one `{}` impl", tcx.item_name(*implemented))),
                 Difference::Type { from: _, traits: _, direct: Some(method) } => Some(format!("call `{}` directly in place of {every}", item_path(cx, *method))),

@@ -4,6 +4,7 @@ using HarfBuzzSharp;
 using ICU4N;
 using ICU4N.Globalization;
 using ICU4N.Text;
+using Rasm.UI.Layout;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using SuperLinq;
@@ -11,6 +12,42 @@ using Topten.RichTextKit;
 using Topten.RichTextKit.Utils;
 
 namespace Rasm.UI.Typography;
+
+// --- [MODELS] --------------------------------------------------------------------------
+internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, float width, Option<(TextRange Range, SKColor Color)> selection, TextBlock lines, bool clipped) {
+    private readonly Lazy<Option<float>> capHeight = new(() =>
+        from run in toSeq(lines.FontRuns).Head
+        from units in Typesetting.Position(shaping.HarfBuzzFont(run.Typeface), OpenTypeMetricsTag.CapHeight)
+        select units * Typesetting.PerUnit(run.Typeface, run.Style.FontSize));
+
+    internal View.Text Text { get; } = text;
+    internal TextStyle Style { get; } = style;
+    internal float Width { get; } = width;
+    internal Option<(TextRange Range, SKColor Color)> Selection { get; } = selection;
+    internal TextBlock Lines { get; } = lines;
+    internal SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
+    internal bool Truncated { get; } = lines.Truncated || clipped;
+    internal Map<int, Seq<FontRun>> Parts { get; } = toSeq(lines.Lines).Bind(static line => toSeq(line.Runs)).Filter(static run => run.RunKind is not FontRunKind.TrailingWhitespace)
+        .Fold(Map<int, Seq<FontRun>>(), static (held, run) => ((TextStyle)run.Style).Span.Map(head => held.AddOrUpdate(head, Some: runs => runs.Add(run), None: () => [run])).IfNone(held));
+
+    internal SKRect Overhang => Lines.MeasuredOverhang switch {
+        var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
+    };
+
+    internal Option<float> At(Baseline baseline) =>
+        from line in toSeq(Lines.Lines).At(baseline.Line.GetOffset(Lines.Lines.Count))
+        from rise in (float)baseline.Rise switch {
+            0f => Some(0f),
+            var share => capHeight.Value.Map(cap => cap * share),
+        }
+        select line.YCoord + line.BaseLine - rise;
+
+    internal Option<int> PartAt(SKPoint local) =>
+        Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
+            < 0 => None,
+            var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Span,
+        };
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Typesetting {
@@ -21,7 +58,7 @@ internal static class Typesetting {
         (FontVariant.SubScript, (new Feature(Tag.Parse("subs")), OpenTypeMetricsTag.SubScriptEmYSize, OpenTypeMetricsTag.SubScriptEmYOffset, -1f)));
 
     internal static TextStyle Resolve(Shaping shaping, Cascade cascade, RoleStyle style) {
-        TextFace face = cascade.Theme.Face.Combine(style.Look.Face);
+        TextFace face = cascade.Theme.Face.Combine(style.Face);
         TextStyle resolved = new() {
             FontFamily = face.Family.IfNone(Plain.FontFamily),
             FontSize = cascade.Theme.FontSize * style.Metrics[Metric.FontSize],
@@ -40,7 +77,7 @@ internal static class Typesetting {
             TextDirection = face.Direction.IfNone(Plain.TextDirection),
             ReplacementCharacter = face.Replacement.IfNone(Plain.ReplacementCharacter),
             Features = toSeq(face.Features.AsIterable().Select(static feature => new Feature(feature.Key, feature.Value))),
-            Variant = face.Variant.Bind(Variants.Find),
+            Variant = face.Variant.Filter(Variants.ContainsKey),
             Variations = face.Variations,
             Palette = toSeq(face.Palette.AsIterable()).Choose(entry => cascade.Theme.Color(entry.Value, style).Map(color => new SKFontPaletteOverride { Index = entry.Key, Color = (uint)(SKColor)color })),
             Dark = cascade.Theme.Conditions.Contains(Condition.Dark),
@@ -54,17 +91,17 @@ internal static class Typesetting {
 
     private static Option<float> Cell(Shaping shaping, TextStyle style) =>
         Some(shaping.Mapper.TypefaceFromStyle(style, ignoreFontVariants: false)).Filter(static primary => primary.IsFixedPitch).Bind(primary => shaping.HarfBuzzFont(primary) switch {
-            var font => font.TryGetGlyph('0', out uint zero) ? Some(font.GetHorizontalGlyphAdvance(zero) * style.FontSize / primary.UnitsPerEm) : None,
+            var font => font.TryGetGlyph('0', out uint zero) ? Some(font.GetHorizontalGlyphAdvance(zero) * PerUnit(primary, style.FontSize)) : None,
         });
 
     private static TextStyle SpanStyle(Shaping shaping, Cascade cascade, TextStyle face, Span span, int head) =>
         (span.Role.IsNone && span.Conditions.IsEmpty
             ? face
-            : Resolve(shaping, cascade, Styles.Resolve(cascade, span.Role.IfNone(cascade.Enclosing.Role), span.Conditions.Union(cascade.Enclosing.Conditions)))) with { Language = span.Language, Span = span.Part.Map(_ => head), };
+            : Resolve(shaping, cascade, cascade.Resolve(span.Role.IfNone(cascade.Enclosing.Role), span.Conditions.Union(cascade.Enclosing.Conditions)))) with { Language = span.Language, Span = span.Part.Map(_ => head), };
 
-    private static Option<(TextRange Range, SKColor Color)> Selected(Node.Text text, Cascade cascade) =>
+    private static Option<(TextRange Range, SKColor Color)> Selected(View.Text text, Cascade cascade) =>
         from range in text.Selected
-        let style = Styles.Resolve(cascade, Role.Selection, [])
+        let style = cascade.Resolve(Role.Selection, [])
         from fill in style.Solid
         from color in cascade.Theme.Color(fill, style)
         select (range, (SKColor)color);
@@ -77,8 +114,7 @@ internal static class Typesetting {
 
     private static Seq<(string Text, TextStyle Style)> FaceRuns(Shaping shaping, string text, TextStyle style, CultureInfo culture) {
         Font primary = shaping.HarfBuzzFont(shaping.Mapper.TypefaceFromStyle(style, ignoreFontVariants: false));
-        shaping.Graphemes.SetText(text);
-        return toSeq(Segments(shaping.Graphemes)
+        return toSeq(Segments(shaping.Graphemes, text)
             .GroupAdjacent(segment => Fallback(text[segment.Start..segment.End], style, primary, culture),
                 (face, segments) => (Text: text[segments[0].Start..segments[^1].End], Style: face.Map(fallback => style with { Fallback = fallback }).IfNone(style)))).Strict();
     }
@@ -96,16 +132,18 @@ internal static class Typesetting {
         | points.Find(static point => UChar.HasBinaryProperty(point, UProperty.Emoji_Modifier))
         | points.Find(static point => UChar.HasBinaryProperty(point, UProperty.Emoji_Presentation));
 
-    private static Seq<(int Start, int End)> Segments(BreakIterator breaks) =>
-        toSeq(SuperEnumerable.Generate(breaks.First(), _ => breaks.Next()).TakeWhile(static stop => stop != BreakIterator.Done).Lag(1, static (end, start) => (Start: start, End: end)).Skip(1)).Strict();
+    private static Seq<(int Start, int End)> Segments(BreakIterator breaks, string text) {
+        breaks.SetText(text);
+        return toSeq(SuperEnumerable.Generate(breaks.First(), _ => breaks.Next()).TakeWhile(static stop => stop != BreakIterator.Done).Lag(1, static (end, start) => (Start: start, End: end)).Skip(1)).Strict();
+    }
 
     // --- [SET]
     private const string Ellipsis = "…";
 
-    internal static Typeset Set(Shaping shaping, Node.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
+    internal static Typeset Set(Shaping shaping, View.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
         StyledText runs = new();
         _ = text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
-                Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, Styles.Resolve(cascade, Role.Placeholder, cascade.Enclosing.Conditions)) }, culture),
+                Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, cascade.Resolve(Role.Placeholder, cascade.Enclosing.Conditions)) }, culture),
                 None: () => text.Spans.Fold(Seq<(Span Span, int Head)>(), static (held, span) => held.Add((span, held.Last.Filter(prior => span.Part.IsSome && prior.Span.Part == span.Part).Map(static prior => prior.Head).IfNone(held.Count))))
                     .Map(held => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)).Flatten())
             .Iter(run => runs.AddText(run.Text, run.Style));
@@ -117,23 +155,21 @@ internal static class Typesetting {
             Seq<(float Laid, float Shaped)> over = Reshaped(shaping, lines, culture, width).Filter(line => line.Shaped > width);
             Seq<int> breaks = toSeq(lines.Lines).Map(static line => line.End);
             return !over.IsEmpty && breaks != prior
-                ? Fit(over.Fold(measure, (least, line) => float.Min(least, line.Laid * width / line.Shaped)), breaks)
+                ? Fit(over.Map(line => line.Laid * width / line.Shaped).Min(measure), breaks)
                 : new Typeset(shaping, text, style, width, Selected(text, cascade), lines, cut.IsSome || !over.IsEmpty);
         }
     }
 
-    internal static float MinContent(Shaping shaping, Typeset set, CultureInfo culture) {
-        if (set.Text.MaxLines.Exists(static lines => lines is 1))
-            return EllipsisWidth(shaping, set.Text, set.Style, culture);
-        TextBlock lines = set.Lines;
-        string text = lines.ToString();
-        BreakIterator breaks = shaping.LineBreaks(culture);
-        breaks.SetText(text);
-        return Segments(breaks).Fold(0f, (widest, segment) => float.Max(widest, MathF.Abs(
-            Caret(lines, lines.CharacterToCodePointIndex(segment.Start + text.AsSpan(segment.Start, segment.End - segment.Start).TrimEnd().Length)) - Caret(lines, lines.CharacterToCodePointIndex(segment.Start)))));
-    }
+    internal static float MinContent(Shaping shaping, Typeset set, CultureInfo culture) =>
+        set.Text.MaxLines.Exists(static lines => lines is 1)
+            ? EllipsisWidth(shaping, set.Text, set.Style, culture)
+            : set.Lines.ToString() switch {
+                var text => Segments(shaping.LineBreaks(culture), text).Map(segment => MathF.Abs(
+                    Caret(set.Lines, set.Lines.CharacterToCodePointIndex(segment.Start + text.AsSpan(segment.Start, segment.End - segment.Start).TrimEnd().Length))
+                    - Caret(set.Lines, set.Lines.CharacterToCodePointIndex(segment.Start)))).Max(0f),
+            };
 
-    private static TextBlock Block(Shaping shaping, Node.Text text, CultureInfo culture, StyledText runs, float measure) {
+    private static TextBlock Block(Shaping shaping, View.Text text, CultureInfo culture, StyledText runs, float measure) {
         TextBlock block = new() {
             FontMapper = shaping.Mapper,
             MaxWidth = float.IsFinite(measure) ? measure : null,
@@ -146,16 +182,20 @@ internal static class Typesetting {
         return block;
     }
 
-    private static float EllipsisWidth(Shaping shaping, Node.Text text, TextStyle style, CultureInfo culture) {
-        TextBlock mark = Block(shaping, text with { MaxLines = None, MaxHeight = None }, culture, new StyledText(), float.PositiveInfinity);
-        mark.AddText(Ellipsis, style);
-        _ = Reshaped(shaping, mark, culture, float.PositiveInfinity);
-        return Widest(mark);
-    }
-
-    private static Option<StyledText> Cut(Shaping shaping, Node.Text text, TextStyle style, float width, CultureInfo culture, StyledText runs) {
+    private static TextBlock Unbounded(Shaping shaping, View.Text text, CultureInfo culture, StyledText runs) {
         TextBlock whole = Block(shaping, text with { MaxLines = None, MaxHeight = None }, culture, runs, float.PositiveInfinity);
         _ = Reshaped(shaping, whole, culture, float.PositiveInfinity);
+        return whole;
+    }
+
+    private static float EllipsisWidth(Shaping shaping, View.Text text, TextStyle style, CultureInfo culture) {
+        StyledText mark = new();
+        mark.AddText(Ellipsis, style);
+        return Widest(Unbounded(shaping, text, culture, mark));
+    }
+
+    private static Option<StyledText> Cut(Shaping shaping, View.Text text, TextStyle style, float width, CultureInfo culture, StyledText runs) {
+        TextBlock whole = Unbounded(shaping, text, culture, runs);
         if (Widest(whole) <= width)
             return None;
         Seq<int> stops = toSeq(whole.CaretIndicies);
@@ -180,7 +220,7 @@ internal static class Typesetting {
         return padding.Left / (padding.Left + padding.Right);
     });
 
-    internal static float Widest(TextBlock lines) => toSeq(lines.Lines).Map(Advance).Fold(0f, float.Max);
+    internal static float Widest(TextBlock lines) => toSeq(lines.Lines).Map(Advance).Max(0f);
 
     private static float Advance(TextLine line) => VisibleRuns(line).Fold(0f, static (sum, run) => sum + run.Width);
 
@@ -195,7 +235,7 @@ internal static class Typesetting {
         Seq<(float Laid, float Shaped)> measured = shaped.Map(static held => Advance(held.Line) switch {
             var now => (Laid: now - held.Runs.Fold(0f, static (sum, run) => sum + run.Delta), Shaped: now),
         }).Strict();
-        float target = float.IsFinite(width) ? width : measured.Map(static line => line.Shaped).Fold(0f, float.Max);
+        float target = float.IsFinite(width) ? width : measured.Map(static line => line.Shaped).Max(0f);
         _ = shaped.Zip(measured).Iter(pair => pair.First.Runs.Fold(lean * (target - pair.Second.Shaped - (box - pair.First.Line.Width)), static (shift, held) => {
             held.Run.XCoord += shift;
             held.Run.MoveGlyphs(shift, 0f);
@@ -214,18 +254,18 @@ internal static class Typesetting {
         Slice<int> context = run.RunKind is FontRunKind.Ellipsis ? run.CodePoints : lines.CodePoints.AsSlice();
         using Language language = new(style.Language.IfNone(culture).Name);
         Option<uint[]> unfeatured = style.Variant.Map(_ => GlyphIds(Shape(font, buffer, run, context, language, [.. style.Features])));
-        ReadOnlySpan<GlyphInfo> infos = Shape(font, buffer, run, context, language, [.. style.Features + style.Variant.Map(static variant => variant.Feature).ToSeq()]);
+        ReadOnlySpan<GlyphInfo> infos = Shape(font, buffer, run, context, language, [.. style.Features + style.Variant.Bind(Variants.Find).Map(static variant => variant.Feature).ToSeq()]);
         ReadOnlySpan<GlyphPosition> at = buffer.GetGlyphPositionSpan();
         ReadOnlySpan<int> text = context.AsSpan();
-        (float scale, bool rtl) = (style.FontSize / run.Typeface.UnitsPerEm, run.Direction is TextDirection.RTL);
+        (float scale, bool rtl) = (PerUnit(run.Typeface, style.FontSize), run.Direction is TextDirection.RTL);
         uint[] featured = unfeatured.IsSome ? GlyphIds(infos) : [];
         Option<(float Em, float Rise)> synthetic =
             from plain in unfeatured
             where plain.AsSpan().SequenceEqual(featured)
-            from variant in style.Variant
+            from variant in style.Variant.Bind(Variants.Find)
             from size in Position(font, variant.Size)
             from offset in Position(font, variant.Offset)
-            select (Em: (float)size / run.Typeface.UnitsPerEm, Rise: variant.Direction * offset * scale);
+            select (Em: PerUnit(run.Typeface, size), Rise: variant.Direction * offset * scale);
         (float em, float rise) = synthetic.IfNone((Em: 1f, Rise: 0f));
         SKPoint origin = new(run.XCoord + (style.LetterSpacing * lean), run.Line.YCoord + run.Line.BaseLine - rise);
         int overhangStart = run.Start;
@@ -283,7 +323,9 @@ internal static class Typesetting {
     private static float Snapped(Option<float> cell, float advance) =>
         cell.Map(width => advance > 0f ? float.Max(1f, MathF.Round(advance / width, MidpointRounding.ToEven)) * width : advance).IfNone(advance);
 
-    private static Option<int> Position(Font font, OpenTypeMetricsTag tag) => font.OpenTypeMetrics.TryGetPosition(tag, out int units) ? Some(units) : None;
+    internal static Option<int> Position(Font font, OpenTypeMetricsTag tag) => font.OpenTypeMetrics.TryGetPosition(tag, out int units) ? Some(units) : None;
+
+    internal static float PerUnit(SKTypeface typeface, float size) => size / typeface.UnitsPerEm;
 
     // --- [OUTLINES]
     internal static SKPath Outline(Typeset set) {
@@ -318,13 +360,23 @@ internal static class Typesetting {
     private static Seq<FontRun> GlyphRuns(Typeset set) => toSeq(set.Lines.Lines).Bind(VisibleRuns).Filter(static run => run.Glyphs.Length > 0);
 
     // --- [PAINT]
-    internal static void Paint(SKCanvas canvas, Typeset set, SKPoint origin, TextPaintOptions raster, SKColor tint) {
-        Seq<(FontRun Run, IStyle Resting)> tinted = tint == set.Style.TextColor
-            ? []
-            : toSeq(set.Lines.Lines).Bind(static line => toSeq(line.Runs)).Filter(run => run.Style.TextColor == set.Style.TextColor).Map(static run => (Run: run, Resting: run.Style)).Strict();
-        _ = tinted.Iter(held => held.Run.Style = ((TextStyle)held.Resting) with { TextColor = tint });
-        set.Lines.Paint(canvas, origin, set.Selection.Match(Some: selection => Highlighted(raster.Clone(), selection), None: () => raster));
-        _ = tinted.Iter(static held => held.Run.Style = held.Resting);
+    internal static void Paint(SKCanvas canvas, Typeset set, SKPoint origin, TextPaintOptions raster, SKColorF tint, Func<SKColorF, SKPaint> wash) {
+        TextPaintOptions options = set.Selection.Match(Some: selection => Highlighted(raster.Clone(), selection), None: () => raster);
+        bool encodable = Seq(tint.Red, tint.Green, tint.Blue).ForAll(static channel => channel is >= 0f and <= 1f);
+        Recolored(set, encodable ? (SKColor)tint : SKColors.Transparent, None, () => set.Lines.Paint(canvas, origin, options));
+        if (encodable) return;
+        using SKAutoCanvasRestore restore = new(canvas, doSave: false);
+        _ = canvas.SaveLayer(wash(tint));
+        Recolored(set, SKColors.White, Some(SKColors.Transparent), () => set.Lines.Paint(canvas, origin, raster));
+    }
+
+    private static void Recolored(Typeset set, SKColor resting, Option<SKColor> others, Action paint) {
+        Seq<(FontRun Run, IStyle Held, SKColor Color)> swapped = toSeq(set.Lines.Lines).Bind(static line => toSeq(line.Runs))
+            .Map(run => (Run: run, Held: run.Style, Color: run.Style.TextColor == set.Style.TextColor ? resting : others.IfNone(run.Style.TextColor)))
+            .Filter(static held => held.Color != held.Held.TextColor).Strict();
+        _ = swapped.Iter(static held => held.Run.Style = ((TextStyle)held.Held) with { TextColor = held.Color });
+        paint();
+        _ = swapped.Iter(static held => held.Run.Style = held.Held);
     }
 
     private static TextPaintOptions Highlighted(TextPaintOptions options, (TextRange Range, SKColor Color) selection) {

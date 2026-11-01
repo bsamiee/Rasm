@@ -1,102 +1,87 @@
-"""RGB and HSY grading curves of OCIO's linear curve grades, sampled into compositor curve tables beside native curve editors, with knots inserted from covered frames."""
+"""RGB and HSY grading curves of OCIO's linear curve grades, sampled into compositor curve tables beside native curve editors whose knots the entry takes back, with knots inserted from covered frames."""
 
 from bisect import bisect_left
 from collections.abc import Callable, Mapping
 from functools import partial
-from typing import Annotated, Any, ClassVar, Final
+from itertools import chain
+from typing import ClassVar, Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Answer, Call, Done, Operator
-from blender.bpy.data.rna.conditions import Job
-from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.content import CurveAxes, CurvePoints, Points
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, math, rgba, Scalar
 from blender.bpy.render.compositor.colors import hsy, logarithmic
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
 from blender.bpy.render.compositor.grades import curved
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import grouped, Shell
 from blender.bpy.render.compositor.viewers import READ
-from blender.imaging.color.processors import converted, lin_to_log, luma
+from blender.imaging.color.processors import converted, CURVE_ONLY, HUE_CURVE, HUE_CURVE_TRANSFORM, lin_to_log, luma, RGB_TO_HSY, SPLINE_TYPE, SPLINE_TYPED
 from blender.imaging.files.buffers import unassociated
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
-from blender.records.fields import Knot
-
-from ...chain.stages import Effect, Stage, transform
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.fields import Case, Knot
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type CurveAxis = Annotated[float, msgspec.Meta(ge=-7.0, le=7.0)]
-type Hue = Annotated[float, msgspec.Meta(ge=0.0, lt=1.0)]
-type MappedHue = Annotated[float, msgspec.Meta(ge=-1.0, le=2.0)]
-type Chroma = Annotated[float, msgspec.Meta(ge=0.0, le=2.5)]
-type Gain = Annotated[float, msgspec.Meta(ge=0.0, le=2.0)]
-type ChannelCurve = Annotated[tuple[Knot[CurveAxis, CurveAxis], ...], msgspec.Meta(min_length=2, max_length=15)]
-type HueCurve[X: float, Y: float] = Annotated[tuple[Knot[X, Y], ...], msgspec.Meta(min_length=2, max_length=8)]
 type Knots = tuple[Knot[float, float], ...]
-type ChannelCurveSet = tuple[ChannelCurve, ChannelCurve, ChannelCurve, ChannelCurve]
-type HueCurveSet = tuple[
-    HueCurve[Hue, MappedHue], HueCurve[Hue, Gain], HueCurve[Hue, Gain], HueCurve[CurveAxis, Gain], HueCurve[Chroma, Chroma], HueCurve[CurveAxis, CurveAxis], HueCurve[Chroma, Gain]
-]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NEUTRAL_RGB: Final = PyOpenColorIO.GradingRGBCurve(PyOpenColorIO.GRADING_LIN)
-_HUE_CURVE: Final[type[Any]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_HUE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_SPLINE_OF: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], Any]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_SPLINE_SET: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, Any], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_NEUTRAL_HUE: Final = _HUE_CURVE(PyOpenColorIO.GRADING_LIN)
-_RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_NEUTRAL_HUE: Final = HUE_CURVE(PyOpenColorIO.GRADING_LIN)
+_NEUTRAL_KNOTS: Final = tuple(_NEUTRAL_RGB.master.getControlPoints())
+_STOPS: Final = (_NEUTRAL_KNOTS[0].x, _NEUTRAL_KNOTS[-1].x)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Curve(msgspec.Struct, frozen=True, kw_only=True):
-    """Knot curve of a grade: its key, input and output bounds, and the native editor holding it in the editor's own axes."""
+    """Knot curve of a grade under the name of its OCIO curve: its input and output bounds, its most knots, and the native editor holding it in the editor's own axes."""
 
     key: Key
     inputs: tuple[float, float]
     outputs: tuple[float, float]
+    knots: int
     node: type[bpy.types.Node] = bpy.types.ShaderNodeFloatCurve
     axes: CurveAxes = CurveAxes()
     view: Option[tuple[float, float, float, float]] = Nothing
 
+    def holds(self, knots: Knots) -> bool:
+        """Whether knots count from two to the most, each inside the bounds at a distinct input."""
+        (low, high), (bottom, top) = self.inputs, self.outputs
+        return 2 <= len(knots) <= self.knots and len({knot.x for knot in knots}) == len(knots) and all(low <= knot.x <= high and bottom <= knot.y <= top for knot in knots)
 
-class Curves(Effect, frozen=True, kw_only=True):
-    """Maps RGB channels, then all channels, on OCIO's scene-linear stop axis, the curves refused at decode when two knots share an input or OCIO rejects them."""
 
-    stage = Stage.CURVES
-    pointwise = True
-    rows: ClassVar[tuple[Curve, ...]] = tuple(Curve(key=key, inputs=(-7.0, 7.0), outputs=(-7.0, 7.0), node=bpy.types.CompositorNodeCurveRGB) for key in ("red", "green", "blue", "master"))
-    curves: ChannelCurveSet = msgspec.convert(
-        tuple(tuple(curve.getControlPoints()) for curve in (_NEUTRAL_RGB.red, _NEUTRAL_RGB.green, _NEUTRAL_RGB.blue, _NEUTRAL_RGB.master)), ChannelCurveSet, from_attributes=True
-    )
+class Curves(Case, frozen=True, kw_only=True):
+    """Maps RGB channels, then all channels, on OCIO's scene-linear stop axis, the curves refused at decode outside their bounds or when OCIO rejects them."""
+
+    rows: ClassVar[tuple[Curve, ...]] = tuple(Curve(key=key, inputs=_STOPS, outputs=_STOPS, knots=15, node=bpy.types.CompositorNodeCurveRGB) for key in ("red", "green", "blue", "master"))
+    curves: tuple[Knots, ...] = msgspec.convert(tuple(tuple(getattr(_NEUTRAL_RGB, row.key).getControlPoints()) for row in rows), tuple[Knots, ...], from_attributes=True)
 
     def __post_init__(self) -> None:
-        """Refuses curves holding coincident knot inputs or failing OCIO's validation."""
-        if any(len({knot.x for knot in held}) != len(held) for held in self.curves):
-            raise ValueError(f"{type(self).__name__} curves hold one knot per input")
-        try:
-            for held in self.splines:
-                held.validate()
-        except PyOpenColorIO.Exception as error:
-            raise ValueError(str(error)) from error
+        """Refuses curves outside their rows' bounds or failing OCIO's validation."""
+        _validated(self, lambda: tuple(map(PyOpenColorIO.GradingBSplineCurve.validate, self.splines)))
 
     @property
     def splines(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
         """Channel splines, then the master spline."""
-        return tuple(map(spline, self.curves))
+        return tuple(map(_spline, self.curves))
+
+    @property
+    def grade(self) -> PyOpenColorIO.Transform:
+        """Native linear RGB curve grade."""
+        return PyOpenColorIO.GradingRGBCurveTransform(values=PyOpenColorIO.GradingRGBCurve(*self.splines), style=PyOpenColorIO.GRADING_LIN)
 
     @staticmethod
     def alone(curve: PyOpenColorIO.GradingBSplineCurve) -> PyOpenColorIO.Transform:
@@ -111,7 +96,7 @@ class Curves(Effect, frozen=True, kw_only=True):
         log, raw = lin_to_log(), PyOpenColorIO.Config()
 
         def solved(entering: npt.NDArray[np.float32], weights: npt.NDArray[np.float64]) -> Outcome[dict[Key, float]]:
-            graded = np.asarray([read(held[name], float(value)) for name, value in zip(channels, entering)], dtype=np.float32)
+            graded = np.asarray([_read(held[name], float(level)) for name, level in zip(channels, entering)], dtype=np.float32)
             return (
                 converted(raw, PyOpenColorIO.GroupTransform([log], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE), graded)
                 .bind(lambda linear: converted(raw, log, np.full(3, float(linear @ weights), dtype=np.float32)))
@@ -121,72 +106,57 @@ class Curves(Effect, frozen=True, kw_only=True):
         return paired(converted(raw, log, mean), luma(config)).bind(lambda pair: solved(*pair))
 
 
-class HueCurves(Effect, frozen=True, kw_only=True):
-    """Maps hue, saturation, and luma through OCIO's scene-linear HSY grade, the curves refused at decode when two knots share an input or OCIO rejects them."""
+class HueCurves(Case, frozen=True, kw_only=True):
+    """Maps hue, saturation, and luma through OCIO's scene-linear HSY grade, the curves refused at decode outside their bounds or when OCIO rejects them."""
 
-    stage = Stage.HUE_CURVES
-    pointwise = True
-    rows: ClassVar[tuple[Curve, ...]] = (
-        Curve(key="hue_hue", inputs=(0.0, 1.0), outputs=(-1.0, 2.0), node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(slope=-1.0, offset=0.5), view=Some((0.0, 0.0, 1.0, 1.0))),
-        Curve(key="hue_sat", inputs=(0.0, 1.0), outputs=(0.0, 2.0), node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(scale=0.5)),
-        Curve(key="hue_lum", inputs=(0.0, 1.0), outputs=(0.0, 2.0), node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(scale=0.5)),
-        Curve(key="lum_sat", inputs=(-7.0, 7.0), outputs=(0.0, 2.0)),
-        Curve(key="sat_sat", inputs=(0.0, 2.5), outputs=(0.0, 2.5)),
-        Curve(key="lum_lum", inputs=(-7.0, 7.0), outputs=(-7.0, 7.0)),
-        Curve(key="sat_lum", inputs=(0.0, 2.5), outputs=(0.0, 2.0)),
+    hue_hue: ClassVar[Curve] = Curve(
+        key="hue_hue", inputs=(0.0, 1.0), outputs=(-1.0, 2.0), knots=8, node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(slope=-1.0, offset=0.5), view=Some((0.0, 0.0, 1.0, 1.0))
     )
-    curves: HueCurveSet = msgspec.convert(
-        tuple(
-            tuple(curve.getControlPoints())
-            for curve in (_NEUTRAL_HUE.hue_hue, _NEUTRAL_HUE.hue_sat, _NEUTRAL_HUE.hue_lum, _NEUTRAL_HUE.lum_sat, _NEUTRAL_HUE.sat_sat, _NEUTRAL_HUE.lum_lum, _NEUTRAL_HUE.sat_lum)
-        ),
-        HueCurveSet,
-        from_attributes=True,
-    )
+    hue_sat: ClassVar[Curve] = Curve(key="hue_sat", inputs=(0.0, 1.0), outputs=(0.0, 2.0), knots=8, node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(scale=0.5))
+    hue_lum: ClassVar[Curve] = Curve(key="hue_lum", inputs=(0.0, 1.0), outputs=(0.0, 2.0), knots=8, node=bpy.types.CompositorNodeHueCorrect, axes=CurveAxes(scale=0.5))
+    lum_sat: ClassVar[Curve] = Curve(key="lum_sat", inputs=_STOPS, outputs=(0.0, 2.0), knots=8)
+    sat_sat: ClassVar[Curve] = Curve(key="sat_sat", inputs=(0.0, 2.5), outputs=(0.0, 2.5), knots=8)
+    lum_lum: ClassVar[Curve] = Curve(key="lum_lum", inputs=_STOPS, outputs=_STOPS, knots=8)
+    sat_lum: ClassVar[Curve] = Curve(key="sat_lum", inputs=(0.0, 2.5), outputs=(0.0, 2.0), knots=8)
+    rows: ClassVar[tuple[Curve, ...]] = (hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum)
+    curves: tuple[Knots, ...] = msgspec.convert(tuple(tuple(getattr(_NEUTRAL_HUE, row.key).getControlPoints()) for row in rows), tuple[Knots, ...], from_attributes=True)
 
     def __post_init__(self) -> None:
-        """Refuses curves holding coincident knot inputs or failing OCIO's validation of the hue grade."""
-        if any(len({knot.x for knot in held}) != len(held) for held in self.curves):
-            raise ValueError(f"{type(self).__name__} curves hold one knot per input")
-        try:
-            self.grade.validate()
-        except PyOpenColorIO.Exception as error:
-            raise ValueError(str(error)) from error
+        """Refuses curves outside their rows' bounds or failing OCIO's validation of the hue grade."""
+        _validated(self, lambda: HUE_CURVE(*self.splines, _NEUTRAL_HUE.hue_fx).validate())
 
     @property
     def splines(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
-        """Splines of each curve typed as the neutral grade's curve in the same OCIO position."""
-        kinds = (_NEUTRAL_HUE.hue_hue, _NEUTRAL_HUE.hue_sat, _NEUTRAL_HUE.hue_lum, _NEUTRAL_HUE.lum_sat, _NEUTRAL_HUE.sat_sat, _NEUTRAL_HUE.lum_lum, _NEUTRAL_HUE.sat_lum)
-        splines = tuple(map(spline, self.curves))
-        for held, kind in zip(splines, kinds):
-            _SPLINE_SET(held, _SPLINE_OF(kind))
+        """Splines of each curve typed as the neutral grade's curve of the same name."""
+        splines = tuple(map(_spline, self.curves))
+        for held, row in zip(splines, self.rows):
+            SPLINE_TYPED(held, SPLINE_TYPE(getattr(_NEUTRAL_HUE, row.key)))
         return splines
 
     @property
     def grade(self) -> PyOpenColorIO.Transform:
         """Native linear hue curve grade, hue folding at the neutral grade's own."""
-        return _HUE_TRANSFORM(values=_HUE_CURVE(*self.splines, _NEUTRAL_HUE.hue_fx), style=PyOpenColorIO.GRADING_LIN)
+        return HUE_CURVE_TRANSFORM(values=HUE_CURVE(*self.splines, _NEUTRAL_HUE.hue_fx), style=PyOpenColorIO.GRADING_LIN)
 
     @staticmethod
     def alone(curve: PyOpenColorIO.GradingBSplineCurve) -> PyOpenColorIO.Transform:
         """Hue grade drawing the spline alone, held in a slot retyped to the spline's kind."""
-        grade = _HUE_CURVE(PyOpenColorIO.GRADING_LIN)
-        _SPLINE_SET(grade.hue_sat, _SPLINE_OF(curve))
+        grade = HUE_CURVE(PyOpenColorIO.GRADING_LIN)
+        SPLINE_TYPED(grade.hue_sat, SPLINE_TYPE(curve))
         grade.hue_sat = curve
-        grade.setDrawCurveOnly(True)
-        return _HUE_TRANSFORM(values=grade, style=PyOpenColorIO.GRADING_LIN)
+        CURVE_ONLY(grade, True)
+        return HUE_CURVE_TRANSFORM(values=grade, style=PyOpenColorIO.GRADING_LIN)
 
     def located(self, _config: PyOpenColorIO.Config, mean: npt.NDArray[np.float32], held: Mapping[Key, Points]) -> Outcome[dict[Key, float]]:
         """Hue inputs at the mean's hue, luma inputs at its luma stops, saturation input at its saturation, and the luma-gain input at the saturation the grade outputs."""
-        hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = (row.key for row in self.rows)
         raw = PyOpenColorIO.Config()
 
         def at(hue: float, saturation: float, stop: float) -> dict[Key, float]:
-            inputs = {hue_hue: hue, hue_sat: hue, hue_lum: hue, lum_sat: stop, sat_sat: saturation, lum_lum: stop}
-            gains = (max(0.0, read(held[name], inputs[name])) for name in (sat_sat, lum_sat, hue_sat))
-            return inputs | {sat_lum: float(np.prod(tuple(gains)))}
+            inputs = {self.hue_hue.key: hue, self.hue_sat.key: hue, self.hue_lum.key: hue, self.lum_sat.key: stop, self.sat_sat.key: saturation, self.lum_lum.key: stop}
+            gains = (max(0.0, _read(held[row.key], inputs[row.key])) for row in (self.sat_sat, self.lum_sat, self.hue_sat))
+            return inputs | {self.sat_lum.key: float(np.prod(tuple(gains)))}
 
-        return converted(raw, PyOpenColorIO.FixedFunctionTransform(_RGB_TO_HSY), mean).bind(
+        return converted(raw, PyOpenColorIO.FixedFunctionTransform(RGB_TO_HSY), mean).bind(
             lambda spaced: converted(raw, lin_to_log(), np.full(3, spaced[2], dtype=np.float32)).map(lambda stops: at(float(spaced[0]), float(spaced[1]), float(stops[0])))
         )
 
@@ -196,101 +166,134 @@ class HueCurves(Effect, frozen=True, kw_only=True):
 # --- [SPLINES]
 
 
-def spline(held: Knots) -> PyOpenColorIO.GradingBSplineCurve:
+def _spline(held: Knots) -> PyOpenColorIO.GradingBSplineCurve:
     """Builds the native B-spline of knots."""
-    return PyOpenColorIO.GradingBSplineCurve([value for knot in held for value in (knot.x, knot.y)])
+    return PyOpenColorIO.GradingBSplineCurve([coordinate for knot in held for coordinate in (knot.x, knot.y)])
 
 
-def read(table: Points, value: float) -> float:
+def _validated(record: Curves | HueCurves, validate: Callable[[], object]) -> None:
+    """Refuses curves outside their rows' bounds, then any OCIO refuses through `validate`."""
+    if len(record.curves) != len(record.rows) or not all(map(Curve.holds, record.rows, record.curves)):
+        raise ValueError(f"{type(record).__name__} curves hold distinct knots inside their bounds")
+    try:
+        validate()
+    except PyOpenColorIO.Exception as error:
+        raise ValueError(str(error)) from error
+
+
+def _read(table: Points, level: float) -> float:
     """Reads a sampled curve table at an input, linear between samples."""
     inputs, outputs = np.asarray(table, dtype=np.float64).T
-    return float(np.interp(value, inputs, outputs))
+    return float(np.interp(level, inputs, outputs))
 
 
-def tables(record: Curves | HueCurves, config: PyOpenColorIO.Config) -> Outcome[dict[Key, Points]]:
+def _tables(record: Curves | HueCurves, config: PyOpenColorIO.Config) -> Outcome[dict[Key, Points]]:
     """Samples each curve's spline over its input bounds through its transform's processor."""
     return accumulated(curved(config, record.alone(held), row.inputs).map(lambda channels: (row.key, channels[0])) for row, held in zip(record.rows, record.splines)).map(dict)
 
 
-def editors(record: Curves | HueCurves) -> tuple[Expr, ...]:
-    """Native curve editors holding the knots, curves of one editor class sharing its node under the first curve's key in their axes."""
-
-    def editor(rows: tuple[tuple[Curve, Knots], ...]) -> Expr:
-        first, *_ = (row for row, _ in rows)
-        clip = first.view.default_with(
-            lambda: (min(row.inputs[0] for row, _ in rows), min(row.outputs[0] for row, _ in rows), max(row.inputs[1] for row, _ in rows), max(row.outputs[1] for row, _ in rows))
-        )
-        shown = tuple(tuple((float(knot.x), row.axes.shown(knot.x, knot.y)) for knot in held) for row, held in rows)
-        return Expr(kind=first.node, content=Some(CurvePoints(maps=(shown[0], *shown[1:]), clip=Some(clip), handle="AUTO", clipped=True))).named(first.key)
-
-    paired_rows = tuple(zip(record.rows, record.curves))
-    shared = tuple(dict.fromkeys(row.node for row, _ in paired_rows if row.node is not bpy.types.ShaderNodeFloatCurve))
-    return (*(editor(tuple(pair for pair in paired_rows if pair[0].node is node)) for node in shared), *(editor((pair,)) for pair in paired_rows if pair[0].node is bpy.types.ShaderNodeFloatCurve))
-
-
-# --- [MEASURE]
-
-
-def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Named], title: str) -> Outcome[Answer]:
-    """Arms the entering-frame read on the named entry, inserting a knot on each curve's sampled table at the covered scene-linear mean, refusing a frame that adds none."""
-
-    def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
-        config = PyOpenColorIO.GetCurrentConfig()
-        unread = Fault.of(Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
-        straight = unassociated(file.pixels)
-        covered = straight[..., :3][straight[..., 3] > 0.0] if straight.shape[-1] == 4 else straight[..., :3].reshape(-1, 3)
-
-        def inserted(record: R, held: dict[Key, Points], at: dict[Key, float]) -> Outcome[R]:
-            def grown(row: Curve, curve: Knots) -> Knots:
-                value = at[row.key]
-                position: int = bisect_left(curve, value, key=lambda knot: knot.x)
-                return curve if position < len(curve) and curve[position].x == value else (*curve[:position], Knot(x=value, y=read(held[row.key], value)), *curve[position:])
-
-            curves = tuple(map(grown, record.rows, record.curves))
-            return (
-                Error(unread)
-                if curves == record.curves
-                else catch(msgspec.convert, exception=msgspec.ValidationError)({"curves": msgspec.to_builtins(curves)}, type(record)).map_error(
-                    partial(Fault.of, Reason.OUTSIDE, type(record).__name__, member="curves")
-                )
-            )
-
-        def change(record: R) -> Outcome[R]:
-            located = converted(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), covered).map(
-                lambda linear: linear.mean(axis=0, dtype=np.float64).astype(np.float32)
-            )
-            return tables(record, config).bind(lambda held: Result[dict[Key, float], Faults].bind(located.bind(lambda mean: record.located(config, mean, held)), lambda at: inserted(record, held, at)))
-
-        wrote: Outcome[bool] = effect.revised(identity, scene, entry, change) if covered.size else Error(unread)
-        return wrote.map(lambda changed: Some(title) if changed else Nothing)
-
-    return (
-        rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: effect.named(call.identity, scene, call.properties.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured)))
-        .map(lambda _: Done())
+def _rebuilt[R: (Curves, HueCurves)](record: R, curves: tuple[Knots, ...]) -> Outcome[R]:
+    """Record holding the curves, refused outside their bounds or by OCIO."""
+    return catch(msgspec.convert, exception=msgspec.ValidationError)({"curves": msgspec.to_builtins(curves)}, type(record)).map_error(
+        partial(Fault.of, Reason.OUTSIDE, type(record).__name__, member="curves")
     )
 
 
-def curve_knot(call: Call[Named]) -> Outcome[Answer]:
-    """Insert RGB curve knots at the stage input's covered mean."""
-    return knotted(curves, call, bpy.path.display_name(curve_knot.__name__))
+# --- [EDITORS]
 
 
-def hue_curve_knot(call: Call[Named]) -> Outcome[Answer]:
-    """Insert hue curve knots at the stage input's covered mean."""
-    return knotted(hue_curves, call, bpy.path.display_name(hue_curve_knot.__name__))
+def _shared(rows: tuple[Curve, ...]) -> tuple[tuple[int, ...], ...]:
+    """Row positions of each native editor, rows of one editor class past the float curve sharing its node under the first row's key."""
+    kinds = tuple(dict.fromkeys(row.node for row in rows if row.node is not bpy.types.ShaderNodeFloatCurve))
+    return (*(tuple(index for index, row in enumerate(rows) if row.node is kind) for kind in kinds), *((index,) for index, row in enumerate(rows) if row.node is bpy.types.ShaderNodeFloatCurve))
 
 
-@transform.register
-def _(record: Curves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
-    """Returns OCIO's linear RGB curve grade."""
-    return Ok(Some(PyOpenColorIO.GradingRGBCurveTransform(values=PyOpenColorIO.GradingRGBCurve(*record.splines), style=PyOpenColorIO.GRADING_LIN)))
+def _editors(record: Curves | HueCurves) -> tuple[Expr, ...]:
+    """Native curve editors holding the knots in their own axes, each keyed by its first row."""
+
+    def editor(positions: tuple[int, ...]) -> Expr:
+        rows = tuple(record.rows[index] for index in positions)
+        first = rows[0]
+        clip = first.view.default_with(lambda: (min(row.inputs[0] for row in rows), min(row.outputs[0] for row in rows), max(row.inputs[1] for row in rows), max(row.outputs[1] for row in rows)))
+        first_map, *rest = (tuple((float(knot.x), row.axes.shown(knot.x, knot.y)) for knot in record.curves[index]) for row, index in zip(rows, positions))
+        return Expr(kind=first.node, content=Some(CurvePoints(maps=(first_map, *rest), clip=Some(clip), handle="AUTO", clipped=True))).named(first.key)
+
+    return tuple(map(editor, _shared(record.rows)))
 
 
-@transform.register
-def _(record: HueCurves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
-    """Returns OCIO's linear hue curve grade."""
-    return Ok(Some(record.grade))
+def _taken[R: (Curves, HueCurves)](effect: CompositorEffect[R], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[bool]:
+    """Writes the knots the entry's native editors hold into its curves, answering whether the record changed."""
+
+    def change(record: R) -> Outcome[R]:
+        def knots(nodes: Mapping[Key, bpy.types.Node], positions: tuple[int, ...]) -> Outcome[tuple[tuple[int, Knots], ...]]:
+            first = record.rows[positions[0]]
+            return (
+                Option
+                .of_optional(nodes.get(first.key))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, entry.name, member=first.key))
+                .bind(CurvePoints.read)
+                .map(lambda read: tuple((index, tuple(Knot(x=x, y=record.rows[index].axes.held(x, y)) for x, y in points)) for index, points in zip(positions, read.maps)))
+            )
+
+        return (
+            grouped(entry)
+            .map(lambda tree: owned(tree, identity))
+            .bind(lambda nodes: accumulated(knots(nodes, positions) for positions in _shared(record.rows)))
+            .bind(lambda found: _rebuilt(record, tuple(dict(chain.from_iterable(found))[index] for index in range(len(record.rows)))))
+        )
+
+    return effect.revised(identity, scene, entry, change)
+
+
+def _knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[bool]:
+    """Inserts a knot on each curve's sampled table at the covered scene-linear mean of the entering frame, refusing a frame that adds none."""
+    config = PyOpenColorIO.GetCurrentConfig()
+    unread = Fault.of(Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
+    straight = unassociated(file.pixels)
+    covered = straight[..., :3][straight[..., 3] > 0.0] if straight.shape[-1] == 4 else straight[..., :3].reshape(-1, 3)
+
+    def inserted(record: R, held: Mapping[Key, Points], at: Mapping[Key, float]) -> Outcome[R]:
+        def grown(row: Curve, curve: Knots) -> Knots:
+            level = at[row.key]
+            position: int = bisect_left(curve, level, key=lambda knot: knot.x)
+            return curve if position < len(curve) and curve[position].x == level else (*curve[:position], Knot(x=level, y=_read(held[row.key], level)), *curve[position:])
+
+        curves = tuple(map(grown, record.rows, record.curves))
+        return Error(unread) if curves == record.curves else _rebuilt(record, curves)
+
+    def change(record: R) -> Outcome[R]:
+        located = converted(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), covered).map(
+            lambda linear: linear.mean(axis=0, dtype=np.float64).astype(np.float32)
+        )
+        return _tables(record, config).bind(lambda held: located.bind(lambda mean: record.located(config, mean, held)).bind(lambda at: inserted(record, held, at)))
+
+    return effect.revised(identity, scene, entry, change) if covered.size else Error(unread)
+
+
+# --- [COMMANDS]
+
+
+def curve_knot(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[bool]:
+    """Insert curve knots at the stage input's covered mean."""
+    return _knotted(curves, identity, scene, entry, file) if entry in curves.entries(identity, scene) else _knotted(hue_curves, identity, scene, entry, file)
+
+
+def take_curve_edits(call: Call[Named]) -> Outcome[Answer]:
+    """Write the curve editors' knots into the entry's curves."""
+    identity, name = call.identity, call.properties.name
+
+    def taken(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[bool]:
+        return _taken(curves, identity, scene, entry) if entry in curves.entries(identity, scene) else _taken(hue_curves, identity, scene, entry)
+
+    return (
+        rooted(bpy.types.Scene, call.context)
+        .bind(
+            lambda scene: (
+                Option.of_optional(scene.compositor_effects.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name)).bind(partial(taken, scene))
+            )
+        )
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{name} holds its editors' knots"))
+    )
 
 
 # --- [GRAPHS]
@@ -298,8 +301,8 @@ def _(record: HueCurves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Co
 
 def _curves(shell: Shell[Curves]) -> Outcome[Expr]:
     """Applies channel tables, then the master table, on the stop axis, beside the curve editors."""
-    low, high = Curves.rows[-1].inputs
-    identity: Points = ((low, low), (high, high))
+    low, high = _STOPS
+    flat: Points = ((low, low), (high, high))
 
     def table(key: Key, image: Expr, maps: tuple[Points, Points, Points, Points]) -> Expr:
         return Expr(
@@ -311,39 +314,39 @@ def _curves(shell: Shell[Curves]) -> Outcome[Expr]:
             shape=bpy.types.NodeSocketColor,
         ).named(key)
 
-    def built(held: dict[Key, Points]) -> Outcome[Expr]:
+    def built(held: Mapping[Key, Points]) -> Outcome[Expr]:
         red, green, blue, master = (held[row.key] for row in Curves.rows)
         return logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD, shell.color).bind(
-            lambda logged: logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table("master_table", table("channel_table", logged, (red, green, blue, identity)), (identity, identity, identity, master)))
+            lambda logged: logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table("master_table", table("channel_table", logged, (red, green, blue, flat)), (flat, flat, flat, master)))
         )
 
-    return tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*editors(shell.record)))
-
-
-curves: Final = CompositorEffect(
-    graph=_curves, record=Curves, mix=Blended(alpha=Alpha.STRAIGHT), registers=(Operator(form=Named, run=curve_knot, icon=Some("EYEDROPPER"), undo=Nothing, condition=Some(Job(kind="RENDER"))),)
-)
+    return _tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*_editors(shell.record)))
 
 
 def _hue_curves(shell: Shell[HueCurves]) -> Outcome[Expr]:
     """Maps HSY through the curve tables in OCIO's saturation then luma order, beside the curve editors."""
-    rows: dict[Key, Curve] = {row.key: row for row in HueCurves.rows}
-    hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = rows
 
-    def built(held: dict[Key, Points]) -> Outcome[Expr]:
-        def table(key: Key, value: Scalar) -> Expr:
-            row = rows[key]
+    def built(held: Mapping[Key, Points]) -> Outcome[Expr]:
+        def table(row: Curve, level: Scalar) -> Expr:
             clip = (row.inputs[0], row.outputs[0], row.inputs[1], row.outputs[1])
-            return Expr(kind=bpy.types.ShaderNodeFloatCurve, inputs=(("Factor", 1.0), ("Value", value)), content=Some(CurvePoints(maps=(held[key],), clip=Some(clip)))).named(item_key(key, "table"))
+            return Expr(kind=bpy.types.ShaderNodeFloatCurve, inputs=(("Factor", 1.0), ("Value", level)), content=Some(CurvePoints(maps=(held[row.key],), clip=Some(clip)))).named(
+                item_key(row.key, "table")
+            )
 
         def lifted(hue: Expr, saturation: Expr, stops: Expr) -> Outcome[Expr]:
-            gains = {key: math("MAXIMUM", table(key, value), 0.0) for key, value in ((hue_sat, hue), (hue_lum, hue), (lum_sat, stops), (sat_sat, saturation))}
-            grown = gains[sat_sat] * gains[lum_sat] * gains[hue_sat]
-            return logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table(lum_lum, stops)).bind(
+            hue_gain, luma_gain, stop_gain, saturation_gain = (
+                math("MAXIMUM", table(row, level), 0.0) for row, level in ((HueCurves.hue_sat, hue), (HueCurves.hue_lum, hue), (HueCurves.lum_sat, stops), (HueCurves.sat_sat, saturation))
+            )
+            grown = saturation_gain * stop_gain * hue_gain
+            return logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table(HueCurves.lum_lum, stops)).bind(
                 lambda decoded: hsy(
                     shell.config,
                     PyOpenColorIO.TRANSFORM_DIR_INVERSE,
-                    rgba(math("FRACT", table(hue_hue, hue)), grown, decoded["Blue"] * (1.0 - (1.0 - gains[hue_lum]) * math("MINIMUM", grown, 1.0)) * math("MAXIMUM", table(sat_lum, grown), 0.0)),
+                    rgba(
+                        math("FRACT", table(HueCurves.hue_hue, hue)),
+                        grown,
+                        decoded["Blue"] * (1.0 - (1.0 - luma_gain) * math("MINIMUM", grown, 1.0)) * math("MAXIMUM", table(HueCurves.sat_lum, grown), 0.0),
+                    ),
                 )
             )
 
@@ -351,15 +354,14 @@ def _hue_curves(shell: Shell[HueCurves]) -> Outcome[Expr]:
             lambda spaced: logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD, spaced).bind(lambda encoded: lifted(spaced["Red"], spaced["Green"], encoded["Blue"]))
         )
 
-    return tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*editors(shell.record)))
+    return _tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*_editors(shell.record)))
 
 
-hue_curves: Final = CompositorEffect(
-    graph=_hue_curves,
-    record=HueCurves,
-    mix=Blended(alpha=Alpha.STRAIGHT),
-    registers=(Operator(form=Named, run=hue_curve_knot, icon=Some("EYEDROPPER"), undo=Nothing, condition=Some(Job(kind="RENDER"))),),
-)
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+_COMMANDS: Final = (READ.measuring(curve_knot, icon=Some("EYEDROPPER")), Operator(form=Named, run=take_curve_edits, icon=Some("CHECKMARK")))
+curves: Final = CompositorEffect(_curves, record=Curves, mix=Blended(alpha=Alpha.STRAIGHT), pointwise=True, registers=_COMMANDS)
+hue_curves: Final = CompositorEffect(_hue_curves, record=HueCurves, mix=Blended(alpha=Alpha.STRAIGHT), pointwise=True, registers=_COMMANDS)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

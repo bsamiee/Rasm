@@ -182,7 +182,7 @@ def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-FREESTYLE: Final = Section(key="freestyle", title="Freestyle", rows=(FreestyleSection(),))
+FREESTYLE: Final = Section(key="freestyle", rows=(FreestyleSection(),))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

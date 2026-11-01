@@ -1,27 +1,29 @@
-"""Panels beside a stock panel, under a stock parent, in an extension Sidebar tab, in an editor region, or opened as a popover, and the add-on preferences page over a form group, the sections other rows add, confirmations, shortcuts, and stored settings."""
+"""Panels beside a stock panel, under a stock parent, in an extension Sidebar tab, in an editor region, or opened as a popover, and the add-on preferences page over the preference groups rows declare, with the status, confirmation, shortcut, and stored settings sections it derives."""
 
+from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import partial
 import re
-from typing import Any, Final, Literal, Protocol, runtime_checkable, Self, TYPE_CHECKING
+from typing import Any, Final, Literal, Self, TYPE_CHECKING
 
 import _bpy_types
 from bl_ui.space_properties import PropertiesAnimationMixin
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands import invocations, keymaps, operators
 from blender.bpy.data.rna.conditions import admits, Condition
-from blender.bpy.data.rna.mirrors import annotated, nested, Updated, updated
+from blender.bpy.data.rna.mirrors import Declared
 from blender.bpy.data.rna.paths import definition, Struct
-from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band, Declaration, entered, Gathering, Registrable
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.registration import Acquisitions, Band, Declaration, entered, Gathering
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.handlers import Signal
-from blender.bpy.ui.layout.rows import acquired, layout_method, Member, OperatorButton, Property, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw, Status
 from blender.bpy.ui.layout.sections import fields, reached, Section, SectionDraws
 from blender.bpy.ui.resources.icons import ICONS
 from blender.bpy.ui.screens.areas import Located
@@ -35,16 +37,6 @@ if TYPE_CHECKING:
 type FixedPlacement = Beside | Child | Sidebar | EditorRegion
 type _PanelPlacement = FixedPlacement | Docked
 type _Site = tuple[str, _PanelPlacement, Option[Condition]]
-
-
-@runtime_checkable
-class Preferring(Registrable, Protocol):
-    """Registered row adding sections to its extension's preferences page."""
-
-    @property
-    def preferences(self) -> tuple[Section[Any], ...]:
-        """Sections the row adds."""
-        ...
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -143,29 +135,57 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PREFERENCES]
 
 
-class PreferencesPage[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Preference form group with sections, gathering the sections, confirmations, shortcuts, and stores every other row declares, firing `changed` on each edit.
+class Preference[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
+    """Form group a row keeps on its extension's add-on preferences under its key, the preferences page drawing its fields and then `rows` in one section titled after the key.
 
-    Each suppressible command's `ask_<key>` flag sits on the preferences beside the form fields, and the Confirmations section turns a dismissed confirmation back on.
+    A row needing user preferences declares its preference among what it acquires, and every preference of one key holds one form.
     """
 
-    form: type[T]
+    key: Key
+    form: type[G]
+    rows: tuple[RowContent, ...] = ()
+
+    @staticmethod
+    def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
+        """Acquires nothing of its own, the preferences page gathering it."""
+        return Ok(())
+
+    def read(self, identity: Identity, /) -> Outcome[G]:
+        """Returns the group the extension's add-on preferences hold under the key, absent fault while the extension holds none."""
+        return (
+            identity
+            .preferences(bpy.types.AddonPreferences)
+            .bind(lambda held: Option.of_optional(try_downcast(self.form, getattr(held, self.key, None))))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, identity.package, member=self.key))
+        )
+
+
+class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
+    """Add-on preferences page over the preferences it and every other row declare, with its own sections, firing `changed` on each edit.
+
+    The page derives a Status section over held reports, one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
+    Shortcuts over each keymap, and Stored Settings clearing every attachment's stored values, each derived section present while what it draws is declared.
+    Each suppressible command's `ask_<key>` flag sits on the preferences beside the preference groups.
+    """
+
+    preferences: tuple[Preference[Any], ...] = ()
     sections: tuple[Section[Any], ...] = ()
     changed: Signal = msgspec.field(default_factory=Signal)
 
-    # --- [ACCESS]
-
-    def value[F](self, member: Callable[[T], F]) -> Callable[[Identity], Outcome[F]]:
-        """Returns reader of one preference member per identity."""
-        return lambda identity: read(identity, self.form).map(member)
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Preferences the page declares."""
+        return self.preferences
 
     # --- [GATHERING]
 
     def gathered(self, identity: Identity, declared: tuple[Declaration | Gathering, ...], /) -> Outcome[Acquisitions]:
-        """Declares the preferences class, its commands, sections, and value popovers, registering the class where its draws realize."""
+        """Declares the preferences class, its commands, sections, and value popovers, registering the class where its draws realize, a taken fault naming each preference key two forms share."""
         asks = tuple(row for row in declared if isinstance(row, operators.Operator) and any(isinstance(form, invocations.Suppressible) for form in row.invoke.to_list()))
         bindings = tuple(row for row in declared if isinstance(row, keymaps.Keymap))
         stores = tuple(row for row in declared if isinstance(row, Attachment))
+        preferred = tuple(row for row in declared if isinstance(row, Preference))
+        shared = tuple(key for key, count in Counter(row.key for row in preferred).items() if count > 1)
 
         def attached() -> Outcome[tuple[Attached[bpy.types.PropertyGroup], ...]]:
             return accumulated(row.bound(identity) for row in stores)
@@ -198,36 +218,40 @@ class PreferencesPage[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, k
             for paint in paints:
                 paint(layout, holder, context)
 
-        kind = type(
-            identity.package,
-            (bpy.types.AddonPreferences,),
-            {"bl_idname": identity.package, "__annotations__": {**{name: updated(held, changed) for name, held in annotated(self.form).items()}, **flags}, "draw": draw},
-        )
-        rows: tuple[RowContent, ...] = tuple(row for row in fields(kind, "preferences") if not (isinstance(row, Property) and row.target.path[0] in flags))
+        pointers = {row.key: bpy.props.PointerProperty(type=row.form, name=bpy.path.display_name(row.key)) for row in preferred}
+        kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, "__annotations__": {**pointers, **flags}, "draw": draw})
         sections = (
+            Section(key="preferences_status", title=Some("Status"), rows=(Status(),)),
+            *(
+                Section(key=f"preferences_{row.key}", title=Some(bpy.path.display_name(row.key)), holder=Some(Member(root=kind, path=(row.key,))), rows=(*fields(row.form, row.key), *row.rows))
+                for row in preferred
+            ),
             *self.sections,
-            *(section for row in declared if isinstance(row, Preferring) for section in row.preferences),
-            *((Section(key="preferences_confirmations", title="Confirmations", rows=tuple(Property(target=Member(root=kind, path=(ask,))) for ask in flags)),) if flags else ()),
-            *((Section(key="preferences_shortcuts", title="Shortcuts", rows=tuple(binding.drawn for binding in bindings)),) if bindings else ()),
-            *((Section(key="preferences_stored", title="Stored Settings", rows=(OperatorButton(target=purge),)),) if stores else ()),
+            *((Section(key="preferences_confirmations", title=Some("Confirmations"), rows=tuple(Property(target=Member(root=kind, path=(ask,))) for ask in flags)),) if flags else ()),
+            *((Section(key="preferences_shortcuts", title=Some("Shortcuts"), rows=tuple(binding.drawn for binding in bindings)),) if bindings else ()),
+            *((Section(key="preferences_stored", title=Some("Stored Settings"), rows=(OperatorButton(target=purge),)),) if stores else ()),
         )
 
         @contextmanager
         def prepared() -> Generator[Outcome[None]]:
             with ExitStack() as stack:
                 stack.callback(paints.clear)
-                yield entered(stack, (kind,)).bind(lambda _: realized((*rows, *sections), identity)).map(paints.append)
+                yield entered(stack, (kind,)).bind(lambda _: realized(sections, identity)).map(paints.append)
 
-        groups: tuple[type[bpy.types.PropertyGroup], ...] = (*nested(self.form), self.form)
-        return Ok((
-            Updated(groups=groups, change=changed),
-            show_preferences,
-            *((purge,) if stores else ()),
-            *sections,
-            *Panel.popovers((*rows, *sections)),
-            *acquired(rows),
-            (Band.PREFERENCES, prepared()),
-        ))
+        return (
+            Ok(shared)
+            .filter_with(lambda held: not held, lambda held: Fault.of(Reason.TAKEN, ", ".join(held), member=f"{identity.package} preferences"))
+            .map(
+                lambda _: (
+                    *(Declared(form=row.form, change=Some(changed)) for row in preferred),
+                    show_preferences,
+                    *((purge,) if stores else ()),
+                    *sections,
+                    *Panel.popovers(sections),
+                    (Band.PREFERENCES, prepared()),
+                )
+            )
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -266,7 +290,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
             {
                 **members,
                 "bl_idname": name,
-                "bl_label": section.title,
+                "bl_label": section.label,
                 "bl_description": section.description,
                 "bl_translation_context": section.translation_context,
                 "bl_options": {*options, *(() if section.opened else ("DEFAULT_CLOSED",))},
@@ -335,21 +359,6 @@ def _stock(panel: type[_bpy_types.Panel]) -> type[bpy.types.Panel]:
 # --- [PREFERENCES]
 
 
-def read[T: bpy.types.PropertyGroup](identity: Identity, form: type[T]) -> Outcome[T]:
-    """Returns the extension's add-on preferences as the form group its class declares, which no host type states.
-
-    Args:
-        identity: Extension whose preferences row is read.
-        form: Form group the preferences class copies.
-
-    Returns:
-        The preferences, absent fault while the extension holds none.
-    """
-    preferences = identity.preferences(bpy.types.AddonPreferences)
-    held: Option[T] = preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return held.to_result_with(partial(Fault.of, Reason.ABSENT, identity.package, member=form.__name__))
-
-
 @operators.Operator.of(operators.Empty, icon=Some("PREFERENCES"), undo=Nothing)
 def show_preferences(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
     """Opens extension preferences from context window and area."""
@@ -362,4 +371,4 @@ POPOVER: Final = EditorRegion(space="TOPBAR", region="HEADER")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["POPOVER", "Beside", "Child", "Docked", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "PreferencesPage", "Preferring", "Sidebar", "read", "show_preferences"]
+__all__ = ["POPOVER", "Beside", "Child", "Docked", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "Preference", "PreferencesPage", "Sidebar", "show_preferences"]

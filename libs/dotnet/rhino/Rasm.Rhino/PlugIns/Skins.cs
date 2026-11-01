@@ -53,7 +53,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     protected DefinedSkin() =>
         _ = Session.Run(Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
-            .Attach(static _ => Session.Close).Scoped(Session.Scope)));
+            .Attach(static _ => Session.Close).Scoped()));
 
     // --- [IDENTITY]
     protected sealed override string ApplicationName =>
@@ -63,16 +63,15 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
         HostUtils.RunningOnWindows
-            ? Session.Run(Icons.PlugInImage().Bind(static glyph => glyph.Traverse(static art => Icons.Raster(art, new System.Drawing.Size(256, 256))).As()).Map(static bitmap => bitmap.ValueUnsafe()), failed: null)
+            ? Session.Run(Icons.PlugInImage(typeof(TSelf).Assembly).Traverse(static art => Icons.Raster(art, new System.Drawing.Size(256, 256))).As().Map(static bitmap => bitmap.ValueUnsafe()), failed: null)
             : null;
 
     private static IO<Option<Control>> Mark =>
         TSelf.Definition.Splash.Match(
             Some: static content => content.Map(static control => Some(control)),
             None: static () =>
-                from glyph in Icons.PlugInImage()
-                from view in glyph.TraverseM(static art => Icons.Frames(art, new Size(128, 128)).Bind(static icon => use(() => new ImageView { Image = icon }))).As()
-                select view.Map(static image => (Control)image));
+                Icons.PlugInImage(typeof(TSelf).Assembly).TraverseM(static art => Icons.Frames(art, new Size(128, 128)).Bind(static icon => use(() => new ImageView { Image = icon })))
+                    .As().Map(static view => view.Map(static image => (Control)image)));
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
@@ -105,9 +104,9 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [SPLASH]
     protected sealed override void ShowSplash() =>
-        _ = Session.Run(unless(HasBootSplash, Products.Replace(splash, Splashed).Scoped(Session.Scope).Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
+        _ = Session.Run(unless(HasBootSplash, Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
 
-    protected sealed override void HideSplash() => _ = Session.Run(Products.Clear(splash).Scoped(Session.Scope));
+    protected sealed override void HideSplash() => _ = Session.Run(Products.Clear(splash).Scoped());
 
     private IO<Splash> Splashed =>
         from mark in Mark

@@ -1,67 +1,59 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Darkroom.Chain;
 using Rasm.Rhino;
-using Rasm.Rhino.UI;
-using Rasm.UI.Media;
-using Rhino.Runtime.Notifications;
 
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record NoticeSettings(Uri Server, string? Topic) {
-    public static NoticeSettings Default { get; } = new(new Uri("https://ntfy.sh"), Topic: null);
-}
+public sealed record NoticeSettings(Uri Server, Option<string> Topic);
 
-[SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[SmartEnum<int>]
 public sealed partial class NoticePriority {
-    public static readonly NoticePriority Default = new(3, Notification.Severity.Info);
-    public static readonly NoticePriority High = new(4, Notification.Severity.Warning);
-    public static readonly NoticePriority Max = new(5, Notification.Severity.Serious);
-
-    public Notification.Severity Severity { get; }
+    public static readonly NoticePriority Default = new(3);
+    public static readonly NoticePriority High = new(4);
+    public static readonly NoticePriority Max = new(5);
 }
 
 [Union]
 public abstract partial record QueueEvent {
-    private QueueEvent(NoticePriority priority, Option<string> tag, bool fresh) => (Priority, Tag, Fresh) = (priority, tag, fresh);
+    private QueueEvent(NoticePriority priority, Option<string> tag) => (Priority, Tag) = (priority, tag);
 
     public NoticePriority Priority { get; }
     public Option<string> Tag { get; }
-    public bool Fresh { get; }
 
-    public string Title => $"{nameof(QueueState)} {GetType().Name}";
+    public string Title => $"{Session.PlugIn.Name} {GetType().Name}";
 
-    public abstract string Description(DateTimeZone zone, IPlugInViews views);
+    public abstract string Description(DateTimeZone zone);
 
-    public sealed record Started(int Entries, long Frames) : QueueEvent(NoticePriority.Default, "racehorse", fresh: true) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames across {1} entries", views, arguments: [Frames, Entries]).Local;
+    public sealed record Started(int Entries, long Frames) : QueueEvent(NoticePriority.Default, "racehorse") {
+        public override string Description(DateTimeZone zone) => LocalText.Of("{0} frames across {1} entries", Frames, Entries).Local;
     }
 
-    public sealed record Submitted(Uri Job) : QueueEvent(NoticePriority.Default, None, fresh: true) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("Flamenco job {0}", views, arguments: [Job]).Local;
+    public sealed record Submitted(Uri Job) : QueueEvent(NoticePriority.Default, None) {
+        public override string Description(DateTimeZone zone) => LocalText.Of("Flamenco job {0}", Job).Local;
     }
 
-    public sealed record Estimate(QueueEstimate Reading) : QueueEvent(NoticePriority.Default, "hourglass", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => Reading.Description(zone, views);
+    public sealed record Estimate(QueueEstimate Reading) : QueueEvent(NoticePriority.Default, "hourglass") {
+        public override string Description(DateTimeZone zone) => Reading.Description(zone);
     }
 
-    public sealed record Complete(long Frames, Duration Elapsed) : QueueEvent(NoticePriority.Default, "white_check_mark", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames in {1:-H:mm:ss}", views, arguments: [Frames, Elapsed]).Local;
+    public sealed record Complete(long Frames, Duration Elapsed) : QueueEvent(NoticePriority.Default, "white_check_mark") {
+        public override string Description(DateTimeZone zone) => LocalText.Of("{0} frames in {1:-H:mm:ss}", Frames, Elapsed).Local;
     }
 
-    public sealed record Stopped(long Frames) : QueueEvent(NoticePriority.High, "warning", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames rendered", views, arguments: [Frames]).Local;
+    public sealed record Stopped(long Frames) : QueueEvent(NoticePriority.High, "warning") {
+        public override string Description(DateTimeZone zone) => LocalText.Of("{0} frames rendered", Frames).Local;
     }
 
-    public sealed record Failed(Error Error) : QueueEvent(NoticePriority.Max, "x", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => ErrorOps.Messages(Error);
+    public sealed record Failed(Error Error) : QueueEvent(NoticePriority.Max, "x") {
+        public override string Description(DateTimeZone zone) => Session.Messages(Error);
     }
 
-    public sealed record RetriesExhausted(int Retries) : QueueEvent(NoticePriority.Max, "x", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("Queue crashed after {0} restarts", views, arguments: [Retries]).Local;
+    public sealed record RetriesExhausted(int Retries) : QueueEvent(NoticePriority.Max, "x") {
+        public override string Description(DateTimeZone zone) => LocalText.Of("Queue crashed after {0} restarts", Retries).Local;
     }
 }
 
@@ -72,47 +64,36 @@ internal sealed record NtfyMessage(string Topic, string Title, string Message, i
 internal sealed partial class NtfyContext : JsonSerializerContext;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class NoticeSender : IDisposable {
-    private static readonly GlyphSource Mark = new GlyphSource.Paired(typeof(NoticeSender).Assembly, "mark-16.svg", "mark-16_darkmode.svg");
-
+public sealed partial class NoticeSender : IDisposable {
     private readonly HttpClient client = new() { Timeout = Duration.FromSeconds(10).ToTimeSpan() };
-    private readonly Ref<Option<Lease<Notification>>> raised = Ref(Option<Lease<Notification>>.None);
     private readonly IO<NoticeSettings> settings;
-    private readonly IPlugInViews views;
+    private readonly TimeProvider clock;
 
-    private NoticeSender(IO<NoticeSettings> settings, IPlugInViews views) => (this.settings, this.views) = (settings, views);
+    private NoticeSender(IO<NoticeSettings> settings, TimeProvider clock) => (this.settings, this.clock) = (settings, clock);
 
     // --- [ACQUISITION]
-    public static IO<NoticeSender> Acquire(IO<NoticeSettings> settings, IPlugInViews views) => use(() => new NoticeSender(settings, views));
+    public static IO<NoticeSender> Acquire(IO<NoticeSettings> settings, TimeProvider clock) => use(() => new NoticeSender(settings, clock));
 
     // --- [DELIVERY]
     public IO<Unit> Notify(QueueEvent queued) =>
-        IO.lift(() => new Notice(RowText.Localize(queued.Title, views).Local, queued.Description(views.Clock.ToZonedClock().Zone, views), None, queued.Priority.Severity, Some(Mark), None))
-            .OnUiThread()
-            .Bind(notice => Callbacks.Each(Seq(Noticed(queued.Fresh, notice).OnUiThread(), Notifications.Show(notice).OnUiThread(), Posted(queued, notice))))
-            .Map(unit)
-            .Catch(static error => !error.Is(Errors.Cancelled), error => Reported(error));
+        (from description in IO.lift(() => queued.Description(clock.ToZonedClock().Zone))
+         from logged in IO.lift(() => Noticed(Session.Logger, queued.Title, description))
+         from held in settings
+         from sent in held.Topic.Traverse(topic => Sent(held.Server, topic, queued, description)).As()
+         select unit)
+            .Catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error)));
 
-    private IO<Unit> Noticed(bool fresh, Notice notice) =>
-        IO.lift(() => raised.Value).Bind(held => held.Filter(_ => !fresh).Match(
-            Some: kept => Status.Revise(kept.Value, notice),
-            None: () => views.Session.Held(Products.Swapped(raised, Status.Show(notice, None, views))).Map(static _ => unit)));
-
-    private IO<Unit> Posted(QueueEvent queued, Notice notice) =>
-        settings.OnUiThread().Bind(held => Optional(held.Topic).Match(
-            Some: topic => Sent(held.Server, topic, queued, notice),
-            None: static () => IO.pure(unit)));
-
-    private IO<Unit> Sent(Uri server, string topic, QueueEvent queued, Notice notice) =>
+    private IO<Unit> Sent(Uri server, string topic, QueueEvent queued, string description) =>
         IO.liftAsync(async environment => {
-            using JsonContent content = JsonContent.Create(new NtfyMessage(topic, notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()]), NtfyContext.Default.NtfyMessage);
+            using JsonContent content = JsonContent.Create(new NtfyMessage(topic, queued.Title, description, queued.Priority.Key, [.. queued.Tag.ToSeq()]), NtfyContext.Default.NtfyMessage);
             using HttpResponseMessage response = await client.PostAsync(server, content, environment.Token).ConfigureAwait(false);
-            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : Error.New($"{server} answered notice with {response.StatusCode}");
+            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : new DarkroomFault($"notice post to {server} answering {response.StatusCode}", DarkroomReason.Refused);
         }).Bind(IO.lift)
-        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Error.New($"notice post to {server} failed", error)))
+        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(new DarkroomFault($"notice post to {server}", DarkroomReason.Failed, Inner: error)))
         .Catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
-    private IO<Unit> Reported(Error error, [CallerMemberName] string member = "") => IO.lift(() => PlugInLog.Of(views).Failed(error, typeof(NoticeSender), member));
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Title}: {Description}")]
+    private static partial void Noticed(ILogger logger, string title, string description);
 
     // --- [RELEASE]
     public void Dispose() => client.Dispose();

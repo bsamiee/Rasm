@@ -60,8 +60,7 @@ internal static class ViewRegistration {
     // --- [RENDER_WINDOW]
     public static IO<Unit> RegisterRenderTabs(RenderTabs tabs) =>
         Each<View.Tab>(row =>
-            from pixels in IconSlot.RenderTab.Pixels
-            from icon in row.Icon.TraverseM(art => Icons.DrawingIcon(art, pixels)).As()
+            from icon in row.Icon.TraverseM(static art => Icons.DrawingIcon(art, IconSlot.RenderTab)).As()
             from registered in Hosted(row, () => tabs.RegisterTab(Session.PlugIn, row.Identity, row.Scope.TabEngineId(), Caption(row), icon.ValueUnsafe()))
             select registered);
 

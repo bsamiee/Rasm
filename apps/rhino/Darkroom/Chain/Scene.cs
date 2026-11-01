@@ -1,86 +1,72 @@
-using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
+using Rasm.Imaging.Tone;
 using Rasm.Rhino;
-using Rasm.Rhino.Render.Effects;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.Render;
-using Rhino.Render.PostEffects;
 
 namespace Darkroom.Chain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChainScene {
-    private const double SharpAperture = 0.00001d;
-
     public static ChainScene Unframed { get; } = new();
+
+    public static ColorEncoding Working { get; } = new(Gamut.StandardRgb, new Transfer.Linear());
+
+    public static DisplayDevice Display { get; } = DisplayDevice.Srgb;
 
     public Option<Camera> Camera { get; init; }
     public Option<SceneLights> Lights { get; init; }
     public Option<float> Meters { get; init; }
-    public Option<TimeSpan> Time { get; init; }
+    public Option<Duration> Time { get; init; }
     public Option<Length> FocalLength { get; init; }
-    public Option<float> Aperture { get; init; }
 
     // --- [CONTEXT]
-    public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, bool rendering, Option<OutputDepth> depth) =>
-        new(extent, DisplayFormation.Working, DisplayFormation.Display, depth, new Transfer.Linear(), 0d, Camera, guides, Time, Lights, derivations, rendering);
-
-    public IO<HashMap<GuideChannel, PixelFrame>> Guides(Seq<GuideChannel> channels, Func<GuideChannel, IO<PixelFrame>> read) =>
-        channels.TraverseM(channel => read(channel).Map(frame => (channel, Meters.Map(meters => channel.Measured(frame, meters)).IfNone(frame)))).As()
-            .Map(static frames => toHashMap(frames));
+    public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, Option<OutputDepth> depth) =>
+        new(extent, Working.Gamut, Display, depth, Working.Transfer, 0d, Camera, guides, Time, Lights, derivations);
 
     // --- [HOST]
-    public static IO<PixelFrame> Frame(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect, PixelExtent extent) =>
-        from pixels in Channels.Read(open, channel, rect)
-        from size in IO.lift(() => PixelExtent.Validated(rect.Width, rect.Height))
-        select new PixelFrame(rect.Location, size, extent, block => pixels.AsSpan().CopyTo(block));
+    public static IO<ChainScene> Sourced(RhinoDoc doc, PixelExtent extent, Option<Duration> time) =>
+        (from source in use(() => new Rhino.Render.RenderSourceView(doc))
+         from view in Products.Of(source.GetViewInfo)
+         from meters in IO.lift(() => Quantities.From(1d, doc.ModelUnits).Meters.ToDouble())
+         from viewport in use(() => new ViewportInfo(view.Viewport) { FrustumAspect = (double)extent.Width / extent.Height })
+         from sun in use(() => doc.Lights.Sun)
+         from scene in IO.lift(() => (Viewed(view, viewport, meters, extent), Lit(doc, sun.Enabled ? Some(-sun.Vector) : None, meters)).Apply((camera, lights) => new ChainScene {
+             Camera = Some(camera), Lights = Some(lights), Meters = Some((float)meters), Time = time,
+             FocalLength = viewport.IsParallelProjection ? None : Some(Length.FromMillimeters(viewport.Camera35mmLensLength)),
+         }).As())
+         select scene).Bracket();
 
-    public static IO<ChainScene> Read(RhinoDoc doc, ViewInfo view, PixelExtent extent, Option<TimeSpan> time) =>
-        from meters in IO.lift(() => LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters))
-        from optics in IO.lift(() => Optics(view))
-        from camera in IO.lift(() => Viewed(view, meters, extent, Focus(view, meters, optics.FocalLength, optics.Aperture)))
-        from lights in IO.lift(() => Lit(doc, meters))
-        select new ChainScene { Camera = Some(camera), Lights = Some(lights), Meters = Some((float)meters), Time = time, FocalLength = optics.FocalLength, Aperture = optics.Aperture };
+    private static Fin<Camera> Viewed(ViewInfo view, ViewportInfo viewport, double meters, PixelExtent extent) =>
+        (Pose(viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World), meters), Window(viewport, meters))
+            .Apply((pose, window) => new Camera(
+                pose,
+                viewport.IsParallelProjection ? new Projection.Orthographic(extent, window) : new Projection.Rectilinear(extent, window),
+                view.FocalBlurMode is ViewInfoFocalBlurModes.Manual && !viewport.IsParallelProjection
+                    ? LensFocus.Validated(Length.FromMillimeters(viewport.Camera35mmLensLength), Length.FromMeters(view.FocalBlurDistance * meters), view.FocalBlurAperture).ToOption()
+                    : None))
+            .As();
 
-    private static (Option<Length> FocalLength, Option<float> Aperture) Optics(ViewInfo view) =>
-        view.Viewport.IsParallelProjection ? (None, None)
-            : (Length.FromMillimeters(view.Viewport.Camera35mmLensLength),
-                view.FocalBlurMode is ViewInfoFocalBlurModes.Manual && view.FocalBlurAperture >= SharpAperture ? Some((float)view.FocalBlurAperture) : None);
+    private static Fin<ViewWindow> Window(ViewportInfo viewport, double meters) =>
+        DarkroomFault.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _), DarkroomReason.Invalid, viewport.Id)
+            .Bind(_ => (float)(viewport.IsParallelProjection ? meters : 1d / near) switch {
+                var scale => ViewWindow.Validated(new Vector2((float)(left + right) / 2f, (float)(bottom + top) / 2f) * scale, new Vector2((float)(right - left), (float)(top - bottom)) * scale),
+            });
 
-    private static Option<LensFocus> Focus(ViewInfo view, double meters, Option<Length> focal, Option<float> aperture) =>
-        from length in aperture.IsSome ? focal : None
-        from lens in LensFocus.Validated(length, Length.FromMeters(view.FocalBlurDistance * meters)).ToOption()
-        select lens;
-
-    private static Fin<Camera> Viewed(ViewInfo view, double meters, PixelExtent extent, Option<LensFocus> lens) =>
-        view.Viewport.IsParallelProjection switch {
-            var parallel => (
-                    Conversions.Found(Conversions.Present(view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)))
-                        .Bind(frame => Pose(frame with { M03 = frame.M03 * meters, M13 = frame.M13 * meters, M23 = frame.M23 * meters })),
-                    Window(view.Viewport, parallel, meters))
-                .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
-                .As(),
+    private static Fin<Matrix4x4> Pose(Transform xform, double meters) =>
+        (xform with { M03 = xform.M03 * meters, M13 = xform.M13 * meters, M23 = xform.M23 * meters }).ToFloatArray(rowDominant: false) switch {
+            var entries => DarkroomFault.Unless(xform.IsValid && entries.All(float.IsFinite), DarkroomReason.Invalid, xform).Map(_ => MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]),
         };
 
-    private static Fin<ViewWindow> Window(ViewportInfo viewport, bool parallel, double meters) =>
-        RhinoFault.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _)).Bind(_ => (parallel ? meters : 1d / near) switch {
-            var scale => ViewWindow.Validated(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom)),
-        });
-
-    private static Fin<Matrix4x4> Pose(Transform xform) =>
-        xform.ToFloatArray(rowDominant: false) switch {
-            var entries => RhinoFault.Unless(entries.All(float.IsFinite)).Map(_ => MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]),
-        };
-
-    private static Fin<SceneLights> Lit(RhinoDoc doc, double meters) =>
+    private static Fin<SceneLights> Lit(RhinoDoc doc, Option<Vector3d> sun, double meters) =>
         Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled) switch {
             var lights => (
-                    (doc.Lights.Sun is { Enabled: true } sun ? Some(-sun.Vector) : None).Traverse(Numeric).As(),
+                    sun.Traverse(Numeric).As(),
                     (lights.Filter(static light => !light.LightGeometry.IsDirectionalLight).Map(static light => (light.Id, light.LightGeometry.Location))
                         + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
                         + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
@@ -92,6 +78,6 @@ public sealed record ChainScene {
         };
 
     private static Fin<Vector3> Numeric(Vector3d vector) =>
-        RhinoFault.Unless(Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.IsFinite(value) && double.Abs(value) <= float.MaxValue))
+        DarkroomFault.Unless(vector.IsValid && Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.Abs(value) <= float.MaxValue), DarkroomReason.Invalid, vector)
             .Map(_ => new Vector3((float)vector.X, (float)vector.Y, (float)vector.Z));
 }

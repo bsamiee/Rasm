@@ -6,7 +6,15 @@ version         = "1.0.0"
 description     = "Background Blender session observing a fixture extension built from the bpy library"
 requires-python = ">=3.13"
 
-dependencies = ["blender"]
+dependencies = [
+    # --- [CORE]
+    "blender",    # Shared extension code the fixture extension builds from
+    "expression", # Results, options, and collections of the session and fixture
+    "msgspec",    # Records and codecs the session and fixture exchange
+
+    # --- [MATHEMATICS]
+    "numpy",      # Arrays for fixture images and captured pixels
+]
 
 # --- [UV] -------------------------------------------------------------------------------
 

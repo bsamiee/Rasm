@@ -10,7 +10,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `blender` is a packaged workspace member, its hatchling wheel mapping its folder onto the `blender` import root
 - `blender` `[project] dependencies` name every package its modules import
 - Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`
-- Extension rows name `blender` alone, a new extension joining root `[tool.uv.workspace] members` and `uv.lock` first, ty's `missing-direct-dependency` off under `apps/blender/` where extensions import the library's closure
+- Extension and host test members name `blender` and every package their modules import, a new extension joining root `[tool.uv.workspace] members` and `uv.lock` first, ty's `missing-direct-dependency` reporting each import its member omits
 - Fitout bundles the closure `uv export --project <extension> --no-editable` reads from `uv.lock`, building workspace members as wheels it copies in as submodules
 - Virtual members install no distribution, `uv sync` installs their dependencies into the root environment
 - Host runtime compatibility covers code a host executes or imports, shared libraries included, wheel membership alone imposes none
@@ -51,7 +51,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff prefers a nested `requires-python` over an extended `target-version` and runs once, ty and mypy take one version per run
-- Workspace inference runs ty, mypy, and refurb over root code at the configured version and once per nested `requires-python` over its folders
+- Workspace inference runs ty, mypy, and refurb over root code at the configured version as `:root` and once per nested `requires-python` over its folders as `:<version>`
 - Editors and bare ty and mypy runs check host folders at the root version
 - Python ast-grep rules for a form below or from one release set `metadata` `python-below` or `python-from` as `'<major>.<minor>'`
 - Root scans select version rules from resolved mise metadata and each host's `requires-python`

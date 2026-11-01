@@ -5,6 +5,7 @@ namespace Rasm.UI.Styling;
 public sealed partial class Condition {
     public static readonly Condition Compact = new(inherited: true);
     public static readonly Condition Glass = new(inherited: true);
+    public static readonly Condition Neutral = new(inherited: true);
     public static readonly Condition Drawn = new(inherited: true);
     public static readonly Condition Borderless = new(inherited: true);
     public static readonly Condition IncreaseContrast = new(inherited: false);
@@ -31,8 +32,8 @@ public sealed partial class Condition {
 
 [SmartEnum]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new(emphasis: Fraction.Validated(0.16f).ToOption());
-    public static readonly Interaction Pressed = new(emphasis: Fraction.Validated(0.24f).ToOption());
+    public static readonly Interaction Hover = new(emphasis: Fraction.Validated(0.16f).ThrowIfFail());
+    public static readonly Interaction Pressed = new(emphasis: Fraction.Validated(0.24f).ThrowIfFail());
     public static readonly Interaction Focused = new(emphasis: None);
 
     internal Option<Fraction> Emphasis { get; }
@@ -70,11 +71,11 @@ public sealed partial class Metric {
     internal bool Inherited { get; }
 
     [UseDelegateFromConstructor]
-    internal partial float Scale(Theme theme);
+    internal partial float Scale(Theme theme, float compact);
 
-    private static float Dense(Theme theme) => (float)theme.Density;
+    private static float Dense(Theme theme, float compact) => theme.Density * compact;
 
-    private static float Rounded(Theme theme) => (float)theme.Density * theme.Rounding;
+    private static float Rounded(Theme theme, float compact) => theme.Rounding * compact;
 
-    private static float Unscaled(Theme _) => 1f;
+    private static float Unscaled(Theme _, float __) => 1f;
 }

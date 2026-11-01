@@ -24,13 +24,13 @@ public abstract class DefinedTab<TSelf> : Eto.Forms.Panel where TSelf : DefinedT
 
     public IO<Option<RenderWindow>> Window => IO.lift(() => Conversions.Present(RenderTabs.SidePaneUiIdFromTab(this)).Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
-    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible, realizing: visible);
+    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible);
 
-    public void TabActivated(uint state) => _ = hosted.Shown(state != 0, realizing: state != 0);
+    public void TabActivated(uint state) => _ = hosted.Shown(state != 0);
 
     public void DisplayData() => _ = hosted.Reread;
 
-    public void DoHelp() => _ = Session.Run(HelpTopic.Of(TSelf.Definition.Help).Traverse(static topic => topic.Show).As());
+    public void DoHelp() => _ = Session.Run(HelpTopic.Shown(TSelf.Definition.Help));
 
     public void Destroy() => Dispose();
 
@@ -53,7 +53,7 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
             .Bind(data => Conversions.Present(Internals.SidePaneUiIdFromPanelObject(data, this)))
             .Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
-    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible, realizing: visible);
+    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible);
 
     public void Destroy() => Dispose();
 
@@ -123,8 +123,7 @@ public static class ContentViews {
     // --- [MENUS]
     public static IO<Unit> AddMenuItem(Seq<ContentMenuRow> rows) =>
         Products.Each(rows.Map(static (row, order) =>
-                from pixels in IconSlot.Small.Pixels
-                from icon in Icons.DrawingIcon(row.Icon, pixels)
+                from icon in Icons.DrawingIcon(row.Icon, IconSlot.Small)
                 from added in IO.lift(() => RenderContentMenu.AddMenuItem(
                     Session.PlugIn.Id,
                     LocalText.Of(row.Caption).Local,

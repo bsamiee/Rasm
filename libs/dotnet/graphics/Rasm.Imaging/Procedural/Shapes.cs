@@ -75,6 +75,9 @@ public sealed class DistanceField {
     }
 
     // --- [COMPOSITION]
+    public DistanceField Placed(Vector2 center, Angle rotation) =>
+        (Matrix3x2.CreateTranslation(-center) * Matrix3x2.CreateRotation(-(float)rotation.Radians)) switch { var local => new(point => sample(Vector2.Transform(point, local))) };
+
     public DistanceField Inverted() => new(point => (-sample(point).Distance, float.PositiveInfinity));
 
     public DistanceField Union(DistanceField other, float smoothing) =>

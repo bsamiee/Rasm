@@ -87,6 +87,16 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         """Panel header height in device pixels."""
         return int(self.unit * 1.25)
 
+    @property
+    def margin(self) -> float:
+        """Panel inset from a region edge in device pixels, Blender's `UI_PANEL_MARGIN_X` of 0.4 widget units."""
+        return self.unit * 0.4
+
+    @property
+    def preview(self) -> float:
+        """Preview height in device pixels, the 7.6 widget units `uiTemplatePreview` opens a preview at."""
+        return self.unit * 7.6
+
     def line(self, width: float) -> float:
         """Returns device-pixel line width."""
         return max(1.0, float(np.float32(width) * self.pixel_size))

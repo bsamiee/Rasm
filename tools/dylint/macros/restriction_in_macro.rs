@@ -15,12 +15,6 @@ use rustc_span::Span;
 
 use crate::{expanded_externally, impl_owner, item_path, path, resolve, result_parts};
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ON_NONE: (&str, &str) = ("`None`", "convert `None` into an error with `ok_or_else` and return it with `?`");
-const ON_ERR: (&str, &str) = ("`Err`", "return the error with `?`");
-const ON_OK: (&str, &str) = ("`Ok`", "match the `Result` and handle `Ok`");
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
@@ -40,6 +34,9 @@ lint! {
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        const ON_NONE: (&str, &str) = ("`None`", "convert `None` into an error with `ok_or_else` and return it with `?`");
+        const ON_ERR: (&str, &str) = ("`Err`", "return the error with `?`");
+        const ON_OK: (&str, &str) = ("`Ok`", "match the `Result` and handle `Ok`");
         Self {
             methods: resolve(
                 tcx,

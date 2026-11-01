@@ -12,7 +12,6 @@ export const meta = {
 const W = '/Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Developer-Rasm/host-ui-rework'
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const RULES = `${W}/future-langs/RUST.md`
-const CHECK_TREES = ['tools/dylint', 'tests/rust/tools/dylint', 'tools/ast-grep/rules/rust', 'tools/ast-grep/utils/rust']
 const BRIDGE = ['tools/bridge', 'tests/rust/tools/bridge']
 const crate = (key, ...consumers) => [`libs/rust/${key}`, `tests/rust/libs/${key}`, ...consumers, 'Cargo.toml', 'Cargo.lock']
 const TARGETS = {
@@ -64,15 +63,13 @@ const TARGETS = {
   'documents/charts': { title: 'rasm-charts', paths: crate('documents/charts') },
 }
 const { title, paths: owned } = TARGETS[args.key]
-const paths = [...owned, ...CHECK_TREES]
+const paths = [...owned, 'tools/dylint', 'tests/rust/tools/dylint', 'tools/ast-grep/rules/rust', 'tools/ast-grep/utils/rust']
 const DIR = `${W}/future-langs/rust/${args.key}`
 const PLAN = `${DIR}/PLAN.md`
 const TARGET = `Target: ${title}, row \`${args.key}\` of ${RULES} [03]; ${paths.join(', ')} in ${REPO}.`
 const BASIS = `Basis: ${RULES} over all the target's code, with ${REPO}/CLAUDE.md. The [03] row and the catalog rows it names are the specification: the crate owns what the row states, built on those rows used fully, and holds nothing those rows and the apps' kind of work do not state. Code that exists is remade, never moved: current code and its callers have no authority, its idioms are the quality floor and not the architecture, every consumer (bridge, tests, dylint examples, ast-grep rule scopes, catalog rows) is rebuilt to the new form in this run, and counted lines, files and public items fall over existing code and stay at the number the plan names for new code. Logic derives from a catalog member or from the structure a caller supplies, and a hand form beside a member that states it is a defect. The public surface is the few operations an app composes over catalog types: no wrapper, re-export, forwarder, per-option function family, or field or function repeated per kind, and every \`pub\` item names the app operation that composes it.`
 const SOURCES = `Read crate behavior from each crate's source at the newest release \`cargo info <crate>\` names (~/.cargo/registry/src/index.crates.io-*/<crate>-<version>/, present once \`cargo fetch\` has run on the moved row) through the search-code skill, cited by path and line; the apps' kind of work from apps/, libs/dotnet, libs/python and docs/research/applications; the nightly's forms from ${REPO}/rust-toolchain.toml and ${REPO}/docs/research/coding/rust/ (language.md, language-features.md, crates.md, mcp.md, toolchain.md, architecture.md, ast-grep/), where RUST.md and a lint row win over a sheet; workspace rules from Cargo.toml, clippy.toml, .cargo/config.toml, rustfmt.toml and the manage-repo skill's Rust reference; the checks from tools/dylint and tools/ast-grep/rules/rust, which decide what code may not say.`
 const CHECKS = `code moved as it stands, other than the relocation the target title names; a consumer left on the old form; a form a crate member, a nightly gate or a workspace lint states; a struct, enum, bool, tuple or macro standing in for a shape a crate type, derive or generic fn states; a crate used beside hand code it provides; logic a catalog member states written by hand; a \`pub\` item no app operation composes, a wrapper, forwarder or re-export, or fields or functions repeated per kind; a fixed value in a composition where a default one value overrides belongs; app or vendor content in a library crate; a RUST.md or CLAUDE.md breach; counted lines, files or public items over the plan's numbers`
-const PKG = { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, section: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, needs: { type: 'array', items: { type: 'string' } } }, required: ['id', 'title', 'section', 'files', 'needs'] }
-const GRAPH = { type: 'object', properties: { packages: { type: 'array', items: PKG } }, required: ['packages'] }
 const LANDED = { type: 'object', properties: { summary: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } }, required: ['summary', 'files'] }
 
 phase('Plan')
@@ -83,36 +80,42 @@ Return a summary of at most 30 lines.`, { label: 'plan', phase: 'Plan' })
 const graph = await agent(`Adversarially refine ${PLAN} (author summary below) against the code, ${RULES} and the crate sources. Find in every package: ${CHECKS}. ${TARGET} ${SOURCES}
 Rewrite the plan in place so each package section is final. Edit no source file. Return its packages as a dependency graph: section (exact heading text), files (every repo-relative path the package edits, consumers included, folders allowed; two packages that share a path run one after the other), needs (ids of packages that add an item it reads).
 
-${author}`, { label: 'challenge', phase: 'Plan', schema: GRAPH })
+${author}`, { label: 'challenge', phase: 'Plan', schema: { type: 'object', properties: { packages: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, section: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, needs: { type: 'array', items: { type: 'string' } } }, required: ['id', 'title', 'section', 'files', 'needs'] } } }, required: ['packages'] } })
 
 phase('Land')
-const overlaps = (a, b) => a.files.some(f => b.files.some(g => f.startsWith(g) || g.startsWith(f)))
-const land = (p, landed) => agent(`Land package ${p.id} (${p.title}) exactly as ${PLAN} section "${p.section}" states. Edit only these files: ${p.files.join(', ')}. ${BASIS} ${SOURCES}${landed.length ? `\nPackages it reads, landed:\n${landed.join('\n')}` : ''}
-Return (structured): summary of what landed per plan item (at most 25 lines); files you edited.`, { label: `land:${p.id}`, phase: 'Land', schema: LANDED })
-const results = await new Promise(resolve => {
-  const ids = new Set(graph.packages.map(p => p.id))
-  const queue = [...graph.packages], running = new Map(), done = new Map()
-  const finish = () => resolve(graph.packages.map(q => ({ id: q.id, ...(done.get(q.id) || { summary: 'not started: its needs never landed', files: [] }) })))
-  const pump = () => {
-    for (const p of [...queue]) {
-      if (!p.needs.every(n => done.has(n) || !ids.has(n)) || [...running.values()].some(r => overlaps(r, p))) continue
-      queue.splice(queue.indexOf(p), 1)
-      running.set(p.id, p)
-      const landed = p.needs.filter(n => done.has(n)).map(n => `- ${n}: ${done.get(n).summary.slice(0, 600)}`)
-      land(p, landed).then(r => r, () => null).then(r => {
-        running.delete(p.id)
-        done.set(p.id, r || { summary: 'agent died', files: [] })
-        log(`${p.id} ${r ? 'landed' : 'died'}`)
-        pump()
-      })
+const ids = new Set(graph.packages.map(p => p.id))
+const pending = [...graph.packages]
+const done = new Map()
+const died = new Set()
+const pump = () => {
+  const active = graph.packages.filter(q => !(pending.includes(q) || done.has(q.id) || died.has(q.id)))
+  const overlaps = (a, b) => a.files.some(f => b.files.some(g => f.startsWith(g) || g.startsWith(f)))
+  const ready = pending.reduce((picked, p) => {
+    if (p.needs.every(n => done.has(n) || !ids.has(n)) && !active.concat(picked).some(q => overlaps(q, p))) {
+      picked.push(p)
     }
-    if (running.size === 0) {
-      if (queue.length) log(`${queue.map(p => p.id).join(', ')} never started: needs form a cycle`)
-      finish()
-    }
-  }
-  pump()
-})
+    return picked
+  }, [])
+  return parallel(ready.map(p => () => {
+    pending.splice(pending.indexOf(p), 1)
+    const landed = p.needs.filter(n => done.has(n)).map(n => `- ${n}: ${done.get(n).summary.slice(0, 600)}`)
+    return agent(`Land package ${p.id} (${p.title}) exactly as ${PLAN} section "${p.section}" states. Edit only these files: ${p.files.join(', ')}. ${BASIS} ${SOURCES}${landed.length ? `\nPackages it reads, landed:\n${landed.join('\n')}` : ''}
+Return (structured): summary of what landed per plan item (at most 25 lines); files you edited.`, { label: `land:${p.id}`, phase: 'Land', schema: LANDED }).then(r => {
+      if (r) {
+        done.set(p.id, r)
+      } else {
+        died.add(p.id)
+      }
+      log(`${p.id} ${r ? 'landed' : 'died'}`)
+      return pump()
+    })
+  }))
+}
+await pump()
+if (pending.length > 0) {
+  log(`${pending.map(p => p.id).join(', ')} never started: a need died or the needs form a cycle`)
+}
+const results = graph.packages.map(q => ({ id: q.id, ...(done.get(q.id) || { summary: died.has(q.id) ? 'agent died' : 'not started: its needs never landed', files: [] }) }))
 
 phase('Check')
 const summaries = results.map(r => `- ${r.id}: ${r.summary.slice(0, 600)}`).join('\n')

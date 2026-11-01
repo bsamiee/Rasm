@@ -224,7 +224,7 @@ def rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[StageMark, ...]]
         loaded: Outcome[Progress] = records.read()
         return Result[Progress, Faults].bind(loaded, runs)
 
-    return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.settings(identity)).bind(lambda pair: ran(*pair))
+    return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity)).bind(lambda pair: ran(*pair))
 
 
 # --- [SUPERVISE]
@@ -251,7 +251,7 @@ def supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> O
 
         return observed(host.path(queue.stem, RunFile.PROGRESS)).bind(started)
 
-    return _bare(RunCommand.SUPERVISE, trailing).bind(lambda _: paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.settings(identity))).bind(lambda pair: ran(*pair))
+    return _bare(RunCommand.SUPERVISE, trailing).bind(lambda _: paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity))).bind(lambda pair: ran(*pair))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

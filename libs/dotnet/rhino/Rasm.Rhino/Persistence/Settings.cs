@@ -161,8 +161,10 @@ internal static class SettingOverloads<T> where T : notnull {
 
     // --- [ADAPTERS]
     private static Option<T> Present(SettingRead<T> read, PersistentSettings settings, string key, Seq<string> legacy) =>
-        Conversions.Present(read(settings, key, out T value, legacy), value);
+        Held(read(settings, key, out T value, legacy), value);
 
     private static Option<T> Present(SettingDefault<T> read, PersistentSettings settings, string key) =>
-        Conversions.Present(read(settings, key, out T value), value);
+        Held(read(settings, key, out T value), value);
+
+    private static Option<T> Held(bool found, T value) => found && value is not (null or string { Length: 0 }) ? Some(value) : None;
 }

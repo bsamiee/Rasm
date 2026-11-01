@@ -38,9 +38,9 @@ public sealed partial class EdgeOperator {
         using Mat plane = new();
         using Mat response = new();
         using Mat taps = new();
-        using Mat each = new();
         source(header, plane);
         plane.Blur(plane, sigma);
+        using Mat each = new(plane.Size, plane.Depth, plane.NumberOfChannels);
         response.Create(plane.Rows, plane.Cols, plane.Depth, plane.NumberOfChannels);
         response.SetTo(default(MCvScalar));
         foreach (SixLabors.ImageSharp.DenseMatrix<float> kernel in kernels) {

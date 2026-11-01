@@ -1,4 +1,4 @@
-"""Region draw state, text, built-in shader binds and batches, cached GPU programs, charts in the colors of Blender's scopes, and offscreen buffers with framebuffer reads."""
+"""Region draw state, text, built-in shader binds and batches, cached GPU programs, and offscreen buffers with framebuffer reads."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
@@ -6,7 +6,7 @@ from enum import Enum
 import functools
 from functools import partial
 import math
-from typing import Final, Literal, Self
+from typing import Final, Literal, Protocol, Self
 
 import blf
 import bpy
@@ -20,7 +20,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.extension.identity import Resource
-from blender.bpy.ui.resources.theme import Checker, CLEAR, Color, Metrics, Spacing, Theme
+from blender.bpy.ui.resources.theme import Checker, CLEAR, Color, Metrics, Theme
 from blender.bpy.ui.screens.areas import EditorState, Located, region_in, visible_bounds
 from blender.records.faults import Fault, Outcome, paired, Reason
 
@@ -31,7 +31,13 @@ type DrawType = Literal["PRE_VIEW", "POST_VIEW", "POST_PIXEL", "BACKDROP"]
 type _DepthTest = Literal["NONE", "ALWAYS", "LESS", "LESS_EQUAL", "EQUAL", "GREATER", "GREATER_EQUAL"]
 type _Polyline = Literal["POLYLINE_UNIFORM_COLOR", "POLYLINE_FLAT_COLOR", "POLYLINE_SMOOTH_COLOR"]
 type _Primitive = Literal["POINTS", "LINES", "TRIS", "LINE_STRIP", "TRI_STRIP", "LINES_ADJ", "TRIS_ADJ", "LINE_STRIP_ADJ"]
-type _Mark = Literal["LINES", "LINE_STRIP", "POINTS"]
+
+
+class _Batching(Protocol):
+    """`batch_for_shader` over numpy attributes and index rows, the arrays the stubs give it no sight of."""
+
+    def __call__(self, shader: gpu.types.GPUShader, kind: _Primitive, content: Mapping[str, npt.NDArray[np.float32]], /, *, indices: npt.NDArray[np.uint32] | None = None) -> gpu.types.GPUBatch:
+        """Batches the attributes, `indices` naming each primitive's vertices."""
 
 
 class Align(Enum):
@@ -46,18 +52,9 @@ class Align(Enum):
 
 QUAD: Final = np.array(((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)), np.float32)
 QUAD.setflags(write=False)
-FINE: Final[Color] = (1.0, 1.0, 1.0, 0.08)
-GRID: Final[Color] = (1.0, 1.0, 1.0, 0.2)
-MAJOR: Final[Color] = (1.0, 1.0, 1.0, 0.5)
-TRACE: Final[Color] = (1.0, 1.0, 1.0, 0.75)
-_GROUND: Final[Color] = (0.0, 0.0, 0.0, 1.0)
-_RIM: Final[Color] = (0.0, 0.0, 0.0, 0.5)
-_TEXT: Final[Color] = (1.0, 1.0, 1.0, 0.2)
-_TEXT_POINTS: Final = 8.0
-_RADIUS: Final = 3.0
 _PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _PUSH_POP_PROJECTION: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop_projection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_BATCH_FOR_SHADER: Final[Callable[[gpu.types.GPUShader, _Primitive, Mapping[str, npt.NDArray[np.float32]]], gpu.types.GPUBatch]] = batch_for_shader  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_BATCH_FOR_SHADER: Final[_Batching] = batch_for_shader  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _BLEND_GET: Final[Callable[[], Blend]] = gpu.state.blend_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _DEPTH_TEST_GET: Final[Callable[[], _DepthTest]] = gpu.state.depth_test_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _VIEWED: Final[frozenset[DrawType]] = frozenset({"PRE_VIEW", "POST_VIEW"})
@@ -216,9 +213,11 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             yield bound
 
     @staticmethod
-    def batched(name: str, primitive: _Primitive, attributes: Mapping[str, npt.NDArray[np.float32]]) -> gpu.types.GPUBatch:
-        """Batches vertex attributes in the format a built-in shader reads, its clipped configuration reading the same format."""
-        return _BATCH_FOR_SHADER(gpu.shader.from_builtin(name), primitive, attributes)
+    def batched(
+        shader: str | gpu.types.GPUShader, primitive: _Primitive, attributes: Mapping[str, npt.NDArray[np.float32]], *, indices: Option[npt.NDArray[np.uint32]] = Nothing
+    ) -> gpu.types.GPUBatch:
+        """Batches vertex attributes in the format a shader or a built-in shader by name reads, a built-in's clipped configuration reading the same format, `indices` naming the vertices of each primitive."""
+        return _BATCH_FOR_SHADER(gpu.shader.from_builtin(shader) if isinstance(shader, str) else shader, primitive, attributes, indices=indices.to_optional())
 
     # --- [TEXT]
 
@@ -285,71 +284,6 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 6, axis=0)
         with self.shader("FLAT_COLOR") as shader:
             Canvas.batched("FLAT_COLOR", "TRIS", {"pos": corners, "color": tints}).draw(shader)
-
-
-# --- [CHARTS]
-
-
-class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Chart geometry batched once in plot fractions, drawn under its blend at its stroke width in points."""
-
-    primitive: _Mark
-    batch: gpu.types.GPUBatch
-    blend: Blend
-    width: float
-
-    @classmethod
-    def of(cls, primitive: _Mark, positions: npt.NDArray[np.float32], color: Color | npt.NDArray[np.float32], *, blend: Blend = "ALPHA", width: float = 1.0) -> Self:
-        """Batches `(N, 2)` plot-fraction positions in one color or per-vertex `(N, 4)` colors."""
-        colors = np.ascontiguousarray(np.broadcast_to(np.asarray(color, np.float32), (len(positions), 4)))
-        batch = Canvas.batched("POINT_FLAT_COLOR" if primitive == "POINTS" else "POLYLINE_FLAT_COLOR", primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors})
-        return cls(primitive=primitive, batch=batch, blend=blend, width=width)
-
-    def drawn(self, canvas: Canvas) -> None:
-        """Draws the batch under its blend."""
-        with Canvas.blended(self.blend), canvas.points() if self.primitive == "POINTS" else canvas.lines(self.width, "POLYLINE_FLAT_COLOR") as shader:
-            self.batch.draw(shader)
-
-
-class Label(msgspec.Struct, frozen=True, kw_only=True):
-    """Text anchored at a plot fraction, offset half a line into the plot."""
-
-    text: str
-    x: float
-    y: float
-    align: Align = Align.START
-
-
-class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Plot of a size in device pixels in the well, rim, and text colors of Blender's scopes, which no theme member holds (`interface_draw.cc` `draw_but_HISTOGRAM`, `draw_scope_end`, `draw_but_WAVEFORM`), the well one pixel wider each side.
-
-    Layers draw in order clipped to the plot, labels at plot fractions, and caption lines stack down from the top on the corner's side.
-    """
-
-    width: float
-    height: float
-    layers: tuple[Layer, ...] = ()
-    labels: tuple[Label, ...] = ()
-    caption: tuple[str, ...] = ()
-    corner: Align = Align.START
-
-    def drawn(self, canvas: Canvas) -> None:
-        """Draws the chart at its lower corner of the canvas extent, inset by Blender's panel margin, text at the scopes' label size."""
-        metrics, extent = canvas.metrics, canvas.extent
-        size, inset = float(metrics.scaled(_TEXT_POINTS)), metrics.unit * 0.4
-        x = extent.x + inset + (extent.width - 2.0 * inset - self.width - 2.0) * self.corner.value
-        y = extent.y + inset
-        pitch = size + metrics.spaced(Spacing.BUTTON_Y)
-        with Canvas.mapped(Rect(x=x, y=y, width=1.0, height=1.0)):
-            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), _GROUND, CLEAR, _RADIUS)
-            with canvas.clipped(Rect(x=x + 1.0, y=y + 1.0, width=self.width, height=self.height)), Canvas.mapped(Rect(x=1.0, y=1.0, width=self.width, height=self.height)):
-                for layer in self.layers:
-                    layer.drawn(canvas)
-            for label in self.labels:
-                canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, size, label.align)
-            for index, line in enumerate(self.caption, 1):
-                canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, size, self.corner)
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, _RIM, _RADIUS)
 
 
 # --- [OFFSCREEN]
@@ -528,7 +462,7 @@ void main() {
     info.vertex_source(vertex)
     info.fragment_source(fragment)
     shader = gpu.shader.create_from_info(info)
-    return shader, _BATCH_FOR_SHADER(shader, "TRI_STRIP", {"pos": QUAD})
+    return shader, Canvas.batched(shader, "TRI_STRIP", {"pos": QUAD})
 
 
 @functools.cache
@@ -564,4 +498,4 @@ PROGRAMS: Final = programs(_rounded.cache_clear, _textured.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DECODED", "FINE", "GRID", "MAJOR", "PROGRAMS", "QUAD", "TRACE", "Align", "Blend", "Canvas", "Chart", "DrawType", "Label", "Layer", "Offscreen", "Rect", "Shadow", "captured", "programs"]
+__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "DrawType", "Offscreen", "Rect", "Shadow", "captured", "programs"]

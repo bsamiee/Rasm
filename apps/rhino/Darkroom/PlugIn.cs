@@ -2,30 +2,33 @@ using Darkroom.Chain;
 using Darkroom.Output;
 using Darkroom.Queue;
 using Darkroom.Review;
-using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.PlugIns;
+using Rhino;
+using Rhino.DocObjects.SnapShots;
 using Rhino.PlugIns;
 
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
-    LoadTime = PlugInLoadTime.AtStartup,
-    Clock = TimeProvider.System,
-    Logging = [Dispatch.Logging],
-    Commands = [
-        static () => new QueueJobCommand(),
-        static () => new QueueFarmJobCommand(),
-        static () => new StMapExportCommand(),
-        static () => new LutExportCommand(),
-    ],
-    Acquisitions = [
-        RenderRuns.Register,
-        ChainSnapshots.Register,
-        RenderHistory.Register,
-        RenderingComparison.Register,
-        PreviewTiles.Register,
-        NamedEntry.Catalog.Attach,
-        Dispatch.Register,
-    ],
-});
+public sealed class DarkroomPlugIn : DefinedPlugIn<DarkroomPlugIn>, IDefined<PlugInDefinition> {
+    private const uint ChainSnapshot = 0x5244_5353u;
+
+    public static TimeProvider Clock { get; } = TimeProvider.System;
+
+    public static PlugInDefinition Definition { get; } = new() {
+        LoadTime = PlugInLoadTime.AtStartup,
+        Logging = [Dispatch.Logging],
+        Commands = Dispatch.Commands + Exports.Commands,
+        Load = [
+            IO.lift(static () => new SnapshotDefinition<ChainState, Unit>(new Guid(0x6affd2cd, 0x7fc8, 0x41fb, 0x8c, 0x42, 0x79, 0x67, 0x63, 0x65, 0x60, 0xb3), Session.PlugIn.Name, SnapShotsClient.RenderingCategory) {
+                Document = Some(new SnapshotRecord<RhinoDoc, ChainState>(
+                    ChainSnapshot, ArchivableDictionaries.Json<ChainState>(nameof(ChainState), 4), ChainState.Read,
+                    static (doc, state) => new ChainEdit.Restore(state).Committed(doc).Map(static _ => unit))),
+            }).Bind(static snapshots => snapshots.Register),
+            RenderHistory.Load,
+            Dispatch.Load,
+        ],
+    };
+}

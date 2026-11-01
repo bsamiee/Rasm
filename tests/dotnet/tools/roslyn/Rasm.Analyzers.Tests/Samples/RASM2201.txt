@@ -1,44 +1,44 @@
 using System;
 using Eto.Drawing;
 using LanguageExt;
+using LanguageExt.Common;
 using Rasm.Rhino;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Rhino {
-    public sealed class Disposal<T>(T held, Action<T> release) : IDisposable {
-        public void Dispose() => release(held);
-    }
+    public sealed record Owned<T>(T Value, EnvIO Scope);
 
-    public static class DisposalOps {
-        public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable => acquire.Map(held => { retain(held); return held; });
-        public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body) where T : IDisposable => IO.lift(acquire).Bind(body);
-        public static IO<Unit> Release<T>(params T[] held) where T : IDisposable => IO.lift(() => System.Array.ForEach(held, static item => item.Dispose()));
+    public static class Products {
+        public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
+        public static IO<TOut> Transfer<T, TOut>(T value, Func<T, IO<TOut>> to) where T : IDisposable => to(value);
+        public static IO<Unit> Released(Action release) => IO.lift(release);
+        public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
     }
 }
 
 internal static class AcquiredMeasure {
-    internal static IO<float> Measured(Action<IDisposable> retain) =>
-        from regular in DisposalOps.Acquire(IO.lift(static () => {|#0:SystemFonts.Label()|}), retain)
-        from emphasis in DisposalOps.Acquire(IO.lift(() => {|#1:SystemFonts.Bold(regular.Size)|}), retain)
+    internal static IO<float> Measured() =>
+        from regular in Products.Of(static () => {|#0:SystemFonts.Label()|})
+        from emphasis in Products.Of(() => {|#1:SystemFonts.Bold(regular.Size)|})
         select emphasis.MeasureString("caption").Width;
 }
 
 internal static class RangedFont {
-    internal static IO<float> Lifted(Action<IDisposable> retain) =>
+    internal static IO<float> Lifted() =>
         from regular in IO.lift(() => {|#2:SystemFonts.Label()|})
-        from held in DisposalOps.Acquire(IO.pure(regular), retain)
-        select held.Size;
+        from size in Products.Transfer(regular, static held => IO.pure(held.Size))
+        select size;
 
     internal static IO<Unit> Let() =>
         from size in IO.pure(1f)
         let shared = {|#3:SystemFonts.Palette(size)|}
-        from released in DisposalOps.Release(shared)
+        from released in release(shared)
         select released;
 
-    internal static IO<Font> Bound(Action<IDisposable> retain) =>
-        IO.lift(() => {|#4:SystemFonts.Message()|}).Bind(font => DisposalOps.Acquire(IO.pure(font), retain));
+    internal static IO<Font> Bound() =>
+        IO.lift(() => {|#4:SystemFonts.Message()|}).Bind(static font => use(() => font));
 
-    internal static IO<float> Scoped() => DisposalOps.Within(() => {|#5:SystemFonts.User()|}, static font => IO.pure(font.Size));
+    internal static IO<float> Scoped() => Products.Transfer({|#5:SystemFonts.User()|}, static font => IO.pure(font.Size));
 }
 
 internal static class DisposedFont {
@@ -51,10 +51,10 @@ internal static class DisposedFont {
 
     internal static void Local() {
         Font font = {|#8:SystemFonts.StatusBar()|};
-        DisposalOps.Release(font).Run();
+        _ = Products.Released(font.Dispose).Run();
     }
 
-    internal static IDisposable Held() => new Disposal<Font>({|#9:SystemFonts.Menu()|}, static font => font.Dispose());
+    internal static IO<Font> Held(Ref<Option<Owned<Font>>> slot) => Products.Replace(slot, IO.pure({|#9:SystemFonts.Menu()|}));
 
     internal static void Retained(Action<IDisposable> retain) => retain({|#10:SystemFonts.ToolTip()|});
 
@@ -72,7 +72,7 @@ internal static class ReadFont {
         return shared.Size;
     }
 
-    internal static IO<float> Owned(Action<IDisposable> retain) =>
-        from owned in DisposalOps.Acquire(IO.lift(static () => new Font(SystemFont.Label)), retain)
+    internal static IO<float> Owned() =>
+        from owned in Products.Of(static () => new Font(SystemFont.Label))
         select owned.Size;
 }

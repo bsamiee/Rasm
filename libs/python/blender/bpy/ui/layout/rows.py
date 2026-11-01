@@ -1,11 +1,11 @@
-"""Member bindings rooted at an owner type, and the layout rows realized over them once per extension identity: bound members, operator placements, registered popups, sub-layouts, live labels, and reports."""
+"""Layout rows realized once per extension identity over member bindings, each declaring what it reads: bound members, operator placements, registered popups, sub-layouts, live labels, separators, and reports, and the containers rows open."""
 
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager
 from functools import partial
-from itertools import pairwise
+from pathlib import Path
 from types import MappingProxyType
-from typing import Final, overload, Protocol, runtime_checkable, Self
+from typing import Final, override, Protocol, runtime_checkable
 
 from _bl_ui_utils.layout import operator_context
 import bpy
@@ -14,27 +14,23 @@ import msgspec
 
 from blender.bpy.commands.calls import Command, filled, idname, Opened, Pairs, Placement
 from blender.bpy.commands.operators import dismiss_reports, Operator
-from blender.bpy.data.rna.conditions import admits, Condition, Scoped
+from blender.bpy.data.rna.conditions import admits, Condition
 from blender.bpy.data.rna.descriptors import Descriptor, Scalar
-from blender.bpy.data.rna.paths import definition, Native, rna, RnaPath, Struct
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
+from blender.bpy.extension.registration import Acquisitions, Declaration, Dependent, Registrable
 from blender.bpy.extension.reports import alerted, listed
-from blender.bpy.ui.resources.icons import Glyph, Icons
+from blender.bpy.ui.layout.members import bound, Located, Member
+from blender.bpy.ui.resources.icons import Glyph, ICONS, Icons
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type At = tuple[Native, str]
-type Reach = Callable[[bpy.types.Context], Option[Struct]]
 type RowDraw = Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]
 type Keywords = Mapping[str, Scalar]
 type ContextMember = Callable[[Struct, bpy.types.Context], Option[Struct | str]]
 type Painted = bpy.types.Panel | bpy.types.Menu | bpy.types.Header | bpy.types.AddonPreferences
 type RowContent = Row | RowDraw
-type _Kinds = tuple[type[Struct], ...]
-type _Located = tuple[tuple[ResolvedMember, At], ...]
 type _Scoping = Callable[[bpy.types.UILayout, str], AbstractContextManager[None]]
 
 
@@ -68,80 +64,6 @@ _INVOKING: Final[Mapping[str, str]] = MappingProxyType({
 _SCOPED: Final[_Scoping] = operator_context  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-# --- [MEMBERS]
-
-
-class ResolvedMember[P: bpy.types.Property = bpy.types.Property](msgspec.Struct, frozen=True, kw_only=True):
-    """RNA definition with the reach of its owner's root, the drawing holder or the context root while no reach is stated."""
-
-    descriptor: Descriptor[P]
-    reach: Option[Reach] = Nothing
-
-    def at(self, holder: Struct, context: bpy.types.Context) -> Option[At]:
-        """Locates the property owner through the reach, the drawing holder, or the context root."""
-        descriptor = self.descriptor
-        owner = self.reach.map(lambda reach: reach(context).bind(descriptor.owner_of)).default_with(lambda: descriptor.owner_of(context, Some(holder)))
-        return owner.map(lambda found: (found, descriptor.prop.identifier))
-
-    def accepts(self, kinds: _Kinds) -> Outcome[Self]:
-        """Accepts a property or pointer target of the kinds, every kind while none is given."""
-        prop = self.descriptor.prop
-        target = prop.fixed_type if isinstance(prop, bpy.types.PointerProperty) else prop
-        return Ok(self).filter_with(
-            lambda _: not kinds or isinstance(prop, kinds) or isinstance(target, kinds),
-            lambda _: Fault.of(Reason.OUTSIDE, rna(self.descriptor.path), type(target).__name__, member=", ".join(kind.__name__ for kind in kinds)),
-        )
-
-    def current(self, _kinds: _Kinds, _context: bpy.types.Context, /) -> Outcome[Option[Self]]:
-        """Member resolved once at realization, the same at every draw."""
-        return Ok(Some(self))
-
-
-class Member(msgspec.Struct, frozen=True, kw_only=True):
-    """Property path rooted at its owner type, reached through context when the owner is no drawing holder, labelled as mixed while the owners `scope` selects differ."""
-
-    root: type[Struct]
-    path: RnaPath
-    reach: Option[Reach] = Nothing
-    scope: Option[Scoped] = Nothing
-
-    @overload
-    def resolved(self, *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]: ...
-
-    @overload
-    def resolved[P: bpy.types.Property](self, kind: type[P], *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember[P]]: ...
-
-    def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]:
-        """Resolves metadata on the root type, or on a live `root` of it whose refined definition answers."""
-        held: Outcome[type[Struct] | Struct] = root.map(
-            lambda actual: Ok(actual).filter_with(lambda found: isinstance(found, self.root), lambda found: Fault.of(Reason.OUTSIDE, rna(self.path), type(found).__name__, member=self.root.__name__))
-        ).default_value(Ok(self.root))
-        return held.bind(lambda found: Descriptor.resolve(found, self.path, kind)).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach))
-
-    def bound(self, kinds: _Kinds = (), /) -> Outcome[ResolvedMember | Self]:
-        """Resolves a member with no reach once within the kinds, a reached member staying to resolve on its live root each draw."""
-        match self.reach:
-            case Option(tag="some"):
-                return Ok(self)
-            case _:
-                return self.resolved().bind(lambda held: held.accepts(kinds))
-
-    def current(self, kinds: _Kinds, context: bpy.types.Context, /) -> Outcome[Option[ResolvedMember]]:
-        """Resolves on the root the reach finds this draw within the kinds, `Nothing` while it finds none."""
-        return self.reach.bind(lambda reach: reach(context)).map(lambda root: self.resolved(root=Some(root)).bind(lambda held: held.accepts(kinds)).map(Some)).default_value(Ok(Nothing))
-
-    def labelled(self, setting: Descriptor, context: bpy.types.Context) -> Outcome[Mapping[str, str | bool]]:
-        """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree so the host labels the property itself."""
-        return (
-            self.scope
-            .map(lambda scope: scope.owners(context).bind(partial(marked, setting)))
-            .default_value(Ok(Nothing))
-            .map(lambda mixed: {"text": mixed.default_value(""), "translate": False} if mixed.is_some() else {})
-        )
-
-
-# --- [ROWS]
 
 
 class Line(msgspec.Struct, frozen=True, kw_only=True):
@@ -194,7 +116,18 @@ class Layout(Line, frozen=True, kw_only=True):
             draw(inner, holder, context)
 
 
-class Property(Line, frozen=True, kw_only=True):
+class Glyphed(Line, frozen=True, kw_only=True):
+    """Row drawn under an optional glyph, declaring the icon set a staged glyph reads."""
+
+    icon: Option[Glyph] = Nothing
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Icon set a staged glyph reads."""
+        return glyphed(self.icon)
+
+
+class Property(Glyphed, frozen=True, kw_only=True):
     """Bound member drawn through a layout function, `prop` unless stated, `prop_search` over the `search` collection while no other function is stated.
 
     A function naming a `property` parameter takes the member's owner and name first, any other the struct the member points at, of the type its first parameter declares.
@@ -206,19 +139,25 @@ class Property(Line, frozen=True, kw_only=True):
     function: bpy.types.Function = FUNCTIONS["prop"]
     keywords: Keywords = MappingProxyType({})
     search: Option[Member] = Nothing
-    icon: Option[Glyph] = Nothing
+
+    @property
+    @override
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Attachments the target and search items read, and the icon set a staged glyph reads."""
+        return (*self.target.prerequisites, *(held for member in self.search.to_list() for held in member.prerequisites), *super().prerequisites)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Binds the target and search items within the struct type a struct-taking function declares, the glyph and keywords resolved once for every redraw."""
+        """Locates and binds the target and search items within the struct type a struct-taking function declares, the glyph and keywords resolved once for every redraw."""
         function = FUNCTIONS["prop_search"] if self.search.is_some() and self.function == FUNCTIONS["prop"] else self.function
         match function.parameters[0]:
             case bpy.types.PointerProperty(fixed_type=bpy.types.bpy_struct() as target) if "property" not in function.parameters:
-                kinds: _Kinds = (type(target),)
+                kinds: tuple[type[Struct], ...] = (type(target),)
             case _:
                 kinds = ()
-        return _keyworded(identity, function, self.keywords, self.icon).bind(lambda keywords: bound((self.target, *self.search.to_list()), partial(self.shown, function, keywords), kinds))
+        located = accumulated(member.located(identity) for member in (self.target, *self.search.to_list()))
+        return paired(_keyworded(identity, function, self.keywords, self.icon), located).bind(lambda parts: bound(parts[1], partial(self.shown, function, parts[0]), kinds))
 
-    def shown(self, function: bpy.types.Function, keywords: Keywords, held: _Located, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, function: bpy.types.Function, keywords: Keywords, held: Located, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the function at the located owner and search items, or at the located struct, under the scope's label ahead of the stated keywords."""
         (member, _), names = held[0], function.parameters
         index = member.descriptor.index.filter(lambda _: "index" in names).map(lambda at: {"index": at}).default_value({})
@@ -229,7 +168,7 @@ class Property(Line, frozen=True, kw_only=True):
             placed(layout, function, *arguments, **chosen)
 
 
-class OperatorButton(Line, frozen=True, kw_only=True):
+class OperatorButton(Glyphed, frozen=True, kw_only=True):
     """Operator button over a placement, or a command placed with no values, through a layout operator function, `operator` unless stated.
 
     `keywords` are the function's parameters after the operator, checked at realization, and a command's own icon serves while no glyph is stated.
@@ -240,7 +179,6 @@ class OperatorButton(Line, frozen=True, kw_only=True):
     target: Placement | Command
     function: bpy.types.Function = FUNCTIONS["operator"]
     keywords: Keywords = MappingProxyType({})
-    icon: Option[Glyph] = Nothing
     published: Mapping[str, ContextMember] = MappingProxyType({})
 
     @property
@@ -270,12 +208,11 @@ class OperatorButton(Line, frozen=True, kw_only=True):
         alerted(line, _pressed(line, function, operator, keywords, invoked=_invoked(self.placement.operator)))
 
 
-class Opens(Line, frozen=True, kw_only=True):
+class Opens(Glyphed, frozen=True, kw_only=True):
     """Layout button opening a stock or extension menu, panel, or asset shelf through the button its kind names, `keywords` its parameters after the opened name."""
 
     target: Opened
     keywords: Keywords = MappingProxyType({})
-    icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the opened name, button, glyph, and keywords once, refusing a kind that opens through its operator alone."""
@@ -291,7 +228,7 @@ class Opens(Line, frozen=True, kw_only=True):
         placed(layout, function, name, **keywords)
 
 
-class Label(Line, frozen=True, kw_only=True):
+class Label(Glyphed, frozen=True, kw_only=True):
     """Fixed text, or texts and keyword sets read each redraw and drawn untranslated, through a label function, `label_multiline` unless stated.
 
     Each live text or keyword set draws one item, so `progress`, `link`, and `label_markdown` take live parameters.
@@ -301,7 +238,6 @@ class Label(Line, frozen=True, kw_only=True):
     text: str | Callable[[bpy.types.Context], Iterable[str | Keywords]]
     function: bpy.types.Function = FUNCTIONS["label_multiline"]
     keywords: Keywords = MappingProxyType({})
-    icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the glyph and keywords once, returning the draw reading live text each redraw."""
@@ -314,6 +250,21 @@ class Label(Line, frozen=True, kw_only=True):
         parts = ((self.text, {}),) if isinstance(self.text, str) else ((part, {"translate": False}) for part in self.text(context))
         for part, untranslated in parts:
             placed(layout, function, **{**chosen, **untranslated, **({"text": part} if isinstance(part, str) else part)})
+
+
+class Separator(Line, frozen=True, kw_only=True):
+    """Separator between rows, `keywords` the `separator` parameters (`type`, `factor`) checked at realization."""
+
+    keywords: Keywords = MappingProxyType({})
+
+    def drawn(self, _identity: Identity, /) -> Outcome[RowDraw]:
+        """Checks the keywords once into the separator draw."""
+        return accepted(FUNCTIONS["separator"], self.keywords).map(lambda keywords: partial(Separator.shown, keywords))
+
+    @staticmethod
+    def shown(keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
+        """Draws the separator."""
+        placed(layout, FUNCTIONS["separator"], **keywords)
 
 
 class Status(Line, frozen=True, kw_only=True):
@@ -342,42 +293,6 @@ class Status(Line, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [LABELS]
-
-
-def marked[P: bpy.types.Property](setting: Descriptor[P], owners: tuple[Struct, ...], /) -> Outcome[Option[str]]:
-    """Translated name of a setting marked as mixed while owner values differ, nothing while they agree so the host labels it."""
-    prop = setting.prop
-    return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
-        lambda values: Some(f"{bpy.app.translations.pgettext_iface(prop.name, prop.translation_context)} —").filter(lambda _: any(left != right for left, right in pairwise(values)))
-    )
-
-
-# --- [BINDING]
-
-
-def bound(members: tuple[Member, ...], place: Callable[[_Located, bpy.types.UILayout, Struct, bpy.types.Context], None], /, kinds: _Kinds = ()) -> Outcome[RowDraw]:
-    """Resolves fixed members once and reached members each draw, each within the kinds, drawing over the located owners while every one is found."""
-    return accumulated(member.bound(kinds) for member in members).map(lambda held: partial(_bound, place, kinds, held))
-
-
-def _bound(
-    place: Callable[[_Located, bpy.types.UILayout, Struct, bpy.types.Context], None],
-    kinds: _Kinds,
-    held: tuple[ResolvedMember | Member, ...],
-    layout: bpy.types.UILayout,
-    holder: Struct,
-    context: bpy.types.Context,
-) -> None:
-    """Draws over the members and owners this redraw locates, alerting refusals."""
-    found = accumulated(each.current(kinds, context) for each in held)
-    alerted(layout, found)
-    for members in found.to_option().to_list():
-        located = tuple((member, at) for each in members for member in each.to_list() for at in member.at(holder, context).to_list())
-        if len(located) == len(held):
-            place(located, layout, holder, context)
-
-
 # --- [DRAWING]
 
 
@@ -405,6 +320,24 @@ def gridded(text: str, layout: bpy.types.UILayout) -> bpy.types.UILayout:
     names.alignment = "RIGHT"
     names.label(text=text)
     return values
+
+
+def aligned(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+    """Opens a row of aligned buttons."""
+    return layout.row(align=True)
+
+
+def grouped(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+    """Opens aligned buttons under a line separator, one group apart from the rows above, in as many columns as the region width fits whole."""
+    layout.separator(type="LINE")
+    return layout.grid_flow(row_major=True, even_columns=True, align=True)
+
+
+def even(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+    """Opens a grid of even columns filled row by row, each property drawing its own label in its cell."""
+    grid = layout.grid_flow(row_major=True, even_columns=True)
+    grid.use_property_split = False
+    return grid
 
 
 def accepted(function: bpy.types.Function, keywords: Keywords) -> Outcome[Keywords]:
@@ -459,8 +392,17 @@ def _published(members: Mapping[str, ContextMember], layout: bpy.types.UILayout,
 
 
 def acquired(rows: Iterable[object]) -> Acquisitions:
-    """Rows that register what they hold."""
-    return tuple(row for row in rows if isinstance(row, Registrable))
+    """Declarations rows that register nothing themselves read, then the rows that register what they hold, which build what they read first."""
+    held = tuple(rows)
+    return (
+        *(declaration for row in held if isinstance(row, Dependent) and not isinstance(row, Registrable) for declaration in row.prerequisites),
+        *(row for row in held if isinstance(row, Registrable)),
+    )
+
+
+def glyphed(icon: Option[Glyph]) -> tuple[Declaration, ...]:
+    """Icon set a staged glyph reads, none for a stock icon or data-block preview."""
+    return (ICONS,) if icon.filter(lambda glyph: isinstance(glyph, Path)).is_some() else ()
 
 
 def realized(rows: Iterable[RowContent], identity: Identity) -> Outcome[RowDraw]:
@@ -497,30 +439,30 @@ def _joined(draws: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Stru
 
 __all__ = [
     "FUNCTIONS",
-    "At",
     "Container",
     "ContextMember",
+    "Glyphed",
     "Keywords",
     "Label",
     "Layout",
     "Line",
-    "Member",
     "Opens",
     "OperatorButton",
     "Painted",
     "Property",
-    "Reach",
-    "ResolvedMember",
     "Row",
     "RowContent",
     "RowDraw",
+    "Separator",
     "Status",
     "accepted",
     "acquired",
-    "bound",
+    "aligned",
+    "even",
+    "glyphed",
     "gridded",
+    "grouped",
     "layout_method",
-    "marked",
     "placed",
     "pressed",
     "realized",

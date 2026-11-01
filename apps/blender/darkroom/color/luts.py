@@ -1,117 +1,131 @@
-"""Darkroom LUT exports: the chain baked as one transform or sampled through its enabled entries, strip modifier bakes, and a sampled tone entry installed as a view read on restart."""
+"""Darkroom LUTs: the chain's render-enabled pointwise entries sampled through the compositor into a LUT file, a tone entry sampled into an installed view, and strip modifier bakes."""
 
+from contextlib import nullcontext
 from functools import partial
-from typing import Final
+from typing import Any, Final
 
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
 from expression import Nothing, Ok, Option, Some
-from expression.collections import Block
-import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Popup, Save
-from blender.bpy.commands.operators import Answer, Call, Done, Operator
-from blender.bpy.data.rna.conditions import Job
-from blender.bpy.data.rna.mirrors import choices
-from blender.bpy.data.rna.paths import rooted
-from blender.bpy.extension.identity import Identity
-from blender.bpy.render.color.luts import Baking, extension, LutExport, output, spaced, SPACINGS
-from blender.bpy.render.color.spaces import ConfigView
-from blender.bpy.render.compositor.effects import Enabled
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Notes, Operator
+from blender.bpy.data.ids.ownership import Mark
+from blender.bpy.data.rna import conditions
+from blender.bpy.data.rna.mirrors import Callbacks, held_choices, IconedItem
+from blender.bpy.data.rna.paths import rooted, Struct
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.render.color.luts import Baking, extension, LatticeFields, LutExport, output, spaced
+from blender.bpy.render.color.spaces import ConfigInstall, ConfigView, viewed
+from blender.bpy.render.compositor.entries import Owned
 from blender.bpy.render.previews.scenes import PreviewScene
+from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.surfaces.menus import Append
-from blender.imaging.color.luts import Lattice
-from blender.records.faults import Outcome
+from blender.records.faults import Fault, Outcome, paired
 
-from ..catalog import chain
-from ..chain.stages import Stage
-from .films import install
+from ..catalog import chain, tones
+from ..effects.formation.display import formation
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class ToneView(bpy.types.PropertyGroup):
-    """Tone entry sampled into a named installed view."""
+class ToneView(LatticeFields):
+    """Tone entry sampled into a named installed view, over the sampled lattice."""
 
-    entry: bpy.props.StringProperty(name="Effect", description="Pointwise entry to sample, the first tone entry by default")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    entry: bpy.props.EnumProperty(name="Effect", description="Tone entry to sample, the first in stack order by default", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     view: bpy.props.StringProperty(name="View", description="Name of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     description: bpy.props.StringProperty(name="Description", description="Description of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=2, max=129, default=Lattice().size)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-def toned(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], lattice: Lattice) -> Outcome[PyOpenColorIO.GroupTransform]:
-    """Samples every RGB channel through entries over the lattice domain."""
-    samples: Outcome[npt.NDArray[np.float32]] = lattice.samples()
-    return samples.bind(lambda plane: PreviewScene().sampled(identity, scene, entries, plane)).map(lattice.transform)
+# --- [SAMPLING]
 
 
-def tone_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
-    """Returns the scene's tone entries in stack order."""
-    return tuple(held.entry for held in chain.rows.owned(identity, scene) if held.row.record.stage is Stage.TONE)
+def selected(identity: Identity, scene: bpy.types.Scene, kinds: Option[frozenset[Key]]) -> tuple[tuple[bpy.types.SceneCompositorEffect, ...], tuple[Fault, ...]]:
+    """Returns the render-enabled entries of `kinds`, every entry while unset, that read each pixel alone under a plain mix, and the faults of those left out, pinned entries skipped."""
+    pinned = frozenset(held.ownership.key for held in chain.pinned)
+
+    def wanted(entry: bpy.types.SceneCompositorEffect) -> bool:
+        unpinned = Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_none()
+        return unpinned and kinds.map(lambda held: chain.row(identity, entry).filter(lambda row: row.kind in held).is_some()).default_value(True)
+
+    checked = tuple((entry, chain.pointwise(identity, entry)) for entry in scene.compositor_effects if entry.enable_for_render and wanted(entry))
+    return tuple(entry for entry, read in checked if read.is_ok()), tuple(fault for _, read in checked for faults in read.swap().to_option().to_list() for fault in faults)
 
 
-def bake_formation(call: Call[Baking]) -> Outcome[Done]:
-    """Bake the enabled chain into a native LUT, exactly where its entries form one OCIO operation, else sampled through them."""
-    built = output(call.properties)
-
-    def baked(scene: bpy.types.Scene) -> Outcome[PyOpenColorIO.GroupTransform]:
-        def sampled() -> Outcome[PyOpenColorIO.GroupTransform]:
-            return toned(call.identity, scene, tuple(entry for entry in scene.compositor_effects if bool(Enabled.RENDER.descriptor.read(entry))), spaced(call.properties))
-
-        return chain.forming(call.identity, scene, Enabled.RENDER).bind(
-            lambda stated: stated.map(lambda transform: Ok(PyOpenColorIO.GroupTransform([transform]))).default_with(sampled) if built.lattice.is_none() else sampled()
-        )
-
-    return rooted(bpy.types.Scene, call.context).bind(baked).bind(lambda transform: built.written({call.paths[0]: transform})).map(Done.wrote)
+def formed(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], plane: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
+    """Samples a plane through the entries in the compositor, closed through the scene view while no formation entry forms it."""
+    sampled = PreviewScene().sampled(identity, scene, entries, plane)
+    closed = any(chain.row(identity, entry).filter(lambda row: row.kind == formation.kind).is_some() for entry in entries)
+    return sampled if closed else sampled.bind(lambda values: viewed(scene).form(PyOpenColorIO.GetCurrentConfig(), values))
 
 
-def install_tone_view(call: Call[ToneView]) -> Outcome[Answer]:
-    """Install a sampled pointwise entry as a view read on restart."""
-    properties = call.properties
-    lattice = Lattice(size=properties.size, spacing=SPACINGS[properties.spacing]())
+# --- [COMMANDS]
 
-    def sampled(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[Answer]:
+
+@Operator.of(Baking, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
+def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
+    """Bake the render-enabled pointwise chain entries into a LUT sampled through the compositor."""
+    lattice = spaced(call.properties)
+
+    def baked(scene: bpy.types.Scene) -> Outcome[Done]:
+        entries, left = selected(call.identity, scene, Nothing)
+        notes: Notes = tuple(("WARNING", fault.message) for fault in left)
         return (
-            chain
-            .pointwise(call.identity, scene, entry)
-            .bind(lambda _: toned(call.identity, scene, (entry,), lattice))
-            .bind(
-                lambda table: msgspec.structs.replace(
-                    install, views=(*install.views, ConfigView(name=properties.view, description=properties.description, transform=lambda _base: Ok(table)))
-                ).written()
-            )
-            .map(lambda path: Done(notes=(("INFO", f"Installed view {properties.view} into {path}, restart Blender to read it"),)))
+            lattice
+            .samples()
+            .bind(lambda plane: formed(call.identity, scene, entries, plane))
+            .bind(lambda values: output(call.properties).written({call.paths[0]: lattice.transform(values)}))
+            .map(lambda paths: Done(notes=(*Done.wrote(paths).notes, *notes)))
         )
 
-    return rooted(bpy.types.Scene, call.context).bind(lambda scene: chain.rows.found(call.identity, scene, properties.entry).bind(lambda held: sampled(scene, held.entry)))
+    return rooted(bpy.types.Scene, call.context).bind(baked)
+
+
+def tone_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[Owned[Any], ...]:
+    """Returns the scene's tone entries in stack order."""
+    members = frozenset(row.kind for row in tones.members)
+    return tuple(held for held in chain.owned(identity, scene) if held.row.kind in members)
+
+
+def offered(identity: Identity, _owner: Struct, context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
+    """Item rows of the context scene's tone entries, each titled by its effect, the first the default."""
+    scenes = Option.of_optional(context).bind(lambda held: rooted(bpy.types.Scene, held).to_option()).to_list()
+    return held_choices(tuple((held.entry.name, held.entry.name, held.row.title, 0, index) for scene in scenes for index, held in enumerate(tone_entries(identity, scene))))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-luts: Final = LutExport()
-forming: Final = Operator(form=Baking, run=bake_formation, condition=Some(Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
-toning: Final = Operator(
-    form=ToneView,
-    run=install_tone_view,
-    condition=Some(Job(kind="RENDER")),
-    invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
-    seed=Some(
-        lambda _properties, _event, identity: (
-            Option.of_optional(bpy.context.scene).bind(lambda scene: Block.of_seq(tone_entries(identity, scene)).try_head()).map(lambda entry: {"entry": entry.name}).default_value({})
+TONE_VIEW: Final = Attachment(key="tone_view", form=ToneView, owner=bpy.types.WindowManager, callbacks=Some(lambda identity: nullcontext({"entry": Callbacks(items=partial(offered, identity))})))
+
+
+@Operator.of(Empty, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(TONE_VIEW.fields), undo=Nothing)
+def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
+    """Install a sampled tone entry as a view read on restart."""
+
+    def installed(scene: bpy.types.Scene, settings: ToneView) -> Outcome[Answer]:
+        lattice = spaced(settings)
+        return (
+            chain
+            .found(call.identity, scene, settings.entry)
+            .bind(lambda held: chain.pointwise(call.identity, held.entry).map(lambda _: held.entry))
+            .bind(lambda entry: lattice.samples().bind(lambda plane: PreviewScene().sampled(call.identity, scene, (entry,), plane)))
+            .bind(lambda values: ConfigInstall(views=(ConfigView(name=settings.view, description=settings.description, transform=lambda _base: Ok(lattice.transform(values))),)).written())
+            .map(lambda path: Done(notes=(("INFO", f"Installed view {settings.view} into {path}, restart Blender to read it"),)))
         )
-    ),
-    undo=Nothing,
-)
-rows: Final = (luts, toning, Append(target=TOPBAR_MT_file_export, rows=(OperatorButton(target=forming), OperatorButton(target=luts.stripping))))
+
+    settings = rooted(bpy.types.WindowManager, call.context).bind(lambda manager: TONE_VIEW.read(call.identity, manager))
+    return paired(rooted(bpy.types.Scene, call.context), settings).bind(lambda parts: installed(*parts))
+
+
+luts: Final = LutExport()
+rows: Final = (luts, TONE_VIEW, Append(target=TOPBAR_MT_file_export, rows=(OperatorButton(target=bake_chain), OperatorButton(target=luts.stripping))))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ToneView", "bake_formation", "forming", "install_tone_view", "luts", "rows", "tone_entries", "toned", "toning"]
+__all__ = ["TONE_VIEW", "ToneView", "bake_chain", "formed", "install_tone_view", "luts", "offered", "rows", "selected", "tone_entries"]

@@ -261,12 +261,13 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
 def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
     """Reads progress record with heartbeat moment, Nothing when absent."""
-    return (
-        catch(path.stat, exception=OSError)()
-        .map(lambda stat: datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))
-        .map(lambda beat: RecordFile(path=path, form=Progress).read().map(lambda progress: Some((progress, beat))))
-        .default_with(lambda error: Ok(error).filter_with(lambda held: isinstance(held, FileNotFoundError), partial(Fault.of, Reason.UNREADABLE, str(path))).map(lambda _: Nothing))
-    )
+
+    def beaten(progress: Progress) -> Outcome[tuple[Progress, datetime.datetime]]:
+        return (
+            catch(path.stat, exception=OSError)().map(lambda stat: (progress, datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+        )
+
+    return RecordFile(path=path, form=Progress).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(Nothing)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

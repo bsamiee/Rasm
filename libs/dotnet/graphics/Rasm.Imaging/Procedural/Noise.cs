@@ -395,7 +395,8 @@ public static class CoordinateHash {
     }
 }
 
-[ComplexValueObject(SkipFactoryMethods = true)]
+[ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class MagicNoise {
     private static readonly ImmutableArray<Func<Vector3, float, Vector3>> Turbulence = [
         static (v, d) => v with { Y = -float.Cos(v.X - v.Y + v.Z) * d },
@@ -425,8 +426,10 @@ public sealed partial class MagicNoise {
         return Centered(turned);
     }
 
-    public static Fin<MagicNoise> Validated(int depth, float distortion) =>
-        ImagingFault.Unless(depth >= 0 && depth <= Turbulence.Length && float.IsFinite(distortion), ImagingReason.Range, (depth, distortion)).Map(_ => new MagicNoise(depth, distortion));
+    public static Fin<MagicNoise> Validated(int depth, float distortion) => TryCreate(depth, distortion, out MagicNoise? noise, out ImagingFault? fault) ? noise : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int depth, ref float distortion) =>
+        validationError = depth >= 0 && depth <= Turbulence.Length && float.IsFinite(distortion) ? null : ImagingFault.Of(ImagingReason.Range, (depth, distortion));
 
     private Vector3 Centered(Vector3 turned) => new Vector3(0.5f) - (Distortion is 0f ? turned : turned / (2f * Distortion));
 }

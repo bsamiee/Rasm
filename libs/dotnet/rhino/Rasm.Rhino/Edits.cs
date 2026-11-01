@@ -87,7 +87,7 @@ public static class Stages {
     public static Stage<T> Geometry<T>() where T : GeometryBase =>
         new(
             Copy: static live =>
-                from copy in Products.Of(() => live.Duplicate() as T)
+                from copy in Products.Copied(live)
                 from cached in IO.lift(() => (Copy: copy, Live: live) switch {
                     (Copy: SubD edited, Live: SubD original) => ignore(edited.CopyEvaluationCache(original)),
                     _ => unit,

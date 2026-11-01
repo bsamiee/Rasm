@@ -1,12 +1,14 @@
 using System.Numerics;
 using MathNet.Numerics.Interpolation;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Tone;
 using SuperLinq;
 
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
+[ComplexValueObject(SkipToString = true)]
+[ValidationError<ImagingFault>]
 public sealed partial class PointCurve {
     public Seq<Vector2> Points { get; }
 
@@ -22,8 +24,10 @@ public sealed partial class PointCurve {
         return t => float.Floor(t) switch { var whole => (whole * turn) + (float)spline.Interpolate(t - whole) };
     }
 
-    public static Fin<PointCurve> Validated(Seq<Vector2> points) =>
-        ImagingFault.Unless(points.Count >= 2 && points.AsIterable().Window(2, static pair => pair[0].X < pair[1].X).All(static rising => rising), ImagingReason.Degenerate, points).Map(_ => new PointCurve(points));
+    public static Fin<PointCurve> Validated(Seq<Vector2> points) => TryCreate(points, out PointCurve? curve, out ImagingFault? fault) ? curve : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Seq<Vector2> points) =>
+        validationError = points.Count >= 2 && points.AsIterable().Window(2, static pair => pair[0].X < pair[1].X).All(static rising => rising) ? null : ImagingFault.Of(ImagingReason.Degenerate, points);
 
     private static IInterpolation Interpolated(Seq<Vector2> points) =>
         (points.Map(static point => (double)point.X).ToArray(), points.Map(static point => (double)point.Y).ToArray()) switch {
@@ -68,21 +72,21 @@ public sealed partial class HueCurveKind {
     public Func<float, float> Fit(PointCurve curve) => input is 0 ? curve.Wrapped(slope) : curve.Fit();
 }
 
-public sealed record GradingHueCurve {
-    private GradingHueCurve(HashMap<HueCurveKind, PointCurve> curves) => Curves = curves;
-
+[ComplexValueObject]
+[ValidationError<ImagingFault>]
+public sealed partial class GradingHueCurve {
     public HashMap<HueCurveKind, PointCurve> Curves { get; }
 
     public static GradingHueCurve Neutral(GradingStyle style) => new(toHashMap(HueCurveKind.Items.Select(kind => (kind, kind.Neutral(style)))));
 
     public GradingHueCurve With(HueCurveKind kind, PointCurve curve) => new(Curves.SetItem(kind, curve));
 
-    public Option<Action<Span<Vector4>>> Graded(GradingStyle style) {
+    public Option<Action<Span<Vector4>>> Graded(GradingStyle style, Gamut working) {
         Func<float, float> Fit(HueCurveKind kind) => kind.Fit(Curves[kind]);
         (Func<float, float> hueHue, Func<float, float> hueSat, Func<float, float> hueLum, Func<float, float> lumSat) = (Fit(HueCurveKind.HueHue), Fit(HueCurveKind.HueSat), Fit(HueCurveKind.HueLum), Fit(HueCurveKind.LumSat));
         (Func<float, float> satSat, Func<float, float> lumLum, Func<float, float> satLum, Func<float, float> hueFx) = (Fit(HueCurveKind.SatSat), Fit(HueCurveKind.LumLum), Fit(HueCurveKind.SatLum), Fit(HueCurveKind.HueFx));
-        bool additive = style == GradingStyle.Log;
-        return this == Neutral(style) ? None : Some(ToneCurve.Graded(color => style.FromHsy(Curved(style.ToHsy(color)))));
+        (bool additive, Vector3 weights) = (style == GradingStyle.Log, working.Luminance);
+        return this == Neutral(style) ? None : Some(ToneCurve.Graded(color => style.FromHsy(Curved(style.ToHsy(color, weights)), weights)));
 
         Vector3 Curved(Vector3 hsy) {
             float level = style.Encode(new Vector3(hsy.Z)).X;
@@ -93,4 +97,7 @@ public sealed record GradingHueCurve {
             return new(hue + hueFx(hue), saturation, additive ? luma + ((lumaGain + saturationGain - 2f) * 0.1f) : luma * lumaGain * saturationGain);
         }
     }
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref HashMap<HueCurveKind, PointCurve> curves) =>
+        validationError = toSeq(HueCurveKind.Items.Except(curves.Keys)) switch { [] => null, var missing => ImagingFault.Of(ImagingReason.Missing, missing) };
 }

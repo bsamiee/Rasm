@@ -55,7 +55,7 @@ public static class Annotations {
     private static Stage<T> Staged<T>(RhinoDoc doc, Guid id) where T : AnnotationBase =>
         new(
             Copy: live =>
-                from copy in Products.Of(() => live.Duplicate() as T)
+                from copy in Products.Copied(live)
                 from parent in DimensionStyles.Parent(doc, live)
                 from bound in IO.lift(() => { copy.ParentDimensionStyle = parent; })
                 select copy,
@@ -89,7 +89,7 @@ public static class Annotations {
          select xform).Bracket();
 
     public static IO<Seq<Seq<T>>> Outlines<T>(RhinoDoc doc, TextEntity text, OutlineOptions options, OutlineFactory<T> create) where T : GeometryBase =>
-        from copy in Products.Of(() => text.Duplicate() as TextEntity)
+        from copy in Products.Copied(text)
         from transformed in options.Transform.Traverse(xform =>
             from placing in DimensionStyles.Effective(doc, copy, None)
             from moved in Products.Accepted(() => copy.Transform(xform, placing))

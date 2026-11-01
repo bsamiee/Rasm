@@ -1,23 +1,21 @@
-"""Node editor thumbnails: the cells each editor shows, the change keys and per-package preview state behind them, and the overlay drawing them beside their nodes."""
+"""Node editor thumbnails: the cells each editor shows, the demands and per-package preview state behind them, and the overlay drawing them beside their nodes."""
 
-from collections.abc import Callable, Hashable, Mapping
+from collections.abc import Hashable, Mapping
 from contextlib import nullcontext
 from enum import auto, Enum
 import math
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Option, Some
 import msgspec
 
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.render.previews.queue import BACKLOG
+from blender.bpy.render.previews.queue import Demands
 from blender.bpy.render.previews.scenes import PreviewLighting
-from blender.bpy.render.previews.targets import Editor, NodePreviews, Position, RenderKind
+from blender.bpy.render.previews.targets import Editor, NODE_PREVIEWS, NodePreviews, Position, RenderKind, Target
 from blender.bpy.ui.drawing.canvas import Align, Canvas, DrawType, Rect, Shadow
-from blender.bpy.ui.layout.rows import Line, RowDraw
 from blender.bpy.ui.resources.previews import TEXTURES
 from blender.bpy.ui.resources.theme import color, Metrics, Spacing
 from blender.imaging.color.processors import DisplayView
@@ -62,38 +60,20 @@ class Staged(msgspec.Struct, frozen=True, kw_only=True):
     config: str
 
 
-class Demand(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Held render request and its content hash."""
-
-    staged: Staged
-    content: Option[ContentHash]
-
-    @property
-    def key(self) -> Hashable:
-        """Content hash, else the demand itself."""
-        return self.content.default_value(self)
-
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
 class NodeState:
-    """Per-package preview state: the demand each target holds, uniform values by key, content hashes of geometry sources, and editor cells."""
+    """Per-package preview state: the demand each target holds over its staged settings, uniform values by key, content hashes of geometry sources, and editor cells."""
 
-    __slots__ = ("cells", "held", "keys", "values")
+    __slots__ = ("cells", "demands", "held", "values")
 
     def __init__(self) -> None:
         """Holds no demand, value, held hash, or cell."""
-        self.keys: dict[Hashable, Demand] = {}
+        self.demands: Demands[Target, Staged] = Demands()
         self.values: dict[Hashable, float] = {}
         self.held: dict[tuple[Handle[bpy.types.Object], str], Option[ContentHash]] = {}
         self.cells: dict[Editor, tuple[Cell, ...]] = {}
-
-    def forgotten(self) -> tuple[Hashable, ...]:
-        """Drops every target key, returning the keys dropped."""
-        dropped = tuple(self.keys)
-        self.keys.clear()
-        return dropped
 
     def cleared(self) -> int:
         """Drops every held uniform value, answering how many it held."""
@@ -110,30 +90,15 @@ class NodeState:
 NODE_STATES: Final = Resource[NodeState](made=lambda _identity: nullcontext(NodeState()), renewed=Some(lambda _held: NodeState()))
 
 
-class Counts(Line, frozen=True):
-    """Queued, failed, and cached thumbnail counts with cache memory."""
-
-    @staticmethod
-    def drawn(identity: Identity, /) -> Outcome[RowDraw]:
-        """Returns label reading backlog and cache per draw."""
-
-        def shown(layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
-            backlog, cache = identity.held[BACKLOG], identity.held[TEXTURES]
-            layout.label(text=f"{len(backlog.jobs)} queued, {len(backlog.failed)} failed, {len(cache.held)} cached, {cache.memory / 2**20:.1f} MiB pixels")
-
-        return Ok(shown)
-
-
 class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
     """Drawn part placing cells beside nodes."""
 
     draw_type: ClassVar[DrawType] = "POST_VIEW"
     identity: Identity
-    settings: Callable[[Identity], Outcome[NodePreviews]]
 
     def read(self, _metrics: Metrics, /) -> Outcome[Option[tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]]]:
-        """Reads settings and editor cells while previews show."""
-        return self.settings(self.identity).map(lambda settings: Some((settings, self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
+        """Reads the node preview preference and editor cells while previews show."""
+        return NODE_PREVIEWS.read(self.identity).map(lambda settings: Some((settings, self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
 
     def drawn(self, canvas: Canvas, state: tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]) -> None:
         """Draws cells beside nodes, active node grid last."""
@@ -199,4 +164,4 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["NODE_STATES", "Cell", "Counts", "Demand", "NodeState", "NodeThumbnails", "Staged", "Status"]
+__all__ = ["NODE_STATES", "Cell", "NodeState", "NodeThumbnails", "Staged", "Status"]

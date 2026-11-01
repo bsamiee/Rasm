@@ -110,9 +110,9 @@ public static class AppSettings {
          from attached in Subscriptions.Merged(
                  Documents.Arrived.Choose(static _ => Some(unit)),
                  Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.ActiveDocumentChanged += h, static h => RhinoDoc.ActiveDocumentChanged -= h).Documents().Choose(static _ => Some(unit)),
-                 Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h).Documents().Choose(static _ => Some(unit)))
+                 Documents.PropertiesChanged.Documents().Choose(static _ => Some(unit)))
              .Attach(_ => post(unit, unit))
-         select attached).Scoped(Session.Scope);
+         select attached).Scoped();
 
     private static IO<Unit> Nudge(RhinoDoc doc, Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
         from grid in IO.lift(doc.GetGridDefaults)

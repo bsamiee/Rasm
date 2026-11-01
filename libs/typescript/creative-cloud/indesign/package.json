@@ -1,7 +1,7 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign object model RPC contract a UXP script serves",
+    "description": "Document model as a typed contract",
     "sideEffects": false,
     "type": "module",
     "imports": {

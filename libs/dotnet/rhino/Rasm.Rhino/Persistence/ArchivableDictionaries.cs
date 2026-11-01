@@ -11,6 +11,7 @@ using Rhino;
 using Rhino.Collections;
 using Rhino.Runtime;
 using UnitsNet;
+using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Persistence;
 
@@ -21,12 +22,11 @@ public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<Ar
     public static DictionaryOwner Of<TOwner>(IO<TOwner> acquire, Option<Func<TOwner, IO<Unit>>> commit = default) where TOwner : CommonObject =>
         new(
             acquire.Map(static owner => owner.UserDictionary),
-            (from edit in Eff.runtime<Func<ArchivableDictionary, Fin<Unit>>>()
-             from owner in acquire
-             from dictionary in IO.lift(() => owner.UserDictionary)
-             from edited in IO.lift(() => edit(dictionary))
-             from committed in commit.Traverse(write => write(owner)).As()
-             select edited).RunIO);
+            edit =>
+                from owner in acquire
+                from edited in IO.lift(() => edit(owner.UserDictionary))
+                from committed in commit.Traverse(write => write(owner)).As()
+                select edited);
 }
 
 public sealed record RecordUpgrade<T>(Func<ArchivableDictionary, Fin<T>> Read, Option<string> Earlier = default);
@@ -62,14 +62,12 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class TypeConverterFactory : JsonConverterFactory {
-    private const BindingFlags Factories = BindingFlags.NonPublic | BindingFlags.Static;
-
     public override bool CanConvert(Type typeToConvert) =>
         typeToConvert.IsValueType && (typeToConvert == typeof(Color) || typeToConvert.IsAssignableTo(typeof(IQuantity)));
 
     public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
-        (JsonConverter?)typeof(TypeConverterFactory)
-            .GetMethod(typeToConvert.IsAssignableTo(typeof(IQuantity)) ? nameof(Quantity) : nameof(Described), Factories, Type.EmptyTypes)?
+        (JsonConverter?)(typeToConvert.IsAssignableTo(typeof(IQuantity)) ? new Func<JsonConverter>(Quantity<Length>) : Described<Color>).Method
+            .GetGenericMethodDefinition()
             .MakeGenericMethod(typeToConvert)
             .Invoke(obj: null, parameters: null);
 
@@ -84,6 +82,78 @@ internal sealed class TypeConverterJson<T>(TypeConverter converter) : JsonConver
 
     public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) =>
         writer.WriteStringValue(converter.ConvertToInvariantString(value));
+}
+
+internal sealed class LanguageExtConverterFactory : JsonConverterFactory {
+    private static readonly FrozenDictionary<Type, MethodInfo> Converters = new Dictionary<Type, MethodInfo> {
+        [typeof(Option<>)] = new Func<JsonConverter>(OptionOf<Unit>).Method.GetGenericMethodDefinition(),
+        [typeof(Seq<>)] = new Func<JsonConverter>(SeqOf<Unit>).Method.GetGenericMethodDefinition(),
+        [typeof(Lst<>)] = new Func<JsonConverter>(LstOf<Unit>).Method.GetGenericMethodDefinition(),
+        [typeof(HashMap<,>)] = new Func<JsonConverter>(HashMapOf<Unit, Unit>).Method.GetGenericMethodDefinition(),
+    }.ToFrozenDictionary();
+
+    public override bool CanConvert(Type typeToConvert) => typeToConvert.IsGenericType && Converters.ContainsKey(typeToConvert.GetGenericTypeDefinition());
+
+    public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
+        (JsonConverter?)Converters[typeToConvert.GetGenericTypeDefinition()].MakeGenericMethod(typeToConvert.GetGenericArguments()).Invoke(obj: null, parameters: null);
+
+    private static OptionJson<T> OptionOf<T>() => new();
+
+    private static SeqJson<T> SeqOf<T>() => new();
+
+    private static LstJson<T> LstOf<T>() => new();
+
+    private static HashMapJson<TKey, TValue> HashMapOf<TKey, TValue>() where TKey : notnull => new();
+}
+
+internal sealed class OptionJson<T> : JsonConverter<Option<T>> {
+    public override bool HandleNull => true;
+
+    public override Option<T> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        reader.TokenType is JsonTokenType.Null ? Option<T>.None : Optional(JsonSerializer.Deserialize<T>(ref reader, options));
+
+    public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options) =>
+        value.Match(Some: held => JsonSerializer.Serialize(writer, held, options), None: writer.WriteNullValue);
+}
+
+internal sealed class SeqJson<T> : JsonConverter<Seq<T>> {
+    public override bool HandleNull => false;
+
+    public override Seq<T> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        toSeq(JsonSerializer.Deserialize<T[]>(ref reader, options));
+
+    public override void Write(Utf8JsonWriter writer, Seq<T> value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value.AsEnumerable(), options);
+}
+
+internal sealed class LstJson<T> : JsonConverter<Lst<T>> {
+    public override bool HandleNull => false;
+
+    public override Lst<T> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        toList(JsonSerializer.Deserialize<T[]>(ref reader, options));
+
+    public override void Write(Utf8JsonWriter writer, Lst<T> value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value.AsEnumerable(), options);
+}
+
+internal sealed class HashMapJson<TKey, TValue> : JsonConverter<HashMap<TKey, TValue>> where TKey : notnull {
+    public override bool HandleNull => false;
+
+    public override HashMap<TKey, TValue> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        toHashMap(toSeq(JsonSerializer.Deserialize<Dictionary<TKey, TValue>>(ref reader, options)).Map(static entry => (entry.Key, entry.Value)));
+
+    public override void Write(Utf8JsonWriter writer, HashMap<TKey, TValue> value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value.AsIterable().ToDictionary(static entry => entry.Key, static entry => entry.Value), options);
+}
+
+internal sealed class UnicolourJson : JsonConverter<Unicolour> {
+    public override Unicolour Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        JsonSerializer.Deserialize<double[]>(ref reader, options) is [var red, var green, var blue, var alpha]
+            ? new Unicolour(ColourSpace.RgbLinear, red, green, blue, alpha)
+            : throw new JsonException($"{nameof(Unicolour)} holds no linear red, green, blue and alpha");
+
+    public override void Write(Utf8JsonWriter writer, Unicolour value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, new[] { value.RgbLinear.R, value.RgbLinear.G, value.RgbLinear.B, value.Alpha.A }, options);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -171,10 +241,16 @@ public static class ArchivableDictionaries {
     private const string JsonKey = "Json";
 
     public static JsonSerializerOptions Options { get; } = new JsonSerializerOptions(JsonSerializerDefaults.Strict) {
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-        IgnoreReadOnlyProperties = true,
-        Converters = { new JsonStringEnumConverter(), new TypeConverterFactory() },
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { Stated } },
+        IncludeFields = true,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        Converters = { new JsonStringEnumConverter(), new TypeConverterFactory(), new LanguageExtConverterFactory(), new UnicolourJson() },
     }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
+    public static JsonTypeInfo<T> Info<T>() => (JsonTypeInfo<T>)Options.GetTypeInfo(typeof(T));
+
+    private static void Stated(JsonTypeInfo info) =>
+        toSeq(info.Properties).Filter(static property => property.Set is null && property.AssociatedParameter is null).Strict().Iter(property => info.Properties.Remove(property));
 
     public static DictionaryCodec<T> Json<T>(string name, int version, Option<RecordUpgrade<T>> upgrade = default) =>
         new(name, version,

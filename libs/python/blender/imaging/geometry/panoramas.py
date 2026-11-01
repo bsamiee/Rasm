@@ -355,10 +355,10 @@ def shares(aspect: float) -> tuple[float, float]:
 # --- [FOLDS]
 
 
-def folded[V: Elementwise, B](x: V, y: V, *, mirrors: int, angle: float, zoom: float, ns: Namespace[V, B]) -> tuple[V, V]:
-    """Reflects centered offsets into the first of `mirrors` wedges from `angle`, magnified by `zoom`."""
+def folded[V: Elementwise, B](x: V, y: V, *, mirrors: int, angle: V | float, zoom: V | float, ns: Namespace[V, B]) -> tuple[V, V]:
+    """Reflects centered offsets into the first of `mirrors` wedges from `angle`, magnified by `zoom`, either an elementwise value or a float."""
     wedge = math.pi / mirrors
-    bearing = ns.abs((ns.atan2(y, x) + (wedge - angle)) % (2.0 * wedge) - wedge) + angle
+    bearing = ns.abs((ns.atan2(y, x) - angle + wedge) % (2.0 * wedge) - wedge) + angle
     radius = ns.hypot(x, y) / zoom
     return radius * ns.cos(bearing), radius * ns.sin(bearing)
 

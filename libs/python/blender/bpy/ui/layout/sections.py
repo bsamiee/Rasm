@@ -21,7 +21,8 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.settings.attachments import Attached, Host
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import acquired, Container, Member, Opens, OperatorButton, Property, realized, ResolvedMember, RowContent, RowDraw
+from blender.bpy.ui.layout.members import Member, ResolvedMember
+from blender.bpy.ui.layout.rows import acquired, Container, Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.values import Replacement, Store, Verb
 from blender.records.faults import Outcome, paired
 
@@ -49,13 +50,14 @@ class Items(msgspec.Struct, frozen=True, kw_only=True):
 class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
     """Rows under a header over the holder `holder` reaches from the drawing holder, the drawing holder itself while unset, drawn as a panel or a layout panel.
 
+    The header reads `title`, the key's display name while no title is stated.
     `enable` draws its boolean in the header and dims the body while off, `condition` dims header and body while it fails, and `absent` rows draw while no holder is reached.
     A store adds its values popover and reset buttons to the header, its form fields after the rows, and its host as the context pointer the store's commands read.
     `split` lays out properties with labels in their own column and the decorator column the host aligns.
     """
 
     key: Key
-    title: str
+    title: Option[str] = Nothing
     description: str = ""
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
@@ -69,12 +71,17 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
     translation_context: str = _DEFAULT_CONTEXT
 
     @property
+    def label(self) -> str:
+        """Header text: the stated title, else the key's display name."""
+        return self.title.default_with(lambda: bpy.path.display_name(self.key))
+
+    @property
     def popover(self) -> Option["Section[operators.Empty]"]:
         """Values popover section of the store that a panel registers."""
         return self.store.map(
             lambda store: Section(
                 key=store.panel,
-                title="Values",
+                title=Some("Values"),
                 description="Apply presets, lock fields, copy values, and restore earlier values" if store.presets.is_some() else "Copy values and restore earlier values",
                 rows=(store,),
             )
@@ -92,8 +99,16 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
         )
 
     def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires the store and every held row that registers what it holds."""
-        return Ok(acquired((*self.store.to_list(), *self.children)))
+        """Acquires the attachments its holder, item collection, header boolean, and store host read, then the store and every held row that registers what it holds."""
+        match self.holder.to_optional():
+            case Member() as member:
+                held: tuple[Member, ...] = (member,)
+            case Items(collection=collection):
+                held = (collection,)
+            case _:
+                held = ()
+        members = (*held, *self.enable.to_list(), *(member for store in self.store.to_list() for member in store.host.to_list()))
+        return Ok((*(declaration for member in members for declaration in member.prerequisites), *acquired((*self.store.to_list(), *self.children))))
 
     def realized(self, identity: Identity) -> "Outcome[SectionDraws]":
         """Realizes the layout panel name, header boolean, header rows, store parts, body rows, holder reach, and absent rows once."""
@@ -103,11 +118,11 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
                 case None:
                     return Ok((lambda holder, _context: (holder,), False, Nothing))
                 case Member() as member:
-                    return member.resolved().map(lambda bound: (partial(_reached, bound), False, Nothing))
+                    return member.realized(identity).map(lambda bound: (partial(_reached, bound), False, Nothing))
                 case ItemList() as listed:
                     return listed.picked(identity).map(lambda pointer: (pointer, False, Nothing))
                 case Items(collection=collection, expanded=expanded):
-                    return collection.resolved(bpy.types.CollectionProperty).bind(lambda bound: flagged(bound, expanded).map(lambda flag: (partial(_reached, bound), True, flag)))
+                    return collection.realized(identity, bpy.types.CollectionProperty).bind(lambda bound: flagged(bound, expanded).map(lambda flag: (partial(_reached, bound), True, flag)))
 
         def flagged(bound: ResolvedMember[bpy.types.CollectionProperty], expanded: Option[str]) -> Outcome[Option[str]]:
             match bound.descriptor.prop.fixed_type, expanded.to_optional():
@@ -118,13 +133,13 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
 
         def stored(store: Store[T]) -> Outcome[_Stored]:
             owner = store.attachment.owner
-            host = store.host.map(lambda member: member.resolved().bind(lambda bound: bound.accepts((owner,))).map(Some)).default_value(Ok(Nothing))
+            host = store.host.map(lambda member: member.realized(identity).bind(lambda bound: bound.accepts((owner,))).map(Some)).default_value(Ok(Nothing))
             buttons = (Opens(target=Opened(store.panel, Called.PANEL), keywords={"text": ""}, icon=Some("PRESET")), OperatorButton(target=store.commands[Verb.RESET], keywords={"text": ""}))
             return paired(store.attached(identity), host, realized(buttons, identity), realized(fields(store.attachment.form, store.attachment.key, store.fields), identity)).map(
                 lambda parts: (parts[0], partial(_host, parts[1], owner), parts[2], parts[3])
             )
 
-        gate = self.enable.map(lambda member: paired(member.resolved(bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)).default_value(
+        gate = self.enable.map(lambda member: paired(member.realized(identity, bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)).default_value(
             Ok(Nothing)
         )
         store = self.store.map(lambda held: stored(held).map(Some)).default_value(Ok(Nothing))
@@ -217,12 +232,12 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
         """Opens a holder's layout panel with its title and whether it translates: the section's panel, or an item's through its boolean or a region key per item under its untranslated name."""
         section = self.section
         if not self.itemized:
-            return layout.panel(self.name, default_closed=not section.opened), section.title, True
+            return layout.panel(self.name, default_closed=not section.opened), section.label, True
         panel = self.expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(
             lambda: layout.panel(f"{self.name}_{holder.session_uid if isinstance(holder, bpy.types.ID) else index}", default_closed=not section.opened)
         )
         named = Option.of_optional(definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
-        return (panel, *named.default_value((section.title, True)))
+        return (panel, *named.default_value((section.label, True)))
 
     # --- [PARTS]
 
@@ -298,16 +313,16 @@ def fields(struct: type[Struct], key: Key, replacements: Mapping[str, Replacemen
             case _ if name in replacements:
                 return (replacements[name](member),)
             case bpy.props.PointerProperty if isinstance(target, type) and issubclass(target, bpy.types.PropertyGroup):
-                return (Section(key=nested, title=title, translation_context=translation, holder=Some(member), rows=fields(target, nested, replacements)),)
+                return (Section(key=nested, title=Some(title), translation_context=translation, holder=Some(member), rows=fields(target, nested, replacements)),)
             case bpy.props.CollectionProperty if isinstance(target, type) and issubclass(target, bpy.types.PropertyGroup):
                 listed = ItemList(key=nested, collection=member, item=target)
-                return (listed, Section(key=f"{nested}_item", title=title, translation_context=translation, holder=Some(listed), rows=fields(target, f"{nested}_item", replacements)))
+                return (listed, Section(key=f"{nested}_item", title=Some(title), translation_context=translation, holder=Some(listed), rows=fields(target, f"{nested}_item", replacements)))
             case _:
                 return (Property(target=member),)
 
     declared = tuple(row for name, deferred in annotated(struct).items() if "HIDDEN" not in deferred.keywords.get("options", ()) for row in field(name, deferred))
     custom = isinstance(struct, type(bpy.types.ID)) and not issubclass(struct, (bpy.types.PropertyGroup, bpy.types.AddonPreferences))
-    return (*declared, *((Section(key=f"{key}_custom_properties", title=rna_prop_ui.PropertyPanel.bl_label, rows=(partial(_customized, struct),)),) if custom else ()))
+    return (*declared, *((Section(key=f"{key}_custom_properties", title=Some(rna_prop_ui.PropertyPanel.bl_label), rows=(partial(_customized, struct),)),) if custom else ()))
 
 
 def _customized(struct: type[Struct], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:

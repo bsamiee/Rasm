@@ -26,9 +26,6 @@ public sealed record ValueHistory {
     public Seq<HistoryEntry> Undone { get; }
     private BigInteger Next { get; }
 
-    // --- [FRAME]
-    public static HistoryFrame Frame(HistoryLimits limits) => new(limits);
-
     // --- [TRANSITIONS]
     public ValueHistory Committed(ValueDiff diff, Instant at, HistoryLimits limits) =>
         diff.Changes.IsEmpty ? this : Done.Head
@@ -118,27 +115,16 @@ public abstract partial record HistoryScope {
     public sealed record DocumentScope(RhinoDoc Doc, RedrawPolicy Redraw) : HistoryScope;
 }
 
-public sealed record HistoryFrame : DocumentFrame {
-    // --- [STATE]
-    private static readonly DocumentFrame Stored = new ArchiveFrame<HashMap<Guid, ValueHistory>>(
-        ValueHistory.TypeCode,
-        ValueHistory.Codec,
-        HashMap<Guid, ValueHistory>(),
-        static (doc, options) => options.WriteAsTemplate ? IO.pure(HashMap<Guid, ValueHistory>()) : HistoryScope.Of(doc).Map(static registry => registry.Value),
-        static (doc, histories) => HistoryScope.Of(doc).Bind(registry => registry.SwapIO(held => held.AddOrUpdateRange(histories.AsIterable()))).Map(unit));
-
-    internal HistoryFrame(HistoryLimits limits) => Limits = limits;
-
-    public HistoryLimits Limits { get; }
-
+public sealed record HistoryFrame(HistoryLimits Limits, TimeProvider Clock)
+    : ArchiveFrame<HashMap<Guid, ValueHistory>>(ValueHistory.TypeCode, ValueHistory.Codec, HashMap<Guid, ValueHistory>(), Histories, Restored) {
     public Atom<HashMap<Guid, ValueHistory>> Registry { get; } = Atom(HashMap<Guid, ValueHistory>());
 
     // --- [ARCHIVE]
-    internal override IO<bool> Filled(RhinoDoc doc, FileWriteOptions options) => Stored.Filled(doc, options);
+    private static IO<HashMap<Guid, ValueHistory>> Histories(RhinoDoc doc, FileWriteOptions options) =>
+        options.WriteAsTemplate ? IO.pure(HashMap<Guid, ValueHistory>()) : HistoryScope.Of(doc).Map(static registry => registry.Value);
 
-    internal override IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) => Stored.Write(doc, writer, options);
-
-    internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) => Stored.Read(doc, reader);
+    private static IO<Unit> Restored(RhinoDoc doc, HashMap<Guid, ValueHistory> histories) =>
+        HistoryScope.Of(doc).Bind(registry => registry.SwapIO(held => held.AddOrUpdateRange(histories.AsIterable()))).Map(unit);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

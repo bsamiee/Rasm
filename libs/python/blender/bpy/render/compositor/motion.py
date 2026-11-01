@@ -1,7 +1,8 @@
-"""Compositor motion: clocks per second with frame holds, decorrelated noise origins, the scene shutter and the poses it samples, and trails between shutter endpoints."""
+"""Compositor motion: clocks per second with frame holds over the derived scene frame rate, seeded uniforms and decorrelated noise origins, the scene shutter and the poses it samples, and trails between shutter endpoints."""
 
+from collections.abc import Callable
 from types import MappingProxyType
-from typing import Final, Self
+from typing import Annotated, Final, Self
 
 import bpy
 from expression import Ok
@@ -13,16 +14,21 @@ from blender.bpy.data.rna.animation import Animation, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import id_path, RnaPath, Struct
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.desired import item_key, Socket
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, math, Scalar, vector, xyz
+from blender.bpy.nodes.interfaces import InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import dimensions
 from blender.bpy.render.compositor.inputs import Derives, entry_input, entry_value
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case, Count, NonNegative
+from blender.records.fields import Case, Count, NonNegative, SEED_BOUND
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+_FPS: Final = Descriptor.declared(bpy.types.RenderSettings, ("fps",), bpy.types.IntProperty).prop
+_FPS_BASE: Final = Descriptor.declared(bpy.types.RenderSettings, ("fps_base",), bpy.types.FloatProperty).prop
+RATE: Final = Socket(key="frame_rate", kind=bpy.types.NodeSocketFloat, description="Scene frames per second", hide_in_modifier=True, default_value=_FPS.default / _FPS_BASE.default)
+SEED: Final = Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting the pattern", min_value=0, max_value=SEED_BOUND)
 LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloat, description="Shutter length in frames", hide_in_modifier=True)
 OPENING: Final = Socket(key="opening", kind=bpy.types.NodeSocketFloat, description="Shutter opening relative to frame in shutter lengths", hide_in_modifier=True)
 SHUTTER: Final = (LENGTH, OPENING)
@@ -32,10 +38,10 @@ _OPENINGS: Final = MappingProxyType({"START": 0.0, "CENTER": -0.5, "END": -1.0})
 
 
 class Clock(msgspec.Struct, frozen=True, kw_only=True):
-    """Clock speed in clock units per second, still at 0, and the scene frames each clock value holds."""
+    """Clock speed and frame hold of animated parameters."""
 
-    speed: NonNegative = 1.0
-    hold: Count = 1
+    speed: Annotated[NonNegative, msgspec.Meta(description="Clock units per second, still at 0")] = 1.0
+    hold: Annotated[Count, msgspec.Meta(description="Scene frames each clock value holds")] = 1
 
     def held(self, frame: float) -> float:
         """Returns scene `frame` held to the first frame of its hold."""
@@ -44,6 +50,10 @@ class Clock(msgspec.Struct, frozen=True, kw_only=True):
     def clock(self, frame: float, rate: float) -> float:
         """Returns clock units at held scene `frame` under `rate` scene frames per second."""
         return self.speed * self.held(frame) / rate
+
+    def timed(self, scene: bpy.types.Scene) -> float:
+        """Returns clock units at the scene's current frame, subframe included, under its frame rate."""
+        return self.clock(scene.frame_current_final, rate(scene))
 
 
 class Shutter(msgspec.Struct, frozen=True, kw_only=True):
@@ -90,7 +100,7 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
         opening = Shutter.of(scene).opening
 
         def components(socket: Socket) -> tuple[int | None, ...]:
-            sizes = Descriptor.dimensions(socket.kind.bl_rna.properties["default_value"])
+            sizes = Descriptor.dimensions(socket.refined.bl_rna.properties["default_value"])
             return tuple(range(sizes[0])) if sizes else (None,)
 
         def component(lengths: tuple[float, ...], socket: Socket, side: int, index: int | None) -> Outcome[Animation]:
@@ -114,18 +124,63 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def clocked(speed: Scalar, hold: Scalar) -> Expr:
-    """Clock units at the scene frame held `hold` frames at a time, `speed` units per second, the held frame timed through Scene Time's seconds per frame."""
-    time = Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Frame")
-    held = math("MULTIPLY", math("FLOOR", math("DIVIDE", time, hold)), hold)
-    return math("MULTIPLY", math("MULTIPLY", held, math("DIVIDE", Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Seconds"), time)), speed)
+def rate(scene: bpy.types.Scene) -> float:
+    """Returns the scene's frames per second, `fps` over `fps_base`."""
+    return scene.render.fps / scene.render.fps_base
+
+
+def clocked(read: Callable[[Socket], Scalar], panel: InterfacePanel) -> Expr:
+    """Clock units of a clock panel's speed at the scene frame held `hold` frames at a time, timed through the derived `RATE` input.
+
+    Args:
+        read: Group input of a declaring socket, such as `Shell.input`.
+        panel: Clock panel, `CLOCK` or `InterfacePanel.of(<key>, Clock(...))`.
+
+    Returns:
+        Clock units at the held frame, `speed` units per second.
+    """
+    speed, hold = (read(panel.socket(field)) for field in (Clock.speed, Clock.hold))
+    return clock(speed, hold, read(RATE))
+
+
+def clock(speed: Scalar, hold: Scalar, rate: Scalar) -> Expr:
+    """Clock units of a speed at the scene frame held `hold` frames at a time, for clocks whose speed and hold `clocked` cannot read through one reader, such as shutter poses.
+
+    Args:
+        speed: Clock units per second.
+        hold: Scene frames each clock value holds.
+        rate: Scene frames per second, the `RATE` input.
+
+    Returns:
+        Clock units at the held frame.
+    """
+    frame = Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Frame")
+    held = math("MULTIPLY", math("FLOOR", math("DIVIDE", frame, hold)), hold)
+    return math("MULTIPLY", math("DIVIDE", held, rate), speed)
+
+
+def hashed(seed: Scalar, noise: Scalar, pattern: Scalar = 0, instance: Scalar = 0) -> Expr:
+    """Builds the seeded uniform of one noise, each component in [0, 1).
+
+    Args:
+        seed: `SEED` operand.
+        noise: Stream index operand.
+        pattern: Whole `clocked` units for values redrawn per pattern, else 0.
+        instance: Repeated draw index, else 0.
+
+    Returns:
+        White Noise `Color` expression.
+    """
+    return Expr(
+        kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", xyz(seed, noise, pattern)), ("W", instance)), members={"noise_dimensions": "4D"}, socket="Color", shape=bpy.types.NodeSocketColor
+    )
 
 
 def origin(seed: Scalar, noise: Scalar, pattern: Scalar = 0, instance: Scalar = 0) -> Expr:
-    """Builds decorrelation origin of one noise.
+    """Builds the decorrelation origin of one noise, its `hashed` uniform spread over 256 units per axis.
 
     Args:
-        seed: Record `Seed` operand.
+        seed: `SEED` operand.
         noise: Stream index operand.
         pattern: Whole `clocked` units for origins redrawn per pattern, else 0.
         instance: Repeated draw index, else 0.
@@ -133,10 +188,7 @@ def origin(seed: Scalar, noise: Scalar, pattern: Scalar = 0, instance: Scalar = 
     Returns:
         3D origin `Vector` expression.
     """
-    hashed = Expr(
-        kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", xyz(seed, noise, pattern)), ("W", instance)), members={"noise_dimensions": "4D"}, socket="Color", shape=bpy.types.NodeSocketColor
-    )
-    return vector("MULTIPLY", hashed, (256.0, 256.0, 256.0))
+    return vector("SCALE", hashed(seed, noise, pattern, instance), 256.0)
 
 
 def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
@@ -173,6 +225,10 @@ def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+CLOCK: Final = InterfacePanel.of("clock", Clock())
+timing: Final = Derives[Case](
+    of=lambda _identity, scene, _entry, _record: Ok({RATE.key: rate(scene)}), sockets=(RATE,), reads=((bpy.types.RenderSettings, _FPS), (bpy.types.RenderSettings, _FPS_BASE))
+)
 shutter: Final = Derives[Case](
     of=lambda _identity, scene, _entry, _record: Ok(Shutter.of(scene).values),
     sockets=SHUTTER,
@@ -181,4 +237,4 @@ shutter: Final = Derives[Case](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LENGTH", "OPENING", "SHUTTER", "Clock", "Shutter", "ShutterPoses", "clocked", "origin", "shutter", "trailed"]
+__all__ = ["CLOCK", "LENGTH", "OPENING", "RATE", "SEED", "SHUTTER", "Clock", "Shutter", "ShutterPoses", "clock", "clocked", "hashed", "origin", "rate", "shutter", "timing", "trailed"]

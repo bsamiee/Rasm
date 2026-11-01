@@ -19,7 +19,7 @@ public sealed class ClayMeshProvider : DefinedMeshProvider {
     private ClayMeshProvider(uint serial, RenderMaterial clay) : base("Clay") => (this.serial, this.clay) = (serial, clay);
 
     public static IO<Unit> Register(RhinoDoc document, float albedo) =>
-        from material in Products.Of(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, document) as RenderMaterial).Scoped(Session.Scope)
+        from material in Products.Of(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, document) as RenderMaterial)
         from gamma in Lights.PreProcessGamma(document)
         from edited in Contents.Edit(material, RenderContent.ChangeContexts.Program, [
             Steps.Of<RenderContent>(content => content.SetParameter(PhysicallyBased.BaseColor, Color4f.ApplyGamma(new Color4f(albedo, albedo, albedo, 1f), 1f / gamma))),

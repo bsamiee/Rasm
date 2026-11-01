@@ -35,19 +35,26 @@ internal sealed class ViewBody {
     internal Seq<IO<Unit>> Clicks { get; }
 
     // --- [REALIZATION]
-    public static IO<ViewBody> Realize(View row, Seq<Command<Invoke>> actions, RowScope enclosing) => Built(row, actions, enclosing, None);
+    public static IO<ViewBody> Realize(View row, Seq<Command<Invoke>> actions, RowScope enclosing) =>
+        Nesting(row, enclosing).Bind(nesting => Built(row, actions, enclosing, nesting.Bindings, nesting.Scope, None));
+
+    public static IO<ViewBody> Disclosed(View row, RowScope enclosing) =>
+        ViewOps.Bindings(row, enclosing).Bind(bindings => Built(row, [], enclosing, bindings, enclosing.Separated(visible: false), None));
 
     public static IO<ViewBody> Open(View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, IO<Unit>>> listening) =>
         from enclosing in RowScope.Open(document, mode)
-        from body in Built(row, [], enclosing, listening)
+        from nesting in Nesting(row, enclosing)
+        from body in Built(row, [], enclosing, nesting.Bindings, nesting.Scope, listening)
         from opened in body.Scope.Opened(body.Group)
         select body;
 
-    private static IO<ViewBody> Built(View row, Seq<Command<Invoke>> actions, RowScope enclosing, Option<Func<ViewBody, IO<Unit>>> listening) =>
-        from scope in IO.env
+    private static IO<(BindingGroup Bindings, RowScope Scope)> Nesting(View row, RowScope enclosing) =>
         from bindings in ViewOps.Bindings(row, enclosing)
         from history in IO.lift(() => ViewOps.History(row, bindings, enclosing.Document))
-        let nested = enclosing.Nested(ViewOps.Settings(row), history, ViewOps.Locks(row, enclosing.Document))
+        select (bindings, enclosing.Nested(ViewOps.Settings(row), history, ViewOps.Locks(row, enclosing.Document)));
+
+    private static IO<ViewBody> Built(View row, Seq<Command<Invoke>> actions, RowScope enclosing, BindingGroup bindings, RowScope nested, Option<Func<ViewBody, IO<Unit>>> listening) =>
+        from scope in IO.env
         from hidden in nested.Shown(visible: false)
         from content in ViewOps.Realize(row.Children, nested)
         from clicks in actions.TraverseM(action => CommandRows.Press(action, nested)).As()
@@ -94,6 +101,8 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
     internal Option<(ViewBody Body, Control Frame)> Realized =>
         realized.Value.Map(static held => held.Value) || Session.Run(Realizing.Map(Some), Option<(ViewBody Body, Control Frame)>.None);
 
+    internal Option<Control> Frame => Realized.Map(static held => held.Frame);
+
     internal IO<(ViewBody Body, Control Frame)> Realizing =>
         IO.lift(() => realized.Value).Bind(held => held.Match(
             Some: static owned => IO.pure(owned.Value),
@@ -119,14 +128,28 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
         }));
 
     // --- [EDGES]
-    internal Unit Shown(bool visible, bool realizing) =>
-        Session.Run((realizing ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
+    internal Unit Shown(bool visible) =>
+        Session.Run((visible ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
+
+    internal bool Activated(bool active) {
+        _ = Shown(active);
+        return true;
+    }
 
     internal Unit Reread => Session.Run(Current.Traverse(static body => body.Reread).As());
 
     internal bool Run(Func<ViewBody, IO<Unit>> step) => Session.Run(Current.Traverse(step).As().Map(static _ => true), failed: false);
 
     internal static string HelpUrl(View row) => Conversions.Unset(HelpTopic.Of(row.Help).Map(static string (topic) => topic));
+
+    internal static Result Scripted(View row, IO<RhinoDoc> document, CommitMode mode) =>
+        Session.Run(
+            Results.Of(
+                from doc in document
+                from scope in RowScope.Open(Some(doc), mode)
+                from scripted in Showing.RunScript(row, scope, doc)
+                select scripted),
+            Result.Failure);
 
     // --- [RELEASE]
     internal Unit Release() {
@@ -163,16 +186,16 @@ public abstract class DefinedPanel<TSelf> : Panel, IPanel, IHelp where TSelf : D
     protected DefinedPanel(RhinoDoc document) {
         hosted = new HostedView(() => HostedView.Seated(TSelf.Definition, Some(document), new CommitMode.Immediate(), None));
         _ = TSelf.Definition.MinimumSize.Iter(size => MinimumSize = size);
-        Content = hosted.Realized.Map(static held => held.Frame).ValueUnsafe();
+        Content = hosted.Frame.ValueUnsafe();
     }
 
     public string HelpUrl => HostedView.HelpUrl(TSelf.Definition);
 
-    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: true, realizing: true);
+    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: true);
 
-    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: false, realizing: false);
+    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: false);
 
-    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => _ = hosted.Shown(visible: false, realizing: false);
+    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => _ = hosted.Shown(visible: false);
 }
 
 internal sealed class DefinedOptionsPage : OptionsDialogPage {
@@ -193,18 +216,15 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
                 None: static () => IO.lift(static Image? () => Session.PlugIn.Icon(PageImageSize))),
             failed: null);
 
-    public override object? PageControl => hosted.Realized.Map(static object (held) => held.Frame).ValueUnsafe();
+    public override object? PageControl => hosted.Frame.ValueUnsafe();
 
     public override bool ShowApplyButton => row.Commit.Drafts;
 
     public override bool ShowDefaultsButton => row.Store.IsSome;
 
-    public override bool OnActivate(bool active) {
-        _ = hosted.Shown(active, realizing: active);
-        return true;
-    }
+    public override bool OnActivate(bool active) => hosted.Activated(active);
 
-    public override void OnHelp() => _ = Session.Run(HelpTopic.Of(row.Help).Traverse(static topic => topic.Show).As());
+    public override void OnHelp() => _ = Session.Run(HelpTopic.Shown(row.Help));
 
     public override bool OnApply() => hosted.Run(static body => body.Scope.Apply(body.Group));
 
@@ -212,8 +232,7 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
 
     public override void OnDefaults() => _ = hosted.Run(static body => body.Scope.Commit(body.Group, body.Group.Defaults).Map(unit));
 
-    public override Result RunScript(RhinoDoc doc, RunMode mode) =>
-        Session.Run(Results.Of(RowScope.Open(Some(doc), new CommitMode.Immediate()).Bind(scope => Showing.RunScript(row, scope, doc))), Result.Failure);
+    public override Result RunScript(RhinoDoc doc, RunMode mode) => HostedView.Scripted(row, IO.pure(doc), new CommitMode.Immediate());
 
     private static Size PageImageSize => new(128, 128);
 
@@ -258,7 +277,7 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
     public override Icon? PageIcon(Size sizeInPixels) =>
         Session.Run(row.Icon.TraverseM(icon => Icons.DrawingIcon(icon, sizeInPixels)).As(), Option<Icon>.None).ValueUnsafe();
 
-    public override object? PageControl => hosted.Realized.Map(static object (held) => held.Frame).ValueUnsafe();
+    public override object? PageControl => hosted.Frame.ValueUnsafe();
 
     private Option<PageSubject.Objects> Objects => row.Subject.Switch(objects: static held => Some(held), viewport: static _ => Option<PageSubject.Objects>.None);
 
@@ -276,21 +295,12 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
 
     public override void UpdatePage(ObjectPropertiesPageEventArgs e) => _ = hosted.Reread;
 
-    public override bool OnActivate(bool active) {
-        _ = hosted.Shown(active, realizing: active);
-        return true;
-    }
+    public override bool OnActivate(bool active) => hosted.Activated(active);
 
-    public override void OnHelp() => _ = Session.Run(HelpTopic.Of(row.Help).Traverse(static topic => topic.Show).As());
+    public override void OnHelp() => _ = Session.Run(HelpTopic.Shown(row.Help));
 
     public override Result RunScript(ObjectPropertiesPageEventArgs e) =>
-        Session.Run(
-            Results.Of(
-                from document in IO.lift(() => Conversions.Required(e.Document))
-                from scope in RowScope.Open(Some(document), new CommitMode.Targets(this))
-                from scripted in Showing.RunScript(row, scope, document)
-                select scripted),
-            Result.Failure);
+        HostedView.Scripted(row, IO.lift(() => Conversions.Required(e.Document)), new CommitMode.Targets(this));
 
     private Option<Func<ViewBody, IO<Unit>>> Refreshing =>
         row.Subject.Switch(
@@ -331,7 +341,7 @@ internal static class ViewOps {
                  applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
                  documentStores: static (state, held) =>
                      state.Document.ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unsupported)).Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw)))
-             .Map(scope => new HistoryBinding(view.Identity.GUID, LocalText.Of(view.Caption).Local, bound, scope, frame.Limits, ViewCatalog.Current.Definition.Clock)))
+             .Map(scope => new HistoryBinding(view.Identity.GUID, LocalText.Of(view.Caption).Local, bound, scope, frame.Limits, frame.Clock)))
         .Traverse(static held => held)
         .As();
 

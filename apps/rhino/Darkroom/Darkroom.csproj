@@ -13,8 +13,8 @@
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading" />
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
@@ -24,7 +24,6 @@
 
     <ItemGroup Label="Mathematics">
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup Label="Color">
@@ -44,14 +43,9 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
 
-    <ItemGroup Label="User Interface">
-        <PackageReference Include="SkiaSharp" />
-    </ItemGroup>
-
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">

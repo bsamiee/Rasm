@@ -9,7 +9,6 @@ namespace Rasm.Rhino.UI.Rows;
 public sealed record CommandFace(string Name, string Caption) {
     public Option<string> Help { get; init; }
     public Option<IconResource> Icon { get; init; }
-    public Option<string> Shortcut { get; init; }
 
     internal void Applied(Command command, Keys shortcut) =>
         (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) = (Name, Caption, Icon.Map(static _ => "").IfNone(Caption), Help.IfNone(Caption), shortcut);
@@ -28,30 +27,33 @@ public abstract partial record Invoke {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Command<TInvoke> where TInvoke : notnull {
-    private Command(CommandFace face, Option<RowRule> enabled) => (Face, Enabled) = (face, enabled);
+    private Command(CommandFace face) => Face = face;
 
     public CommandFace Face { get; private init; }
-    public Option<RowRule> Enabled { get; }
+    public Option<RowRule> Enabled { get; init; }
 
-    public Command<TInvoke> Faced(Func<CommandFace, Option<TInvoke>, CommandFace> into) =>
+    public Command<TInvoke> Faced(Func<CommandFace, CommandFace> into) =>
         Switch(
             into,
-            run: static (into, run) => (Command<TInvoke>)(run with { Face = into(run.Face, Some(run.Invoke)) }),
-            choice: static (into, choice) => choice with { Face = into(choice.Face, None), Members = choice.Members.Map(member => member with { Face = into(member.Face, Some(member.Invoke)) }) },
+            run: static (into, run) => (Command<TInvoke>)(run with {
+                Face = into(run.Face),
+                Alternate = run.Alternate.Map(alternate => (into(alternate.Face), alternate.Invoke)),
+            }),
+            choice: static (into, choice) => choice with { Face = into(choice.Face), Members = choice.Members.Map(member => member with { Face = into(member.Face) }) },
             menu: static (into, menu) => menu with {
-                Face = into(menu.Face, None),
+                Face = into(menu.Face),
                 Groups = menu.Groups.Map(group => group.Map(command => command.Faced(into))),
-                Primary = menu.Primary.Map(primary => primary with { Face = into(primary.Face, Some(primary.Invoke)) }),
+                Primary = menu.Primary.Map(primary => primary with { Face = into(primary.Face) }),
             });
 
-    public sealed record Run(CommandFace Face, Option<RowRule> Enabled, TInvoke Invoke) : Command<TInvoke>(Face, Enabled) {
+    public sealed record Run(CommandFace Face, TInvoke Invoke) : Command<TInvoke>(Face) {
         public Option<RowRule> Marked { get; init; }
-        public Option<TInvoke> Alternate { get; init; }
+        public Option<(CommandFace Face, TInvoke Invoke)> Alternate { get; init; }
     }
 
-    public sealed record Choice(CommandFace Face, Option<RowRule> Enabled, Seq<Run> Members) : Command<TInvoke>(Face, Enabled);
+    public sealed record Choice(CommandFace Face, Seq<Run> Members) : Command<TInvoke>(Face);
 
-    public sealed record Menu(CommandFace Face, Option<RowRule> Enabled, Seq<Seq<Command<TInvoke>>> Groups) : Command<TInvoke>(Face, Enabled) {
+    public sealed record Menu(CommandFace Face, Seq<Seq<Command<TInvoke>>> Groups) : Command<TInvoke>(Face) {
         public Option<Run> Primary { get; init; }
     }
 }
@@ -59,17 +61,17 @@ public abstract partial record Command<TInvoke> where TInvoke : notnull {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CommandRows {
     // --- [DECLARE]
-    public static Command<Invoke>.Run Toggle(CommandFace face, Option<RowRule> enabled, RowRule marked, Func<RowScope, bool, IO<Unit>> write) =>
-        new(face, enabled, new Invoke.Effect(scope => marked.Holds(scope).Bind(holds => write(scope, !holds)))) { Marked = marked };
+    public static Command<Invoke>.Run Toggle(CommandFace face, RowRule marked, Func<RowScope, bool, IO<Unit>> write) =>
+        new(face, new Invoke.Effect(scope => marked.Holds(scope).Bind(holds => write(scope, !holds)))) { Marked = marked };
 
     public static Command<Invoke>.Choice Choices<TValue>(
-        CommandFace face, Option<RowRule> enabled, Func<TValue, RowRule> chosen, Func<RowScope, TValue, IO<Unit>> write, Func<TValue, CommandFace> member)
+        CommandFace face, Func<TValue, RowRule> chosen, Func<RowScope, TValue, IO<Unit>> write, Func<TValue, CommandFace> member)
         where TValue : class, ISmartEnum<string, TValue, ValidationError> =>
-        new(face, enabled, toSeq(TValue.Items).Map(item =>
-            new Command<Invoke>.Run(member(item), None, new Invoke.Effect(scope => write(scope, item))) { Marked = chosen(item) }));
+        new(face, toSeq(TValue.Items).Map(item =>
+            new Command<Invoke>.Run(member(item), new Invoke.Effect(scope => write(scope, item))) { Marked = chosen(item) }));
 
     public static Command<Invoke>.Run Picked(CommandFace face, bool marked, Func<RowScope, IO<Unit>> run) =>
-        new(face, None, new Invoke.Effect(run)) { Marked = new RowRule(_ => IO.pure(marked)) };
+        new(face, new Invoke.Effect(run)) { Marked = new RowRule(_ => IO.pure(marked)) };
 
     // --- [PRESSES]
     public static IO<IO<Unit>> Press(Command<Invoke> command, RowScope scope) =>
@@ -269,12 +271,12 @@ public static class CommandRows {
     private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Presented(Command<Invoke> command, IconSlot slot, RowScope scope) =>
         command.Switch(
             (Slot: slot, Scope: scope),
-            run: static (at, run) => run.Invoke.SwitchPartially(
+            run: static (at, run) => Alternated(run, run.Invoke.SwitchPartially(
                 (Run: run, at.Slot, at.Scope),
                 @default: static (held, _) => held.Run.Marked.Match(
                     Some: _ => Toggled(held.Run, held.Slot, held.Scope),
                     None: () => Pushed(held.Run, held.Slot, held.Scope)),
-                popup: static (held, popup) => Popped(popup, held.Scope).Bind(menu => Dropped(held.Run.Face, held.Run.Enabled, menu, held.Slot, held.Scope))),
+                popup: static (held, popup) => Popped(popup, held.Scope).Bind(menu => Dropped(held.Run.Face, held.Run.Enabled, menu, held.Slot, held.Scope))), at.Scope),
             choice: static (at, choice) => Segmented(choice, at.Slot, at.Scope),
             menu: static (at, menu) => menu.Primary.Match(
                 Some: primary => Split(menu, primary, at.Slot, at.Scope),
@@ -282,6 +284,12 @@ public static class CommandRows {
                     from opened in Opened(menu.Groups, at.Scope)
                     from dropped in Dropped(menu.Face, menu.Enabled, opened.Menu, at.Slot, at.Scope)
                     select (dropped.Control, opened.Refreshes + dropped.Refreshes)));
+
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Alternated(Command<Invoke>.Run run, IO<(Control Control, Seq<IO<Unit>> Refreshes)> presented, RowScope scope) =>
+        from made in presented
+        from alternate in run.Alternate.Traverse(held => Opened([[new Command<Invoke>.Run(held.Face, held.Invoke) { Enabled = run.Enabled }]], scope)).As()
+        from menu in alternate.Traverse(opened => Products.Changed(() => made.Control.ContextMenu, value => made.Control.ContextMenu = value, opened.Menu)).As()
+        select (made.Control, made.Refreshes + alternate.ToSeq().Bind(static opened => opened.Refreshes));
 
     private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Pushed(Command<Invoke>.Run run, IconSlot slot, RowScope scope) =>
         from made in Commanded(run, run.Enabled, scope)
@@ -321,7 +329,7 @@ public static class CommandRows {
         from made in Commanded(primary, Gate(menu.Enabled, primary.Enabled), scope)
         from faced in Faced(menu.Face, menu.Enabled, scope)
         from strip in use(() => new SegmentedButton { SelectionMode = primary.Marked.Map(static _ => SegmentedSelectionMode.Multiple).IfNone(SegmentedSelectionMode.None) })
-        from pressed in Segment(primary.Face, made.Command, strip, slot, static command => new ButtonSegmentedItem(command))
+        from pressed in Segment(primary.Face with { Icon = None }, made.Command, strip, slot, static command => new ButtonSegmentedItem(command))
         from dropdown in Segment(menu.Face with { Icon = None }, faced.Command, strip, slot, command => new MenuSegmentedItem(command) { CanSelect = false, Menu = opened.Menu })
         let chosen = menu.Groups.Flatten().Bind(static held => held.Switch(run: static _ => Seq<Command<Invoke>.Run>(), choice: static choice => choice.Members, menu: static _ => Seq<Command<Invoke>.Run>()))
         let shown =
@@ -351,9 +359,8 @@ public static class CommandRows {
         groups.Map(static cluster => cluster.Map(Localized));
 
     private static Command<Invoke> Localized(Command<Invoke> command) =>
-        command.Faced(static (face, invoke) => face with {
+        command.Faced(static face => face with {
             Caption = LocalText.Of(face.Caption).Local,
             Help = face.Help.Map(static help => LocalText.Of(help).Local),
-            Shortcut = invoke.Bind(static held => held.Shortcut).Map(static keys => keys.ToShortcutString()) | face.Shortcut,
         });
 }

@@ -1,7 +1,6 @@
 """Surface rows: panels at every placement kind, menus of every body, a header, appends, gizmo groups with a custom shape, toolbar tools, an asset shelf, and the preferences page, with probes reading what the host registered."""
 
 from collections.abc import Iterable, Sequence
-from enum import auto, Enum
 from typing import Final
 
 import _bpy_types
@@ -22,27 +21,18 @@ from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Declaration, Gathering, Registration
 from blender.bpy.ui.drawing.handlers import Signal
-from blender.bpy.ui.layout.rows import Label, Member, OperatorButton, Property
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Label, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import ICONS
 from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos, Shape, TargetHandler
 from blender.bpy.ui.surfaces.menus import Append, ContextMenu, Dropdown, Header, Menu, Pie, Shelf, Submenus
-from blender.bpy.ui.surfaces.panels import Beside, Child, Docked, EditorRegion, FixedPlacement, Panel, PanelCopy, POPOVER, PreferencesPage, read, Sidebar
+from blender.bpy.ui.surfaces.panels import Beside, Child, Docked, EditorRegion, FixedPlacement, Panel, PanelCopy, POPOVER, Preference, PreferencesPage, Sidebar
 from blender.bpy.ui.surfaces.tools import Tool, Tools
 from blender.records.faults import Outcome
 
 from .commands import binding, COUNTED
 from .extension import PACKAGE
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Kind(Enum):
-    """Submenu groups in their declaration order."""
-
-    FIRST = auto()
-    SECOND = auto()
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -64,7 +54,7 @@ MENUS: Final = ("FIXTURE_MT_main", "FIXTURE_MT_searched", "FIXTURE_MT_grouped", 
 
 
 class Settings(bpy.types.PropertyGroup):
-    """Preference form fields."""
+    """Preference group fields."""
 
     level: bpy.props.IntProperty(name="Level", default=3)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     hidden: bpy.props.BoolProperty(name="Hidden", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -226,8 +216,7 @@ def preferred(identity: Identity) -> dict[str, object]:
     names = preferences.map(lambda held: tuple(sorted(prop.identifier for prop in held.bl_rna.properties if prop.identifier not in {"rna_type", "bl_idname"})))
     return {
         "properties": names,
-        "read": read(identity, Settings).map(lambda held: held.level),
-        "value": PAGE.value(lambda held: held.level)(identity),
+        "read": SETTINGS.read(identity).map(lambda held: held.level),
         "show": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_show_preferences") is not None,
         "purge": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_purge_preferences") is not None,
     }
@@ -255,7 +244,7 @@ def released_surfaces() -> dict[str, object]:
 
 def refusals() -> dict[str, str]:
     """Registers menus and headers the library refuses: one holding a section, a pie slot over a value that is no boolean or enum."""
-    section = Section(key="refused", title="Refused")
+    section = Section(key="refused")
     return {
         "menu section": _refused((Menu(key="sectioned", description="Holds a section", body=Dropdown(entries=(section,))),)),
         "header section": _refused((Header(key="sectioned", space="VIEW_3D", rows=(section,)),)),
@@ -292,24 +281,25 @@ TOOLS: Final = Tools(
         Tool(key="probe_second", operator=COUNTED, icon="ops.generic.select_circle", widget=Some(GIZMOS)),
     ),
 )
-PAGE: Final = PreferencesPage(form=Settings, sections=(Section(key="page", title="Page", rows=(Label(text="Fixture"),)),))
+SETTINGS: Final = Preference(key="settings", form=Settings)
+PAGE: Final = PreferencesPage(preferences=(SETTINGS,), sections=(Section(key="page", rows=(Label(text="Fixture"),)),))
 LABELLED: Final = (Label(text="Fixture"),)
 
 rows: Final = (
     Panel(
-        section=Section(key="main", title="Main", rows=LABELLED),
+        section=Section(key="main", rows=LABELLED),
         at=Sidebar(space="VIEW_3D", category="Fixture"),
         copies=(PanelCopy(at=Beside(SCENE_PT_unit)),),
-        children=(Section(key="detail", title="Detail", opened=True),),
+        children=(Section(key="detail", opened=True),),
         units=Some(12),
     ),
-    Panel(section=Section(key="nested", title="Nested", rows=LABELLED), at=Child(parent=RENDER_PT_format)),
-    Panel(section=Section(key="regioned", title="Regioned", rows=LABELLED), at=EditorRegion(space="IMAGE_EDITOR", region="TOOLS"), options=frozenset({"HIDE_HEADER"})),
-    Panel(section=Section(key="popped", title="Popped", rows=LABELLED), at=POPOVER, units=Some(10)),
-    Panel(section=Section(key="docked", title="Docked", rows=LABELLED), at=Docked(read=HELD.docked, changed=DOCKED)),
+    Panel(section=Section(key="nested", rows=LABELLED), at=Child(parent=RENDER_PT_format)),
+    Panel(section=Section(key="regioned", rows=LABELLED), at=EditorRegion(space="IMAGE_EDITOR", region="TOOLS"), options=frozenset({"HIDE_HEADER"})),
+    Panel(section=Section(key="popped", rows=LABELLED), at=POPOVER, units=Some(10)),
+    Panel(section=Section(key="docked", rows=LABELLED), at=Docked(read=HELD.docked, changed=DOCKED)),
     Menu(key="main", description="Fixture commands", body=Dropdown(entries=(OperatorButton(target=COUNTED), *LABELLED))),
     Menu(key="searched", description="Searchable commands", body=Dropdown(entries=LABELLED, order=Some(lambda _context: (0, 4)), search=True)),
-    Menu(key="grouped", description="Grouped commands", body=Submenus(entries=((Kind.SECOND, Label(text="Second")), (Kind.FIRST, Label(text="First"))))),
+    Menu(key="grouped", description="Grouped commands", body=Submenus(entries=(("first", Label(text="First")), ("second", Label(text="Second"))))),
     Menu(key="pie", description="Radial commands", body=Pie(west=Some(OperatorButton(target=COUNTED)), east=Some(Property(target=Member(root=bpy.types.Scene, path=("use_gravity",)))))),
     Header(key="main", space="VIEW_3D", rows=LABELLED),
     Append(target=VIEW3D_MT_add, rows=(OperatorButton(target=COUNTED),)),

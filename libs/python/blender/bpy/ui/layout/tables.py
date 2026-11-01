@@ -14,7 +14,8 @@ from blender.bpy.data.rna.paths import definition, Native, RnaPath, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import alerted
-from blender.bpy.ui.layout.rows import acquired, Line, marked, Member, Property, realized, ResolvedMember, RowContent, RowDraw, split
+from blender.bpy.ui.layout.members import marked, Member, ResolvedMember
+from blender.bpy.ui.layout.rows import acquired, Line, Property, realized, RowContent, RowDraw, split
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------

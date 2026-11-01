@@ -1,16 +1,19 @@
-"""Scene renders: the render call every render path takes, Blender's native render, and slot renders under temporary scene overrides."""
+"""Scene renders: the render call every render path takes, Blender's native render recording the colorspace each composited image leaves in, and slot renders under temporary scene overrides."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
 from enum import auto, Enum
 from functools import cached_property, partial
-from typing import ClassVar, TYPE_CHECKING, TypeGuard
+from itertools import accumulate
+from typing import ClassVar, Final, TYPE_CHECKING, TypeGuard
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
+import PyOpenColorIO
 
 from blender.bpy.commands.calls import Called, called, Opened
 from blender.bpy.commands.invocations import Popup
@@ -26,17 +29,18 @@ from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.nodes.trees import nested
-from blender.bpy.render.color.spaces import viewed
+from blender.bpy.render.color.spaces import leaving, traced, viewed
 from blender.bpy.render.outputs.framing import Framed, FrameSize
 from blender.bpy.render.outputs.paths import OutputPath, today
 from blender.bpy.render.outputs.results import COMPOSITE, Production, PRODUCTIONS
 from blender.bpy.render.view_layers.routing import PassRouting, PassSet
-from blender.bpy.settings.attachments import Attached, Attachment, Recovery
+from blender.bpy.settings.attachments import Attached, Attachment, Recovery, RetentionSettings
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.rows import Opens, OperatorButton
+from blender.bpy.ui.layout.rows import Layout, Opens, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Captured, menu_key, Store
 from blender.bpy.ui.surfaces.menus import PresetMenu
+from blender.bpy.ui.surfaces.panels import Preference
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import content_hash
@@ -62,6 +66,10 @@ class Isolation(Enum):
     HOLDOUT = auto()
     HIDDEN = auto()
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+RENDER_HISTORY: Final = Preference(key="render_history", form=RetentionSettings)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -108,7 +116,7 @@ class Overriding(msgspec.Struct, frozen=True):
         """Reverts scene overrides once its render finishes, then reconciles pass routing to the restored settings on the output path of that day."""
 
         def rerouted() -> Outcome[None]:
-            return self.routing.pathed.path(scene, day).bind(lambda path: self.routing.reconciled(scene, bpy.context, path)).map(lambda _: None)
+            return self.routing.reconciled(scene, bpy.context, self.routing.pathed.path(scene, day)).map(lambda _: None)
 
         return self.framed.recovery.reverted(scene).bind(lambda _: self.recovery.reverted(scene)).bind(lambda held: rerouted() if held else Ok(None)).map(lambda _: Nothing)
 
@@ -119,19 +127,24 @@ class Overriding(msgspec.Struct, frozen=True):
 
 
 def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
-    """Runs `render.render`, recording Render Result and Viewer images as scene linear under the scene view, the form Blender displays them in."""
-    composited = scene.render.use_compositing and any(entry.enable_for_render for entry in scene.compositor_effects)
+    """Runs `render.render`, recording the Render Result in the space the last render-enabled entry leaves and the Viewer in the space reaching it in the active entry, a scene-linear image under the scene view."""
+    config = PyOpenColorIO.GetCurrentConfig()
+    linear = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
+    enabled = tuple(entry for entry in scene.compositor_effects if entry.enable_for_render) if scene.render.use_compositing else ()
+    spaces = tuple(accumulate(enabled, lambda entering, entry: leaving(config, entry, entering), initial=Some(linear)))
+    viewer = Block.of_seq(zip(enabled, spaces, strict=False)).filter(lambda pair: pair[0].is_active).try_head().bind(lambda pair: _shown(config, *pair))
     active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    layer = COMPOSITE if composited else call.layer.default_value(active.name)
 
-    origin = Production(scene=Handle.of(scene), space=bpy.data.colorspace.working_space, view=Some(viewed(scene)))
-    productions = {"RENDER_RESULT": msgspec.structs.replace(origin, layer=Some(layer)), "COMPOSITING": origin}
+    def produced(space: str, layer: Option[str] = Nothing) -> Production:
+        return Production(scene=Handle.of(scene), space=space, layer=layer, view=Some(viewed(scene)) if space == linear else Nothing)
+
+    productions = {"RENDER_RESULT": spaces[-1].map(lambda space: produced(space, Some(COMPOSITE if enabled else call.layer.default_value(active.name)))), "COMPOSITING": viewer.map(produced)}
     for image in (image for image in bpy.data.images if image.type in productions):
         Production.recorded(identity, image, Nothing)
 
     def published(status: frozenset["rna_enums.OperatorReturnItems"]) -> frozenset["rna_enums.OperatorReturnItems"]:
         for image in (image for image in bpy.data.images if image.type in productions):
-            Production.recorded(identity, image, Some(productions[image.type]))
+            Production.recorded(identity, image, productions[image.type])
         return status
 
     return called(bpy.ops.render.render, msgspec.structs.asdict(call) | {"scene": scene.name}).map(published)
@@ -148,7 +161,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     values: ClassVar[Preset[Snapshot]] = Preset(key="render_override", form=Snapshot)
     bakes: ClassVar[Preset[Snapshot]] = Preset(key="bake", form=Snapshot)
     bake_presets: ClassVar[Opens] = Opens(target=Opened(menu_key(bakes), Called.MENU))
-    prerequisites: ClassVar[tuple[Declaration, ...]] = (override, PRODUCTIONS, FrameSize.attachment, *PassSet.prerequisites)
+    prerequisites: ClassVar[tuple[Declaration, ...]] = (override, RENDER_HISTORY, PRODUCTIONS, FrameSize.attachment, *PassSet.prerequisites)
 
     # --- [COMMANDS]
 
@@ -202,7 +215,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 return (
                     presets
                     .bind(lambda _: bound.recovery.recorded(scene, writes, lambda ends: ends))
-                    .bind(lambda _: bound.routing.reconciled(scene, call.context, path))
+                    .bind(lambda _: bound.routing.reconciled(scene, call.context, Ok(path)))
                     .bind(lambda _: bound.framed.grown(scene))
                     .map(lambda _: None)
                 )
@@ -243,7 +256,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             with ExitStack() as rollback:
                 outcome = (
-                    paired(Snapshot.capture(scene), bound.routing.pathed.path(scene, day).map(lambda path: (bound.routing.pathed.attached.struct(scene).version, path)))
+                    paired(Snapshot.capture(scene, owned=identity.owns), bound.routing.pathed.path(scene, day).map(lambda path: (bound.routing.pathed.attached.struct(scene).version, path)))
                     .bind(lambda values: prepared(values).bind(lambda _: slotted(rollback, values[1][0])))
                     .bind(rendered)
                 )
@@ -280,11 +293,19 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [SECTIONS]
 
-    def section(self, retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing) -> Section[RenderOverride]:
-        """Returns section of render buttons and override settings."""
+    @cached_property
+    def section(self) -> Section[RenderOverride]:
+        """Render buttons and override settings, their stored values kept under the render history retention, the slots registering what the buttons bind."""
         return Section(
-            key="render", title="Render", rows=(OperatorButton(target=self.rendering), OperatorButton(target=self.viewporting)), store=Some(Store(attachment=RenderSlots.override, retention=retention))
+            key="render",
+            rows=(Layout(rows=(OperatorButton(target=self.rendering), OperatorButton(target=self.viewporting)), prerequisites=(self,)),),
+            store=Some(Store(attachment=RenderSlots.override, retention=Some(self.retained))),
         )
+
+    @staticmethod
+    def retained(identity: Identity) -> Outcome[Retention]:
+        """Reads the render history retention."""
+        return RENDER_HISTORY.read(identity).map(lambda held: held.retention)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -328,6 +349,23 @@ def engined[T](sources: tuple[bpy.types.Scene, ...], engine: str, body: Callable
     )
 
 
+# --- [SPACES]
+
+
+def _shown(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, entering: Option[str]) -> Option[str]:
+    """Returns the colorspace an entry's first unmuted Viewer node shows from the space entering the entry."""
+    return Option.of_optional(entry.node_group).bind(
+        lambda tree: (
+            Block
+            .of_seq(tree.nodes)
+            .filter(lambda node: isinstance(node, bpy.types.CompositorNodeViewer) and not node.mute)
+            .try_head()
+            .bind(lambda viewer: Block.of_seq(viewer.inputs).try_head())
+            .bind(lambda inlet: traced(config, tree, inlet, lambda _: entering))
+        )
+    )
+
+
 # --- [OVERRIDES]
 
 
@@ -348,4 +386,4 @@ def isolation(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, override: Rend
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Into", "Isolation", "Launch", "Overriding", "Render", "RenderCall", "RenderOverride", "RenderSlots", "engined", "isolation", "native", "reads_render", "sourced"]
+__all__ = ["RENDER_HISTORY", "Into", "Isolation", "Launch", "Overriding", "Render", "RenderCall", "RenderOverride", "RenderSlots", "engined", "isolation", "native", "reads_render", "sourced"]

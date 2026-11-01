@@ -241,8 +241,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public IMethodSymbol? Dispose { get; } =
             compilation.GetSpecialType(SpecialType.System_IDisposable).GetMembers(WellKnownMemberNames.DisposeMethodName).OfType<IMethodSymbol>().FirstOrDefault();
 
-        public INamedTypeSymbol? Action { get; } = compilation.GetTypeByMetadataName("System.Action`1");
-
         public INamedTypeSymbol? Thunk { get; } = compilation.GetTypeByMetadataName("System.Func`1");
 
         public INamedTypeSymbol? Flags { get; } = compilation.GetTypeByMetadataName("System.FlagsAttribute");
@@ -268,10 +266,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? CallersOnly { get; } = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
 
         public INamedTypeSymbol? Type { get; } = compilation.GetTypeByMetadataName("System.Type");
-
-        public INamedTypeSymbol? UnsafeAccessor { get; } = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.UnsafeAccessorAttribute");
-
-        public INamedTypeSymbol? UnsafeAccessorType { get; } = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.UnsafeAccessorTypeAttribute");
     }
 
     private protected sealed class LanguageExtSymbols(Compilation compilation) {
@@ -494,25 +488,19 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? Conversions { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Conversions");
 
-        public INamedTypeSymbol? Copies { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies");
-
-        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Of", "Many", "Maybe", "Made", "Held");
+        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Of", "Many", "Maybe", "Transfer");
 
         public ImmutableArray<IMethodSymbol> Required => Members(Conversions, "Required");
 
-        public ImmutableArray<IMethodSymbol> Owned => Members(Copies, "Owned");
-
         public ImmutableArray<IMethodSymbol> Release => Members(Products, "Released");
 
-        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Owned`1")?.InstanceConstructors ?? [];
+        public ImmutableArray<IMethodSymbol> Transfer => Members(Products, "Transfer");
 
         public ImmutableArray<IMethodSymbol> Retain => Members(Products, "Replace");
 
         public INamedTypeSymbol? Session { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Session");
 
-        public ImmutableArray<IMethodSymbol> Boundaries => Members(Session, "Run", "Answer", "Start", "RunSafe");
-
-        public ImmutableArray<IMethodSymbol> Producers => Members(Products, "Captured");
+        public ImmutableArray<IMethodSymbol> Boundaries => Members(Session, "Run", "Start", "RunSafe");
 
         public INamedTypeSymbol? Conduits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
 
@@ -521,22 +509,19 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? Commits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Document.Commits");
 
         public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
-
-        public ImmutableArray<IMethodSymbol> Subscriptions { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Subscriptions"), "On", "Inline");
     }
 
     // --- [LIFETIMES]
     private protected sealed class Lifetimes {
-        private Lifetimes(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt, IMethodSymbol dispose, INamedTypeSymbol action) {
+        private Lifetimes(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt, IMethodSymbol dispose) {
             bool Acquiring(IMethodSymbol method) =>
                 method.TypeParameters.Length > 0 && method.Parameters.Length > 0
                 && method.Parameters[0].Type is INamedTypeSymbol { TypeArguments.Length: 1 } holder
                 && (Same(holder, languageExt.IO1) || Same(holder, system.Thunk)) && SymbolEqualityComparer.Default.Equals(holder.TypeArguments[0], method.TypeParameters[0]);
-            (Dispose, Action) = (dispose, action);
-            Acquires = [.. rasm.Acquire, .. rasm.Owned.Concat(languageExt.Uses).Where(Acquiring)];
+            Dispose = dispose;
+            Acquires = [.. rasm.Acquire, .. languageExt.Uses.Where(Acquiring)];
             Releases = [.. rasm.Release, .. languageExt.Releases];
-            Failures = [];
-            Holders = rasm.Disposal;
+            Transfers = rasm.Transfer;
             Retains = rasm.Retain;
             Lifts = languageExt.Lifts;
             Conversions = [.. languageExt.Optional, .. languageExt.Conversions];
@@ -544,15 +529,11 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public IMethodSymbol Dispose { get; }
 
-        public INamedTypeSymbol Action { get; }
-
         public ImmutableArray<IMethodSymbol> Acquires { get; }
 
         public ImmutableArray<IMethodSymbol> Releases { get; }
 
-        public ImmutableArray<IMethodSymbol> Failures { get; }
-
-        public ImmutableArray<IMethodSymbol> Holders { get; }
+        public ImmutableArray<IMethodSymbol> Transfers { get; }
 
         public ImmutableArray<IMethodSymbol> Retains { get; }
 
@@ -561,7 +542,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public ImmutableArray<IMethodSymbol> Conversions { get; }
 
         public static Lifetimes? Of(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) =>
-            system is { Dispose: { } dispose, Action: { } action } ? new Lifetimes(system, rasm, languageExt, dispose, action) : null;
+            system.Dispose is { } dispose ? new Lifetimes(system, rasm, languageExt, dispose) : null;
 
         public bool Plain(IMethodSymbol method) =>
             method.TypeParameters.Length > 0 && method.TypeParameters[0].ConstraintTypes.Any(constraint => Same(constraint, Dispose.ContainingType));
@@ -586,7 +567,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
                     IInvocationOperation call => Passed(call, held, reading, seen),
                     IMethodReferenceOperation reference when Disposes(reference.Method) => [reference.Method.Name],
                     IArgumentOperation { Parent: IInvocationOperation call, Parameter: { } parameter } => Argued(call, parameter, held, reading, seen),
-                    IArgumentOperation { Parent: IObjectCreationOperation { Constructor: { } constructor }, Parameter.Ordinal: 0 } when Among(constructor, Holders) => [Label(constructor)],
                     IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation function } } => Released(function, held, reading, seen),
                     IDelegateCreationOperation creation => Released(creation, held, reading, seen),
                     IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } =>

@@ -20,7 +20,7 @@ import OpenImageIO
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.render.outputs.formats import depth, FILE_FORMATS, OutputFormat
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.imaging.color.processors import DisplayView
@@ -33,6 +33,7 @@ from blender.rendering.outputs.naming import Output
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ResultKind = Literal["RENDER_RESULT", "COMPOSITING"]
+type Consume = Callable[[bpy.types.Scene, str], Outcome[Option[str]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -65,22 +66,23 @@ class Production(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
-    """Completed-render consumer receiving the saved multilayer file on the main thread."""
+    """Completed-render consumer receiving the saved multilayer file on the main thread, every consumer of one extension reading the one file each finished render saves."""
 
-    consume: Callable[[bpy.types.Scene, str], Outcome[Option[str]]]
+    consume: Consume
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Consumer list holding the one render completion handler."""
+        return (_CONSUMERS,)
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Yields the intermediate cell and the render completion handler deferring consumption."""
-
-        def consumed(handle: Handle[bpy.types.Scene]) -> Outcome[Option[str]]:
-            return handle.resolve().bind(lambda scene: saved(scene).bind(lambda path: self.consume(scene, path)))
-
-        with identity.reports.deferred(consumed) as deferred:
-            yield Ok((
-                INTERMEDIATES,
-                Handler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene)))),
-            ))
+        """Holds the consumer on the extension's consumer list until scope exit."""
+        consumers = identity.held[_CONSUMERS]
+        with ExitStack() as stack:
+            consumers.append(self.consume)
+            stack.callback(consumers.remove, self.consume)
+            yield Ok(())
 
 
 class Written(msgspec.Struct, frozen=True, kw_only=True):
@@ -210,7 +212,7 @@ def built(kind: ResultKind) -> Outcome[bpy.types.Image]:
 
 
 def saved(scene: bpy.types.Scene) -> Outcome[str]:
-    """Exports displayed render result passes to temporary multilayer EXR, the scene's format restored after on every path."""
+    """Exports the displayed render result to a temporary EXR, multilayer over view layers and one unnamed RGBA part for a sequencer frame, the scene's format restored after on every path."""
     path = Path(bpy.app.tempdir, f"{scene.session_uid}.exr")
 
     def exported(image: bpy.types.Image) -> Outcome[str]:
@@ -220,6 +222,26 @@ def saved(scene: bpy.types.Scene) -> Outcome[str]:
             )
 
     return built("RENDER_RESULT").bind(exported)
+
+
+@contextmanager
+def _consuming(identity: Identity) -> Generator[list[Consume]]:
+    """Yields the extension's consumer list while one render completion handler saves each finished render outside intermediate scopes once and passes the file to every held consumer."""
+    consumers: list[Consume] = []
+
+    def consumed(handle: Handle[bpy.types.Scene]) -> Outcome[Option[str]]:
+        return handle.resolve().bind(
+            lambda scene: (
+                saved(scene)
+                .bind(lambda path: accumulated(consume(scene, path) for consume in tuple(consumers)))
+                .map(lambda steps: Some(", ".join(step for named in steps for step in named.to_list())).filter(bool))
+            )
+        )
+
+    with identity.reports.deferred(consumed) as deferred:
+        completed = Handler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene))))
+        with completed.held(identity):
+            yield consumers
 
 
 def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
@@ -269,8 +291,26 @@ def _rewritten(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> O
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+_CONSUMERS: Final = Resource[list[Consume]](made=_consuming, prerequisites=(INTERMEDIATES,))
 rewrite: Final = Finish(run=_rewritten, formats=frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMBINED", "COMPOSITE", "INTERMEDIATES", "PRODUCTIONS", "Finish", "Finishing", "Production", "ResultKind", "ResultRead", "Written", "built", "combined", "intermediate", "rewrite", "saved"]
+__all__ = [
+    "COMBINED",
+    "COMPOSITE",
+    "INTERMEDIATES",
+    "PRODUCTIONS",
+    "Consume",
+    "Finish",
+    "Finishing",
+    "Production",
+    "ResultKind",
+    "ResultRead",
+    "Written",
+    "built",
+    "combined",
+    "intermediate",
+    "rewrite",
+    "saved",
+]

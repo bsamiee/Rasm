@@ -50,19 +50,24 @@ public sealed record ColorPair(ColorSource Display, ColorSource Print);
 internal sealed record RampShown(ColorRamp Ramp) {
     public Option<int> Picked { get; init; }
 
-    public Option<ColorStop> Stop => Picked.Bind(at => Ramp.Stops.At(at));
+    public Option<(int At, ColorStop Held)> Chosen(ColorRamp ramp) =>
+        from at in Picked
+        from held in ramp.Stops.At(at)
+        select (at, held);
 
     // --- [GEOMETRY]
     public static double Position(PointF at, float width) => double.Clamp(at.X / float.Max(width, 1f), 0d, 1d);
 
-    public Option<int> Nearest(PointF at, float width, float marker) =>
-        Ramp.Stops.Map((stop, index) => (Index: index, Distance: double.Abs(stop.Position - Position(at, width)) * width)).Filter(held => held.Distance <= marker * 2f) switch {
+    public Option<int> Nearest(PointF at, SizeF size) =>
+        Ramp.Stops.Map((stop, index) => (Index: index, Distance: double.Abs(stop.Position - Position(at, size.Width)) * size.Width)).Filter(held => held.Distance <= Marker(size.Height) * 2f) switch {
             var near => near.Head.Map(_ => near.MinBy(static held => held.Distance).Index),
         };
 
+    private static float Marker(float height) => height / 4f;
+
     // --- [PAINT]
     public void Paint(Graphics graphics, RectangleF bounds, ThemeZone zone) {
-        float marker = bounds.Height / 4f;
+        float marker = Marker(bounds.Height);
         RectangleF band = new(0f, 0f, bounds.Width, float.Max(bounds.Height - (marker * 2f), 1f));
         foreach ((ColorStop from, ColorStop to) in Ramp.Stops.Zip(Ramp.Stops.Skip(1), static (from, to) => (from, to))) {
             RectangleF segment = new((float)from.Position * band.Width, 0f, (float)(to.Position - from.Position) * band.Width, band.Height);
@@ -104,21 +109,21 @@ public sealed record SwatchesRow(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, I
             from colored in row.Colors.Map(static (color, index) => (Color: color, Index: index))
                 .TraverseM(entry => kept.Find(entry.Index).Traverse(seat => seat.Value.Show(Some(entry.Color))).As()).As()
             select unit
-        let add = new Command<Invoke>.Run(new CommandFace("color-add", "Add Color"), Some(new RowRule(_ => latest.Map(static row => !row.Colors.IsEmpty))), new Invoke.Effect(_ =>
+        let add = new Command<Invoke>.Run(new CommandFace("color-add", "Add Color"), new Invoke.Effect(_ =>
             from row in latest
             from held in selected
             from next in IO.lift(() => Conversions.Required((held.Bind(index => row.Colors.At(index)) | row.Colors.Last).Map(row.Colors.Add)))
             from edited in row.Edited(EditPhase.Commit.Of(next))
             from chosen in picked.SwapIO(_ => Some(next.Count - 1))
-            select unit))
-        let remove = new Command<Invoke>.Run(new CommandFace("color-remove", "Remove Color"), Some(new RowRule(_ => selected.Map(static at => at.IsSome))), new Invoke.Effect(_ =>
+            select unit)) { Enabled = new RowRule(_ => latest.Map(static row => !row.Colors.IsEmpty)) }
+        let remove = new Command<Invoke>.Run(new CommandFace("color-remove", "Remove Color"), new Invoke.Effect(_ =>
             from row in latest
             from held in selected
             from removed in held.Traverse(index =>
                 from edited in row.Edited(EditPhase.Commit.Of(row.Colors.Take(index) + row.Colors.Skip(index + 1)))
                 from chosen in picked.SwapIO(_ => Some(int.Min(index, row.Colors.Count - 2)).Filter(static kept => kept >= 0))
                 select unit).As()
-            select unit))
+            select unit)) { Enabled = new RowRule(_ => selected.Map(static at => at.IsSome)) }
         from pair in CommandRows.AddRemove(add, remove, scope)
         from body in Containers.Frame(() => new StackLayout(new StackLayoutItem(pair.Control, HorizontalAlignment.Left), new StackLayoutItem(strip, HorizontalAlignment.Stretch)) {
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
@@ -155,14 +160,14 @@ public sealed record GradientRow(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>>
         let shown =
             from row in latest
             from drawn in strip.Show(strip.State with { Ramp = row.Ramp })
-            let chosen = strip.State.Stop
+            let chosen = strip.State.Chosen(row.Ramp)
             from enabled in IO.lift(() => { (swatch.Enabled, position.Control.Enabled) = (chosen.IsSome, chosen.IsSome); })
-            from painted in colored(chosen.Map(static held => new Color4f(held.Color)))
-            from placed in chosen.Traverse(held => position.Show(held.Position)).As()
+            from painted in colored(chosen.Map(static held => new Color4f(held.Held.Color)))
+            from placed in chosen.Traverse(held => position.Show(held.Held.Position)).As()
             select unit
         from pressed in Subscriptions.On<MouseEventArgs>(h => strip.MouseDown += h, h => strip.MouseDown -= h).Attach(args =>
             from row in latest
-            let picked = strip.State.Nearest(args.Location, strip.Width, strip.Height / 4f)
+            let picked = strip.State.Nearest(args.Location, strip.Size)
             from chosen in strip.Show(strip.State with { Picked = picked })
             from added in when(picked.IsNone && args.Buttons is MouseButtons.Primary, row.Edited(EditPhase.Commit.Of(row.Ramp.Added(RampShown.Position(args.Location, strip.Width))))).As()
             from redrawn in shown
@@ -180,7 +185,7 @@ public sealed record GradientRow(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>>
                 from redrawn in shown
                 select unit).As())
         from mode in CommandRows.Button(
-            new Command<Invoke>.Choice(new CommandFace("gradient-mode", "Interpolation"), None, [
+            new Command<Invoke>.Choice(new CommandFace("gradient-mode", "Interpolation"), [
                 Moded(latest, "gradient-smooth", "Smooth", stepped: false),
                 Moded(latest, "gradient-stepped", "Stepped", stepped: true),
             ]),
@@ -188,28 +193,28 @@ public sealed record GradientRow(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>>
         from line in RowTable.Lined([new TableCell(swatch), new TableCell(position.Control, scaleWidth: true)])
         select new RowCells(mode.Control, shown.Bind(_ => mode.Refresh)) {
             Lines = [new RowLine(None, strip), new RowLine(Some("Stop"), line)],
-            Menu = [[Values.Named(IO.lift(() => strip.State.Stop.Map(static held => new Color4f(held.Color))), stop)]],
+            Menu = [[Values.Named(latest.Map(row => strip.State.Chosen(row.Ramp).Map(static held => new Color4f(held.Held.Color))), stop)]],
         };
 
     private static Command<Invoke>.Run Moded(IO<GradientRow> latest, string name, string caption, bool stepped) =>
-        new(new CommandFace(name, caption), None, new Invoke.Effect(_ => latest.Bind(row => row.Edited(EditPhase.Commit.Of(row.Ramp with { Stepped = stepped }))))) {
+        new(new CommandFace(name, caption), new Invoke.Effect(_ => latest.Bind(row => row.Edited(EditPhase.Commit.Of(row.Ramp with { Stepped = stepped }))))) {
             Marked = new RowRule(_ => latest.Map(row => row.Ramp.Stepped == stepped)),
         };
 
     private static Func<Edit<Color4f>, IO<Unit>> Stopped(IO<GradientRow> latest, Surface<RampShown> strip) =>
         edit => from row in latest
-                from edited in (from at in strip.State.Picked from held in row.Ramp.Stops.At(at) select (At: at, Held: held))
-                    .Traverse(stop => row.Edited(edit.Mapped(color => row.Ramp.WithStop(stop.At, new ColorStop(color.AsSystemColor(), stop.Held.Position))))).As()
+                from edited in strip.State.Chosen(row.Ramp).Traverse(stop => row.Edited(edit.Mapped(color => row.Ramp.WithStop(stop.At, new ColorStop(color.AsSystemColor(), stop.Held.Position))))).As()
                 select unit;
 
     private static IO<Unit> Positioned(IO<GradientRow> latest, Surface<RampShown> strip, Edit<double> edit) =>
         from row in latest
-        from moved in (from at in strip.State.Picked from held in row.Ramp.Stops.At(at) select (At: at, Held: held)).Traverse(stop =>
-            from edited in row.Edited(edit.Mapped(value => row.Ramp.WithStop(stop.At, new ColorStop(stop.Held.Color, value))))
-            from reselected in edit.Held.Traverse(value => strip.Show(strip.State with {
-                Picked = row.Ramp.WithStop(stop.At, new ColorStop(stop.Held.Color, value)).Stops
-                    .Map(static (held, index) => (held.Position, Index: index)).Find(held => held.Position == value).Map(static held => held.Index) | Some(stop.At),
-            })).As()
-            select unit).As()
+        from moved in strip.State.Chosen(row.Ramp).Traverse(stop => fun((double value) => row.Ramp.WithStop(stop.At, new ColorStop(stop.Held.Color, value))) switch {
+            var placed =>
+                from edited in row.Edited(edit.Mapped(placed))
+                from reselected in edit.Held.Traverse(value => strip.Show(strip.State with {
+                    Picked = placed(value).Stops.Map(static (held, index) => (held.Position, Index: index)).Find(held => held.Position == value).Map(static held => held.Index) | Some(stop.At),
+                })).As()
+                select unit,
+        }).As()
         select unit;
 }

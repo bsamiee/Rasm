@@ -1,7 +1,7 @@
 {
     "name": "@rasm/search",
     "private": true,
-    "description": "Lookup failures with fuzzy-ranked candidate names",
+    "description": "Name lookup that answers a miss with ranked near matches",
     "sideEffects": false,
     "type": "module",
     "imports": {

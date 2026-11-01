@@ -16,9 +16,10 @@ import PyOpenColorIO
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import DesiredItem, Interface, InterfacePanel, item_key, MenuItem, MenuItems, NodeGroup, Socket, under
+from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, mixed, Scalar, switched, Term, vector, xyz
+from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, NodeGroup, Socket, StockInput
 from blender.bpy.render.compositor.colors import COLOR_INPUT, converted, hsy, logarithmic, straight, with_alpha
 from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
 from blender.bpy.render.compositor.inputs import read
@@ -72,21 +73,17 @@ SHAPE: Final = Interface(inputs=(_OUTLINE, _POSITION, _SIZE, _ROTATION, _FEATHER
 
 # --- [QUALIFIER]
 
-_HUE_CENTER: Final = Socket(key="hue_center", name="Center", kind=bpy.types.NodeSocketFloatAngle, description="HSY hue, magenta at zero and red at one sixth turn", default_value=tau / 6.0)
-_HUE_WIDTH: Final = Socket(key="hue_width", name="Width", kind=bpy.types.NodeSocketFloatAngle, description="Hue span of full selection", min_value=0.0, max_value=tau, default_value=radians(30.0))
-_HUE_SOFTNESS: Final = Socket(
-    key="hue_softness", name="Softness", kind=bpy.types.NodeSocketFloatAngle, description="Ramp width beyond each edge", min_value=0.0, max_value=pi, default_value=radians(10.0)
-)
-_SATURATION_LOW: Final = Socket(key="saturation_low", name="Low", kind=bpy.types.NodeSocketFloat, description="Lower bound of full selection", default_value=0.2)
-_SATURATION_HIGH: Final = Socket(key="saturation_high", name="High", kind=bpy.types.NodeSocketFloat, description="Upper bound of full selection", default_value=1.0)
-_SATURATION_SOFTNESS: Final = Socket(key="saturation_softness", name="Softness", kind=bpy.types.NodeSocketFloat, description="Ramp width beyond each bound", min_value=0.0, default_value=0.1)
-_LUMINANCE_LOW: Final = Socket(key="luminance_low", name="Low", kind=bpy.types.NodeSocketFloat, description="Lower bound of full selection", default_value=-2.0)
-_LUMINANCE_HIGH: Final = Socket(key="luminance_high", name="High", kind=bpy.types.NodeSocketFloat, description="Upper bound of full selection", default_value=2.0)
-_LUMINANCE_SOFTNESS: Final = Socket(key="luminance_softness", name="Softness", kind=bpy.types.NodeSocketFloat, description="Ramp width beyond each bound", min_value=0.0, default_value=1.0)
-_HUE: Final = InterfacePanel(key="hue", name="Hue", description="HSY hue range", toggle=Some(True), inputs=(_HUE_CENTER, _HUE_WIDTH, _HUE_SOFTNESS))
-_SATURATION: Final = InterfacePanel(key="saturation", name="Saturation", description="HSY saturation range", toggle=Some(False), inputs=(_SATURATION_LOW, _SATURATION_HIGH, _SATURATION_SOFTNESS))
-_LUMINANCE_BAND: Final = InterfacePanel(
-    key="luminance", name="Luminance", description="HSY luminance in LIN-wrapped stops from gray", toggle=Some(False), inputs=(_LUMINANCE_LOW, _LUMINANCE_HIGH, _LUMINANCE_SOFTNESS)
+_CENTER: Final = Socket(key="center", kind=bpy.types.NodeSocketFloatAngle, description="HSY hue, magenta at zero and red at one sixth turn", default_value=tau / 6.0)
+_WIDTH: Final = Socket(key="width", kind=bpy.types.NodeSocketFloatAngle, description="Hue span of full selection", min_value=0.0, max_value=tau, default_value=radians(30.0))
+_EDGE: Final = Socket(key="softness", kind=bpy.types.NodeSocketFloatAngle, description="Ramp width beyond each edge", min_value=0.0, max_value=pi, default_value=radians(10.0))
+_LOW: Final = Socket(key="low", kind=bpy.types.NodeSocketFloat, description="Lower bound of full selection")
+_HIGH: Final = Socket(key="high", kind=bpy.types.NodeSocketFloat, description="Upper bound of full selection")
+_RAMP: Final = Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Ramp width beyond each bound", min_value=0.0)
+_BAND: Final = Interface(inputs=(_LOW, _HIGH, _RAMP))
+_HUE: Final = InterfacePanel.of("hue", Interface(inputs=(_CENTER, _WIDTH, _EDGE)), description="HSY hue range", toggle=Some(True))
+_SATURATION: Final = InterfacePanel.of("saturation", _BAND.defaulted({_LOW.key: 0.2, _HIGH.key: 1.0, _RAMP.key: 0.1}), description="HSY saturation range", toggle=Some(False))
+_LUMINANCE_BAND: Final = InterfacePanel.of(
+    "luminance", _BAND.defaulted({_LOW.key: -2.0, _HIGH.key: 2.0, _RAMP.key: 1.0}), description="HSY luminance in LIN-wrapped stops from gray", toggle=Some(False)
 )
 QUALIFIER: Final = Interface(panels=(_HUE, _SATURATION, _LUMINANCE_BAND))
 
@@ -101,8 +98,8 @@ TRANSITION: Final = Interface(inputs=(_COMPLETION, _ANGLE, _SOFTNESS))
 
 HIGHLIGHTS: Final = Interface(
     inputs=(
-        Socket(key="threshold", kind=bpy.types.NodeSocketFloat, description="Scene-linear key threshold", min_value=0.0, default_value=1.0),
-        Socket(key="smoothness", kind=bpy.types.NodeSocketFloatFactor, description="Key knee softness", default_value=0.1),
+        Socket(key="threshold", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Highlights Threshold")),
+        Socket(key="smoothness", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Highlights Smoothness")),
     )
 )
 
@@ -115,12 +112,7 @@ _OPERATION: Final = Socket(key="operation", kind=bpy.types.NodeSocketMenu, descr
 _INVERT: Final = Socket(key="invert", kind=bpy.types.NodeSocketBool, description="Select key complement")
 MASK: Final = Interface(
     inputs=(_CHOICE, _OPERATION, _INVERT),
-    panels=tuple(
-        InterfacePanel(key=prefix, name=item.name, description=item.description, inputs=keyed.inputs, panels=keyed.panels)
-        for item, face in _FACES.items()
-        for prefix in (item_key(_CHOICE.key, item.name.lower()),)
-        for keyed in (under(prefix, face),)
-    ),
+    panels=tuple(InterfacePanel.of(item_key(_CHOICE.key, item.name.lower()), face, name=item.name, description=item.description) for item, face in _FACES.items()),
 )
 _CHANNEL: Final = Socket(key="channel", kind=bpy.types.NodeSocketMenu, description="Coverage channel of the layer beneath", default_value=_ALPHA.name, items=Some(CHANNELS))
 _COMPLEMENT: Final = Socket(key="invert", kind=bpy.types.NodeSocketBool, description="Read channel complement")
@@ -138,7 +130,7 @@ _MASKS: Final[Key] = "masks"
 FORMULAS: Final = Descriptor.declared(bpy.types.ShaderNodeMix, ("blend_type",), bpy.types.EnumProperty).prop
 MODES: Final = MenuItems.of(FORMULAS)
 MODE: Final = Socket(key="mode", name="Blend", kind=bpy.types.NodeSocketMenu, description="Mix node formula mixing result with base", default_value=FORMULAS.enum_items["MIX"].name, items=Some(MODES))
-OPACITY: Final = Socket(key="opacity", name="Opacity", kind=bpy.types.NodeSocketFloatFactor, description="Share of result mixed over base", min_value=0.0, max_value=1.0, default_value=1.0)
+OPACITY: Final = Socket(key="opacity", kind=bpy.types.NodeSocketFloatFactor, description="Share of result mixed over base", default_value=1.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -151,14 +143,12 @@ class Blend(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def interface(self) -> Interface:
         """Mode and opacity sockets, then one panel per mask under `masks`."""
-        nested = under(_MASKS, Interface(panels=masked(self.masks)))
-        return Interface(inputs=(MODE, OPACITY), panels=(InterfacePanel(key=_MASKS, name="Masks", panels=nested.panels),) if self.masks else ())
+        return Interface(inputs=(MODE, OPACITY), panels=(InterfacePanel.of(_MASKS, Interface(panels=masked(self.masks))),) if self.masks else ())
 
     @property
     def panel(self) -> InterfacePanel:
         """Blend panel of an entry group, its items keyed under `BLEND`."""
-        face = under(BLEND, self.interface)
-        return InterfacePanel(key=BLEND, name="Blend", inputs=face.inputs, panels=face.panels)
+        return InterfacePanel.of(BLEND, self.interface)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -200,7 +190,7 @@ def highlight(source: Scalar, threshold: Scalar, smoothness: Scalar) -> Expr:
     """Unclamped scene-linear highlights of a source at full quality, read at the Glare node's `Highlights`."""
     return Expr(
         kind=bpy.types.CompositorNodeGlare,
-        inputs=(("Image", source), ("Highlights Threshold", threshold), ("Highlights Smoothness", smoothness), ("Quality", "High"), ("Clamp Highlights", False)),
+        inputs=(("Image", source), ("Highlights Threshold", threshold), ("Highlights Smoothness", smoothness), ("Quality", "High")),
         socket="Highlights",
         shape=bpy.types.NodeSocketColor,
     )
@@ -215,9 +205,25 @@ def shape() -> Outcome[NodeGroup]:
         plane = turned(space, read(_POSITION), read(_ROTATION)) / extent
         folded = abs(plane)
         inside = menu(read(_OUTLINE), {_BOX: math("MAXIMUM", folded["X"], folded["Y"]) < 1.0, _ELLIPSE: vector("DOT_PRODUCT", plane, plane) < 1.0}) * (shorter(extent) > 0.0)
-        return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", inside), ("Size", space.pixel_size(read(_FEATHER))), ("Type", "Fast Gaussian")), socket="Image")
+        return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", inside), ("Size", space.pixel_size(read(_FEATHER)))), socket="Image")
 
     return _framed("shape", SHAPE, shaped)
+
+
+def outlined(image: Term, aspect: Term, scale: Term, outer: Callable[[Socket], Term]) -> Outcome[Expr]:
+    """Places the shape key group over the displayed frame of an image, each `SHAPE` input read through `outer`, such as a reader prefixing the key of a panel holding `SHAPE`.
+
+    Args:
+        image: Image whose displayed frame the outline sits in.
+        aspect: Pixel aspect `pixel_aspect_x / pixel_aspect_y`.
+        scale: Camera frame share of each image side.
+        outer: Operand of each `SHAPE` socket.
+
+    Returns:
+        `Ok` of the outline key. `Error` of the shape group's build faults.
+    """
+    framed: dict[Key, Term] = {COLOR_INPUT.key: image, _ASPECT.key: aspect, _SCALE.key: scale}
+    return shape().map(lambda group: functions.placed(group, {**framed, **{socket.key: outer(socket) for socket in SHAPE.inputs}}, KEY.key))
 
 
 @functools.cache
@@ -247,12 +253,12 @@ def qualifier(config: PyOpenColorIO.Config) -> Outcome[NodeGroup]:
     forward = PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
     def qualified(color: Expr, logged: Expr) -> Expr:
-        stops = logged["Blue"]
-        distance = pi - abs(abs(color["Red"] * tau - read(_HUE_CENTER)) % tau - pi)
+        center, width, softness = map(read, _HUE.inputs)
+        distance = pi - abs(abs(color["Red"] * tau - center) % tau - pi)
         keys = (
-            (_HUE, edge(read(_HUE_WIDTH) * 0.5 - distance, read(_HUE_SOFTNESS))),
-            (_SATURATION, band(color["Green"], read(_SATURATION_LOW), read(_SATURATION_HIGH), read(_SATURATION_SOFTNESS))),
-            (_LUMINANCE_BAND, band(stops, read(_LUMINANCE_LOW), read(_LUMINANCE_HIGH), read(_LUMINANCE_SOFTNESS))),
+            (_HUE, edge(width * 0.5 - distance, softness)),
+            (_SATURATION, band(color["Green"], *map(read, _SATURATION.inputs))),
+            (_LUMINANCE_BAND, band(logged["Blue"], *map(read, _LUMINANCE_BAND.inputs))),
         )
         hue_gate, saturation_gate, luminance_gate = (switched(group_input(panel.key), 1.0, key) for panel, key in keys)
         return hue_gate * saturation_gate * luminance_gate
@@ -309,7 +315,7 @@ def relayed(outer: Callable[[Key], Term], interface: Interface) -> dict[Key, Ter
 
 def masked(count: int) -> tuple[InterfacePanel, ...]:
     """Mask panels of a blend over `count` masks, each mask's items under `<index>`."""
-    return tuple(InterfacePanel(key=str(index), name=f"Mask {index}", inputs=face.inputs, panels=face.panels) for index in range(1, count + 1) for face in (under(str(index), MASK),))
+    return tuple(InterfacePanel.of(str(index), MASK, name=f"Mask {index}") for index in range(1, count + 1))
 
 
 def coverage(count: int, image: Term, aspect: Term, scale: Term, outer: Callable[[Key], Expr], config: PyOpenColorIO.Config) -> Outcome[Option[Expr]]:
@@ -360,7 +366,7 @@ def mixback() -> Outcome[NodeGroup]:
     background, foreground = straight(base), straight(result)
     pure = menu(group_input("blend"), {item: mixed(1.0, background, foreground, blend=formula.identifier) for formula, item in zip(FORMULAS.enum_items, MODES.items, strict=True)})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     covered = with_alpha(with_alpha(mixed(base["Alpha"], foreground, pure), 1.0), result["Alpha"], masked=True)
-    blended = switched(msgspec.structs.replace(pure, socket=FORMULAS.enum_items["MIX"].name, shape=bpy.types.NodeSocketFloat), covered, result)
+    blended = switched(pure.at(FORMULAS.enum_items["MIX"].name), covered, result)
     face = Interface(
         inputs=(
             Socket(key="base", kind=bpy.types.NodeSocketColor),
@@ -432,6 +438,7 @@ __all__ = [
     "matte",
     "mixback",
     "mixed_back",
+    "outlined",
     "photoshop",
     "qualifier",
     "relayed",

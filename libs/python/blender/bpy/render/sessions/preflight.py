@@ -1,7 +1,7 @@
 """Audits and measures before render dispatch, and the condition a dispatch requires."""
 
 import functools
-from functools import partial
+from functools import cached_property, partial
 from math import prod
 import os
 from pathlib import Path
@@ -70,7 +70,7 @@ class Shader(bpy.types.PropertyGroup):
     kind: bpy.props.EnumProperty(name="Shader", description="Shader node class to find", items=lambda _owner, _context: shader_rows(shader_kinds()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Preflight(msgspec.Struct, frozen=True, kw_only=True):
+class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Audit operators and dispatch condition."""
 
     # --- [CONDITIONS]
@@ -87,7 +87,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [COMMANDS]
 
-    @property
+    @cached_property
     def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
         """Audit operators in section order."""
         return (
@@ -145,9 +145,10 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
         """Returns audit operators for registration."""
         return Ok(self.operators)
 
+    @cached_property
     def section(self) -> Section:
-        """Returns section of audit buttons and Find Missing Files."""
-        return Section(key="preflight", title="Preflight", rows=(*(OperatorButton(target=row) for row in self.operators), OperatorButton(target=Placement(bpy.ops.file.find_missing_files))))
+        """Audit buttons and Find Missing Files."""
+        return Section(key="preflight", rows=(*(OperatorButton(target=row) for row in self.operators), OperatorButton(target=Placement(bpy.ops.file.find_missing_files))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

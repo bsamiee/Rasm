@@ -30,6 +30,7 @@ from blender.bpy.render.outputs.results import intermediate
 from blender.bpy.render.previews.scenes import Ambient, Fitted, PreviewLighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, SURFACES
 from blender.bpy.scene.materials import Clay, shaded
 from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.surfaces.panels import Preference
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -362,6 +363,7 @@ def rendered(identity: Identity, preview: PreviewScene, target: Target, size: in
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+NODE_PREVIEWS: Final = Preference(key="node_previews", form=NodePreviews)
 SETTING: Final = Attachment(key="node_preview", form=NodeSetting, owner=bpy.types.Node)
 CLAY: Final = Ownership(kind=bpy.types.Material, key="preview_clay", saved=Saved.NEVER)
 SWATCH: Final = Ownership(kind=bpy.types.Material, key="preview_swatch", saved=Saved.NEVER)
@@ -371,6 +373,7 @@ SWATCH: Final = Ownership(kind=bpy.types.Material, key="preview_swatch", saved=S
 __all__ = [
     "CLAY",
     "CLAY_AIM",
+    "NODE_PREVIEWS",
     "SETTING",
     "SWATCH",
     "Editor",

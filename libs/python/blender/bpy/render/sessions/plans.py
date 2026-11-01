@@ -10,7 +10,7 @@ import threading
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 
@@ -29,7 +29,8 @@ from blender.bpy.render.view_layers.passes import layer_of, used
 from blender.bpy.render.view_layers.routing import PassRouting
 from blender.bpy.settings.attachments import Attached
 from blender.bpy.ui.screens.areas import EditorState, Located
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
+from blender.bpy.ui.surfaces.panels import Preference
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.stores import RecordFile
 from blender.rendering.batch.notices import Listener, Notice, published
 from blender.rendering.batch.queue import Ending, FixedCamera, Frames, JobCamera, MarkedCamera, Marker, observed, Progress, RenderQueue
@@ -214,7 +215,7 @@ QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
 
 
 class Dispatcher(msgspec.Struct, frozen=True):
-    """Stores, routing, render, plan revision, and settings queue operations read, with the extension's session state."""
+    """Stores, routing, render, plan revision, and the queue preference queue operations read, with the extension's session state."""
 
     identity: Identity
     host: HostCommands
@@ -224,7 +225,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     queued: Attached[Queued]
     render: Render
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]]
-    settings: Callable[[Identity], Outcome[Queueing]]
+    preference: Preference[Queueing]
 
     # --- [STATE]
 
@@ -285,26 +286,15 @@ class Dispatcher(msgspec.Struct, frozen=True):
     def observation(self, context: bpy.types.Context) -> Outcome[Option[Observed]]:
         """Reads sent record and local progress, `Nothing` sent before `prepare` writes it."""
 
-        def pending(faults: Faults) -> Outcome[Option[Sent]]:
-            match faults:
-                case (Fault(reason=Reason.UNREADABLE, cause=FileNotFoundError()),):
-                    return Ok(Nothing)
-                case _:
-                    return Error(faults)
-
         def read(plan: str) -> Outcome[Observed]:
-            return (
-                Result[Sent, Faults]
-                .map(RecordFile(path=self.host.path(plan, RunFile.SENT), form=Sent).read(), Some)
-                .or_else_with(pending)
-                .bind(
-                    lambda sent: (
-                        sent
-                        .filter(lambda record: isinstance(record.target, LocalMachine))
-                        .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
-                        .default_value(Ok(Nothing))
-                        .map(lambda progress: Observed(sent=sent, progress=progress))
-                    )
+            found: Outcome[Option[Sent]] = RecordFile(path=self.host.path(plan, RunFile.SENT), form=Sent).found()
+            return found.bind(
+                lambda sent: (
+                    sent
+                    .filter(lambda record: isinstance(record.target, LocalMachine))
+                    .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
+                    .default_value(Ok(Nothing))
+                    .map(lambda progress: Observed(sent=sent, progress=progress))
                 )
             )
 

@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using MathNet.Numerics.Statistics;
+using Rasm.UI.Motion;
 using RBush;
 using SkiaSharp;
 using SuperLinq;
@@ -9,7 +10,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed class Samples(ReadOnlyMemory<float> values) {
+public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Samples> {
     private const int Shift = 6;
     private const int Block = 1 << Shift;
 
@@ -23,25 +24,36 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
 
     public Option<AxisRange> Extent => extent.Value;
 
+    public Option<Samples> Toward(Samples to, float progress) =>
+        Some(to).Filter(other => other.Values.Length == Values.Length).Map(other => {
+            float[] blended = new float[Values.Length];
+            TensorPrimitives.Lerp(Values.Span, other.Values.Span, progress, blended);
+            return new Samples(blended);
+        });
+
+    internal Iterable<float> Finite => MemoryMarshal.ToEnumerable(values).Where(float.IsFinite).AsIterable();
+
     internal Option<float> At(int index) => (uint)index < (uint)Values.Length ? Some(Values.Span[index]) : None;
 
     internal float Slot(AxisRange domain) => Values.Length > 1 ? domain.Span / (Values.Length - 1) : domain.Span;
 
-    internal Option<Datum> DatumAt(AxisRange domain, int index) => At(index).Filter(float.IsFinite).Map(value => new Datum(index, new Vector2(domain.From + (index * Slot(domain)), value)));
+    internal float Across(AxisRange domain, int index) => domain.From + (index * Slot(domain));
+
+    internal float Position(AxisRange domain, float across) => (across - domain.From) / Slot(domain);
+
+    internal Option<Datum> DatumAt(AxisRange domain, int index) => At(index).Filter(float.IsFinite).Map(value => new Datum(index, new Vector2(Across(domain, index), value)));
 
     internal Seq<Datum> Data(AxisRange domain) => toSeq(Range(0, Values.Length)).Choose(index => DatumAt(domain, index));
 
-    internal Option<Datum> Nearest(AxisRange domain, float across) => DatumAt(domain, int.Clamp((int)MathF.Round((across - domain.From) / Slot(domain), MidpointRounding.ToEven), 0, int.Max(0, Values.Length - 1)));
+    internal Option<Datum> Nearest(AxisRange domain, float across) => DatumAt(domain, int.Clamp((int)MathF.Round(Position(domain, across), MidpointRounding.ToEven), 0, int.Max(0, Values.Length - 1)));
 
     internal (int Start, int End) Visible(PlotFrame frame, AxisRange domain) {
-        float slot = Slot(domain);
-        float Position(float fraction) => (frame.Plane.Value(PhysicalAxis.Horizontal, fraction) - domain.From) / slot;
-        (float first, float last) = (Position(0f), Position(1f));
+        (float first, float last) = (Position(domain, frame.Plane.Value(PhysicalAxis.Horizontal, 0f)), Position(domain, frame.Plane.Value(PhysicalAxis.Horizontal, 1f)));
         int start = int.Clamp((int)MathF.Floor(float.Min(first, last)) - 1, 0, Values.Length);
         return (start, int.Clamp((int)MathF.Ceiling(float.Max(first, last)) + 2, start, Values.Length));
     }
 
-    internal Seq<(int Start, int End)> Finite((int Start, int End) window, Option<Samples> paired) =>
+    internal Seq<(int Start, int End)> Runs((int Start, int End) window, Option<Samples> paired) =>
         paired.IsNone && TensorPrimitives.IsFiniteAll(Values.Span[window.Start..window.End])
             ? [window]
             : toSeq(Enumerable.Range(window.Start, window.End - window.Start).GroupAdjacent(index => float.IsFinite(Values.Span[index]) && paired.ForAll(other => other.At(index).Exists(float.IsFinite)))
@@ -49,17 +61,14 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
 
     internal Seq<Seq<Vector2>> Decimated(PlotFrame frame, AxisRange domain, float columns, Seq<(int Start, int End)> runs) {
         PlotPlane plane = frame.Plane;
-        float slot = Slot(domain);
-        float Across(int index) => domain.From + (index * slot);
-        float Column(int index) => MathF.Floor(plane.Fraction(PhysicalAxis.Horizontal, Across(index)) * columns);
-        float Position(float fraction) => (plane.Value(PhysicalAxis.Horizontal, fraction) - domain.From) / slot;
+        float Column(int index) => MathF.Floor(plane.Fraction(PhysicalAxis.Horizontal, Across(domain, index)) * columns);
         return runs.Map(run => {
             (float start, float end) = (float.Clamp(Column(run.Start), -1f, columns), float.Clamp(Column(run.End - 1), -1f, columns));
             Seq<Vector2> kept = toSeq(toSeq(Range((int)float.Min(start, end) + 1, (int)MathF.Abs(end - start)))
-                    .Map(column => int.Clamp((int)MathF.Ceiling(Position(column / columns)), run.Start, run.End))
+                    .Map(column => int.Clamp((int)MathF.Ceiling(Position(domain, plane.Value(PhysicalAxis.Horizontal, column / columns))), run.Start, run.End))
                     .Add(run.Start).Add(run.End).Distinct().Order()
                     .Window(2)
-                    .SelectMany(cut => Kept(cut[0], cut[1], Across)));
+                    .SelectMany(cut => Kept(domain, cut[0], cut[1])));
             float[] xs = [.. kept.Map(static at => at.X)];
             float[] ys = [.. kept.Map(static at => at.Y)];
             plane.Fractions(PhysicalAxis.Horizontal, xs);
@@ -68,23 +77,14 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
         }).Filter(static line => !line.IsEmpty);
     }
 
-    internal Option<Samples> Toward(Samples to, float progress) {
-        if (to.Values.Length != Values.Length) return None;
-        float[] blended = new float[Values.Length];
-        TensorPrimitives.Lerp(Values.Span, to.Values.Span, progress, blended);
-        return new Samples(blended);
-    }
-
-    private Seq<Vector2> Kept(int start, int end, Func<int, float> across) {
-        ReadOnlySpan<float> run = Values.Span[start..end];
+    private Seq<Vector2> Kept(AxisRange domain, int start, int end) {
+        Vector2 Sample(int index) => new(Across(domain, index), Values.Span[index]);
         return (end - start) switch {
             <= 0 => [],
-            <= 4 => toSeq(Range(start, end - start)).Map(index => new Vector2(across(index), Values.Span[index])),
-            <= Block => toSeq(Seq(start, start + TensorPrimitives.IndexOfMin(run), start + TensorPrimitives.IndexOfMax(run), end - 1).Distinct().Order()).Map(index => new Vector2(across(index), Values.Span[index])),
+            <= 4 => toSeq(Range(start, end - start)).Map(Sample),
+            <= Block => toSeq(Seq(start, start + TensorPrimitives.IndexOfMin(Values.Span[start..end]), start + TensorPrimitives.IndexOfMax(Values.Span[start..end]), end - 1).Distinct().Order()).Map(Sample),
             _ => Spread(start, end, pyramid.Value.Count - 1) switch {
-                var spread => Seq(new Vector2(across(start), Values.Span[start]))
-                    + (Values.Span[start] <= Values.Span[end - 1] ? Seq(spread.Low, spread.High) : Seq(spread.High, spread.Low)).Map(value => new Vector2(across((start + end) / 2), value))
-                    + Seq(new Vector2(across(end - 1), Values.Span[end - 1])),
+                var spread => Sample(start).Cons((Values.Span[start] <= Values.Span[end - 1] ? Seq(spread.Low, spread.High) : Seq(spread.High, spread.Low)).Map(value => new Vector2(Across(domain, (start + end) / 2), value))).Add(Sample(end - 1)),
             },
         };
     }
@@ -119,7 +119,7 @@ public sealed record Datum(int Index, Vector2 Value);
 public sealed record Nearest(Seq<Key> Plot, HashMap<Key, Datum> Data);
 
 [ComplexValueObject(SkipFactoryMethods = true)]
-public sealed partial class Summary {
+public sealed partial class Summary : IInterpolated<Summary> {
     public float Minimum { get; }
     public float Lower { get; }
     public float Median { get; }
@@ -131,11 +131,11 @@ public sealed partial class Summary {
             .Map(_ => new Summary(minimum, lower, median, upper, maximum));
 
     public static Fin<Summary> Of(Samples samples) =>
-        MemoryMarshal.ToEnumerable(samples.Values).Where(float.IsFinite).FiveNumberSummary() switch {
+        samples.Finite.FiveNumberSummary() switch {
             var five => Validated(five[0], five[1], five[2], five[3], five[4]),
         };
 
-    internal Option<Summary> Toward(Summary to, float progress) =>
+    public Option<Summary> Toward(Summary to, float progress) =>
         Validated(float.Lerp(Minimum, to.Minimum, progress), float.Lerp(Lower, to.Lower, progress), float.Lerp(Median, to.Median, progress), float.Lerp(Upper, to.Upper, progress), float.Lerp(Maximum, to.Maximum, progress)).ToOption();
 }
 

@@ -88,11 +88,17 @@ def id_path(struct: Struct) -> Option[RnaPath]:
             )
 
 
+def id_data[K: bpy.types.ID](kind: type[K], struct: Struct, /) -> Option[K]:
+    """Returns the ID holding a struct as kind, the struct itself for an ID of kind, Nothing for a struct an ID of another kind holds."""
+    return Option.of_optional(try_downcast(kind, struct.id_data))
+
+
 def context_path(owner: Struct, name: str = "", /) -> Option[str]:
-    """Returns the context data path of an owner or its named member, through `blend_data` for ID data and the context for preferences, Nothing for data neither reaches."""
+    """Returns the context data path of an owner or its named member, through `blend_data` for ID data and the context for preferences, Nothing for data neither reaches or a path Blender derives only in part."""
     return (
         catch(owner.path_from_module, exception=ValueError)(name)
         .to_option()
+        .filter(lambda path: " ... " not in path)
         .bind(
             lambda path: (
                 Some(f"blend_data.{path.removeprefix('bpy.data.')}") if path.startswith("bpy.data.") else Some(path.removeprefix("bpy.context.")) if path.startswith("bpy.context.") else Nothing
@@ -248,6 +254,7 @@ __all__ = [
     "defined",
     "definition",
     "definition_at",
+    "id_data",
     "id_path",
     "parsed",
     "preferred",

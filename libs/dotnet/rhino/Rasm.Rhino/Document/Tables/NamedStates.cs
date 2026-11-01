@@ -176,7 +176,7 @@ public sealed record NamedEvent {
 // --- [TABLES] --------------------------------------------------------------------------
 public sealed class NamedTable(string name, IEqualityComparer<string> comparer) {
     public static HostEvent<Option<uint>> DocumentProperties { get; } =
-        ReadModels.Marks(Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h).Documents());
+        ReadModels.Marks(Documents.PropertiesChanged.Documents());
 
     public IEqualityComparer<string> Comparer => comparer;
 

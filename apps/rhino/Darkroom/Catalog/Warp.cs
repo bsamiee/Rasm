@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
 using Rasm.Imaging.Files;
@@ -10,121 +10,97 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Resampling(
-    [property: Display(Name = "Interpolation", Description = "Filter between source pixels")] Sampling Sampling,
-    [property: Display(Name = "Extension", Description = "Sampling past frame edges")] WrapMode Wrap) {
+public sealed record Resampling(Sampling Sampling, WrapMode Wrap) {
     public static Resampling Default { get; } = new(Sampling.Linear, WrapMode.Black);
 
     public (WrapMode Across, WrapMode Down) Edges => (Wrap, Wrap);
 }
 
-public sealed record Twirl(
-    [property: Display(Name = "Angle", Description = "Counterclockwise turn at center, none at radius")][property: Range(-double.Tau, double.Tau)] float Angle,
-    [property: Display(Name = "Radius", Description = "Twirl reach in frame short sides")][property: Range(0d, 1d)] ShortSideLength Radius,
-    [property: Display(Name = "Falloff", Description = "Turn falloff exponent, 1 linear")][property: Range(0.25d, 4d)] float Falloff,
-    [property: Display(Name = "Arms", Description = "Spiral arms the turn gathers into, 0 turning every direction alike")][property: Range(0, 8)] int Arms,
-    [property: Display(Name = "Arm offset", Description = "Arm turn about center")][property: Range(-double.Pi, double.Pi)] float ArmOffset,
-    [property: Display(Name = "Center", Description = "Point the warp centers on")] FramePosition Center,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Twirl> {
-    public static Twirl Default { get; } = new(0f, ShortSideLength.Create(0.5f), 1f, 0, 0f, FramePosition.Center, Resampling.Default with { Wrap = WrapMode.Periodic });
+public sealed record Twirl(Angle Angle, ShortSideLength Radius, float Falloff, int Arms, Angle ArmOffset, Vector2 Center, Resampling Resampling) : IPixelStage<Twirl> {
+    public static Twirl Default { get; } = new(Angle.Zero, ShortSideLength.Create(0.5f), 1f, 0, Angle.Zero, new Vector2(0.5f), Resampling.Default with { Wrap = WrapMode.Periodic });
 
-    public static Option<PixelPass> Pass(Twirl state, PassContext context) =>
-        state.Angle is 0f || state.Radius == ShortSideLength.Zero ? None
-            : Some<PixelPass>(new PixelPass.Frame(new Displacement.Twirl(state.Angle, state.Radius, state.Falloff, state.Arms, state.ArmOffset, state.Center)
-                .Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
+    public static Fin<Option<PixelPass>> Pass(Twirl state, PassContext context) =>
+        state.Angle == Angle.Zero ? None
+            : Some<PixelPass>(new PixelPass.Frame(CoordinateMap.Field.Twirl(
+                (float)state.Angle.Radians, state.Radius, state.Falloff, state.Arms, (float)state.ArmOffset.Radians, state.Center, state.Resampling.Sampling, state.Resampling.Edges).Apply));
 }
 
-public sealed record Bulge(
-    [property: Display(Name = "Amount", Description = "Bulge above 0 and pinch below, ±1 a full hemisphere")][property: Range(-1d, 1d)] float Amount,
-    [property: Display(Name = "Mode", Description = "Axes the bulge acts along")] BulgeMode Mode,
-    [property: Display(Name = "Radius", Description = "Bulged disc radius in frame short sides")][property: Range(0d, 1d)] ShortSideLength Radius,
-    [property: Display(Name = "Center", Description = "Point the warp centers on")] FramePosition Center,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Bulge> {
-    public static Bulge Default { get; } = new(0f, BulgeMode.Round, ShortSideLength.Create(0.5f), FramePosition.Center, Resampling.Default with { Wrap = WrapMode.Clamp });
+[SmartEnum<string>]
+public sealed partial class BulgeMode {
+    public static readonly BulgeMode Round = new("round", Vector2.One);
+    public static readonly BulgeMode Horizontal = new("horizontal", Vector2.UnitX);
+    public static readonly BulgeMode Vertical = new("vertical", Vector2.UnitY);
 
-    public static Option<PixelPass> Pass(Bulge state, PassContext context) =>
-        state.Amount is 0f || state.Radius == ShortSideLength.Zero ? None
-            : Some<PixelPass>(new PixelPass.Frame(new Displacement.Bulge(state.Amount, state.Mode, state.Radius, state.Center).Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
+    public Vector2 Axes { get; }
+}
+
+public sealed record Bulge(float Amount, BulgeMode Mode, ShortSideLength Radius, Vector2 Center, Resampling Resampling) : IPixelStage<Bulge> {
+    public static Bulge Default { get; } = new(0f, BulgeMode.Round, ShortSideLength.Create(0.5f), new Vector2(0.5f), Resampling.Default with { Wrap = WrapMode.Clamp });
+
+    public static Fin<Option<PixelPass>> Pass(Bulge state, PassContext context) =>
+        state.Amount is 0f ? None
+            : Some<PixelPass>(new PixelPass.Frame(CoordinateMap.Field.Bulge(state.Amount, state.Mode.Axes, state.Radius, state.Center, state.Resampling.Sampling, state.Resampling.Edges).Apply));
+}
+
+[SmartEnum<string>]
+public sealed partial class WaveFront {
+    public static readonly WaveFront Linear = new("linear", None);
+    public static readonly WaveFront Radial = new("radial", Some(Angle.Zero));
+    public static readonly WaveFront Zigzag = new("zigzag", Some(Angle.FromDegrees(90d)));
+    public static readonly WaveFront Pond = new("pond", Some(Angle.FromDegrees(45d)));
+
+    public Option<Angle> Ring { get; }
 }
 
 public sealed record WaveWarp(
-    [property: Display(Name = "Form", Description = "Straight waves or center rings moving outward, around, or both")] WaveFront Front,
-    [property: Display(Name = "Profile", Description = "Shape of each wave period")] WaveProfile Profile,
-    [property: Display(Name = "Generators", Description = "Waves summed into the field")][property: Range(1, 16)] int Count,
-    [property: Display(Name = "Wavelength min", Description = "Shortest wave in frame short sides")][property: Range(0.005d, 1d)] ShortSideExtent MinWavelength,
-    [property: Display(Name = "Wavelength max", Description = "Longest wave in frame short sides")][property: Range(0.005d, 1d)] ShortSideExtent MaxWavelength,
-    [property: Display(Name = "Amplitude min", Description = "Weakest wave as share of amounts")][property: Range(0d, 1d)] float MinAmplitude,
-    [property: Display(Name = "Amplitude max", Description = "Strongest wave as share of amounts")][property: Range(0d, 1d)] float MaxAmplitude,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
-    [property: Display(Name = "Direction", Description = "Straight wave angle counterclockwise from right")][property: Range(-double.Pi, double.Pi)] float Direction,
-    [property: Display(Name = "Spread", Description = "Wave direction fan about travel direction")][property: Range(0d, double.Pi)] float Spread,
-    [property: Display(Name = "Phase", Description = "Turn added to every wave period")][property: Range(-double.Pi, double.Pi)] float Phase,
-    [property: Display(Name = "Radius", Description = "Ring reach in frame short sides, fading to none")][property: Range(0d, 1d)] ShortSideLength Radius,
-    [property: Display(Name = "Center", Description = "Point the warp centers on")] FramePosition Center,
-    [property: Display(Name = "Rate", Description = "Wave periods traveled per second")][property: Range(-2d, 2d)] float Rate,
-    [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
-    [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
-    [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<WaveWarp> {
+    WaveFront Front, WaveProfile Profile, int Count, ShortSideLength MinWavelength, ShortSideLength MaxWavelength, float MinAmplitude, float MaxAmplitude, Vector2 Amount,
+    Angle Direction, Angle Spread, Angle Phase, ShortSideLength Radius, Vector2 Center, float Rate, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<WaveWarp> {
     public static WaveWarp Default { get; } = new(
-        WaveFront.Linear, WaveProfile.Sine, 5, ShortSideExtent.Create(10f / ReferenceFrame.Height), ShortSideExtent.Create(120f / ReferenceFrame.Height), 5f / 35f, 1f,
-        0f, 0f, 0f, 0f, 0f, ShortSideLength.Create(0.5f), FramePosition.Center, 0f, Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
+        WaveFront.Linear, WaveProfile.Sine, 5, ShortSideLength.Create(10f / ReferenceFrame.Height), ShortSideLength.Create(120f / ReferenceFrame.Height), 5f / 35f, 1f, Vector2.Zero,
+        Angle.Zero, Angle.Zero, Angle.Zero, ShortSideLength.Create(0.5f), new Vector2(0.5f), 0f, Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
 
-    public static Option<PixelPass> Pass(WaveWarp state, PassContext context) =>
-        (state.Horizontal, state.Vertical) == (0f, 0f) || state is { MinAmplitude: 0f, MaxAmplitude: 0f }
-        || (state.Front.Ring.IsSome && state.Radius == ShortSideLength.Zero)
-            ? None
-            : Some<PixelPass>(new PixelPass.Frame(new Displacement.Wave(
-                state.Front, state.Profile, state.Count, (state.MinWavelength, state.MaxWavelength), (state.MinAmplitude, state.MaxAmplitude), (state.Horizontal, state.Vertical),
-                state.Direction, state.Spread, (state.Phase / float.Tau) - (state.Rate * state.Hold.Held(state.Timing.At(context))), state.Radius, state.Center,
-                state.Seed.Field(8u, 0u)).Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
+    public static Fin<Option<PixelPass>> Pass(WaveWarp state, PassContext context) =>
+        state.Amount == Vector2.Zero || state is { MinAmplitude: 0f, MaxAmplitude: 0f } ? None
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => CoordinateMap.Field.Wave(
+                    state.Profile, state.Count, (state.MinWavelength, state.MaxWavelength), (state.MinAmplitude, state.MaxAmplitude), state.Amount,
+                    (float)state.Direction.Radians, (float)state.Spread.Radians, (float)state.Phase.Revolutions - (state.Rate * state.Hold.Held(state.Timing.At(context))),
+                    state.Front.Ring.Map(turn => (turn, state.Radius)), state.Seed.Field(8u, 0u), state.Center, state.Resampling.Sampling, state.Resampling.Edges)
+                .Bind(map => map.Apply(frame, progress))));
 }
 
 public sealed record Turbulence(
-    [property: Display(Name = "Noise", Description = "Displacement field basis")] NoiseBasis Basis,
-    [property: Display(Name = "Size X", Description = "Horizontal noise feature size in frame short sides")][property: Range(0.01d, 2d)] ShortSideExtent ScaleX,
-    [property: Display(Name = "Size Y", Description = "Vertical noise feature size in frame short sides")][property: Range(0.01d, 2d)] ShortSideExtent ScaleY,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
-    [property: Display(Name = "Evolution", Description = "Noise units the field evolves per second")][property: Range(-2d, 2d)] float Rate,
-    [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
-    [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
-    [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Turbulence> {
+    NoiseBasis Basis, ShortSideLength ScaleX, ShortSideLength ScaleY, Vector2 Amount, float Rate, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Turbulence> {
     public static Turbulence Default { get; } = new(
-        NoiseBasis.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), 0f, 0f, 0f,
+        NoiseBasis.Perlin.Default, ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f), ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f), Vector2.Zero, 0f,
         Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default with { Wrap = WrapMode.Clamp });
 
-    public static Option<PixelPass> Pass(Turbulence state, PassContext context) =>
-        (state.Horizontal, state.Vertical) == (0f, 0f) ? None
-            : state.Basis.Sampler switch {
-                var sampler => Some<PixelPass>(new PixelPass.Frame(new Displacement.Turbulence(
-                    (at, hash) => sampler(at, hash).Value, (state.ScaleX, state.ScaleY), (state.Horizontal, state.Vertical), state.Rate * state.Hold.Held(state.Timing.At(context)),
-                    state.Seed.Field(9u, 0u)).Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply)),
-            };
+    public static Fin<Option<PixelPass>> Pass(Turbulence state, PassContext context) =>
+        state.Amount == Vector2.Zero ? None
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Basis.Sampler.Bind(sampler => CoordinateMap.Field.Turbulence(
+                (at, hash) => sampler(at, hash).Value, (state.ScaleX, state.ScaleY), state.Amount, state.Rate * state.Hold.Held(state.Timing.At(context)),
+                state.Seed.Field(9u, 0u), new Vector2(0.5f), state.Resampling.Sampling, state.Resampling.Edges).Apply(frame, progress))));
 }
 
-public sealed record MapDisplacement(
-    [property: Display(Name = "Map image", Description = "Image file, frame itself when empty")] string? Source,
-    [property: Display(Name = "Reading", Description = "Map values moving frame, or map coordinates the frame is sampled at when unset")] MapReading? Reading,
-    [property: Display(Name = "Tile size", Description = "Map tile height in frame short sides, off stretching to fit")][property: Range(0.05d, 2d)] ShortSideExtent? TileSize,
-    [property: Display(Name = "Softness", Description = "Map luma blur before moving frame")][property: Range(0.001d, 0.1d)] ShortSideExtent Softness,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
-    [property: Display(Name = "Rotation", Description = "Counterclockwise turn of map moves")][property: Range(-double.Pi, double.Pi)] float Rotation,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<MapDisplacement> {
-    public static MapDisplacement Default { get; } = new(
-        Source: null, MapReading.Gradient, TileSize: null, ShortSideExtent.Create(0.015f * ReferenceFrame.GreaterSide), 0f, 0f, 0f, Resampling.Default);
+public sealed record MapDisplacement(ShortSideLength Softness, Vector2 Amount, Angle Rotation, Resampling Resampling) : IPixelStage<MapDisplacement> {
+    public static MapDisplacement Default { get; } = new(ShortSideLength.Create(0.015f * ReferenceFrame.GreaterSide), Vector2.Zero, Angle.Zero, Resampling.Default) {
+        Reading = Some(MapReading.Gradient),
+    };
 
-    public static Option<PixelPass> Pass(MapDisplacement state, PassContext context) =>
-        Optional(state.Source).Traverse(path => context.Derivations.Derived(path, static held => ImageFile.Load(held).RunSafe())).As().Match(
-            Succ: image => Optional(state.Reading).Match(
-                Some: reading => (state.Horizontal, state.Vertical) == (0f, 0f) ? None
-                    : Some<PixelPass>(new DisplacementMap(reading, Optional(state.TileSize), state.Softness, (state.Horizontal, state.Vertical), state.Rotation)
-                        .Pass(image.Map(static file => file.Frame), context.Working, context.Exposure, state.Resampling.Sampling, state.Resampling.Wrap)),
-                None: () => image.Map(file => (PixelPass)new PixelPass.Frame(new CoordinateMap.Sampled(file.Frame, state.Resampling.Sampling, state.Resampling.Edges).Apply))),
-            Fail: static error => Some<PixelPass>(new PixelPass.Frame((_, _) => error)));
+    public Option<string> Source { get; init; }
+    public Option<MapReading> Reading { get; init; }
+    public Option<ShortSideLength> TileSize { get; init; }
+
+    public static Fin<Option<PixelPass>> Pass(MapDisplacement state, PassContext context) =>
+        state.Reading.Match(
+            Some: reading => state.Amount == Vector2.Zero ? None
+                : Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Source.Traverse(path => Image(path, context)).As().Bind(image =>
+                    reading.Pass(image, state.TileSize, state.Softness, state.Amount, (float)state.Rotation.Radians, context.Working.Luminance, (float)context.Exposure,
+                        state.Resampling.Sampling, state.Resampling.Wrap).Run(frame, progress)))),
+            None: () => state.Source.Map<PixelPass>(path => new PixelPass.Frame((frame, progress) => Image(path, context).Bind(image =>
+                new CoordinateMap.STMap(image, state.Resampling.Sampling, state.Resampling.Edges).Apply(frame, progress)))));
+
+    private static Fin<PixelFrame> Image(string path, PassContext context) =>
+        context.Derivations.Derived(path, static held => ImageFile.Read(held).RunSafe()).Map(static read => read.Frame);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -134,70 +110,59 @@ public sealed record MapDisplacement(
 [JsonDerivedType(typeof(Canvas), nameof(Canvas))]
 [JsonDerivedType(typeof(Frosted), nameof(Frosted))]
 [JsonDerivedType(typeof(TinyLens), nameof(TinyLens))]
-public abstract partial record RefractionTexture {
-    public abstract RefractionSurface Surface(float held);
+public abstract partial record GlassTexture {
+    public abstract Func<Vector2, Vector4> Surface(float held, uint field);
 
-    public virtual bool Rests(Refraction state) => (state.Strength, state.Blur) == (0f, ShortSideLength.Zero);
+    public virtual bool Rests(Glass state) => state is { Strength: 0f, Blur.IsNone: true };
 
-    public sealed record Raindrops(
-        [property: Display(Name = "Density", Description = "Share of cells holding a raindrop")][property: Range(0d, 1d)] float Density,
-        [property: Display(Name = "Drop size", Description = "Largest raindrop radius as texture cell share")][property: Range(0.01d, 0.5d)] float Size,
-        [property: Display(Name = "Variation", Description = "Seeded raindrop radius reduction share")][property: Range(0d, 1d)] float Variation,
-        [property: Display(Name = "Drop softness", Description = "Raindrop radius share blending rim")][property: Range(0d, 1d)] float Softness,
-        [property: Display(Name = "Lens", Description = "Raindrop magnification")][property: Range(0d, 10d)] float Lens,
-        [property: Display(Name = "Trails", Description = "Raindrop trail height relative to drop")][property: Range(0d, 1d)] float Trails,
-        [property: Display(Name = "Direction", Description = "Raindrop run angle counterclockwise from right")][property: Range(-double.Pi, double.Pi)] float Direction,
-        [property: Display(Name = "Fall", Description = "Raindrop travel per second in frame short sides")][property: Range(-1d, 1d)] float Fall) : RefractionTexture {
-        public static Raindrops Default { get; } = new(0.5f, 0.5f, 0.5f, 0.05f, 2f, 0.3f, -float.Pi / 2f, 0f);
+    public sealed record Raindrops(float Density, float Size, float Variation, float Softness, float Lens, float Trails, Angle Direction, float Fall) : GlassTexture {
+        public static Raindrops Default { get; } = new(0.5f, 0.5f, 0.5f, 0.05f, 2f, 0.3f, Angle.FromDegrees(-90d), 0f);
 
-        public override RefractionSurface Surface(float held) => new RefractionSurface.Raindrops(Density, Size, Variation, Softness, Lens, Trails, Direction, Fall * held);
+        public override Func<Vector2, Vector4> Surface(float held, uint field) =>
+            Refraction.Raindrops(Density, Size, Variation, Softness, Lens, Trails, (float)Direction.Radians, Fall * held, field);
 
-        public override bool Rests(Refraction state) => Density is 0f;
+        public override bool Rests(Glass state) => Density is 0f;
     }
 
-    public sealed record Blocks : RefractionTexture {
+    public sealed record Blocks : GlassTexture {
         public static Blocks Default { get; } = new();
 
-        public override RefractionSurface Surface(float held) => new RefractionSurface.Blocks();
+        public override Func<Vector2, Vector4> Surface(float held, uint field) => Refraction.Blocks;
     }
 
-    public sealed record Canvas : RefractionTexture {
+    public sealed record Canvas : GlassTexture {
         public static Canvas Default { get; } = new();
 
-        public override RefractionSurface Surface(float held) => new RefractionSurface.Canvas();
+        public override Func<Vector2, Vector4> Surface(float held, uint field) => Refraction.Canvas;
     }
 
-    public sealed record Frosted([property: Display(Name = "Octaves", Description = "Frost detail across scales")] Octaves Octaves) : RefractionTexture {
-        public static Frosted Default { get; } = new(NoiseBasis.Fbm.Default.Octaves);
+    public sealed record Frosted(Octaves Octaves) : GlassTexture {
+        public static Frosted Default { get; } = new(NoiseBasis.Perlin.Default.Octaves);
 
-        public override RefractionSurface Surface(float held) => new RefractionSurface.Frosted(Octaves);
+        public override Func<Vector2, Vector4> Surface(float held, uint field) => Refraction.Frosted(Octaves, field);
     }
 
-    public sealed record TinyLens : RefractionTexture {
+    public sealed record TinyLens : GlassTexture {
         public static TinyLens Default { get; } = new();
 
-        public override RefractionSurface Surface(float held) => new RefractionSurface.TinyLens();
+        public override Func<Vector2, Vector4> Surface(float held, uint field) => Refraction.TinyLens;
     }
 }
 
-public sealed record Refraction(
-    [property: Display(Name = "Texture", Description = "Surface the frame is seen through")] RefractionTexture Texture,
-    [property: Display(Name = "Scale", Description = "Texture cell size in frame short sides")][property: Range(0.005d, 1d)] ShortSideExtent Scale,
-    [property: Display(Name = "Distortion", Description = "Frame bend through surface, below 0 inverting")][property: Range(-0.1d, 0.1d)] float Strength,
-    [property: Display(Name = "Smoothness", Description = "Surface blur before slope bends frame")][property: Range(0.001d, 0.05d)] ShortSideExtent Smoothness,
-    [property: Display(Name = "Blur", Description = "Frame softening through surface")][property: Range(0d, 0.05d)] ShortSideLength Blur,
-    [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
-    [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
-    [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Refraction> {
-    public static Refraction Default { get; } = new(
-        RefractionTexture.Raindrops.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f / 3.8f), 0f, ShortSideExtent.Create(3f / ReferenceFrame.Height),
-        ShortSideLength.Create(14.6f / ReferenceFrame.Height), Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
+public sealed record Glass(
+    GlassTexture Texture, ShortSideLength Scale, float Strength, ShortSideLength Smoothness, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Glass> {
+    public static Glass Default { get; } = new(
+        GlassTexture.Raindrops.Default, ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f / 3.8f), 0f, ShortSideLength.Create(3f / ReferenceFrame.Height),
+        Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default) {
+        Blur = Some(ShortSideLength.Create(14.6f / ReferenceFrame.Height)),
+    };
 
-    public static Option<PixelPass> Pass(Refraction state, PassContext context) =>
+    public Option<ShortSideLength> Blur { get; init; }
+
+    public static Fin<Option<PixelPass>> Pass(Glass state, PassContext context) =>
         state.Texture.Rests(state) ? None
-            : Some<PixelPass>(new RefractionField(state.Texture.Surface(state.Hold.Held(state.Timing.At(context))), state.Scale, state.Strength, state.Smoothness, state.Blur,
-                state.Seed.Field(10u, 0u)).Pass(state.Resampling.Sampling, state.Resampling.Wrap, context.Working));
+            : Some<PixelPass>(Refraction.Pass(state.Texture.Surface(state.Hold.Held(state.Timing.At(context)), state.Seed.Field(10u, 0u)), state.Scale, state.Strength, state.Smoothness, state.Blur,
+                state.Resampling.Sampling, state.Resampling.Wrap));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -205,191 +170,173 @@ public sealed record Refraction(
 [JsonDerivedType(typeof(Rectilinear), nameof(Rectilinear))]
 [JsonDerivedType(typeof(Equirectangular), nameof(Equirectangular))]
 [JsonDerivedType(typeof(Cylindrical), nameof(Cylindrical))]
-[JsonDerivedType(typeof(Fisheye), nameof(Fisheye))]
+[JsonDerivedType(typeof(Equidistant), nameof(Equidistant))]
 [JsonDerivedType(typeof(Equisolid), nameof(Equisolid))]
 [JsonDerivedType(typeof(MirrorBall), nameof(MirrorBall))]
 [JsonDerivedType(typeof(Stereographic), nameof(Stereographic))]
 [JsonDerivedType(typeof(Panini), nameof(Panini))]
 public abstract partial record PanoramaProjection {
-    public abstract Projection Of(Projection.Rectilinear rendering);
+    public abstract Fin<Projection> Of(Projection.Rectilinear rendering);
 
     public sealed record Rectilinear : PanoramaProjection {
         public static Rectilinear Default { get; } = new();
 
-        public override Projection Of(Projection.Rectilinear rendering) => rendering;
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => rendering;
     }
 
     public sealed record Equirectangular : PanoramaProjection {
         public static Equirectangular Default { get; } = new();
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Equirectangular(rendering.Extent);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => new Projection.Equirectangular(rendering.Extent);
     }
 
-    public sealed record Cylindrical(
-        [property: Display(Name = "Sweep", Description = "Angle the output spans across frame")][property: Range(0d, double.Tau)] float Sweep,
-        [property: Display(Name = "Height", Description = "Viewing window vertical offset")][property: Range(-10d, 10d)] float Height) : PanoramaProjection {
-        public static Cylindrical Default { get; } = new(float.Pi, 0f);
+    public sealed record Cylindrical(Angle Sweep, float Height) : PanoramaProjection {
+        public static Cylindrical Default { get; } = new(Angle.FromDegrees(180d), 0f);
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Cylindrical(rendering.Extent, ViewWindow.Centered((double)Sweep, rendering.Extent).Raised(Height));
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) =>
+            ViewWindow.Centered((float)Sweep.Radians, rendering.Extent).Map(window => (Projection)new Projection.Cylindrical(rendering.Extent, window.Raised(Height)));
     }
 
-    public sealed record Fisheye([property: Display(Name = "Sweep", Description = "Angle the output spans across frame")][property: Range(0d, double.Tau)] float Sweep) : PanoramaProjection {
-        public static Fisheye Default { get; } = new(float.Pi);
+    public sealed record Equidistant(Angle Sweep) : PanoramaProjection {
+        public static Equidistant Default { get; } = new(Angle.FromDegrees(180d));
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Fisheye(rendering.Extent, Sweep);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => new Projection.Equidistant(rendering.Extent, Sweep);
     }
 
-    public sealed record Equisolid(
-        [property: Display(Name = "Sweep", Description = "Angle the output spans across frame")][property: Range(0d, double.Tau)] float Sweep,
-        [property: Display(Name = "Full turn radius", Description = "Full-turn radius as a share of the inscribed circle")][property: Range(2d * 0.01d / 12d, 2d * 15d / 12d)] float FullTurn) : PanoramaProjection {
-        public static Equisolid Default { get; } = new(float.Pi, 2f * 10.5f / 12f);
+    public sealed record Equisolid(Angle Sweep, float FullTurn) : PanoramaProjection {
+        public static Equisolid Default { get; } = new(Angle.FromDegrees(180d), 2f * 10.5f / 12f);
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Equisolid(rendering.Extent, Sweep, FullTurn);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) =>
+            new Projection.Equisolid(rendering.Extent, Sweep, FullTurn * (double)rendering.Extent.ShortSide / rendering.Extent.Width / 4d);
     }
 
     public sealed record MirrorBall : PanoramaProjection {
         public static MirrorBall Default { get; } = new();
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.MirrorBall(rendering.Extent);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => Projection.Equisolid.MirrorBall(rendering.Extent);
     }
 
-    public sealed record Stereographic([property: Display(Name = "Sweep", Description = "Angle the output spans across frame")][property: Range(0d, double.Tau)] float Sweep) : PanoramaProjection {
-        public static Stereographic Default { get; } = new(float.Pi);
+    public sealed record Stereographic(Angle Sweep) : PanoramaProjection {
+        public static Stereographic Default { get; } = new(Angle.FromDegrees(180d));
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Stereographic(rendering.Extent, Sweep);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => new Projection.Stereographic(rendering.Extent, Sweep);
     }
 
-    public sealed record Panini(
-        [property: Display(Name = "Field of view", Description = "Horizontal angle the output spans across frame")][property: Range(0d, double.Pi)] float Field,
-        [property: Display(Name = "Distance", Description = "Projection distance, 0 rectilinear and 1 Panini")][property: Range(0d, 1d)] float Distance,
-        [property: Display(Name = "Compression", Description = "Vertical compression straightening verticals")][property: Range(0d, 1d)] float Compression) : PanoramaProjection {
-        public static Panini Default { get; } = new(float.Pi / 3f, 1f, 0f);
+    public sealed record Panini(Angle Field, float Distance, float Compression) : PanoramaProjection {
+        public static Panini Default { get; } = new(Angle.FromDegrees(60d), 1f, 0f);
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Panini(rendering.Extent, Field, Distance, Compression);
+        public override Fin<Projection> Of(Projection.Rectilinear rendering) => new Projection.Panini(rendering.Extent, Field, Distance, Compression);
     }
 }
 
-public sealed record Panorama(
-    [property: Display(Name = "Projection", Description = "Projection the rendered view is placed into")] PanoramaProjection Output,
-    [property: Display(Name = "Heading", Description = "Rightward turn of view")][property: Range(-double.Pi, double.Pi)] float Heading,
-    [property: Display(Name = "Elevation", Description = "View upward tilt")][property: Range(-double.Pi / 2d, double.Pi / 2d)] float Elevation,
-    [property: Display(Name = "Roll", Description = "Counterclockwise turn about view axis")][property: Range(-double.Pi, double.Pi)] float Roll,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Panorama> {
-    public static Panorama Default { get; } = new(PanoramaProjection.Rectilinear.Default, 0f, 0f, 0f, Resampling.Default);
+public sealed record Panorama(PanoramaProjection Output, Angle Heading, Angle Elevation, Angle Roll, Resampling Resampling) : IPixelStage<Panorama> {
+    public static Panorama Default { get; } = new(PanoramaProjection.Rectilinear.Default, Angle.Zero, Angle.Zero, Angle.Zero, Resampling.Default);
 
-    public static Option<PixelPass> Pass(Panorama state, PassContext context) =>
+    public static Fin<Option<PixelPass>> Pass(Panorama state, PassContext context) =>
         from camera in context.Camera
-        where state.Output is not PanoramaProjection.Rectilinear || state is not { Heading: 0f, Elevation: 0f, Roll: 0f }
-        from map in camera.Panorama(state.Output.Of, new PanoramaView(Angle.FromRadians(state.Heading), Angle.FromRadians(state.Elevation), Angle.FromRadians(state.Roll)),
-            state.Resampling.Sampling, state.Resampling.Edges)
-        select (PixelPass)new PixelPass.Frame(map.Apply);
+        from rendering in camera.Lens is Projection.Rectilinear lens ? Some(lens) : None
+        where state.Output is not PanoramaProjection.Rectilinear || (state.Heading, state.Elevation, state.Roll) != (Angle.Zero, Angle.Zero, Angle.Zero)
+        select (PixelPass)new PixelPass.Frame((frame, progress) =>
+            from projection in state.Output.Of(rendering)
+            from map in CoordinateMap.Reprojection.Panorama(camera, _ => projection, new PanoramaView(state.Heading, state.Elevation, state.Roll), state.Resampling.Sampling, state.Resampling.Edges)
+                .ToFin(new DarkroomFault(nameof(camera.Lens), DarkroomReason.Unrenderable))
+            from applied in map.Apply(frame, progress)
+            select applied);
 }
 
-public sealed record PolarCoordinates(
-    [property: Display(Name = "Conversion", Description = "Direction the frame converts between rows and rings")] PolarConversion Conversion,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<PolarCoordinates> {
-    public static PolarCoordinates Default { get; } = new(PolarConversion.RectangularToPolar, Resampling.Default);
+[SmartEnum<string>]
+public sealed partial class PolarConversion {
+    public static readonly PolarConversion RectangularToPolar = new("rectangular-to-polar", inverse: true);
+    public static readonly PolarConversion PolarToRectangular = new("polar-to-rectangular", inverse: false);
 
-    public static Option<PixelPass> Pass(PolarCoordinates state, PassContext context) =>
-        Some<PixelPass>(new PixelPass.Frame(state.Conversion.Map(sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
+    public bool Inverse { get; }
 }
 
-public sealed record Kaleidoscope(
-    [property: Display(Name = "Mirrors", Description = "Mirror lines through the center at their turn and zoom, drawing twice as many wedges")] MirrorFold Fold,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Kaleidoscope> {
-    public static Kaleidoscope Default { get; } = new(MirrorFold.Create(3, double.Pi / 2d, FramePosition.Center, 1d), Resampling.Default with { Wrap = WrapMode.Mirror });
+public sealed record PolarCoordinates(PolarConversion Conversion, Vector2 Center, Resampling Resampling) : IPixelStage<PolarCoordinates> {
+    public static PolarCoordinates Default { get; } = new(PolarConversion.RectangularToPolar, new Vector2(0.5f), Resampling.Default);
 
-    public static Option<PixelPass> Pass(Kaleidoscope state, PassContext context) => Some<PixelPass>(new PixelPass.Frame(state.Fold.Map(state.Resampling.Sampling, state.Resampling.Edges).Apply));
+    public static Fin<Option<PixelPass>> Pass(PolarCoordinates state, PassContext context) =>
+        Some<PixelPass>(new PixelPass.Frame(new CoordinateMap.Polar(state.Conversion.Inverse, state.Center, state.Resampling.Sampling, state.Resampling.Edges).Apply));
 }
 
-public sealed record Shake(
-    [property: Display(Name = "Amplitude X", Description = "Largest horizontal shake in frame short sides")][property: Range(0d, 0.1d)] ShortSideLength AmplitudeX,
-    [property: Display(Name = "Amplitude Y", Description = "Largest vertical shake in frame short sides")][property: Range(0d, 0.1d)] ShortSideLength AmplitudeY,
-    [property: Display(Name = "Rotation", Description = "Largest shake turn")][property: Range(0d, double.Pi)] float Rotation,
-    [property: Display(Name = "Zoom", Description = "Largest shake zoom factor, in and out alike")][property: Range(1d, 2d)] float Zoom,
-    [property: Display(Name = "Frequency", Description = "Shakes per second")][property: Range(0.1d, 20d)] float Rate,
-    [property: Display(Name = "Octaves", Description = "Shake detail across scales")] Octaves Octaves,
-    [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
-    [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
-    [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold) {
-    public static Shake Default { get; } = new(ShortSideLength.Zero, ShortSideLength.Zero, 0f, 1f, 5f, NoiseBasis.Fbm.Default.Octaves, Seed.MinValue, Timing.Default, Hold.MinValue);
+public sealed record Kaleidoscope(int Mirrors, Angle Rotation, Vector2 Center, float Zoom, Resampling Resampling) : IPixelStage<Kaleidoscope> {
+    public static Kaleidoscope Default { get; } = new(3, Angle.FromDegrees(90d), new Vector2(0.5f), 1f, Resampling.Default with { Wrap = WrapMode.Mirror });
 
-    public bool Still => (AmplitudeX, AmplitudeY, Rotation, Zoom) == (Default.AmplitudeX, Default.AmplitudeY, Default.Rotation, Default.Zoom);
-
-    public ShakePath Path => new((AmplitudeX, AmplitudeY), Rotation, Zoom, Rate, Octaves, Seed.Field(11u, 0u));
-
-    public double Opened(PassContext context) => Hold.Held(Timing.At(context));
+    public static Fin<Option<PixelPass>> Pass(Kaleidoscope state, PassContext context) =>
+        Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
+            CoordinateMap.Field.Kaleidoscope(state.Mirrors, (float)state.Rotation.Radians, state.Zoom, state.Center, state.Resampling.Sampling, state.Resampling.Edges)
+                .Bind(map => map.Apply(frame, progress))));
 }
 
-public sealed record ShutterMotion(
-    [property: Display(Name = "Shake", Description = "Seeded camera motion over time")] Shake Shake,
-    [property: Display(Name = "Shutter", Description = "Seconds the exposure samples along its motion")][property: Range(0d, 0.5d)] float Shutter,
-    [property: Display(Name = "Shutter position", Description = "Exposure share before current time, 0% opening and 100% closing now")][property: Range(0d, 1d)] float Position) {
-    public static ShutterMotion Default { get; } = new(Shake.Default, 0f, 0.5f);
+public sealed record Shake(Vector2 Amplitude, Angle Rotation, float Zoom, float Rate, Octaves Octaves, Seed Seed, Timing Timing, Hold Hold) {
+    public static Shake Default { get; } = new(Vector2.Zero, Angle.Zero, 1f, 5f, NoiseBasis.Perlin.Default.Octaves, Seed.MinValue, Timing.Default, Hold.MinValue);
 
-    public bool Open => Shutter is not 0f;
+    public bool Still => (Amplitude, Rotation, Zoom) == (Default.Amplitude, Default.Rotation, Default.Zoom);
 
-    public Func<double, Affine> Path(Pose motion, Affine placed, PassContext context) =>
-        (Shutter, Position, Shake.Opened(context) - (Shutter * Position), Shake.Path) switch {
-            var (duration, position, opened, shake) => share =>
-                motion.Partial(share - position).Inverse.Then(shake.Posed(context.Extent, opened + (duration * share)).Inverse).Then(placed),
+    public Fin<Matrix3x2> Inverse(PixelExtent extent, float time) =>
+        Pose.Shaken(extent, time, Rate, Amplitude, (float)Rotation.Radians, Zoom, Octaves, Seed.Field(11u, 0u)).Map(static pose => pose.Inverse);
+}
+
+public sealed record ShutterMotion(Shake Shake, Duration Shutter, float Position) {
+    public static ShutterMotion Default { get; } = new(Shake.Default, Duration.Zero, 0.5f);
+
+    public bool Open => Shutter != Duration.Zero;
+
+    public Func<float, Fin<Matrix3x2>> Path(Pose motion, Matrix3x2 placed, PassContext context) =>
+        ((float)Shutter.TotalSeconds, Shake.Hold.Held(Shake.Timing.At(context))) switch {
+            var (duration, held) => share => Shake.Inverse(context.Extent, held - (duration * Position) + (duration * share)).Map(shaken => motion.Partial(share - Position).Inverse * shaken * placed),
         };
 }
 
 public sealed record AffineTransform(
-    [property: Display(Name = "X", Description = "Horizontal move in frame short sides")][property: Range(-1d, 1d)] float OffsetX,
-    [property: Display(Name = "Y", Description = "Downward move in frame short sides")][property: Range(-1d, 1d)] float OffsetY,
-    [property: Display(Name = "Angle", Description = "Counterclockwise turn about pivot")][property: Range(-double.Pi, double.Pi)] float Rotation,
-    [property: Display(Name = "Scale X", Description = "Horizontal scale about pivot")][property: Range(1d / 16d, 16d)] float ScaleX,
-    [property: Display(Name = "Scale Y", Description = "Vertical scale about pivot")][property: Range(1d / 16d, 16d)] float ScaleY,
-    [property: Display(Name = "Skew X", Description = "Horizontal shear about pivot")][property: Range(-1.2490457723982544d, 1.2490457723982544d)] float SkewX,
-    [property: Display(Name = "Skew Y", Description = "Vertical shear about pivot")][property: Range(-1.2490457723982544d, 1.2490457723982544d)] float SkewY,
-    [property: Display(Name = "Pivot", Description = "Point the frame turns, scales, and shears about")] FramePosition Pivot,
-    [property: Display(Name = "Travel X", Description = "Horizontal move across exposure, blurring along it")][property: Range(-1d, 1d)] float TravelX,
-    [property: Display(Name = "Travel Y", Description = "Downward move across exposure, blurring along it")][property: Range(-1d, 1d)] float TravelY,
-    [property: Display(Name = "Spin", Description = "Counterclockwise turn about pivot across exposure")][property: Range(-double.Pi, double.Pi)] float Turn,
-    [property: Display(Name = "Zoom", Description = "Scale about pivot at exposure end")][property: Range(1d / 16d, 16d)] float Zoom,
-    [property: Display(Name = "Exposure", Description = "Camera shake and the shutter sampling motion")] ShutterMotion Motion,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<AffineTransform> {
+    Vector2 Offset, Angle Rotation, Vector2 Scale, Angle SkewX, Angle SkewY, Vector2 Pivot, Vector2 Travel, Angle Turn, float Zoom, ShutterMotion Motion, Resampling Resampling)
+    : IPixelStage<AffineTransform> {
     public static AffineTransform Default { get; } = new(
-        0f, 0f, 0f, 1f, 1f, 0f, 0f, FramePosition.Center, 0f, 0f, 0f, 1f, ShutterMotion.Default, Resampling.Default);
+        Vector2.Zero, Angle.Zero, Vector2.One, Angle.Zero, Angle.Zero, new Vector2(0.5f), Vector2.Zero, Angle.Zero, 1f, ShutterMotion.Default, Resampling.Default);
 
-    public static Option<PixelPass> Pass(AffineTransform state, PassContext context) =>
-        (Pivot: state.Pivot.Point(context.Extent), Side: context.Extent.ShortSide) switch {
-            var (pivot, side) => state.Motion.Path(
-                new Pose(((double)state.TravelX * side, (double)state.TravelY * side), state.Turn, (state.Zoom, state.Zoom), (0d, 0d), pivot),
-                new Pose(((double)state.OffsetX * side, (double)state.OffsetY * side), state.Rotation, (state.ScaleX, state.ScaleY), (state.SkewX, state.SkewY), pivot).Inverse,
-                context) switch {
-                    var path when (state.TravelX, state.TravelY, state.Turn, state.Zoom) != (Default.TravelX, Default.TravelY, Default.Turn, Default.Zoom) || (state.Motion.Open && !state.Motion.Shake.Still) =>
-                        Some<PixelPass>(Affine.Swept(path, state.Resampling.Sampling, state.Resampling.Wrap)),
-                    var path => path(0d) switch {
-                        { Still: true } => None,
-                        var still => Some<PixelPass>(new PixelPass.Frame(still.Map(state.Resampling.Sampling, state.Resampling.Wrap).Apply)),
-                    },
-                },
+    private bool Swept => (Travel, Turn, Zoom) != (Default.Travel, Default.Turn, Default.Zoom) || (Motion.Open && !Motion.Shake.Still);
+
+    private bool Placed => (Offset, Rotation, Scale, SkewX, SkewY) != (Default.Offset, Default.Rotation, Default.Scale, Default.SkewX, Default.SkewY);
+
+    public static Fin<Option<PixelPass>> Pass(AffineTransform state, PassContext context) =>
+        state.Swept || state.Placed || !state.Motion.Shake.Still
+            ? Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
+                from path in state.Path(context)
+                from still in path(0f)
+                from applied in state.Swept
+                    ? CoordinateMap.Integrated(share => path((float)share).Match(
+                        Succ: matrix => (state.Planar(matrix), Vector4.One),
+                        Fail: _ => (state.Planar(still), Vector4.Zero))).Run(frame, progress)
+                    : state.Planar(still).Apply(frame, progress)
+                select applied))
+            : None;
+
+    private Fin<Func<float, Fin<Matrix3x2>>> Path(PassContext context) =>
+        (Pivot: context.Extent.Point(Pivot), Side: (float)context.Extent.ShortSide) switch {
+            var (pivot, side) => (
+                    Pose.Validated(Travel * side, (float)Turn.Radians, new Vector2(Zoom), Vector2.Zero, pivot),
+                    Pose.Validated(Offset * side, (float)Rotation.Radians, Scale, new Vector2((float)SkewX.Radians, (float)SkewY.Radians), pivot))
+                .Apply((motion, placed) => Motion.Path(motion, placed.Inverse, context))
+                .As(),
         };
+
+    private CoordinateMap.Planar Planar(Matrix3x2 matrix) => new(matrix, Resampling.Sampling, Resampling.Edges);
 }
 
-public sealed record CameraShake(
-    [property: Display(Name = "Exposure", Description = "Camera shake and the shutter sampling motion")] ShutterMotion Motion,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<CameraShake> {
+public sealed record CameraShake(ShutterMotion Motion, Resampling Resampling) : IPixelStage<CameraShake> {
     public static CameraShake Default { get; } = new(ShutterMotion.Default, Resampling.Default with { Wrap = WrapMode.Periodic });
 
-    public static Option<PixelPass> Pass(CameraShake state, PassContext context) =>
+    public static Fin<Option<PixelPass>> Pass(CameraShake state, PassContext context) =>
         AffineTransform.Pass(AffineTransform.Default with { Motion = state.Motion, Resampling = state.Resampling }, context);
 }
 
-public sealed record CornerPin(
-    [property: Display(Name = "Upper left", Description = "Upper left corner position in frame")] FramePosition TopLeft,
-    [property: Display(Name = "Upper right", Description = "Upper right corner position in frame")] FramePosition TopRight,
-    [property: Display(Name = "Lower right", Description = "Lower right corner position in frame")] FramePosition BottomRight,
-    [property: Display(Name = "Lower left", Description = "Lower left corner position in frame")] FramePosition BottomLeft,
-    [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<CornerPin> {
-    public static CornerPin Default { get; } = new(FramePosition.TopLeft, FramePosition.TopRight, FramePosition.BottomRight, FramePosition.BottomLeft, Resampling.Default);
+public sealed record CornerPin(Vector2 TopLeft, Vector2 TopRight, Vector2 BottomRight, Vector2 BottomLeft, Resampling Resampling) : IPixelStage<CornerPin> {
+    public static CornerPin Default { get; } = new(Vector2.Zero, Vector2.UnitX, Vector2.One, Vector2.UnitY, Resampling.Default);
 
-    public static Option<PixelPass> Pass(CornerPin state, PassContext context) =>
+    public static Fin<Option<PixelPass>> Pass(CornerPin state, PassContext context) =>
         state with { Resampling = Default.Resampling } == Default ? None
-            : FrameQuad.Validated(state.TopLeft.Point(context.Extent), state.TopRight.Point(context.Extent), state.BottomRight.Point(context.Extent), state.BottomLeft.Point(context.Extent)).Match(
-                Succ: quad => Some<PixelPass>(quad.Pinned(state.Resampling.Sampling, state.Resampling.Wrap)),
-                Fail: static error => Some<PixelPass>(new PixelPass.Frame((_, _) => error)));
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
+                from quad in FrameQuad.Validated(context.Extent.Point(state.TopLeft), context.Extent.Point(state.TopRight), context.Extent.Point(state.BottomRight), context.Extent.Point(state.BottomLeft))
+                from applied in CoordinateMap.Planar.Pinned(quad, context.Extent, state.Resampling.Sampling, state.Resampling.Edges).Apply(frame, progress)
+                select applied));
 }

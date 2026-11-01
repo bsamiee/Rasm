@@ -25,7 +25,8 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import relinked
 from blender.bpy.scene.lights.emitters import emitters, picked
 from blender.bpy.scene.objects import focused, ObjectState, reconciled, spawned
-from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 from blender.records.fields import Case, Name
@@ -122,7 +123,6 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         active = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)))
         return Section(
             key="light_groups",
-            title="Light Groups",
             rows=(
                 Property(target=Member(root=bpy.types.Object, path=("lightgroup",), reach=active), search=Some(Member(root=bpy.types.ViewLayer, path=("lightgroups",)))),
                 *(OperatorButton(target=command) for command in (light_groups_assign, light_group_select, light_split, light_split_toggle, light_unsplit)),

@@ -233,5 +233,5 @@ public static class Selections {
          select Chrome.Run(
              new Nomen($"{face.Verb} {relation.Noun}", $"{face.Info} the {relation.Noun} of the selected objects"),
              canvas => Select(canvas.Document, relation, 1, mode).Map(static _ => unit)))
-            .Add(Chrome.Run(new Nomen("Find Objects", "Selects the objects whose name, nickname or type matches a wildcard pattern"), Search, Keys.Application | Keys.F));
+            .Add(Chrome.Run(new Nomen("Find Objects", "Selects the objects whose name, nickname or type matches a wildcard pattern"), Search, Application.Instance.CommonModifier | Keys.F));
 }

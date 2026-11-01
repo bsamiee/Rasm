@@ -132,4 +132,8 @@ public static class Conversions {
         string.IsNullOrEmpty(report) ? unit : new RhinoFault(call, RhinoReason.Declined, Inner: Error.New(report));
 
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
+
+    // --- [HOOKS]
+    public static RhinoFault? Rejection<T>(Fin<T> result) =>
+        result.Match(Succ: static _ => null, Fail: static error => error.Filter<RhinoFault>().Head as RhinoFault);
 }

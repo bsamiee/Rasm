@@ -24,19 +24,18 @@ from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.mirrors import choices
-from blender.bpy.data.rna.paths import rna, RnaPath, Struct, struct_at
+from blender.bpy.data.rna.paths import rna, RnaPath, struct_at
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.changes import made
-from blender.bpy.nodes.desired import Interface, Socket
 from blender.bpy.nodes.graphs import Expr, group_input
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.nodes.trees import DATA_TYPES, nested
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
-from blender.bpy.render.compositor.effects import Enabled
-from blender.bpy.render.compositor.entries import added_entry
 from blender.bpy.render.compositor.inputs import inputs_of, PreviewFrame
+from blender.bpy.render.compositor.placement import added_entry, Enabled
 from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
 from blender.bpy.render.outputs.framing import RESOLUTION
 from blender.bpy.render.outputs.paths import Pathed
@@ -378,13 +377,19 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 ("render", "use_stamp"): False,
                 ("frame_current",): source.frame_current,
             }
-            owners: tuple[tuple[Struct, Struct], ...] = ((source.eevee, scene.eevee), (source.cycles, scene.cycles), (source.display, scene.display))  # type: ignore[assignment, attr-defined]  # ty: ignore[invalid-assignment, unresolved-attribute]
-            engines = accumulated(Snapshot.capture(held).bind(lambda snapshot: snapshot.apply(own).outcome) for held, own in owners)
+            samples = Option.of_optional(ENGINE_SAMPLES.get(source.render.engine))
+            engines = accumulated(
+                Descriptor
+                .resolve(bpy.types.Scene, final[:1], bpy.types.PointerProperty)
+                .bind(lambda owner: Snapshot.capture(source, Some((owner,))))
+                .bind(lambda snapshot: snapshot.apply(scene).outcome)
+                for final, _ in samples.to_list()
+            )
             previewed = accumulated(
                 Descriptor.resolve(bpy.types.Scene, preview, bpy.types.Property).bind(
                     lambda held: struct_at(source, held.owner).map(lambda owner: (final, held.read(owner))).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(source), member=rna(held.owner)))
                 )
-                for final, preview in Option.of_optional(ENGINE_SAMPLES.get(source.render.engine)).to_list()
+                for final, preview in samples.to_list()
             )
             return (
                 paired(assigned(scene, settings), engines)

@@ -1,12 +1,41 @@
 using System.Globalization;
 using HarfBuzzSharp;
+using Rasm.UI.Controls.Primitives;
+using Rasm.UI.Media;
 using Rasm.UI.Styling;
 using SkiaSharp;
+using SuperLinq;
 using Topten.RichTextKit;
 
 namespace Rasm.UI.Typography;
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed record Span(string Text) {
+    public Option<Role> Role { get; init; }
+    public HashSet<Condition> Conditions { get; init; }
+    public Option<CultureInfo> Language { get; init; }
+    public Option<Part> Part { get; init; }
+
+    public static implicit operator Span(string text) => FromString(text);
+
+    public static Span FromString(string text) => new(text);
+
+    public static Seq<Span> Cut(Seq<Span> runs, Seq<int> offsets) =>
+        runs.Zip(runs.Scan(0, static (start, run) => start + run.Text.Length)).Bind(held =>
+            toSeq(held.Second.Cons(toSeq(offsets.Filter(at => at > held.Second && at < held.Second + held.First.Text.Length).Distinct().Order())).Add(held.Second + held.First.Text.Length)
+                .AsIterable().Window(2, cut => held.First with { Text = held.First.Text[(cut[0] - held.Second)..(cut[1] - held.Second)] })))
+            .Filter(static piece => piece.Text.Length > 0);
+}
+
+[SmartEnum]
+public sealed partial class Truncation {
+    public static readonly Truncation End = new(Fraction.MaxValue);
+    public static readonly Truncation Middle = new(Fraction.Half);
+    public static readonly Truncation Start = new(Fraction.MinValue);
+
+    internal Fraction Head { get; }
+}
+
 public sealed record Halo(ColorValue Color, float Width, float Blur);
 
 public sealed record TextFace : Monoid<TextFace> {
@@ -73,7 +102,7 @@ internal sealed record TextStyle : IStyle {
     public TextDirection TextDirection { get; init; }
     public char ReplacementCharacter { get; init; }
     public Seq<Feature> Features { get; init; }
-    public Option<(Feature Feature, OpenTypeMetricsTag Size, OpenTypeMetricsTag Offset, float Direction)> Variant { get; init; }
+    public Option<FontVariant> Variant { get; init; }
     public HashMap<Tag, float> Variations { get; init; }
     public Seq<SKFontPaletteOverride> Palette { get; init; }
     public bool Dark { get; init; }
@@ -82,37 +111,4 @@ internal sealed record TextStyle : IStyle {
     public Option<float> Cell { get; init; }
     public Option<float> Stroked { get; init; }
     public Option<int> Span { get; init; }
-}
-
-internal sealed class Typeset(Shaping shaping, Node.Text text, TextStyle style, float width, Option<(TextRange Range, SKColor Color)> selection, TextBlock lines, bool clipped) {
-    private readonly Lazy<Option<float>> capHeight = new(() => toSeq(lines.FontRuns).Head.Bind(run =>
-        shaping.HarfBuzzFont(run.Typeface).OpenTypeMetrics.TryGetPosition(OpenTypeMetricsTag.CapHeight, out int units) ? Some(units * run.Style.FontSize / run.Typeface.UnitsPerEm) : None));
-
-    internal Node.Text Text { get; } = text;
-    internal TextStyle Style { get; } = style;
-    internal float Width { get; } = width;
-    internal Option<(TextRange Range, SKColor Color)> Selection { get; } = selection;
-    internal TextBlock Lines { get; } = lines;
-    internal SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
-    internal bool Truncated { get; } = lines.Truncated || clipped;
-    internal Map<int, Seq<FontRun>> Parts { get; } = toSeq(lines.Lines).Bind(static line => toSeq(line.Runs)).Filter(static run => run.RunKind is not FontRunKind.TrailingWhitespace)
-        .Fold(Map<int, Seq<FontRun>>(), static (held, run) => ((TextStyle)run.Style).Span.Map(head => held.AddOrUpdate(head, Some: runs => runs.Add(run), None: () => [run])).IfNone(held));
-
-    internal SKRect Overhang => Lines.MeasuredOverhang switch {
-        var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
-    };
-
-    internal Option<float> At(Baseline baseline) =>
-        from line in toSeq(Lines.Lines).At(baseline.Line.GetOffset(Lines.Lines.Count))
-        from rise in (float)baseline.Rise switch {
-            0f => Some(0f),
-            var share => capHeight.Value.Map(cap => cap * share),
-        }
-        select line.YCoord + line.BaseLine - rise;
-
-    internal Option<int> PartAt(SKPoint local) =>
-        Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
-            < 0 => None,
-            var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Span,
-        };
 }

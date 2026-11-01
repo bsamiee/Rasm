@@ -20,8 +20,9 @@ from blender.bpy.data.rna.conditions import admits, Condition
 from blender.bpy.data.rna.descriptors import assign
 from blender.bpy.data.rna.paths import rna
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.ui.layout.rows import Member, ResolvedMember
+from blender.bpy.extension.registration import Acquisitions, Band, Declaration
+from blender.bpy.ui.layout.members import Member, ResolvedMember
+from blender.bpy.ui.layout.rows import glyphed
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.bpy.ui.resources.theme import color, Shade
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
@@ -140,7 +141,7 @@ class GizmoPart(msgspec.Struct, frozen=True, kw_only=True):
             case TargetHandler() as handler:
                 return named.map(lambda key: partial(_handled, key, handler, identity.reports.reported(handler.set)))
             case Member() as member:
-                return paired(named, member.bound()).map(lambda pair: (pair[0], pair[1]))
+                return paired(named, member.located(identity).bind(lambda found: found.bound())).map(lambda pair: (pair[0], pair[1]))
 
 
 class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
@@ -164,6 +165,11 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
         return identity.name(bpy.types.GizmoGroup, self.key)
 
     # --- [REGISTRATION]
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Icon set the parts' staged glyphs read and attachments their members bind."""
+        return tuple(held for part in self.parts for held in (*glyphed(part.glyph), *(part.bind.prerequisites if isinstance(part.bind, Member) else ())))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns each custom shape, then the group class built when the interface band opens and its glyphs resolve."""

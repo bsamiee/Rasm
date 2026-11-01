@@ -1,6 +1,6 @@
 using System.Drawing;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Render.Views;
-using Rhino;
 using Rhino.Commands;
 using Rhino.Render;
 using Rhino.Render.DataSources;
@@ -23,7 +23,7 @@ public sealed record RenderSize(Option<Size> Size, bool Viewport) {
 public static class Framing {
     // --- [EXTENT]
     public static ReadModel<Size> Extent { get; } = new(
-        [ReadModels.Marks(Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h).Documents()),
+        [ReadModels.Marks(Documents.PropertiesChanged.Documents()),
          ReadModels.Marks(Subscriptions.On<UndoRedoEventArgs>(static h => Command.UndoRedo += h, static h => Command.UndoRedo -= h).Documents(static args => args.DocumentSerialNumber))],
         static doc => IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true)));
 

@@ -21,8 +21,9 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.changes import Nested, reconciled
-from blender.bpy.nodes.desired import End, Graph, INPUTS, Interface, item_key, Link, member_paths, Node, NodeGroup, OUTPUTS, RESULT, Socket
+from blender.bpy.nodes.desired import End, Graph, INPUTS, item_key, Link, member_paths, Node, OUTPUTS, RESULT
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, Scalar, Shape, Term, vector, where, widest, xyz
+from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket, StockInput
 from blender.bpy.nodes.trees import GraphTree, native
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.stores import content_hash
@@ -123,6 +124,11 @@ class ExpressionNamespace:
         return math("LOGARITHM", x, e)
 
     @staticmethod
+    def exp2(x: Expr, /) -> Expr:
+        """Two raised to the power."""
+        return math("POWER", 2.0, x)
+
+    @staticmethod
     def less_equal(x1: Expr, x2: Expr | float, /) -> Expr:
         """1 where `x1` lies at or below `x2`."""
         return 1.0 - (x1 > x2)
@@ -207,19 +213,20 @@ def built(key: Key, interface: Interface, outputs: Mapping[Key, Term], kind: typ
         name: Group name at creation, the key's display name by default.
 
     Returns:
-        `Ok` of group, each unread menu input linked into a Menu Switch holding its items. `Error` of lowering faults.
+        `Ok` of group, each unread menu input linked into a Menu Switch holding its items, or into a hidden node of the stock menu it declares as. `Error` of lowering faults.
     """
     entered = (Graph(kind=kind, nodes={INPUTS: Node(kind=bpy.types.NodeGroupInput)}),) if interface.inputs or interface.panels else ()
 
     def held(body: Graph) -> Outcome[Graph]:
         read = frozenset(link.source.socket for link in body.links if link.source.node == INPUTS)
-        menus = tuple(
-            menu(End(node=INPUTS, socket=key), dict.fromkeys(items.items, 0.0)).named(item_key(INPUTS, key))
-            for key, entry, _, _ in interface.walked()
-            if isinstance(entry, tuple) and entry[1] == "INPUT" and key not in read
-            for items in entry[0].items.to_list()
+        unread = tuple(entry[0] for key, entry, _, _ in interface.walked() if isinstance(entry, tuple) and entry[1] == "INPUT" and key not in read)
+        menus = tuple(menu(End(node=INPUTS, socket=socket.key), dict.fromkeys(items.items, 0.0)).named(item_key(INPUTS, socket.key)) for socket in unread for items in socket.items.to_list())
+        stocks = tuple(
+            Expr(kind=stock.node, inputs=((stock.input, End(node=INPUTS, socket=socket.key)),)).named(item_key(INPUTS, socket.key))
+            for socket in unread
+            if isinstance(stock := socket.kind, StockInput) and socket.base is bpy.types.NodeSocketMenu
         )
-        return lowered(kind, *menus).bind(lambda selected: Graph.merged(kind, (*entered, body, selected)))
+        return lowered(kind, *menus, *stocks).bind(lambda selected: Graph.merged(kind, (*entered, body, selected)))
 
     output = Expr(kind=bpy.types.NodeGroupOutput, inputs=tuple(outputs.items()), members={"is_active_output": True}, label=Some(OUTPUTS))
     return lowered(kind, output).bind(held).map(lambda graph: NodeGroup(key=key, name=name.default_with(lambda: bpy.path.display_name(key)), interface=interface, graph=graph))
@@ -237,7 +244,7 @@ def placed(group: NodeGroup, inputs: Mapping[Key, Term], output: Key) -> Expr:
         Group node expression in the output socket's shape.
     """
     socket = {socket.key: socket for socket in group.interface.outputs}[output]
-    return Expr(kind=bpy.types.ShaderNodeGroup, inputs=tuple(inputs.items()), content=Some(Nested(group=group)), socket=output, shape=socket.kind)
+    return Expr(kind=bpy.types.ShaderNodeGroup, inputs=tuple(inputs.items()), content=Some(Nested(group=group)), socket=output, shape=socket.refined)
 
 
 def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callable[[Body[P]], Group[P]]:
@@ -245,14 +252,15 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
 
     The group key is the declaring module's name joined to the body's name past any leading underscore, unless a factory building
     one body per row states it, and the group name its display name. The group reads each parameter as an input socket of the socket
-    class its `Expr` annotation carries, float by default; a scalar return is the `result` output, a mapping returns outputs by key.
+    class its `Expr` annotation carries, float by default, bounded and described by a `msgspec.Meta` beside as `Socket.of` reads one,
+    and defaulting to the parameter default; a scalar return is the `result` output, a mapping returns outputs by key.
 
     Args:
         kind: Group tree class.
         key: Group ownership key a factory states per row.
 
     Returns:
-        Decorator building the group from its body, raising `LookupError` with the lowering faults of a body the host refuses.
+        Decorator building the group from its body, raising `LookupError` with the faults of a parameter no socket holds or of a body the host refuses.
     """
 
     def declared(body: Body[P]) -> Group[P]:
@@ -260,17 +268,30 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
         owned = key.default_with(lambda: item_key(body.__module__.rpartition(".")[2], name))
         hints = typing.get_type_hints(body, include_extras=True)
 
-        def annotated(name: str) -> Option[Shape]:
-            carried = inspect_annotation(hints[name], annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata if name in hints else ()
-            return Option.of_optional(next((held for held in carried if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
+        def carried(name: str) -> tuple[object, ...]:
+            return tuple(inspect_annotation(hints[name], annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata) if name in hints else ()
 
-        inputs = tuple(Socket(key=parameter, kind=annotated(parameter).default_value(bpy.types.NodeSocketFloat)) for parameter in inspect.signature(body).parameters)
-        bound = inspect.signature(body).bind(**{entry.key: group_input(entry.key, entry.kind) for entry in inputs})
-        returned = body(*bound.args, **bound.kwargs)
-        outputs: Mapping[Key, Term] = returned if isinstance(returned, Mapping) else {RESULT: returned}
-        result = annotated("return").filter(lambda _: not isinstance(returned, Mapping))
-        face = Interface(inputs=inputs, outputs=tuple(Socket(key=item, kind=result.default_value(widest(term))) for item, term in outputs.items()))
-        match built(owned, face, outputs, kind, name=Some(bpy.path.display_name(key.default_value(name)))):
+        def annotated(name: str) -> Option[Shape]:
+            return Option.of_optional(next((held for held in carried(name) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
+
+        def parameter(held: inspect.Parameter) -> Outcome[Socket]:
+            bounds = tuple(meta for meta in carried(held.name) if isinstance(meta, msgspec.Meta))
+            return (
+                Socket
+                .of(held.name, typing.Annotated[float, *bounds] if bounds else float, None if held.default is inspect.Parameter.empty else held.default)
+                .map(lambda socket: annotated(held.name).map(lambda shape: msgspec.structs.replace(socket, kind=shape)).default_value(socket))
+                .to_result_with(lambda: Fault.of(Reason.OUTSIDE, held.name, repr(held.default), member="a socket value"))
+            )
+
+        def faced(inputs: tuple[Socket, ...]) -> Outcome[NodeGroup]:
+            bound = inspect.signature(body).bind(**{entry.key: group_input(entry.key, entry.refined) for entry in inputs})
+            returned = body(*bound.args, **bound.kwargs)
+            outputs: Mapping[Key, Term] = returned if isinstance(returned, Mapping) else {RESULT: returned}
+            result = annotated("return").filter(lambda _: not isinstance(returned, Mapping))
+            face = Interface(inputs=inputs, outputs=tuple(Socket(key=item, kind=result.default_value(widest(term))) for item, term in outputs.items()))
+            return built(owned, face, outputs, kind, name=Some(bpy.path.display_name(key.default_value(name))))
+
+        match accumulated(map(parameter, inspect.signature(body).parameters.values())).bind(faced):
             case Result(tag="ok", ok=group):
                 return Group(body=body, group=group)
             case Result(error=faults):
@@ -378,6 +399,11 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
         return evaluated(scratch)
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+POSITION: Final = column("position", bpy.types.NodeSocketVector)
+W: Final = column("w")
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EXPRESSIONS", "Body", "ColorExpr", "ExpressionNamespace", "Group", "VectorExpr", "built", "column", "grouped", "lowered", "placed", "sampled"]
+__all__ = ["EXPRESSIONS", "POSITION", "Body", "ColorExpr", "ExpressionNamespace", "Group", "VectorExpr", "W", "built", "column", "grouped", "lowered", "placed", "sampled"]

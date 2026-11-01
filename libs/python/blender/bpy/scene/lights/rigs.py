@@ -34,7 +34,8 @@ from blender.bpy.scene.lights.linking import LINK_STATE, linked, RECEIVERS
 from blender.bpy.scene.objects import descendants, extent, focused, ObjectState, owned_object, reconciled, spawned, StackEntry
 from blender.bpy.scene.worlds import reverted, swapped
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
-from blender.bpy.ui.layout.rows import FUNCTIONS, Member, OperatorButton, Property
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import FUNCTIONS, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.screens.areas import AreaQuery, Located
@@ -185,7 +186,6 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         """Returns active rig setup with the place, pick, arrange, and remove buttons in its header."""
         return Section(
             key="light_rig",
-            title="Light Rig",
             header=tuple(OperatorButton(target=command) for command in (rig_place, rig_pick, rig_arrange, rig_remove)),
             store=Some(
                 Store(
@@ -201,7 +201,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     def references() -> Section:
         """Returns the reference pick, draw, gel, and apply buttons."""
         commands = (rig_reference_pick, rig_reference_draw, rig_reference_gel, rig_reference_apply)
-        return Section(key="rig_reference", title="Rig Reference", rows=tuple(OperatorButton(target=command) for command in commands))
+        return Section(key="rig_reference", rows=tuple(OperatorButton(target=command) for command in commands))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

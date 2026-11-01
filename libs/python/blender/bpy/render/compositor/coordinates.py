@@ -1,6 +1,6 @@
-"""Compositor frame positions, data-window pixel grids, affine and projective placement, and bordered Map UV sampling."""
+"""Compositor frame positions, data-window pixel grids, affine and projective placement, unit-interval border folds, and bordered Map UV sampling."""
 
-from enum import Enum
+from enum import IntEnum
 from typing import Final, Literal, Self
 
 import bpy
@@ -11,21 +11,27 @@ import OpenImageIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import MenuItem, MenuItems, Socket
+from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.graphs import cell, composed, directed, Expr, inverted, math, matrix, menu, projected, Scalar, Shape, switched, Term, transform, transformed, vector, where, xyz
+from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.colors import AXES, with_alpha
 from blender.imaging.geometry.frames import Homography
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Border(Enum):
-    """Sampling past an image edge, valued by OpenImageIO's wrap mode."""
+class Border(IntEnum):
+    """Sampling past an image edge, valued by the number of OpenImageIO's wrap mode, records holding it by that number."""
 
-    BLACK = OpenImageIO.Wrap.Black
-    CLAMP = OpenImageIO.Wrap.Clamp
-    PERIODIC = OpenImageIO.Wrap.Periodic
-    MIRROR = OpenImageIO.Wrap.Mirror
+    BLACK = int(OpenImageIO.Wrap.Black)
+    CLAMP = int(OpenImageIO.Wrap.Clamp)
+    PERIODIC = int(OpenImageIO.Wrap.Periodic)
+    MIRROR = int(OpenImageIO.Wrap.Mirror)
+
+    @property
+    def wrap(self) -> OpenImageIO.Wrap:
+        """OpenImageIO wrap mode of the border."""
+        return OpenImageIO.Wrap(self.value)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -177,26 +183,23 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         decomposed = Expr(kind=bpy.types.FunctionNodeMatrixSVD, inputs=(("Matrix", planar),), socket="S", shape=bpy.types.NodeSocketVector)
         reflection = math("SIGN", Expr(kind=bpy.types.FunctionNodeMatrixDeterminant, inputs=(("Matrix", pixel),), socket="Determinant"))
         center = vector("SCALE", self.extent, 0.5)
-        location = msgspec.structs.replace(dimensions(source), socket="Location")
+        location = dimensions(source).at("Location", bpy.types.NodeSocketVector)
 
         def rotated(image: Expr, side: Literal["U", "V"], direction: float) -> Expr:
-            factor = msgspec.structs.replace(decomposed, socket=side, shape=bpy.types.NodeSocketMatrix)
+            factor = decomposed.at(side, bpy.types.NodeSocketMatrix)
             angle = math("ARCTAN2", cell(factor, 2, 1), cell(factor, 1, 1)) * direction
             return Expr(kind=bpy.types.CompositorNodeRotate, inputs=(("Image", image), ("Angle", angle)), socket="Image", shape=bpy.types.NodeSocketColor)
 
-        def translated(image: Scalar, offset: Expr, *extras: tuple[str, str]) -> Expr:
-            return Expr(kind=bpy.types.CompositorNodeTranslate, inputs=(("Image", image), ("X", offset["X"]), ("Y", offset["Y"]), *extras), socket="Image", shape=bpy.types.NodeSocketColor)
+        def translated(image: Scalar, offset: Expr) -> Expr:
+            return Expr(kind=bpy.types.CompositorNodeTranslate, inputs=(("Image", image), ("X", offset["X"]), ("Y", offset["Y"])), socket="Image", shape=bpy.types.NodeSocketColor)
 
         unrotated = rotated(translated(source, vector("SCALE", location, -1.0)), "V", -1.0)
         stretched = Expr(
-            kind=bpy.types.CompositorNodeScale,
-            inputs=(("Image", unrotated), ("Type", "Relative"), ("X", decomposed["X"]), ("Y", decomposed["Y"] * reflection)),
-            socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            kind=bpy.types.CompositorNodeScale, inputs=(("Image", unrotated), ("X", decomposed["X"]), ("Y", decomposed["Y"] * reflection)), socket="Image", shape=bpy.types.NodeSocketColor
         )
         shifted = vector("ADD", location, vector("MULTIPLY", vector("SUBTRACT", transformed(center, forward), center), self.scale))
-        image = translated(rotated(stretched, "U", 1.0), shifted, ("Interpolation", "Bilinear"), ("Extension X", "Clip"), ("Extension Y", "Clip"))
-        return switched(msgspec.structs.replace(inverted(pixel), socket="Invertible", shape=bpy.types.NodeSocketBool), (0.0, 0.0, 0.0, 0.0), image)
+        image = translated(rotated(stretched, "U", 1.0), shifted)
+        return switched(inverted(pixel).at("Invertible", bpy.types.NodeSocketBool), (0.0, 0.0, 0.0, 0.0), image)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -242,20 +245,44 @@ def pinned(fraction: Expr, rows: tuple[Expr, Expr, Expr], *, forward: bool) -> E
 # --- [SAMPLING]
 
 
-def uv_mapped(image: Term, uv: Term, *, interpolation: str = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), shape: Shape = bpy.types.NodeSocketColor) -> Expr:
+def uv_mapped(image: Term, uv: Term, *, interpolation: Term = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), shape: Shape = bpy.types.NodeSocketColor) -> Expr:
     """Samples an image at Map UV positions under one interpolation and each axis' extension, Map UV premultiplying the coverage in Z."""
     inputs = (("Image", image), ("UV", uv), ("Interpolation", interpolation), ("Extension X", extension[0]), ("Extension Y", extension[1]))
     return Expr(kind=bpy.types.CompositorNodeMapUV, inputs=inputs, socket="Image", shape=shape)
 
 
-def extended(source: Scalar, uv: Expr, borders: tuple[Scalar | str, Scalar | str], *, clipped: bool) -> Expr:
-    """Samples source at Map UV positions under each axis' `Border` menu, Map UV premultiplying the geometric coverage in Z.
+def folded(border: Border | Scalar, coordinate: Expr, /) -> tuple[Expr, Expr | float]:
+    """Folds a coordinate into the unit interval under a border, with the coverage a black border keeps inside the interval and every other border keeps whole.
+
+    Args:
+        border: `Border` member, chosen at build time, or a `BORDERS` menu operand.
+        coordinate: Coordinate whose unit interval the border extends.
+
+    Returns:
+        Folded coordinate and its coverage, one Menu Switch choosing the fold under a menu operand and its black item's boolean the coverage.
+    """
+    clamped = Expr(kind=bpy.types.ShaderNodeClamp, inputs=(("Value", coordinate),), socket="Result")
+    inside = (1.0 - (coordinate < 0.0)) * (1.0 - (coordinate > 1.0))
+    folds = {Border.BLACK: clamped, Border.CLAMP: clamped, Border.PERIODIC: math("FRACT", coordinate), Border.MIRROR: math("PINGPONG", coordinate, 1.0)}
+    match border:
+        case Border.BLACK:
+            return clamped, inside
+        case Border():
+            return folds[border], 1.0
+        case selector:
+            fold = menu(selector, {MenuItem.of(member): held for member, held in folds.items()})
+            return fold, switched(fold.at(MenuItem.of(Border.BLACK).name), 1.0, inside)
+
+
+def extended(source: Scalar, uv: Expr, borders: Border | Scalar | tuple[Border | Scalar, Border | Scalar], *, clipped: bool, interpolation: Term = "Bilinear") -> Expr:
+    """Samples source at Map UV positions past its edges under `Border`s, a member through Map UV's native extension and a menu operand through one Menu Switch, Map UV premultiplying the geometric coverage in Z.
 
     Args:
         source: Associated image being sampled.
         uv: Map UV positions with geometric coverage in Z.
-        borders: `Border` menu input or item name for X, then for Y.
+        borders: One border for both axes, or one for X then one for Y, each a `Border` member or a `BORDERS` menu operand.
         clipped: Whether black borders fade over the edge pixel as coverage, else Map UV clips them.
+        interpolation: Map UV interpolation item name or menu operand, such as `Anisotropic` filtering each lookup over its UV footprint.
 
     Returns:
         Covered associated sample.
@@ -263,18 +290,33 @@ def extended(source: Scalar, uv: Expr, borders: tuple[Scalar | str, Scalar | str
     sides = dimensions(source)
     native = {Border.BLACK: "Extend" if clipped else "Clip", Border.CLAMP: "Extend", Border.PERIODIC: "Repeat", Border.MIRROR: "Extend"}
 
-    def axis(name: Literal["X", "Y"], selector: Scalar | str) -> tuple[Expr, Expr, Expr]:
-        mode = menu(selector, {MenuItem.of(member): native[member] for member in Border}, shape=Some(bpy.types.NodeSocketMenu))
-        mirrored, black = (msgspec.structs.replace(mode, socket=MenuItem.of(member).name, shape=bpy.types.NodeSocketFloat) for member in (Border.MIRROR, Border.BLACK))
-        coordinate = uv[name]
-        edge = math("MULTIPLY_ADD", math("MINIMUM", coordinate, 1.0 - coordinate), sides[name], 0.5, clamp=True)
-        return switched(mirrored, coordinate, math("PINGPONG", coordinate, 1.0)), switched(black, 1.0, edge), mode
+    def switch(border: Border | Scalar) -> Border | Expr:
+        match border:
+            case Border():
+                return border
+            case selector:
+                return menu(selector, {MenuItem.of(member): native[member] for member in Border}, shape=Some(bpy.types.NodeSocketMenu))
 
-    (x, x_coverage, x_mode), (y, y_coverage, y_mode) = axis("X", borders[0]), axis("Y", borders[1])
-    image = uv_mapped(source, xyz(x, y, uv["Z"]), extension=(x_mode, y_mode))
-    return with_alpha(image, x_coverage * y_coverage, masked=True) if clipped else image
+    def axis(name: Literal["X", "Y"], choice: Border | Expr) -> tuple[Expr, Expr | float, Term]:
+        coordinate = uv[name]
+        mirrored = math("PINGPONG", coordinate, 1.0)
+        edge = math("MULTIPLY_ADD", math("MINIMUM", coordinate, 1.0 - coordinate), sides[name], 0.5, clamp=True)
+        match choice:
+            case Border.MIRROR:
+                return mirrored, 1.0, native[choice]
+            case Border.BLACK:
+                return coordinate, edge, native[choice]
+            case Border():
+                return coordinate, 1.0, native[choice]
+            case mode:
+                return switched(mode.at(MenuItem.of(Border.MIRROR).name), coordinate, mirrored), switched(mode.at(MenuItem.of(Border.BLACK).name), 1.0, edge), mode
+
+    across, up = (switch(borders[0]), switch(borders[1])) if isinstance(borders, tuple) else (switch(borders),) * 2
+    (x, x_coverage, x_extension), (y, y_coverage, y_extension) = axis("X", across), axis("Y", up)
+    image, coverage = uv_mapped(source, xyz(x, y, uv["Z"]), interpolation=interpolation, extension=(x_extension, y_extension)), x_coverage * y_coverage
+    return with_alpha(image, coverage, masked=True) if clipped and isinstance(coverage, Expr) else image
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BORDERS", "PIN_ROWS", "Border", "FrameSpace", "PixelGrid", "dimensions", "extended", "pin_rows", "pinned", "shorter", "uv_mapped"]
+__all__ = ["BORDERS", "PIN_ROWS", "Border", "FrameSpace", "PixelGrid", "dimensions", "extended", "folded", "pin_rows", "pinned", "shorter", "uv_mapped"]

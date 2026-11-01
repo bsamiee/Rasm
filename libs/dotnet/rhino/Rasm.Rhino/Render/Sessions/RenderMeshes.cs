@@ -71,9 +71,9 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
 
     // --- [REGISTRATION]
     public static IO<Unit> Register(Func<DefinedMeshProvider> create) =>
-        (from provider in use(create)
-         from accepted in Products.Accepted(() => RegisterProvider(provider, Session.PlugIn))
-         select accepted).Scoped(Session.Scope);
+        from provider in use(create)
+        from accepted in Products.Accepted(() => RegisterProvider(provider, Session.PlugIn))
+        select accepted;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from blender.bpy.data.rna.descriptors import Descriptor, differing, Value, written
-from blender.bpy.data.rna.paths import id_path, rna, RnaPath, Struct, struct_at
+from blender.bpy.data.rna.paths import id_data, id_path, rna, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import assigned
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
@@ -241,8 +241,7 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
 
     def curve(descriptor: Descriptor) -> Option[bpy.types.FCurve]:
         return (
-            Option
-            .of_optional(try_downcast(bpy.types.ID, owner.id_data))
+            id_data(bpy.types.ID, owner)
             .bind(lambda block: struct_at(block, ("animation_data",), bpy.types.AnimData))
             .bind(Keys.curves)
             .bind(lambda curves: id_path(owner).bind(lambda base: Option.of_optional(curves.find(rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))

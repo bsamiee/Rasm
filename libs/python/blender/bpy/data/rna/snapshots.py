@@ -116,12 +116,13 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     @classmethod
-    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing) -> Outcome[Self]:
+    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, *, owned: Callable[[str], bool] = lambda _: False) -> Outcome[Self]:
         """Captures assignable values keyed by owner path, the selected members alone when given.
 
         Args:
             owner: Struct whose members the snapshot holds.
-            selection: Members to capture, every saved member when Nothing.
+            selection: Members to capture, every host-declared saved member when Nothing.
+            owned: Whether the capturing extension declares a script property by its identifier, captured beside the host's own.
 
         Returns:
             Snapshot, domain fault for an undecodable value.
@@ -133,7 +134,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return (
-            catch(captured, exception=msgspec.ValidationError)(owner, stored, selection)
+            catch(captured, exception=msgspec.ValidationError)(owner, stored, selection, owned=owned)
             .map_error(partial(Fault.of, Reason.OUTSIDE, repr(owner), member=Value.__name__))
             .map(lambda tree: cls(struct=definition(owner).identifier, tree=tree))
         )
@@ -243,11 +244,22 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 class _Capture[W]:
     """One walk of a source into value tree rows under a value reader, a native walk holding compounds whole and keying top-level rows by ID session."""
 
-    __slots__ = ("enclosing", "expanded", "indexed", "native", "owner", "owners", "read", "seen", "sessioned", "source")
+    __slots__ = ("enclosing", "expanded", "indexed", "native", "owned", "owner", "owners", "read", "seen", "sessioned", "source")
 
-    def __init__(self, owner: Native, source: Native, read: _Read[W], prior: Option[Tree[W, RnaPath, RnaPath]], *, native: bool, expanded: Option[Descriptor], enclosing: _Enclosing) -> None:
-        """Holds the prior rows, the reader, and the structs enclosing the walk."""
-        self.owner, self.source, self.read, self.native, self.expanded, self.enclosing = owner, source, read, native, expanded, enclosing
+    def __init__(
+        self,
+        owner: Native,
+        source: Native,
+        read: _Read[W],
+        prior: Option[Tree[W, RnaPath, RnaPath]],
+        *,
+        native: bool,
+        expanded: Option[Descriptor],
+        enclosing: _Enclosing,
+        owned: Callable[[str], bool],
+    ) -> None:
+        """Holds the prior rows, the reader, the structs enclosing the walk, and the script properties the walking extension declares."""
+        self.owner, self.source, self.read, self.native, self.expanded, self.enclosing, self.owned = owner, source, read, native, expanded, enclosing, owned
         self.owners: dict[RnaPath, Owner[W, RnaPath, RnaPath]] = prior.map(lambda tree: dict(tree.owners)).default_with(dict)
         self.seen: set[tuple[int, str]] = set(enclosing)
         self.sessioned, self.indexed = native and expanded.is_none(), expanded.is_some()
@@ -321,7 +333,7 @@ class _Capture[W]:
         self.seen.add(identity)
         inside, key = above | {identity}, self.keyed(struct, path)
         members = (
-            *Descriptor.saved(struct),
+            *Descriptor.saved(struct, owned=self.owned),
             *(Descriptor(root=type(struct), prop=prop) for prop in Option.of_optional(definition(struct).name_property).filter(lambda prop: self.indexed and not prop.is_readonly).to_list()),
         )
         held = self.owners.setdefault(key, Owner())
@@ -352,7 +364,7 @@ class _Capture[W]:
                     for base, path in id_path(self.source).bind(lambda base: id_path(struct).map(lambda own: (base, (*own, descriptor.prop.identifier)))).to_list()
                     for ancestor in struct.rna_ancestors()
                     for at in id_path(ancestor).to_list()
-                    for found in Descriptor.saved(ancestor)
+                    for found in Descriptor.saved(ancestor, owned=self.owned)
                     if found.compound
                     for prefix in ((*at, found.prop.identifier),)
                     if self.beneath(prefix, base) and self.beneath(path, prefix)
@@ -409,6 +421,7 @@ def captured[W](
     native: bool = False,
     expanded: Option[Descriptor] = Nothing,
     enclosing: _Enclosing = frozenset(),
+    owned: Callable[[str], bool] = lambda _: False,
 ) -> Tree[W, RnaPath, RnaPath]:
     """Walks a source into a value tree under a value reader, the selected members alone when given, extending prior.
 
@@ -421,11 +434,12 @@ def captured[W](
         native: Whether the walk holds compounds whole and keys top-level rows by ID session.
         expanded: Compound member a nested native walk expands.
         enclosing: Structs enclosing a nested walk, ending its branches.
+        owned: Whether the walking extension declares a script property by its identifier, walked beside the host's own.
 
     Returns:
         Tree keyed by owner path, each value named by its member path under that owner, a value no member decodes raising the reader's `msgspec.ValidationError` through the walk.
     """
-    return _Capture(owner, source.default_value(owner), read, prior, native=native, expanded=expanded, enclosing=enclosing).tree(selection, prior)
+    return _Capture(owner, source.default_value(owner), read, prior, native=native, expanded=expanded, enclosing=enclosing, owned=owned).tree(selection, prior)
 
 
 def referenced(owner: Native, struct: Native, path: RnaPath) -> tuple[bpy.types.ID, RnaPath] | Native:

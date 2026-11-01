@@ -69,9 +69,8 @@ CASES: Final[tuple[tuple[Steps, object], ...]] = (
         ((*_SURFACES, "shelved", "some", member), value)
         for member, value in zip(("bl_space_type", "filter_mesh", "bl_options"), ("VIEW_3D", True, ("DEFAULT_VISIBLE", "NO_ASSET_DRAG", "STORE_ENABLED_CATALOGS_IN_PREFERENCES")), strict=True)
     ),
-    ((*_SURFACES, "preferred", "properties"), Some(("ask_confirmed", "hidden", "level"))),
+    ((*_SURFACES, "preferred", "properties"), Some(("ask_confirmed", "settings"))),
     ((*_SURFACES, "preferred", "read"), Ok(3)),
-    ((*_SURFACES, "preferred", "value"), Ok(3)),
     ((*_SURFACES, "preferred", "show"), True),
     ((*_SURFACES, "preferred", "purge"), True),
 )

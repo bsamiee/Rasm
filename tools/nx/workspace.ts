@@ -163,8 +163,8 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
 
 // --- [PROJECTS]
 const mirrored = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
-const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject }: Workspace) {
-    const [path, { pythonFiles, testPaths }] = yield* Effect.all([Path.Path, pyproject]);
+const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject, hosts }: Workspace) {
+    const [path, { pythonFiles, testPaths }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
         mirrored(path, testPaths, dir),
         (mirror) =>
@@ -177,7 +177,19 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyprojec
             ),
         { concurrency: 'unbounded' },
     );
-    return suites.length > 0 ? { check: {}, test: { command: 'pytest', options: { args: [...suites, '--cov'] }, inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`) } } : {};
+    const covered = !folders.some((host) => dir.split(path.sep).includes(host));
+    const coverage = '.artifacts/python/coverage/data/.coverage.{projectName}';
+    return suites.length > 0
+        ? {
+              check: {},
+              test: {
+                  command: 'pytest',
+                  options: covered ? { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } } : { args: suites },
+                  inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`),
+                  outputs: covered ? [`{workspaceRoot}/${coverage}`] : [],
+              },
+          }
+        : {};
 });
 const suiteInput = (suite: string) => ({ namedInputs: { default: ['{projectRoot}/**/*', `{workspaceRoot}/${suite}/**/*`] } });
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
@@ -359,40 +371,38 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
     const walk = (flags: readonly string[]) => scan(['--no-ignore hidden', "--globs '!pnpm-lock.yaml'", "--globs '!tools/*/examples/**'", ...flags]);
     const tree = walk(['--error=no-suppress-all', ...off.map(({ id }) => `--off=${id}`)]);
     const rooted = off.filter(runs(interpreter));
-    const hosted = [
-        ...(rooted.length > 0 ? [walk([ids(rooted), ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] : []),
+    const hosted = Object.fromEntries([
+        ...(rooted.length > 0 ? [['root', walk([ids(rooted), ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] as const] : []),
         ...groups.flatMap(({ version, scoped }) => {
             const running = off.filter(runs(version));
-            return running.length > 0 ? [scan([ids(running), scoped])] : [];
+            return running.length > 0 ? [[version, scan([ids(running), scoped])] as const] : [];
         }),
-    ];
+    ]);
     const rewrite = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock ${walk(['--update-all'])}`;
-    const versioned = (whole: string, rest: readonly string[], parallel: boolean) => ({
-        executor: 'nx:run-commands',
-        options: { commands: [whole, ...rest.map((command) => ({ command, forwardAllArgs: false }))], parallel },
-    });
+    const split = (target: string, children: Readonly<Record<string, string>>) => {
+        const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
+        return {
+            [target]: { dependsOn: [{ target: lead, params: 'forward' }, ...rest] },
+            ...Object.fromEntries(Object.entries(children).map(([child, command]) => [`${target}:${child}`, { command }])),
+        };
+    };
+    const perVersion = (command: (group: (typeof groups)[number]) => string) => Object.fromEntries(groups.map((group) => [group.version, command(group)]));
     return {
         projects: {
             '.': {
                 root: '.',
                 targets: {
-                    'lint:ast-grep': versioned(tree, hosted, true),
+                    ...split('lint:ast-grep', { tree, ...hosted }),
                     rewrite: { command: rewrite },
-                    'typecheck:ty': versioned(
-                        `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`,
-                        groups.map(({ version, scoped, synced }) => `${synced} ty check --python-version ${version} ${scoped}`),
-                        true,
-                    ),
-                    'typecheck:mypy': versioned(
-                        `mypy ${excluded}`,
-                        groups.map(({ version, environment, scoped, synced }) => `${synced} mypy --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
-                        false,
-                    ),
-                    'lint:refurb': versioned(
-                        `python -m tools.refurb --quiet -- ${excluded}`,
-                        groups.map(({ version, environment, scoped, synced }) => `${synced} python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`),
-                        false,
-                    ),
+                    ...split('typecheck:ty', { root: `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`, ...perVersion(({ version, scoped, synced }) => `${synced} ty check --python-version ${version} ${scoped}`) }),
+                    ...split('typecheck:mypy', {
+                        root: `mypy ${excluded}`,
+                        ...perVersion(({ version, environment, scoped, synced }) => `${synced} mypy --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
+                    }),
+                    ...split('lint:refurb', {
+                        root: `python -m tools.refurb --quiet -- ${excluded}`,
+                        ...perVersion(({ version, environment, scoped, synced }) => `${synced} python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`),
+                    }),
                     ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((mirror) => `--ignore=${mirror}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
                 },
             },
@@ -430,7 +440,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
                 root: '.',
                 targets: {
                     'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], outputs: [`{workspaceRoot}/${check.SWIFTPM_BUILD_DIR}/swiftc.log`], options: { env: check } },
-                    'lint:swiftlint': { options: { env: check, args: targets.map(({ path }) => path) } },
+                    'lint:swiftlint:analyze': { options: { env: check, args: targets.map(({ path }) => path) } },
                 },
             },
         },

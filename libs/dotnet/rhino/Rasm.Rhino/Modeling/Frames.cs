@@ -205,7 +205,7 @@ public abstract partial record Frames {
 
     public IO<Seq<(Station Station, T Copy)>> Arrayed<T>(Tolerances tolerances, T geometry, Plane basis, Placement placement) where T : GeometryBase =>
         IO.lift(() => Placements(tolerances, basis, placement)).Bind(placed => placed.TraverseM(row =>
-            from copy in Products.Of(() => geometry.Duplicate() as T)
+            from copy in Products.Copied(geometry)
             from moved in Transformations.Transformed(copy, row.Xform)
             select (row.Station, Copy: moved)).As());
 

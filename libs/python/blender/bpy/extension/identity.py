@@ -64,10 +64,11 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Resource[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Value each extension holds while its registration scope stands, optionally renewed after every file load."""
+    """Value each extension holds while its registration scope stands, made after the resources its make reads, optionally renewed after every file load."""
 
     made: _Made[T]
     renewed: Option[Callable[[T], T]] = Nothing
+    prerequisites: tuple["Resource[Any]", ...] = ()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -128,6 +129,10 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
     def identifier(self, key: Key, /) -> Outcome[str]:
         """Builds a property, record, or command identifier under the manifest ID, register fault for a key outside lowercase snake case."""
         return _checked(f"{self.manifest.id.lower()}_{key}", key, Key)
+
+    def owns(self, identifier: str, /) -> bool:
+        """Whether an identifier takes the manifest ID prefix `identifier` builds, a property, record, or command the extension declares."""
+        return identifier.startswith(f"{self.manifest.id.lower()}_")
 
     # --- [READING]
 

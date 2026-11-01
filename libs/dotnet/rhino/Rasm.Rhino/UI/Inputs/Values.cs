@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using Eto.Drawing;
 using Eto.Forms;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
@@ -221,14 +222,14 @@ public static class Values {
         };
 
     internal static Command<Invoke> Named(IO<Option<Color4f>> current, Func<Edit<Color4f>, IO<Unit>> edited) =>
-        new Command<Invoke>.Run(new CommandFace("color-named", "Named Colors…"), Some(new RowRule(_ => current.Map(static held => held.IsSome))), new Invoke.Effect(scope =>
+        new Command<Invoke>.Run(new CommandFace("color-named", "Named Colors…"), new Invoke.Effect(scope =>
             from shown in current.Bind(static held => IO.lift(() => Conversions.Required(held)))
             from document in scope.DocumentIO
             from edit in HostDialogs.ShowColorDialog(document, shown, allowAlpha: true, Some(NamedColorList.Default), Some<Func<Color4f, IO<Unit>>>(color => edited(EditPhase.Preview.Of(color))))
                 .Map(static chosen => EditPhase.Commit.Of(chosen))
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure<Edit<Color4f>>(new Edit<Color4f>.Cancel()))
             from sent in edited(edit)
-            select unit));
+            select unit)) { Enabled = new RowRule(_ => current.Map(static held => held.IsSome)) };
 
     // --- [NUMBERS]
     public static ValueRow<NumericUpDownWithUnitParsing, double> Number(Option<double> value, NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
@@ -267,6 +268,7 @@ public static class Values {
                 (field.MinValue, field.MaxValue) = (Quantities.As(low, modelUnits ? doc.ModelUnits : doc.PageUnits), Quantities.As(high, modelUnits ? doc.ModelUnits : doc.PageUnits));
             })),
             Attached = Digits,
+            Changes = [Documents.PropertiesChanged.Choose(static _ => Some(unit))],
         };
 
     public static ValueRow<NumericUpDownWithUnitParsing, Angle> Turn(Option<Angle> value, Func<Edit<Angle>, IO<Unit>> edited) =>
@@ -288,9 +290,7 @@ public static class Values {
                 static (held, handler) => held.TextChanged -= handler)),
             IO.pure(value), edited) {
             Previewing = static box => box.HasFocus,
-            Settled = Some<Func<TextBox, HostEvent<Unit>>>(static box => Subscriptions.Merged(
-                Subscriptions.Inline<EventArgs>(h => box.LostFocus += h, h => box.LostFocus -= h).Choose(static _ => Some(unit)),
-                Subscriptions.Inline<KeyEventArgs>(h => box.KeyDown += h, h => box.KeyDown -= h).Choose(static args => Conversions.Present(args.Key is Keys.Enter, unit)))),
+            Settled = Some<Func<TextBox, HostEvent<Unit>>>(static box => Entries.Settled(box, Keys.Enter)),
             Shaped = static (box, current, _) => IO.lift(() => { box.PlaceholderText = current.IsNone ? LocalText.Of("Varies").Local : ""; }),
         };
 }

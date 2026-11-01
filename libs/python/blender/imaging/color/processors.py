@@ -1,9 +1,9 @@
-"""Display formation, colorspace transforms and readings, encoding domains, and RGB geometry."""
+"""Display formation, colorspace transforms and readings, encoding domains, RGB geometry, and the typed OCIO grading members the stubs lack."""
 
 from collections.abc import Callable
 from enum import auto, Enum
 from functools import partial
-from typing import Annotated, Final, Self
+from typing import Annotated, Final, Protocol, Self
 
 from expression import Error, identity, Nothing, Ok, Option, Some
 from expression.collections import Block
@@ -29,6 +29,22 @@ class Domain(Enum):
     DISPLAY = auto()
 
 
+class HueCurve(Protocol):
+    """`GradingHueCurve`, OCIO's seven hue, saturation, and luma curves and its hue effect, a class the stubs lack."""
+
+    hue_hue: PyOpenColorIO.GradingBSplineCurve
+    hue_sat: PyOpenColorIO.GradingBSplineCurve
+    hue_lum: PyOpenColorIO.GradingBSplineCurve
+    lum_sat: PyOpenColorIO.GradingBSplineCurve
+    sat_sat: PyOpenColorIO.GradingBSplineCurve
+    lum_lum: PyOpenColorIO.GradingBSplineCurve
+    sat_lum: PyOpenColorIO.GradingBSplineCurve
+    hue_fx: PyOpenColorIO.GradingBSplineCurve
+
+    def validate(self) -> None:
+        """Raises `PyOpenColorIO.Exception` for curves OCIO refuses."""
+
+
 type ColorSpace = Name
 type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp), le=float(np.finfo(np.float32).maxexp))]
 
@@ -36,6 +52,12 @@ type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp
 
 GREY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
+HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+CURVE_ONLY: Final[Callable[[HueCurve, bool], None]] = PyOpenColorIO.GradingHueCurve.setDrawCurveOnly  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+SPLINE_TYPED: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -94,6 +116,13 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                 .map(PyOpenColorIO.ColorSpace.getName)
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"display encoding {display}"))
             )
+        )
+
+    @classmethod
+    def data(cls, config: PyOpenColorIO.Config, display: str) -> Option[Self]:
+        """Returns the display's first view whose colorspace holds data, passing values through unformed, absent when the display offers none."""
+        return (
+            Block.of_seq(cls(display=display, view=name) for name in config.getViews(display)).filter(lambda view: view.colorspace(config).filter(PyOpenColorIO.ColorSpace.isData).is_some()).try_head()
         )
 
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:
@@ -244,11 +273,18 @@ def pq(space: PyOpenColorIO.ColorSpace) -> bool:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "CURVE_ONLY",
     "GREY",
+    "HUE_CURVE",
+    "HUE_CURVE_TRANSFORM",
     "REC709_SCENE",
+    "RGB_TO_HSY",
+    "SPLINE_TYPE",
+    "SPLINE_TYPED",
     "ColorSpace",
     "DisplayView",
     "Domain",
+    "HueCurve",
     "Stops",
     "basis",
     "bracketed",

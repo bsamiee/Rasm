@@ -84,6 +84,7 @@ class LutLayout(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+LATTICE_SIZES: Final = range(2, 130)
 _HALF_LOW: Final = math.log2(float(np.finfo(np.float16).smallest_subnormal))
 _HALF_HIGH: Final = math.log2(float(np.finfo(np.float16).max))
 
@@ -115,6 +116,11 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
     def readable(cls) -> tuple[Self, ...]:
         """Returns formats `FileTransform` reads."""
         return cls.of(PyOpenColorIO.FileTransform.getFormats())
+
+    @classmethod
+    def readable_suffixes(cls) -> tuple[str, ...]:
+        """Returns the distinct file suffixes of the formats `FileTransform` reads, in format order, as file browsers filter by."""
+        return tuple(dict.fromkeys(f".{row.extension}" for row in cls.readable()))
 
 
 # --- [SPACINGS]
@@ -167,7 +173,7 @@ type Spacing = Uniform | Logarithmic | Rational
 class Lattice(msgspec.Struct, frozen=True, kw_only=True):
     """Cube edge length and node spacing."""
 
-    size: Annotated[int, msgspec.Meta(ge=2, le=129)] = 33
+    size: Annotated[int, msgspec.Meta(ge=LATTICE_SIZES.start, le=LATTICE_SIZES[-1])] = 33
     spacing: Spacing = Uniform()
 
     def samples(self) -> Outcome[npt.NDArray[np.float32]]:
@@ -271,4 +277,4 @@ def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> O
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "split"]
+__all__ = ["LATTICE_SIZES", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "split"]

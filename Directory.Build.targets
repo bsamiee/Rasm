@@ -145,7 +145,7 @@
 
     <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'" />
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" />
         </ItemGroup>
     </Target>
 
@@ -180,7 +180,7 @@
 
     <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp' and '@(_RhinoLibraryReference)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(_RuiWriter)" Outputs="$(_PlugInRuiStamp)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" />
+        <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" LogStandardErrorAsError="true" />
         <Touch Files="$(_PlugInRuiStamp)" AlwaysCreate="true" />
         <ItemGroup>
             <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences);$(_PlugInRuiStamp)" />

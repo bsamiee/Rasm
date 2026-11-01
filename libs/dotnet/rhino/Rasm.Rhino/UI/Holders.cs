@@ -163,18 +163,14 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     // --- [HOLD]
     internal static IO<SectionHolder> Hold(HolderRow holder, RowScope scope) =>
         from stack in use(() => new SectionHolder(holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count))), Detached)
-        from sections in holder.Sections.TraverseM(row => IO.lift(() => stack.Add(Section(row, row.Identity.GUID, expanded: true, scope)))).As()
+        from sections in holder.Sections.TraverseM(row => IO.lift(() => stack.Add(new DefinedSection(row, row.Identity.GUID, expanded: true, _ => ViewBody.Realize(row, row.Actions, scope))))).As()
         from fitted in IO.lift(stack.Fit)
         select stack;
 
-    internal static DefinedSection Section(View.Section row, Guid id, bool expanded, RowScope scope) =>
-        new(row, id, expanded, _ => ViewBody.Realize(row, row.Actions, scope));
-
     internal static IO<SectionHolder> Disclose(ContainerRow.Disclosure disclosure, RowScope scope) =>
         from stack in use(static () => new SectionHolder(None), Detached)
-        from added in IO.lift(() => stack.Add(Section(
-            new View.Section { Identity = typeof(SectionHolder), Caption = disclosure.Caption, Children = toSeq(disclosure.Body) },
-            UUIDNext.Uuid.NewNameBased(Session.PlugIn.Id, disclosure.Caption), disclosure.Expanded, scope)))
+        let row = new View.Section { Identity = typeof(SectionHolder), Caption = disclosure.Caption, Children = toSeq(disclosure.Body) }
+        from added in IO.lift(() => stack.Add(new DefinedSection(row, UUIDNext.Uuid.NewNameBased(Session.PlugIn.Id, disclosure.Caption), disclosure.Expanded, _ => ViewBody.Disclosed(row, scope))))
         select stack;
 
     private static void Detached(SectionHolder stack) {
@@ -213,11 +209,11 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 public static class SectionCommands {
     // --- [ACTIONS]
     public static Command<Invoke>.Run Values { get; } =
-        new(new CommandFace("section-values", "Values") { Icon = Some(IconResource.Options) }, None,
+        new(new CommandFace("section-values", "Values") { Icon = Some(IconResource.Options) },
             new Invoke.Popup(static scope => Historied(scope).Bind(history => Listing(history, scope))));
 
     public static Command<Invoke>.Run Reset { get; } =
-        new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) }, None,
+        new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) },
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
     private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => scope.History.ToFin(new RhinoFault("section value history", RhinoReason.Missing)));
@@ -234,13 +230,13 @@ public static class SectionCommands {
             Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
                 + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
-                + Seq<Command<Invoke>>(new Command<Invoke>.Menu(new CommandFace("section-restore", "Restore"), None, [held.Done.Map(entry => Ran(
+                + Seq<Command<Invoke>>(new Command<Invoke>.Menu(new CommandFace("section-restore", "Restore"), [held.Done.Map(entry => Ran(
                     string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
                     LocalText.Of("{0}, {1}", Described(entry), stamp.Format(entry.At.InZone(zone).LocalDateTime)).Local,
                     Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
 
     private static Command<Invoke> Ran<T>(string name, string caption, IO<T> run) =>
-        new Command<Invoke>.Run(new CommandFace(name, caption), None, new Invoke.Effect(_ => run.Map(unit)));
+        new Command<Invoke>.Run(new CommandFace(name, caption), new Invoke.Effect(_ => run.Map(unit)));
 
     private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
         from diff in step
@@ -250,6 +246,6 @@ public static class SectionCommands {
     private static string Described(HistoryEntry entry) =>
         toSeq(entry.Diff.Changes.Keys) switch {
             [var only] => LocalText.Of(EntryKey.Name(only.Path)).Local,
-            var many => LocalText.Of(many.Count is 1 ? "{0} value" : "{0} values", many.Count).Local,
+            var many => LocalText.Of("{0} values", many.Count).Local,
         };
 }

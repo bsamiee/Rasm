@@ -71,6 +71,9 @@ class Namespace[V: Elementwise, B](Protocol):
     def log(self, x: V, /) -> V:
         """Natural logarithm."""
 
+    def exp2(self, x: V, /) -> V:
+        """Two raised to the power."""
+
     def floor(self, x: V, /) -> V:
         """Greatest integer at or below."""
 

@@ -19,9 +19,9 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.content import Generated, Points
-from blender.bpy.nodes.desired import Socket
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, math, matrix, rgba, Scalar, switched, transformed, vector, where, xyz
+from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.colors import AXES, logarithmic, space_item
 from blender.bpy.render.compositor.coordinates import uv_mapped
 from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform

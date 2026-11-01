@@ -18,7 +18,7 @@ import msgspec
 
 from blender.bpy.data.rna.mirrors import annotated
 from blender.bpy.data.rna.paths import definition, Struct
-from blender.bpy.extension.events import Handler, Subscription, Timer
+from blender.bpy.extension.events import DISPATCHERS, Handler, Subscription, Timer
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.reports import rendered
 from blender.records.faults import Fault, Faults, Outcome, Reason
@@ -78,7 +78,7 @@ class Gathering(Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SCHEMA: Final = (Band.GROUPS, Band.ATTACHMENTS)
+_EAGER: Final = (Band.GROUPS, Band.ATTACHMENTS, Band.RESOURCES)
 _EVENTS: Final[Mapping[type[Handler | Subscription | Timer], Band]] = MappingProxyType({Handler: Band.APP_HANDLERS, Subscription: Band.SUBSCRIPTIONS, Timer: Band.TIMERS})
 _BANDS: Final[Mapping[type, Band]] = MappingProxyType({
     bpy.types.PropertyGroup: Band.GROUPS,
@@ -134,7 +134,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 class Registration:
     """Register and unregister callbacks of one extension over its rows, rebuilt on each registration.
 
-    Prerequisites of every row precede the rows, a nested row's prerequisites precede it, and gathering rows build last.
+    The handler dispatcher every handler row joins builds first, prerequisites of every row precede the rows and resources are held once built, a nested row's prerequisites precede it, and gathering rows build last.
     Equal declarations build once, each class acquires in the band of its host base, and a manifest website holds Online Manual links over the extension.
     A refused registration raises one `RuntimeError` of rendered faults after every acquisition before it released.
     """
@@ -162,7 +162,7 @@ class Registration:
             manager.keyconfigs.update(keep_properties=True)
 
         def registered(stack: ExitStack, identity: Identity) -> Outcome[None]:
-            """Enters the keymap merge, reports, and band stacks onto stack, holding the manual map hook while the manifest names a website, then builds every row's prerequisites, the rows with gathering rows last, and enters the bands after the schema."""
+            """Enters the keymap merge, reports, and band stacks onto stack, holding the manual map hook while the manifest names a website, then builds every row's prerequisites, the rows with gathering rows last, and enters the bands no build entered."""
 
             def manual(website: str) -> AbstractContextManager[Outcome[None]]:
                 hook = partial(_mapped, identity, website)
@@ -175,7 +175,9 @@ class Registration:
             self._pairs = dict.fromkeys(((Band.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
             built = partial(self._built, stack, identity)
             prerequisites = chain.from_iterable(map(_prerequisites, self.rows))
-            return _each(built, (*prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(lambda _: _each(self._opened, (band for band in Band if band not in _SCHEMA)))
+            return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(
+                lambda _: _each(self._opened, (band for band in Band if band not in _EAGER))
+            )
 
         with ExitStack() as stack:
             Identity.read(self.package).bind(partial(registered, stack)).map(lambda _: self._held.push(stack.pop_all())).default_with(refused)
@@ -183,7 +185,7 @@ class Registration:
     # --- [BUILD]
 
     def _built(self, stack: ExitStack, identity: Identity, row: Declaration | Gathering | type | _Banded, /) -> Outcome[None]:
-        """Pairs each class with the band of the host base nearest it in its method resolution order, and builds each declaration once after its prerequisites, holding a construction scope on the registration stack and entering new schema acquisitions after each build."""
+        """Pairs each class with the band of the host base nearest it in its method resolution order, and builds each declaration once after its prerequisites, holding a construction scope on the registration stack and entering the group, attachment, and resource acquisitions each build adds."""
         built = partial(self._built, stack, identity)
 
         def declared(declaration: Declaration | Gathering) -> Outcome[Acquisitions]:
@@ -218,11 +220,7 @@ class Registration:
                 return Ok(None)
             case Resource() | Handler() | Subscription() | Timer() | Gathering() | Registrable():
                 return (
-                    _each(built, _prerequisites(row))
-                    .bind(lambda _: _each(self._opened, _SCHEMA))
-                    .bind(lambda _: declared(row))
-                    .bind(partial(_each, built))
-                    .bind(lambda _: _each(self._opened, _SCHEMA))
+                    _each(built, _prerequisites(row)).bind(lambda _: _each(self._opened, _EAGER)).bind(lambda _: declared(row)).bind(partial(_each, built)).bind(lambda _: _each(self._opened, _EAGER))
                 )
             case _:
                 self._pairs.setdefault(row, False)
@@ -317,7 +315,7 @@ def _mapped(identity: Identity, website: str, /) -> tuple[str, list[tuple[str, s
     def grouped(struct: bpy.types.Struct) -> bool:
         return struct.base == group
 
-    attached = tuple(target for identifier, target in _walked((definition(bpy.types.BlendData),), lambda _: True) if identifier.startswith(f"{category}_") and grouped(target))
+    attached = tuple(target for identifier, target in _walked((definition(bpy.types.BlendData),), lambda _: True) if identity.owns(identifier) and grouped(target))
     owned = identity.preferences(bpy.types.AddonPreferences).map(definition).to_list()
     nested = tuple(target for _, target in _walked((*attached, *owned), grouped) if grouped(target))
     return website, [

@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using MathNet.Numerics;
 using ProjNet.CoordinateSystems.Transformations;
+using Rasm.UI.Motion;
 using SkiaSharp;
 using SuperLinq;
 
@@ -13,12 +14,20 @@ namespace Rasm.UI.Plotting;
 public sealed record PlaneAxis(PhysicalAxis Along, Axis Axis);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PlotPlane {
+public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
     public abstract Option<Axis> Dimension(PhysicalAxis along);
 
     public Seq<PlaneAxis> Dimensions => toSeq(PhysicalAxis.Items).Choose(along => Dimension(along).Map(axis => new PlaneAxis(along, axis)));
 
     public virtual Option<Factor> Aspect => None;
+
+    public Option<Factor> Proportion =>
+        Aspect | (from x in Dimension(PhysicalAxis.Horizontal)
+                  from y in Dimension(PhysicalAxis.Vertical)
+                  from ratio in Factor.Validated(MathF.Abs(x.Domain.Span / y.Domain.Span)).ToOption()
+                  select ratio);
+
+    public Vector2 Center => Value(new SKPoint(0.5f, 0.5f));
 
     public PlotFrame In(SKRect content) =>
         Aspect.Match(Some: ratio => content.AspectFit(new SKSize((float)ratio, 1f)), None: () => content) switch {
@@ -27,7 +36,7 @@ public abstract partial record PlotPlane {
 
     public Vector2 Value(SKPoint square) => Valued(Unprojected(square));
 
-    public string Spoken(Vector2 at, CultureInfo culture) => string.Join($"{culture.TextInfo.ListSeparator} ", Dimensions.Map(held => held.Axis.Spoken(held.Along.Of(at), culture)));
+    public string Spoken(Vector2 at, CultureInfo culture) => culture.TextInfo.Listed(Dimensions.Map(held => held.Axis.Spoken(held.Along.Of(at), culture)));
 
     public Option<PlotPlane> Shifted(Vector2 delta) => Over((along, axis) => axis.Domain.Shifted(along.Of(delta)).Bind(axis.WithDomain));
 
@@ -35,18 +44,23 @@ public abstract partial record PlotPlane {
 
     public Option<PlotPlane> WithDomain(PhysicalAxis along, AxisRange domain) => Over((held, axis) => held == along ? axis.WithDomain(domain) : Some(axis));
 
+    public Option<PlotPlane> Toward(PlotPlane to, float progress) =>
+        to.Over((along, _) => Dimension(along)).Filter(same => same == this).Bind(_ => Over((along, axis) => to.Dimension(along).Bind(other => axis.Toward(other, progress))));
+
     internal float Bandwidth => Dimension(PhysicalAxis.Horizontal).Map(static axis => axis.Bandwidth).IfNone(1f);
 
     internal virtual bool Separable => true;
 
     internal Vector2 Constrained(Vector2 value) => Each(value, static (axis, held) => axis.Constrained(held));
 
-    internal Option<PlotPlane> Toward(PlotPlane to, float progress) =>
-        to.Over((along, _) => Dimension(along)).Filter(same => same == this).Bind(_ => Over((along, axis) => to.Dimension(along).Bind(other => axis.Toward(other, progress))));
-
     internal virtual Option<Vector2> Rotated(Vector2 value, float radians) => None;
 
-    internal virtual SKPoint Projected(Vector2 fractions) => fractions;
+    internal SKPoint Projected(Vector2 fractions) {
+        Span<float> x = [fractions.X];
+        Span<float> y = [fractions.Y];
+        Projected(x, y);
+        return new SKPoint(x[0], y[0]);
+    }
 
     internal virtual void Projected(Span<float> x, Span<float> y) { }
 
@@ -117,9 +131,6 @@ public abstract partial record PlotPlane {
 
         public override Option<Axis> Dimension(PhysicalAxis along) => along == Along ? Some(Axis) : None;
 
-        public Node Stretched(Node node) =>
-            Along.Map(horizontal: node with { Width = Sizing.Grow.Unit, Height = Sizing.Fit.Content }, vertical: node with { Width = Sizing.Fit.Content, Height = Sizing.Grow.Unit });
-
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) => map(Along, Axis).Map(axis => (PlotPlane)(this with { Axis = axis }));
     }
 
@@ -131,11 +142,6 @@ public abstract partial record PlotPlane {
         internal override bool Separable => false;
 
         internal override Option<Vector2> Rotated(Vector2 value, float radians) => Some(value with { X = Angle.Constrained(value.X + (radians / MathF.Tau * Angle.Domain.Span)) });
-
-        internal override SKPoint Projected(Vector2 fractions) {
-            (float sin, float cos) = MathF.SinCos(MathF.Tau * fractions.X);
-            return new Vector2(0.5f) + (new Vector2(cos, sin) * (0.5f * fractions.Y));
-        }
 
         internal override void Projected(Span<float> x, Span<float> y) {
             using IMemoryOwner<float> sine = MemoryPool<float>.Shared.Rent(x.Length);
@@ -149,7 +155,7 @@ public abstract partial record PlotPlane {
 
         internal override Vector2 Unprojected(SKPoint square) {
             Vector2 offset = (Vector2)square - new Vector2(0.5f);
-            return new Vector2(MathF.Atan2(offset.Y, offset.X) / MathF.Tau, 2f * offset.Length());
+            return new Vector2(Euclid.Modulus(MathF.Atan2(offset.Y, offset.X) / MathF.Tau, 1f), 2f * offset.Length());
         }
 
         internal override float Length(PhysicalAxis along) => along.Map(horizontal: MathF.PI, vertical: 0.5f);
@@ -186,7 +192,7 @@ public abstract partial record PlotPlane {
 
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) =>
             from angle in map(PhysicalAxis.Horizontal, Angle)
-            from radius in Radius.Match(Some: held => map(PhysicalAxis.Vertical, held).Map(Some), None: static () => Some(Option<Axis>.None))
+            from radius in Radius.Traverse(held => map(PhysicalAxis.Vertical, held)).As()
             select (PlotPlane)new Polar(angle, radius);
 
         private static float Half(PlotFrame frame) => MathF.Abs(frame.Matrix.ScaleX) / 2f;
@@ -218,11 +224,6 @@ public abstract partial record PlotPlane {
 
         internal override bool Separable => false;
 
-        internal override SKPoint Projected(Vector2 fractions) =>
-            Mapping(forward, new Vector2(X.Value(fractions.X), Y.Value(fractions.Y))) switch {
-                var at => new SKPoint((at.X - world.Left) / world.Width, (at.Y - world.Top) / world.Height),
-            };
-
         internal override void Projected(Span<float> x, Span<float> y) {
             using IMemoryOwner<double> across = MemoryPool<double>.Shared.Rent(x.Length);
             using IMemoryOwner<double> down = MemoryPool<double>.Shared.Rent(y.Length);
@@ -238,10 +239,12 @@ public abstract partial record PlotPlane {
             TensorPrimitives.Divide(y, world.Height, y);
         }
 
-        internal override Vector2 Unprojected(SKPoint square) =>
-            Mapping(inverse, new Vector2(world.Left + (square.X * world.Width), world.Top + (square.Y * world.Height))) switch {
-                var at => new Vector2(X.Fraction(at.X), Y.Fraction(at.Y)),
-            };
+        internal override Vector2 Unprojected(SKPoint square) {
+            Span<double> x = [world.Left + (square.X * world.Width)];
+            Span<double> y = [world.Top + (square.Y * world.Height)];
+            inverse(x, y);
+            return new Vector2(X.Fraction((float)x[0]), Y.Fraction((float)y[0]));
+        }
 
         internal override void GridLine(SKPathBuilder path, PlotFrame frame, Pen pen, PhysicalAxis held, float at) =>
             path.AddPoly([.. frame.Projected(Walked(held.With(Vector2.Zero, at), held.With(Vector2.One, at), frame.Density(pen)).Add(held.With(Vector2.One, at)))], close: false);
@@ -268,29 +271,11 @@ public abstract partial record PlotPlane {
                 .Map(_ => new Mapped(x, y, forward, inverse, bounds));
         }
 
-        private static Vector2 Mapping(Action<Span<double>, Span<double>> map, Vector2 at) {
-            Span<double> x = [at.X];
-            Span<double> y = [at.Y];
-            map(x, y);
-            return new Vector2((float)x[0], (float)y[0]);
-        }
-
         private static Action<Span<double>, Span<double>> Spanned(Func<Vector2, Vector2> map) =>
             (x, y) => {
                 for (int index = 0; index < x.Length; index++) (x[index], y[index]) = map(new Vector2((float)x[index], (float)y[index])) switch { var at => (at.X, at.Y) };
             };
     }
-}
-
-public sealed record Guide(PhysicalAxis Along) {
-    public Fraction Edge { get; init; } = Fraction.MinValue;
-    public Option<string> Title { get; init; }
-    public Option<Func<float, string>> Format { get; init; }
-    public float Angle { get; init; }
-
-    internal Vector2 Anchor(PlotPlane plane, float value) => Along.With(Along.Cross.With(Vector2.Zero, plane.Value(Along.Cross, (float)Edge)), value);
-
-    internal string Label(Axis axis, float value, CultureInfo culture) => Format.Match(Some: format => format(value), None: () => axis.Formatted(value, culture));
 }
 
 public sealed record PlotFrame {
@@ -299,9 +284,11 @@ public sealed record PlotFrame {
     internal PlotFrame(PlotPlane plane, SKMatrix matrix) => (Plane, Matrix) = (plane, matrix);
 
     public PlotPlane Plane { get; init; }
-    public SKMatrix Matrix { get; init { field = value; inverse = value.TryInvert(out SKMatrix inverted) ? Some(inverted) : None; } }
+    public SKMatrix Matrix { get; init { field = value; inverse = value.Inverse; } }
 
     public SKPoint Point(Vector2 value) => Projected(Plane.Fraction(value));
+
+    public Seq<SKPoint> Points(Seq<Vector2> values) => Projected(values.Map(Plane.Fraction));
 
     public Option<Vector2> At(SKPoint local) => Valued(local).Map(Plane.Constrained);
 
@@ -325,7 +312,7 @@ public sealed record PlotFrame {
         Free(along).Map(free => free.Along.With(held, sign > 0 ? free.Axis.Domain.To : free.Axis.Domain.From)).IfNone(held);
 
     internal Option<int> Nearest(Vector2 raw, Seq<Vector2> detents, float reach) =>
-        Point(raw) switch { var at => Indexed.Closest(toSeq(Range(0, detents.Count)), index => SKPoint.Distance(Point(detents[index]), at), reach) };
+        (Point(raw), Points(detents)) switch { var (at, placed) => Indexed.Closest(toSeq(Range(0, placed.Count)), index => SKPoint.Distance(placed[index], at), reach) };
 
     internal PlotFrame Translated(SKPoint by) => this with { Matrix = Matrix.PostConcat(SKMatrix.CreateTranslation(by.X, by.Y)) };
 
@@ -345,8 +332,6 @@ public sealed record PlotFrame {
     internal Seq<SKPoint> Walked(Seq<Vector2> fractions, bool closed, Pen pen) =>
         Projected(Plane.Separable || fractions.IsEmpty ? fractions : PlotPlane.Densified(fractions, closed, Density(pen)));
 
-    internal Seq<SKPoint> Traced(Seq<Vector2> values, bool closed, Pen pen) => Walked(values.Map(Plane.Fraction), closed, pen);
-
     internal Option<Vector2> Valued(SKPoint local) => inverse.Map(held => Plane.Value(held.MapPoint(local)));
 
     internal bool Contains(SKPoint local, Option<AxisRange> across, Option<AxisRange> up) =>
@@ -354,5 +339,5 @@ public sealed record PlotFrame {
 
     private Vector2 Scale => new(Matrix.ScaleX, Matrix.ScaleY);
 
-    private Option<PlaneAxis> Free(PhysicalAxis along) => Plane.Dimension(along).Map(axis => new PlaneAxis(along, axis)) | Plane.Dimensions.Head;
+    private Option<PlaneAxis> Free(PhysicalAxis along) => Plane.Dimensions.Find(held => held.Along == along) | Plane.Dimensions.Head;
 }

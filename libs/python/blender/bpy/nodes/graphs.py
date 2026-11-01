@@ -1,6 +1,7 @@
-"""The graph expression algebra: output sockets of desired nodes as values, their operators, and the node builders they compose."""
+"""The graph expression algebra: output sockets of desired nodes as values, their sibling outputs and operators, and the node builders they compose."""
 
 from collections.abc import Mapping
+from functools import reduce
 from types import MappingProxyType
 from typing import Final, Literal, TYPE_CHECKING
 
@@ -137,6 +138,10 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case "Red" | "Green" | "Blue" | "Alpha":
                 return Expr(kind=bpy.types.ShaderNodeSeparateColor, inputs=((0, self),), members={"mode": "RGB"}, socket=component)
 
+    def at(self, socket: str | int, shape: Shape = bpy.types.NodeSocketFloat, /) -> "Expr":
+        """Reads another output of the same node, such as a Menu Switch item's boolean at the item name, read as a 0 or 1 value by default."""
+        return msgspec.structs.replace(self, socket=socket, shape=shape)
+
     def named(self, key: Key) -> "Expr":
         """Returns the same node under a stable key, for nodes stored, edited, viewed, or inspected by key."""
         return msgspec.structs.replace(self, label=Some(key))
@@ -185,7 +190,7 @@ def switched(gate: Scalar, off: Term, on: Term, /) -> Expr:
 
 
 def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, shape: Option[Shape] = Nothing) -> Expr:
-    """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, every item's boolean output beside `Output`.
+    """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, every item's boolean output beside `Output` read through `at(item.name)`.
 
     Args:
         selector: Menu input operand, or the item chosen.
@@ -205,6 +210,27 @@ def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, shape:
         socket="Output",
         shape=kind,
     )
+
+
+def menus[T: Term](selector: Term | MenuItem, cases: Mapping[MenuItem, tuple[T, ...]], /) -> tuple[Expr, *tuple[Expr | T, ...]]:
+    """Selects several outputs by one menu through one Menu Switch, as a menu socket feeding a second switch invalidates both links.
+
+    Args:
+        selector: Menu input operand, or the item chosen.
+        cases: Terms per declaring item, one per output in output order, every item holding as many.
+
+    Returns:
+        The switch at its `Output` for the first output, then each other output chosen by Switch nodes over the item booleans in item order.
+    """
+    head, *rest = zip(*cases.values(), strict=True)
+    switch = menu(selector, dict(zip(cases, head, strict=True)))
+
+    def chosen(column: tuple[T, ...]) -> Expr | T:
+        (_, first), *others = zip(cases, column, strict=True)
+        initial: Expr | T = first
+        return reduce(lambda held, case: switched(switch.at(case[0].name), held, case[1]), others, initial)
+
+    return (switch, *map(chosen, rest))
 
 
 def where(gate: Term, on: Term, off: Term) -> Expr:
@@ -367,6 +393,7 @@ __all__ = [
     "math",
     "matrix",
     "menu",
+    "menus",
     "mixed",
     "projected",
     "rgba",

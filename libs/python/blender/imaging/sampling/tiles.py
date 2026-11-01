@@ -2,6 +2,7 @@
 
 from fractions import Fraction
 import math
+from types import MemberDescriptorType
 from typing import Annotated
 
 from expression import Nothing, Ok, Option, Some
@@ -97,15 +98,28 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 # --- [DRAWS]
 
 
-def stream(kind: type[object], *key: str | int) -> int:
-    """Returns the draw family of a record kind and key, below 2**24 so a float32 node coordinate holds it exactly."""
-    return int.from_bytes(content_hash(kind, msgspec.msgpack.encode(key))[:3], "little")
+def stream(*parts: object) -> int:
+    """Returns the draw family of a key path, below 2**24 so a float32 node coordinate holds it exactly.
+
+    Record fields key by their member descriptor's struct and name, kinds by their qualified name, and integers by their text, parts typed over `object` as checkers read a field on its struct class as the field's value.
+    """
+
+    def spelled(part: object) -> str:
+        match part:
+            case MemberDescriptorType(__objclass__=kind, __name__=name):
+                return f"{kind.__module__}.{kind.__qualname__}.{name}"
+            case type():
+                return f"{part.__module__}.{part.__qualname__}"
+            case _:
+                return str(part)
+
+    return int.from_bytes(content_hash(np.random.SeedSequence, msgspec.msgpack.encode(tuple(map(spelled, parts))))[:3], "little")
 
 
-def uniforms(keys: npt.NDArray[np.int64], family: int, count: int) -> npt.NDArray[np.float64]:
-    """Returns `count` stable uniforms per integer key row, each row seeding its own `SeedSequence` spawned from the draw family."""
+def uniforms(keys: npt.NDArray[np.int64], family: int, count: int, *, seed: int = 0) -> npt.NDArray[np.float64]:
+    """Returns `count` stable uniforms per integer key row and seed, each row seeding its own `SeedSequence` spawned from the draw family."""
     rows = np.ascontiguousarray(keys, dtype=np.int64).reshape(len(keys), -1).view(np.uint64)
-    return np.array([np.random.default_rng(np.random.SeedSequence(family, spawn_key=tuple(row))).random(count) for row in rows.tolist()], dtype=np.float64).reshape(len(keys), count)
+    return np.array([np.random.default_rng(np.random.SeedSequence((family, seed), spawn_key=tuple(row))).random(count) for row in rows.tolist()], dtype=np.float64).reshape(len(keys), count)
 
 
 # --- [TILES]

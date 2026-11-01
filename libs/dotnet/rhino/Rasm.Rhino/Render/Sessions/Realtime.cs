@@ -172,7 +172,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
              from passes in IO.lift(() => MaxPasses)
              from attached in Attached
              from feed in DefinedChangeFeed.Of(doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
-             select new RealtimeRun(RealtimeSession.Of(target, now, Conversions.Present(target.ForCapture && passes > 0, passes)), feed)).Scoped(Session.Scope)
+             select new RealtimeRun(RealtimeSession.Of(target, now, Conversions.Present(target.ForCapture && passes > 0, passes)), feed)).Scoped()
          from world in opened.Feed.World
          from started in Start(new RealtimeStart(opened.Session.Target, doc, view, viewport, opened.Feed))
          select unit)
@@ -189,7 +189,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
         from middleground in Middleground.TraverseM(draw => Subscriptions.Inline<DrawMiddlegroundEventArgs>(handler => OnDrawMiddleground += handler, handler => OnDrawMiddleground -= handler).Attach(args => draw(args.Pipeline))).As()
         select unit;
 
-    private IO<Unit> Closed => Products.Clear(sessions).Scoped(Session.Scope);
+    private IO<Unit> Closed => Products.Clear(sessions).Scoped();
 
     private IO<Unit> Resized(RealtimeTarget target, Func<RealtimeTarget, IO<Unit>> resize) =>
         from sized in IO.lift(() => target.Window.SetSize(target.Size))

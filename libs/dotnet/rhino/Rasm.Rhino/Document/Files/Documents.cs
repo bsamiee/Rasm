@@ -62,6 +62,10 @@ public static class Documents {
                     },
                 };
 
+    // --- [PROPERTIES]
+    public static readonly HostEvent<DocumentEventArgs> PropertiesChanged =
+        Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h);
+
     // --- [SCRIPTS]
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
         Conversions.Required(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber))

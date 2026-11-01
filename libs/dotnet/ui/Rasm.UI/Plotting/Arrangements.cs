@@ -6,6 +6,8 @@ using MathNet.Numerics.Random;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.Operation.Linemerge;
 using NetTopologySuite.Triangulate;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using RBush;
 using SkiaSharp;
 using SuperLinq;
@@ -44,27 +46,70 @@ public sealed record Network(Seq<Arranged> Nodes, Seq<Arranged> Links) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Arrangements {
-    // --- [HIERARCHIES]
-    private sealed record Spot(Hierarchy Node, Vector2 At, Option<Vector2> From) {
-        public Spot Moved(Vector2 by) => this with { At = At + by, From = From.Map(from => from + by) };
+public static class GeometryExtensions {
+    extension(Geometry geometry) {
+        public Seq<Figure.Path> Paths =>
+            geometry switch {
+                Polygon polygon => [new Figure.Path(polygon.ExteriorRing.Vertices) { Closed = true, Holes = toSeq(polygon.InteriorRings).Map(static ring => ring.Vertices) }],
+                LineString line => [new Figure.Path(line.Vertices) { Closed = line.IsClosed }],
+                GeometryCollection collection => toSeq(collection.Geometries).Bind(static member => member.Paths),
+                _ => [],
+            };
     }
 
-    private sealed record Subtree(Seq<Spot> Spots, Seq<(float Left, float Right)> Contour);
+    extension(LineString line) {
+        internal Seq<Vector2> Vertices => toSeq(line.IsClosed ? line.Coordinates[..^1] : line.Coordinates).Map(static at => new Vector2((float)at.X, (float)at.Y));
+    }
 
+    extension(Coordinate at) {
+        internal SKPoint Point => new((float)at.X, (float)at.Y);
+    }
+
+    extension(SKPoint at) {
+        internal Coordinate Coordinate => new(at.X, at.Y);
+    }
+
+    extension(Seq<SKPoint> line) {
+        internal Coordinate[] Coordinates => [.. line.Map(static at => at.Coordinate)];
+    }
+}
+
+public static class Arrangements {
+    // --- [HIERARCHIES]
     public static Fin<Seq<Arranged>> Treemap(PlotFrame frame, Hierarchy root, float inner = 0f, float outer = 0f) =>
         UIFault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => Tiled(frame, root, frame.Box, inner / 2f, outer));
 
     public static Network Tree(PlotFrame frame, Hierarchy root) {
-        Subtree shape = Shaped(root);
+        (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> spots, Seq<(float Left, float Right)> contour) = Shaped(root);
         SKRect box = frame.Box;
-        (float low, float high) = (shape.Contour.Min(static depth => depth.Left), shape.Contour.Max(static depth => depth.Right));
-        int deepest = shape.Contour.Count - 1;
+        (float low, float high) = (contour.Min(static depth => depth.Left), contour.Max(static depth => depth.Right));
+        int deepest = contour.Count - 1;
         SKPoint Placed(Vector2 at) => new(box.Left + ((high > low ? (at.X - low) / (high - low) : 0.5f) * box.Width), box.Top + ((deepest > 0 ? at.Y / deepest : 0f) * box.Height));
         return new Network(
-            shape.Spots.Choose(spot => frame.Valued(Placed(spot.At)).Map(at => new Arranged(spot.Node.Key, at, spot.Node.Weight, new Figure.Points([at])))),
-            shape.Spots.Choose(spot => spot.From.Bind(from => Unframed(frame, [Placed(from), Placed(spot.At)]))
+            spots.Choose(spot => frame.Valued(Placed(spot.At)).Map(at => new Arranged(spot.Node.Key, at, spot.Node.Weight, new Figure.Points([at])))),
+            spots.Choose(spot => spot.From.Bind(from => Unframed(frame, [Placed(from), Placed(spot.At)]))
                 .Map(link => new Arranged(spot.Node.Key, link[1], spot.Node.Weight, new Figure.Path(link) { Interpolation = Interpolation.BumpY }))));
+
+        static (Hierarchy Node, Vector2 At, Option<Vector2> From) Moved((Hierarchy Node, Vector2 At, Option<Vector2> From) spot, Vector2 by) => (spot.Node, spot.At + by, spot.From.Map(from => from + by));
+
+        static (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> Spots, Seq<(float Left, float Right)> Contour) Joined(
+            (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> Spots, Seq<(float Left, float Right)> Contour) left,
+            (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> Spots, Seq<(float Left, float Right)> Contour) right) {
+            float offset = left.Contour.Zip(right.Contour, static (one, two) => one.Right - two.Left + 1f).DefaultIfEmpty(0f).Max();
+            return (left.Spots + right.Spots.Map(spot => Moved(spot, new Vector2(offset, 0f))),
+                toSeq(Range(0, int.Max(left.Contour.Count, right.Contour.Count))).Map(depth => (left.Contour.At(depth), right.Contour.At(depth).Map(held => (Left: held.Left + offset, Right: held.Right + offset))) switch {
+                    var (one, two) => (one, two).Apply(static (first, second) => (Left: float.Min(first.Left, second.Left), Right: float.Max(first.Right, second.Right))).As() | one | two,
+                }).Somes());
+        }
+
+        static (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> Spots, Seq<(float Left, float Right)> Contour) Shaped(Hierarchy node) {
+            if (node.Members.IsEmpty) return ([(node, Vector2.Zero, None)], [(0f, 0f)]);
+            (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> spots, Seq<(float Left, float Right)> contour) = node.Members.Map(Shaped).Reduce(Joined);
+            Seq<float> roots = spots.Filter(static spot => spot.From.IsNone).Map(static spot => spot.At.X);
+            Vector2 shift = new(-(roots.Head.IfNone(0f) + roots.Last.IfNone(0f)) / 2f, 1f);
+            return ((node, Vector2.Zero, Option<Vector2>.None).Cons(spots.Map(spot => Moved(spot, shift) switch { var moved => (moved.Node, moved.At, moved.From | Some(Vector2.Zero)) })),
+                (Left: 0f, Right: 0f).Cons(contour.Map(depth => (Left: depth.Left + shift.X, Right: depth.Right + shift.X))));
+        }
     }
 
     private static Seq<Arranged> Tiled(PlotFrame frame, Hierarchy node, SKRect rect, float half, float outer) {
@@ -94,24 +139,6 @@ public static class Arrangements {
         return float.Max(side * side * most / (sum * sum), sum * sum / (side * side * least));
     }
 
-    private static Subtree Shaped(Hierarchy node) {
-        Subtree Joined(Subtree left, Subtree right) {
-            float offset = left.Contour.Zip(right.Contour, static (one, two) => one.Right - two.Left + 1f).DefaultIfEmpty(0f).Max();
-            return new Subtree(left.Spots + right.Spots.Map(spot => spot.Moved(new Vector2(offset, 0f))),
-                toSeq(Range(0, int.Max(left.Contour.Count, right.Contour.Count))).Map(depth => (left.Contour.At(depth), right.Contour.At(depth).Map(held => (Left: held.Left + offset, Right: held.Right + offset))) switch {
-                    var (one, two) => (one, two).Apply(static (first, second) => (Left: float.Min(first.Left, second.Left), Right: float.Max(first.Right, second.Right))).As() | one | two,
-                }).Somes());
-        }
-        Subtree Grouped(Subtree children) {
-            Seq<float> roots = children.Spots.Filter(static spot => spot.From.IsNone).Map(static spot => spot.At.X);
-            Vector2 shift = new(-(roots.Head.IfNone(0f) + roots.Last.IfNone(0f)) / 2f, 1f);
-            return new Subtree(
-                new Spot(node, Vector2.Zero, None).Cons(children.Spots.Map(spot => spot.Moved(shift)).Map(static spot => spot with { From = spot.From | Some(Vector2.Zero) })),
-                (Left: 0f, Right: 0f).Cons(children.Contour.Map(depth => (Left: depth.Left + shift.X, Right: depth.Right + shift.X))));
-        }
-        return node.Members.IsEmpty ? new Subtree([new Spot(node, Vector2.Zero, None)], [(0f, 0f)]) : Grouped(node.Members.Map(Shaped).Reduce(Joined));
-    }
-
     private static SKRect Deflated(SKRect rect, float by) =>
         SKRect.Inflate(rect, -by, -by) switch { var inset => new SKRect(float.Min(inset.Left, rect.MidX), float.Min(inset.Top, rect.MidY), float.Max(inset.Right, rect.MidX), float.Max(inset.Bottom, rect.MidY)) };
 
@@ -120,15 +147,15 @@ public static class Arrangements {
 
     public static Fin<Network> Sankey(PlotFrame frame, Seq<Flow> flows, Fraction width, Fraction gap) {
         Seq<Key> keys = toSeq(flows.Bind(static flow => Seq(flow.Source, flow.Target)).Distinct());
-        HashMap<Key, int> Deepened(HashMap<Key, int> depths) => flows.Fold(depths, static (held, flow) => held.SetItem(flow.Target, int.Max(held[flow.Target], held[flow.Source] + 1)));
-        HashMap<Key, int> depths = Range(0, keys.Count).Fold(toHashMap(keys.Map(static key => (key, 0))), (held, _) => Deepened(held));
-        HashMap<Key, Seq<Flow>> outgoing = toHashMap(flows.GroupBy(static flow => flow.Source).Select(static group => (group.Key, toSeq(group))));
-        HashMap<Key, Seq<Flow>> incoming = toHashMap(flows.GroupBy(static flow => flow.Target).Select(static group => (group.Key, toSeq(group))));
-        return (UIFault.Unless(Deepened(depths) == depths, UIReason.Order, flows.Count), UIFault.Unless(toHashSet(flows.Map(static flow => flow.Key)).Count == flows.Count, UIReason.Repeated, flows.Count))
+        BidirectionalGraph<Key, TaggedEdge<Key, Flow>> graph = flows.Map(static flow => new TaggedEdge<Key, Flow>(flow.Source, flow.Target, flow)).ToBidirectionalGraph<Key, TaggedEdge<Key, Flow>>();
+        Seq<Flow> Outgoing(Key key) => toSeq(graph.OutEdges(key)).Map(static edge => edge.Tag);
+        Seq<Flow> Incoming(Key key) => toSeq(graph.InEdges(key)).Map(static edge => edge.Tag);
+        return (UIFault.Unless(graph.IsDirectedAcyclicGraph(), UIReason.Order, flows.Count), UIFault.Unless(toHashSet(flows.Map(static flow => flow.Key)).Count == flows.Count, UIReason.Repeated, flows.Count))
             .Apply(static (_, _) => unit).As().Map(_ => {
                 SKRect box = frame.Box;
-                float Total(HashMap<Key, Seq<Flow>> linked, Key key) => linked.Find(key).Map(static held => held.Sum(static flow => flow.Weight)).IfNone(0f);
-                HashMap<Key, float> values = toHashMap(keys.Map(key => (key, float.Max(Total(outgoing, key), Total(incoming, key)))));
+                HashMap<Key, int> depths = Ranked(graph);
+                float Total(Func<Key, Seq<Flow>> linked, Key key) => linked(key).Sum(static flow => flow.Weight);
+                HashMap<Key, float> values = toHashMap(keys.Map(key => (key, float.Max(Total(Outgoing, key), Total(Incoming, key)))));
                 Seq<Seq<Key>> columns = toSeq(keys.GroupBy(key => depths[key]).OrderBy(static column => column.Key).Select(static column => toSeq(column)));
                 float node = (float)width * box.Width / columns.Count;
                 float spacing = (float)gap * box.Height / float.Max(1f, columns.Max(static column => column.Count) - 1);
@@ -144,20 +171,20 @@ public static class Arrangements {
                         var top => (state.Tops.SetItem(key, top), top - spacing),
                     }).Tops;
                 }
-                HashMap<Key, float> Toward(HashMap<Key, float> held, Seq<Key> column, HashMap<Key, Seq<Flow>> linked, Func<Flow, Key> other, float alpha) =>
-                    Collided(column.Fold(held, (moved, key) => linked.Find(key).Map(near =>
+                HashMap<Key, float> Toward(HashMap<Key, float> held, Seq<Key> column, Func<Key, Seq<Flow>> linked, Func<Flow, Key> other, float alpha) =>
+                    Collided(column.Fold(held, (moved, key) => Some(linked(key)).Filter(static near => !near.IsEmpty).Map(near =>
                         moved.SetItem(key, moved[key] + (alpha * ((near.Sum(flow => Middle(moved, other(flow)) * flow.Weight) / near.Sum(static flow => flow.Weight)) - Middle(moved, key))))).IfNone(moved)), column);
                 HashMap<Key, float> tops = Range(0, Relaxations).Fold(
                     toHashMap(columns.Bind(column => column.Zip(column.Scan(box.Top, (top, key) => top + (values[key] * scale) + spacing), static (key, top) => (key, top)))),
                     (held, iteration) => MathF.Pow(0.99f, iteration) switch {
-                        var alpha => columns.Fold(columns.Rev().Fold(held, (state, column) => Toward(state, column, outgoing, static flow => flow.Target, alpha)), (state, column) => Toward(state, column, incoming, static flow => flow.Source, alpha)),
+                        var alpha => columns.Fold(columns.Rev().Fold(held, (state, column) => Toward(state, column, Outgoing, static flow => flow.Target, alpha)), (state, column) => Toward(state, column, Incoming, static flow => flow.Source, alpha)),
                     });
-                HashMap<Key, float> Offsets(HashMap<Key, Seq<Flow>> linked, Func<Flow, Key> other) =>
-                    toHashMap(linked.Values.Bind(group => toSeq(group.OrderBy(flow => Middle(tops, other(flow)))) switch {
+                HashMap<Key, float> Offsets(Func<Key, Seq<Flow>> linked, Func<Flow, Key> other) =>
+                    toHashMap(keys.Bind(key => toSeq(linked(key).OrderBy(flow => Middle(tops, other(flow)))) switch {
                         var sorted => toSeq(sorted.Zip(sorted.Scan(0f, static (sum, flow) => sum + flow.Weight), static (flow, offset) => (flow.Key, offset))),
                     }));
-                HashMap<Key, float> leaving = Offsets(outgoing, static flow => flow.Target);
-                HashMap<Key, float> entering = Offsets(incoming, static flow => flow.Source);
+                HashMap<Key, float> leaving = Offsets(Outgoing, static flow => flow.Target);
+                HashMap<Key, float> entering = Offsets(Incoming, static flow => flow.Source);
                 return new Network(
                     keys.Choose(key => Rectangle(frame, key, values[key], SKRect.Create(Left(key), tops[key], node, values[key] * scale))),
                     flows.Choose(flow => {
@@ -178,7 +205,7 @@ public static class Arrangements {
                 float share = (1f - (count * (float)gap)) / total;
                 Seq<float> starts = totals.Scan(0f, (start, sum) => start + (sum * share) + (float)gap);
                 Seq<Seq<float>> prefixes = toSeq(matrix.EnumerateRows()).Map(static row => toSeq(row.Enumerate()).Scan(0f, static (sum, cell) => sum + cell));
-                Matrix<float> weights = matrix + matrix.Transpose();
+                Matrix<float> weights = matrix + matrix.Transpose() - Matrix<float>.Build.DiagonalOfDiagonalVector(matrix.Diagonal());
                 (float Low, float High) Slice(int row, int column) => (starts[row] + (prefixes[row][column] * share)) switch { var start => (start, start + (matrix[row, column] * share)) };
                 Vector2 Valued(float angle, float radius) => plane.Valued(new Vector2(angle, radius));
                 Seq<Arranged> arcs = groups.Map((key, index) =>
@@ -198,9 +225,13 @@ public static class Arrangements {
             });
     }
 
+    internal static HashMap<TVertex, int> Ranked<TVertex, TEdge>(IBidirectionalGraph<TVertex, TEdge> graph) where TEdge : IEdge<TVertex> =>
+        toSeq(graph.SourceFirstBidirectionalTopologicalSort()).Fold(HashMap<TVertex, int>(), (ranks, vertex) =>
+            ranks.Add(vertex, toSeq(graph.InEdges(vertex)).Fold(0, (rank, edge) => int.Max(rank, ranks[edge.Source] + 1))));
+
     private static Seq<Vector2> Bend(float from, float to, float radius) {
         (Vector2 start, Vector2 end) = (Circled(from, radius), Circled(to, radius));
-        return toSeq(Generate.LinearSpaced(int.Max(3, (int)MathF.Ceiling(Vector2.Distance(start, end) * 360f / MathF.Tau) + 1), 0d, 1d)[1..^1]).Map(step => (float)step switch {
+        return toSeq(Generate.LinearSpaced(int.Max(3, (int)MathF.Ceiling(float.RadiansToDegrees(Vector2.Distance(start, end))) + 1), 0d, 1d)[1..^1]).Map(step => (float)step switch {
             var along => (((1f - along) * (1f - along) * start) + (along * along * end)) switch { var at => new Vector2(Euclid.Modulus(MathF.Atan2(at.Y, at.X) / MathF.Tau, 1f), at.Length()) },
         });
     }
@@ -236,7 +267,7 @@ public static class Arrangements {
                        let edges = Seq(2 * origin, (2 * Node(column + 1, row)) + 1, 2 * Node(column, row + 1), (2 * origin) + 1)
                        from cut in (TensorPrimitives.Sum<float>([.. corners]) / 4f >= threshold ? Joined.Find(shape) : None).IfNone(() => Cuts[shape])
                        select (Geometry)GeometryFactory.Default.CreateLineString([Crossed(edges[cut.From]), Crossed(edges[cut.To])]));
-            Seq<Seq<Vector2>> rings = toSeq(merger.GetMergedLineStrings()).Map(ring => Figure.Ring((LineString)ring).Map(at => plane.Valued(at)));
+            Seq<Seq<Vector2>> rings = toSeq(merger.GetMergedLineStrings()).Map(ring => ((LineString)ring).Vertices.Map(plane.Valued));
             return rings.Head.Map(outer => new Arranged(new Key.Ordinal((uint)level), outer[0], threshold, new Figure.Path(outer) { Closed = true, Holes = rings.Tail }));
         }).Somes();
     }
@@ -245,7 +276,7 @@ public static class Arrangements {
         (float size, float across, float down) = ((float)radius, (float)radius * MathF.Sqrt(3f), (float)radius * 1.5f);
         SKPoint origin = frame.Box.Location;
         Seq<SKPoint> Corners(SKPoint center) => toSeq(Range(0, 6)).Map(corner => MathF.SinCos((MathF.PI / 6f) + (corner * MathF.PI / 3f)) switch { var (sin, cos) => center + new SKPoint(cos * size, sin * size) });
-        return toSeq(points.Map(frame.Point).Filter(static at => float.IsFinite(at.X) && float.IsFinite(at.Y)).GroupBy(at => Binned(at - origin, across, down)))
+        return toSeq(frame.Points(points).Filter(static at => float.IsFinite(at.X) && float.IsFinite(at.Y)).GroupBy(at => Binned(at - origin, across, down)))
             .Choose(bin => (origin + new SKPoint((bin.Key.Column + ((bin.Key.Row & 1) / 2f)) * across, bin.Key.Row * down)) switch {
                 var middle => (frame.Valued(middle), Unframed(frame, Corners(middle)))
                     .Apply((center, corners) => new Arranged(new Key.Ordinal(unchecked((ushort)bin.Key.Column | ((uint)(ushort)bin.Key.Row << 16))), center, bin.Count(), new Figure.Path(corners) { Closed = true })).As(),
@@ -268,7 +299,7 @@ public static class Arrangements {
 
     public static Figure.Points Dodged(PlotFrame frame, PhysicalAxis along, Seq<float> values, Factor radius) {
         float reach = 2f * (float)radius;
-        Seq<float> placed = values.Map(value => along.Of(frame.Point(along.With(Vector2.Zero, value))));
+        Seq<float> placed = Positions(frame, along, values);
         RBush<Indexed> tree = new();
         HashMap<int, float> offsets = toSeq(placed.Map(static (at, index) => (At: at, Index: index)).OrderBy(static held => held.At)).Fold(HashMap<int, float>(), (held, point) => {
             Seq<(float Offset, float Clear)> near = toSeq(tree.Search(new(point.At - reach, double.NegativeInfinity, point.At + reach, double.PositiveInfinity)))
@@ -285,7 +316,7 @@ public static class Arrangements {
 
     public static Figure.Points Jittered(PlotFrame frame, PhysicalAxis along, Seq<float> values, Factor width, int seed) {
         double[] uniform = Xoshiro256StarStar.Doubles(values.Count, seed);
-        return Spread(frame, along, values.Map(value => along.Of(frame.Point(along.With(Vector2.Zero, value)))), index => ((float)uniform[index] - 0.5f) * (float)width);
+        return Spread(frame, along, Positions(frame, along, values), index => ((float)uniform[index] - 0.5f) * (float)width);
     }
 
     private static Figure.Points Spread(PlotFrame frame, PhysicalAxis along, Seq<float> placed, Func<int, float> offset) {
@@ -295,21 +326,20 @@ public static class Arrangements {
 
     // --- [MESHES]
     public static Network Triangulated(PlotFrame frame, Seq<Vector2> sites) {
-        Coordinate[] framed = Framed(frame, sites);
+        Coordinate[] framed = frame.Points(sites).Coordinates;
         DelaunayTriangulationBuilder builder = new();
         builder.SetSites(framed);
         Geometry hull = GeometryFactory.Default.CreateMultiPointFromCoords(framed).ConvexHull();
         return new Network(
             Cells(frame, builder.GetTriangles(GeometryFactory.Default), static (_, index) => (uint)index),
-            toSeq(builder.GetEdges(GeometryFactory.Default).Geometries).Map(static (edge, index) => (Edge: edge, Index: index)).Choose(held => Unframed(frame, toSeq(held.Edge.Coordinates).Map(Figure.Point))
+            toSeq(builder.GetEdges(GeometryFactory.Default).Geometries).Map(static (edge, index) => (Edge: edge, Index: index)).Choose(held => Unframed(frame, toSeq(held.Edge.Coordinates).Map(static at => at.Point))
                 .Map(line => new Arranged(new Key.Ordinal((uint)held.Index), Vector2.Lerp(line[0], line[1], 0.5f), (float)held.Edge.Length, new Figure.Path(line))))) {
-            Hull = Unframed(frame, hull is Polygon polygon ? Figure.Ring(polygon.ExteriorRing) : toSeq(hull.Coordinates).Map(Figure.Point)).Filter(static corners => !corners.IsEmpty)
-                .Map(corners => new Figure.Path(corners) { Closed = hull is Polygon }),
+            Hull = from path in hull.Paths.Head from corners in Unframed(frame, path.Vertices.Map(static at => (SKPoint)at)) select path with { Vertices = corners },
         };
     }
 
     public static Seq<Arranged> Voronoi(PlotFrame frame, Seq<Vector2> sites) {
-        Coordinate[] framed = Framed(frame, sites);
+        Coordinate[] framed = frame.Points(sites).Coordinates;
         FrozenDictionary<Coordinate, int> owners = framed.Select(static (site, index) => (Site: site, Index: index)).DistinctBy(static held => held.Site).ToFrozenDictionary(static held => held.Site, static held => held.Index);
         SKRect box = frame.Box;
         VoronoiDiagramBuilder builder = new() { ClipEnvelope = new(box.Left, box.Right, box.Top, box.Bottom) };
@@ -317,25 +347,14 @@ public static class Arrangements {
         return Cells(frame, builder.GetDiagram(GeometryFactory.Default), (cell, _) => (uint)owners[(Coordinate)cell.UserData]);
     }
 
-    private static Coordinate[] Framed(PlotFrame frame, Seq<Vector2> sites) => Figure.Coordinates(sites.Map(frame.Point));
-
     private static Seq<Arranged> Cells(PlotFrame frame, Geometry cells, Func<Geometry, int, uint> owner) =>
         toSeq(Enumerable.Range(0, cells.NumGeometries).Select(cells.GetGeometryN)).Map(static (cell, index) => (Cell: cell, Index: index)).Choose(held =>
-            (frame.Valued(Figure.Point(held.Cell.Centroid.Coordinate)), Unframed(frame, Figure.Ring(((Polygon)held.Cell).ExteriorRing)))
+            (frame.Valued(held.Cell.Centroid.Coordinate.Point), Unframed(frame, ((Polygon)held.Cell).ExteriorRing.Vertices.Map(static at => (SKPoint)at)))
                 .Apply((center, corners) => new Arranged(new Key.Ordinal(owner(held.Cell, held.Index)), center, (float)held.Cell.Area, new Figure.Path(corners) { Closed = true })).As());
 
-    // --- [GEOGRAPHY]
-    public static Seq<Figure.Path> Paths(Geometry geometry) =>
-        geometry switch {
-            Polygon polygon => [new Figure.Path(Vertices(polygon.ExteriorRing)) { Closed = true, Holes = toSeq(polygon.InteriorRings).Map(Vertices) }],
-            LineString line => [new Figure.Path(Vertices(line)) { Closed = line.IsClosed }],
-            GeometryCollection collection => toSeq(collection.Geometries).Bind(Paths),
-            _ => [],
-        };
-
-    private static Seq<Vector2> Vertices(LineString line) => Figure.Ring(line).Map(static at => (Vector2)at);
-
     // --- [FRAMES]
+    private static Seq<float> Positions(PlotFrame frame, PhysicalAxis along, Seq<float> values) => frame.Points(values.Map(value => along.With(Vector2.Zero, value))).Map(at => along.Of(at));
+
     private static Option<Seq<Vector2>> Unframed(PlotFrame frame, Seq<SKPoint> pixels) => pixels.Traverse(pixel => frame.Valued(pixel)).As();
 
     private static Option<Arranged> Rectangle(PlotFrame frame, Key key, float weight, SKRect rect) =>

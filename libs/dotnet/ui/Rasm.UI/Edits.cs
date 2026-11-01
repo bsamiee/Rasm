@@ -1,40 +1,24 @@
-using System.Numerics;
-using SkiaSharp;
+using Rasm.UI.Input;
+using Rasm.UI.Styling;
 
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Key {
-    private const char Prefix = '#';
-
-    public string Identifier =>
-        Switch(
-            named: static named => named.Name.StartsWith(Prefix) ? $"{Prefix}{named.Name}" : named.Name,
-            ordinal: static ordinal => $"{Prefix}{ordinal.Index}",
-            handle: static _ => $"{Prefix}handle");
-
-    public sealed record Named(string Name) : Key;
-
-    public sealed record Ordinal(uint Index) : Key;
-
-    public sealed record Handle : Key;
-}
-
 [SmartEnum]
 public sealed partial class EditPhase {
-    public static readonly EditPhase Begin = new(begins: true, applies: false);
-    public static readonly EditPhase Preview = new(begins: false, applies: false);
-    public static readonly EditPhase Step = new(begins: false, applies: true);
-    public static readonly EditPhase Commit = new(begins: false, applies: true);
-    public static readonly EditPhase Cancel = new(begins: false, applies: false);
+    public static readonly EditPhase Begin = new(applies: false);
+    public static readonly EditPhase Preview = new(applies: false);
+    public static readonly EditPhase Step = new(applies: true);
+    public static readonly EditPhase Commit = new(applies: true);
+    public static readonly EditPhase Cancel = new(applies: false);
 
-    public bool Begins { get; }
     public bool Applies { get; }
 }
 
 public sealed record Edit<TValue>(EditPhase Phase, Option<TValue> Value) : K<Edit, TValue> {
     public Option<TValue> Applied => Value.Filter(_ => Phase.Applies);
+
+    public Edit<TResult> Choose<TResult>(Func<TValue, Option<TResult>> chosen) => new(Phase, Value.Bind(chosen));
 }
 
 public sealed class Edit : Traversable<Edit> {
@@ -51,10 +35,19 @@ public sealed class Edit : Traversable<Edit> {
         ta.As().Value.Match(Some: value => Fold.Loop(initialState, value, Fold.Done<A, S>), None: () => Fold.Done<A, S>(initialState));
 
     public static Fold<A, S> FoldStepBack<A, S>(K<Edit, A> ta, S initialState) => FoldStep(ta, initialState);
+
+    internal static Option<T> Restoring<T>(Option<T> rest, Option<T> value) => rest.Filter(held => Some(held) != value);
+
+    internal static HashSet<Condition> Marked<T>(Option<T> rest, Option<T> value) => Restoring(rest, value).IsSome ? [Condition.Modified] : [];
+
+    internal static IO<Unit> Typed<T>(Edit<string> edit, Func<string, Fin<T>> parsed, Func<Edit<T>, IO<Unit>> edited) =>
+        Traverse(parsed, edit).As().Match(Succ: typed => edited(typed.As()), Fail: error => when(edit.Phase == EditPhase.Commit, IO.fail<Unit>(error)).As());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Selection {
+    public static Selection Empty { get; } = new Many([]);
+
     public Option<Key> Lead => Switch(one: static one => one.Selected, many: static many => many.Focus);
 
     public bool Holds(Key key) => Switch(key, one: static (held, one) => one.Selected == Some(held), many: static (held, many) => many.Selected.Contains(held));
@@ -96,16 +89,13 @@ public abstract partial record Selection {
             one: static (held, one) => (Selection)new One(one.Selected.Map(key => Renamed(held, key))),
             many: static (held, many) => new Many(many.Selected.Map(key => Renamed(held, key))) { Anchor = many.Anchor.Map(key => Renamed(held, key)), Focus = many.Focus.Map(key => Renamed(held, key)) });
 
-    internal static Option<int> Position(Seq<Key> ordered, Key key) =>
-        ordered.Map(static (held, index) => (Key: held, Index: index)).Find(entry => entry.Key == key).Map(static entry => entry.Index);
-
     private static Key Renamed(HashMap<Key, Key> renames, Key key) => renames.Find(key).IfNone(key);
 
     private static Many Only(Key key) => new([key]) { Anchor = Some(key), Focus = Some(key) };
 
     private static Many Spanned(Seq<Key> ordered, Option<Key> anchor, Key target) =>
-        (from end in Position(ordered, target)
-         let found = anchor.Bind(held => Position(ordered, held))
+        (from end in ordered.Position(target)
+         let found = anchor.Bind(held => ordered.Position(held))
          let start = found.IfNone(end)
          select new Many(toHashSet(ordered.Skip(int.Min(start, end)).Take(int.Abs(start - end) + 1))) { Anchor = found.IsSome ? anchor : Some(target), Focus = Some(target) })
         .IfNone(() => Only(target));
@@ -116,38 +106,6 @@ public abstract partial record Selection {
         public Option<Key> Anchor { get; init; }
         public Option<Key> Focus { get; init; }
     }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Transfer {
-    public sealed record Keys(Seq<Seq<Key>> Paths) : Transfer;
-
-    public sealed record Files(Seq<string> Paths) : Transfer;
-
-    public sealed record Text(string Value) : Transfer;
-
-    public sealed record Color(SKColorF Value) : Transfer;
-}
-
-[SmartEnum]
-public sealed partial class Placement {
-    public static readonly Placement Before = new();
-    public static readonly Placement Inside = new();
-    public static readonly Placement After = new();
-
-    internal static Placement At(Fraction along, bool nests) =>
-        (nests ? toSeq(Items) : [Before, After]) switch { var bands => bands[int.Min((int)((float)along * bands.Count), bands.Count - 1)] };
-}
-
-public sealed record Lift(Func<Seq<Key>, IO<Transfer>> Payload) {
-    public Option<Func<Vector2, Node>> Preview { get; init; }
-}
-
-public sealed record Drop(Func<Transfer, Option<Key>, Placement, Option<IO<Unit>>> Accepted) {
-    public bool Nests { get; init; }
-
-    public static Drop Of<TCase>(Func<TCase, Option<Key>, Placement, IO<Unit>> accepted) where TCase : Transfer =>
-        new((transfer, target, placement) => Optional(transfer as TCase).Map(held => accepted(held, target, placement)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

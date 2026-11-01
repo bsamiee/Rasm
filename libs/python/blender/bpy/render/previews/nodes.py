@@ -1,7 +1,7 @@
-"""Per-node previews over every geometry node editor: the commands, the feed planning a job per changed target, and the stored thumbnails each render writes."""
+"""Per-node previews over every geometry node editor under the node previews preference: the commands, the feed planning a job per changed target, and the stored thumbnails each render writes."""
 
 from collections.abc import Callable, Hashable
-from functools import partial, reduce
+from functools import cached_property, partial, reduce
 import itertools
 import os
 from pathlib import Path
@@ -27,16 +27,17 @@ from blender.bpy.data.rna.descriptors import written
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.events import Change, Handler, updated
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.trees import socket_at
 from blender.bpy.render.color.spaces import UNTAGGED, viewed
 from blender.bpy.render.outputs.results import INTERMEDIATES
-from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
+from blender.bpy.render.previews.queue import BACKLOG, Demand, Job, PreviewFeed, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewScene, Readback
-from blender.bpy.render.previews.targets import CLAY, Editor, enclosing, NodePreviews, rendered, SETTING, SWATCH, Target, targets
-from blender.bpy.render.previews.thumbnails import Cell, Counts, Demand, NODE_STATES, NodeThumbnails, Staged, Status
+from blender.bpy.render.previews.targets import CLAY, Editor, enclosing, NODE_PREVIEWS, NodePreviews, rendered, SETTING, SWATCH, Target, targets
+from blender.bpy.render.previews.thumbnails import Cell, NODE_STATES, NodeThumbnails, Staged, Status
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal
-from blender.bpy.ui.layout.rows import Member, OperatorButton, Property, Row
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import even, FUNCTIONS, Label, Layout, OperatorButton, Property, Row
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.previews import TEXTURES
@@ -67,45 +68,44 @@ class ThumbnailExport(bpy.types.PropertyGroup):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
-    """Row of per-node previews over every node editor, its commands equal across reads."""
+class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Row of per-node previews over every node editor under the node previews preference, its commands built once."""
 
-    settings: Callable[[Identity], Outcome[NodePreviews]]
     retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
     preview: PreviewScene = PreviewScene()
     signal: Signal = msgspec.field(default_factory=Signal)
-    key: ClassVar[Key] = "node_previews"
+    key: ClassVar[Key] = NODE_PREVIEWS.key
 
     # --- [COMMANDS]
 
-    @property
+    @cached_property
     def toggle(self) -> Operator[Empty]:
         """Command toggling node editor thumbnails."""
         return Operator(form=Empty, undo=Nothing, run=self.toggle_node_previews)
 
-    @property
+    @cached_property
     def enlarge(self) -> Operator[Empty]:
         """Command toggling the larger active node thumbnail."""
         return Operator(form=Empty, undo=Nothing, run=self.enlarge_node_preview)
 
-    @property
+    @cached_property
     def refresh(self) -> Operator[Empty]:
         """Command rendering every thumbnail again."""
         return Operator(form=Empty, undo=Nothing, run=self.refresh_node_previews)
 
-    @property
+    @cached_property
     def clear(self) -> Operator[Empty]:
         """Command removing cached and stored thumbnails."""
         return Operator(form=Empty, undo=Nothing, run=self.clear_node_previews)
 
-    @property
+    @cached_property
     def export(self) -> Operator[ThumbnailExport]:
         """Command writing the active node thumbnail to an image file."""
         return Operator(form=ThumbnailExport, undo=Nothing, invoke=Some(Save(extensions=lambda _: _SUFFIXES)), run=self.export_node_preview)
 
     def flipped(self, call: Call[Empty], change: Callable[[NodePreviews], Outcome[object]]) -> Outcome[Answer]:
-        """Writes the change into the settings and refreshes thumbnails."""
-        return self.settings(call.identity).bind(change).bind(lambda _: self.signal.fired()).map(lambda _: Done())
+        """Writes the change into the preference and refreshes thumbnails."""
+        return NODE_PREVIEWS.read(call.identity).bind(change).bind(lambda _: self.signal.fired()).map(lambda _: Done())
 
     def toggle_node_previews(self, call: Call[Empty]) -> Outcome[Answer]:
         """Toggles node editor thumbnails."""
@@ -152,7 +152,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return (
-            paired(shown, self.settings(call.identity), rooted(bpy.types.Scene, call.context))
+            paired(shown, NODE_PREVIEWS.read(call.identity), rooted(bpy.types.Scene, call.context))
             .bind(lambda parts: chosen(*parts[0], parts[1]).bind(lambda target: wrote(parts[2], target, parts[1])))
             .bind(lambda name: loaded(str(name), Tag()).map(lambda _: name) if call.properties.opened else Ok(name))
             .map(lambda name: Done.wrote((name,)))
@@ -160,7 +160,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [THUMBNAILS]
 
-    def thumbnailed(self, identity: Identity, target: Target, demand: Demand, size: int, kept: frozenset[Hashable], settings: NodePreviews, *, scene: bpy.types.Scene) -> Outcome[None]:
+    def thumbnailed(self, identity: Identity, target: Target, demand: Demand[Staged], size: int, kept: frozenset[Hashable], settings: NodePreviews, *, scene: bpy.types.Scene) -> Outcome[None]:
         """Renders a target into texture cache and previews folder, its uniform value held and stored as a typed header attribute."""
         state, stored_in, limit, config = identity.held[NODE_STATES], _folder(identity), settings.limit, PyOpenColorIO.GetCurrentConfig()
 
@@ -186,7 +186,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                     state.values[demand.key] = held
                 return demand.content.map(written_file).default_value(Ok(None)).bind(lambda _: self.signal.fired())
 
-            return identity.held[TEXTURES].stored(demand.key, readback.plane, limit, kept).bind(saved) if state.keys.get(target) is demand else Ok(None)
+            return identity.held[TEXTURES].stored(demand.key, readback.plane, limit, kept).bind(saved) if state.demands.holds(target, demand) else Ok(None)
 
         return paired(rendered(identity, self.preview, target, size, settings, scene=scene), identity.identifier(PreviewScene.value)).bind(lambda parts: stored(*parts))
 
@@ -195,7 +195,6 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
         state, metrics, failed = identity.held[NODE_STATES], Metrics.read(), identity.held[BACKLOG].failed
-        prior, state.keys = state.keys, {}
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         views = tuple(
             (editor, space, at, tree)
@@ -245,7 +244,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                     return cached(image)
 
         def planned(scene: bpy.types.Scene, settings: NodePreviews, config: PyOpenColorIO.Config, name: str) -> Outcome[tuple[Job, ...]]:
-            def demanded(node: bpy.types.Node, target: Target, size: int, nested: tuple[bpy.types.Node, ...]) -> Outcome[Demand]:
+            def demanded(node: bpy.types.Node, target: Target, size: int, nested: tuple[bpy.types.Node, ...]) -> Outcome[Demand[Staged]]:
                 staged = Staged(
                     kind=target.kind,
                     socket=target.socket,
@@ -257,26 +256,13 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                     host=(bpy.app.version, bpy.app.build_hash),
                     config=config.getCacheID(),
                 )
+                return state.demands.demanded(target, staged, lambda: keyed(node, target, staged, nested))
 
-                def remembered(digest: Option[ContentHash]) -> Demand:
-                    state.keys[target] = demand = (
-                        Option.of_optional(prior.get(target)).filter(lambda held: held.staged == staged and held.content == digest).default_with(lambda: Demand(staged=staged, content=digest))
-                    )
-                    return demand
-
-                return (
-                    Option
-                    .of_optional(prior.get(target))
-                    .filter(lambda held: held.staged == staged)
-                    .map(lambda held: Ok(remembered(held.content)))
-                    .default_with(lambda: keyed(node, target, staged, nested).map(remembered))
-                )
-
-            def viewed_in(editor: Editor, space: bpy.types.SpaceNodeEditor, at: Located, tree: bpy.types.NodeTree) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand, Rank], ...]]:
+            def viewed_in(editor: Editor, space: bpy.types.SpaceNodeEditor, at: Located, tree: bpy.types.NodeTree) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand[Staged], Rank], ...]]:
                 nested = tuple(node for found in enclosing(space) for node in found.to_list())
 
-                def rows(found: tuple[tuple[bpy.types.Node, Target], ...]) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand, Rank], ...]]:
-                    def each(node: bpy.types.Node, target: Target) -> Outcome[tuple[bpy.types.Node, Target, int, Demand, Rank]]:
+                def rows(found: tuple[tuple[bpy.types.Node, Target], ...]) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand[Staged], Rank], ...]]:
+                    def each(node: bpy.types.Node, target: Target) -> Outcome[tuple[bpy.types.Node, Target, int, Demand[Staged], Rank]]:
                         size = round(node.width * metrics.scale * settings.scale / (2 if sum(1 for held, _ in found if held == node) > 1 else 1))
                         location = node.location_absolute
                         rank = Rank.ACTIVE if node.select or node == tree.nodes.active else Rank.SHOWN if to_region(at, location.x, location.y).is_some() else Rank.REST
@@ -286,7 +272,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
                 return targets(identity, editor, tree, settings).bind(rows)
 
-            def scheduled(plans: tuple[tuple[bpy.types.Node, Target, int, Demand, Rank], ...]) -> Outcome[tuple[Job, ...]]:
+            def scheduled(plans: tuple[tuple[bpy.types.Node, Target, int, Demand[Staged], Rank], ...]) -> Outcome[tuple[Job, ...]]:
                 kept = frozenset(demand.key for *_, demand, held in plans if held is not Rank.REST)
 
                 def shown(ready: frozenset[Hashable]) -> Outcome[tuple[Job, ...]]:
@@ -326,25 +312,24 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
             return accumulated(itertools.starmap(viewed_in, views if settings.enabled else ())).map(lambda parts: tuple(itertools.chain.from_iterable(parts))).bind(scheduled)
 
-        return paired(rooted(bpy.types.Scene, context), self.settings(identity), identity.identifier(PreviewScene.value)).bind(
+        return paired(rooted(bpy.types.Scene, context), NODE_PREVIEWS.read(identity), identity.identifier(PreviewScene.value)).bind(
             lambda parts: planned(parts[0], parts[1], PyOpenColorIO.GetCurrentConfig(), parts[2])
         )
 
     # --- [REGISTRATION]
 
     def section(self, header: tuple[Row, ...] = ()) -> Section:
-        """Returns node previews section."""
+        """Returns node previews section: the commands, queue and cache counts the host lays out in even columns, and the active node settings."""
         active = ("edit_tree", "nodes", "active")
         return Section(
             key=self.key,
-            title=bpy.path.display_name(self.key),
             header=header,
             rows=(
                 *(OperatorButton(target=row) for row in (self.toggle, self.refresh, self.clear, self.export)),
-                Counts(),
+                Layout(rows=lambda identity: Ok((Label(text=partial(_counted, identity), function=FUNCTIONS["label"]),)), container=Some(even), prerequisites=(BACKLOG, TEXTURES)),
                 Section(
                     key=f"{self.key}_active",
-                    title="Active Node",
+                    title=Some("Active Node"),
                     store=Some(
                         Store(
                             attachment=SETTING,
@@ -361,9 +346,9 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         """Returns preview declarations, state, resources, overlay, and handlers, updates of a scene under a preview render left to the render."""
 
         def forgotten(switch: Callable[[NodePreviews], bool]) -> Outcome[None]:
-            read = self.settings(identity)
+            read = NODE_PREVIEWS.read(identity)
             for _ in read.to_option().filter(switch).to_list():
-                identity.held[NODE_STATES].forgotten()
+                identity.held[NODE_STATES].demands.forgotten()
             return read.map(lambda _: None)
 
         def dropped(scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
@@ -373,7 +358,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                 identity.held[NODE_STATES].released(block)
             return forgotten(lambda settings: settings.automatic)
 
-        overlay = Overlay(drawing=Drawing(area=AreaQuery(space=bpy.types.SpaceNodeEditor), part=NodeThumbnails(identity=identity, settings=self.settings), refreshes=(self.signal,)))
+        overlay = Overlay(drawing=Drawing(area=AreaQuery(space=bpy.types.SpaceNodeEditor), part=NodeThumbnails(identity=identity), refreshes=(self.signal,)))
         keymap = Keymap(
             keymap="Node Editor",
             bindings=((Chord(type="P", ctrl=1, alt=1), Placement(self.toggle)), (Chord(type="Z", ctrl=1, alt=1), Placement(self.enlarge)), (Chord(type="R", ctrl=1, alt=1), Placement(self.refresh))),
@@ -383,12 +368,12 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             INTERMEDIATES,
             SETTING,
             NODE_STATES,
-            BACKLOG,
+            NODE_PREVIEWS,
             keymap,
             CLAY,
             SWATCH,
             TEXTURES,
-            (Band.RESOURCES, PreviewQueue.fed(identity, self.jobs)),
+            PreviewFeed(feed=self.jobs),
             self.toggle,
             self.enlarge,
             self.refresh,
@@ -404,7 +389,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
     def rerendered(self, identity: Identity) -> Outcome[None]:
         """Drops target keys and held failures for a full rerender."""
-        PreviewQueue.forced(identity, identity.held[NODE_STATES].forgotten())
+        PreviewQueue.forced(identity, identity.held[NODE_STATES].demands.forgotten())
         return self.signal.fired()
 
 
@@ -414,6 +399,12 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 def _folder(identity: Identity) -> Path:
     """Folder holding an extension's stored thumbnails."""
     return identity.folder / NodePreview.key
+
+
+def _counted(identity: Identity, _context: bpy.types.Context) -> tuple[str, ...]:
+    """Queued and failed preview jobs, cached thumbnails, and their texture memory, one label each."""
+    backlog, cache = identity.held[BACKLOG], identity.held[TEXTURES]
+    return f"{len(backlog.jobs)} queued", f"{len(backlog.failed)} failed", f"{len(cache.held)} cached", f"{cache.memory / 2**20:.1f} MiB pixels"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

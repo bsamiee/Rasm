@@ -16,12 +16,12 @@ public static class Editors {
             Edited = edit => edit.Applied.Traverse(items.Write).As().Map(unit),
             Reorderable = true,
             Commands = chosen => Seq<Command<Invoke>>(
-                new Command<Invoke>.Run(new CommandFace("list-add", "Add"), None, new Invoke.Effect(scope =>
+                new Command<Invoke>.Run(new CommandFace("list-add", "Add"), new Invoke.Effect(scope =>
                     from item in add(scope)
                     from held in items.Read
                     from written in items.Write(held.Add(item))
                     select unit)),
-                new Command<Invoke>.Run(new CommandFace("list-remove", "Remove"), None, new Invoke.Effect(_ =>
+                new Command<Invoke>.Run(new CommandFace("list-remove", "Remove"), new Invoke.Effect(_ =>
                     from picked in chosen
                     from held in items.Read
                     from written in items.Write(held.Filter(item => !picked.Exists(gone => EqualityComparer<TKey>.Default.Equals(key(gone), key(item)))))
@@ -31,12 +31,12 @@ public static class Editors {
 
     // --- [PRESETS]
     public static Command<Invoke>.Run Presets(PresetBinding binding) =>
-        new(new CommandFace("section-presets", "Presets") { Icon = Some(IconResource.Presets) }, None, new Invoke.Popup(_ =>
+        new(new CommandFace("section-presets", "Presets") { Icon = Some(IconResource.Presets) }, new Invoke.Popup(_ =>
             from shelf in binding.Shelf
             from current in binding.Current
             select Seq(
                 shelf.Listed.Map(preset => (Command<Invoke>)CommandRows.Picked(new CommandFace($"preset-{preset.Name}", (string)preset.Name), current.Exists(held => held.Name == preset.Name), _ => binding.Apply(preset).Map(unit))),
-                Seq<Command<Invoke>>(new Command<Invoke>.Run(new CommandFace("preset-save", "Save preset"), None, new Invoke.Effect(_ =>
+                Seq<Command<Invoke>>(new Command<Invoke>.Run(new CommandFace("preset-save", "Save preset"), new Invoke.Effect(_ =>
                     from text in HostDialogs.Ask(() => (Dialogs.ShowEditBox(LocalText.Of("Save preset").Local, LocalText.Of("Name").Local, Conversions.Unset(current.Map(static held => (string)held.Name)), multiline: false, out string entered), entered))
                     from name in IO.lift(() => PresetName.Validated(text))
                     from saved in binding.Save(name)

@@ -1,28 +1,31 @@
-"""Color-managed view and display settings records, scene and display node views, Blender tint, and OCIO installation."""
+"""Color-managed view and display settings records, scene, display node, and preview views, HDR window showing, Blender tint, and OCIO installation."""
 
 from collections.abc import Callable, Iterable
 from functools import cached_property
 from pathlib import Path
-from typing import Final
+from typing import Final, override
 
 import bpy
-from expression import Nothing, Ok
+from expression import Nothing, Ok, Option, Some
+from expression.collections import Block
+import gpu
 import msgspec
 from msgspec import UNSET, UnsetType
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
-from blender.bpy.data.rna.conditions import Setting
+from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.paths import RnaPath
+from blender.bpy.data.rna.paths import RnaPath, Struct
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import member_paths, Members
+from blender.bpy.nodes.trees import active_output, endpoints, links_of, nested, socket_at
 from blender.imaging.color.authoring import ConfigBuild
 from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import called, DisplayView
-from blender.records.faults import accumulated, Outcome
+from blender.imaging.color.processors import called, DisplayView, hdr, pq
+from blender.records.faults import accumulated, Outcome, paired
 from blender.records.fields import Name
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -116,20 +119,31 @@ class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Application OCIO rows and views installed over Blender's bundled configuration."""
+    """Application OCIO rows and views installed over Blender's bundled configuration, keeping the view transforms an earlier installation added."""
 
-    build: ConfigBuild
+    build: ConfigBuild = msgspec.field(default_factory=ConfigBuild)
     views: tuple[ConfigView, ...] = ()
 
     @property
+    def folder(self) -> Path:
+        """User configuration folder Blender reads on start in place of its bundled one."""
+        return Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))
+
+    @property
     def merged(self) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
-        """Bundled base configuration, independent of a user installation, and the application build with the views' view transforms added."""
-        folder: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        path = str(Path(folder, "config.ocio"))
-        return called(PyOpenColorIO.Config.CreateFromFile, path, path).bind(
-            lambda base: accumulated(view.view_transform(base) for view in self.views).map(
-                lambda rows: (base, msgspec.structs.replace(self.build, view_transforms=(*self.build.view_transforms, *rows)))
-            )
+        """Bundled base configuration, independent of a user installation, and the application build with the views' view transforms and the earlier installation's added."""
+        bundled: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        base, earlier = (str(Path(folder, "config.ocio")) for folder in (bundled, self.folder))
+
+        def kept(config: PyOpenColorIO.Config, rows: tuple[PyOpenColorIO.ViewTransform, ...], prior: Option[PyOpenColorIO.Config]) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
+            build = msgspec.structs.replace(self.build, view_transforms=(*self.build.view_transforms, *rows))
+            return prior.map(lambda installed: build.keeping(config, installed)).default_value(Ok(build)).map(lambda held: (config, held))
+
+        return called(PyOpenColorIO.Config.CreateFromFile, base, base).bind(
+            lambda config: paired(
+                accumulated(view.view_transform(config) for view in self.views),
+                Some(earlier).filter(lambda path: Path(path).is_file()).map(lambda path: called(PyOpenColorIO.Config.CreateFromFile, path, path).map(Some)).default_value(Ok(Nothing)),
+            ).bind(lambda parts: kept(config, *parts))
         )
 
     def staged(self, stage: Path) -> Outcome[PyOpenColorIO.Config]:
@@ -138,7 +152,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def written(self) -> Outcome[Path]:
         """Installs complete configuration read on restart."""
-        return self.merged.bind(lambda parts: parts[1].installed(parts[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))))
+        return self.merged.bind(lambda parts: parts[1].installed(parts[0], self.folder))
 
     def install_config(self, _call: Call[Empty]) -> Outcome[Done]:
         """Install extension view transforms read on restart."""
@@ -152,6 +166,34 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns install command."""
         return Ok((self.installing,))
+
+
+class HdrWindow(Condition, frozen=True, kw_only=True):
+    """Window showing in HDR color a frame the context scene's preview forms into an HDR display space, an absolute PQ space alone under `absolute`."""
+
+    absolute: bool = False
+
+    def formed(self, context: bpy.types.Context) -> bool:
+        """Whether the context scene's preview forms the frame into an HDR display space, absolute PQ under `absolute`."""
+        config = PyOpenColorIO.GetCurrentConfig()
+        return Option.of_optional(context.scene).bind(lambda scene: shown(scene).colorspace(config)).filter(pq if self.absolute else hdr).is_some()
+
+    def refusal(self, context: bpy.types.Context) -> Option[str]:
+        """Returns why the window shows the HDR frame the preview forms in standard range, Nothing for a window showing HDR color or a frame formed for none."""
+        return (
+            Some(context)
+            .filter(lambda held: self.formed(held) and not any(window.support_hdr_color for window in Option.of_optional(held.window).to_list()))
+            .map(lambda _: "OpenGL backend cannot show HDR" if gpu.platform.backend_type_get() == "OPENGL" else "Window cannot show HDR")
+        )
+
+    @override
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+        return self.formed(context) and self.refusal(context).is_none()
+
+    @property
+    @override
+    def message(self) -> str:
+        return f"frame formed for {'PQ' if self.absolute else 'HDR'} display in window with HDR color"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -190,6 +232,84 @@ def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeCon
     return accumulated(written(node, ("display_settings", "display_device"), display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
 
 
+def shown(scene: bpy.types.Scene) -> DisplayView:
+    """Returns the view the viewport compositor forms the frame through, the first unmuted Convert to Display node a preview-enabled entry reaches, else the scene's."""
+    return (
+        Block
+        .of_seq(
+            node
+            for entry in scene.compositor_effects
+            if entry.enable_for_preview
+            for tree in nested(Option.of_optional(entry.node_group).to_list(), muted=False)
+            for node in tree.nodes
+            if isinstance(node, bpy.types.CompositorNodeConvertToDisplay) and not node.mute
+        )
+        .try_head()
+        .map(viewed)
+        .default_with(lambda: viewed(scene))
+    )
+
+
+# --- [TRACES]
+
+
+def traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, entering: Callable[[str], Option[str]]) -> Option[str]:
+    """Returns the colorspace of the value reaching an input socket, read upstream to the node that sets it.
+
+    Args:
+        config: OCIO config naming each space.
+        tree: Tree holding the socket.
+        socket: Input socket the value reaches.
+        entering: Space of the value at each group input socket identifier of `tree`.
+
+    Returns:
+        The space a Convert to Display or Convert Colorspace node writes, a data image holds, or a group input carries, through group nodes and
+        every other node's first linked color input, scene linear for a node reading no color, Nothing for an unlinked socket or unknown space.
+    """
+    linear = Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())
+
+    def through(node: bpy.types.Node) -> Option[str]:
+        match Block.of_seq(node.inputs).filter(lambda inlet: isinstance(inlet, bpy.types.NodeSocketColor) and inlet.is_linked).try_head().to_optional():
+            case bpy.types.NodeSocket() as inlet:
+                return traced(config, tree, inlet, entering)
+            case _:
+                return linear
+
+    def source(link: bpy.types.NodeLink) -> Option[str]:
+        node, outlet, _, _ = endpoints(link)
+        match node:
+            case _ if node.mute:
+                return through(node)
+            case bpy.types.NodeGroupInput():
+                return entering(outlet.identifier)
+            case bpy.types.CompositorNodeConvertToDisplay() as display:
+                return viewed(display).colorspace(config).map(lambda found: found.getName())
+            case bpy.types.CompositorNodeConvertColorSpace(to_color_space=name):
+                return Option.of_optional(config.getColorSpace(name)).map(lambda found: found.getName())
+            case bpy.types.CompositorNodeImage(image=bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name))):
+                return Some(name)
+            case bpy.types.CompositorNodeGroup(node_tree=bpy.types.NodeTree() as inner):
+                return (
+                    active_output(inner)
+                    .bind(lambda output: socket_at(output.inputs, outlet.identifier))
+                    .to_option()
+                    .bind(lambda inlet: traced(config, inner, inlet, lambda identifier: socket_at(node.inputs, identifier).to_option().bind(lambda held: traced(config, tree, held, entering))))
+                )
+            case _:
+                return through(node)
+
+    return Block.of_seq(links_of(socket)).filter(lambda link: link.is_valid and not link.is_muted).try_head().bind(source)
+
+
+def leaving(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, entering: Option[str]) -> Option[str]:
+    """Returns the colorspace an entry's first output leaves in from the space entering it, an entry without a group passing it on."""
+    match entry.node_group:
+        case bpy.types.NodeTree() as tree:
+            return active_output(tree).to_option().bind(lambda output: Block.of_seq(output.inputs).try_head()).bind(lambda inlet: traced(config, tree, inlet, lambda _: entering))
+        case _:
+            return entering
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
@@ -201,12 +321,16 @@ __all__ = [
     "ConfigInstall",
     "ConfigView",
     "DisplaySettings",
+    "HdrWindow",
     "Settings",
     "ViewSettings",
     "Viewing",
     "displayed",
     "followed",
+    "leaving",
+    "shown",
     "tint_of",
+    "traced",
     "viewed",
     "white_of",
 ]

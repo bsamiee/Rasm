@@ -1,4 +1,4 @@
-"""Image loads, tags, pixels, and readings, and content hashes of data-blocks over their saved members, element buffers, pixels, and node graphs."""
+"""Image loads, tags, pixels, and readings, and content hashes of data-blocks over their saved members, element buffers, pixels, node graphs, and compositor entries."""
 
 from collections.abc import Iterable
 from functools import partial, reduce
@@ -119,11 +119,11 @@ def _straight(image: bpy.types.Image) -> bool:
 # --- [HASHES]
 
 
-def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = False, entering: Option[str] = Nothing) -> Outcome[Option[ContentHash]]:
-    """Hashes the content of a data-block or of a node's upstream graph.
+def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneCompositorEffect, *, weighted: bool = False, entering: Option[str] = Nothing) -> Outcome[Option[ContentHash]]:
+    """Hashes the content of a data-block, of a node's upstream graph, or of a scene compositor entry.
 
     Args:
-        owner: Image, node tree, node, object, mesh, curve, text, hair curves, point cloud, Grease Pencil, or any other data-block, the last hashed by its members alone.
+        owner: Image, node tree, node, compositor entry over its input values, enables, and group, object, mesh, curve, text, hair curves, point cloud, Grease Pencil, or any other data-block, the last hashed by its members alone.
         weighted: Whether mesh vertex group weights join the key.
         entering: Object modifier whose input geometry the key covers: the object's data and vertex groups, the modifiers before it with their groups, and its own members.
 
@@ -265,11 +265,19 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
             accumulated(fingerprinted(data, weighted=bool(block.vertex_groups)) for data in Option.of_optional(block.data).to_list()),
         ).map(lambda parts: chained(content_hash(bpy.types.Object, *parts[0], groups), (*parts[1], *parts[2])))
 
+    def effect(entry: bpy.types.SceneCompositorEffect) -> Outcome[Option[ContentHash]]:
+        enables = msgspec.msgpack.encode((entry.enable_for_render, entry.enable_for_preview))
+        return paired(accumulated(map(Snapshot.capture, struct_at(entry, ("properties", "inputs")).to_list())), accumulated(map(fingerprinted, Option.of_optional(entry.node_group).to_list()))).map(
+            lambda parts: chained(content_hash(bpy.types.SceneCompositorEffect, *parts[0], enables), parts[1])
+        )
+
     match owner:
         case bpy.types.Image():
             return image(owner)
         case bpy.types.Object():
             return item(owner)
+        case bpy.types.SceneCompositorEffect():
+            return effect(owner)
         case bpy.types.NodeTree() | bpy.types.Node():
             return graph(owner)
         case _:

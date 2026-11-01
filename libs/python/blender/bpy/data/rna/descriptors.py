@@ -2,14 +2,17 @@
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
+import inspect
 from itertools import pairwise
 import os
+from pathlib import Path
 from types import MappingProxyType
 from typing import Annotated, Final, Generic, TYPE_CHECKING, TypeVar
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
+from idprop.types import IDPropertyGroup
 import msgspec
 import numpy as np
 from numpy.typing import NDArray
@@ -50,11 +53,18 @@ LEADING = tuple(
         (bpy.types.DriverTarget, "id_type"),
     )
 )
-_GATED = tuple(
-    (bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[member], bpy.types.ImageFormatSettings.bl_rna.properties["color_management"], "OVERRIDE")
-    for member in ("linear_colorspace_settings", "view_settings", "display_settings")
+_GATED = (
+    *(
+        (bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[member], bpy.types.ImageFormatSettings.bl_rna.properties["color_management"], "OVERRIDE")
+        for member in ("linear_colorspace_settings", "view_settings", "display_settings")
+    ),
+    *(
+        (bpy.types.CompositorNodeImage, bpy.types.CompositorNodeImage.bl_rna.properties[member], bpy.types.CompositorNodeImage.bl_rna.properties[governor], True)
+        for member, governor in (("layer", "has_layers"), ("view", "has_views"))
+    ),
 )
 _PATHS: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME"})
+_SCRIPTS: Final[Path] = Path(bpy.utils.system_resource("SCRIPTS"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.float32]]] = MappingProxyType({
     bpy.types.BoolProperty: np.bool,
     bpy.types.IntProperty: np.int32,
@@ -156,22 +166,41 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         )
 
     @staticmethod
-    def saved(root: type[Struct] | Native, where: Callable[[bpy.types.Property], bool] = lambda _: True) -> "tuple[Descriptor, ...]":
-        """Returns members a saved file stores, ID, name, hidden, and registered members left out.
+    def saved(root: type[Struct] | Native, where: Callable[[bpy.types.Property], bool] = lambda _: True, *, owned: Callable[[str], bool] = lambda _: False) -> "tuple[Descriptor, ...]":
+        """Returns host-declared members a saved file stores, ID, name, hidden, and registered members left out, with members a live struct's governor disables.
+
+        A script assigning a property onto an existing class leaves its definition as a class attribute, which no host member, generated socket input, or group annotation holds.
+        Such a property stays out, so no read runs another add-on's callbacks, unless the host's bundled scripts define its pointed group (`Scene.cycles`) or `owned` names it.
+        A script pointer no write reached on a live struct stays out too: its storage holds no value, and a read would create storage the host saves.
 
         Args:
             root: Struct type, or live struct whose refined definition answers.
             where: Members kept beyond the saved rule.
+            owned: Whether the reading extension declares a script property by its identifier, kept beside the host's own.
 
         Returns:
             Descriptors of root's own members in declaration order.
         """
-        held = definition(root)
+        held, kind = definition(root), type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root
         base = bpy.types.ID.bl_rna.properties.values()
+
+        def declared(prop: bpy.types.Property) -> bool:
+            match getattr(kind, prop.identifier, None):
+                case bpy.props._PropertyDeferred(keywords={"type": type() as group}):
+                    return owned(prop.identifier) or catch(inspect.getfile, exception=TypeError)(group).map(lambda file: Path(file).is_relative_to(_SCRIPTS)).default_value(False)
+                case bpy.props._PropertyDeferred():
+                    return owned(prop.identifier)
+                case _:
+                    return True
+
         return tuple(
-            Descriptor(root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, prop=prop)
+            Descriptor(root=kind, prop=prop)
             for prop in held.properties
-            if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == held.name_property or prop in base) and where(prop)
+            if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == held.name_property or prop in base)
+            and declared(prop)
+            and not (isinstance(root, bpy.types.bpy_struct) and isinstance(prop, bpy.types.PointerProperty) and prop.is_runtime and not stored(root, prop.identifier))
+            and not any(isinstance(root, owner) and prop.identifier == member.identifier and getattr(root, governor.identifier) != value for owner, member, governor, value in _GATED)
+            and where(prop)
         )
 
     def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
@@ -385,13 +414,40 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 custom_read: Final[Callable[[Struct, str], Result[object, TypeError | ReferenceError]]] = catch(catch(bpy.types.bpy_struct.get, exception=ReferenceError), exception=TypeError)
 
 
+def _kept(value: object) -> bool:
+    """Whether a stored value holds a written leaf: a scalar, array, ID, or collection item, at any depth of its groups."""
+    match value:
+        case bpy.types.PropertyGroup() | IDPropertyGroup():
+            return any(map(_kept, value.values()))
+        case list():
+            return bool(value)
+        case _:
+            return value is not None
+
+
+def stored(struct: Struct, name: str) -> bool:
+    """Whether a write left a value under a script pointer of struct.
+
+    The host creates a script pointer's storage on the first read, a drawn panel included, as empty groups and unset ID slots holding no value.
+    Storage alone so marks no write, and a struct whose storage holds no written leaf reads as never written.
+
+    Args:
+        struct: Struct declaring the script pointer.
+        name: Identifier of the script pointer.
+
+    Returns:
+        Whether the pointer's storage holds a written value.
+    """
+    return struct.is_property_set(name, ghost=False) and _kept(getattr(struct, name))
+
+
 def effective(struct: Native) -> bool:
     """Whether host reads struct values, false under a gated member its governor disables."""
     return all(
         getattr(parent, governor.identifier) == value
         for parent, child in pairwise((*struct.rna_ancestors(), struct) if isinstance(struct, bpy.types.bpy_struct) else ())
         for owner, member, governor, value in _GATED
-        if isinstance(parent, owner) and getattr(parent, member.identifier) == child
+        if isinstance(parent, owner) and isinstance(member, bpy.types.PointerProperty) and getattr(parent, member.identifier) == child
     )
 
 
@@ -477,4 +533,4 @@ def _converted(value: object, kind: object, subject: str) -> Outcome[object]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DTYPES", "LEADING", "Descriptor", "P_co", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "written"]
+__all__ = ["DTYPES", "LEADING", "Descriptor", "P_co", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "stored", "written"]

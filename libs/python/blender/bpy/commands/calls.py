@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from enum import Enum
 from types import MappingProxyType
-from typing import Self, TYPE_CHECKING
+from typing import override, Self, TYPE_CHECKING
 
 import _bpy_types
 import bpy
@@ -49,11 +49,26 @@ class Called(Enum):
 
 
 class Command(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension operator with poll condition, button icon, and search visibility, its host name and title derived from its key."""
+    """Extension operator with poll condition, button icon, and search visibility, its host name and title derived from its key.
+
+    Commands of one kind and key are one host operator, equal and hashing alike whatever callables each holds, so a registration acquiring one twice registers it once.
+    """
 
     condition: Option[Condition] = Nothing
     icon: Option["rna_enums.IconItems"] = Nothing
     internal: bool = False
+
+    # --- [IDENTITY]
+
+    @override
+    def __eq__(self, other: object) -> bool:
+        """Whether other is a command of the same kind under the same key."""
+        return type(other) is type(self) and isinstance(other, Command) and other.key == self.key
+
+    @override
+    def __hash__(self) -> int:
+        """Hash of the kind and key."""
+        return hash((type(self), self.key))
 
     # --- [TEXT]
 

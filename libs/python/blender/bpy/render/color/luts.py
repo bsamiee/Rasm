@@ -30,7 +30,7 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import member_paths
 from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.outputs.formats import OutputFormat
-from blender.imaging.color.luts import Lattice, LutFormat, LutOutput, Spacing
+from blender.imaging.color.luts import Lattice, LATTICE_SIZES, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import processor
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile, read_file, Storage
@@ -45,12 +45,17 @@ _LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Baking(bpy.types.PropertyGroup):
+class LatticeFields(bpy.types.PropertyGroup):
+    """Sampled lattice size and node spacing a bake or view install form extends, defaults the lattice record's."""
+
+    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class Baking(LatticeFields):
     """Native bake format and its sampled lattice."""
 
     format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=2, max=129, default=33)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Writing(bpy.types.PropertyGroup):
@@ -158,9 +163,9 @@ STAMPS: Final = Resource[dict[str, tuple[int, int]]](made=lambda _identity: null
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def spaced(properties: Baking) -> Lattice:
-    """Returns the lattice the bake properties choose, each spacing at its defaults."""
-    return Lattice(size=properties.size, spacing=SPACINGS[properties.spacing]())
+def spaced(fields: LatticeFields) -> Lattice:
+    """Returns the lattice the fields choose, each spacing at its defaults."""
+    return Lattice(size=fields.size, spacing=SPACINGS[fields.spacing]())
 
 
 def output(properties: Baking) -> LutOutput:
@@ -190,4 +195,4 @@ def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outc
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FORMATS", "SPACINGS", "STAMPS", "Baking", "LutExport", "Writing", "current", "extension", "output", "spaced"]
+__all__ = ["FORMATS", "SPACINGS", "STAMPS", "Baking", "LatticeFields", "LutExport", "Writing", "current", "extension", "output", "spaced"]

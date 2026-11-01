@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using AppKit;
 using Eto.Drawing;
@@ -52,14 +53,10 @@ namespace Eto.Mac {
 }
 
 namespace Rasm.Rhino {
-    public sealed class CallbackSite(string member) {
-        public string Member { get; } = member;
-    }
-
     public static class Session {
-        public static void Run<T>(IO<T> effect, CallbackSite site) => _ = effect.RunSafe();
-        public static T Answer<T>(IO<T> effect, Func<T> failed, CallbackSite site) => effect.RunSafe().IfFail(_ => failed());
-        public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) => (_, args) => Run(deliver(args), site);
+        public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") => effect.RunSafe().IfFail(failed);
+        public static Unit Run<T>(IO<T> effect, [CallerMemberName] string member = "") => effect.RunSafe().Map(static _ => unit).IfFail(unit);
+        public static Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "") => unit;
     }
 }
 
@@ -71,10 +68,10 @@ internal sealed class DirectCallbacks {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void Frame(nint view, nint selector, nint link);
 
-    private static readonly Frame Deliver = static (_, _, link) => {|#0:Ticked(link).Iter(static held => Session.Run(IO.pure(held), new CallbackSite("Deliver")))|};
+    private static readonly Frame Deliver = static (_, _, link) => {|#0:Ticked(link).Iter(static held => Session.Run(IO.pure(held)))|};
 
     internal static void Animated(NSAnimationContext context, Func<double> duration) =>
-        NSAnimationContext.RunAnimation(changes => { {|#1:changes.Duration = duration()|}; }, () => Session.Run(IO.pure(unit), new CallbackSite("RunAnimation")));
+        NSAnimationContext.RunAnimation(changes => { {|#1:changes.Duration = duration()|}; }, () => Session.Run(IO.pure(unit)));
 
     internal static NSObject Observed(NSNotificationCenter center, Action<NSObject?> changed) =>
         center.AddObserver("changed", notification => {|#2:changed(notification.Object)|});
@@ -91,12 +88,10 @@ internal sealed class DirectCallbacks {
 }
 
 internal sealed class EagerControl : Drawable {
-    private CallbackSite Site() => new(nameof(EagerControl));
-
     private static IO<Unit> Move(SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        {|#5:Session.Run(Move(Size, ParentWindow.LogicalPixelSize, e), Site())|};
+        {|#5:Session.Run(Move(Size, ParentWindow.LogicalPixelSize, e))|};
         base.OnMouseMove(e);
     }
 }
@@ -108,22 +103,19 @@ internal sealed class RoutedCallbacks {
     private static readonly HitTest PassThrough = static (_, _, _) => 0;
 
     internal static NSObject Observed(NSNotificationCenter center, Func<NotificationArgs, IO<Unit>> deliver) =>
-        (from callback in IO.pure(Session.Handler(deliver, new CallbackSite("Observed")))
-         select center.AddObserver("changed", notification => callback(notification.Object, new NotificationArgs(notification)))).Run();
+        center.AddObserver("changed", notification => Session.Run(deliver(new NotificationArgs(notification))));
 
     internal static void Animated(Func<IO<Unit>> changes) =>
-        NSAnimationContext.RunAnimation(context => Session.Run(changes(), new CallbackSite("RunAnimation")), () => Session.Run(IO.pure(unit), new CallbackSite("RunAnimation")));
+        NSAnimationContext.RunAnimation(context => Session.Run(changes()), () => Session.Run(IO.pure(unit)));
 }
 
 internal sealed class RoutedControl : Drawable {
-    private CallbackSite Site() => new(nameof(RoutedControl));
-
     private static IO<Unit> Move(SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        Session.Run(IO.lift(() => Move(Size, ParentWindow.LogicalPixelSize, e)).Bind(static moved => moved), Site());
+        Session.Run(IO.lift(() => Move(Size, ParentWindow.LogicalPixelSize, e)).Bind(static moved => moved));
         base.OnMouseMove(e);
     }
 
-    protected override void OnLostFocus(EventArgs e) => Session.Run(IO.lift(Invalidate), new CallbackSite(GetType().Name));
+    protected override void OnLostFocus(EventArgs e) => Session.Run(IO.lift(Invalidate));
 }

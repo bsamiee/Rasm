@@ -18,7 +18,8 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import accepted, acquired, FUNCTIONS, Label, Layout, marked, Member, Opens, OperatorButton, Property, realized, RowContent, Status
+from blender.bpy.ui.layout.members import marked, Member
+from blender.bpy.ui.layout.rows import accepted, acquired, FUNCTIONS, Label, Layout, Opens, OperatorButton, Property, realized, RowContent, Status
 from blender.bpy.ui.layout.sections import fields, Items, reached, Section
 from blender.bpy.ui.layout.tables import Matrix, Tree, TreeMatrix
 from blender.bpy.ui.layout.templates import ImageFormat, Preview, Shortcut, wheel
@@ -204,9 +205,9 @@ def fielded(_identity: Identity) -> dict[str, object]:
 
 def walked(_identity: Identity) -> tuple[str, ...]:
     """Walks sections through rows, headers, absent rows, and tuple sub-layouts, each ahead of its own."""
-    inner = Section(key="inner", title="Inner")
-    nested = Section(key="nested", title="Nested", rows=(Layout(rows=(inner,)),), header=(Section(key="headed", title="Headed"),))
-    return tuple(section.key for section in reached((Label(text="Fixture"), nested, Section(key="absent", title="Absent", absent=(Section(key="fallback", title="Fallback"),)))))
+    inner = Section(key="inner")
+    nested = Section(key="nested", rows=(Layout(rows=(inner,)),), header=(Section(key="headed"),))
+    return tuple(section.key for section in reached((Label(text="Fixture"), nested, Section(key="absent", absent=(Section(key="fallback"),)))))
 
 
 def sectioned(identity: Identity) -> dict[str, object]:
@@ -216,14 +217,14 @@ def sectioned(identity: Identity) -> dict[str, object]:
         return section.realized(identity).map(lambda draws: (draws.head.is_some(), draws.tail.is_some()))
 
     return {
-        "plain": parts(Section(key="plain", title="Plain", rows=(Label(text="Fixture"),))),
-        "enabled": parts(Section(key="enabled", title="Enabled", enable=Some(Member(root=Look, path=("enabled",))), holder=Some(Member(root=bpy.types.Scene, path=("fixture_look",))))),
+        "plain": parts(Section(key="plain", rows=(Label(text="Fixture"),))),
+        "enabled": parts(Section(key="enabled", enable=Some(Member(root=Look, path=("enabled",))), holder=Some(Member(root=bpy.types.Scene, path=("fixture_look",))))),
         "stored": parts(LOOKED),
-        "items": parts(Section(key="items", title="Items", holder=Some(Items(collection=Member(root=Look, path=("entries",)), expanded=Some("expanded"))))),
-        "listed": parts(Section(key="listed", title="Listed", holder=Some(ENTRIES))),
-        "absent holder": parts(Section(key="absent", title="Absent", holder=Some(Member(root=bpy.types.Scene, path=("fixture_absent",))))),
-        "unknown flag": parts(Section(key="flagged", title="Flagged", holder=Some(Items(collection=Member(root=Look, path=("entries",)), expanded=Some("fixture_absent"))))),
-        "drawn": Section(key="inline", title="Inline", rows=(Label(text="Fixture"),)).drawn(identity).map(callable),
+        "items": parts(Section(key="items", holder=Some(Items(collection=Member(root=Look, path=("entries",)), expanded=Some("expanded"))))),
+        "listed": parts(Section(key="listed", holder=Some(ENTRIES))),
+        "absent holder": parts(Section(key="absent", holder=Some(Member(root=bpy.types.Scene, path=("fixture_absent",))))),
+        "unknown flag": parts(Section(key="flagged", holder=Some(Items(collection=Member(root=Look, path=("entries",)), expanded=Some("fixture_absent"))))),
+        "drawn": Section(key="inline", rows=(Label(text="Fixture"),)).drawn(identity).map(callable),
     }
 
 
@@ -306,7 +307,7 @@ def released_lists() -> dict[str, bool]:
 LOOK: Final = Attachment(key="look", form=Look, owner=bpy.types.Scene)
 STORE: Final = Store(attachment=LOOK)
 ENTRIES: Final = ItemList(key="entries", collection=Member(root=Look, path=("entries",)), item=Entry, cells=(Label(text="Cell"),))
-LOOKED: Final = Section(key="look", title="Look", holder=Some(Member(root=bpy.types.Scene, path=("fixture_look",))), store=Some(STORE), rows=(ENTRIES,))
+LOOKED: Final = Section(key="look", holder=Some(Member(root=bpy.types.Scene, path=("fixture_look",))), store=Some(STORE), rows=(ENTRIES,))
 LISTING: Final = Listing(preset=Preset(key="tone", form=Tone, stock={"soft": Tone(level=1), "hard": Tone(level=5)}), current=_current, matches=_matching, applied=_applied)
 
 rows: Final = (LOOK, Panel(section=LOOKED, at=EditorRegion(space="PROPERTIES", region="WINDOW")), LISTING, PresetMenu(source=LISTING))

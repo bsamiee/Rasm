@@ -1,137 +1,114 @@
-"""Primary grades in OCIO's linear style: gain and offset wheels, contrast about gray, and saturation with vibrance about working luminance."""
+"""Primary grades in OCIO's linear style: gain and offset wheels with contrast about gray, saturation with vibrance about working luminance, and tonal zones over blacks, shadows, midtones, highlights, and whites with s-contrast."""
 
-from collections.abc import Mapping
 from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
-import numpy as np
+from expression import Ok, Some
 import PyOpenColorIO
 
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
 from blender.bpy.render.compositor.inputs import Shell
 from blender.imaging.color.processors import luma
-from blender.records.faults import Fault, Outcome, Reason
-
-from ...chain.stages import Effect, Stage, transform
+from blender.records.faults import Outcome
+from blender.records.fields import Case
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_GAIN_COLOR: Final = Socket(key=item_key("gain", "color"), name="Color", kind=bpy.types.NodeSocketColor, description="Channel multiplier color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0))
-_GAIN_MASTER: Final = Socket(key=item_key("gain", "master"), name="Master", kind=bpy.types.NodeSocketFloat, description="Gain of every channel in stops")
-_OFFSET_COLOR: Final = Socket(key=item_key("offset", "color"), name="Color", kind=bpy.types.NodeSocketColor, description="Channel color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0))
-_OFFSET_MASTER: Final = Socket(key=item_key("offset", "master"), name="Master", kind=bpy.types.NodeSocketFloat, description="Value added to every channel")
-_WHEELS: Final = (
-    InterfacePanel(key="gain", name="Gain", description="Channel multiplier color and master gain in stops", inputs=(_GAIN_COLOR, _GAIN_MASTER)),
-    InterfacePanel(key="offset", name="Offset", description="Channel color less white and master value added to each channel", inputs=(_OFFSET_COLOR, _OFFSET_MASTER)),
+_GAIN: Final = InterfacePanel.of(
+    "gain",
+    Interface(
+        inputs=(
+            Socket(key="color", kind=bpy.types.NodeSocketColor, description="Channel multiplier color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0)),
+            Socket(key="master", kind=bpy.types.NodeSocketFloat, description="Gain of every channel in stops"),
+        )
+    ),
+    description="Channel multiplier color and master gain in stops",
+)
+_OFFSET: Final = InterfacePanel.of(
+    "offset",
+    Interface(
+        inputs=(
+            Socket(key="color", kind=bpy.types.NodeSocketColor, description="Channel color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0)),
+            Socket(key="master", kind=bpy.types.NodeSocketFloat, description="Value added to every channel"),
+        )
+    ),
+    description="Channel color less white and master value added to each channel",
 )
 _SLOPE: Final = Socket(key="slope", kind=bpy.types.NodeSocketFloat, description="Power about pivot, slope in stops", min_value=0.01, max_value=2.0, default_value=1.0)
 _PIVOT: Final = Socket(key="pivot", kind=bpy.types.NodeSocketFloat, description="Pivot in stops from scene-linear gray", min_value=-32.0, max_value=32.0)
+_CONTRAST: Final = InterfacePanel.of("contrast", Interface(inputs=(_SLOPE, _PIVOT)), description="Signed power about a gray pivot")
+SLOPE: Final = _CONTRAST.socket(_SLOPE.key)
 _SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat, description="Chroma scale about luminance", min_value=0.0, default_value=1.0)
 _VIBRANCE: Final = Socket(key="vibrance", kind=bpy.types.NodeSocketFloat, description="Saturation gain weighted by pixel saturation", min_value=-1.0, max_value=1.0)
+_NEUTRAL: Final = PyOpenColorIO.GradingTone(PyOpenColorIO.GRADING_LIN)
+_ZONES: Final = (
+    ("blacks", 0.9, _NEUTRAL.blacks, _NEUTRAL.blacks.width),
+    ("shadows", 0.8, _NEUTRAL.shadows, _NEUTRAL.shadows.start - _NEUTRAL.shadows.width),
+    ("midtones", 0.9, _NEUTRAL.midtones, _NEUTRAL.midtones.width),
+    ("highlights", 0.8, _NEUTRAL.highlights, _NEUTRAL.highlights.width - _NEUTRAL.highlights.start),
+    ("whites", 0.9, _NEUTRAL.whites, _NEUTRAL.whites.width),
+)
+_S_CONTRAST: Final = Socket(
+    key="s_contrast", kind=bpy.types.NodeSocketFloat, description="S-curve about middle gray with rolled-off ends, neutral at 1", min_value=0.01, max_value=1.99, default_value=_NEUTRAL.scontrast
+)
+_ZONE_PANELS: Final = tuple(
+    InterfacePanel.of(
+        key,
+        Interface(
+            inputs=(
+                Socket(
+                    key="color", kind=bpy.types.NodeSocketColor, description="Channel color, white neutral, black and twice white spanning the adjustment range", default_value=(1.0, 1.0, 1.0, 1.0)
+                ),
+                Socket(
+                    key="master", kind=bpy.types.NodeSocketFloat, description="All-channel adjustment, above 1 brighter", min_value=1.0 - reach, max_value=1.0 + reach, default_value=neutral.master
+                ),
+                Socket(
+                    key="start", kind=bpy.types.NodeSocketFloat, description="Boundary nearest gray in stops from 0.18, midtone center", min_value=-32.0, max_value=32.0, default_value=neutral.start
+                ),
+                Socket(key="width", kind=bpy.types.NodeSocketFloat, description="Extent in stops, start to pivot for shadows and highlights", min_value=0.01, default_value=width),
+            )
+        ),
+        description=f"Color, master adjustment, and placement in stops of the {key}",
+    )
+    for key, reach, neutral, width in _ZONES
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Primary(Effect, frozen=True, kw_only=True):
-    """Applies scene-linear gain after an additive offset, each a color wheel with master."""
-
-    stage = Stage.PRIMARY
-    pointwise = True
+class Primary(Case, frozen=True, kw_only=True):
+    """Applies scene-linear gain after an additive offset, each a color wheel with master, then a signed power about a gray pivot."""
 
 
-class Contrast(Effect, frozen=True, kw_only=True):
-    """Raises scene-linear values to a power about a gray pivot, keeping sign."""
-
-    stage = Stage.CONTRAST
-    pointwise = True
-
-
-class Saturation(Effect, frozen=True, kw_only=True):
+class Saturation(Case, frozen=True, kw_only=True):
     """Scales chroma about working-space luminance with saturation-dependent vibrance."""
 
-    stage = Stage.SATURATION
-    pointwise = True
+
+class Zones(Case, frozen=True, kw_only=True):
+    """Grades five scene-linear tonal zones per channel and applies s-contrast."""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [OCIO]
-
-
-@transform.register
-def _(_record: Primary, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
-    """Returns `GradingPrimaryTransform` exposure of the gain wheel and offset of the offset wheel."""
-    match values:
-        case {
-            "gain_color": (float(gain_red), float(gain_green), float(gain_blue), _),
-            "gain_master": float(stops),
-            "offset_color": (float(red), float(green), float(blue), _),
-            "offset_master": float(added),
-        }:
-            linear = PyOpenColorIO.GradingPrimary(PyOpenColorIO.GRADING_LIN)
-            linear.exposure = PyOpenColorIO.GradingRGBM(float(np.log2(gain_red)), float(np.log2(gain_green)), float(np.log2(gain_blue)), stops)
-            linear.offset = PyOpenColorIO.GradingRGBM(red - 1.0, green - 1.0, blue - 1.0, added)
-            return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
-        case _:
-            return Error(Fault.of(Reason.UNREADABLE, Primary.__name__, repr(values)))
-
-
-@transform.register
-def _(_record: Contrast, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
-    """Returns `GradingPrimaryTransform` master contrast about the pivot."""
-    match values:
-        case {"slope": float(slope), "pivot": float(pivot)}:
-            linear = PyOpenColorIO.GradingPrimary(PyOpenColorIO.GRADING_LIN)
-            linear.contrast, linear.pivot = PyOpenColorIO.GradingRGBM(1.0, 1.0, 1.0, slope), pivot
-            return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
-        case _:
-            return Error(Fault.of(Reason.UNREADABLE, Contrast.__name__, repr(values)))
-
-
-@transform.register
-def _(_record: Saturation, values: Mapping[Key, Value], config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
-    """Returns OCIO's saturation matrix over working luminance, Nothing under vibrance, which has no OCIO operation."""
-    match values:
-        case {"vibrance": float(vibrance)} if vibrance != 0.0:
-            return Ok(Nothing)
-        case {"scale": float(scale)}:
-            return luma(config).map(lambda weights: Some(PyOpenColorIO.MatrixTransform.Sat(scale, weights.tolist())))
-        case _:
-            return Error(Fault.of(Reason.UNREADABLE, Saturation.__name__, repr(values)))
-
-
-# --- [GRAPHS]
-
 
 def _primary(shell: Shell[Primary]) -> Outcome[Expr]:
-    """Binds the offset wheel to the primary form's offset and the gain wheel to its exposure in stops."""
-    tint, stops = shell.input(_GAIN_COLOR), shell.input(_GAIN_MASTER)
+    """Binds the offset wheel to the primary form's offset, the gain wheel to its exposure in stops, and the slope to its contrast about the pivot."""
+    tint, stops = map(shell.input, _GAIN.inputs)
+    offset, added = map(shell.input, _OFFSET.inputs)
+    slope, pivot = map(shell.input, _CONTRAST.inputs)
     return Ok(
         grades.primary(
             shell.color,
-            offset=vector("ADD", vector("SUBTRACT", shell.input(_OFFSET_COLOR), (1.0, 1.0, 1.0)), shell.input(_OFFSET_MASTER)),
+            offset=vector("ADD", vector("SUBTRACT", offset, (1.0, 1.0, 1.0)), added),
             exposure=xyz(*(math("LOGARITHM", tint[axis], 2.0) + stops for axis in AXES)),
+            contrast=xyz(slope, slope, slope),
+            pivot=Some(pivot),
         )
     )
-
-
-primary: Final = CompositorEffect(graph=_primary, record=Primary, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(panels=_WHEELS))
-
-
-def _contrast(shell: Shell[Contrast]) -> Outcome[Expr]:
-    """Binds the slope to the primary form's contrast about the pivot."""
-    slope = shell.input(_SLOPE)
-    return Ok(grades.primary(shell.color, contrast=xyz(slope, slope, slope), pivot=Some(shell.input(_PIVOT))))
-
-
-contrast: Final = CompositorEffect(graph=_contrast, record=Contrast, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SLOPE, _PIVOT)))
 
 
 def _saturation(shell: Shell[Saturation]) -> Outcome[Expr]:
@@ -150,9 +127,26 @@ def _saturation(shell: Shell[Saturation]) -> Outcome[Expr]:
     return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
 
 
-saturation: Final = CompositorEffect(graph=_saturation, record=Saturation, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SCALE, _VIBRANCE)))
+def _zones(shell: Shell[Zones]) -> Outcome[Expr]:
+    """Binds each zone's color over its adjustment range, master, and placement, and the s-contrast, to the node form of OCIO's tone transform."""
+
+    def zone(panel: InterfacePanel, reach: float) -> grades.Zone:
+        color, master, start, width = map(shell.input, panel.inputs)
+        tint = vector("MULTIPLY_ADD", color, (reach,) * 3, (1.0 - reach,) * 3)
+        red, green, blue = (tint[axis] for axis in AXES)
+        return grades.Zone(rgb=(red, green, blue), master=master, start=start, width=width)
+
+    blacks, shadows, midtones, highlights, whites = (zone(panel, reach) for panel, (_, reach, _, _) in zip(_ZONE_PANELS, _ZONES, strict=True))
+    return grades.tone(shell.color, blacks=blacks, shadows=shadows, midtones=midtones, highlights=highlights, whites=whites, contrast=shell.input(_S_CONTRAST))
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+primary: Final = CompositorEffect(_primary, record=Primary, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(panels=(_GAIN, _OFFSET, _CONTRAST)), pointwise=True)
+saturation: Final = CompositorEffect(_saturation, record=Saturation, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SCALE, _VIBRANCE)), pointwise=True)
+zones: Final = CompositorEffect(_zones, record=Zones, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_S_CONTRAST,), panels=_ZONE_PANELS), pointwise=True)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Contrast", "Primary", "Saturation", "contrast", "primary", "saturation"]
+__all__ = ["SLOPE", "Primary", "Saturation", "Zones", "primary", "saturation", "zones"]

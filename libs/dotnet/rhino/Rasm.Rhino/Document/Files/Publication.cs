@@ -12,17 +12,12 @@ public static class FilePublication {
     private const int AlreadyExists = unchecked((int)0x800700B7);
 
     public static IO<Unit> Write(OutputPath path, bool overwrite, Func<FileStream, IO<Unit>> encode) =>
-        (from stream in Faulted(path, RhinoReason.Unwritable, use(() => {
-            _ = Directory.CreateDirectory(path.Folder);
-            return new FileStream(Path.Join(path.Folder, $"{Path.GetRandomFileName()}.tmp"), new FileStreamOptions {
-                Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Share = FileShare.None, Options = FileOptions.Asynchronous,
-            });
-        }))
-         from published in (from encoded in Faulted(path, RhinoReason.Unwritable, encode(stream).Bracket().Finally(release(stream)))
-                            from linked in Published(stream.Name, path, overwrite)
+        (from staged in Faulted(path, RhinoReason.Unwritable, IO.lift(() => Path.Join(Directory.CreateDirectory(path.Folder).FullName, $"{Path.GetRandomFileName()}.tmp")))
+         from published in (from encoded in Faulted(path, RhinoReason.Unwritable, Encoded(staged, encode))
+                            from linked in Published(staged, path, overwrite)
                             select linked)
-             .Finally(Faulted(path, RhinoReason.Unwritable, IO.lift(() => File.Delete(stream.Name))))
-         select published).Bracket().Uninterruptible();
+             .Finally(Faulted(path, RhinoReason.Unwritable, IO.lift(() => File.Delete(staged))))
+         select published).Uninterruptible();
 
     internal static IO<T> Faulted<T>(string path, RhinoReason reason, IO<T> access) =>
         access.MapFail(error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? new RhinoFault(path, reason, Inner: error) : error);
@@ -38,6 +33,10 @@ public static class FilePublication {
         })).MapFail(error => !overwrite && error.Exception.Case is UnixIOException { ErrorCode: Errno.EEXIST } or IOException { HResult: FileExists or AlreadyExists }
             ? new RhinoFault(path, RhinoReason.Taken, Inner: error)
             : error));
+
+    private static IO<Unit> Encoded(string staged, Func<FileStream, IO<Unit>> encode) =>
+        IO.lift(() => new FileStream(staged, new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Share = FileShare.None, Options = FileOptions.Asynchronous }))
+            .Bracket(Use: stream => encode(stream).Bracket(), Fin: static stream => IO.liftVAsync(() => stream.DisposeAsync().ToUnit()));
 
     // --- [JSON]
     public static IO<Option<TValue>> Read<TRecord, TValue>(string path, JsonTypeInfo<TRecord> info, Func<TRecord, Fin<TValue>> decode) where TRecord : class =>
