@@ -33,7 +33,6 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Apps with assets take a `resources` phase with `membership-exceptions` excluding non-sources
 - Projects hold one shared scheme in `xcshareddata/xcschemes`, its `BuildAction` and `LaunchAction` naming the target
 - Xcode autocreates a duplicate of a shared scheme with no `LaunchAction`
-- `LaunchAction` sets `customLLDBInitFile` to `.config/.lldbinit` by a `$(SRCROOT)`-relative path
 - App icons are an `AppIcon.icon` document `actool` renders at build, no rendered image is checked in
 - `packages` holds the root package as `{ "kind": "local", "path": "<parents to root>" }`, product rows name it `..`
 - `xcprojformatter` drops `name` and `id` keys from a `packages` row
