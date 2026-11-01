@@ -109,6 +109,7 @@ extension NSRunningApplication {
                 case (.failure(let failure), _): .failure(failure)
             }
         }
+        let reason: @Sendable (ApplicationFailure) -> PartialCaseKeyPath<ApplicationFailure.Reason> = { failure in ApplicationFailure.Reason.allCasePaths[failure.reason] }
         return merge(chain([()].async, ticks).map { _ in reread }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in beat })
             .reductions(nil) { last, step in await step(last) }
             .compactMap(\.self)
@@ -116,6 +117,7 @@ extension NSRunningApplication {
             .removeDuplicates { last, next in
                 switch (last, next) {
                     case (.success(let last), .success(let next)): last == next
+                    case (.failure(let last), .failure(let next)): last.subject == next.subject && reason(last) == reason(next)
                     case (_, _): false
                 }
             }
