@@ -1,11 +1,13 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { focus } from '@rasm/ui';
+import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { focus } from '@rasm/ui/focus';
+import { FieldIssues } from '@rasm/ui/form/issues';
 import { Array, Match, Option } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Button, Dialog, Heading, type Key, Modal, ModalOverlay, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
+import { Button, Dialog, Heading, type Key, Modal, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
 import { Compositions } from '#/editor/compositions';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { EntryFields, EntryList } from '#/editor/entries';
@@ -16,7 +18,7 @@ import { ReuseFile } from '#/editor/reuse-file';
 import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
 import { UploadRecovery } from '#/editor/upload-recovery';
 import { destination, pendingUploads } from '#/editor/uploader';
-import { entryTitle, quantity } from '#/media/labels';
+import { entryTitle, format } from '#/media/labels';
 import { Entry, type Portfolio, type PortfolioData } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -88,17 +90,27 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         setTarget({ kind: 'entry', id: created.id });
         focus(`${ids}title`);
     };
-    const locate = (path: readonly PropertyKey[], snapshot: typeof Portfolio.Type) =>
-        Match.value({ head: path[0], entry: snapshot.entries.find((_, index) => index === path[1]) }).pipe(
-            Match.when({ head: 'email' }, () => {
-                show('identity');
-                focus(`${ids}email`);
-            }),
-            Match.when({ head: 'entries', entry: Match.defined }, ({ entry }) => {
+    const locate = ([head, entryIndex, part, compositionIndex]: readonly PropertyKey[], snapshot: typeof Portfolio.Type) =>
+        Match.value({ head, entry: Array.findFirst(snapshot.entries, (_, index) => index === entryIndex) }).pipe(
+            Match.when({ head: 'entries', entry: { _tag: 'Some' } }, ({ entry: { value } }) => {
                 show('entries');
-                openEntry(entry.id);
+                openEntry(value.id);
+                Option.map(
+                    Array.findFirst(value.compositions, (_, index) => part === 'compositions' && index === compositionIndex),
+                    ({ id }) => {
+                        setComposition(id);
+                        focus(id);
+                    },
+                );
             }),
-            Match.orElse(() => show('files')),
+            Match.when({ head: 'entries' }, () => {
+                show('entries');
+                setWorkspace('projects');
+            }),
+            Match.orElse(() => {
+                show('identity');
+                focus(`${ids}${String(head)}`);
+            }),
         );
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
         Match.when({ reloading: true }, () => 'Loading latest draft…'),
@@ -139,7 +151,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .orNull()}
                 {pending.length > 0 && (
                     <p className="text-caption text-muted w-full" id={`${ids}uploads`}>
-                        {quantity(pending.length, { one: 'file', other: 'files' })} not uploaded. Upload or remove before publishing or reloading{' '}
+                        {format.quantity(pending.length, { one: 'file', other: 'files' })} not uploaded. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
                         </button>
@@ -250,22 +262,33 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             onInvalidCapture={(event) => {
                                 event.preventDefault();
                                 show('identity');
-                                focus(`${ids}email`);
+                                Option.map(Option.fromNullishOr(event.currentTarget.querySelector(':invalid')), ({ id }) => focus(id));
                             }}
                             onSubmit={(event) => {
                                 event.preventDefault();
                                 submit({ ...state, publish: event.submitter === publish.current });
                             }}
                         >
-                            <Identity
-                                assets={state.assets}
-                                emailId={`${ids}email`}
-                                onChooseHero={() => {
-                                    setTarget({ kind: 'hero' });
-                                    show('files');
-                                }}
-                                portfolio={state.portfolio}
-                            />
+                            <FieldIssues
+                                issue={AsyncResult.error(operation).pipe(
+                                    Option.flatMap(({ error }) =>
+                                        Match.value(error).pipe(
+                                            Match.tag('SchemaError', ({ issue }) => issue),
+                                            Match.option,
+                                        ),
+                                    ),
+                                )}
+                            >
+                                <Identity
+                                    assets={state.assets}
+                                    ids={ids}
+                                    onChooseHero={() => {
+                                        setTarget({ kind: 'hero' });
+                                        show('files');
+                                    }}
+                                    portfolio={state.portfolio}
+                                />
+                            </FieldIssues>
                         </form>
                     </TabPanel>
                 </Tabs>

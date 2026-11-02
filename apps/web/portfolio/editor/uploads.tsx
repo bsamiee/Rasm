@@ -1,13 +1,14 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
-import { MenuButton, SelectField } from '@rasm/ui';
+import { MenuButton } from '@rasm/ui/collection/menu-button';
+import { Choice } from '@rasm/ui/form/choice';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Schema, String, Struct } from 'effect';
+import { Predicate, Schema, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { type Destination, destination, pendingUploads, queue, uppy } from '#/editor/uploader';
-import { byteSize, disjunction, entryTitle } from '#/media/labels';
+import { entryTitle, format } from '#/media/labels';
 import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
 import type { Entry } from '#/model/portfolio';
 
@@ -34,9 +35,9 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const selectedFile = files.find((file) => file.id === selected);
     return (
         <>
-            <SelectField label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
+            <Choice label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
             {files.length > 0 && (
-                <MenuButton label="File destinations" onAction={(item) => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
+                <MenuButton onAction={(item) => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
                     File destinations
                 </MenuButton>
             )}
@@ -44,7 +45,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                 <div className="min-w-0">
                     <p className="hint mb-2 wrap-anywhere">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
-                        <SelectField
+                        <Choice
                             label="File destination"
                             onChange={(option) => uploader.setFileMeta(selectedFile.id, { destination: option.target })}
                             options={options.filter((option) => option.target.kind !== 'hero' || !files.some((item) => item.id !== selectedFile.id && item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true))}
@@ -59,19 +60,26 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
             )}
             <div className="upload-dashboard min-w-0">
                 <p className="hint mb-3">
-                    {disjunction.format(mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()))} · Up to {byteSize.format(uploadLimit)} per file
+                    {format.list(
+                        mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()),
+                        'disjunction',
+                    )}{' '}
+                    · Up to {format.bytes(uploadLimit)} per file
                 </p>
                 <div className={files.length > 0 ? 'h-88' : 'h-50'}>
                     <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>
-                {notices.map(({ message, details }) => (
-                    <p className="hint mt-3 wrap-anywhere" key={`${message}${details}`} role="alert">
-                        {[message, details].filter(Boolean).join(' ')}
-                    </p>
-                ))}
+                {notices
+                    .filter(({ isHidden }) => isHidden !== true)
+                    .map(({ message, details }) => [message, ...(Predicate.isString(details) ? [details] : Object.values(details ?? {}))].filter(String.isNonEmpty).join(' '))
+                    .map((text) => (
+                        <p className="hint mt-3 wrap-anywhere" key={text} role="alert">
+                            {text}
+                        </p>
+                    ))}
                 {documents.length > 0 && (
                     <div className="mt-3">
-                        <MenuButton label="Choose uploaded sheets" onAction={({ entryId, assetId }) => onChoose(entryId, assetId)} options={documents}>
+                        <MenuButton onAction={({ entryId, assetId }) => onChoose(entryId, assetId)} options={documents}>
                             Choose uploaded sheets
                         </MenuButton>
                     </div>

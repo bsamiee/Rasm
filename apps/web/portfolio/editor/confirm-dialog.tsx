@@ -1,8 +1,9 @@
-import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay, Text } from 'react-aria-components';
+import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const ConfirmDialog = ({ label, description, onConfirm, disabled }: { label: string; description: string; onConfirm: () => void; disabled: boolean }) => (
+const ConfirmDialog = ({ label, onConfirm, description = 'Source files stay in library. Published work changes on next publish', disabled = false }: { readonly label: string; readonly onConfirm: () => void; readonly description?: string; readonly disabled?: boolean }) => (
     <DialogTrigger>
         <Button className="button button-ghost" isDisabled={disabled}>
             {label}

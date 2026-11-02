@@ -3,6 +3,11 @@ id: no-forwarding-function-tsx
 language: tsx
 severity: error
 utils:
+    overloaded-constructor:
+        kind: member_expression
+        all:
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bAtom$'}}}}
+            - has: {field: property, regex: '^(make|subscriptionRef|fn|fnSync)$'}
     named-callee:
         any:
             - kind: identifier
@@ -16,7 +21,7 @@ utils:
                         - has: {field: parameter, kind: identifier, pattern: $ROOT}
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
             - kind: member_expression
-              not: {has: {kind: optional_chain}}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}]}
               has: {field: object, matches: named-callee, regex: '^[A-Z]'}
     inner-callee:
         any:
@@ -31,7 +36,7 @@ utils:
                         - has: {field: parameter, kind: identifier, pattern: $INNER}
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $INNER}}
             - kind: member_expression
-              not: {has: {kind: optional_chain}}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}]}
               has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
     dual-operation:
         kind: member_expression

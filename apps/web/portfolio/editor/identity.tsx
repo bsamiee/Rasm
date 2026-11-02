@@ -1,26 +1,26 @@
 import { useAtomSet } from '@effect/atom-react';
 import { sessionPath } from '@rasm/hosting/client';
-import { Field } from '@rasm/ui';
-import { Optic, Struct } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
+import { Field } from '@rasm/ui/form/field';
+import { Optic } from 'effect';
+import { AsyncResult, type Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields';
-import { draft, hero } from '#/editor/state';
+import { draft, hero, portfolio } from '#/editor/state';
 import { MediaFigure } from '#/media/media-figure';
-import type { AssetCollection } from '#/model/asset';
-import type { Portfolio } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Identity = ({ assets, portfolio, emailId, onChooseHero }: { assets: typeof AssetCollection.Type; portfolio: typeof Portfolio.Type; emailId: string; onChooseHero: () => void }) => {
+const Identity = ({ ids, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly ids: string; readonly onChooseHero: () => void }) => {
     const setDraft = useAtomSet(draft);
-    const update = (fields: Partial<typeof Portfolio.Type>) => setDraft(AsyncResult.map(Struct.evolve({ portfolio: (current: typeof Portfolio.Type) => ({ ...current, ...fields }) })));
+    const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${ids}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(AsyncResult.map(Optic.replace(portfolio.key(name), value))) });
     return (
         <>
-            <Field label="Display name" onChange={(name) => update({ name })} placeholder="Name or studio" value={portfolio.name} />
-            <Field label="Introduction" multiline={true} onChange={(introduction) => update({ introduction })} placeholder="Optional" value={portfolio.introduction} />
-            <Field id={emailId} label="Public contact email" onChange={(email) => update({ email })} placeholder="Optional" type="email" value={portfolio.email} />
-            <h3 className="text-heading tracking-display mt-2">Hero</h3>
-            {portfolio.hero === undefined ? (
+            <Field {...field('name')} label="Display name" placeholder="Name or studio" />
+            <Field {...field('introduction')} label="Introduction" multiline={true} placeholder="Optional" />
+            <Field {...field('email')} label="Public contact email" placeholder="Optional" type="email" />
+            <h3 className="text-heading tracking-display mt-2 outline-none" id={`${ids}hero`} tabIndex={-1}>
+                Hero
+            </h3>
+            {state.portfolio.hero === undefined ? (
                 <div className="actions">
                     <p className="hint">Choose library file or upload new one</p>
                     <button className="button button-outline" onClick={onChooseHero} type="button">
@@ -30,12 +30,13 @@ const Identity = ({ assets, portfolio, emailId, onChooseHero }: { assets: typeof
             ) : (
                 <>
                     <div className="media-h-80 flex justify-center">
-                        <MediaFigure active={true} placement={portfolio.hero} presentation="full" priority={false} renderMedia={true} />
+                        <MediaFigure active={true} placement={state.portfolio.hero} presentation="full" priority={false} renderMedia={true} />
                     </div>
-                    <PlacementFields assets={assets} onChange={(placement) => setDraft(AsyncResult.map(Optic.replace(hero, placement)))} value={portfolio.hero} />
-                    <button className="button button-outline" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, undefined)))} type="button">
-                        Clear hero
-                    </button>
+                    <PlacementFields assets={state.assets} onChange={(placement) => setDraft(AsyncResult.map(Optic.replace(hero, placement)))} value={state.portfolio.hero}>
+                        <button className="button button-outline self-start" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, undefined)))} type="button">
+                            Clear hero
+                        </button>
+                    </PlacementFields>
                 </>
             )}
             <a className="mt-8.75 text-sm underline" href={sessionPath('signout', '/')} target="_top">

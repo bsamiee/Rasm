@@ -5,12 +5,23 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.tsx"
+        "#/*": "./*.tsx",
+        "#/dialog/open": "./dialog/open.ts"
     },
     "exports": {
-        ".": "./index.ts"
+        "./collection/menu-button": "./collection/menu-button.tsx",
+        "./collection/reorderable-list": "./collection/reorderable-list.tsx",
+        "./custom-properties": "./custom-properties.tsx",
+        "./dialog/open": "./dialog/open.ts",
+        "./dialog/overlay": "./dialog/overlay.tsx",
+        "./focus": "./focus.ts",
+        "./form/choice": "./form/choice.tsx",
+        "./form/field": "./form/field.tsx",
+        "./form/issues": "./form/issues.tsx",
+        "./format": "./format.ts"
     },
     "dependencies": {
+        "@effect/atom-react": "catalog:",
         "effect": "catalog:",
         "lucide-react": "catalog:",
         "react": "catalog:",

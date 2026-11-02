@@ -1,4 +1,4 @@
-import { files, preprocess } from '@rasm/media';
+import { preprocess, uppyState } from '@rasm/media/uploads';
 import Uppy, { type Body, type Meta } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, Cause, Effect, Equivalence, Function, Match, Optic, Record, Schema, Struct } from 'effect';
@@ -14,10 +14,10 @@ import { Composition, placementsFor } from '#/model/placement';
 
 type Destination = { readonly kind: 'library' } | { readonly kind: 'hero' } | { readonly kind: 'entry'; readonly id: string };
 interface UploadMeta extends Meta {
-    destination: Destination;
-    asset?: string;
-    prepared?: { readonly asset: typeof Asset.Type; readonly compositions: readonly (typeof Composition.Type)[] };
-    renditions?: readonly File[];
+    readonly destination: Destination;
+    readonly asset?: string;
+    readonly prepared?: { readonly asset: typeof Asset.Type; readonly compositions: readonly (typeof Composition.Type)[] };
+    readonly renditions?: readonly File[];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -81,7 +81,7 @@ const uppy = Atom.make((get) => {
     get.addFinalizer(() => uploader.destroy());
     return uploader;
 }).pipe(Atom.keepAlive);
-const queue = files(uppy);
+const queue = uppyState(uppy, Struct.get('files'));
 const pendingUploads = Atom.make((get) => Object.values(get(queue)).flatMap((file) => (file.progress.uploadComplete === true ? [] : [file.meta.destination]))).pipe(Atom.withEquality(Equivalence.Array(Equivalence.strictEqual<Destination>())));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

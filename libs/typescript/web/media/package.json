@@ -1,15 +1,17 @@
 {
     "name": "@rasm/media",
     "private": true,
-    "description": "Browser-side handling of uploaded media",
+    "description": "Browser-side inspection, upload preprocessing, and PDF viewing of media",
     "sideEffects": false,
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./pdf": "./pdf/index.ts",
+        "./inspection": "./inspection.ts",
+        "./pdf/document": "./pdf/document.ts",
+        "./pdf/viewer": "./pdf/viewer.tsx",
+        "./uploads": "./uploads.ts",
         "./vite": "./pdf/vite.ts"
     },
     "dependencies": {

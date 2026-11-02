@@ -282,9 +282,6 @@
 @utility eyebrow {
     @apply font-mono text-xs leading-body tracking-label uppercase tabular-nums;
 }
-@utility field {
-    @apply flex min-w-0 flex-col gap-1.75 text-caption text-muted;
-}
 @utility field-pair {
     @apply grid grid-cols-2 gap-4.5 max-sm:grid-cols-1 max-sm:gap-4;
 }
@@ -395,17 +392,6 @@
     --grid-template-columns-sequence: 15rem minmax(0, 1fr);
     --grid-template-columns-sheets: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 }
-@utility editor-popover {
-    max-width: min(--spacing(120), 100vw - --spacing(8));
-    max-height: 50vh;
-    @apply overflow-auto border border-control-line bg-background;
-}
-@utility editor-option {
-    @apply min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background;
-}
-@utility editor-choice {
-    @apply grid min-h-11 min-w-14 place-items-center px-2 text-sm peer-checked:text-accent-text peer-checked:underline peer-checked:underline-offset-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent-text;
-}
 @utility editor-scroll {
     max-height: 65dvh;
     @apply overflow-y-auto pr-4;
@@ -452,7 +438,7 @@
     }
     .react-aria-TextField,
     .react-aria-Select {
-        @apply field;
+        @apply flex min-w-0 flex-col gap-1.75 text-caption text-muted;
     }
     .react-aria-Slider {
         @apply grid min-w-0 grid-cols-trailing gap-1.75 text-caption text-muted;
@@ -485,17 +471,35 @@
         @apply top-1/2 size-4 rounded-full bg-accent-text dragging:bg-accent;
     }
     .react-aria-Popover {
-        @apply editor-popover;
+        max-width: min(--spacing(120), 100vw - --spacing(8));
+        max-height: 50vh;
+        @apply overflow-auto border border-control-line bg-background;
     }
     .react-aria-ListBox,
     .react-aria-Menu {
         @apply outline-none;
     }
-    .react-aria-ListBoxItem {
-        @apply editor-option selected:underline selected:underline-offset-4;
-    }
+    .react-aria-ListBoxItem,
     .react-aria-MenuItem {
-        @apply editor-option;
+        @apply min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background selected:underline selected:underline-offset-4;
+    }
+    .react-aria-RadioGroup {
+        @apply flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1.75 text-caption text-muted;
+    }
+    .react-aria-RadioGroup > .react-aria-Label {
+        @apply w-full;
+    }
+    .react-aria-RadioField {
+        @apply min-w-0;
+    }
+    .react-aria-RadioButton {
+        @apply grid min-h-11 min-w-14 cursor-pointer place-items-center px-2 text-sm wrap-anywhere text-foreground selected:text-accent-text selected:underline selected:underline-offset-4;
+    }
+    .react-aria-FieldError {
+        @apply text-caption text-accent-text;
+    }
+    [role="alert"] li > .react-aria-Button {
+        @apply block text-left text-accent-text underline;
     }
 }
 @utility pb-safe {

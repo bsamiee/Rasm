@@ -45,7 +45,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters with a dominant value take a default, callers state what varies
-- Declarations read once sit inline at their use, a value read twice or a number Biome's `noMagicNumbers` refuses is a `const` named for its fact
+- Declarations read once sit inline at their use, a value read twice is a `const` named for its fact, and a number Biome's `noMagicNumbers` refuses comes from the package member stating it, else a `const` local to its one reader
 - Schemas declare at module scope, and each parser caches by its schema's AST
 
 ## [02]-[FUNCTIONS]

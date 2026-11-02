@@ -1,11 +1,12 @@
 import { useAtomValue } from '@effect/atom-react';
 import { sessionPath } from '@rasm/hosting/client';
-import { openDialogs } from '@rasm/ui';
-import { Option, Schema } from 'effect';
+import { openDialogs } from '@rasm/ui/dialog/open';
+import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { flow, Option, Schema } from 'effect';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
-import { lazy, type ReactNode, type RefObject, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay } from 'react-aria-components';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure';
 import type { PortfolioData } from '#/model/portfolio';
@@ -21,62 +22,21 @@ const EditRequest = Schema.fromURLSearchParams(Schema.Struct({ edit: Schema.Stri
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Editor = lazy(() => import('#/editor/editor').then((module) => ({ default: module.Editor })));
-const Account = ({ session, open, mounted, opener, onOpenChange, children }: { session: typeof Session.Type; open: boolean; mounted: boolean; opener: RefObject<HTMLButtonElement | null>; onOpenChange: (open: boolean) => void; children: ReactNode }) =>
-    session.kind === 'owner' ? (
-        <DialogTrigger isOpen={open} onOpenChange={onOpenChange}>
-            <Button className="quiet-link" ref={opener}>
-                Edit portfolio
-            </Button>
-            {mounted && (
-                <ErrorBoundary
-                    fallback={
-                        <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
-                            <Modal className="bg-background w-full max-w-lg p-9">
-                                <Dialog className="flex flex-col gap-5">
-                                    <Heading className="text-2xl tracking-tight" slot="title">
-                                        Editor failed to open
-                                    </Heading>
-                                    <p className="hint">Published portfolio is unaffected</p>
-                                    <Button className="button self-start" slot="close">
-                                        Close
-                                    </Button>
-                                </Dialog>
-                            </Modal>
-                        </ModalOverlay>
-                    }
-                >
-                    <Suspense
-                        fallback={
-                            <div className="p-9" role="status">
-                                Opening editor…
-                            </div>
-                        }
-                    >
-                        {children}
-                    </Suspense>
-                </ErrorBoundary>
-            )}
-        </DialogTrigger>
-    ) : (
-        <a className="quiet-link" href={session.signedIn ? sessionPath('signout', '/') : sessionPath('signin', '/?edit=1')} target="_top">
-            {session.signedIn ? 'Sign out' : 'Owner sign-in'}
-        </a>
-    );
 const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; session: typeof Session.Type }) => {
     const [published, setPublished] = useState(initial);
-    const [preview, setPreview] = useState<typeof PortfolioData.Type>();
+    const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
     const requested = useSyncExternalStore(
         () => () => undefined,
         () => session.kind === 'owner' && Option.isSome(Schema.decodeOption(EditRequest)(new URLSearchParams(location.search))),
         () => false,
     );
-    const [editor, setEditor] = useState<'unopened' | 'open' | 'closed'>('unopened');
-    const open = editor === 'open' || (editor === 'unopened' && requested);
-    const modalOpen = useAtomValue(openDialogs, (dialogs) => dialogs.size > 0);
+    const [toggled, setToggled] = useState(Option.none<boolean>());
+    const open = Option.getOrElse(toggled, () => requested);
+    const modalOpen = useAtomValue(openDialogs, (count) => count > 0);
     const opener = useRef<HTMLButtonElement>(null);
     const work = useRef<HTMLElement>(null);
     const sticky = useRef<HTMLDivElement>(null);
-    const { portfolio } = preview ?? published;
+    const { portfolio } = Option.getOrElse(preview, () => published);
     const navigation = useNavigation(portfolio, work, sticky, !(open || modalOpen));
     const populated = portfolio.entries.length > 0;
     useEffect(() => {
@@ -94,35 +54,71 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                     {portfolio.name || 'Portfolio'}
                     <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
                 </a>
-                <Account mounted={editor !== 'unopened' || open} onOpenChange={(next) => setEditor(next ? 'open' : 'closed')} open={open} opener={opener} session={session}>
-                    <Editor
-                        onPreview={setPreview}
-                        onPublish={(value) => {
-                            setPublished(value);
-                            setPreview(undefined);
-                        }}
-                        published={published.portfolio}
-                    />
-                </Account>
+                {session.kind === 'owner' ? (
+                    <DialogTrigger isOpen={open} onOpenChange={flow(Option.some, setToggled)}>
+                        <Button className="quiet-link" ref={opener}>
+                            Edit portfolio
+                        </Button>
+                        {(Option.isSome(toggled) || requested) && (
+                            <ErrorBoundary
+                                fallback={
+                                    <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
+                                        <Modal className="bg-background w-full max-w-lg p-9">
+                                            <Dialog className="flex flex-col gap-5">
+                                                <Heading className="text-2xl tracking-tight" slot="title">
+                                                    Editor failed to open
+                                                </Heading>
+                                                <p className="hint">Published portfolio is unaffected</p>
+                                                <Button className="button self-start" slot="close">
+                                                    Close
+                                                </Button>
+                                            </Dialog>
+                                        </Modal>
+                                    </ModalOverlay>
+                                }
+                            >
+                                <Suspense
+                                    fallback={
+                                        <div className="p-9" role="status">
+                                            Opening editor…
+                                        </div>
+                                    }
+                                >
+                                    <Editor
+                                        onPreview={flow(Option.some, setPreview)}
+                                        onPublish={(data) => {
+                                            setPublished(data);
+                                            setPreview(Option.none());
+                                        }}
+                                        published={published.portfolio}
+                                    />
+                                </Suspense>
+                            </ErrorBoundary>
+                        )}
+                    </DialogTrigger>
+                ) : (
+                    <a className="quiet-link" href={session.signedIn ? sessionPath('signout', '/') : sessionPath('signin', '/?edit=1')} target="_top">
+                        {session.signedIn ? 'Sign out' : 'Owner sign-in'}
+                    </a>
+                )}
             </header>
             <WorkIndex navigation={navigation} portfolio={portfolio} />
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
-                {preview && (
+                {Option.isSome(preview) && (
                     <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
                         <span className="max-sm:w-full">Private preview · snapshot</span>
-                        <button
+                        <Button
                             className="button button-outline ml-auto max-sm:ml-0"
-                            onClick={() => {
+                            onPress={() => {
                                 opener.current?.focus({ preventScroll: true });
-                                setEditor('open');
+                                setToggled(Option.some(true));
                             }}
-                            type="button"
                         >
                             Continue editing
-                        </button>
-                        <button className="button button-ghost" onClick={() => setPreview(undefined)} type="button">
+                        </Button>
+                        <Button className="button button-ghost" onPress={() => setPreview(Option.none())}>
                             Return to published
-                        </button>
+                        </Button>
                     </div>
                 )}
             </StickyBar>
@@ -154,7 +150,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             </div>
                         ) : (
                             <div className="media-h-hero flex min-w-0 justify-center">
-                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} renderMedia={true} />
+                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} />
                             </div>
                         )}
                     </section>

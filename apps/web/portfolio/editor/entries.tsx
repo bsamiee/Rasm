@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Field, ReorderableList, SelectField } from '@rasm/ui';
+import { ReorderableList } from '@rasm/ui/collection/reorderable-list';
+import { Choice } from '@rasm/ui/form/choice';
+import { Field } from '@rasm/ui/form/field';
 import { Array, Optic, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
@@ -7,12 +9,12 @@ import { Button, type Key } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { draft, portfolio, updateEntry } from '#/editor/state';
 import { destination, pendingUploads } from '#/editor/uploader';
-import { entryTitle, quantity } from '#/media/labels';
+import { entryTitle, format } from '#/media/labels';
 import { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonly (typeof Entry.Type)[]; selected: string | undefined; onSelect: (entry: typeof Entry.Type) => void; onRemove: () => void }) => {
+const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: string | undefined; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
     const setDraft = useAtomSet(draft);
     const setTarget = useAtomSet(destination);
     const pending = useAtomValue(pendingUploads);
@@ -24,7 +26,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonl
     };
     return (
         <ReorderableList
-            actions={(keys) => <ConfirmDialog description="Source files stay in library. Published work changes on next publish" disabled={locked(keys)} label={`Remove ${quantity(keys.size, { one: 'selected entry', other: 'selected entries' })}`} onConfirm={() => remove(keys)} />}
+            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={`Remove ${format.quantity(keys.size, { one: 'selected entry', other: 'selected entries' })}`} onConfirm={() => remove(keys)} />}
             aria-label="Projects and studies"
             className="editor-sequence"
             items={entries}
@@ -36,15 +38,15 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonl
                 <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
                     <Button aria-pressed={selected === item.id} className="aria-pressed:text-accent-text min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
                         {entryTitle(item)}
-                        <span className="meta-line no-underline">{quantity(item.compositions.length, { one: 'composition', other: 'compositions' })}</span>
+                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: 'composition', other: 'compositions' })}</span>
                     </Button>
-                    <ConfirmDialog description="Source files stay in library. Published work changes on next publish" disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
+                    <ConfirmDialog disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>
             )}
         </ReorderableList>
     );
 };
-const EntryFields = ({ entry, titleId }: { entry: typeof Entry.Type; titleId: string }) => {
+const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; readonly titleId: string }) => {
     const [open, setOpen] = useState(entry.title.length === 0);
     const setDraft = useAtomSet(draft);
     const update = (fields: Partial<typeof Entry.Type>) => setDraft(AsyncResult.map(updateEntry(entry.id, (current) => ({ ...current, ...fields }))));
@@ -54,7 +56,7 @@ const EntryFields = ({ entry, titleId }: { entry: typeof Entry.Type; titleId: st
             <div className="flex flex-col gap-5 py-3">
                 <div className="field-pair">
                     <Field id={titleId} label="Title" onChange={(title) => update({ title })} value={entry.title} />
-                    <SelectField label="Entry type" onChange={({ id }) => update({ kind: id })} options={Entry.fields.kind.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={entry.kind} />
+                    <Choice label="Entry type" onChange={({ id }) => update({ kind: id })} options={Entry.fields.kind.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={entry.kind} />
                 </div>
                 <div className="flex flex-col gap-4.5">
                     <div className="field-pair">

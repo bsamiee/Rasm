@@ -69,7 +69,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [FIGURES]: `MediaFigure` renders every placement from its resolved asset, presentation decides loading, chrome, and expansion:
 - `Match.discriminatorsExhaustive` over placement `kind` selects each renderer
-- Display text and alt text derive once in `media/labels.ts`, media URLs in `model/asset.ts`, and image source sets in `media/media-element.tsx`
+- Display text and alt text derive once in `media/labels.tsx`, media URLs in `model/asset.ts`, and image source sets in `media/media-element.tsx`
 - Presentation, priority, and in-view proximity decide media loading and video playback
 - Image renditions fill `srcSet`, expanded views load the original
 - Renditions share their source's authorization, publication, and removal
@@ -77,12 +77,14 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `react-error-boundary` fallbacks catch chunk and render failures
 - `react-zoom-pan-pinch` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
-- `@rasm/media/pdf` `pdfDocument` shares one PDF.js document across every sheet of a PDF
+- `@rasm/media/pdf/document` `pdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
+- `@rasm/media/pdf/viewer` `usePdfViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
+- Sheet previews draw annotations without a text layer, the sheet viewer writes page, scale, and rotation through `PdfViewer.assign` and restores find highlights when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]
 
-[STATE]: Editor state is Effect `Atom` values over `AsyncResult` in `editor/state.ts`, with one writable draft atom every request atom updates:
+[STATE]: Editor state is Effect `Atom` values over `AsyncResult` in `editor/state.tsx`, with one writable draft atom every request atom updates:
 - Mutations are `runtime.fn` atoms of an `AtomHttpApi.Service` runtime, their `AsyncResult` drives busy state, status, and alerts
 - Draft, mutation, and upload atoms are `Atom.keepAlive`, closing the editor keeps edits, results, and queued files
 - Draft edits are `Optic` modifications returning a new portfolio, identity against the last saved or loaded snapshot marks unsaved work
@@ -94,6 +96,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [UPLOADS]: Uppy owns the upload queue from one instance in an `Atom.keepAlive` atom with a finalizer:
 - Preprocessing measures each file in the browser, renders image renditions, and decodes an `Asset` before upload
+- Preprocessing failures name their remedy: an unlocked export for a protected PDF, a new export for a file its kind cannot read or measure, a retry for a failed load
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
 - Upload recovery lists incomplete uploads and removals, each with one discard action the owner confirms

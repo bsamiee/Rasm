@@ -2402,6 +2402,9 @@ importers:
 
   libs/typescript/web/ui:
     dependencies:
+      '@effect/atom-react':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)(react@19.3.0)(scheduler@0.28.0)
       effect:
         specifier: 'catalog:'
         version: 4.1.1

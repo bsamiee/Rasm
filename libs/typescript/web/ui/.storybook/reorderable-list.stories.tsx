@@ -1,9 +1,9 @@
 import { type ComponentProps, useState } from 'react';
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
-import { ReorderableList } from '#/reorderable-list';
+import { ReorderableList } from '#/collection/reorderable-list';
 
-// --- [MODELS] --------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 interface Sheet {
     readonly id: string;

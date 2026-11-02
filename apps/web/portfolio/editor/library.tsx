@@ -1,13 +1,14 @@
 import { useAtomSet } from '@effect/atom-react';
-import { focus, MenuButton } from '@rasm/ui';
-import { Array, Match, Optic, Option, Record, Schema } from 'effect';
+import { MenuButton } from '@rasm/ui/collection/menu-button';
+import { focus } from '@rasm/ui/focus';
+import { Array, Match, Optic, Option, Predicate, Record, Schema } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { deleteRequest, draft, hero } from '#/editor/state';
-import { byteSize, conjunction, entryTitle, quantity } from '#/media/labels';
+import { entryTitle, format } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure';
 import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '#/model/asset';
 import { placementsFor } from '#/model/placement';
@@ -34,26 +35,30 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [byteSize.format(asset.size), ...(Schema.is(PdfAsset)(asset) ? [quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
+    const summary = (asset: typeof Asset.Type) => [format.bytes(asset.size), ...(Schema.is(PdfAsset)(asset) ? [format.quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
     return (
         <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-muted text-xs">{quantity(Object.keys(assets).length, { one: 'file', other: 'files' })}</span>
+                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: 'file', other: 'files' })}</span>
             </div>
             <div className="editor:grid-cols-2 grid min-w-0 gap-6">
-                <GridList aria-label="Source files" className="max-editor:data-chosen:hidden grid grid-cols-2 content-start gap-3" data-chosen={Option.isSome(selected) || undefined} dependencies={[sourceId]} id={`${ids}library`} items={Object.values(assets)} selectionMode="none">
+                <GridList
+                    aria-label="Source files"
+                    className="max-editor:data-chosen:hidden grid grid-cols-2 content-start gap-3"
+                    data-chosen={Option.isSome(selected) || undefined}
+                    id={`${ids}library`}
+                    items={Object.values(assets)}
+                    onSelectionChange={(keys) => {
+                        const chosen = Array.findFirst(keys === 'all' ? [] : keys, Predicate.isString);
+                        onSelect(chosen);
+                        Option.map(chosen, () => focus(`${ids}source`));
+                    }}
+                    selectedKeys={Option.toArray(sourceId)}
+                    selectionMode="single"
+                >
                     {(asset) => (
-                        <GridListItem
-                            className="border-line focus-visible:outline-accent-text data-current:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2"
-                            data-current={Option.contains(sourceId, asset.id) || undefined}
-                            id={asset.id}
-                            onAction={() => {
-                                onSelect(Option.some(asset.id));
-                                focus(`${ids}source`);
-                            }}
-                            textValue={asset.name}
-                        >
+                        <GridListItem className="border-line focus-visible:outline-accent-text selected:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2" id={asset.id} textValue={asset.name}>
                             <div className="media-h-30 bg-surface pointer-events-none grid aspect-4/3 place-items-center">
                                 {Match.value(asset).pipe(
                                     Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, () => <FileText className="text-muted size-6" />),
@@ -90,7 +95,7 @@ const Library = ({
                                 </div>
                                 <div className="actions">
                                     {portfolio.entries.length > 0 && (
-                                        <MenuButton label="Add to entry" onAction={({ id }) => onUse(id, asset.id)} options={portfolio.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
+                                        <MenuButton onAction={({ id }) => onUse(id, asset.id)} options={portfolio.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
                                             Add to entry
                                         </MenuButton>
                                     )}
@@ -98,7 +103,7 @@ const Library = ({
                                         Use as hero
                                     </button>
                                 </div>
-                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${conjunction.format(uses)}`] : [])].join(' · ')}</p>
+                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${format.list(uses)}`] : [])].join(' · ')}</p>
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
                                     {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}

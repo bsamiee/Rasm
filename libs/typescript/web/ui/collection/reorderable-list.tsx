@@ -1,8 +1,9 @@
 import { Array, Filter } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, Menu, MenuItem, MenuTrigger, Popover, type Selection, useDragAndDrop } from 'react-aria-components';
-import { Checkbox } from '#/checkbox';
+import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
+import { MenuButton } from '#/collection/menu-button';
+import { Checkbox } from '#/form/field';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -15,16 +16,16 @@ const ReorderableList = <T extends { readonly id: string }>({
     moveLabel,
     ...props
 }: Omit<GridListProps<T>, 'children' | 'defaultSelectedKeys' | 'dependencies' | 'dragAndDropHooks' | 'items' | 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> & {
-    items: readonly T[];
-    onChange: (items: readonly T[]) => void;
-    textValue: (item: T) => string;
-    actions: (keys: ReadonlySet<Key>) => ReactNode;
-    children: (item: T) => ReactNode;
-    moveLabel: string;
+    readonly items: readonly T[];
+    readonly onChange: (items: readonly T[]) => void;
+    readonly textValue: (item: T) => string;
+    readonly actions: (keys: ReadonlySet<Key>) => ReactNode;
+    readonly children: (item: T) => ReactNode;
+    readonly moveLabel: string;
 }) => {
     const [selection, setSelection] = useState<Selection>(new Set());
-    const selected = new Set(items.flatMap(({ id }) => (selection === 'all' || selection.has(id) ? [id] : [])));
-    const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: ItemDropTarget) => {
+    const selected: ReadonlySet<Key> = new Set(items.flatMap(({ id }) => (selection === 'all' || selection.has(id) ? [id] : [])));
+    const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) => {
         const [moved, kept] = Array.partition(
             items,
             Filter.fromPredicate((item: T) => keys.has(item.id)),
@@ -35,8 +36,9 @@ const ReorderableList = <T extends { readonly id: string }>({
         );
         onChange([...before, ...moved, ...after]);
     };
-    const { dragAndDropHooks } = useDragAndDrop({
-        getItems: (keys) => [...keys].map((key) => ({ 'text/plain': String(key) })),
+    const targets = items.map((target, index) => ({ id: target.id, label: textValue(target), index }));
+    const { dragAndDropHooks } = useDragAndDrop<T>({
+        getItems: (_keys, values) => values.map((item) => ({ 'text/plain': textValue(item) })),
         onReorder: ({ keys, target }) => reorder(keys, target),
     });
     return (
@@ -45,21 +47,16 @@ const ReorderableList = <T extends { readonly id: string }>({
             <GridList {...props} dependencies={[items, children, textValue, selected]} dragAndDropHooks={dragAndDropHooks} items={items} onSelectionChange={setSelection} selectedKeys={selection} selectionMode="multiple">
                 {(item) => {
                     const moved = selected.has(item.id) ? selected : new Set([item.id]);
-                    const targets = items.filter(({ id }) => !moved.has(id));
+                    const position = items.indexOf(item);
                     return (
                         <GridListItem id={item.id} textValue={textValue(item)}>
                             <Checkbox slot="selection" />
                             <Button slot="drag">
                                 <GripVertical />
                             </Button>
-                            <MenuTrigger>
-                                <Button isDisabled={targets.length === 0}>{moveLabel}</Button>
-                                <Popover>
-                                    <Menu items={targets} onAction={(key) => reorder(moved, { type: 'item', key, dropPosition: items.findIndex(({ id }) => id === key) < items.indexOf(item) ? 'before' : 'after' })}>
-                                        {(target) => <MenuItem>{textValue(target)}</MenuItem>}
-                                    </Menu>
-                                </Popover>
-                            </MenuTrigger>
+                            <MenuButton onAction={({ id, index }) => reorder(moved, { key: id, dropPosition: index < position ? 'before' : 'after' })} options={targets.filter(({ id }) => !moved.has(id))}>
+                                {moveLabel}
+                            </MenuButton>
                             {children(item)}
                         </GridListItem>
                     );

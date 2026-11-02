@@ -1,11 +1,11 @@
-import { useAtom } from '@effect/atom-react';
-import { CustomProperties, dialogOpen } from '@rasm/ui';
+import { CustomProperties } from '@rasm/ui/custom-properties';
+import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { Expand, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ComponentProps, lazy, type ReactNode, Suspense, useId, useRef } from 'react';
-import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay, Text } from 'react-aria-components';
+import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { descriptionLabel, numeral, placementTitle } from '#/media/labels';
+import { descriptionLabel, format, placementTitle } from '#/media/labels';
 import { MediaElement } from '#/media/media-element';
 import { MediaFailure, MediaLoading } from '#/media/status';
 import { mediaUrl } from '#/model/asset';
@@ -42,9 +42,8 @@ const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclu
         </Modal>
     </ModalOverlay>
 );
-const MediaFigure = ({ placement, active, priority, presentation, renderMedia }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; renderMedia: boolean }) => {
+const MediaFigure = ({ placement, active, presentation, priority = false, renderMedia = true }: { placement: typeof Placement.Type; active: boolean; presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; priority?: boolean; renderMedia?: boolean }) => {
     const layoutId = useId();
-    const [isOpen, setOpen] = useAtom(dialogOpen(layoutId));
     const figure = useRef<HTMLElement>(null);
     const viewer = presentation === 'expandable' && placement.kind !== 'video' ? placement : undefined;
     const description = Boolean(placement.description) && (
@@ -69,16 +68,16 @@ const MediaFigure = ({ placement, active, priority, presentation, renderMedia }:
                                         <span>{placement.asset.name}</span>
                                         <span className="inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
                                             <span className="sr-only">Sheet </span>
-                                            <span className="text-accent-text">{numeral(placement.page.number)}</span>
+                                            <span className="text-accent-text">{format.numeral(placement.page.number)}</span>
                                             <span aria-hidden="true">/</span>
                                             <span className="sr-only"> of </span>
-                                            <span>{numeral(placement.asset.pages.length)}</span>
+                                            <span>{format.numeral(placement.asset.pages.length)}</span>
                                         </span>
                                         <span className="empty:hidden">{placement.page.label}</span>
                                     </span>
                                 )}
                                 {viewer && (
-                                    <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
+                                    <DialogTrigger>
                                         <Button aria-label={`Expand ${placementTitle(viewer)}`} className="text-foreground hover:text-accent-text col-start-2 row-start-1 grid size-11 place-items-center">
                                             <Expand className="size-4.5" />
                                         </Button>

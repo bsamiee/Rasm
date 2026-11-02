@@ -1,4 +1,5 @@
-import { Match, SchemaIssue } from 'effect';
+import { IssueList } from '@rasm/ui/form/issues';
+import { Match } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import type { deleteRequest, draft, saveRequest } from '#/editor/state';
 
@@ -14,23 +15,7 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
             Match.tag('SchemaError', ({ issue }) => (
                 <>
                     <p>Invalid fields</p>
-                    <ul>
-                        {SchemaIssue.makeFormatterStandardSchemaV1()(issue).issues.map(({ path: segments, message }) => {
-                            const path = segments?.map((segment) => (typeof segment === 'object' ? segment.key : segment)) ?? [];
-                            const text = `${path.map(String).join(' › ')} · ${message}`;
-                            return (
-                                <li key={text}>
-                                    {onField === undefined ? (
-                                        message
-                                    ) : (
-                                        <button className="text-accent-text block text-left underline" onClick={() => onField(path)} type="button">
-                                            {text}
-                                        </button>
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
+                    <IssueList issue={issue} onField={onField} />
                 </>
             )),
             Match.tag('PreconditionFailed', () => <p>Newer draft saved in another tab. Edits stay here until reload replaces them</p>),

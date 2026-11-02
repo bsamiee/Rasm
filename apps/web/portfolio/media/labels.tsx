@@ -1,26 +1,24 @@
+import { Format } from '@rasm/ui/format';
+import { Option, String } from 'effect';
 import type { Sheet } from '#/model/asset';
 import type { Composition, Placement } from '#/model/placement';
 import type { Entry } from '#/model/portfolio';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const locale = 'en';
-const byteSize = new Intl.NumberFormat(locale, { notation: 'compact', style: 'unit', unit: 'byte', unitDisplay: 'narrow' });
-const numeral = new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, useGrouping: false }).format;
-const plural = new Intl.PluralRules(locale);
-const conjunction = new Intl.ListFormat(locale, { type: 'conjunction' });
-const disjunction = new Intl.ListFormat(locale, { type: 'disjunction' });
+const format = new Format({ locale: 'en' });
+const separator = ' · ';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const quantity = (count: number, forms: { readonly [Category in Intl.LDMLPluralRule]?: string } & { readonly other: string }) => `${count} ${forms[plural.select(count)] ?? forms.other}`;
-const sheetLabel = ({ number, label }: typeof Sheet.Type, total: number) => [`Sheet ${number} of ${total}`, label].filter(Boolean).join(' · ');
-const entryTitle = (entry: typeof Entry.Type) => entry.title || 'Untitled entry';
-const placementTitle = (placement: typeof Placement.Type) => [placement.caption || placement.asset.name, placement.kind === 'pdf' && sheetLabel(placement.page, placement.asset.pages.length)].filter(Boolean).join(' · ');
-const placementAlt = (placement: typeof Placement.Type) => placement.alt || placementTitle(placement);
+const text = (value: string | undefined) => Option.fromUndefinedOr(value).pipe(Option.map(String.trim), Option.filter(String.isNonEmpty));
+const sheetLabel = ({ number, label }: typeof Sheet.Type, total: number) => [`Sheet ${number} of ${total}`, ...Option.toArray(text(label))].join(separator);
+const entryTitle = (entry: typeof Entry.Type) => Option.getOrElse(text(entry.title), () => 'Untitled entry');
+const placementTitle = (placement: typeof Placement.Type) => [Option.getOrElse(text(placement.caption), () => placement.asset.name), ...(placement.kind === 'pdf' ? [sheetLabel(placement.page, placement.asset.pages.length)] : [])].join(separator);
+const placementAlt = (placement: typeof Placement.Type) => Option.getOrElse(text(placement.alt), () => placementTitle(placement));
 const descriptionLabel = (placement: typeof Placement.Type) => (placement.kind === 'video' ? 'Description or transcript' : 'Detailed description');
-const compositionLabel = (composition: typeof Composition.Type) => composition.items.map(placementTitle).join(' + ');
+const compositionLabel = (composition: typeof Composition.Type) => format.list(composition.items.map(placementTitle));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { byteSize, compositionLabel, conjunction, descriptionLabel, disjunction, entryTitle, numeral, placementAlt, placementTitle, quantity, sheetLabel };
+export { compositionLabel, descriptionLabel, entryTitle, format, placementAlt, placementTitle, sheetLabel };
