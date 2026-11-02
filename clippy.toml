@@ -15,12 +15,12 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["kurbo::Affine"]
-arithmetic-side-effects-allowed-unary = ["rust_decimal::Decimal"]
+arithmetic-side-effects-allowed       = ["kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::DualVec"]
+arithmetic-side-effects-allowed-unary = ["nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
 upper-case-acronyms-aggressive = true
-allowed-idents-below-min-chars = ["w", "x", "y", "z"]
+allowed-idents-below-min-chars = ["b", "g", "r", "w", "x", "y", "z"]
 enum-variant-name-threshold    = 2
 struct-field-name-threshold    = 2
 allow-renamed-params-for       = []

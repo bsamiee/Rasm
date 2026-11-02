@@ -4159,12 +4159,14 @@ dependencies = [
  "num-dual",
  "nuts-rs",
  "nutype",
+ "opentelemetry-semantic-conventions",
  "rand 0.10.3",
  "rayon",
  "serde",
  "sobol_burley",
  "statrs",
  "thiserror",
+ "tracing",
  "validated",
 ]
 

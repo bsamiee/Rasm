@@ -88,8 +88,8 @@
             },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
-                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.fitout pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
-                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/fitout/**/*.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" } ],
+                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.blender pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
+                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}" ],
                 "cache": true
             },
@@ -124,7 +124,7 @@
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/install.binlog" ],
                 "parallelism": false
             },
-            { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.fitout install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
@@ -254,7 +254,7 @@
             { "cache": true },
             { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}" ] },
             { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support.py}" ] },
-            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "\"$BLENDER_PATH\" --version" } ] },
+            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "{workspaceRoot}/eng/python/blender/**/*.py", { "runtime": "\"$BLENDER_PATH\" --version" } ] },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
                 "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ]

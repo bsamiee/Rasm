@@ -669,7 +669,7 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 plugins                 = ["pydantic.mypy"]
-untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                                                                           # Packages without typed signatures, calls into them report as untyped
+untyped_calls_exclude   = ["_skimage2", "OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                                                              # Packages without typed signatures, calls into them report as untyped
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }, { module = ["blender.*", "apps.blender.*", "tests.python.libs.blender.bpy.background.*"], disallow_any_explicit = false }]
 

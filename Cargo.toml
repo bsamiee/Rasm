@@ -279,7 +279,7 @@ tracing-subscriber                 = { version = "0.3.23", features = ["env-filt
 # --- [USER_INTERFACE]
 anstream             = "1.0.0"                                                                                              # Writers that keep, strip, or translate ANSI per terminal
 anstyle              = "1.0.14"                                                                                             # Style values shared by help text, terminal output, and TUI spans
-clap                 = { version = "4.6.7", features = ["derive", "env"] }                                                  # Typed command-line arguments and environment values
+clap                 = { version = "4.6.7", features = ["cargo", "derive", "env"] }                                         # Typed command-line arguments and environment values
 clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                                        # Verbosity flags resolved to tracing level filter
 clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                                              # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
 clap_mangen          = { version = "0.3.3", features = ["env"] }                                                            # Man pages generated from each command, `env` naming each variable a row reads
@@ -694,7 +694,6 @@ unnecessary_rest_pattern = "warn" # `..` capturing no field, patterns state exac
 
 # --- [NUMERICS]
 arithmetic_side_effects    = "warn" # Integer `+`, `-`, `*`, `/`, and `%` that can overflow or divide by zero, `checked_*` returns absence and `strict_*` names the panic
-default_numeric_fallback   = "warn" # Literals falling back to `i32` or `f64`, each literal takes its type from its use or suffix
 float_cmp_const            = "warn" # `==` and `!=` against nonzero float constants, comparisons state their tolerance
 host_endian_bytes          = "warn" # `to_ne_bytes` and `from_ne_bytes`, encodings name their endianness
 lossy_float_literal        = "warn" # Whole-number float literals their type cannot hold exactly
@@ -737,13 +736,14 @@ unused_trait_names       = "warn" # `use Trait` imported for its methods alone, 
 
 # --- [NAMING]
 error_impl_error           = "warn" # Error types named `Error`, each names raising package
-min_ident_chars            = "warn" # Single-character identifiers outside coordinate axes `w`, `x`, `y`, and `z`
+min_ident_chars            = "warn" # Single-character identifiers outside coordinate axes `w`, `x`, `y`, `z` and color channels `r`, `g`, `b`
 module_name_repetitions    = "warn" # Item names repeating their module's name, paths state module once
 renamed_function_params    = "warn" # Trait impls renaming trait parameters, trait owns each parameter name
 shadow_unrelated           = "warn" # Names rebound to unrelated values, one name holds one concept
 single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
+default_numeric_fallback            = "allow" # Ignores the operand or parameter that types a literal, forcing `x * 2.0_f64` where `x * 2.0` reads its type from `x`
 empty_enums                         = "allow" # Flags kind markers `impl_typed_uuid_kinds!` declares per entity, ast-grep `no-empty-enum` owns written enums
 future_not_send                     = "allow" # Demands `Sync` on generic parameters an async fn borrows, return-type notation binds `Send` at spawning use site
 literal_string_with_formatting_args = "allow" # Flags inline snapshot literals quoting a fixture's format string, insta reads snapshots from literals
