@@ -1,7 +1,7 @@
 import { layer as nodeSpawner } from '@effect/platform-node/NodeChildProcessSpawner';
 import { layer as nodeFileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerPosix } from '@effect/platform-node/NodePath';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration, type Tree } from '@nx/devkit';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
@@ -550,8 +550,37 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
     };
 });
 
+// --- [COMPONENTS]
+const components = Effect.fnUntraced(function* (root: string, inferred: CreateNodesResultArray) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const projects = inferred.flatMap(([file, { projects: held = {} }]) => Record.collect(held, (at, project) => ({ file, at, project })));
+    const declared = (at: string) => Array.dedupe(projects.filter((row) => row.at === at).flatMap(({ project }) => Object.keys(project.targets ?? {})));
+    const apps = Array.getSomes(projects.map((row) => Option.map(Schema.decodeUnknownOption(Released)(row.project), ({ targets }) => ({ ...row, env: targets.build.options.env }))));
+    return yield* Effect.forEach(
+        apps,
+        Effect.fnUntraced(function* ({ file, at: app, env }) {
+            const { owner } = yield* owning(root, app);
+            const held = Array.dedupe(projects.map(Struct.get('at'))).filter((at) => owner !== '.' && at !== app && !path.relative(owner, at).startsWith('..'));
+            const members = yield* Effect.forEach(yield* Effect.filter(held, (at) => fs.exists(path.join(root, at, 'package.json'))), (at) =>
+                Effect.map(decode(Package, root, path.join(at, 'package.json')), ({ name }) => ({ at, name, steps: Array.intersection(['build', 'pack', 'install'], declared(at)) })),
+            );
+            const holding = (step: string) => members.filter(({ steps }) => steps.includes(step)).map(Struct.get('name'));
+            const after = (step: string, needed: string) => (declared(app).includes(step) ? { [step]: { dependsOn: ['pack', { projects: holding(needed), target: needed }] } } : {});
+            return [
+                file,
+                {
+                    projects: {
+                        ...Object.fromEntries(members.map(({ at, steps }) => [at, { root: at, targets: Object.fromEntries(steps.map((step) => [step, { options: { env } }])) }])),
+                        [app]: { root: app, implicitDependencies: members.map(Struct.get('name')), targets: { ...after('install', 'install'), ...after('publish', 'pack') } },
+                    },
+                },
+            ] as const;
+        }),
+    );
+});
+
 // --- [DEPENDENCIES]
-const imports = (root: string, { projectFileMap }: FileMap) =>
+const imports =(root: string, { projectFileMap }: FileMap) =>
     Array.match(
         Object.values(projectFileMap).flatMap((files) => files.map(({ file }) => file).filter((file) => file.endsWith('.py'))),
         {
@@ -608,6 +637,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
                     const inferred = yield* Effect.promise(() => createNodesFromFiles((file) => runtime.runPromise(rendered(node(file))), files, options, context));
                     return [
                         ...inferred,
+                        ...(yield* components(context.workspaceRoot, inferred)),
                         ...(yield* workspace.crates).flatMap(({ manifest, metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))).map((nx) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const)),
                         ...Option.toArray(Option.fromUndefinedOr(options)).map(({ root }) => ['nx.json', { projects: { '.': { root: '.', name, targets: root } } }] as const),
                     ];
