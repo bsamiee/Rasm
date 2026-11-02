@@ -39,7 +39,8 @@ const format = flow(
             return yield* Effect.forEach(Object.values(Array.groupBy(writers, ({ extensions }) => Option.match(extensions, { onNone: () => '', onSome: Array.join(',') }))), (group) => Effect.exit(Effect.forEach(group, write, { discard: true })), { concurrency: 'unbounded' }).pipe(Effect.flatMap(Exit.asVoidAll));
         },
         Effect.as({ success: true }),
-        Effect.catchCause((cause) => Effect.as(Effect.logError(cause), { success: false })),
+        Effect.tapCause(Effect.logError),
+        Effect.catchCause(() => Effect.succeed({ success: false })),
         Effect.provide(layer),
     ),
     Effect.runPromise,

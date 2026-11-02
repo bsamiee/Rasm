@@ -19,7 +19,7 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: property, regex: '^catchCause$'}
+                - has: {field: property, regex: '^(catchCause|catchDefect)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
     handler-argument:
         any:
@@ -35,7 +35,7 @@ utils:
         kind: arrow_function, function_expression
         all: [{matches: handler-argument}, {matches: handler-parameter}]
     cause-callback:
-        kind: arrow_function
+        kind: arrow_function, function_expression
         all: [{matches: cause-argument}, {matches: handler-parameter}]
 rule:
     any:
@@ -46,7 +46,7 @@ rule:
             - has: {field: function, pattern: $LOG, matches: log-member}
             - any:
                 - inside: {matches: failure-callback, stopBy: end}
-                - inside: {field: body, matches: cause-callback}
+                - inside: {matches: cause-callback, stopBy: end}
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
 message: '`$LOG` logs a failure inside a recovery handler'
 note: 'Log through `Effect.tapCause(Effect.logError)` before recovery, discard through `Effect.ignore({ log })` or `Effect.ignoreCause({ log })`'

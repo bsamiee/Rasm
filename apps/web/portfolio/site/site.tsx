@@ -1,6 +1,7 @@
 import { useAtomValue } from '@effect/atom-react';
 import { sessionPath } from '@rasm/hosting/client';
 import { openDialogs } from '@rasm/ui';
+import { Option, Schema } from 'effect';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, type ReactNode, type RefObject, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -12,6 +13,10 @@ import type { Session } from '#/model/shell';
 import { Chapter } from '#/site/chapter';
 import { useNavigation } from '#/site/navigation';
 import { StickyBar, WorkIndex } from '#/site/work-index';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const EditRequest = Schema.fromURLSearchParams(Schema.Struct({ edit: Schema.String }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -62,7 +67,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
     const [preview, setPreview] = useState<typeof PortfolioData.Type>();
     const requested = useSyncExternalStore(
         () => () => undefined,
-        () => session.kind === 'owner' && new URLSearchParams(location.search).has('edit'),
+        () => session.kind === 'owner' && Option.isSome(Schema.decodeOption(EditRequest)(new URLSearchParams(location.search))),
         () => false,
     );
     const [editor, setEditor] = useState<'unopened' | 'open' | 'closed'>('unopened');

@@ -44,7 +44,10 @@ const encoder = Effect.map(
             }),
 );
 const read = <S extends Schema.Top>(schema: S, subject: string, value: () => unknown) =>
-    Effect.flatMap(encoder, (encoded) => Effect.flatMap(Effect.try({ try: () => encoded(value()), catch: InDesignError.refused(subject) }), flow(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.toCodecJson(schema))), Effect.orDie)));
+    encoder.pipe(
+        Effect.flatMap((encoded) => Effect.try({ try: () => encoded(value()), catch: InDesignError.refused(subject) })),
+        Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.toCodecJson(schema))), Effect.orDie)),
+    );
 
 // --- [LOOKUP]
 

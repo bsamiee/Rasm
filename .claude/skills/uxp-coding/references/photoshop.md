@@ -10,18 +10,18 @@ Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays ch
 import { type ActionDescriptor, action, core, type ExecutionContext } from 'adobe:photoshop';
 
 const played = (commands: ActionDescriptor[]) =>
-    Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: (cause) => HostError.make({ step: Array.map(commands, Struct.get('_obj')).join(', '), cause }) }), (replies) =>
+    Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: HostError.refused(Array.map(commands, Struct.get('_obj')).join(', ')) }), (replies) =>
         Option.match(
-            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }))(reply), (cause) => HostError.make({ step: command, cause }))),
+            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }))(reply), HostError.refused(command))),
             { onNone: () => Effect.succeed(replies), onSome: Effect.fail },
         ),
     );
 const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) =>
-    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: (cause) => HostError.make({ step: commandName, cause }) })));
+    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: HostError.refused(commandName) })));
 const committed = (documentID: number, name: string, commands: ActionDescriptor[]) =>
     modal(name, ({ hostControl }) =>
         Effect.acquireUseRelease(
-            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: (cause) => HostError.make({ step: name, cause }) }),
+            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: HostError.refused(name) }),
             () => played(commands),
             (suspension, exit) => Effect.promise(() => hostControl.resumeHistory(suspension, Exit.isSuccess(exit))),
         ),

@@ -57,7 +57,12 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
             if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
                 return yield* HttpApiError.BadRequest.make();
             }
-            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload(state.asset.id, object.key, uploadToken), write(file.content)));
+            yield* state.stage === 'stored'
+                ? Stream.runDrain(file.content)
+                : createUpload(object).pipe(
+                      Effect.tap(({ uploadToken }) => attachUpload(state.asset.id, object.key, uploadToken)),
+                      Effect.flatMap(({ write }) => write(file.content)),
+                  );
             return { ...state, files: state.files.slice(1) } satisfies Upload;
         }),
     ),

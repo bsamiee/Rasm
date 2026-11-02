@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undefined-match-by-option
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $HAND
+    all:
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^match$'}}}}
+        - has:
+            field: arguments
+            all:
+                - has: {nthChild: 2, kind: object}
+                - has:
+                    nthChild: 1
+                    kind: call_expression
+                    all:
+                        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^fromUndefinedOr$'}}}}
+                        - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE}}
+message: '`$HAND` converts `$VALUE` through `Option.fromUndefinedOr` to match it'
+note: 'Call `UndefinedOr.match(<value>, { onUndefined, onDefined })`'

@@ -42,6 +42,7 @@ Command.make(
 `FileSystem` and `Path` are services a platform layer provides, and `Glob` matches paths without the disk:
 - `fs.glob(pattern, { root, exclude, dot })` returns sorted paths, and `Glob.make(pattern)` with `Glob.match` tests a path
 - `fs.makeTempDirectoryScoped()` owns scratch space for a scope, `fs.stream` and `fs.sink` stream bytes, and `fs.watch(path)` streams changes
+- Bundle resources resolve through `Url.fromString('../Resources/<file>', base)`, `base` the `URL` that `path.toFileUrl(executable)` returns, in place of a `dirname` chain
 - `FileSystem.layerNoop({ ...overrides })` stubs the service for a test
 
 ## [04]-[CRYPTO]

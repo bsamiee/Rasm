@@ -35,8 +35,8 @@ Getters return base classes, and each class's static `cast` narrows one or retur
 import type { Project, premierepro } from '@adobe/premierepro';
 
 const folders = (host: premierepro, project: Project) =>
-    Effect.tryPromise({ try: () => project.getRootItem(), catch: (cause) => HostError.make({ step: project.name, cause }) }).pipe(
-        Effect.flatMap((root) => Effect.tryPromise({ try: () => root.getItems(), catch: (cause) => HostError.make({ step: root.name, cause }) })),
+    Effect.tryPromise({ try: () => project.getRootItem(), catch: HostError.refused(project.name) }).pipe(
+        Effect.flatMap((root) => Effect.tryPromise({ try: () => root.getItems(), catch: HostError.refused(root.name) })),
         Effect.map(Array.flatMap((item) => Array.fromNullishOr(host.FolderItem.cast(item)))),
     );
 ```
@@ -76,8 +76,8 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
             });
             return refused;
         },
-        catch: (cause) => HostError.make({ step: undo, cause }),
-    }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(HostError.make({ step: undo, cause: { refused } })) })));
+        catch: HostError.refused(undo),
+    }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(HostError.refused(undo)({ refused })) })));
 ```
 
 `renamed` takes items read before the lock and returns their count, or fails with `refused` naming refused items while every other action executes. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw in the transaction callback execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.

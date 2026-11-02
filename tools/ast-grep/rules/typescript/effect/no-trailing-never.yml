@@ -21,6 +21,11 @@ utils:
                           all:
                             - has: {field: property, regex: '^infinity$'}
                             - has: {field: object, matches: {effect-module: {name: {regex: '\bDuration$'}}}}
+    finalizer:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(ensuring|onExit|onInterrupt)$'}}}}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
     last-statement:
         nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
         inside: {kind: statement_block, inside: {kind: generator_function, field: body}}
@@ -31,7 +36,7 @@ rule:
           all:
             - regex: '^yield\s*\*'
             - any:
-                - all: [{has: {matches: never}}, {inside: {kind: return_statement, matches: last-statement}}]
+                - all: [{has: {matches: never}}, {inside: {kind: 'return_statement, expression_statement', matches: last-statement}}]
                 - all: [{has: {matches: endless-sleep}}, {inside: {kind: expression_statement, matches: last-statement}}]
         - kind: call_expression
           all:
@@ -50,6 +55,17 @@ rule:
           all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(ensuring|onExit|onInterrupt)$'}}}}
             - has: {field: arguments, has: {nthChild: 1, matches: never}}
+        - kind: call_expression
+          any:
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: never}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: finalizer}}
+            - all:
+                - has: {field: function, matches: effect-pipe-function}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: never}}, {has: {nthChild: 2, matches: finalizer}}]}
+            - all:
+                - has: {field: function, matches: finalizer}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: never}}, {not: {has: {nthChild: 2}}}]}
         - kind: call_expression
           all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^forever$'}}}}

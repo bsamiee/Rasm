@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-record-entries
+language: tsx
+rule:
+    kind: member_expression
+    any:
+        - all: [{regex: '^((globalThis|window|self)\.)?Object\.entries$'}, {matches: typescript-global-reference}]
+        - matches: {effect-module-member: {module: {regex: '\bRecord$'}, member: {regex: '^toEntries$'}}}

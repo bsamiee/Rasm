@@ -41,13 +41,13 @@ Each drop doubles the wait from `base`:
 
 ## [03]-[COLLECTIONS]
 
-Persistent collections key on structural values: a composite key is a struct or tuple of its parts, and a lookup builds an equal value. Grouping by a composite key is one fold taking the key function:
+Persistent collections key on structural values: a composite key is a struct or tuple of its parts, and a lookup builds an equal value. Grouping by a composite key is one fold:
 
 ```ts
-const grouped = <K, A>(key: (value: A) => K) => Iterable.reduce(HashMap.empty<K, Chunk.Chunk<A>>(), (index, value: A) => HashMap.modifyAt(index, key(value), flow(Option.getOrElse(Chunk.empty), Chunk.append(value), Option.some)));
+const byCell = Iterable.reduce(readings, HashMap.empty<Cell, Chunk.Chunk<Reading>>(), (index, reading) => HashMap.modifyAt(index, reading.cell, flow(Option.getOrElse(Chunk.empty), Chunk.append(reading), Option.some)));
 ```
 
-`grouped((reading: Reading) => reading.cell)(readings)` indexes readings by a `{ row, column }` cell, and `HashMap.get(index, { row: 0, column: 0 })` reads one group:
+`readings` each hold a `{ row, column }` cell, and `HashMap.get(byCell, { row: 0, column: 0 })` reads one group:
 - `HashMap.mutate` applies a batch of updates to a transient copy no reader sees and returns one new map
 - `Trie` keys strings in key order, reading by prefix through `keysWithPrefix` and by longest prefix through `longestPrefixOf`
 - `Chunk` shares both sides of a concatenation, where a `readonly A[]` copies every element
@@ -70,14 +70,14 @@ const prices = Optic.id<readonly (typeof Item.Type)[]>().forEach((item) => item.
 
 ## [05]-[ORDER_AND_EQUIVALENCE]
 
-Orders compose from the orders value modules export and sit on their type as a static that `Array.max`, `Order.clamp`, and `Combiner.max` read. One function orders every literal schema by its declaration order:
+Orders compose from the orders value modules export and sit on their type as a static that `Array.max`, `Order.clamp`, and `Combiner.max` read. Literal schemas order by declaration through each value's index in `literals`:
 
 ```ts
-const ranked = <const L extends readonly SchemaAST.LiteralValue[]>(schema: Schema.Literals<L>) => Order.mapInput(Number.Order, (value: L[number]) => schema.literals.indexOf(value));
+const bySeverity = Order.mapInput(Number.Order, (severity: typeof Severity.Type) => Severity.literals.indexOf(severity));
 ```
 
-`Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(ranked(Severity)), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
-- `Order.Struct` compares fields in key order until one differs, and `Order.mapInput(Order.Struct(...), f)` orders by a nested part
+`Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(bySeverity), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
+- `Order.Struct` and `Order.Tuple` compare fields in key or position order until one differs, and `Order.mapInput(Order.Struct(...), f)` orders by a nested part
 - `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` builds one by key for a type lacking it (`URL` by `href`) as a static
 - `Array.containsWith`, `Array.dedupeWith`, `Array.unionWith`, and `Stream.changesWith` read an `Equivalence` in place of a hand `===` on a key
 - `Array.dedupe` and `HashSet` group through `Equal` and `Hash` in one pass, `Array.dedupeWith` compares each element with every kept one

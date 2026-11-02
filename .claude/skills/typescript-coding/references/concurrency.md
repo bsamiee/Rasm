@@ -22,7 +22,7 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 ```
 
 `changed` streams keys and `sync` runs one. Each key restarts its run and interrupts the stale one, and `Layer.effectDiscard(Effect.forkScoped(restarting(changed, sync)))` ends the key stream and every run with the layer scope:
-- Runs no caller joins hold `never` as their error and recover their own failure
+- Runs no caller joins hold `never` as their error and log their cause through `Effect.tapCause(Effect.logError)`, an unjoined fiber's defect leaving no other record
 - `FiberMap.join` fails with a member's first failure where a caller awaits the set
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
 - `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
@@ -33,22 +33,25 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 `Stream<A, E, R>` pulls values on demand, and a slow consumer slows its producer. Producers enter through `Stream.callback`, its queue holding `bufferSize` items under a full-buffer `strategy` (`'suspend'`, `'dropping'`, `'sliding'`). `Queue.make`, `Stream.buffer`, and `Stream.share` take the same pair as `capacity` and `strategy`. Host callback registrations are acquired and released in the stream's scope:
 
 ```ts
-const subscribed = <A>(subscribe: (emit: (value: A) => void) => () => void) =>
-    Stream.callback<A>((queue) =>
-        Effect.acquireRelease(
-            Effect.sync(() => subscribe((value) => Queue.offerUnsafe(queue, value))),
-            Effect.sync,
-        ),
-    );
+const sizes = Stream.callback<DOMRectReadOnly>((queue) =>
+    Effect.acquireRelease(
+        Effect.sync(() => {
+            const observer = new ResizeObserver((entries) => entries.forEach((entry) => Queue.offerUnsafe(queue, entry.contentRect)));
+            observer.observe(viewport);
+            return observer;
+        }),
+        (observer) => Effect.sync(() => observer.disconnect()),
+    ),
+);
 ```
 
-`subscribe` registers a host listener and returns an unsubscribe function the stream runs at its end. `Queue.offerUnsafe` drops the new item when the buffer is full, or the oldest under `strategy: 'sliding'`. Effectful producers offer through `Queue.offer`, suspending while the buffer is full:
+`Stream.callback` forks the registration into the stream scope, and the release disconnects `viewport`'s observer when the stream ends, in place of an `Effect.ensuring(Effect.never, release)` holding that fiber open. `ResizeObserver` reports once on `observe` for an element with a nonzero size. `Queue.offerUnsafe` drops the new item when the buffer is full, or the oldest under `strategy: 'sliding'`. Effectful producers offer through `Queue.offer`, suspending while the buffer is full:
 
 ```ts
-const produced = <A, E, R>(produce: (emit: (value: A) => Effect.Effect<boolean>) => Effect.Effect<unknown, E, R>, bufferSize: number) => Stream.callback<A, E, R>((queue) => produce((value) => Queue.offer(queue, value)).pipe(Queue.into(queue)), { bufferSize });
+const entries = Stream.callback<Entry, WalkError>((queue) => walk(root, (entry) => Queue.offer(queue, entry)).pipe(Queue.into(queue)), { bufferSize: 64 });
 ```
 
-`produce` is a host walk calling `emit` per item. `Queue.into` ends the stream when `produce` succeeds and fails it with `produce`'s error:
+`walk` is a host traversal calling its callback per entry under `root` and failing with `WalkError`. `Queue.into` ends the stream when `walk` succeeds and fails it with `walk`'s error:
 - `Stream.share({ capacity, replay, idleTimeToLive })` multicasts a stream in hand, starting with its first consumer and ending after its last
 - `Stream.filterMap` with `Result.fromOption` keeps the elements a lookup finds
 - Sources a constructor states enter through it: `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, `paginate` for cursors
@@ -106,10 +109,10 @@ const lineOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 Recurrence policies are `Schedule` values composed once and read by `Effect.retry`, `Effect.repeat`, and `Stream.retry`:
 
 ```ts
-const backoff = ({ base = Duration.seconds(1), cap = Duration.seconds(10), times = 5 } = {}) => Schedule.min([Schedule.exponential(base), Schedule.spaced(cap)]).pipe(Schedule.jittered, Schedule.upTo({ times }));
+const backoff = Schedule.min([Schedule.exponential(Duration.seconds(1)), Schedule.spaced(Duration.seconds(10))]).pipe(Schedule.jittered, Schedule.upTo({ times: 5 }));
 ```
 
-`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at `cap`. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff({ times: 3 }), while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
+`Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at the spacing. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff, while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
 - Initial runs precede the schedule, `times` counts retries after the first run
 - `Schedule.while` stops on a step's `attempt`, `elapsed`, `input`, or `output`, and the retried effect reads the same fields from `Schedule.CurrentMetadata`
 - `ExecutionPlan.make` lists layers with their own `attempts` and `schedule`, and `Effect.withExecutionPlan` reruns an effect across them

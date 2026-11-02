@@ -58,7 +58,7 @@ rule:
                                 field: arguments
                                 all:
                                     - not: {has: {kind: comment}}
-                                    - has: {nthChild: 1, pattern: $L}
+                                    - has: {nthChild: 1, pattern: $L, not: {has: {field: function, matches: typescript-record-entries}}}
                                     - has: {nthChild: 2, matches: projection, pattern: $FN}
                                     - not: {has: {nthChild: 3}}
                         - all:
@@ -66,7 +66,7 @@ rule:
                                 field: function
                                 kind: member_expression
                                 all:
-                                    - has: {field: object, pattern: $L, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
+                                    - has: {field: object, pattern: $L, not: {any: [{matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
                                     - has: {field: property, regex: '^map$'}
                             - has:
                                 field: arguments

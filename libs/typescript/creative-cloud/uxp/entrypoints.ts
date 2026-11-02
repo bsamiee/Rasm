@@ -1,6 +1,6 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
-import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, PlatformError, Predicate, Record, Schema, Sink, Stdio, Stream } from 'effect';
+import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, PlatformError, Predicate, Record, Schema, Sink, Stdio, Stream, UndefinedOr } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Manifest } from '#/manifest';
 import { Plugin, Uxp } from '#/runtime';
@@ -72,7 +72,7 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
                 flow(
                     Cause.squash,
                     Schema.encodeEffect(Schema.Defect()),
-                    Effect.flatMap((defect) => Option.match(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), { onNone: () => Effect.void, onSome: answer })),
+                    Effect.flatMap((defect) => UndefinedOr.match(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect)), { onUndefined: () => Effect.void, onDefined: answer })),
                 ),
             ),
         );

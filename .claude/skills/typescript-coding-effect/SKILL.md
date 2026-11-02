@@ -54,12 +54,11 @@ layer(Layer.mock(Store, { read: (key) => StoreError.make({ reason: { _tag: 'Unav
 Logs, spans, and metrics leave the process through one layer at the root:
 
 ```ts
-const telemetry = (options: Parameters<typeof Otlp.layerFromConfig>[0]) =>
-    Otlp.layerFromConfig(options).pipe(
-        Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]),
-        Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])),
-        Layer.provideMerge(Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault('Info')))),
-    );
+const Telemetry = Otlp.layerFromConfig().pipe(
+    Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]),
+    Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])),
+    Layer.provideMerge(Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL').pipe(Config.withDefault('Info')))),
+);
 ```
 
 `Otlp.layerFromConfig` reads `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, and the batch variables, and `Logger.tracerLogger` keeps each log a span event:

@@ -22,7 +22,7 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 - `Model.GeneratedByDb` reaches the read variants alone, `Model.GeneratedByApp` every variant but `jsonCreate` and `jsonUpdate`, and `Model.Sensitive` every variant but JSON
 - `Model.DateTimeUpdate` stamps each write, and `Model.FieldOption` decodes a `null` column and a missing JSON key to one `Option`
 - Boundaries other than a table and a JSON API declare their variant set once through `VariantSchema.make({ variants, defaultVariant })`, with `Class`, `Field`, and `FieldExcept` deriving the same way
-- `X.mapFields(Struct.assign(...))`, `Struct.omit`, and `Struct.map(Schema.optionalKey)` derive a variant, a `...X.fields` spread restating them
+- `X.mapFields(Struct.assign(...))`, `Struct.omit`, and `Struct.map(Schema.optionalKey)` derive a variant, `Schema.fieldsAssign(fields)` adds fields to each struct member of a union through `mapMembers`, and a `...X.fields` spread restates them
 - Fields sharing one schema spread from `Struct.Record(keys, S)`, the keys a literal list or `X.literals`
 - Relations no getter derives are one struct `Schema.makeFilter` returning `{ path, issue }` at each field a reader fixes
 - Readers fixing a whole value decode with `{ errors: 'all' }` and read `SchemaIssue.makeFormatterStandardSchemaV1()(error.issue).issues`, one message per path
@@ -85,10 +85,15 @@ class Certificate extends Schema.Class<Certificate, { readonly brand: unique sym
     validTo: Schema.DateTimeUtcFromDate,
 }) {}
 
+const Thrown = Schema.Struct({ message: Schema.String });
+
 const CertificateFromPem = Schema.String.pipe(
     Schema.decodeTo(Certificate, {
         decode: SchemaGetter.transformEffect((pem, options) =>
-            Effect.try({ try: () => new X509Certificate(pem), catch: () => new SchemaIssue.InvalidValue({ expected: 'PEM certificate' }, pem, options) }).pipe(
+            Effect.try({
+                try: () => new X509Certificate(pem),
+                catch: (cause) => new SchemaIssue.InvalidValue({ expected: 'PEM certificate', message: pipe(cause, Schema.decodeUnknownOption(Thrown), Option.map(Struct.get('message')), Option.getOrUndefined) }, pem, options),
+            }).pipe(
                 Effect.map(({ subject, fingerprint256, validFromDate, validToDate }) => ({ subject, fingerprint: fingerprint256, validFrom: validFromDate, validTo: validToDate })),
             ),
         ),
@@ -97,7 +102,7 @@ const CertificateFromPem = Schema.String.pipe(
 );
 ```
 
-`CertificateFromPem` replaces `new X509Certificate(pem)` inside `try` followed by `new Certificate(...)`. `X509Certificate` from `node:crypto` throws on malformed text, and the getter returns encoded fields for `Certificate` to decode its dates, check `fingerprint`, and construct itself:
+`CertificateFromPem` replaces `new X509Certificate(pem)` inside `try` followed by `new Certificate(...)`. `X509Certificate` from `node:crypto` throws on malformed text, `Thrown` reads the message an `Error` or a thrown plain object holds, and the getter returns encoded fields for `Certificate` to decode its dates, check `fingerprint`, and construct itself:
 - Decode getters read their source's `Type` and target checks run on their output, `FiniteFromString` rejects `NaN` that `NumberFromString` returns
 - Getter throws die as defects, a `Result` parse fails through `Effect.fromResult` and an `Option` parse through `Option.match`
 - `transform` and `transformEffect` skip an absent key, `transformOptional` receives it as `Option.none()` and returns `Option.none()` to omit it
@@ -109,6 +114,8 @@ const CertificateFromPem = Schema.String.pipe(
 - Transformations shared by more than one schema are one value, `composeTransformation` chains transformations in place of an intermediate schema
 - `Schema.StringFromUriComponent` as a `TemplateLiteralParser` part escapes each URI path segment on encode
 - Services a transformation reads join `DecodingServices` and `EncodingServices`, and the decode effect requires them
+- Runtime handles stay out of the encoded value through `encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(f), encode: SchemaGetter.omit() })`
+- `Schema.decodeEffect` types its input as the schema's `Encoded` and `decodeUnknownEffect` as `unknown`, both running one decode
 
 ## [04]-[OPTIONALITY]
 
@@ -146,10 +153,11 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 |  [01]   | JSON text                 | `Schema.fromJsonString(Schema.toCodecJson(X))`            |
 |  [02]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                   |
 |  [03]   | JSON a Go service writes  | `Schema.toCodecGoJson(X)`                                 |
-|  [04]   | Query string              | `Schema.fromURLSearchParams(Schema.toCodecStringTree(X))` |
+|  [04]   | Query string or fragment  | `Schema.fromURLSearchParams(Schema.toCodecStringTree(X))` |
 |  [05]   | Form body                 | `Schema.fromFormData(Schema.toCodecStringTree(X))`        |
 |  [06]   | Tool, form, or API schema | `Schema.toJsonSchemaDocument(X)`                          |
 |  [07]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                            |
 
 - `toCodecGoJson` decodes the `null` Go writes for a nil slice, map, or optional field as empty or absent
 - `Schema.toCodecArrayFromSingle` over an array field accepts the lone value a query string or form sends for a one-item list
+- `Schema.ArrayEnsure(S)` normalizes one value or an array of values into an array on decode, an `Array.ensure` over a decoded value restating it

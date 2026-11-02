@@ -29,7 +29,7 @@ rule:
             field: function
             kind: member_expression
             all:
-                - has: {field: property, regex: '^(get|getAll)$'}
+                - has: {field: property, regex: '^(get|getAll|has)$'}
                 - has: {field: object, matches: held-params}
 message: '`$HAND` reads or builds search parameters by hand'
 note: 'Decode request parameters through `HttpServerRequest.schemaSearchParams(<struct>)`, other parameters through a module-scope `Schema.fromURLSearchParams(<struct>)` with `Schema.decodeOption` and `Schema.encodeOption`'

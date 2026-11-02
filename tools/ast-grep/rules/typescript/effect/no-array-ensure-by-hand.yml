@@ -2,6 +2,11 @@
 id: no-array-ensure-by-hand
 language: tsx
 severity: error
+utils:
+    flattened:
+        any:
+            - pattern: '[$X].flat()'
+            - pattern: '[$X].flat(1)'
 rule:
     kind: call_expression
     pattern: $CALL
@@ -11,7 +16,7 @@ rule:
             - any:
                 - pattern: $S.Union([$X, $S.Array($X)])
                 - pattern: $S.Union([$S.Array($X), $X])
-        - pattern: '[$X].flat()'
+        - matches: flattened
 rewriters:
     - id: schema
       rule:
@@ -20,10 +25,19 @@ rewriters:
             - pattern: $S.Union([$S.Array($X), $X])
       fix: $S.ArrayEnsure($X)
     - id: value
-      rule: {pattern: '[$X].flat()'}
+      rule:
+        matches: flattened
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                all:
+                    - has: {field: source, regex: '^[''"]effect[''"]$'}
+                    - has: {kind: import_clause, has: {kind: named_imports, has: {kind: import_specifier, regex: '^Array$'}}}
       fix: Array.ensure($X)
 transform:
     ENSURED: rewrite($CALL, rewriters=[schema, value])
 fix: $ENSURED
-message: '`$CALL` normalizes one `$X` or an array of `$X` by hand'
-note: 'Call `Schema.ArrayEnsure(<schema>)` to decode, `Array.ensure(<value>)` for a value'
+message: '`$CALL` normalizes one `$X` or an array of `$X` into an array by hand'
+note: 'Call `Schema.ArrayEnsure(<schema>)` to decode, `Array.ensure(<value>)` from `effect` for a value'

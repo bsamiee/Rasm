@@ -6,12 +6,19 @@ rule:
     kind: call_expression
     pattern: $CALL
     all:
+        - not: {has: {field: type_arguments, kind: type_arguments, not: {regex: '^<HTMLElement>$'}}}
         - has:
             field: function
             kind: member_expression
             all:
                 - has: {field: property, regex: '^querySelector$'}
-                - has: {field: object, pattern: $DOCUMENT, regex: '^((globalThis|window|self)\.)?document$', matches: typescript-global-reference}
+                - has:
+                    field: object
+                    pattern: $DOCUMENT
+                    any:
+                        - all: [{regex: '^((globalThis|window|self)\.)?document$'}, {matches: typescript-global-reference}]
+                        - kind: member_expression
+                          has: {field: property, regex: '^ownerDocument$'}
         - has:
             field: arguments
             all:
@@ -21,6 +28,10 @@ rule:
                     any:
                         - pattern: '`#${CSS.escape($ID)}`'
                         - pattern: "'#' + CSS.escape($ID)"
+                        - pattern: '"#" + CSS.escape($ID)'
+                        - pattern: '`#${$ID}`'
+                        - pattern: "'#' + $ID"
+                        - pattern: '"#" + $ID'
 fix: $DOCUMENT.getElementById($ID)
-message: '`$CALL` escapes an id into a selector to find one element'
-note: 'Call `document.getElementById(<id>)` with the id unescaped'
+message: '`$CALL` finds one element through a selector built from an id'
+note: 'Call `getElementById(<id>)` on the same document with the id unescaped'

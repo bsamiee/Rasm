@@ -13,7 +13,12 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
     const object = { key: 'media/object', size: content.length, mime: 'text/plain' };
     const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412 };
     const ignore = Function.constant(Effect.void);
-    const put = (key: string, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown>) => Effect.scoped(Effect.flatMap(createUpload({ key, size: object.size }), ({ uploadToken, write }) => Effect.andThen(started(uploadToken), write(body))));
+    const put = (key: string, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown>) =>
+        createUpload({ key, size: object.size }).pipe(
+            Effect.tap(({ uploadToken }) => started(uploadToken)),
+            Effect.flatMap(({ write }) => write(body)),
+            Effect.scoped,
+        );
     const read = Effect.fn('read')(function* (key: string, headers: Record<string, string>) {
         const response = HttpServerResponse.toWeb(yield* Effect.provideService(serveObject({ key, mime: object.mime }), HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, { headers }))));
         return { status: response.status, headers: response.headers, text: yield* Effect.promise(() => response.text()) };

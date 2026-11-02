@@ -7,12 +7,6 @@ description: "Use when writing or reviewing code that runs in an Adobe UXP host,
 
 UXP runs each plugin and script in one V8 context inside an Adobe host, with host calls at a boundary that decodes values and translates each `Exit`.
 
-[PRINCIPLES]:
-- Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
-- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-
 [REFERENCES]:
 - [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM: object model, transactions, GREP, export, and plugin load
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plugin load
@@ -99,6 +93,7 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 
 - Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's and that bundles strip to the `require` name
 - `types` lists `node` beside each `with-protocol` entry, and `node` types `require`, `process`, and `adobe:fs` members
+- `paths` entries resolve against the declaring config's folder, and a shared config writes `${configDir}/node_modules/...` to resolve in each extending project
 - Diagnostics on a call the object model states name a typings gap, and every other diagnostic names a defect in the call
 - Typings can state another enumeration value than the host holds, and code reads enumeration members from the module
 
@@ -143,15 +138,14 @@ Object model facts come from the owner that states them for the installed build:
 
 Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup.
 
-Each package declares one `Schema.TaggedError` for failures no host error (`PlatformError`, `HttpClientError`) states, with the refused step and the host's thrown value or returned failure as `cause`:
+`HostError` is the package error for failures no host error (`PlatformError`, `HttpClientError`) states, with a `Refused` reason, refused step as `subject`, and the host's thrown value or returned failure as `cause`. `HostError.refused(subject)` returns a host call's `catch` function:
 
 ```ts
-class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', { step: Schema.String, cause: Schema.Defect() }) {}
 const written = (target: object, values: Record.ReadonlyRecord<string, unknown>): Effect.Effect<readonly string[], HostError> =>
     Effect.validate(
-        Object.entries(values),
+        Record.toEntries(values),
         Effect.fnUntraced(function* ([field, value]: readonly [string, unknown]) {
-            const refused = (cause: unknown) => HostError.make({ step: field, cause });
+            const refused = HostError.refused(field);
             const inner: unknown = Predicate.isObject(value) && Predicate.hasProperty(target, field) ? yield* Effect.try({ try: () => target[field], catch: refused }) : undefined;
             if (Predicate.isObject(value) && Predicate.isObject(inner)) {
                 return Array.map(yield* written(inner, value), (name) => `${field}.${name}`);
@@ -176,14 +170,13 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 Host state outlasting a call (listener, preference outside undo, temporary file, socket, runtime) pairs acquisition with release in one `Scope`. Hosts call a listener synchronously on their own thread, and removal takes the function registration received:
 
 ```ts
-const listening = <V, E>(add: (handler: (event: V) => void) => void, remove: (handler: (event: V) => void) => void, work: (event: V) => Effect.Effect<void, E>) =>
-    Effect.flatMap(FiberSet.makeRuntime<never, void, E>(), (fork) => {
-        const handler: (event: V) => void = (event) => fork(work(event));
-        return Effect.acquireRelease(Effect.sync(() => add(handler)), () => Effect.sync(() => remove(handler)));
-    });
+const commands = Effect.flatMap(FiberSet.makeRuntime<never, void, HostError>(), (fork) => {
+    const handler = (event: Event): void => fork(shown(event));
+    return Effect.acquireRelease(Effect.sync(() => document.addEventListener('uxpcommand', handler)), () => Effect.sync(() => document.removeEventListener('uxpcommand', handler)));
+});
 ```
 
-`listening` returns `Effect<void, never, Scope>`, and its handler forks `work` and returns to its host at once. Closing the scope removes the handler and interrupts its fibers. `add` and `remove` take host calls of any shape (`addEventListener`, `action.addNotificationListener`). Host rollback restores document state, and a scope restores every state a rollback leaves.
+`commands` is an `Effect<void, never, Scope>`, and its handler forks `shown(event)`, the effect a panel runs per visibility event, and returns to its host at once. Closing the scope removes the handler and interrupts its fibers. Host listener calls of every shape (`action.addNotificationListener`, `app.addEventListener`) take the same pair. Host rollback restores document state, and a scope restores every state a rollback leaves.
 
 ## [07]-[UNDO_STEPS]
 
@@ -218,9 +211,8 @@ Hosts show nothing for a rejected command, and Photoshop logs nothing for it. On
 ```ts
 import fs from 'adobe:fs';
 import { entrypoints } from 'adobe:uxp';
-import { Manifest } from '#/manifest';
-import { Plugin, Uxp } from '#/runtime';
 
+const Setup = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
 const logged = flow(Cause.pretty, Console.error);
 const plugin = <R, E, F>(
     layer: Layer.Layer<R, E, Uxp | Plugin>,
@@ -243,7 +235,7 @@ const plugin = <R, E, F>(
         ),
     );
     const run = (work: Effect.Effect<unknown, F, R | Uxp | Plugin>) => (): Promise<void> => runtime.runPromise(Effect.asVoid(work));
-    Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
+    Schema.decodeEffect(Setup)(entrypoints).pipe(
         Effect.flatMap(({ setup }) =>
             Effect.sync(() =>
                 setup.call(entrypoints, {
@@ -270,23 +262,23 @@ const plugin = <R, E, F>(
 
 One manifest serves one host, `host.app` taking `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`. Hosts enforce each `requiredPermissions` key:
 
-| [INDEX] | [KEY]                                       | [GRANTS]                                                    | [WITHOUT]                        |
-| :-----: | :------------------------------------------ | :---------------------------------------------------------- | :------------------------------- |
-|  [01]   | `network.domains`                           | Dial and fetch to each listed origin                        | Dial throws a manifest denial    |
-|  [02]   | `localFileSystem: "fullAccess"`             | Access outside plugin storage                               | Defaults to plugin storage       |
-|  [03]   | `allowCodeGenerationFromStrings`            | `eval`, `new Function`, inline handlers                     | InDesign v5 runs `new Function`  |
-|  [04]   | `featureFlags.unhandledRejection`           | `unhandledrejection` events                                 | Rejection logged, no caller told |
-|  [05]   | `launchProcess`                             | `shell.openPath`, `shell.openExternal`                      | Both calls throw a denial        |
-|  [06]   | `clipboard: "read"` or `"readAndWrite"`     | System clipboard reads, or reads and writes                 | No clipboard access              |
-|  [07]   | `ipc.enablePluginCommunication`             | Calls into other installed plugins through `pluginManager`  | Defaults to `false`              |
-|  [08]   | `webview` with `allow: "yes"` and `domains` | WebViews in modal dialogs for the listed domains or `"all"` | No WebView                       |
-|  [09]   | `enableUserInfo`                            | `userInfo.userId()` returns the Creative Cloud user GUID    | No user GUID                     |
+| [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
+| :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
+|  [01]   | `network.domains`                       | Dial and fetch to each listed origin                     | Dial throws a manifest denial    |
+|  [02]   | `localFileSystem: "fullAccess"`         | Access outside plugin storage                            | Defaults to plugin storage       |
+|  [03]   | `allowCodeGenerationFromStrings`        | `eval`, `new Function`, inline handlers                  | InDesign v5 runs `new Function`  |
+|  [04]   | `featureFlags.unhandledRejection`       | `unhandledrejection` events                              | Rejection logged, no caller told |
+|  [05]   | `launchProcess`                         | `shell.openPath`, `shell.openExternal`                   | Both calls throw a denial        |
+|  [06]   | `clipboard: "read"` or `"readAndWrite"` | System clipboard reads, or reads and writes              | No clipboard access              |
+|  [07]   | `ipc.enablePluginCommunication`         | Calls to other installed plugins through `pluginManager` | Defaults to `false`              |
+|  [08]   | `webview` `allow: "yes"` with `domains` | Modal dialog WebViews for listed domains or `"all"`      | No WebView                       |
+|  [09]   | `enableUserInfo`                        | `userInfo.userId()` returns the Creative Cloud user GUID | No user GUID                     |
 
 - `entrypoints` rows name a `panel` or `command` `id` with `label.default`
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
-- `adobe:uxp` exports `Entry` as a type alone, and `Uxp.Entry` decodes a storage entry by its `isEntry: true` field with a `url` string or `URL`
+- `adobe:uxp` exports `Entry` as a type alone, and `Uxp.Entry` decodes a storage entry by its `isEntry: true` field, its `url` typed `string` and returned as a string or `URL`
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`

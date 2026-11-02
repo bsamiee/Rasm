@@ -6,6 +6,7 @@ Tools are schema contracts a `Toolkit` binds to handlers, and one toolkit serves
 - `Tool.make(name, { description, parameters, success, failure, failureMode, dependencies })` declares one, `parameters` defaulting to `Tool.EmptyParams` and `success` to `Schema.Void`
 - `Toolkit` decodes arguments with `parameters` itself, and a parameter with a non-JSON encoded side (`DateTimeUtc`, `BigDecimal`, `Option`) declares `Schema.toCodecJson(X)`
 - `Tool.Readonly`, `Tool.Destructive`, `Tool.Idempotent`, and `Tool.OpenWorld` annotate behavior, an unannotated tool advertising itself destructive and open-world
+- `Tool.getDescription` returns the text clients list, `description` or else a description annotation on `parameters`
 - `Tool.Strict` rejects excess parameter keys and advertises `additionalProperties: false`
 - `failureMode: 'return'` returns a typed handler failure as the result, and a defect dies
 - `dependencies: [S]` makes `S` a per-request service the handler reads
@@ -40,12 +41,13 @@ const Server = McpServer.layerHttp({
 `LedgerError` is the package error, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
 - Services a handler reads become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges and `Layer.provide` leaves in place
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
-- Middleware runs around `tools/call`, `resources/read`, `prompts/get`, and `completion/complete`, reading `{ method, target, payload, headers, sessionId }` and keeping the handler's opaque result
+- Middleware wraps `tools/call`, `resources/read`, `prompts/get`, and `completion/complete` and reads `{ method, target, payload, headers, sessionId }`
+- Middleware receives handler results as opaque values, and a span or metric reading one wraps the registration
 - `m.layer` scopes middleware to the registrations it reaches, and `a.combine(b)` runs `b` outside `a`
-- `McpServer.middleware(fn, { global: true })` is a layer covering every method, the one place for the span and metric around each request
-- `McpServer.visibility` hides registrations per caller from lists and calls, and `McpSchema.EnabledWhen` hides them per client profile
+- `McpServer.middleware(fn, { global: true })` runs outside local middleware, middleware provided both ways runs once, and none runs for `initialize`
+- `McpServer.visibility` hides registrations per caller and `McpSchema.EnabledWhen` per client profile, and list requests run middleware around `visibility` alone
 - Middleware errors extend `McpSchema.McpErrorBase` with a code in `-32000` to `-32019` and reach the client as JSON-RPC errors
-- Declared `failure` errors reach the client as `isError` text, and undeclared failures and defects reach it as one generic message
+- Declared `failure` errors reach the client as `isError` text, and other failures reach it as one generic message, a defect logged and sent to `ErrorReporter`
 - Tool results send `structuredContent` with one JSON text block, and a tool returns a struct
 - `McpServer.resource` and its template form take typed `McpSchema.param` segments, and completion handlers return typed values the server encodes and counts
 - `McpServer.prompt({ name, parameters, content })` derives argument requirement from field optionality and description from annotations

@@ -12,7 +12,7 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
+- Names come from domain vocabulary and members of packages in use, a file takes its concept's name, and no name is coined
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition
@@ -75,6 +75,7 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
 - Native array members state a direct `filter`, `every`, `join`, or `reduce`, and `Array`, `Record`, `Struct`, and `Iterable` functions every other traversal
+- `Record.collect(record, (key, value) => ...)` maps entries to an array and `Record.filterMap` keeps the entries a lookup finds, key-value pairs from `Object.entries` restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
 - `reduce` with a seed folds a reduction no member names
 - `Array.makeBy`, `Array.range`, and `Array.unfold` generate sequences from a length, bounds, or a seed
@@ -94,7 +95,7 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 - `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
 - Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
 - Host enums match with an arm per member once decoded
-- Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` test or `type !==` filter restating it
+- Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` or `type !==` branch restating it
 - Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
 
 ### [03.2]-[RECURSION]
@@ -143,7 +144,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 ```
 
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
-- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
+- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, and a decode of a value the program encoded dies through `Effect.orDie`
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]
@@ -197,10 +198,11 @@ const status = Delivery.match({
 ## [06]-[EFFECTS]
 
 `Effect<A, E, R>` describes a program that succeeds with `A`, fails with `E`, reads services `R`, and performs nothing until a runtime runs it. Promises are eager, enter through `Effect.tryPromise`, and leave through a host runtime call:
-- `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, with `catch` building the package error around its cause, or the `SchemaIssue` inside a decode, and a thrown non-`Error` value decoding through a schema for the message it carries
+- `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, its `catch` building the package error or a decode's `SchemaIssue` around the throw
 - `Effect.callback` adapts a callback API, with registration receiving an `AbortSignal` and returning a cleanup effect
-- Listeners completing a `Deferred` the registering function awaits restate `Effect.callback`
+- Listeners completing a `Deferred` the registering function awaits restate `Effect.callback`, except where a host callback must throw to roll back
 - `Effect.tryPromise` passes an `AbortSignal` that interruption aborts to a `try` declaring `(signal)`, a rest or defaulted parameter receives `undefined`
+- `Effect.abortSignal` yields a signal its scope aborts on close, for a host's `abortSignal` or `{ signal }` option
 
 ```ts
 const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: (cause) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject: key, cause }) }), Effect.map(Option.fromNullOr));
@@ -229,6 +231,7 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
 - `Intl` formats numbers, dates, lists, and plurals for display, each formatter built once outside the function reading it
+- Plural forms are a record over `Intl.LDMLPluralRule` with a required `other`, indexed by the category `select(count)` returns in place of comparing a count or category with one value
 - `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
 
 ## [08]-[MODULES]

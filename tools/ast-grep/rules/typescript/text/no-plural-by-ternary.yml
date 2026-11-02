@@ -13,7 +13,11 @@ utils:
             - all: [{has: {field: operator, regex: '^(>|<=)$'}}, {has: {field: right, matches: one}}]
             - all: [{has: {field: operator, regex: '^(<|>=)$'}}, {has: {field: left, matches: one}}]
     text:
-        kind: string, template_string
+        any:
+            - kind: string
+            - kind: template_string
+            - kind: member_expression
+              has: {field: property, regex: '^(zero|one|two|few|many|other)$'}
     category-select:
         kind: call_expression
         has:

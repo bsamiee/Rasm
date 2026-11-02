@@ -13,11 +13,12 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 ```
 
 - `Effect.fromNullishOr` enters a nullable host value into the same chain
-- `Effect.fromOption` fails with `NoSuchElementError` itself, and an error rebuilt to add a message restates it
-- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field in place of a trip through `Option.fromUndefinedOr`
+- `Effect.fromOption(option, onNone)` fails with the error `onNone` builds (a `SchemaIssue`, a lookup's candidates), and a rebuilt `NoSuchElementError` restates it
+- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field in place of converting it through `Option.fromUndefinedOr` to match it
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
 - `Array.findFirst` with a function returning `Option` finds and maps in one pass
 - `Effect.transposeOption` runs an effect an `Option` holds and returns an effect of `Option`
+- `Effect.when(effect, condition)` runs `effect` when an effectful `condition` succeeds with `true` and returns an `Option`, a ternary between `Effect.succeedNone` and `Effect.asSome` restating it
 
 ## [02]-[VALIDATION]
 

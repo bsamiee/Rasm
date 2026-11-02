@@ -1,4 +1,4 @@
-import { Array, Cause, type Context, Effect, Equal, Function, flow, HashMap, Option, Predicate, Record, Schema, Stream, SubscriptionRef, Tuple } from 'effect';
+import { Array, Cause, type Context, Effect, Equal, Function, flow, HashMap, Option, Predicate, Record, Schema, Stream, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
 import { orInternalError } from '#/server';
 
@@ -61,11 +61,18 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
             ({ refuse, report }: DependencyOptions<A>): Dependency => {
                 const current = (at: string) => Effect.catchNoSuchElement(observe(at, read(at)));
                 return {
-                    refusal: Option.match(Option.fromUndefinedOr(refuse), {
-                        onNone: () => Stream.empty,
-                        onSome: (holds) => Stream.unwrap(Effect.flatMap(uri, (at) => Effect.as(current(at), Stream.mapEffect(SubscriptionRef.changes(store), flow(HashMap.get(at), Option.map(Tuple.get(1)), shown(at, holds)))))),
+                    refusal: UndefinedOr.match(refuse, {
+                        onUndefined: () => Stream.empty,
+                        onDefined: (holds) => Stream.unwrap(Effect.flatMap(uri, (at) => Effect.as(current(at), Stream.mapEffect(SubscriptionRef.changes(store), flow(HashMap.get(at), Option.map(Tuple.get(1)), shown(at, holds)))))),
                     }),
-                    report: Option.match(Option.fromUndefinedOr(report), { onNone: () => Effect.succeedNone, onSome: (holds) => Effect.flatMap(uri, (at) => Effect.flatMap(current(at), shown(at, holds))) }),
+                    report: UndefinedOr.match(report, {
+                        onUndefined: () => Effect.succeedNone,
+                        onDefined: (holds) =>
+                            Effect.gen(function* () {
+                                const at = yield* uri;
+                                return yield* shown(at, holds)(yield* current(at));
+                            }),
+                    }),
                 };
             },
     };

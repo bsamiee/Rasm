@@ -5,7 +5,7 @@
 `` sql`...` `` returns a `Statement<A>` that is both an `Effect` of rows and a fragment, and statements nest unexecuted. Interpolated values bind as parameters:
 - `sql(name)` escapes an identifier split on each dot, `sql.literal(text)` and a string `csv` part insert raw SQL, and `sql.unsafe` runs raw text
 - `sql.insert(rows).returning('*')`, `sql.update(row, omit)`, `sql.in(values)`, `sql.and(parts)`, and `sql.csv(parts)` build clauses, and `sql.insert` takes a non-empty list
-- `sql.onDialect({ pg, sqlite, mysql, mssql, clickhouse })` fails in an unsupported dialect's arm, `sql.driver` naming drivers that share one
+- `sql.onDialect({ pg, sqlite, mysql, mssql, clickhouse })` takes an arm per dialect, `sql.onDialectOrElse({ orElse, ...arms })` the arms that differ
 - `.stream` returns rows as a `Stream`, `.values` positional rows, and `.compile()` the SQL text with its parameters
 - `sql.reactive(keys, query)` reruns a query as a `Stream` each time `keys` invalidate
 - `SqlClient.SafeIntegers` set `true` returns 64-bit integers as `bigint`
@@ -13,7 +13,7 @@
 ## [02]-[QUERIES]
 
 `SqlSchema` builds a function from a request schema to decoded rows, encoding the request and decoding each result:
-- `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state row count, a one-row tuple restating `findOne` and its `NoSuchElementError`
+- `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state row count, `findOne` failing with `NoSuchElementError` where `findOneOption` returns `Option`
 - `SqlModel.makeRepository(Model, { tableName, spanPrefix, idColumn })` derives `insert`, `update`, `findById`, and `delete` from a `Model.Class`, and `softDeleteColumn` filters reads and turns delete into a timestamp
 - `SqlModel.makeResolvers` returns the same operations as batched resolvers
 - `SqlResolver` batches key on the caller's transaction, and `SqlResolver.ordered` fails a batch with a row count differing from its request count
@@ -23,13 +23,16 @@
 `sql.withTransaction` runs an effect in one transaction, a nested call in a savepoint, and the outermost call owns the retry of a contended write:
 
 ```ts
-const serializable = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-    SqlClient.SqlClient.use((sql) =>
-        work.pipe(sql.withTransaction, Effect.provideService(SqlClient.BeginTransaction, 'BEGIN ISOLATION LEVEL SERIALIZABLE'), Effect.retry({ schedule: Schedule.exponential('10 millis').pipe(Schedule.jittered), times: 5, while: (error) => SqlError.isSqlError(error) && (error.reason._tag === 'SerializationError' || error.reason._tag === 'DeadlockError') })),
-    );
+const transfer = SqlClient.SqlClient.use((sql) =>
+    Effect.all([debit, credit]).pipe(
+        sql.withTransaction,
+        Effect.provideService(SqlClient.BeginTransaction, 'BEGIN ISOLATION LEVEL SERIALIZABLE'),
+        Effect.retry({ schedule: Schedule.exponential('10 millis').pipe(Schedule.jittered), times: 5, while: (error) => SqlError.isSqlError(error) && (error.reason._tag === 'SerializationError' || error.reason._tag === 'DeadlockError') }),
+    ),
+);
 ```
 
-`serializable(Effect.all([debit, credit]))` runs both writes in one serializable transaction and reruns the unit after a conflict the database rolled back:
+`transfer` runs writes `debit` and `credit` in one serializable transaction and reruns both after a conflict the database rolled back:
 - `SqlError.reason` is a tagged union (`UniqueViolation`, `ConstraintError`, `SerializationError`, `DeadlockError`, `ConnectionError`), and `Effect.catchReason('SqlError', 'UniqueViolation', f)` recovers one
 - `isRetryable` on a `SqlError` holds for connection, deadlock, serialization, lock, and statement timeouts, and a connection lost during `COMMIT` leaves its outcome unknown
 - `SqlClient.BeginTransaction` replaces `BEGIN` for each top-level transaction it covers

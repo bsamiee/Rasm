@@ -25,11 +25,13 @@ Calls needing structured results encode JSON in ExtendScript. Source holds the b
 ```
 
 ```ts
-const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source: string) =>
-    Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json))))(reply))));
+const Reply = Schema.Union([
+    Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(Schema.Option(Schema.Json), { decode: SchemaGetter.succeed(Option.none()), encode: SchemaGetter.forbiddenEncoding })),
+    Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json)), Schema.decodeTo(Schema.Option(Schema.Json), { decode: SchemaGetter.transform(Option.some), encode: SchemaGetter.forbiddenEncoding })),
+]);
 ```
 
-`send` passes `source` as the `do javascript` direct parameter through an Apple event sender. Throws and syntax errors fail as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
+`send` passes `source` as the `do javascript` direct parameter through an Apple event sender, and `Effect.flatMap(send(source), Schema.decodeUnknownEffect(Reply))` returns the body's value, `none` for `undefined` or no reply. Throws and syntax errors fail as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
