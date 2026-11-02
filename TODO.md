@@ -55,6 +55,7 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 - **Decompile in full:** every acquired product is decompiled from its code, every algorithm rebuilt as runnable TypeScript and proven against the binary (emulation) and the host (InDesign 2027 Beta, or 2026 where a product loads only there).
 - **Rebuild, never port:** `distilled/` shows what each product does; the libraries state that capability in the repository's own shape, the strongest form where products overlap.
 - **Host mechanism, not product shortcut:** a product's fixed name, width or style becomes the host's real mechanism for it (a numbering style built on InDesign's GREP styling, not a hardcoded `HS-DynamicTableNumbering`), and related quantities live in one derived relation any of whose values a caller can solve for.
+- **Higher-order capability:** the mined products together reveal capability none of them states (alignment as one general relation behind many products' commands); the architecture names each one at its level (universal, Creative Cloud or InDesign) and builds the products' functions on it.
 - **Levels:** general (no host type), Creative Cloud (shared across Adobe hosts), one folder per app, then Atelier and Galley composing them; each capability once, at the lowest level that holds it whole.
 - **Hosts:** code targets the newest host releases; older releases load only products built for them.
 - **Packages:** the newest well-made package owns each domain fact.
