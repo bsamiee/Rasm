@@ -31,13 +31,12 @@ const Reply = Schema.Union([
 ]);
 ```
 
-`send` passes `source` as the `do javascript` direct parameter through an Apple event sender, and `Effect.flatMap(send(source), Schema.decodeUnknownEffect(Reply))` returns the body's value, `none` for `undefined` or no reply. Throws and syntax errors fail as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
+`send` passes `source` as the `do javascript` direct parameter through an Apple event sender, and `Effect.flatMap(send(source), Schema.decodeUnknownEffect(Reply))` returns the body's value, `none` for `undefined` or no reply. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
 - ExtendScript `alert`, `confirm`, and `prompt` activate the host
-- In Photoshop ExtendScript, `new Function` of bad syntax answers `undefined` where `eval` throws, and an `undefined` last value answers as text
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`
 - Events sent before Illustrator finishes launching fail -600 or get no reply, and a `launch` event to it returns once it accepts them
@@ -54,15 +53,15 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 
 ## [03]-[OBJECT_MODEL]
 
-`reflect.properties` rows hold `name`, `type` (`readonly`, `readwrite`), and `dataType`, and `reflect.methods` names each method. `reflect.find(<property>)` reads one row and throws 1302 for a method name, and `$.dictionary` reads `null`:
+`reflect.properties` rows hold `name`, `type` (`readonly`, `readwrite`), and `dataType`, and `reflect.methods` names each method. `reflect.find(<property>)` reads one row, and `$.dictionary` reads `null`:
 
 | [INDEX] | [NEED]                 | [FORM]                                        | [REASON]                                              |
 | :-----: | :--------------------- | :-------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | Class of a value       | `typename` (`Document`, `Layers`, `PathItem`) | `Object.prototype.toString` reads `[Document <name>]` |
-|  [02]   | Member by name         | `getByName(name)`                             | Absent name throws 1302, no `itemByName` or `isValid` |
+|  [02]   | Member by name         | `getByName(name)`                             | Absent name throws, no `itemByName` or `isValid`      |
 |  [03]   | Member by position     | `collection[index]`                           | Index past the end throws 1200 `MRAP`                 |
 |  [04]   | Item held across calls | `uuid`, then `getPageItemFromUuid(uuid)`      | Repeated reads of one item compare `===` true         |
-|  [05]   | Active document        | `app.activeDocument`                          | Throws 1302 with no document open                     |
+|  [05]   | Active document        | `app.activeDocument`                          | Throws with no document open                          |
 
 - Geometry is in points under `app.coordinateSystem` `DOCUMENTCOORDINATESYSTEM`, y growing upward from the first artboard's bottom edge
 - `pathItems.rectangle(top, left, width, height)` places an item with `position` `[left, top]` and `geometricBounds` `[left, top, right, bottom]`
@@ -116,7 +115,7 @@ Caught `Error` values hold `number`, `message`, and `line`, and code branches on
 
 ## [07]-[TEXT_AND_FONTS]
 
-`app.textFonts` lists every installed face, and `getByName(<PostScript name>)` reads one or throws 1302 for an absent name. Each `TextFont` holds `name` (PostScript), `family`, and `style`:
+`app.textFonts` lists every installed face, and `getByName(<PostScript name>)` reads one. Each `TextFont` holds `name` (PostScript), `family`, and `style`:
 - `textFrames.add()` takes text through `contents`, set in `MyriadPro-Regular` by default
 - `textRange.characterAttributes.textFont` takes a `TextFont`, and `size` takes points
 - `createOutline()` on a duplicate frame returns a `GroupItem` with glyph outline bounds as `geometricBounds`

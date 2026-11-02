@@ -41,7 +41,7 @@ const folders = (host: premierepro, project: Project) =>
     );
 ```
 
-`folders` returns the bins in a project's root through `Array.fromNullishOr` over `cast`, which typings declare without `null`. `host` is the module object `require` returns.
+`folders` returns the bins in a project's root, and typings declare `cast` without `null`. `host` is the module object `require` returns.
 
 | [INDEX] | [NEED]         | [FORM]                                                 | [REASON]                                        |
 | :-----: | :------------- | :----------------------------------------------------- | :---------------------------------------------- |
@@ -80,7 +80,7 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
     }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(HostError.refused(undo)({ refused })) })));
 ```
 
-`renamed` takes items read before the lock and returns their count, or fails with `refused` naming refused items while every other action executes. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw in the transaction callback execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
+`renamed` takes items read before the lock and returns their count, or fails with `refused` naming refused items while every other action executes. Actions build before the first `addAction`, where a throwing `name` adds none. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
 
 | [INDEX] | [CALL]                                      | [RESULT]                                                    |
 | :-----: | :------------------------------------------ | :---------------------------------------------------------- |
@@ -130,7 +130,7 @@ Projects open, return their root, save, and close through static and instance ca
 | :-----: | :------------ | :-------------------------------------------------------- | :------------------------------------------- |
 |  [01]   | Create        | `await Project.createProject(path)`                       | New project becomes active                   |
 |  [02]   | Root          | `await project.getRootItem()`                             | Returns a `FolderItem`                       |
-|  [03]   | Import        | `await project.importFiles(paths, true)`                  | Items land in the root, selected             |
+|  [03]   | Import        | `await project.importFiles(paths, true)`                  | Selected items in the root                   |
 |  [04]   | Sequence      | `await project.createSequenceFromMedia(name, clips, bin)` | New sequence becomes active                  |
 |  [05]   | Save          | `await project.save()`                                    | `true` once written                          |
 |  [06]   | Close         | `await project.close()`                                   | Discards unsaved changes with no prompt      |

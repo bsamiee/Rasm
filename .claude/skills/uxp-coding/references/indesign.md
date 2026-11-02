@@ -79,7 +79,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 }
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter and holds for an object whose own prototype is a module class prototype declaring the member, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` holds wherever an ancestor prototype carries the name (`name` on any function or `Error`). Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, and refuses any other text. `Specifier.resolve` passes the path to ExtendScript's `resolve` as an argument and compares the `kind` of a lone `[@id=<n>]` step. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter and holds for an object whose own prototype is a module class prototype declaring the member, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` holds wherever an ancestor prototype holds the name (`name` on any function or `Error`). Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, and refuses any other text. `Specifier.resolve` passes the path to ExtendScript's `resolve` as an argument and compares the `kind` of a lone `[@id=<n>]` step. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                                 | [REASON]                                      |
 | :-----: | :------------------------- | :----------------------------------------------------- | :-------------------------------------------- |
@@ -88,12 +88,11 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 |  [03]   | One field of every member  | `everyItem().<field>`, one call per field              | Array at any count, `properties` reads all    |
 |  [04]   | Same object across reads   | `equals`                                               | Repeated reads differ under `===`             |
 |  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`         | `item(index)` specifiers shift on insert      |
-|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.Path` and `resolve` | `Character`, `Word`, `Paragraph` have no `id`, and find hits and style ranges read `(A to B)` with ends of any kind |
+|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.Path` and `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
 |  [07]   | Style inside a group       | Specifier steps per group                              | Groups can repeat one style name              |
 |  [08]   | Active document            | `Effect.try` over `app.activeDocument`                 | Throws with only windowless documents open    |
 
-- `app.panels` holds a member resolving to nothing, and its `item(<index>)` reads `undefined`
-- `everyItem()` or a range over `app.panels` reads `undefined` in UXP and throws in ExtendScript
+- `app.panels` holds a member resolving to nothing, its `item(<index>)` reads `undefined`, and `everyItem()` or a range reads `undefined` in UXP and throws in ExtendScript
 - Removed objects keep their `toSpecifier()`, read `isValid` false, and read `constructorName` empty
 - `toSpecifier()` repeats the access path: `item(index)` positional, `itemByName` `[@name="<name>"]`, `itemByID` and `getElements()` `[@id=<n>]`
 - `resolve` of an `[@id=<n>]` step returns the object with that id whatever class the step names
@@ -119,7 +118,7 @@ Refusals throw one field at a time with the host's expected type ("Expected Unit
 
 ## [04]-[TRANSACTIONS]
 
-Throws inside a step roll back every change in every document and record no undo entry. Plugin top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can hang InDesign on a callback the fenced plugin thread never runs. ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls served during an ExtendScript `$.sleep` enter a nested function `doScript`. Open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
+Throws inside a step roll back every change in every document and record no undo entry. Plugin top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can hang InDesign on a callback the fenced plugin thread never runs. ExtendScript source-text calls and function calls nested inside a callback complete. Open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
 
 | [INDEX] | [WORK]                 | [FORM]                                                                |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
@@ -130,7 +129,7 @@ Throws inside a step roll back every change in every document and record no undo
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
 |  [06]   | Write from a script    | Top-level function `doScript` under `ENTIRE_SCRIPT`                   |
 
-`app.doScript` returns plain objects with scripting property keys alone. Throws return as a bare `Error`: "<name>: <message>" from a function, string throws as text, "Uncaught JavaScript exception: <message>" from source. Value and failure leave through a `Deferred`:
+`app.doScript` returns plain objects with scripting property keys alone. Throws return as a plain `Error`: "<name>: <message>" from a function, string throws as text, "Uncaught JavaScript exception: <message>" from source. Value and failure leave through a `Deferred`:
 
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
@@ -141,7 +140,7 @@ const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effe
 });
 ```
 
-`commit` runs in a script context, where top-level function `doScript` completes, and returns the body's value or rolled-back typed failure. `Deferred.fail` completes `done` only when `doScript` refused before the body ran. Documents a rolled-back step opened close, found by id difference. Plugins hold one step open with repeated ExtendScript `$.sleep(5)` until a peer call enters it and runs inside the sleep.
+`commit` runs in a script context and returns the body's value or rolled-back typed failure. `Deferred.fail` completes `done` only when `doScript` refused before the body ran. Documents a rolled-back step opened close, found by id difference. Plugins hold one step open with repeated ExtendScript `$.sleep(5)` until a peer call enters it and runs inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
@@ -234,7 +233,7 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
 }
 ```
 
-`Extent.of` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. The bounds-space anchor form reads anchored items the two-element form misreads. Folding corners keeps a rotated group's box tight where four corners per item overstate it.
+`Extent.of` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. Bounds-space anchor forms read anchored items the two-element form misreads. Folding corners keeps a rotated group's box tight where four corners per item overstate it.
 
 - `page.parent.resolve([[0, 0], page.index], CoordinateSpaces.SPREAD_COORDINATES, true)` locates a page's ruler origin in spread space
 - `geometricBounds` orders `[top, left, bottom, right]` in ruler units
@@ -333,7 +332,7 @@ Searches and changes run in one sequence:
 
 ## [10]-[FONTS]
 
-`fontFamily` and `fontStyleName` supply face metadata that splitting `Font.name` can misstate. `location` is a file path or a label for a face with no readable file, and `createSubsetFont` supplies bytes when a source file is absent:
+`fontFamily` and `fontStyleName` supply face metadata that splitting `Font.name` can misstate. `location` is a file path or a label for a face with no readable file:
 
 ```ts
 import type { Font } from 'adobe:indesign';
@@ -403,18 +402,17 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. A missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through the plugin entry's `logged` sink, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through the plugin entry's `logged` sink, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
 - Script roots pass the `adobe:indesign` module to a one-call server layer (`script(server(indesign))`), and their entry imports no Node module into the bundle
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test
-- `.idjs` entries sent as a file URL run a `require('./main.js')` bundle beside them synchronously, a 1.4 MB module in about 10 ms
+- `.idjs` entries sent as a file URL run a `require('./main.js')` bundle beside them synchronously
 - `app.doScript(<source>, ScriptLanguage.UXPSCRIPT)` returns `undefined` at once for source the runner reads as asynchronous
 - Large text source runs nothing, and text source loads a bundle through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)`
 - `fullName`, `filePath`, and `File`-typed fields return promises, where ExtendScript `resolve(<specifier>)[<field>].fsName` reads each synchronously
 - `getTemporaryFolder()` returns a promise, where ExtendScript `Folder.temp.fsName` names the user temporary folder
-- `File(<path>).remove()` deletes, where `require('fs').unlinkSync` throws "a.provider.unlinkSync is not a function"
 - Listeners a script registers fire after its context ended, and reading `handler` or `properties` of one crashes InDesign
 - DOM calls from a continuation after a script returned crash InDesign, and quit events served while a script runs abort it
 

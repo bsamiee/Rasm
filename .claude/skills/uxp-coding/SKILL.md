@@ -5,7 +5,7 @@ description: "Use when writing or reviewing code that runs in an Adobe UXP host,
 
 # [UXP_CODING]
 
-UXP runs each plugin and script in one V8 context inside an Adobe host, with host calls at a boundary that decodes values and translates each `Exit`.
+UXP runs each plugin and script in one V8 context inside an Adobe host.
 
 [REFERENCES]:
 - [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM: object model, transactions, GREP, export, and plugin load
@@ -65,7 +65,7 @@ Differences from a browser or Node hold in InDesign, Photoshop, and Premiere Pro
 |  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
 |  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
 
-Effect's encoding and socket modules construct `TextEncoder` at load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets anchored once drop the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
+Effect's encoding and socket modules construct `TextEncoder` at load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets computed once skip the skew correction Effect's wall clock performs. Host callbacks running effects receive caller services through `run*With`.
 
 - Encoding packages must implement the `{ stream: true }` option Effect decodes with
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
@@ -91,7 +91,7 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 |  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module               |
 |  [06]   | Illustrator ExtendScript  | `types-for-adobe`            | Global classes per host folder, no module                        |
 
-- Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's and that bundles strip to the `require` name
+- Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's
 - `types` lists `node` beside each `with-protocol` entry, and `node` types `require`, `process`, and `adobe:fs` members
 - `paths` entries resolve against the declaring config's folder, and a shared config writes `${configDir}/node_modules/...` to resolve in each extending project
 - Diagnostics on a call the object model states name a typings gap, and every other diagnostic names a defect in the call
@@ -113,7 +113,7 @@ const bytes = (path: string) =>
     Effect.try({ try: () => Option.some(new Uint8Array(readFileSync(path))), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFile', pathOrDescriptor: path, cause }) }).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => Effect.succeedNone));
 ```
 
-`new Uint8Array` accepts both representations, and `PlatformError` carries the host's thrown value as `cause`.
+`new Uint8Array` accepts both representations, and `PlatformError` holds the host's thrown value as `cause`.
 
 ## [04]-[OBJECT_MODELS]
 
@@ -137,7 +137,7 @@ Object model facts come from the owner that states them for the installed build:
 
 ## [05]-[HOST_ERRORS]
 
-Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup.
+Hosts throw `Error` values with text in the user's locale, and return some failures as values.
 
 `HostError` is the package error for failures no host error (`PlatformError`, `HttpClientError`) states, with a `Refused` reason, refused step as `subject`, and the host's thrown value or returned failure as `cause`. `HostError.refused(subject)` returns a host call's `catch` function:
 
@@ -164,7 +164,6 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 - Consumers decode a host code from `cause` where they branch on it
 - Boundaries log a cause once, plugins through `Cause.pretty` to the UXP console, MCP servers through `Cause.prettyErrors` with `Formatter.format`
 - Host calls are typed source the compiler checks, with arguments passed as data
-- Host callbacks return one `Exit`, translated once at the boundary
 
 ## [06]-[SCOPES]
 
@@ -191,8 +190,7 @@ Each host groups changes into one undo step through one call, and every state ch
 
 - One call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
-- Values and typed failures leave a body as data, and a throw rolls back an InDesign body
-- Photoshop rolls back a throwing body under an open history suspension alone, and Premiere Pro executes the actions added before the throw
+- Values and typed failures leave a body as data
 - Awaited work inside a synchronous body runs after its unit closed, where a later rejection rolls back no change
 - Reads needing no undo step run outside these calls where their host allows
 
@@ -243,7 +241,7 @@ Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) 
 );
 ```
 
-`MainLayer` is the plugin's layer reading `Uxp` and `Plugin`, `relink` and `preflight` the effects its manifest's commands name, and `shown` and `hidden` the work of panel `links`. `hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects with the squashed cause. Panels fork their work through `Effect.forkDetach` and return a promise resolved once the work is forked. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`MainLayer` is the plugin's layer reading `Uxp` and `Plugin`, `relink` and `preflight` the effects its manifest's commands name, and `shown` and `hidden` the work of panel `links`. `hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects. Panel promises resolve once `Effect.forkDetach` forks their work. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`

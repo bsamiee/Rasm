@@ -4,7 +4,7 @@ UXP cannot listen, and a plugin serving calls to a process outside its host dial
 
 ## [01]-[SERVING]
 
-`RpcServer` reads its transport from a `SocketServer` service's `run` member, and a dialing `SocketServer` makes the plugin the server. Plugins stack `RpcServer.layer` over `layerProtocolSocketServer` over that service, with no hand-built protocol.
+`RpcServer` reads its transport from a `SocketServer` service's `run` member, and a dialing `SocketServer` makes the plugin the server. Plugins stack `RpcServer.layer` over `layerProtocolSocketServer` over that service.
 
 Plugin runtime scopes own socket serving independently of document operations:
 - `run` acquires the reader in one scope per connection before the handler, and a dial refused as a close waits the retry spacing
@@ -16,7 +16,7 @@ Plugin runtime scopes own socket serving independently of document operations:
 - Group middleware holds host state for each call and covers calls added before `middleware`, and a forked call joins with `add` after it
 - Calls a client sends while another call runs go in `requiredForClient` middleware, and every client builds it with `layerClient`
 - Each stream holds its call's concurrency permit until it ends, and streams a peer follows for the link's lifetime return `Rpc.fork`
-- UXP delivers a refused connection as a close event, and a manifest denial thrown from the `WebSocket` constructor is a defect
+- Manifest denials the `WebSocket` constructor throws are defects
 - `fingerprintPayloads` fails a call between ends built from different contracts with a fingerprint mismatch
 - Schema binary encodes `Uint8Array` fields as bytes where JSON serialization encodes text
 

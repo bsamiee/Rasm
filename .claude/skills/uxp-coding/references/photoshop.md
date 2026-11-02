@@ -1,6 +1,6 @@
 # [PHOTOSHOP]
 
-Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays changes inside one modal scope and reads anywhere, and replies with one descriptor per command. Apple event `do javascript` runs ExtendScript.
+Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays changes inside one modal scope and reads anywhere, and replies with one descriptor per command. Apple event `do javascript` runs ExtendScript, where `new Function` of bad syntax answers `undefined` where `eval` throws, and an `undefined` last value answers as text.
 
 ## [01]-[MODAL_SCOPES]
 
@@ -45,7 +45,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
 - `resumeHistory({ ...suspension, finalName }, true)` renames the state at commit, and a suspension holding no change records no state
 - Plays outside a suspension record one state each under Photoshop's name (`New Layer`, `Master Opacity Change`) and stay when their body throws
 - `Document.suspendHistory(callback, name)` wraps both calls in `executeAsModal`, passes `document` for `hostControl`, and resolves `undefined`
-- `interactive: true` scopes open `display` dialogs and no progress window, which other scopes open after about 2 s and fill from `reportProgress`
+- `interactive: true` scopes open `display` dialogs and no progress window, which other scopes open after a delay and fill from `reportProgress`
 - `executeAsModal` resolves with its target's value, `@adobe-uxp-types/photoshop` types that value, and `@types/photoshop` types `Promise<void>`
 
 ## [02]-[DESCRIPTORS]
@@ -83,7 +83,7 @@ const layers = (documentID: number) =>
 - Units are `pixelsUnit`, `pointsUnit`, `percentUnit`, `angleUnit`, `densityUnit`, `distanceUnit`, and `millimetersUnit`
 - Keys are string IDs, and `get` returns keys the Actions panel never records (`targetLayers`, `layerKind`, `documentID`)
 - Each `set` holds only the keys it changes, and keys one preference couples (a color enum and its custom color) go in one descriptor
-- `batchPlay(commands, { synchronousExecution: true })` returns the reply array in place of a promise, the form DOM getters play
+- `batchPlay(commands, { synchronousExecution: true })` returns the reply array in place of a promise
 - DOM members play with `app.displayDialogs` as `dialogOptions`, `DialogModes.ERROR` (`'silent'`) by default
 
 ## [03]-[DOM]
