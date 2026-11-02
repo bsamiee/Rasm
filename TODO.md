@@ -85,6 +85,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
   - `typescript-processes.md` and `typescript-config.md`: an agent is landing them now; the `tools/harnesses` tsconfig rows land once the harness run commits.
   - `ghidra-scripts.md` and `ghidra-usage.md`: the skill rebuild is in progress; the product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) lands once the decompile runs finish, including a native `BitmapsOverlap` hook for InPage kerning frames (budgets up to 15,625 s from 16 emulated pixel tests per second).
   - `launch.md`: one launch path in `libs/swift/macos` `Launch.swift` once Atelier commits.
+  - Product proof runners: 78 `run-26.applescript`/`run-27.applescript` copies under `docs/research/applications/adobe/extensions/*/proof/harness` drive InDesign directly; they set the interaction level off now and are deleted once every proof runs through `tools/harnesses/indesign` (after Atelier commits and the harness state format is fixed).
   - Command mining for function hooks: lands with the miner's report, rewriting raw `tsc`, `--skip-nx-cache`, `timeout`, literal `analyzeHeadless` and raw app launches into their repository forms.
   - C# analyzer gaps (`Canvases.cs` and other conditionally compiled sources): an agent is landing them, the `tools/harnesses/rhino` findings once the harness run commits.
 - **Harness state format:** `tools/harnesses` fails on Atelier's new automation state (`SchemaError: Missing key …state.running.status`); it is fixed once Atelier commits, before any further InDesign proof.
