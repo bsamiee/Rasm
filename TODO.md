@@ -52,6 +52,13 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 - **Run phases:** a parallel survey brief, an author, an in-place challenger, landing packages, per file group an adversary then a ground-up rebuild, a check agent, and in rust.js and typescript.js a Mine phase that tunes the checks and the skill.
 - **Shared tree:** another session may edit beside these runs. Files are split by owner before either commits, and neither touches the other's files.
 
+### Rust depth passes
+
+Once every RUST.md [03] row has landed, each crate gets a depth run so no crate stays surface level:
+- **Script:** `.claude/workflows/rust-depth.js`, written then with rust.js's Basis, Sources and Check unchanged, one run per crate in RUST.md row order, staggered like the rows.
+- **Passes:** three adversaries in sequence, each rewriting the crate and its consumers in place. The first adds the capability its domain and its dependencies' full member sets state that the crate lacks or exposes shallowly. The second replaces hand logic, wrappers, forwarders and restated types with dependency members and derives each value from its owner. The third rebuilds the whole crate from the ground up in its strongest form.
+- **Growth:** an export enters only for an operation a consumer could not perform before, stated per item in `surface.md`. No re-export, alias, convenience overload or variant a parameter already serves.
+
 ### State on 2026-11-01
 
 - **Swift:** all three rows landed, with a close-out of the stopped Swift mine. A rerun of the Swift mine waits until the watch-apps session's Swift test wave lands.
@@ -79,8 +86,8 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 - **Planning:** done. `docs/research/typescript-extension/` holds the map, six domain studies, ARCHITECTURE.md (nine rows, challenged twice in place) and WORKFLOWS.md (the one TYPESCRIPT.md edit, the `owned` keys, launch order and gates).
 - **Companion:** `.claude/workflows/typescript-tune.js` runs after each committed extension run, `args.key` its row and `args.commit` its commit, in the one TypeScript lane.
-- **Plugin studies:** the owner approved public sources, paid plugins (bought by the owner once their prices are reported) and Manzar on Windows. Trials and demos come through vendor accounts. Studies land in `docs/research/typescript-extension/studies/`, one binary decompiled at a time through Ghidra and Codex.
-- **Start:** once the last [01] TypeScript row lands, WORKFLOWS.md [02.1] and [03.1] land as one edit and `data/search` launches. InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]) go through Ghidra after the plugin studies.
+- **Plugin studies:** the owner approved public sources, trials (Grid Calculator PE and ScribeDOOR stay on their demo and trial), one-time purchases on the owner's card with no subscription (Layout Grid Calculator, Fitbaseline, Manzar on Windows), and Kashida taken free as JSXBIN. Trials and demos come through vendor accounts. Studies land in `docs/research/typescript-extension/studies/`, one binary decompiled at a time through Ghidra and Codex.
+- **Start:** once the last [01] TypeScript row lands, WORKFLOWS.md [02.1] and [03.1] land as one edit and `data/search` launches. Before it, InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]) and the purchased plugins go through Ghidra, and one integration pass rewrites ARCHITECTURE.md in place from every study, placing each recovered algorithm in a general package, in `@rasm/indesign` or in Atelier, under two adversarial architects.
 
 ### Scope
 
