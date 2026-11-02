@@ -178,8 +178,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                             arguments.first().is_some_and(|value| fn_def_id(cx, unread(cx, value).unwrap_or_else(|| peel_blocks(value))).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk)),
                         Gate::Relayed =>
                             get_parent_expr(cx, expr).is_some_and(|parent| match parent.kind {
-                                ExprKind::MethodCall(unwrapped, relayed, ..) =>
-                                    relayed.hir_id == expr.hir_id && !(unwrapped.ident.name == sym::unwrap && is_inside_always_const_context(cx.tcx, expr.hir_id)),
+                                ExprKind::MethodCall(_, relayed, ..) =>
+                                    relayed.hir_id == expr.hir_id
+                                        && !(matches!(fn_def_id(cx, parent).and_then(|def_id| cx.tcx.get_diagnostic_name(def_id)), Some(sym::option_unwrap | sym::option_expect))
+                                            && is_inside_always_const_context(cx.tcx, expr.hir_id)),
                                 ExprKind::Call(..) => fn_def_id(cx, parent).is_lang_item(cx, LangItem::TryTraitBranch),
                                 _ => false,
                             }) || matches!(get_expr_use_site(cx.tcx, typeck, expr.span.ctxt(), expr).use_node(cx), ExprUseNode::Return(_)),

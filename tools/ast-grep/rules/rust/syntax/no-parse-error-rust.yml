@@ -29,6 +29,9 @@ utils:
     trait-alias:
         kind: ERROR
         regex: '^((pub(\s*\([^)]*\))?\s+)?(unsafe\s+)?)?trait\s+\w+\s*(<[^=]*>)?\s*='
+    trait-alias-item:
+        kind: trait_item
+        has: {kind: ERROR, regex: '^\w+\s*(<[^=]*>)?\s*=', follows: {regex: '^trait$'}}
     field-default:
         kind: ERROR
         any:
@@ -93,6 +96,7 @@ utils:
             - matches: empty-raw-string
             - matches: recovery-anchor
             - matches: recovery-tail
+            - inside: {kind: trait_item, stopBy: end, matches: trait-alias-item}
             - matches: field-default
             - matches: type-default
             - matches: baseless-update

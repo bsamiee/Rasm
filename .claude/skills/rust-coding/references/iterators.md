@@ -4,21 +4,23 @@
 
 Each adapter states one transformation, and a pipeline reads top to bottom as the order of work:
 
-| [INDEX] | [STEP]                                | [FORM]                                          |
-| :-----: | :------------------------------------ | :---------------------------------------------- |
-|  [01]   | Read each window of an iterator       | `map_windows`                                   |
-|  [02]   | Merge adjacent items a rule joins     | `coalesce`                                      |
-|  [03]   | Keep items through the first rejected | `take_while_inclusive`                          |
-|  [04]   | Join keys across a sorted pair        | `merge_join_by`                                 |
-|  [05]   | Merge many sorted sequences           | `kmerge_by`                                     |
-|  [06]   | Keep the `k` least by a key           | `k_smallest_relaxed_by_key`                     |
-|  [07]   | Take the one item a filter leaves     | `exactly_one`                                   |
-|  [08]   | Chain iterables passed as arguments   | `iter::chain`                                   |
-|  [09]   | Split a buffer into `[T; N]` and back | `as_chunks`, `Vec::into_chunks`, `as_flattened` |
-|  [10]   | Split tuples into a collection each   | `multiunzip`                                    |
-|  [11]   | Collect at least one item or none     | `try_into_nonempty_iter`                        |
-|  [12]   | Join items into text                  | `format`                                        |
-|  [13]   | Build a `Vec` from each index         | `Vec::from_fn`                                  |
+| [INDEX] | [STEP]                                 | [FORM]                                          |
+| :-----: | :------------------------------------- | :---------------------------------------------- |
+|  [01]   | Read each window of an iterator        | `map_windows`                                   |
+|  [02]   | Merge adjacent items a rule joins      | `coalesce`                                      |
+|  [03]   | Keep items through the first rejected  | `take_while_inclusive`                          |
+|  [04]   | Join keys across a sorted pair         | `merge_join_by`                                 |
+|  [05]   | Merge many sorted sequences            | `kmerge_by`                                     |
+|  [06]   | Keep the `k` least by a key            | `k_smallest_relaxed_by_key`                     |
+|  [07]   | Take the one item a filter leaves      | `exactly_one`                                   |
+|  [08]   | Chain iterables passed as arguments    | `iter::chain`                                   |
+|  [09]   | Split a buffer into `[T; N]` and back  | `as_chunks`, `Vec::into_chunks`, `as_flattened` |
+|  [10]   | Split tuples into a collection each    | `multiunzip`                                    |
+|  [11]   | Collect at least one item or none      | `try_into_nonempty_iter`                        |
+|  [12]   | Join items into text                   | `format`                                        |
+|  [13]   | Build a `Vec` from each index          | `Vec::from_fn`                                  |
+|  [14]   | Join arms yielding different iterators | `Either`, `iter::once` for a single item        |
+|  [15]   | Apply one step to a fixed set          | `[left, right].map`, `try_map`                  |
 
 Gaps in a sorted series fill in one flat expression:
 

@@ -134,7 +134,7 @@ rule:
             - inside: {matches: body-tail}
         - kind: call_expression
           all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(map_or|map_or_else)$'}}
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(map_or|map_or_else|unwrap_or_else)$'}}
             - has:
                 field: arguments
                 has:
@@ -147,5 +147,5 @@ rule:
                               has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, matches: tail-conditional}
         - kind: call_expression
           pattern: Some($VALUE).filter($TEST).unwrap_or_else($FALLBACK)
-message: '`if`, `match`, `map_or`, `map_or_else`, or `filter(..).unwrap_or_else` value nests another decision'
+message: '`if`, `match`, `map_or`, `map_or_else`, `unwrap_or_else`, or `filter(..).unwrap_or_else` value nests another decision'
 note: 'Bind the operand once, then select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`)'

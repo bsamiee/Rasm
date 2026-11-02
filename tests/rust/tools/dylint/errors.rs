@@ -378,6 +378,14 @@ fn discarded_error(found: &str) {
         |
         = help: match the `Result`, or return it with `?`
 
+    warning: `ok` turns `ParseIntError` into `None`
+       --> tools/dylint/examples/discarded_error.rs:162:139
+        |
+    162 | ....ok().expect("radix 10 parses decimal digits") }, parse(text).ok().unwrap()] }
+        |                                                                  ^^^^
+        |
+        = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
+
     warning: `or_else` turns `ParseIntError` into success
       --> tools/dylint/examples/discarded_error_source.rs:37:64
        |

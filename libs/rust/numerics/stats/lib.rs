@@ -41,7 +41,7 @@ pub struct Bounds(RangeInclusive<f64>);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, derive_more::IsVariant)]
 pub enum StatsError {
     #[error("log density or its gradient is not finite")]
     NotFinite,
@@ -68,21 +68,7 @@ pub enum StatsError {
 }
 
 impl LogpError for StatsError {
-    fn is_recoverable(&self) -> bool {
-        match self {
-            Self::NotFinite => true,
-            Self::Sampler { chain: _, source: _ }
-            | Self::Start { chain: _, dimension: _ }
-            | Self::Settings
-            | Self::Shape { expected: _, found: _ }
-            | Self::Factorial { levels: _, dimensions: _ }
-            | Self::Observations { found: _, source: _ }
-            | Self::Pairs { found: _, parameters: _ }
-            | Self::Degenerate { found: _, sample: _ }
-            | Self::Zero(_)
-            | Self::Sketch(_) => false,
-        }
-    }
+    fn is_recoverable(&self) -> bool { self.is_not_finite() }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

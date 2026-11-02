@@ -121,7 +121,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             if let ExprKind::MethodCall(segment, receiver, [subject], _) = expr.kind
                 && segment.ident.name == sym::contains
                 && let ExprKind::Array(items) = receiver.peel_borrows().kind
-                && let Some(listed) = Iterator::try_collect::<FxIndexSet<_>>(&mut items.iter().map(|item| tag(cx, item)))
+                && let Some(listed) = items.iter().map(|item| tag(cx, item)).collect::<Option<FxIndexSet<_>>>()
                 && is_text(cx, typeck.expr_ty(subject))
             {
                 branch(subject, site, listed);

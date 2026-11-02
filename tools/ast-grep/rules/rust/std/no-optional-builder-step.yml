@@ -10,7 +10,21 @@ rule:
             - pattern: 'match $OPTION { None => $BUILDER, Some($ITEM) => $BUILDER.$STEP($$$ARGS), }'
         - kind: if_expression
           pattern: 'if let Some($ITEM) = $OPTION { $BUILDER.$STEP($$$ARGS) } else { $BUILDER }'
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
+            - has:
+                field: arguments
+                all:
+                    - has:
+                        nthChild: 2
+                        kind: closure_expression
+                        any:
+                            - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM)'
+                            - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM.$CONVERT())'
+                    - not: {has: {nthChild: 3}}
 constraints:
     BUILDER: {kind: identifier}
-message: '`$OPTION` decides by hand whether `$BUILDER` takes `.$STEP`'
-note: 'Fold the `Option` into the value (`<option>.into_iter().fold(<builder>, <Builder>::<step>)`), with `.map` ahead of the fold when the step takes a converted value'
+    ITEM: {kind: identifier}
+message: '`$BUILDER` takes `.$STEP` by hand through a decision or closure over `$ITEM`'
+note: 'Fold the items into the builder with the method path as the step (`<items>.into_iter().fold(<builder>, <Builder>::<step>)`), with `.map(<Item>::<conversion>)` ahead of the fold when the step takes a converted value'

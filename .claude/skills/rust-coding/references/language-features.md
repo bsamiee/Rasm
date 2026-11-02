@@ -23,7 +23,7 @@ pub fn stops(order: &Order, catalog: &Catalog) -> Vec<(Sku, Option<Stop>)> {
 }
 ```
 
-`try bikeshed Result<Stop, PickError> { .. }` under `try_blocks_heterogeneous` names the block's type, and each `?` enters the crate error through its `#[from]` variants in place of a typed `let` binding or a trailing `map_err`.
+Blocks with `?` operands of different error types are `try bikeshed Result<Stop, PickError> { .. }` under `try_blocks_heterogeneous`, each `?` entering the crate error through its `#[from]` variants in place of a typed `let` binding or a trailing `map_err`, and a block with one error type across every `?` is a plain `try` that infers its type.
 
 ## [02]-[DEFAULT_FIELD_VALUES]
 

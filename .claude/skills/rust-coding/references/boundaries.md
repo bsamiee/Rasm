@@ -103,7 +103,7 @@ pub struct Args {
 }
 ```
 
-Flags and variables derive from field names (`--token`, `TOKEN`), a variable a package or specification names takes its constant or literal (`env = EnvFilter::DEFAULT_ENV`, `env = "OTEL_PROPAGATORS"`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record generic over each program's `Args` implements `CommandFactory`, `FromArgMatches`, and an empty `Parser` supplying `try_parse`, and restores the program's `about` through `Resettable::from`. Hand-written `CommandFactory` and `FromArgMatches` impls exist for that generic record alone, and a program wrapping a child command derives `Parser` over `program: OsString` and a trailing `Vec<OsString>` under `trailing_var_arg` and `allow_hyphen_values`. Default `_mut` methods of `FromArgMatches` route to the `&ArgMatches` pair and each derived part clones, and the record writes all four methods with the `&` pair cloning once into the `_mut` pair. Builder commands read clap command metadata from `clap::command!()`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
+Flags and variables derive from field names (`--token`, `TOKEN`), a variable a package or specification names takes its constant or literal (`env = EnvFilter::DEFAULT_ENV`, `env = "OTEL_PROPAGATORS"`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record generic over each program's `Args` implements `CommandFactory`, `FromArgMatches`, and an empty `Parser` supplying `try_parse`, and restores the program's `about` through `Resettable::from`. Hand-written `CommandFactory` and `FromArgMatches` impls exist for that generic record alone, and a program wrapping a child command derives `Parser` over `program: OsString` under `value_hint = ValueHint::CommandName` and a trailing `Vec<OsString>` under `trailing_var_arg` and `allow_hyphen_values`. Default `_mut` methods of `FromArgMatches` route to the `&ArgMatches` pair and each derived part clones, and the record writes all four methods with the `&` pair cloning once into the `_mut` pair. Builder commands read clap command metadata from `clap::command!()`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. An `Option` flatten keeps the group clap reads its presence from and leaves its required args required, and a setting only another flag's presence reads takes `requires = "<id>"` in place of a nested group. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -116,22 +116,23 @@ pub struct Settings {
 
 pub fn layered<S>(layers: &[Arc<Layer>]) -> Result<S, NEVec<ServiceError>>
 where S: DeserializeOwned {
-    fn merged<'text>(lower: Spanned<DeValue<'text>>, upper: Spanned<DeValue<'text>>) -> Spanned<DeValue<'text>> {
-        let span = upper.span();
-        Spanned::new(span, match (lower.into_inner(), upper.into_inner()) {
-            (DeValue::Table(earlier), DeValue::Table(later)) => DeValue::Table(later.into_iter().fold(earlier, |mut table, (key, entry)| {
-                let value = table.remove(&key).into_iter().fold(entry, |upper, lower| merged(lower, upper));
-                table.insert(key, value);
-                table
-            })),
-            (_, later) => later,
+    fn merged<'text>(lower: DeTable<'text>, upper: DeTable<'text>) -> DeTable<'text> {
+        upper.into_iter().fold(lower, |mut table, (key, entry)| {
+            let span = entry.span();
+            match (table.get_mut(&key).map(Spanned::get_mut), entry.into_inner()) {
+                (Some(DeValue::Table(earlier)), DeValue::Table(later)) => *earlier = merged(mem::take(earlier), later),
+                (_, later) => {
+                    table.insert(key, Spanned::new(span, later));
+                }
+            }
+            table
         })
     }
-    let roots = layers
+    let tables = layers
         .iter()
         .map(|layer| {
             let (table, errors) = DeTable::parse_recoverable(&layer.text);
-            NEVec::try_from_vec(errors).map_or(Validated::Good(Spanned::new(table.span(), DeValue::Table(table.into_inner()))), |failures| {
+            NEVec::try_from_vec(errors).map_or(Validated::Good(table.into_inner()), |failures| {
                 Validated::Fail(failures.into_nonempty_iter().map(|mut source| {
                     source.set_input(None);
                     ServiceError::Syntax { origin: Origin { layer: Arc::clone(layer), span: source.span() }, source: Box::new(source) }
@@ -140,27 +141,33 @@ where S: DeserializeOwned {
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
-    serde_path_to_error::deserialize(ValueDeserializer::from(roots.iter().cloned().fold(Spanned::new(0..0, DeValue::Table(DeTable::new())), merged))).map_err(|error| {
-        let origin = iter::zip(layers, &roots)
-            .map(|(layer, root)| {
-                let spans = error.path().iter().scan(root, |value, segment| {
-                    *value = match segment {
-                        Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
-                        Segment::Seq { index } => value.get_ref().get(*index),
-                        Segment::Unknown => None,
-                    }?;
-                    Some(value.span())
-                });
-                (layer, spans.enumerate().last())
-            })
-            .max_by_key(|(_, deepest)| deepest.as_ref().map(|(depth, _)| *depth))
-            .map(|(layer, deepest)| Origin { layer: Arc::clone(layer), span: deepest.map(|(_, span)| span) });
-        NEVec::new(ServiceError::Settings { origin, source: Box::new(error) })
-    })
+    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().fold(DeTable::new(), merged))))
+        .map_err(|error| NEVec::new(ServiceError::Settings { origin: origin(layers, error.path()), source: Box::new(error) }))
+}
+
+#[must_use]
+pub fn origin(layers: &[Arc<Layer>], path: &Path) -> Option<Origin> {
+    layers
+        .iter()
+        .map(|layer| {
+            let (table, _) = DeTable::parse_recoverable(&layer.text);
+            let root = Spanned::new(table.span(), DeValue::Table(table.into_inner()));
+            let spans = path.iter().scan(&root, |value, segment| {
+                *value = match segment {
+                    Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
+                    Segment::Seq { index } => value.get_ref().get(*index),
+                    Segment::Unknown => None,
+                }?;
+                Some(value.span())
+            });
+            (layer, spans.enumerate().last())
+        })
+        .max_by_key(|(_, deepest)| deepest.as_ref().map(|(depth, _)| *depth))
+        .map(|(layer, deepest)| Origin { layer: Arc::clone(layer), span: deepest.map(|(_, span)| span) })
 }
 ```
 
-`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key. A decode failure locates the layer holding the deepest prefix of its path, the later layer on a tie, and a key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that an empty stack leaves `None`.
+`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key in place, an overridden key keeping its position under `preserve_order`. Tables move into the merge, and `origin` re-parses the layers once a decode or later validation fails at a `serde_path_to_error::Path`, returning the layer holding its deepest prefix (the later one on a tie), and a key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that an empty stack leaves `None`.
 
 ## [06]-[ENTRY_POINT]
 
@@ -188,4 +195,4 @@ fn main() -> ExitCode {
 - `panic = "abort"` runs no unwind release, and a hook held for process lifetime chains through `panic::update_hook` to drop the `WorkerGuard` an `Arc<nonpoison::Mutex<Option<WorkerGuard>>>` holds
 - Work returning `T: Termination` exits through `report()`
 
-Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Writer, encoder, and pager failures fold into one `Option<io::ErrorKind>` the exit match reads in its first arm (`error if let Some(kind) = io_error_kind(&error) => kind.into()`), and a `BrokenPipe` from a closed reader ends output as success. `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).
+Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Encoder failures classify where they enter, an I/O cause converting into the one variant over `io::Error` (serde_json `classify() == Category::Io` through `io::Error::from`, csv `into_kind()` yielding `ErrorKind::Io`), and the exit match holds one arm per variant, a `BrokenPipe` from a closed reader ending output as success. `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).

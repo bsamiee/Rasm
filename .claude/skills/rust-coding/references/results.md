@@ -28,17 +28,13 @@ Each unlisted unit reports its own `Refused`, an empty schedule passes, and cons
 
 ## [03]-[BINDING]
 
-Steps reading joined values bind through `.ok()?`, and one `From` impl per crate error lifts each later failure through `?`:
+Steps reading joined values bind through `.ok()?`, and later dependent steps bind in one `try` block over the crate error, lifted once by `map_err(NEVec::new)`:
 
 ```rust
-impl From<MarketError> for NEVec<MarketError> {
-    fn from(value: MarketError) -> Self { Self::new(value) }
-}
-
 pub fn cleared(headroom: &OrdMap<UnitId, u32>, form: &BidForm) -> Result<(OrdMap<UnitId, u32>, Bid), NEVec<MarketError>> {
     let bid = bid(form).ok()?;
     let refused = |reason| MarketError::Refused { unit: form.unit, reason };
-    let left = headroom.get(&form.unit).ok_or_else(|| refused(Refusal::Missing))?.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Refusal::Short))?;
+    let left = try { headroom.get(&form.unit).ok_or_else(|| refused(Refusal::Missing))?.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Refusal::Short))? }.map_err(NEVec::new)?;
     Ok((headroom.update(form.unit, left), bid))
 }
 ```

@@ -43,7 +43,7 @@ rule:
             - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
             - has: {field: return_type, regex: '^bool$'}
             - has: {field: body, matches: test-body}
-            - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: type, kind: type_identifier, pattern: $T}}}
             - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
         - kind: match_expression
           all:
