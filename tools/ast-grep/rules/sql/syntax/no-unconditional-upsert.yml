@@ -20,5 +20,5 @@ transform:
     STORED: {rewrite: {source: $UPSERT, rewriters: [stored], joinBy: ', '}}
     INCOMING: {rewrite: {source: $UPSERT, rewriters: [incoming], joinBy: ', '}}
 fix: '$UPSERT where ($STORED) is distinct from ($INCOMING)'
-message: '`$UPSERT` rewrites rows that already hold every incoming value'
+message: '`$UPSERT` rewrites rows that hold every incoming value'
 note: 'End the update with `where (<table>.<column>, ...) is distinct from (excluded.<column>, ...)` unless a `returning` reader needs unchanged rows'

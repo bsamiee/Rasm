@@ -80,7 +80,7 @@ utils:
                     kind: identifier
                     pattern: $N
                     not: {any: [{matches: first-operand}, {matches: name-slot}]}
-    bare-value:
+    inlinable-value:
         kind: if_statement
         any:
             - follows:
@@ -100,12 +100,12 @@ rule:
         - all:
             - matches: fixable-if
             - not: {matches: later-read}
-            - matches: bare-value
-            - pattern: $BARE
+            - matches: inlinable-value
+            - pattern: $INLINED
         - all:
             - matches: fixable-if
             - not: {matches: later-read}
-            - not: {matches: bare-value}
+            - not: {matches: inlinable-value}
             - pattern: $WRAPPED
         - kind: identifier
           all:
@@ -125,7 +125,7 @@ rewriters:
       fix: ($V)
 transform:
     BIND: rewrite($BOUND, rewriters=[bind-first-operand])
-    INLINE: rewrite($BARE, rewriters=[inline-first-operand])
+    INLINE: rewrite($INLINED, rewriters=[inline-first-operand])
     WRAP: rewrite($WRAPPED, rewriters=[wrap-first-operand])
 fix:
     template: $BIND$INLINE$WRAP$UNFIXED

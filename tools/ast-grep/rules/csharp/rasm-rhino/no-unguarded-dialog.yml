@@ -25,4 +25,4 @@ rule:
                     - has: {field: function, kind: identifier, pattern: $ADAPTER}
                     - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: method_declaration, all: [{has: {field: name, pattern: $ADAPTER}}, {has: {stopBy: end, matches: guard}}]}}
 message: '`$SHOW` opens a modal dialog with no `Attended` guard'
-note: 'Bind `HostDialogs.Attended` before the dialog, unattended scripts block on it; the Eto-backed asks the host dialog service cancels while unattended need no guard'
+note: 'Bind `HostDialogs.Attended` before a dialog unattended scripts block on, host dialog service asks cancel while unattended and need no guard'

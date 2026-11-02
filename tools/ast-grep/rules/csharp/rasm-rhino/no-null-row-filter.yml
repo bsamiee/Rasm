@@ -85,7 +85,7 @@ utils:
             - kind: invocation_expression
               all:
                 - matches: {csharp-owner-call: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
     items:
         any:
             - kind: invocation_expression
@@ -158,7 +158,7 @@ utils:
         any:
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Somes$'}}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
                 - has:
                     field: function
                     has:
@@ -186,11 +186,11 @@ rule:
     all:
         - any:
             - all:
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Strict$'}}, {has: {field: expression, matches: slot-read}}]}
             - all:
                 - matches: slot-read
-                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, matches: csharp-bare-call}}}
+                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, matches: csharp-argumentless-call}}}
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}

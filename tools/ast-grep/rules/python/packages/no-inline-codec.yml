@@ -101,7 +101,7 @@ rule:
             field: attribute
             inside: {kind: call, field: function, all: [{matches: codec-call}, {not: {matches: fixed}}]}
 rewriters:
-    - id: carried-keyword
+    - id: kept-keyword
       rule: {kind: keyword_argument, pattern: $KEYWORD}
       fix: $KEYWORD
     - id: decoded-type
@@ -110,13 +110,13 @@ rewriters:
     - id: module-call
       rule: {kind: call, has: {field: function, has: {field: object, has: {field: arguments, pattern: $CONSTRUCTOR_ARGUMENTS}}}}
       transform:
-        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[carried-keyword, decoded-type], joinBy=', ')
+        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[kept-keyword, decoded-type], joinBy=', ')
         TAIL: {replace: {source: $OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}
       fix: $MODULE.$METHOD($VALUE$TAIL)
     - id: imported-call
       rule: {kind: call, has: {field: function, has: {field: object, has: {field: arguments, pattern: $CONSTRUCTOR_ARGUMENTS}}}}
       transform:
-        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[carried-keyword, decoded-type], joinBy=', ')
+        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[kept-keyword, decoded-type], joinBy=', ')
         TAIL: {replace: {source: $OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}
       fix: $FUNCTION($VALUE$TAIL)
 transform:

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-alias-qualifier-csharp
+id: no-alias-qualifier
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
@@ -25,4 +25,4 @@ rule:
           pattern: $NAME
           has: {field: expression, matches: project-root}
 message: '`$NAME` works around a name clash through an alias or namespace qualifier'
-note: 'Rename the clashing project declaration and import its namespace with `using`, a clash between packages keeps its namespace qualifier, and `global::Rhino.` is that qualifier where the `Rasm.Rhino` namespace shadows the RhinoCommon root'
+note: 'Rename the project declaration and import its namespace with `using`. Package clashes keep the qualifier, `global::Rhino.` where `Rasm.Rhino` shadows RhinoCommon'

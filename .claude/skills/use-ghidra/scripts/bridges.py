@@ -53,7 +53,7 @@ class _Bridge(msgspec.Struct, frozen=True):
     environ: frozendict[str, str]
 
     def ended(self, event: _Session) -> bool:
-        """Return whether owner's process ended or `event` ends owner's session."""
+        """Answers whether owner's process ended or `event` ends owner's session."""
         match event:
             case _SessionEnd(session_id=session_id):
                 return self.orphaned or self.owner.session_id == session_id
@@ -65,7 +65,7 @@ class _Bridge(msgspec.Struct, frozen=True):
 
 
 def _bridges() -> tuple[_Bridge, ...]:
-    """Return each bridge JVM naming its owner, orphaned when no older process holds owner PID, project from `AnalyzeHeadless` arguments."""
+    """Returns each bridge JVM naming its owner, orphaned when no older process holds owner PID, project from `AnalyzeHeadless` arguments."""
     headless = "ghidra.app.util.headless.AnalyzeHeadless"
     processes = tuple(psutil.process_iter(("cmdline", "environ", "create_time")))
     started = {process.pid: process.info["create_time"] for process in processes}
@@ -78,7 +78,7 @@ def _bridges() -> tuple[_Bridge, ...]:
 
 
 def _commands(event: _Session, found: tuple[_Bridge, ...], projects: tuple[Path, ...], environ: Mapping[str, str]) -> tuple[tuple[tuple[str, ...], Mapping[str, str]], ...]:
-    """Return `ghidra stop` per ended bridge under its environment, then `ghidra status` per unheld project under hook environment."""
+    """Returns `ghidra stop` per ended bridge under its environment, then `ghidra status` per unheld project under hook environment."""
     held = {bridge.project for bridge in found}
     return (
         *((("ghidra", "--quiet", "stop", "--project", str(bridge.project)), bridge.environ) for bridge in found if bridge.ended(event)),
@@ -90,7 +90,7 @@ def _commands(event: _Session, found: tuple[_Bridge, ...], projects: tuple[Path,
 
 
 def main() -> None:
-    """Start each command in its own session, a bridge's save at `ghidra stop` outlasts the hook."""
+    """Starts each command in its own session, a bridge's save at `ghidra stop` outlasts the hook."""
     event = msgspec.json.decode(sys.stdin.buffer.read(), type=_Session)
     projects = tuple(path.with_suffix("") for path in Path(msgspec.convert(os.environ, _Settings).projects).glob("*.gpr"))
     for command, environ in _commands(event, _bridges(), projects, os.environ):

@@ -126,7 +126,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: arm-read}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
     some-arm:
         kind: lambda_expression
         all:
@@ -142,7 +142,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ValueUnsafe$'}}, {has: {field: expression, matches: held-read}}]}
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
     hook-call:
         kind: lambda_expression
         all:

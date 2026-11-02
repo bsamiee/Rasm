@@ -151,7 +151,7 @@ utils:
     run-call:
         kind: invocation_expression
         all:
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Run|RunSafe)$'}}
     recovered:
         any:

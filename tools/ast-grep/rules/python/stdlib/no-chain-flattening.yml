@@ -49,7 +49,7 @@ rule:
             - not: {inside: {kind: argument_list, inside: {matches: wrapper}}}
             - any:
                 - matches: sole-argument
-                  pattern: $BARE
+                  pattern: $SOLE
                 - not: {matches: sole-argument}
                   pattern: $PARENTHESIZED
         - matches: nested-loop

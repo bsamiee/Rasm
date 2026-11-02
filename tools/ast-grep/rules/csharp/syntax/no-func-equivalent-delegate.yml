@@ -70,4 +70,4 @@ rule:
                                     has: {stopBy: end, kind: identifier, pattern: $NAME}
                                     follows: {stopBy: end, kind: *member, has: {stopBy: end, kind: identifier, pattern: $NAME}}
 message: Delegate `$NAME` restates a `Func` or `Action` signature
-note: 'Use the matching `Func` or `Action`, same-typed parameters keep a delegate'
+note: 'Use the matching `Func` or `Action`, a delegate repeating a parameter type stays'

@@ -23,4 +23,4 @@ rule:
                 - has: {field: function, any: [{kind: identifier}, {kind: member_access_expression}]}
                 - has: {field: arguments, kind: argument_list, all: [{has: {matches: sentinel}}, {not: {has: {kind: argument, nthChild: 2}}}]}
 message: '`$PROBE` probes a delegate with a sentinel input to learn its presence'
-note: 'Declare the callback whose presence is read as an `Option<Func<…>>` init member and read `IsSome` on the member'
+note: 'Declare a presence-tested callback as an `Option<Func<…>>` init member and read its `IsSome`'

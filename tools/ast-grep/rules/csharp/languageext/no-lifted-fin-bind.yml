@@ -99,7 +99,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: lifted-fin}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - matches: lifted-local
     held-bind:
         kind: argument

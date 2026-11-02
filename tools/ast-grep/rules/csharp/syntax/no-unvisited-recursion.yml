@@ -16,7 +16,7 @@ utils:
                   all:
                     - has: {field: name, matches: function-name}
                     - has: {field: expression, any: [{regex: '^this$'}, {kind: identifier, regex: '^[a-z_]'}]}
-    carries:
+    passes-successor:
         any:
             - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $NEXT}}
             - all:
@@ -87,7 +87,7 @@ rule:
                                 all:
                                     - matches: successor-call
                                     - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $NEXT}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NEXT}}}]}
-                        - matches: carries
+                        - matches: passes-successor
             - has:
                 field: body
                 has:

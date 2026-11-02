@@ -209,7 +209,7 @@ rule:
                     - pattern: $FIXED
             - pattern: $KEPT
 rewriters:
-    - id: pick
+    - id: selected-item
       rule:
         kind: subscript
         all:
@@ -249,7 +249,7 @@ rewriters:
         inside: {kind: 'binary_operator, unary_operator', pattern: $FIXED}
       fix: (1 if $T else 0)
 transform:
-    RESULT: rewrite($FIXED, rewriters=[pick, kept-bytes, kept-string, kept-list, kept-tuple, number])
+    RESULT: rewrite($FIXED, rewriters=[selected-item, kept-bytes, kept-string, kept-list, kept-tuple, number])
     OPEN: {replace: {source: $CONTEXT, replace: '(?s).+', by: '('}}
     CLOSE: {replace: {source: $CONTEXT, replace: '(?s).+', by: ')'}}
 fix: $OPEN$RESULT$CLOSE$KEPT

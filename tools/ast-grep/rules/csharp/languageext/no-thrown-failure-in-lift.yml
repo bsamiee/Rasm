@@ -8,7 +8,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $VALUE}}, {has: {field: name, regex: '^ThrowIfFail$'}}]}
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
     thunk:
         kind: lambda_expression
         all:

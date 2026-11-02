@@ -8,11 +8,11 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Try$'}}, {has: {field: expression, matches: effect}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: parenthesized_expression
               has: {matches: tried}
 rule:
@@ -24,4 +24,4 @@ rule:
         - kind: invocation_expression
           all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried}}]}
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call

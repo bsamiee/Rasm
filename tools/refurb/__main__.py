@@ -1,4 +1,4 @@
-"""Run refurb checks over trees mypy re-checks against the cache `typecheck:mypy` writes."""
+"""Runs refurb checks over trees mypy re-checks against the cache `typecheck:mypy` writes."""
 
 import sys
 lazy from collections.abc import Sequence
@@ -21,7 +21,7 @@ lazy from refurb.visitor import RefurbVisitor
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def refurbished(settings: Settings) -> Sequence[Error | str]:
+def checked(settings: Settings) -> Sequence[Error | str]:
     """Type-checks each source module from its text with cached imports and runs checks over its typed tree."""
     sources, options = process_options([*settings.files, *settings.mypy_args])
     options.preserve_asts = True
@@ -49,7 +49,7 @@ def _status() -> int:
     """Returns the exit status of a findings run over configured mypy sources, passing every other run to refurb."""
     match catch(load_settings, exception=ValueError)(sys.argv[1:]):
         case Result(tag="ok", ok=Settings(help=False, version=False, explain=None, generate=False, debug=False, timing_stats=None) as settings):
-            errors = refurbished(settings)
+            errors = checked(settings)
             if output := format_errors(errors, settings):
                 sys.stdout.write(f"{output}\n")
             return 1 if errors else 0

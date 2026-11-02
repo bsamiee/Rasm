@@ -11,11 +11,11 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}, has: {stopBy: end, kind: type_argument_list}}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Seq|Empty)$'}}}, has: {stopBy: end, kind: type_argument_list}}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: identifier
               regex: '^Empty$'
             - kind: member_access_expression
@@ -27,7 +27,7 @@ utils:
             - kind: default_expression
             - kind: object_creation_expression
               all:
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
                 - not: {has: {field: initializer, has: {pattern: $_}}}
             - kind: cast_expression
               has: {field: value, matches: empty-collection}

@@ -8,10 +8,12 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Target paths hold Swift sources alone, a `Package.swift` inside one compiles as a source and any other file warns as unhandled
 - Target paths are disjoint, SwiftPM fails a folder inside another target's path on overlapping sources
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
-- Products list library modules alone, SwiftPM synthesizes each executable's product, `support` holds test libraries and fixture executables
-- Modules take their suites' dependencies as Nx edges, a Rasm import in `support` or a fixture cycles with each module whose suite uses it
-- Test targets take `<Module>Tests`, cases needing a GUI session or TCC grant `<Module>IntegrationTests`, Nx attaches each to its module's `test` or `test:integration` and filters on the C99 module name
-- Test targets using swift-custom-dump link `IssueReportingTestSupport`, mise `OMIT_DYNAMIC_TEST_SUPPORT` builds it static where the dynamic form prints linker version warnings
+- Products list library modules alone, SwiftPM synthesizes each executable's product
+- Manifest `support` targets hold test libraries and fixture executables
+- Modules take their suites' dependencies as Nx edges, a `support` target importing a package module cycles with each module whose suite uses it
+- Test targets take `<Module>Tests`, or `<Module>IntegrationTests` for cases needing a GUI session or TCC grant
+- Nx attaches each test target to its module's `test` or `test:integration` and filters on its C99 module name
+- Dynamic `IssueReportingTestSupport` prints linker version warnings, test targets using swift-custom-dump link it static through mise `OMIT_DYNAMIC_TEST_SUPPORT`
 - Remote packages take `.package(url:from:)` and an `up-to-next-major-version` row in each app linking their products, `upgrade:swift` moves both
 - Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
@@ -114,13 +116,13 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - `custom_rules` is unset, its regexes match text where ast-grep matches syntax
 - Logged command lines escape `#` in a macro plugin path, `swiftlint analyze` keeps the `\#` and its SourceKit replay finds no macro plugin
 - Xcode apps analyze through `--compile-commands` over `-showBuildSettingsForIndex` `swiftASTCommandArguments`, which hold each argument unescaped
-- Package sources run `swiftlint lint` alone until a SwiftLint release unescapes `\#`: `xcodebuild` lists no settings for a package scheme and native `debug.yaml` holds no `swift-compiler` command
+- Package sources run `swiftlint lint` alone until a SwiftLint release unescapes `\#`, neither `xcodebuild` nor `debug.yaml` lists their compiler arguments
 - `unused_import` is off, analyze reports imports a macro expansion uses
 
 ## [09]-[PERIPHERY]
 
 - `.config/periphery.yml` names a generic config, `--project` needs a `.pbxproj` no app holds, SwiftPM mode runs `swift package describe` per scan
-- SwiftPM scans pass each test target's C99 name to `--exclude-targets`, since `swift test` writes test units into the index store `build` writes
+- `swift test` writes test units into the index store `build` writes, SwiftPM scans pass each test target's C99 name to `--exclude-targets`
 - Bodyless `@_silgen_name` declarations name parameters `_:`, Periphery reports each named one unused
 
 ## [10]-[LANGUAGE_SERVER]

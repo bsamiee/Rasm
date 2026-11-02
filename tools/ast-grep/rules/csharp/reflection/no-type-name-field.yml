@@ -9,7 +9,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, any: [{kind: identifier, regex: '^GetType$'}, {kind: member_access_expression, has: {field: name, regex: '^GetType$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^GetType$'}}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: typeof_expression
     type-source:
         any:
@@ -32,7 +32,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: type-value}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
     type-parameter-nameof:
         kind: invocation_expression
         all:

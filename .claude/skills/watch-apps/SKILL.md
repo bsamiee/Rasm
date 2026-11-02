@@ -5,16 +5,16 @@ description: "Use when opening or driving a desktop app, covering background con
 
 # [WATCH_APPS]
 
-`watch-apps` observes and drives desktop apps in the background through Accessibility.
-
 ## [01]-[SEQUENCE]
 
 Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
 1. Start a Monitor running `watch` with the app's bundle id or display name
-2. Read the start lines: `system` pressure, then each app's running instances or `{}` for none
+2. Read the start lines: `system` pressure and each app's running instances or `{}` for none
 3. Open the app with `launch`, which sends no activation
 4. Act on each line by its state table row, on the `pid` of the instance work drives
-5. Restart the Monitor with the same command on its expiry notice
+5. Run `read` for the control ids a watch line leaves out, then `perform` or `set` on one id
+6. Read the effect from the next watch line, `perform` and `set` print nothing on success
+7. Restart the Monitor with the same command on its expiry notice
 
 ```text
 Monitor {"command": "watch-apps watch <app>",
@@ -27,22 +27,21 @@ watch-apps launch <app> [--new] [--hides] \
 ```
 
 - Names resolve by bundle id through Launch Services, then by Spotlight name or id ignoring case and diacritics, then to the one app containing them
-- Names matching no app or apps of more than one bundle id print a `fail` line listing candidates, every other name runs, and `watch` exits when none runs
+- Names matching no app print a `fail` line, names matching apps of more than one bundle id a `fail` line listing them, and `watch` exits when no name runs
+- Bundle ids installed at more than one path print a `fail` line naming each path
 - `launch` prints the instance's state lines until it leaves `launching`, a running instance's unless `--new` opens another
 - `--document` opens each reachable file in the app, without one the app opens no document window
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
 - `--hides` launches a new instance hidden and hides it again once launched when `--document` shows its windows, a running instance stays as it is
 - `--new` on a running app setting `LSMultipleInstancesProhibited` prints a `fail` line and opens nothing
-- Apps holding one instance by their own check show an alert in the new instance, which reads `responding` with a `requiresAnswer` element, then `exited`
 - `--new` restores the first instance's documents unless `--arguments -ApplePersistenceIgnoreState --arguments YES` follows it
-- Apps can activate and unhide themselves once launched or once a press answers a dialog they show while launching
-- Apps with an argument that stops their activation take the argument through `--arguments`
+- Apps holding one instance by their own check show an alert in the new instance, which reads `responding` with a `requiresAnswer` element, then `exited`
+- Apps can activate and unhide themselves once launched or once a press answers a launch dialog, an argument stopping activation goes through `--arguments`
 - Apps supporting automatic termination can quit a hidden instance that shows no window
 - AppleScript `path to application` launches a stopped app hidden, a hidden menu bar app shows no panel until it restarts
-- Bundle ids installed at more than one path print a `fail` line naming each path
 - Output and error streams of the app are its own, `launch` captures neither
 
-Every command exits 1 after printing a `fail` line and 0 otherwise, exits when the process that started it exits, and prints help with exit 0 for `--help`. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
+Every command exits 1 after printing a `fail` line and 0 otherwise, and exits when the process that started it exits. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
 
 ## [02]-[ACTIONS]
 
@@ -55,7 +54,6 @@ watch-apps perform <id> <action>
 watch-apps set <id> '<text>'
 ```
 
-- `read` prints one state line per app, each menu except the Apple menu under the menu bar item opening it
 - `--pid` selects the one instance `read` or `capture` prints and takes one app
 - `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>.png`
 - `--window` captures one window from a line's `window` field, `--longest-side` scales the image down to that many pixels
@@ -67,17 +65,12 @@ watch-apps set <id> '<text>'
 - Menu item ids name a position in their menu, rerun `read` after the app changes that menu
 - Menu items of a background app take `AXPress` with no Automation grant, items a background app disables read `enabled` false
 - Modal dialogs shown while launching leave every menu item `enabled` false, modal dialogs a menu item opens leave `enabled` as it read
-- Runs print nothing when the app performed the action, the watcher shows its effect as the next state line
-- Runs print a `fail` line keyed by the `id`, its `reason` naming an absent or disabled element, `AXRaise`, or an action the app refused
-- `AXRaise` brings the app forward and is never sent
-- Refused actions can have run
-- Actions left unanswered for the messaging timeout print a `fail` line naming them and can have run, read the next state line before retrying one
+- Failed runs print a `fail` line keyed by the `id`, its `reason` naming an absent or disabled element, `AXRaise`, or an action refused or left unanswered
+- Refused and unanswered actions can have run, read the next state line before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- Dialogs and sheets of a background app order below the frontmost app's front window and above other apps' windows, taking no focus
-- Modal dialogs bounce the app's Dock icon while open
 - Instances launched with `--hides` stay hidden through alerts, sheets, save panels, and modal panels, and a capture finds no window
+- Instances hidden after launch show again at their next modal dialog
 - Watchers read hidden instances and actions reach them
-- Hiding a running instance lasts until its next modal dialog shows it again
 
 ## [03]-[STATES]
 
@@ -96,10 +89,9 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance
 - `read` lines give every window, sheet, dialog, and the menu bar its `detail`
 - `id` names the element for `perform` and `set`, `window` holds its CoreGraphics window number, absent on the menu bar
 - `role`, `subrole`, `modal` (`AXModal`), `title`, and `description` (`AXDescription`, `alert` on an alert) name the element
-- `subrole` reads `AXDialog` on some hidden and minimized windows
-- `identifier` (`AXIdentifier`) names its kind as AppKit does, `save-panel`, `open-panel`, and `_NS:87` for an alert, shared by every element of that kind
+- `identifier` (`AXIdentifier`) names its kind as AppKit sets it (`save-panel`, `open-panel`), shared by every element of that kind
 - `document` holds the window's `AXDocument` file URL, `edited` its close button's `AXEdited`, `minimized` its `AXMinimized`
-- `requiresAnswer` holds for a sheet, a window with `modal` true, or a system dialog, and never for a window that only reads `subrole` `AXDialog`
+- `requiresAnswer` holds for a sheet, a window with `modal` true, or a system dialog, never for `subrole` `AXDialog` alone, which some hidden and minimized windows read
 - `actions` hold the element's own Accessibility actions other than `AXRaise`
 
 `detail` holds what a walk reads:
@@ -109,7 +101,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance
 - Walks descend into scroll areas, the visible rows of tables and outlines, and the visible children of lists, a text area's `value` holds its visible text
 - Controls hold `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, and `attribute`
 - Control `attribute` holds the element attribute naming the control, `AXDefaultButton` answers Return and `AXCancelButton` Escape
-- Control `items` hold the controls of a menu bar item's menu and of a pop-up button's menu while `AXShowMenu` holds it open
+- Control `items` hold the controls of each menu bar item's menu except the Apple menu, and of a pop-up button's menu while `AXShowMenu` holds it open
 - Control `identifier` reads `action-button-<n>` on an alert in the order its buttons were added, `OKButton` and `CancelButton` on save and open panels, `PDPrint` and `PSOK` on print and page setup
 - Save and open panels set neither `AXDefaultButton` nor `AXCancelButton`
 - `unreadable` lists Accessibility reads the app refused, each with `reads`, `role`, `label`, and AXError `error`
@@ -134,5 +126,6 @@ Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type. 
 ## [04]-[FOCUS]
 
 Actions go to the app's process through Apple Events or AX actions on its elements and leave the frontmost app unchanged:
+- Dialogs and sheets of a background app take no focus and order below the frontmost app's front window, above other apps' windows
 - System Events `keystroke` and `key code` post to the frontmost app whatever process the script names
 - `activate`, `AXRaise`, and an `AXFrontmost` write take focus from the frontmost app

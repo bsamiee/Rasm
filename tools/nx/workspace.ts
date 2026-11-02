@@ -57,13 +57,13 @@ const Rule = Yaml.pipe(
         }),
     ),
 );
-const Floor = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
-const Host = Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Floor })));
+const PythonRequirement = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
+const Host = Toml.pipe(Schema.decodeTo(Schema.Struct({ project: PythonRequirement })));
 const Root = Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }), floors: Schema.Record(Schema.String, Floor) }).pipe(Schema.encodeKeys({ floors: 'dependency-groups' })),
+                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }), requirements: Schema.Record(Schema.String, PythonRequirement) }).pipe(Schema.encodeKeys({ requirements: 'dependency-groups' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
             }),
         }),
@@ -146,7 +146,7 @@ const readPyproject = Effect.fnUntraced(function* (root: string) {
     const { members } = tool.uv.workspace;
     const manifests = yield* Effect.forEach(members, (member) => decode(Member, root, path.join(member, PYPROJECT)));
     const moduleRoots = Array.zip(members, manifests).flatMap(([member, { tool: held }]) => Option.match(held.hatch, { onNone: () => [], onSome: ({ build }) => build.devModeDirs.map((folder) => path.join(member, folder)) }));
-    return { moduleRoots, floors: tool.uv.floors, ...tool.pytest };
+    return { moduleRoots, requirements: tool.uv.requirements, ...tool.pytest };
 });
 const openWorkspace = Effect.fnUntraced(function* (root: string) {
     const [fs, path, store] = yield* Effect.all([FileSystem.FileSystem, Path.Path, openStore(root)]);
@@ -163,16 +163,16 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
 });
 
 // --- [PROJECTS]
-const mirrored = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
+const testDirs = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject, hosts }: Workspace) {
     const [path, { pythonFiles, testPaths }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
-        mirrored(path, testPaths, dir),
-        (mirror) =>
+        testDirs(path, testPaths, dir),
+        (testDir) =>
             Effect.map(
                 glob(
                     root,
-                    pythonFiles.map((pattern) => `${mirror}/**/${pattern}`),
+                    pythonFiles.map((pattern) => `${testDir}/**/${pattern}`),
                 ),
                 Array.isArrayNonEmpty,
             ),
@@ -207,10 +207,10 @@ const markers = {
     '*.csproj': Effect.fnUntraced(function* (_, { file, root }) {
         const { Project } = yield* decode(MSBuildProject, root, file);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
-        const outputs = (target: string, pivot: string) => [
-            `{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`,
+        const outputs = (target: string, configuration: string) => [
+            `{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${configuration}*`,
             `{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target.replaceAll(':', '-')}.binlog`,
-            ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : []),
+            ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${configuration}*`] : []),
         ];
         return {
             tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : [])],
@@ -322,12 +322,12 @@ const infer = Effect.fnUntraced(
 
 // --- [ROOT]
 const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproject }: Workspace) {
-    const [path, folders, { pythonFiles, testPaths, moduleRoots, floors }] = yield* Effect.all([Path.Path, hosts, pyproject]);
-    const claimed = moduleRoots.flatMap((moduleRoot) => mirrored(path, testPaths, moduleRoot));
+    const [path, folders, { pythonFiles, testPaths, moduleRoots, requirements }] = yield* Effect.all([Path.Path, hosts, pyproject]);
+    const claimed = moduleRoots.flatMap((moduleRoot) => testDirs(path, testPaths, moduleRoot));
     const unclaimed = (yield* glob(
         root,
         testPaths.flatMap((testPath) => pythonFiles.map((pattern) => `${testPath}/**/${pattern}`)),
-    )).filter((file) => !claimed.some((mirror) => !path.relative(mirror, file).startsWith('..')));
+    )).filter((file) => !claimed.some((testDir) => !path.relative(testDir, file).startsWith('..')));
     const [
         {
             versions: [interpreter],
@@ -368,7 +368,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
         Array.groupBy(scopes, ({ version }) => version),
         (version, members) => {
             const environment = `.cache/python/${version}`;
-            const excludedGroups = Object.entries(floors).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
+            const excludedGroups = Object.entries(requirements).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
             return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
         },
     );
@@ -413,7 +413,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
                         root: `python -m tools.refurb --quiet -- ${excluded}`,
                         ...perVersion(({ version, environment, scoped, synced }) => `${synced} python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`),
                     }),
-                    ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((mirror) => `--ignore=${mirror}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
+                    ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((testDir) => `--ignore=${testDir}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
                 },
             },
         },

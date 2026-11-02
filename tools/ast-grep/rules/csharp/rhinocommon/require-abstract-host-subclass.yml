@@ -56,4 +56,4 @@ transform:
             by: '${1}abstract '
 fix: $ABSTRACT
 message: 'Library class `$NAME` derives from `$HOST` and stays instantiable'
-note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls; a class whose every constructor takes parameters is one Rhino cannot construct'
+note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls'

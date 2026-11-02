@@ -97,7 +97,7 @@ rule:
                 - has: {field: function, has: {field: expression, has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: element-check}}}}}}
                 - any:
                     - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: identity}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
-                    - matches: csharp-bare-call
+                    - matches: csharp-argumentless-call
         - not: {matches: {csharp-owner-body: {type: {regex: '^Products$'}, member: {regex: '^Each$'}}}}
 message: '`$ITEMS` pairs each element with its index for `$RECORD.Unless`'
 note: 'Call `Products.Each(<items>, <call>)` with a derived label for a `bool` call, `(<item>, <index>) => <element>` for a `Fin`'

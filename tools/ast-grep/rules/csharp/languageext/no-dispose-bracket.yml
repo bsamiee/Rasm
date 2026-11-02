@@ -88,7 +88,7 @@ rule:
                 - not: {has: {stopBy: end, kind: from_clause, nthChild: 1, has: {stopBy: end, matches: use-call}}}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
                 - has:
                     field: function
                     has:

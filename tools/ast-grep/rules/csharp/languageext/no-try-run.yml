@@ -31,14 +31,14 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried-local}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
     direct:
         any:
             - matches: {languageext-tried-run: {effect: {pattern: $EFFECT}}}
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: direct}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: parenthesized_expression
               has: {matches: direct}
     kept:
@@ -47,7 +47,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: kept}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: parenthesized_expression
               has: {matches: kept}
 rule:

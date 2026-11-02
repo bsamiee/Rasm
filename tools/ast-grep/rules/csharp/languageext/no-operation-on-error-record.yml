@@ -93,7 +93,7 @@ utils:
                 all:
                     - has: {field: name, pattern: $SELF}
                     - has: {kind: base_list, has: {kind: generic_name, all: [{has: {kind: identifier, regex: '^IValidationError$'}}, {has: {kind: type_argument_list, has: {pattern: $SELF}, not: {has: {nthChild: 2}}}}]}}
-    own-vocabulary:
+    string-constant:
         all:
             - has: {kind: modifier, regex: '^const$'}
             - has: {kind: variable_declaration, has: {field: type, kind: predefined_type, regex: '^string$'}}
@@ -134,7 +134,7 @@ rule:
           all:
             - has: {kind: modifier, regex: '^(const|static)$'}
             - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}
-            - not: {matches: own-vocabulary}
+            - not: {matches: string-constant}
         - kind: property_declaration
           all:
             - has: {field: name, pattern: $MEMBER}

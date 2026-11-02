@@ -71,4 +71,4 @@ rule:
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: languageext-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
 message: 'Member typed `$TYPE` states absence with null'
-note: 'Hold `Option<T>` converted once at the boundary through `Optional`, declared parameters and stored records keep nullable shape System.Text.Json reads'
+note: 'Hold `Option<T>` converted once at the boundary through `Optional`. Parameters and records System.Text.Json reads stay nullable'

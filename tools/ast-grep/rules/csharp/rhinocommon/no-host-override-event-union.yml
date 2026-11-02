@@ -37,7 +37,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^RunSafe$'}}, {has: {field: expression, matches: send}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
     answered-send:
         kind: invocation_expression
         all:

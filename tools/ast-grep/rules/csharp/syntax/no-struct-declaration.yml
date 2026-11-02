@@ -42,4 +42,4 @@ rule:
         - not: {matches: constrained-kernel}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
 message: '`$NAME` is a struct'
-note: 'Declare a record or class, interop structs, `ref struct`, `ParallelHelper` actions, package processors a package `struct` constraint reads, and kernels a `struct` constraint reads stay'
+note: 'Declare a record or class. Interop structs, `ref struct`, `ParallelHelper` actions, and types a `struct` constraint reads stay'

@@ -37,7 +37,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^fun$'}}}}
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
     unit-sequence:
         all:
             - any:

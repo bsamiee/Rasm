@@ -8,7 +8,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $ROWS}}, {has: {field: name, regex: '^(AsIterable|AsEnumerable|ToSeq|ToArray|ToList|Strict)$'}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - pattern: $ROWS
     projection:
         any:
@@ -40,13 +40,13 @@ utils:
                                     all:
                                         - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select)$'}}
                                         - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1}}, {not: {has: {kind: argument, nthChild: 2}}}]}
-    materialized:
+    computed-rows:
         any:
             - matches: projection
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: projection}}, {has: {field: name, regex: '^(Strict|ToArray|ToSeq|ToList|ToArr|ToLst|ToImmutableArray)$'}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: invocation_expression
               all:
                 - matches: {csharp-named-call: {name: {regex: '^(toSeq|toArray|toList|Seq)$'}}}
@@ -56,20 +56,20 @@ utils:
                 - has: {kind: collection_element, nthChild: 1, has: {kind: spread_element, has: {matches: projection}}}
                 - not: {has: {kind: collection_element, nthChild: 2}}
             - kind: 'cast_expression, parenthesized_expression'
-              has: {matches: materialized}
+              has: {matches: computed-rows}
     staged:
         kind: variable_declarator
-        has: {nthChild: 2, matches: materialized}
+        has: {nthChild: 2, matches: computed-rows}
     first-projection:
         any:
-            - has: {matches: materialized}
+            - has: {matches: computed-rows}
             - has:
                 kind: identifier
                 pattern: $FIRST
                 inside: {stopBy: end, kind: block, has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {matches: staged, has: {field: name, pattern: $FIRST}}}}}
     second-projection:
         any:
-            - has: {matches: materialized}
+            - has: {matches: computed-rows}
             - has:
                 kind: identifier
                 pattern: $SECOND
@@ -82,8 +82,8 @@ utils:
         kind: initializer_expression
         has:
             kind: assignment_expression
-            has: {field: right, matches: materialized}
-            follows: {stopBy: end, kind: assignment_expression, has: {field: right, matches: materialized}}
+            has: {field: right, matches: computed-rows}
+            follows: {stopBy: end, kind: assignment_expression, has: {field: right, matches: computed-rows}}
     declared-type:
         inside:
             stopBy: end

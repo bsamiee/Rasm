@@ -73,7 +73,7 @@ utils:
                 - kind: invocation_expression
                   all:
                     - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried-run}}]}
-                    - matches: csharp-bare-call
+                    - matches: csharp-argumentless-call
             - not: {matches: continued}
             - not: {matches: typed-position}
 rule:

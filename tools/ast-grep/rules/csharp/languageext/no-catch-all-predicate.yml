@@ -46,7 +46,7 @@ rule:
     any:
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: catch-all, has: {field: function, has: {field: name, regex: '^Catch(\s*<.+>)?$'}}}}]}
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
         - matches: catch-all
           not:
             all:

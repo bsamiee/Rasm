@@ -28,7 +28,7 @@ utils:
     dispose:
         kind: invocation_expression
         all:
-            - matches: csharp-bare-call
+            - matches: csharp-argumentless-call
             - has:
                 field: function
                 any:

@@ -13,4 +13,4 @@ rule:
                 kind: lambda_literal
                 has: {field: type, kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, kind: simple_identifier, regex: '^_$'}}}
 message: '`$M` drops its failure through a `_` closure parameter'
-note: 'Name the error and recover only the host case the fallback answers (`DecodingError.typeMismatch`, `CancellationError`), passing every other failure on'
+note: 'Name the error, recover only the host case the fallback answers (`DecodingError.typeMismatch`, `CancellationError`), and pass every other failure on'

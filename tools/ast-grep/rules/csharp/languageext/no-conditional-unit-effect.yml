@@ -29,7 +29,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: unit-effect}}]}
-                - matches: csharp-bare-call
+                - matches: csharp-argumentless-call
             - kind: cast_expression
               has: {field: value, matches: unit-effect}
             - kind: parenthesized_expression
