@@ -25,11 +25,11 @@ CASES: Final[tuple[tuple[Steps, object], ...]] = (
     (("enabled", "drawing", "read_back", "blend"), ("ADDITIVE", "NONE")),
     (("enabled", "drawing", "read_back", "past limit"), Error(("OUTSIDE",))),
     (("enabled", "drawing", "handled"), Ok(None)),
-    (("enabled", "drawing", "signalled", "inside"), Ok(None)),
-    (("enabled", "drawing", "signalled", "after"), Ok(None)),
-    (("enabled", "drawing", "signalled", "refreshes"), ("fired",)),
-    (("enabled", "drawing", "signalled", "sources"), Ok(None)),
-    (("enabled", "drawing", "signalled", "absent"), Error(("ABSENT",))),
+    (("enabled", "drawing", "signaled", "inside"), Ok(None)),
+    (("enabled", "drawing", "signaled", "after"), Ok(None)),
+    (("enabled", "drawing", "signaled", "refreshes"), ("fired",)),
+    (("enabled", "drawing", "signaled", "sources"), Ok(None)),
+    (("enabled", "drawing", "signaled", "absent"), Error(("ABSENT",))),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -48,13 +48,13 @@ def test_text_measures_a_positive_extent(observed: Observations) -> None:
 
 
 def test_cursor_canvas_moves_into_window_pixels(observed: Observations) -> None:
-    """A canvas given a pointer moves its extent by the region origin into window pixels."""
+    """Canvas given a pointer moves its extent by the region origin into window pixels."""
     assert observed["enabled", "drawing", "pointed", "offset"] == observed["enabled", "drawing", "pointed", "origin"]
 
 
 @pytest.mark.parametrize("corner,edge", [("start", "left"), ("end", "right")])
 def test_chart_draws_its_well_at_its_corner(observed: Observations, corner: str, edge: str) -> None:
-    """A 40 by 30 plot draws its well one pixel wider each side, inset by the panel margin from the bottom and from its corner's side, its trace past midtone over the black well and dim text."""
+    """40 by 30 plot draws its well one pixel wider each side, inset by panel margin from the bottom and from its corner's side, its trace past midtone over black well and dim text."""
     inset = int(downcast(float, observed["enabled", "drawing", "charted", "inset"]))
     read = ("enabled", "drawing", "charted", corner, "ok")
     assert observed[*read, "shape"] == (48, 64, 4)

@@ -24,7 +24,7 @@ from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import Content, Graph, item_key, MenuItem, MenuItems
-from blender.bpy.nodes.trees import base_socket, socket_at
+from blender.bpy.nodes.trees import base_socket, interface_of, new_group, socket_at
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -34,7 +34,7 @@ type DesiredItem = tuple[Socket, Literal["INPUT", "OUTPUT"]] | InterfacePanel
 
 @runtime_checkable
 class Socketed(Protocol):
-    """Record stating the group sockets its fields take, such as a stock node's settings, in place of the sockets its field types give."""
+    """Record stating the group sockets its fields take (a stock node's settings) in place of the sockets its field types give."""
 
     @property
     def sockets(self) -> "tuple[Socket, ...]":
@@ -66,7 +66,7 @@ class StockInput(msgspec.Struct, frozen=True, kw_only=True):
 class Socket(msgspec.Struct, frozen=True, kw_only=True):
     """Interface socket by parameter key, its class a refined socket class whose default value states subtype, dimensions, and bounds, or a stock node input the host declares.
 
-    A stock input's class, description, bounds, and default come from the host at reconcile or graph build, stated bounds and default
+    Stock input's class, description, bounds, and default come from the host at reconcile or graph build, stated bounds and default
     winning, and a menu linked to a stock menu socket takes that socket's definition. Group input menu items are kept only while linked to a Menu Switch.
     """
 
@@ -92,7 +92,7 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def declared(self) -> "Socket":
-        """The socket as declared: a stock input's host class, description, bounds, and default under its stated bounds and default, any other socket itself."""
+        """Socket as declared: a stock input's host class, description, bounds, and default under its stated bounds and default, any other socket itself."""
         return self.stock.map(lambda stock: _declared(self, stock)).default_value(self)
 
     @property
@@ -137,11 +137,11 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, key: Key, annotation: object, default: Value | Enum = None, /) -> Option[Self]:
-        """Builds the socket a typed value declares, bounds and description from its `msgspec.Meta`, its class from a socket class or `StockInput` its `Annotated` metadata carries.
+        """Builds the socket a typed value declares, bounds and description from its `msgspec.Meta`, its class from a socket class or `StockInput` its `Annotated` metadata holds.
 
         Booleans take a Bool socket, integers an Int socket, floats bounded to [0, 1] a factor and other floats a Float socket, text a String
         socket, pairs and triples of floats a 2D or 3D vector, and enums and text literals a menu of their members, a bound past float32 left to the socket class.
-        A carried socket class or stock input replaces the class the type gives, such as `NodeSocketColor` over four floats.
+        Socket classes or stock inputs in metadata replace the class the type gives (`NodeSocketColor` over four floats).
 
         Args:
             key: Socket key.
@@ -149,7 +149,7 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
             default: Default value, an enum member as its item name.
 
         Returns:
-            Socket of the value type, `Nothing` for a type no socket holds, such as a record.
+            Socket of the value type, `Nothing` for a type no socket holds (a record).
         """
 
         def bound(inclusive: float | None, exclusive: float | None) -> float | None:
@@ -163,8 +163,8 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
             case msgspec.inspect.Metadata(type=info) | info:
                 described = ""
         made = functools.partial(cls, key=key, description=described, default_value=value)
-        carried = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
-        match next((held for held in carried if isinstance(held, StockInput) or (isinstance(held, type) and issubclass(held, bpy.types.NodeSocket))), None), info:
+        metadata = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
+        match next((held for held in metadata if isinstance(held, StockInput) or (isinstance(held, type) and issubclass(held, bpy.types.NodeSocket))), None), info:
             case None, _:
                 pass
             case form, msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt) | msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
@@ -203,7 +203,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def first(self) -> int:
-        """Position of the first item, after nothing at the root."""
+        """Position of first item."""
         return 0
 
     @property
@@ -264,7 +264,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
         return MenuItem(name=self.title, description=self.description)
 
     def socket(self, *path: object) -> Socket:
-        """Returns the socket at a key path under the panel, record fields by member descriptor and case classes by class, such as `panel.socket(Clock.speed)`.
+        """Returns the socket at a key path under the panel, record fields by member descriptor and case classes by class (`panel.socket(Clock.speed)`).
 
         Raises:
             LookupError: For a path the panel declares no socket at, at graph build.
@@ -276,7 +276,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
                 raise LookupError(f"{item_key(self.key, *path)} names no socket under {self.key}")
 
     def panel(self, *path: object) -> "InterfacePanel":
-        """Returns the panel at a key path under the panel as `socket` reads one, such as a record panel a section panel nests, its keys as the interface holds them.
+        """Returns the panel at a key path under the panel as `socket` reads one (a record panel a section panel nests), its keys as the interface holds them.
 
         Raises:
             LookupError: For a path the panel declares no panel at, at graph build.
@@ -288,12 +288,12 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
                 raise LookupError(f"{item_key(self.key, *path)} names no panel under {self.key}")
 
     @classmethod
-    def of(cls, key: Key, face: Interface | msgspec.Struct, /, *, name: str | None = None, description: str | None = None, closed: bool = False, toggle: Option[bool] = Nothing) -> Self:
+    def of(cls, key: Key, source: Interface | msgspec.Struct, /, *, name: str | None = None, description: str | None = None, closed: bool = False, toggle: Option[bool] = Nothing) -> Self:
         """Builds the panel at `key` holding an interface's items, or the interface `fielded` derives from a record, every item key at any depth prefixed by `key` through `item_key` and every title kept.
 
         Args:
             key: Panel key and the prefix of every key it holds.
-            face: Interface whose items the panel holds, or record whose fields it holds.
+            source: Interface whose items the panel holds, or record whose fields it holds.
             name: Panel name, its key's display name by default.
             description: Panel description, a record's docstring by default.
             closed: Whether the panel starts closed.
@@ -302,7 +302,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
         Returns:
             Panel of the prefixed items.
         """
-        held, stated = (face, "") if isinstance(face, Interface) else (fielded(face), Option.of_optional(type(face).__doc__).map(inspect.cleandoc).default_value(""))
+        held, stated = (source, "") if isinstance(source, Interface) else (fielded(source), Option.of_optional(type(source).__doc__).map(inspect.cleandoc).default_value(""))
         prefixed = _under(key, held)
         return cls(
             key=key, name=name, description=stated if description is None else description, closed=closed, toggle=toggle, outputs=prefixed.outputs, inputs=prefixed.inputs, panels=prefixed.panels
@@ -346,11 +346,11 @@ def fielded(record: msgspec.Struct, /) -> Interface:
 
 
 def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], /, *path: object) -> Outcome[T]:
-    """Decodes the record whose fields `InterfacePanel.of(key, record)` or `fielded(record)` declares from the values held at the keys of the fields a socket takes, a nested record from the values under its field's key, fields without a value keeping the record's.
+    """Decodes a record from socket values by field key, a nested record under its field's key, other fields keeping the record's.
 
     Args:
         record: Record whose values fields without a held value keep.
-        values: Values by socket key, such as entry input values, a menu value as its item name.
+        values: Values by socket key (entry input values), a menu value as its item name.
         *path: Key path of the panel holding the record's sockets, empty for sockets `fielded` keys at the interface root.
 
     Returns:
@@ -388,13 +388,13 @@ def _converted[T: msgspec.Struct](builtins: Mapping[str, object], kind: type[T],
     return converted
 
 
-def _under[I: Interface](prefix: Key, face: I) -> I:
+def _under[I: Interface](prefix: Key, interface: I) -> I:
     """Interface with every key at any depth prefixed through `item_key` and every title kept."""
     return msgspec.structs.replace(
-        face,
-        outputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in face.outputs),
-        inputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in face.inputs),
-        panels=tuple(msgspec.structs.replace(_under(prefix, panel), key=item_key(prefix, panel.key), name=panel.title) for panel in face.panels),
+        interface,
+        outputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in interface.outputs),
+        inputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in interface.inputs),
+        panels=tuple(msgspec.structs.replace(_under(prefix, panel), key=item_key(prefix, panel.key), name=panel.title) for panel in interface.panels),
     )
 
 
@@ -411,16 +411,18 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
     if not (kinds := tuple(tree for base, tree in _TREES.items() if issubclass(stock.node, base))):
         raise LookupError(f"{stock.node.__name__} belongs to no node tree kind")
     with ExitStack() as scratch:
-        tree: bpy.types.NodeTree = bpy.data.node_groups.new(".stock", kinds[0].__name__)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
-        scratch.callback(bpy.data.node_groups.remove, tree)
-        entered, node = tree.nodes.new(bpy.types.NodeGroupInput.__name__), tree.nodes.new(stock.node.__name__)
-        match socket_at(node.inputs, stock.input):
-            case Result(tag="ok", ok=target):
-                tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)
+
+        def linked(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeTree]:
+            scratch.callback(bpy.data.node_groups.remove, tree)
+            entered, node = tree.nodes.new(bpy.types.NodeGroupInput.__name__), tree.nodes.new(stock.node.__name__)
+            return socket_at(node.inputs, stock.input).map(lambda target: tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)).map(lambda _: tree)
+
+        match new_group(kinds[0], ".stock").bind(linked):
+            case Result(tag="ok", ok=held):
+                items = tuple(item for item in interface_of(held).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
             case Result(error=faults):
                 raise LookupError(stock, faults)
-        face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        match tuple(item for item in face.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket)):
+        match items:
             case (item,):
                 refined: type[bpy.types.NodeSocket] = getattr(bpy.types, item.bl_socket_idname)
 

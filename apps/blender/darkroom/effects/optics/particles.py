@@ -69,23 +69,31 @@ class Particles(Case, frozen=True, kw_only=True):
     iris: Aperture = Aperture()
     scintillation: Clock = Clock(speed=0.0)
 
+    @property
+    def heading(self) -> _Floats:
+        """Unit travel direction."""
+        return np.array((cos(self.direction), sin(self.direction)))
+
+    @property
+    def focal(self) -> float:
+        """Depth scale of the focused depth."""
+        return float(self.depth ** (-self.focus))
+
     def layered(self, bounds: Region, held: float, shutter: tuple[float, float], reach: float, rate: float) -> _Drawn:
         """Draws every layer's occupied cells able to reach the bounds across the shutter, sorted far to near by depth then lattice key, the clock at `rate` scene frames per second.
 
         Returns:
             Lattice keys, depth scales, centers, radii, gains, and tones of the occupied cells.
         """
-        heading = np.array((cos(self.direction), sin(self.direction)))
-        focus = self.depth ** (-self.focus)
         shown = self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage is not None or self.emission is not None)
 
         def layer(index: int) -> tuple[npt.NDArray[np.int64] | _Floats, ...]:
             midpoint = (index + 0.5) / self.layers
             near, far = (self.depth ** (-(midpoint + side * self.depth_variation / (2.0 * self.layers))) for side in (-1.0, 1.0))
             spacing = self.population.spacing * self.depth ** (-midpoint)
-            extent = self.population.spacing * near * self.population.size / 2.0 + self.defocus * max(abs(near - focus), abs(far - focus))
+            extent = self.population.spacing * near * self.population.size / 2.0 + self.defocus * max(abs(near - self.focal), abs(far - self.focal))
             support = np.array((extent / self.squeeze, extent))
-            travel = np.array([heading * self.clock.speed / rate * scale * time for scale in (near, far) for time in (held + shutter[0], held + shutter[1])])
+            travel = np.array([self.heading * self.clock.speed / rate * scale * time for scale in (near, far) for time in (held + shutter[0], held + shutter[1])])
             low, high = travel.min(axis=0) - self.turbulence * near * reach - support, travel.max(axis=0) + self.turbulence * near * reach + support
             columns = np.arange(floor((bounds.left - high[0]) / spacing) - 1, floor((bounds.right - low[0]) / spacing) + 1)
             rows = np.arange(floor((bounds.bottom - high[1]) / spacing) - 1, floor((bounds.top - low[1]) / spacing) + 1)
@@ -131,19 +139,17 @@ class Particles(Case, frozen=True, kw_only=True):
         """
         held = self.clock.held(frame)
         opening, closing = shutter if self.motion_blur else (0.0, 0.0)
-        heading = np.array((cos(self.direction), sin(self.direction)))
-        focus = self.depth ** (-self.focus)
         low, high = density_range(self.wind)
         reach = max(abs(2.0 * low - 1.0), abs(2.0 * high - 1.0))
         channel = np.array(fringed(np.asarray(self.fringe), np))
         keys, scales, centers, radii, gains, tones = self.layered(bounds, held, (opening, closing), reach, rate)
         count = len(keys)
-        optical = radii + self.defocus * np.abs(scales - focus)
+        optical = radii + self.defocus * np.abs(scales - self.focal)
         extent = optical * channel.max() * max(1.0, 1.0 / self.squeeze) + scales * (self.clock.speed / rate * max(abs(held + opening), abs(held + closing)) + self.turbulence * reach)
         tree = cKDTree(centers) if count else None
 
         def moved(selected: npt.NDArray[np.intp], times: _Floats) -> Outcome[_Floats]:
-            rest: _Floats = centers[selected] + times[:, None] * heading * (self.clock.speed / rate) * scales[selected, None]
+            rest: _Floats = centers[selected] + times[:, None] * self.heading * (self.clock.speed / rate) * scales[selected, None]
             if self.turbulence == 0.0 or len(selected) == 0:
                 return Ok(rest - (bounds.left, bounds.bottom))
             points, evolved = rest / scales[selected, None], self.evolution * times / rate
@@ -256,7 +262,7 @@ _DEFAULTS: Final = Particles()
 _COVERAGE: Final = spectra(item_key(Particles.coverage), Tint(), "Scene-linear cover color by particle tone", Some(True))
 _EMISSION: Final = emission.emission(item_key(Particles.emission), Emission(), "Light a particle adds", Some(False))
 _WIND: Final = bases.bases(item_key(Particles.wind), _DEFAULTS.wind, "Texture displacing each axis independently")
-_FACE: Final = Interface(
+_INTERFACE: Final = Interface(
     inputs=fielded(_DEFAULTS).inputs,
     panels=(
         InterfacePanel.of(item_key(Particles.population), _DEFAULTS.population, description="Particle layout, size, and edge"),
@@ -304,7 +310,7 @@ def _drawn(stage: Stage[Particles]) -> Outcome[Option[Prepared]]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles: Final = CompositorEffect(passed, record=Particles, interface=_FACE, mix=Blended(alpha=Alpha.RESULT), prepared=Some(_drawn), request=Some(precise))
+particles: Final = CompositorEffect(passed, record=Particles, interface=_INTERFACE, mix=Blended(alpha=Alpha.RESULT), prepared=Some(_drawn), request=Some(precise))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

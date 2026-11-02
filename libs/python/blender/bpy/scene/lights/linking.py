@@ -12,12 +12,12 @@ from blender.bpy.commands.calls import called, Operation, Placement
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import root_in, rooted, Struct, struct_at
+from blender.bpy.data.rna.properties import choices
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.scene.collections import entry, founded, Member, relinked
-from blender.bpy.scene.objects import focused
+from blender.bpy.scene.collections import created, entry, Member, relinked
+from blender.bpy.scene.objects import active_object
 from blender.bpy.ui.layout import members, rows
 from blender.records.faults import accumulated, Outcome, paired
 
@@ -30,7 +30,6 @@ _LINKERS: Final[Mapping[Descriptor[bpy.types.PointerProperty], Operation]] = Map
     RECEIVERS: bpy.ops.object.light_linking_receivers_link,
     BLOCKERS: bpy.ops.object.light_linking_blockers_link,
 })
-_SETS: Final = MappingProxyType({link: Ownership(kind=bpy.types.Collection, key=link.prop.identifier, saved=Saved.USED) for link in _LINKERS})
 _NAMED: Final = MappingProxyType({link.prop.identifier: link for link in _LINKERS})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -45,7 +44,9 @@ class Unlinking(bpy.types.PropertyGroup):
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
     """Receiver and blocker sets with the stock link operators and one unlink operator."""
 
-    sets: ClassVar[Mapping[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]]] = _SETS
+    sets: ClassVar[Mapping[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]]] = MappingProxyType({
+        link: Ownership(kind=bpy.types.Collection, key=link.prop.identifier, saved=Saved.USED) for link in _LINKERS
+    })
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns set ownerships and the unlink operator."""
@@ -81,14 +82,14 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
         identity: Identity marking owned collection.
 
     Returns:
-        Slot collection, or `collision` and `edit` faults.
+        Slot collection, or `refused` faults.
     """
     return (
         struct_at(emitter.light_linking, link.path, bpy.types.Collection)
         .map(Ok)
         .default_with(
-            lambda: _SETS[link].made(
-                identity, lambda: founded(Nothing, f"{owner.name} {link.prop.name}"), of=Some(owner), filled=lambda held: link.write(emitter.light_linking, held).map(lambda _: held)
+            lambda: LightLinks.sets[link].made(
+                identity, lambda: created(Nothing, f"{owner.name} {link.prop.name}"), of=Some(owner), filled=lambda held: link.write(emitter.light_linking, held).map(lambda _: held)
             )
         )
     )
@@ -143,7 +144,7 @@ def unlinked(layer: bpy.types.ViewLayer, emitter: bpy.types.Object, link: Descri
 @Operator.of(Unlinking)
 def light_linking_unlink(call: Call[Unlinking]) -> Outcome[Answer]:
     """Unlinks selected objects other than the active emitter from its light or shadow linking set."""
-    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: focused(layer).bind(lambda emitter: unlinked(layer, emitter, _NAMED[call.properties.collection])))
+    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: active_object(layer).bind(lambda emitter: unlinked(layer, emitter, _NAMED[call.properties.collection])))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

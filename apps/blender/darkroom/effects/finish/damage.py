@@ -25,6 +25,10 @@ from blender.imaging.sampling.tiles import stream, uniforms
 from blender.records.faults import accumulated, Outcome, paired
 from blender.records.fields import AtLeastOne, Case, NonNegative, Positive, Seed, Unit
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Parts = tuple[Option[Speckles], Option[Scratches], Option[Hairs], Option[Weave], Option[Gate]]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -128,7 +132,7 @@ class Hairs(msgspec.Struct, frozen=True, kw_only=True):
                 identity,
                 at,
                 Voronoi(voronoi_dimensions="4D", feature="DISTANCE_TO_EDGE", scale=1.0).node(POSITION, W),
-                Voronoi(voronoi_dimensions="4D", scale=1.0).node(POSITION, W, socket="Color", shape=bpy.types.NodeSocketColor),
+                Voronoi(voronoi_dimensions="4D", scale=1.0).node(POSITION, W, socket="Color", socket_type=bpy.types.NodeSocketColor),
             ).map(covered)
 
         return sampled(identity, planes, *(bend.node(column(name, bpy.types.NodeSocketVector)) for name in planes)).bind(edged)
@@ -214,7 +218,7 @@ def _prepared(stage: Stage[Damage]) -> Outcome[Option[Prepared]]:
     def replicated(estimate: Estimate[npt.NDArray[np.float64]]) -> npt.NDArray[np.float64]:
         return estimate.replicates
 
-    def marks(seed: int, clock: float, found: tuple[Option[Speckles], Option[Scratches], Option[Hairs], Option[Weave], Option[Gate]]) -> Outcome[npt.NDArray[np.float64]]:
+    def marks(seed: int, clock: float, found: _Parts) -> Outcome[npt.NDArray[np.float64]]:
         speckles, scratches, hairs, _, gate = found
         return accumulated((
             speckles.map(lambda held: held.covered(raster, precision, clock, seed=seed)).default_value(Ok(empty)),
@@ -225,8 +229,8 @@ def _prepared(stage: Stage[Damage]) -> Outcome[Option[Prepared]]:
             ),
         )).map(lambda planes: np.concatenate(planes, axis=-1))
 
-    def damaged(plane: npt.NDArray[np.float32], seed: int, clock: float, found: tuple[Option[Speckles], Option[Scratches], Option[Hairs], Option[Weave], Option[Gate]]) -> Outcome[Option[Prepared]]:
-        weave, gate = found[3], found[4]
+    def damaged(plane: npt.NDArray[np.float32], seed: int, clock: float, found: _Parts) -> Outcome[Option[Prepared]]:
+        _, _, _, weave, gate = found
 
         def section(held: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], index: int, fields: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
             color, mask = held

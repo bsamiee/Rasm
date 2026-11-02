@@ -9,24 +9,24 @@ from bl_ui.space_node import NODE_PT_backdrop
 import bpy
 from expression import Ok, Option, Some
 
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.editors import EntryEditor
 from blender.bpy.render.compositor.effects import Entry
-from blender.bpy.render.compositor.entries import EffectRows, Exclusive, Phase
+from blender.bpy.render.compositor.entries import Enabled, Pinned, StackEnd
 from blender.bpy.render.compositor.inputs import path_key, snapshot
 from blender.bpy.render.compositor.layers import Adjustment, LayerStack, PINNED, StackLayer
-from blender.bpy.render.compositor.placement import Edge, Enabled, Pinned
+from blender.bpy.render.compositor.offered import Exclusive, OfferedEffects, Phase
 from blender.bpy.render.compositor.recipes import Valued
-from blender.bpy.render.compositor.stacks import LayerStacks
+from blender.bpy.render.compositor.stack_extension import LayerStackExtension
 from blender.bpy.render.compositor.strips import Strips
 from blender.bpy.render.previews.nodes import NodePreview
 from blender.bpy.render.previews.tiles import EffectTiles, EntryTile
 from blender.bpy.render.sessions.setups import ENTRY_LOCKS, EntryLocks, WHOLE
 from blender.bpy.render.sessions.staging import StagedRender
-from blender.bpy.render.view_layers.routing import PassSet
+from blender.bpy.render.view_layers.routing import RoutingRow
+from blender.bpy.ui.elements.panels import Beside, Panel
 from blender.bpy.ui.layout.rows import Label, Layout
-from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.records.fields import Case
 
 from .effects.finish.damage import damage
@@ -53,16 +53,12 @@ from .effects.optics.shapes import shapes
 from .effects.optics.warps import projection, transform
 from .rendering import temporal
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_LOOK: Final[Key] = "look"
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _look(name: str, *settings: tuple[Case, Socket, float]) -> Valued[LayerStack[Case]]:
     """Look stack of one adjustment layer through each effect record at its socket's value."""
-    layer = StackLayer[Case](key=_LOOK, name=name, source=Adjustment(), effects=tuple(Entry(record=record) for record, _, _ in settings))
+    layer = StackLayer[Case](key="look", name=name, source=Adjustment(), effects=tuple(Entry(record=record) for record, _, _ in settings))
     return Valued(structure=LayerStack(layers=(layer,)), values=snapshot({path_key(place, socket): value for place, (_, socket, value) in zip(layer.places, settings, strict=True)}))
 
 
@@ -80,7 +76,7 @@ def _unformed(identity: Identity, context: bpy.types.Context) -> tuple[str, ...]
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 tones: Final = Exclusive[Any](members=(tone_curve, hable, tony, neutral, photoreceptor))
-chain: Final = EffectRows[Any](
+chain: Final = OfferedEffects[Any](
     phases=(
         Phase(
             key="optics",
@@ -115,13 +111,13 @@ chain: Final = EffectRows[Any](
     ),
     pinned=(
         PINNED,
-        Pinned(ownership=temporal.OWNERSHIP, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER})),
-        Pinned(ownership=PassSet.ownership, edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})),
+        Pinned(ownership=temporal.OWNERSHIP, edge=StackEnd.HEAD, enables=frozenset({Enabled.RENDER})),
+        Pinned(ownership=RoutingRow.ownership, edge=StackEnd.TAIL, enables=frozenset({Enabled.RENDER})),
     ),
 )
 render: Final = StagedRender(rows=chain)
 tiles: Final = EffectTiles[Any](rows=chain, closing=Some(formation))
-stacks: Final = LayerStacks[Any](
+stacks: Final = LayerStackExtension[Any](
     rows=chain,
     before=Some(formation),
     looks=MappingProxyType({

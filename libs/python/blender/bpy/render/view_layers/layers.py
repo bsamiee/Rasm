@@ -10,18 +10,18 @@ from types import MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Ok, Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import mathutils
 import numpy as np
 
 from blender.bpy.commands.calls import Placement
-from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator, Unchanged
 from blender.bpy.data.rna.conditions import Scenes, ViewLayers
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import choices, enum_choices
 from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.properties import choices, enum_choices
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.render.view_layers.passes import layer_of, soloed, used
@@ -30,16 +30,16 @@ from blender.bpy.scene.materials import Clay, material, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, OperatorButton, pressed, Property, RowContent
+from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, operator_button, OperatorButton, Property, RowContent
 from blender.bpy.ui.layout.sections import Section
-from blender.bpy.ui.layout.tables import Branch, Matrix, TreeMatrix
+from blender.bpy.ui.layout.tables import Branch, SettingsTable, TreeTable
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
-from blender.rendering.outputs.naming import Fields, NumberField, OutputName, Word
+from blender.rendering.outputs.naming import Fields, NumberKey, OutputName, TextKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Spread(Enum):
+class Extent(Enum):
     """Collections a restriction edit reaches."""
 
     ONE = auto()
@@ -54,15 +54,16 @@ class Role(Enum):
     DATA = auto()
 
 
-class Swatch(Enum):
-    """Published color-blind safe palette, valued by its sRGB hex colors."""
+class Palette(Enum):
+    """Tag palette: hues spaced on the color wheel, or a published color-blind safe palette valued by its sRGB hex colors."""
 
-    IBM = "648FFF 785EF0 DC267F FE6100 FFB000"
+    SPECTRUM = ""
+    DESIGN_LIBRARY = "648FFF 785EF0 DC267F FE6100 FFB000"
     WONG = "000000 E69F00 56B4E9 009E73 F0E442 0072B2 D55E00 CC79A7"
     TOL = "332288 117733 44AA99 88CCEE DDCC77 CC6677 AA4499 882255"
 
 
-class Within(Enum):
+class RenameScope(Enum):
     """Scenes a rename reaches."""
 
     SCENE = auto()
@@ -83,7 +84,7 @@ class Part(Enum):
     COLLECTIONS = auto()
 
 
-class Reached(Enum):
+class PasteScope(Enum):
     """View layers a paste reaches."""
 
     ACTIVE = auto()
@@ -112,7 +113,7 @@ class CollectionState(bpy.types.PropertyGroup):
     collection: bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=_FLAGS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     value: bpy.props.BoolProperty(name="Value", description="Restriction value written")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(Spread))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(Extent))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LayerTag(bpy.types.PropertyGroup):
@@ -128,17 +129,13 @@ class Renaming(bpy.types.PropertyGroup):
     """Rename of every layer by its list position."""
 
     template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    within: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(Within))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(RenameScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Tinting(bpy.types.PropertyGroup):
     """Tag colors written from a palette."""
 
-    palette: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Palette",
-        description="Palette tags take in list order",
-        items=choices((("SPECTRUM", "Spectrum", "Hues spaced evenly on color wheel"), *((swatch.name, swatch.name, "Color-blind safe palette cycled over layers") for swatch in Swatch))),
-    )
+    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=enum_choices(Palette))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_SATURATION)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_VALUE)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
@@ -159,7 +156,7 @@ class Clipboard(bpy.types.PropertyGroup):
     """Settings copied off the active layer and the layers a paste reaches."""
 
     part: bpy.props.EnumProperty(name="Part", description="View layer settings or collection states the copy takes", items=enum_choices(Part))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(Reached))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(PasteScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -171,18 +168,18 @@ def found(layer: bpy.types.ViewLayer, collection: int) -> Option[LayerPath]:
     return Block.of_seq((node, ancestors) for node, ancestors in walked(layer.layer_collection) if node.collection.session_uid == collection).try_head()
 
 
-def applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descriptor[bpy.types.BoolProperty], value: bool, extent: Spread) -> Outcome[int]:
+def applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descriptor[bpy.types.BoolProperty], value: bool, extent: Extent) -> Outcome[int]:
     """Writes a restriction value onto the collection with session identifier in the named layer, returning changed layer collection count."""
 
     def written(held: bpy.types.ViewLayer, target: bpy.types.LayerCollection, ancestors: tuple[bpy.types.LayerCollection, ...]) -> Outcome[int]:
         inside = tuple(node for node, _ in walked(target))
         writes: tuple[tuple[bpy.types.LayerCollection, bool], ...]
         match extent:
-            case Spread.ONE:
+            case Extent.ONE:
                 writes = ((target, value),)
-            case Spread.CHILDREN:
+            case Extent.CHILDREN:
                 writes = tuple((node, value) for node in inside)
-            case Spread.ISOLATE:
+            case Extent.ISOLATE:
                 kept = (*inside, *ancestors[1:])
                 writes = tuple((node, value == (node in kept)) for node, parents in walked(held.layer_collection) if parents)
         return accumulated(flag.write(node, state) for node, state in writes if node != held.layer_collection).map(lambda prior: sum(each.is_some() for each in prior))
@@ -216,10 +213,12 @@ def moved(context: bpy.types.Context, current: int, row: int) -> Outcome[None]:
     )
 
 
-def colors(count: int, swatch: Option[Swatch] = Nothing, *, saturation: float = _SATURATION, value: float = _VALUE) -> tuple[tuple[float, float, float], ...]:
-    """Returns scene-linear palette colors in list order, the swatch cycled or hues spaced evenly on the color wheel without one."""
-    encoded = swatch.map(lambda chosen: tuple(map(tuple, np.resize(np.frombuffer(bytes.fromhex(chosen.value), np.uint8).reshape(-1, 3), (count, 3)) / 255))).default_with(
-        lambda: tuple(colorsys.hsv_to_rgb(index / count, saturation, value) for index in range(count))
+def colors(count: int, palette: Palette = Palette.SPECTRUM, *, saturation: float = _SATURATION, value: float = _VALUE) -> tuple[tuple[float, float, float], ...]:
+    """Returns scene-linear palette colors in list order, a published palette cycled and the spectrum spacing hues evenly on the color wheel."""
+    encoded = (
+        tuple(colorsys.hsv_to_rgb(index / count, saturation, value) for index in range(count))
+        if palette is Palette.SPECTRUM
+        else tuple(map(tuple, np.resize(np.frombuffer(bytes.fromhex(palette.value), np.uint8).reshape(-1, 3), (count, 3)) / 255))
     )
     return tuple((red, green, blue) for red, green, blue in (mathutils.Color(rgb).from_srgb_to_scene_linear()[:] for rgb in encoded))
 
@@ -235,8 +234,8 @@ def renamed(scene: bpy.types.Scene, grammar: OutputName) -> Outcome[int]:
     """Names each layer from list position and base name, returning renamed count."""
 
     def named(index: int, layer: bpy.types.ViewLayer) -> Outcome[bool]:
-        base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.words.get(Word.LAYER))).default_value(layer.name)
-        wanted: Outcome[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={NumberField.ORDER: index + 1}))
+        base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)
+        wanted: Outcome[str] = grammar.compose(Fields(texts={TextKey.LAYER: base}, numbers={NumberKey.ORDER: index + 1}))
         return Result[str, Faults].bind(wanted, lambda value: written(layer, ("name",), value)).map(Option.is_some)
 
     return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)
@@ -254,7 +253,7 @@ def split(scene: bpy.types.Scene, flag: Descriptor[bpy.types.BoolProperty]) -> O
         def made(collection: bpy.types.Collection) -> Outcome[str]:
             layer = scene.view_layers.new(collection.name)
             rollback.callback(scene.view_layers.remove, layer)
-            return applied(scene, layer=layer.name, collection=collection.session_uid, flag=flag, value=False, extent=Spread.ISOLATE).map(lambda _: layer.name)
+            return applied(scene, layer=layer.name, collection=collection.session_uid, flag=flag, value=False, extent=Extent.ISOLATE).map(lambda _: layer.name)
 
         if (added := accumulated(map(made, lone))).is_ok():
             rollback.pop_all()
@@ -269,7 +268,7 @@ def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, identity: Iden
         layer.material_override = held if on else None
         match setup:
             case Utility():
-                return LAYER.read(identity, layer).bind(lambda group: written(group, ("role",), (Role.DATA if on else Role.BEAUTY).name)).map(lambda _: None)
+                return LAYER_TAG.read(identity, layer).bind(lambda group: written(group, ("role",), (Role.DATA if on else Role.BEAUTY).name)).map(lambda _: None)
             case Clay():
                 return Ok(None)
 
@@ -281,7 +280,7 @@ def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, identity: Iden
 
 def _seeded(_properties: CollectionState, event: bpy.types.Event, _identity: Identity) -> dict[str, Value]:
     """Seeds the restriction extent from held modifiers, Ctrl to isolate and Shift to include children."""
-    return {"extent": (Spread.ISOLATE if event.ctrl else Spread.CHILDREN if event.shift else Spread.ONE).name}
+    return {"extent": (Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE).name}
 
 
 @Operator.of(CollectionState, internal=True, seed=Some(_seeded))
@@ -290,12 +289,12 @@ def collection_state(call: Call[CollectionState]) -> Outcome[Answer]:
     held = call.properties
     return (
         rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: applied(scene, layer=held.layer, collection=held.collection, flag=RESTRICTIONS[held.flag], value=held.value, extent=Spread[held.extent]))
+        .bind(lambda scene: applied(scene, layer=held.layer, collection=held.collection, flag=RESTRICTIONS[held.flag], value=held.value, extent=Extent[held.extent]))
         .map(lambda count: Done(notes=(("INFO", f"Wrote {count} collection flags"),)) if count else Unchanged(reason="Collection flags hold requested value"))
     )
 
 
-@Operator.of(Clipboard, undo=Nothing)
+@Operator.of(Clipboard, undo=NoUndo())
 def view_layer_copy(call: Call[Clipboard]) -> Outcome[Answer]:
     """Copy active view layer settings or its collection states."""
     part = Part[call.properties.part]
@@ -314,12 +313,12 @@ def view_layer_paste(call: Call[Clipboard]) -> Outcome[Answer]:
     """Paste copied view layer settings or collection states into the view layers the scope reaches."""
 
     def reached(scene: bpy.types.Scene, active: bpy.types.ViewLayer) -> tuple[bpy.types.ViewLayer, ...]:
-        match Reached[call.properties.scope]:
-            case Reached.ACTIVE:
+        match PasteScope[call.properties.scope]:
+            case PasteScope.ACTIVE:
                 return (active,)
-            case Reached.USED:
+            case PasteScope.USED:
                 return used(scene)
-            case Reached.ALL:
+            case PasteScope.ALL:
                 return tuple(scene.view_layers)
 
     return (
@@ -341,10 +340,10 @@ def view_layer_solo(call: Call[Empty]) -> Outcome[Answer]:
 def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
     """Name view layers by list position and base name."""
     scenes: Outcome[tuple[bpy.types.Scene, ...]]
-    match Within[call.properties.within]:
-        case Within.SCENE:
+    match RenameScope[call.properties.scope]:
+        case RenameScope.SCENE:
             scenes = rooted(bpy.types.Scene, call.context).map(lambda scene: (scene,))
-        case Within.FILE:
+        case RenameScope.FILE:
             scenes = rooted(bpy.types.BlendData, call.context).map(lambda data: tuple(data.scenes))
     return (
         paired(OutputName.of(call.properties.template), scenes)
@@ -357,9 +356,8 @@ def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
 def view_layer_tint(call: Call[Tinting]) -> Outcome[Answer]:
     """Set view layer tags from palette in list order."""
     held = call.properties
-    swatch = Option.of_optional(Swatch.__members__.get(held.palette))
-    return paired(rooted(bpy.types.Scene, call.context), LAYER.bound(call.identity)).bind(
-        lambda pair: tinted(pair[0], pair[1], colors(len(pair[0].view_layers), swatch, saturation=held.saturation, value=held.value))
+    return paired(rooted(bpy.types.Scene, call.context), LAYER_TAG.bound(call.identity)).bind(
+        lambda pair: tinted(pair[0], pair[1], colors(len(pair[0].view_layers), Palette[held.palette], saturation=held.saturation, value=held.value))
     )
 
 
@@ -388,7 +386,7 @@ def _restrictions(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
     def toggled(line: bpy.types.UILayout, layer: str, cell: bpy.types.LayerCollection, collection: bpy.types.Collection) -> Outcome[None]:
         line.active = cell.is_visible
         return accumulated(
-            pressed(
+            operator_button(
                 line,
                 identity,
                 Placement(collection_state, {"layer": layer, "collection": collection.session_uid, "flag": member.prop.identifier, "value": not on}),
@@ -398,7 +396,7 @@ def _restrictions(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
             for on in (bool(member.read(cell)),)
         ).map(lambda _: None)
 
-    return Ok((TreeMatrix(tree=grid, cell=toggled, marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), keywords={"text": "", "icon_only": True}),)),))
+    return Ok((TreeTable(tree=grid, cell=toggled, marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), keywords={"text": "", "icon_only": True}),)),))
 
 
 def _enumerated(command: Operator[Clipboard] | Operator[Overriding], member: str) -> OperatorButton:
@@ -406,7 +404,7 @@ def _enumerated(command: Operator[Clipboard] | Operator[Overriding], member: str
     return OperatorButton(target=command, function=FUNCTIONS["operator_enum"], keywords={"property": member})
 
 
-LAYER: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
+LAYER_TAG: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
 LAYERS: Final = Section(
     key="layers",
     title=Some("View Layers"),
@@ -418,12 +416,12 @@ LAYERS: Final = Section(
                     item=bpy.types.ViewLayer,
                     collection=Member(root=bpy.types.Scene, path=("view_layers",)),
                     active=Some(Member(root=bpy.types.Window, path=("view_layer",))),
-                    attachment=Some(LAYER),
+                    attachment=Some(LAYER_TAG),
                     cells=(Property(target=Member(root=bpy.types.ViewLayer, path=("use",)), keywords={"text": ""}),),
                     move=Some(moved),
                 ),
             ),
-            prerequisites=(LAYER,),
+            prerequisites=(LAYER_TAG,),
         ),
         lambda layout, _holder, _context: layout.separator(type="LINE"),
         Layout(
@@ -440,7 +438,7 @@ LAYERS: Final = Section(
 OVERRIDES: Final = Section(
     key="layer_overrides",
     rows=(
-        Matrix(
+        SettingsTable(
             scope=ViewLayers(),
             settings=(
                 ("use",),
@@ -455,7 +453,7 @@ OVERRIDES: Final = Section(
                 ("cycles", "use_denoising"),
             ),
         ),
-        Matrix(scope=Scenes(), settings=(("cycles", "samples"),)),
+        SettingsTable(scope=Scenes(), settings=(("cycles", "samples"),)),
     ),
 )
 COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"), rows=(Layout(rows=_restrictions, prerequisites=(collection_state,)),))
@@ -464,24 +462,24 @@ COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"),
 
 __all__ = [
     "COLLECTIONS",
-    "LAYER",
     "LAYERS",
+    "LAYER_TAG",
     "OVERRIDES",
     "RESTRICTIONS",
     "Clipboard",
     "CollectionState",
+    "Extent",
     "LayerTag",
     "Overriding",
+    "Palette",
     "Part",
-    "Reached",
+    "PasteScope",
+    "RenameScope",
     "Renaming",
     "Role",
     "Setup",
     "Splitting",
-    "Spread",
-    "Swatch",
     "Tinting",
-    "Within",
     "applied",
     "collection_state",
     "colors",

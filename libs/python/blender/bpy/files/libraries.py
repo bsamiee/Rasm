@@ -109,7 +109,7 @@ def _opened(data: bpy.types.BlendData, path: Path, load: Mapping[str, bool]) -> 
 def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **load: bool
 ) -> Outcome[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
-    """Returns source selection with loaded destination slots, read fault when the library load refuses the file.
+    """Returns source selection with loaded destination slots, unreadable fault when the library load refuses the file.
 
     Args:
         data: Blend data receiving the load.
@@ -233,7 +233,7 @@ def overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibra
 def override_resynced(
     block: bpy.types.ID, scene: bpy.types.Scene, *, view_layer: Option[bpy.types.ViewLayer] = Nothing, residual_storage: Option[bpy.types.Collection] = Nothing, **flags: bool
 ) -> Outcome[None]:
-    """Rebuilds the ID's override hierarchy against its linked references through `IDOverrideLibrary.resync` and its keywords (`do_hierarchy_enforce`, `do_whole_hierarchy`).
+    """Rebuilds the ID's override hierarchy through `IDOverrideLibrary.resync` and its keywords (`do_hierarchy_enforce`, `do_whole_hierarchy`).
 
     Returns:
         Ok(None), refused fault for the host's error, absent fault when the host finds no linked reference.

@@ -1,4 +1,4 @@
-"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, variance-kept tile sampling, Gaussian blur, kernel convolution, and block means."""
+"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, unit-variance tile sampling, Gaussian blur, kernel convolution, and block means."""
 
 from functools import reduce
 from itertools import product, starmap
@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.nodes.content import Generated
-from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, Shape, switched, Term, vector, where, xyz
+from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, SocketType, switched, Term, vector, where, xyz
 from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, PixelGrid, uv_mapped
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -26,13 +26,13 @@ def ranked(source: Expr, offsets: tuple[tuple[float, float], ...], rank: int) ->
         rank: Position from the brightest of the value read.
 
     Returns:
-        The `rank`-th brightest tap value and the count of taps inside the data window.
+        `rank`-th brightest tap value and count of taps inside the data window.
     """
     grid = PixelGrid.of(source)
     count = len(offsets)
     pairs = tuple(
         (i + j, i + j + k)
-        for p in (1 << exponent for exponent in range(count.bit_length() - 1))
+        for p in (1 << exponent for exponent in range((count - 1).bit_length()))
         for k in (p >> shift for shift in range(p.bit_length()))
         for j in range(k % p, count - k, 2 * k)
         for i in range(min(k, count - j - k))
@@ -41,7 +41,7 @@ def ranked(source: Expr, offsets: tuple[tuple[float, float], ...], rank: int) ->
 
     def tap(dx: float, dy: float) -> tuple[Expr, Expr]:
         uv = grid.at((dx, dy, 0.0), grid.inverse)
-        return uv_mapped(source, uv, interpolation="Nearest", shape=bpy.types.NodeSocketFloat), (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
+        return uv_mapped(source, uv, interpolation="Nearest", socket_type=bpy.types.NodeSocketFloat), (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
 
     def exchanged(wires: tuple[tuple[Expr, Expr], ...], pair: tuple[int, int]) -> tuple[tuple[Expr, Expr], ...]:
         low, high = pair
@@ -80,7 +80,10 @@ def bilateral(value: Expr, guide: Expr, coverage: Expr, frame: FrameSpace, fallb
     def blurred(lower: int, upper: int) -> Expr:
         red, green, blue, alpha = weighted * weights[lower], coverage * weights[lower], weighted * weights[upper], coverage * weights[upper]
         return Expr(
-            kind=bpy.types.CompositorNodeBlur, inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", frame.pixel_size((radius, radius, 0.0)))), socket="Image", shape=bpy.types.NodeSocketColor
+            kind=bpy.types.CompositorNodeBlur,
+            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", frame.pixel_size((radius, radius, 0.0)))),
+            socket="Image",
+            socket_type=bpy.types.NodeSocketColor,
         )
 
     cells = tuple((weights[index], grid[moment], grid[mass]) for lower in range(0, 2 * pairs, 2) for grid in (blurred(lower, lower + 1),) for index, (moment, mass) in zip((lower, lower + 1), sides))
@@ -108,7 +111,7 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
     sides = dimensions(tile)
     scale = xyz(sides["X"], sides["Y"], 1.0)
     texel = vector("SNAP", vector("MULTIPLY_ADD", vector("SCALE", position, density), (1.0, 1.0, 0.0), (0.5 * step, 0.5 * step, 0.0)), (step, step, step))
-    sample = uv_mapped(tile, texel / scale, extension=("Repeat", "Repeat"))
+    sample = uv_mapped(tile, vector("ADD", texel / scale, (0.0, 0.0, 1.0)), extension=("Repeat", "Repeat"))
     phase = vector("FRACTION", texel - (0.5, 0.5, 0.5))
     spread = phase * ((1.0, 1.0, 1.0) - phase)
     across, up = spread["X"], spread["Y"]
@@ -129,24 +132,24 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
 # --- [CONVOLUTION]
 
 
-def blurred(image: Term, size: Term, *, shape: Shape = bpy.types.NodeSocketColor) -> Expr:
-    """Blurs an image through the exact Gaussian over a pixel size per axis, where the Blur node's default Fast Gaussian approximates it, its result read in `shape`."""
-    return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", shape=shape)
+def blurred(image: Term, size: Term, *, socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
+    """Blurs an image through the exact Gaussian over a pixel size per axis, where the Blur node's default Fast Gaussian approximates it, its result read in `socket_type`."""
+    return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", socket_type=socket_type)
 
 
 def filtered(image: Term, kind: str) -> Expr:
-    """Filters an image through the Filter node's kernel of `kind`, a `Type` menu item such as `Laplace`, `Sobel`, or `Soften`."""
-    return Expr(kind=bpy.types.CompositorNodeFilter, inputs=(("Image", image), ("Type", kind)), socket="Image", shape=bpy.types.NodeSocketColor)
+    """Filters an image through the Filter node's kernel of `kind`, a `Type` menu item (`Laplace`, `Sobel`, `Soften`)."""
+    return Expr(kind=bpy.types.CompositorNodeFilter, inputs=(("Image", image), ("Type", kind)), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
 
 def convolved(source: Term, kernel: Generated) -> Expr:
-    """Convolves a source by a generated color kernel whose weights hold their own sums."""
-    image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(kernel), socket="Image", shape=bpy.types.NodeSocketColor).named(kernel.ownership.key)
+    """Convolves a source by a generated color kernel, unnormalized."""
+    image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(kernel), socket="Image", socket_type=bpy.types.NodeSocketColor).keyed(kernel.ownership.key)
     return Expr(
         kind=bpy.types.CompositorNodeConvolve,
         inputs=(("Image", source), ("Kernel Data Type", "Color"), ("Color Kernel", image), ("Normalize Kernel", False)),
         socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
 
 
@@ -163,13 +166,13 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
     """
     sides = dimensions(source)
     span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), frame.pixel_size(length))
-    anchor = vector("MULTIPLY", sides, frame.margin)
+    origin = vector("MULTIPLY", sides, frame.margin)
     grid = PixelGrid.of(source)
 
     def bounded(center: Scalar | tuple[float, ...]) -> tuple[Expr, Expr]:
-        cell = vector("FLOOR", vector("DIVIDE", vector("SUBTRACT", center, anchor), span))
-        lower = vector("MAXIMUM", vector("CEIL", vector("MULTIPLY_ADD", cell, span, anchor) - (0.5, 0.5, 0.0)), (0.0, 0.0, 0.0))
-        upper = vector("MINIMUM", vector("CEIL", vector("MULTIPLY_ADD", vector("ADD", cell, (1.0, 1.0, 0.0)), span, anchor) - (0.5, 0.5, 0.0)), sides)
+        cell = vector("FLOOR", vector("DIVIDE", vector("SUBTRACT", center, origin), span))
+        lower = vector("MAXIMUM", vector("CEIL", vector("MULTIPLY_ADD", cell, span, origin) - (0.5, 0.5, 0.0)), (0.0, 0.0, 0.0))
+        upper = vector("MINIMUM", vector("CEIL", vector("MULTIPLY_ADD", vector("ADD", cell, (1.0, 1.0, 0.0)), span, origin) - (0.5, 0.5, 0.0)), sides)
         return lower, upper - lower
 
     candidates = (vector("MAXIMUM", vector("FLOOR", span), (1.0, 1.0, 0.0)), vector("CEIL", span), bounded((0.5, 0.5, 0.0))[1], bounded(sides - (0.5, 0.5, 0.0))[1])
@@ -178,8 +181,8 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
 
     def averaged(x: int, y: int) -> tuple[Expr, Expr]:
         horizontal, vertical = candidates[x]["X"], candidates[y]["Y"]
-        kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", shape=bpy.types.NodeSocketColor)
-        image = Expr(kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Float Kernel", kernel)), socket="Image", shape=bpy.types.NodeSocketColor)
+        kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", socket_type=bpy.types.NodeSocketColor)
+        image = Expr(kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Float Kernel", kernel)), socket="Image", socket_type=bpy.types.NodeSocketColor)
         return uv_mapped(image, uv, interpolation="Nearest", extension=("Extend", "Extend")), math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
 
     (first, _), *rest = starmap(averaged, product(range(len(candidates)), repeat=2))

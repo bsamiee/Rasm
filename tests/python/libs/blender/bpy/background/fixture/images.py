@@ -8,9 +8,9 @@ import numpy as np
 
 from blender.bpy.commands.operators import Answer, Call, Done
 from blender.bpy.extension.identity import Identity
+from blender.bpy.ui.elements.panels import Sidebar
 from blender.bpy.ui.images.views import Edges, FrameRegion, Masks, overlaid, Picked, picking, RenderView, RESULT, Tint, viewing
 from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.surfaces.panels import Sidebar
 from blender.imaging.geometry.frames import Quad, Region
 from blender.records.faults import Outcome
 

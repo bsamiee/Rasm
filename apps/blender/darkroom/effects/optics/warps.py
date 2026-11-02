@@ -20,9 +20,9 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import motion
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, dimensions, extended, PIN_ROWS, pin_rows, pinned, shorter
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import captured, Derives, FRAME_SCALE, path_key, PreviewFrame, Shell, Step, value, valued
+from blender.bpy.render.compositor.inputs import captured, DerivedInputs, FRAME_SCALE, GraphInputs, path_key, PreviewFrame, Step, value, valued
 from blender.bpy.render.compositor.layers import AFFINE
-from blender.bpy.render.compositor.lenses import lensed, reaimed, seen, unturned
+from blender.bpy.render.compositor.lenses import camera_info, reaimed, seen, to_camera_space
 from blender.bpy.render.compositor.motion import LENGTH, OPENING, origin, shutter, ShutterPoses, trailed
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.geometry.frames import Homography, Quad
@@ -63,7 +63,7 @@ _SHAKE: Final = InterfacePanel.of(
     description="Seeded camera motion over time, continuous within exposure",
     toggle=Some(False),
 )
-_FACE: Final = Interface(inputs=(_TRAVEL, _TURN, _ZOOM, _EXTENSION, _MOTION_BLUR), panels=(_CORNER_PIN, _PERSPECTIVE, _PLACEMENT, _SHAKE))
+_INTERFACE: Final = Interface(inputs=(_TRAVEL, _TURN, _ZOOM, _EXTENSION, _MOTION_BLUR), panels=(_CORNER_PIN, _PERSPECTIVE, _PLACEMENT, _SHAKE))
 _POSES: Final = ShutterPoses(sockets=(_TRAVEL, _TURN, _ZOOM, *(item[0] for panel in (_PERSPECTIVE, _PLACEMENT, _SHAKE) for _, item, _, _ in panel.walked() if isinstance(item, tuple))))
 _POSED: Final = MappingProxyType({socket.key: socket for socket in _POSES.poses})
 
@@ -114,7 +114,7 @@ def _pin_quad(values: Mapping[Key, Value]) -> Outcome[Option[Quad]]:
 
 
 def _pinned_rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Case) -> Outcome[Mapping[Key, Value]]:
-    """Derives the corner pin homography rows, the identity while the pin is off or its corners admit no strictly convex map."""
+    """Derives the corner pin homography rows, the identity while the pin is off or its corners form no strictly convex map."""
     return captured(identity, entry).map(valued).bind(_pin_quad).bind(lambda quad: quad.map(Homography.of).default_value(Ok(Nothing))).map(pin_rows)
 
 
@@ -141,15 +141,15 @@ def _checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
 # --- [TRANSFORM]
 
 
-def _reframed(shell: Shell[Transform]) -> Outcome[Expr]:
+def _reframed(shell: GraphInputs[Transform]) -> Outcome[Expr]:
     """Samples the stage input through the current pose, or trails it between the posed shutter endpoints.
 
-    Each pose maps camera frame fractions carrying geometric coverage in Z, inverse for sampling and forward for the trail endpoints.
+    Each pose maps camera frame fractions holding geometric coverage in Z, inverse for sampling and forward for the trail endpoints.
 
     Returns:
         Warped stage input.
     """
-    frame, lens, share = shell.space, lensed("Projection Matrix"), shell.input(FRAME_SCALE)
+    frame, lens, share = shell.space, camera_info("Projection Matrix"), shell.input(FRAME_SCALE)
     first, second, third = (shell.input(socket) for socket in PIN_ROWS)
     length, opening, rate = shell.input(LENGTH), shell.input(OPENING), shell.input(motion.RATE)
     position, rotation, scale, skew, pivot = AFFINE.inputs
@@ -194,16 +194,16 @@ def _reframed(shell: Shell[Transform]) -> Outcome[Expr]:
 
         source = tilting(pinning(fraction, ahead=True), ahead=True) if forward else fraction
         moved = transformed(vector("MULTIPLY", source, frame.extent), matrix if forward else inverted(matrix))
-        landed = vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), source["Z"], vector("DIVIDE", moved, frame.extent))
-        projected = landed if forward else pinning(tilting(landed, ahead=False), ahead=False)
+        target = vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), source["Z"], vector("DIVIDE", moved, frame.extent))
+        projected = target if forward else pinning(tilting(target, ahead=False), ahead=False)
         return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), projected["Z"] * inverted(matrix).at("Invertible"), vector("MULTIPLY", projected, (1.0, 1.0, 0.0)))
 
     start = vector("ADD", frame.fraction, (0.0, 0.0, 1.0))
     blurred = shell.input(_MOTION_BLUR)
-    uv = frame.covered(switched(blurred, mapped(None, start), mapped(0, start))).named("uv")
+    uv = frame.covered(switched(blurred, mapped(None, start), mapped(0, start))).keyed("uv")
     image = extended(shell.color, uv, shell.input(_EXTENSION), clipped=True)
     center = (0.5, 0.5, 1.0)
-    opened, stepped = (frame.sampled(mapped(1, mapped(0, frame.entering(at)), forward=True)) for at in (center, vector("ADD", center, vector("DIVIDE", (1.0, 0.0, 0.0), dimensions(shell.color)))))
+    opened, stepped = (frame.sampled(mapped(1, mapped(0, frame.from_uv(at)), forward=True)) for at in (center, vector("ADD", center, vector("DIVIDE", (1.0, 0.0, 0.0), dimensions(shell.color)))))
     still = functools.reduce(
         lambda held, match: held * match,
         (
@@ -220,7 +220,7 @@ def _reframed(shell: Shell[Transform]) -> Outcome[Expr]:
 # --- [PROJECTION]
 
 
-def _projected(shell: Shell[Projection]) -> Outcome[Expr]:
+def _projected(shell: GraphInputs[Projection]) -> Outcome[Expr]:
     """Builds every mode's covered sample and keeps the selected mode's."""
     record, frame, read = shell.record, shell.space, shell.input
     offset = vector("MULTIPLY_ADD", frame.extent, (-0.5, -0.5, 0.0), frame.point)
@@ -234,20 +234,20 @@ def _projected(shell: Shell[Projection]) -> Outcome[Expr]:
     unwrapped = vector("MULTIPLY_ADD", vector("DIVIDE", xyz(u - 0.5, v - 0.5), frame.extent), xyz(short, short, 0.0), (0.5, 0.5, 0.0))
     across, along = (offset["X"], offset["Y"]) if record.panorama.centered else (frame.fraction["X"], frame.fraction["Y"])
     rx, ry, rz, coverage = record.panorama.to_ray((across, along, unit), EXPRESSIONS)
-    up = unturned((0.0, 0.0, 1.0))
+    up = to_camera_space((0.0, 0.0, 1.0))
     level = Expr(
         kind=bpy.types.FunctionNodeEulerToRotation,
         inputs=(("Euler", xyz(-math("ARCTAN2", -up["Z"], vector("LENGTH", xyz(up["X"], up["Y"]))), 0.0, -math("ARCTAN2", up["X"], up["Y"]))),),
         socket="Rotation",
     )
     ray = xyz(rx, ry, rz)
-    turned = Expr(kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", ray), ("Rotation", level)), socket="Vector", shape=bpy.types.NodeSocketVector) if record.panorama.upright else ray
+    turned = Expr(kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", ray), ("Rotation", level)), socket="Vector", socket_type=bpy.types.NodeSocketVector) if record.panorama.upright else ray
     tiling, tiled = read(_TILING, _TILE_CENTER), read(_TILING, _COUNT)
     sampled = {
         _KALEIDOSCOPE: frame.sampled(vector("DIVIDE", xyz(x, y) + center, frame.extent)),
         _TILING: frame.sampled(vector("SCALE", frame.fraction - tiling, tiled) + tiling),
         _POLAR: shell.menu(_POLAR, _CONVERSION, cases={_TO_POLAR: frame.sampled(xyz(s, t)), _TO_RECTANGULAR: frame.sampled(unwrapped)}),
-        _PANORAMIC: seen(turned, lensed("Projection Matrix"), coverage),
+        _PANORAMIC: seen(turned, camera_info("Projection Matrix"), coverage),
     }
     return Ok(shell.menu(_MODE, cases={panel.item: extended(shell.color, uv, read(panel, _EXTENSION), clipped=True) for panel, uv in sampled.items()}))
 
@@ -257,14 +257,14 @@ def _projected(shell: Shell[Projection]) -> Outcome[Expr]:
 transform: Final = CompositorEffect(
     _reframed,
     record=Transform,
-    interface=_FACE,
+    interface=_INTERFACE,
     mix=Blended(alpha=Alpha.RESULT),
     request=Some(precise),
     check=Some(_checked),
     derives=(
         motion.timing,
-        Derives[Case](of=_pinned_rows, sockets=PIN_ROWS),
-        Derives[Case](of=lambda identity, scene, entry, _record: _POSES.posed(identity, scene, entry), sockets=_POSES.poses, reads=shutter.reads),
+        DerivedInputs[Case](of=_pinned_rows, sockets=PIN_ROWS),
+        DerivedInputs[Case](of=lambda identity, scene, entry, _record: _POSES.posed(identity, scene, entry), sockets=_POSES.poses, reads=shutter.reads),
     ),
     animates=Some(lambda identity, scene, entry, _record: _POSES.keyed(identity, scene, entry)),
 )

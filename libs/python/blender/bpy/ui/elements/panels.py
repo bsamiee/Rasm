@@ -15,16 +15,16 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands import invocations, keymaps, operators
-from blender.bpy.data.rna.conditions import admits, Condition
-from blender.bpy.data.rna.mirrors import Declared
+from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.paths import definition, Struct
+from blender.bpy.data.rna.properties import Declared
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band, Declaration, entered, Gathering
+from blender.bpy.extension.registration import Acquisitions, Declaration, entered, Gathering, Tier
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw, Status
-from blender.bpy.ui.layout.sections import fields, reached, Section, SectionDraws
+from blender.bpy.ui.layout.sections import fields, Section, SectionDraws, sections_in
 from blender.bpy.ui.resources.icons import ICONS
 from blender.bpy.ui.screens.areas import Located
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FixedPlacement = Beside | Child | Sidebar | EditorRegion
-type _PanelPlacement = FixedPlacement | Docked
+type _PanelPlacement = FixedPlacement | DynamicPlacement
 type _Site = tuple[str, _PanelPlacement, Option[Condition]]
 
 
@@ -68,14 +68,14 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Sidebar(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension Sidebar tab of an editor, marked with the extension's brand glyph."""
+    """Extension Sidebar tab of an editor, marked with the extension's brand icon."""
 
     space: "rna_enums.SpaceTypeItems"
     category: str
 
     def members(self, identity: Identity) -> dict[str, object]:
-        """Places the panel in the tab, its icon the brand glyph while one is staged."""
-        mark = identity.held.get(ICONS).bind(lambda icons: icons.brand)
+        """Places the panel in the tab, its icon the brand icon while one is packaged."""
+        mark = identity.resources.get(ICONS).bind(lambda icons: icons.brand)
         return {"bl_space_type": self.space, "bl_region_type": "UI", "bl_category": self.category, **mark.map(lambda value: {"bl_icon_value": value}).default_value({})}
 
 
@@ -90,7 +90,7 @@ class EditorRegion(msgspec.Struct, frozen=True, kw_only=True):
         return {"bl_space_type": self.space, "bl_region_type": self.region}
 
 
-class Docked(msgspec.Struct, frozen=True, kw_only=True):
+class DynamicPlacement(msgspec.Struct, frozen=True, kw_only=True):
     """Placement read at registration and again after each `changed` firing."""
 
     read: Callable[[Identity], Outcome[FixedPlacement]]
@@ -123,13 +123,13 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def popovers(cls, rows: Iterable[object]) -> tuple[Self, ...]:
-        """Popover panel of each store values popover the rows' sections reach, registered in the top bar header, which draws no panels, so only a popover button or `wm.call_panel` opens it."""
-        return tuple(cls(section=popover, at=POPOVER) for section in reached(rows) for popover in section.popover.to_list())
+        """Popover panel of each store values popover the rows' sections reach, registered in the top bar header, which draws no panels, a popover button or `wm.call_panel` alone opening it."""
+        return tuple(cls(section=popover, at=POPOVER) for section in sections_in(rows) for popover in section.popover.to_list())
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the sections, a popover panel per values popover they reach, and the scope registering every placement."""
         roots = (self.section, *self.children)
-        return Ok((*roots, *Panel.popovers(roots), (Band.INTERFACE, _displayed(self, identity))))
+        return Ok((*roots, *Panel.popovers(roots), (Tier.INTERFACE, _displayed(self, identity))))
 
 
 # --- [PREFERENCES]
@@ -138,7 +138,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 class Preference[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Form group a row keeps on its extension's add-on preferences under its key, the preferences page drawing its fields and then `rows` in one section titled after the key.
 
-    A row needing user preferences declares its preference among what it acquires, and every preference of one key holds one form.
+    Row needing user preferences declares its preference among what it acquires, and every preference of one key holds one form.
     """
 
     key: Key
@@ -163,7 +163,7 @@ class Preference[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     """Add-on preferences page over the preferences it and every other row declare, with its own sections, firing `changed` on each edit.
 
-    The page derives a Status section over held reports, one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
+    Page derives a Status section over held reports, one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
     Shortcuts over each keymap, and Stored Settings clearing every attachment's stored values, each derived section present while what it draws is declared.
     Each suppressible command's `ask_<key>` flag sits on the preferences beside the preference groups.
     """
@@ -190,11 +190,11 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         def attached() -> Outcome[tuple[Attached[bpy.types.PropertyGroup], ...]]:
             return accumulated(row.bound(identity) for row in stores)
 
-        def purge_preferences(_call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
+        def clear_stored_settings(_call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
             """Resets extension settings stored on data-blocks to defaults."""
             return attached().map(
                 lambda held: (
-                    operators.Done(notes=(("INFO", f"Cleared settings stored on {count} data-blocks"),))
+                    operators.Done(notes=(("INFO", bpy.app.translations.pgettext_rpt("Cleared settings stored on {} data-blocks").format(count)),))
                     if (count := sum(each.purged() for each in held))
                     else operators.Unchanged(reason="No data-block stores extension settings")
                 )
@@ -202,21 +202,25 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
 
         confirmation = invocations.Popup[operators.Empty](
             partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"),
-            message=Some(lambda *_: attached().map(lambda held: f"Clear settings stored on {sum(each.stored(host) for each in held for host in each.hosts())} data-blocks")),
+            message=Some(
+                lambda *_: attached().map(
+                    lambda held: bpy.app.translations.pgettext_iface("Clear settings stored on {} data-blocks").format(sum(each.stored(host) for each in held for host in each.hosts()))
+                )
+            ),
         )
-        purge = operators.Operator.of(operators.Empty, icon=Some("TRASH"), internal=True, invoke=Some(confirmation))(purge_preferences)
+        clear = operators.Operator.of(operators.Empty, icon=Some("TRASH"), internal=True, invoke=Some(confirmation))(clear_stored_settings)
 
         def changed(_owner: Struct, _context: bpy.types.Context) -> None:
             self.changed.fired().default_with(identity.reports.hold)
 
         flags = {invocations.Suppressible.flag(row.key): bpy.props.BoolProperty(name=row.title, description=row.description, default=True, update=changed) for row in asks}
-        paints: list[RowDraw] = []
+        bodies: list[RowDraw] = []
 
         def draw(holder: bpy.types.AddonPreferences, context: bpy.types.Context) -> None:
             layout = holder.layout
             layout.use_property_split, layout.use_property_decorate = True, False
-            for paint in paints:
-                paint(layout, holder, context)
+            for body in bodies:
+                body(layout, holder, context)
 
         pointers = {row.key: bpy.props.PointerProperty(type=row.form, name=bpy.path.display_name(row.key)) for row in preferred}
         kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, "__annotations__": {**pointers, **flags}, "draw": draw})
@@ -229,14 +233,14 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
             *self.sections,
             *((Section(key="preferences_confirmations", title=Some("Confirmations"), rows=tuple(Property(target=Member(root=kind, path=(ask,))) for ask in flags)),) if flags else ()),
             *((Section(key="preferences_shortcuts", title=Some("Shortcuts"), rows=tuple(binding.drawn for binding in bindings)),) if bindings else ()),
-            *((Section(key="preferences_stored", title=Some("Stored Settings"), rows=(OperatorButton(target=purge),)),) if stores else ()),
+            *((Section(key="preferences_stored", title=Some("Stored Settings"), rows=(OperatorButton(target=clear),)),) if stores else ()),
         )
 
         @contextmanager
         def prepared() -> Generator[Outcome[None]]:
             with ExitStack() as stack:
-                stack.callback(paints.clear)
-                yield entered(stack, (kind,)).bind(lambda _: realized(sections, identity)).map(paints.append)
+                stack.callback(bodies.clear)
+                yield entered(stack, (kind,)).bind(lambda _: realized(sections, identity)).map(bodies.append)
 
         return (
             Ok(shared)
@@ -245,10 +249,10 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 lambda _: (
                     *(Declared(form=row.form, change=Some(changed)) for row in preferred),
                     show_preferences,
-                    *((purge,) if stores else ()),
+                    *((clear,) if stores else ()),
                     *sections,
                     *Panel.popovers(sections),
-                    (Band.PREFERENCES, prepared()),
+                    (Tier.PREFERENCES, prepared()),
                 )
             )
         )
@@ -281,9 +285,9 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         """Builds a panel class over the section's draws, closed unless the section opens first, polled by the condition and whether the context reaches the section's holder."""
 
         def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
-            return admits(condition, context) and draws.present(context)
+            return satisfied(condition, context) and draws.present(context)
 
-        headers = {member: layout_method(paint) for member, shown in (("draw_header", draws.head), ("draw_header_preset", draws.tail)) for paint in shown.to_list()}
+        headers = {member: layout_method(draw) for member, shown in (("draw_header", draws.head), ("draw_header_preset", draws.tail)) for draw in shown.to_list()}
         return type(
             name,
             (bpy.types.Panel,),
@@ -301,7 +305,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         )
 
     def placed(draws: tuple[SectionDraws, tuple[SectionDraws, ...]], stem: str, at: FixedPlacement, condition: Option[Condition]) -> Outcome[tuple[type[bpy.types.Panel], ...]]:
-        """Builds the panel class at one placement, ordered just above the Animation panel as stock panels order themselves, the host inserting it after every panel of a lower or equal order, then its child panel classes in registration order."""
+        """Builds the panel class at one placement, ordered above the Animation panel, then its child panel classes in registration order."""
         top, children = draws
         placing = {**at.members(identity), "bl_owner_id": identity.package}
         ordered = {**placing, "bl_order": PropertiesAnimationMixin.bl_order - 1, **panel.units.map(lambda width: {"bl_ui_units_x": width}).default_value({})}
@@ -316,7 +320,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         return paired(identity.name(bpy.types.Panel, stem), accumulated(identity.name(bpy.types.Panel, f"{stem}_{child.key}") for child in panel.children)).map(lambda names: built(*names))
 
     def resolved() -> Outcome[tuple[FixedPlacement, ...]]:
-        return accumulated(at.read(identity) if isinstance(at, Docked) else Ok(at) for _, at, _ in sites)
+        return accumulated(at.read(identity) if isinstance(at, DynamicPlacement) else Ok(at) for _, at, _ in sites)
 
     def registered(now: tuple[FixedPlacement, ...]) -> Outcome[None]:
         with ExitStack() as entering:
@@ -342,7 +346,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
     with ExitStack() as scope:
         scope.enter_context(classes)
         pending = scope.enter_context(identity.reports.deferred(rebuilt))
-        for signal in dict.fromkeys(at.changed for _, at, _ in sites if isinstance(at, Docked)):
+        for signal in dict.fromkeys(at.changed for _, at, _ in sites if isinstance(at, DynamicPlacement)):
             scope.enter_context(signal.followed(lambda: Ok(pending())))
         yield resolved().bind(registered)
 
@@ -359,7 +363,7 @@ def _stock(panel: type[_bpy_types.Panel]) -> type[bpy.types.Panel]:
 # --- [PREFERENCES]
 
 
-@operators.Operator.of(operators.Empty, icon=Some("PREFERENCES"), undo=Nothing)
+@operators.Operator.of(operators.Empty, icon=Some("PREFERENCES"), undo=operators.NoUndo())
 def show_preferences(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
     """Opens extension preferences from context window and area."""
     return Located.current(call.context).bind(lambda located: located.run(bpy.ops.preferences.addon_show, {"module": call.identity.package})).map(lambda _: operators.Done())
@@ -371,4 +375,4 @@ POPOVER: Final = EditorRegion(space="TOPBAR", region="HEADER")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["POPOVER", "Beside", "Child", "Docked", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "Preference", "PreferencesPage", "Sidebar", "show_preferences"]
+__all__ = ["POPOVER", "Beside", "Child", "DynamicPlacement", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "Preference", "PreferencesPage", "Sidebar", "show_preferences"]

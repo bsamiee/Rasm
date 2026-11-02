@@ -15,10 +15,10 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import rna_keymap_ui
 
-from blender.bpy.commands.calls import Called, filled, Opened, Pairs, Placement, Setting
+from blender.bpy.commands.calls import filled, Pairs, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band, Registrable
+from blender.bpy.extension.registration import Acquisitions, Registrable, Tier
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class Button(Enum):
 
 
 class Chord(TypedDict, total=False):
-    """Event of one binding in the host keyconfig-data form, its keys the `KeyMapItems.new` keywords, a mouse role resolving at registration and an unset value taking the role's value, a pie's press, or `PRESS`."""
+    """Binding event as `KeyMapItems.new` keywords, a mouse role resolving at registration, an unset value taking the role's, a pie press, or `PRESS`."""
 
     type: Required["rna_enums.EventTypeItems | Button"]
     value: "rna_enums.EventValueItems"
@@ -107,7 +107,7 @@ class Keymap:
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires each bound extension command, then adds each binding's items to every space of the keymap name after operator registration, each item's removal held as it is made."""
+        """Acquires each bound command, then adds each binding's items to every space of the keymap name, holding each item's removal."""
 
         @contextmanager
         def held(locations: tuple[Location, ...], rows: tuple[Row, ...]) -> Generator[Outcome[None]]:
@@ -132,7 +132,7 @@ class Keymap:
                 yield accumulated(fill for _, fill in made).map(lambda _: None)
 
         commands = tuple(dict.fromkeys(placement.operator for _, placement in self.bindings if isinstance(placement.operator, Registrable)))
-        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: (*commands, (Band.KEYMAP_ITEMS, held(*pair))))
+        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: (*commands, (Tier.KEYMAP_ITEMS, held(*pair))))
 
     # --- [USER_ITEMS]
 
@@ -175,9 +175,9 @@ def nesting(name: str, /) -> Outcome[tuple[Location, ...]]:
 
 
 def parameters(manager: bpy.types.WindowManager, /) -> Outcome[Parameters]:
-    """Returns the default keymap's `Params` over the active keyconfig's preferences that name its parameters, the rest at the default keymap's own values, absent fault for a default keyconfig with no preset.
+    """Returns the default keymap's `Params` over the active keyconfig's preferences, absent fault for a default keyconfig with no preset.
 
-    The default keyconfig's preset loads its keymap data from `keymap_data/blender_default.py` beside it, the module read here.
+    Default keyconfig's preset loads its keymap data from `keymap_data/blender_default.py` beside it, the module read here.
     """
     default: bpy.types.KeyConfig = manager.keyconfigs.default  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
@@ -198,7 +198,7 @@ def parameters(manager: bpy.types.WindowManager, /) -> Outcome[Parameters]:
 
 
 def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ...]]:
-    """Resolves bindings into keyconfig-data rows, each mouse role and unset value read from the default keymap's parameters, Ctrl chords doubled as Cmd on macOS."""
+    """Resolves bindings into keyconfig-data rows, mouse roles and unset values from the keymap parameters, Ctrl chords doubled as Cmd on macOS."""
 
     def row(held: Parameters, chord: Chord, placement: Placement, placed: tuple[str, Pairs]) -> Row:
         match chord["type"]:
@@ -206,7 +206,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
                 kind, valued = role.event(held)
             case str(named):
                 kind, valued = named, Nothing
-        pie = isinstance(placement.operator, Opened) and placement.operator.kind is Called.PIE
+        pie = isinstance(placement.operator, PopupTarget) and placement.operator.kind is PopupKind.PIE
         event: Chord = {**chord, "type": kind, "value": chord.get("value", valued.default_value(held.pie_value if pie else "PRESS"))}
         operator, pairs = placed
         return operator, event, {"properties": list(pairs)}

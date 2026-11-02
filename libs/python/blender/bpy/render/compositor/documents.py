@@ -17,9 +17,9 @@ from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.addressing import grouped_value, owned
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.compositor.inputs import entry_value
-from blender.bpy.render.compositor.layers import Adjustment, LAYER_BLEND, LayerStack, stack_file, StackLayer
+from blender.bpy.render.compositor.layers import Adjustment, COMPOSITE_PART, LAYER_BLEND, LayerStack, stack_file, StackLayer
 from blender.bpy.render.compositor.masks import MODE, OPACITY, photoshop
-from blender.bpy.render.compositor.stacking import LayerStacking, nested_tree
+from blender.bpy.render.compositor.stack_service import LayerStackService, nested_tree
 from blender.bpy.render.outputs.formats import extension
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.buffers import Coded, Depth, unassociated
@@ -35,7 +35,7 @@ type _Planes = tuple[DocumentLayers[Coded], npt.NDArray[np.float32]]
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def layered[M: Case](stacking: LayerStacking[M], view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
+def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
     """Layered document of formed color and raw mask coverage of the scene's head stack at a saved frame, formed through the view, nested stacks as groups.
 
     Returns:
@@ -77,8 +77,8 @@ def layered[M: Case](stacking: LayerStacking[M], view: DisplayView, scene: bpy.t
             def each(layer: StackLayer[M]) -> Outcome[PixelLayer[Coded] | LayerGroup[Coded]]:
                 visible = layer.key in shown
                 if isinstance(layer.source, Adjustment):
-                    return color(f"{layer.key} Composite").map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
-                mask = raw(f"{layer.key} Mask").bind(lambda pixels: depth.coded(pixels[..., 0])).map(Some) if layer.blend.masks or layer.matte else Ok(Nothing)
+                    return color(layer.composite_part).map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
+                mask = raw(layer.mask_part).bind(lambda pixels: depth.coded(pixels[..., 0])).map(Some) if layer.blend.masks or layer.matte else Ok(Nothing)
                 nested = (
                     nested_tree(identity, tree, layer)
                     .filter(lambda _: layer.plain)
@@ -96,7 +96,7 @@ def layered[M: Case](stacking: LayerStacking[M], view: DisplayView, scene: bpy.t
                     )
                 )
 
-            return paired(accumulated(each(layer) for layer in record.layers), raw("Composite").bind(lambda pixels: view.form(config, pixels)).map(unassociated))
+            return paired(accumulated(each(layer) for layer in record.layers), raw(COMPOSITE_PART).bind(lambda pixels: view.form(config, pixels)).map(unassociated))
 
         return path.bind(Multilayer.read).bind(planes)
 

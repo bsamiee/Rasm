@@ -62,12 +62,12 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, packed: Expr) -> Self:
-        """Reads the pair a `packed` vector carries."""
+        """Reads the pair a `packed` vector holds."""
         return cls(distance=packed["X"], width=packed["Y"])
 
     @property
     def packed(self) -> Expr:
-        """Distance in X and width in Y of one vector, for one Menu Switch or group output to carry."""
+        """Distance in X and width in Y of one vector, for one Menu Switch or group output to pass."""
         return xyz(self.distance, self.width)
 
     def nearer(self, other: Self) -> Self:
@@ -100,7 +100,11 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 def rotated(direction: Expr, angle: Scalar, *, axis: Literal["X_AXIS", "Y_AXIS", "Z_AXIS"] = "Z_AXIS", inverted: bool = False) -> Expr:
     """Turns a vector about one axis through Vector Rotate, clockwise when inverted."""
     return Expr(
-        kind=bpy.types.ShaderNodeVectorRotate, inputs=(("Vector", direction), ("Angle", angle)), members={"rotation_type": axis, "invert": inverted}, socket="Vector", shape=bpy.types.NodeSocketVector
+        kind=bpy.types.ShaderNodeVectorRotate,
+        inputs=(("Vector", direction), ("Angle", angle)),
+        members={"rotation_type": axis, "invert": inverted},
+        socket="Vector",
+        socket_type=bpy.types.NodeSocketVector,
     )
 
 
@@ -164,12 +168,12 @@ def triangle(point: Expr, a: Expr, b: Expr, c: Expr, roundness: Expr) -> Bounded
     """Triangle of three vertices rounded toward its incenter by a share of the incircle radius."""
     corners = (a, b, c)
     lengths = tuple(vector("DISTANCE", corners[(index + 1) % 3], corners[(index + 2) % 3]) for index in range(3))
-    area = vector("LENGTH", vector("CROSS_PRODUCT", b - a, c - a))
+    doubled_area = vector("LENGTH", vector("CROSS_PRODUCT", b - a, c - a))
     perimeter = sum(lengths[1:], lengths[0])
     weighted = tuple(vector("SCALE", corner, length) for corner, length in zip(corners, lengths))
     center = sum(weighted[1:], weighted[0]) / perimeter
-    share = switched(area > 0.0, 0.0, roundness)
-    incircle = area / perimeter
+    share = switched(doubled_area > 0.0, 0.0, roundness)
+    incircle = doubled_area / perimeter
     first, second, third = (mixed(share, corner, center) for corner in corners)
     return Bounded(distance=polygonal(point, (first, second, third), incircle * roundness), width=incircle * 2.0)
 
@@ -276,7 +280,7 @@ def profiled(read: Callable[[Socket], Expr], cycles: tuple[Expr, *tuple[Expr, ..
     """Periodic profiles in [0, 1] at cycle coordinates, one period per unit, through one Menu Switch over the `PROFILE` menu, held at `steps` levels above zero.
 
     Args:
-        read: Group input of a `PROFILE` socket, such as `partial(shell.input, panel)` over the panel holding it.
+        read: Group input of a `PROFILE` socket (`partial(shell.input, panel)` over the panel holding it).
         cycles: Cycle coordinates in output order.
 
     Returns:

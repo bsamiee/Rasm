@@ -2,12 +2,14 @@
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
+from functools import partial
 from types import MappingProxyType
 from typing import ClassVar, Final, Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +17,7 @@ import numpy.typing as npt
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import Native, struct_at
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band, entered
+from blender.bpy.extension.registration import Acquisitions, entered, Tier
 from blender.bpy.extension.reports import rendered
 from blender.bpy.render.outputs.framing import Border, Framing
 from blender.bpy.render.outputs.results import COMBINED
@@ -89,7 +91,7 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
-    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies over the host's own callback parameters, labelled by its key."""
+    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies over the host's own callback parameters, labeled by its key."""
 
     combined: ClassVar[EnginePass] = EnginePass(name=COMBINED, chanid="RGBA")
     key: Key
@@ -99,7 +101,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
     view_update: Option[Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
     view_draw: Option[Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
     bake: Option[Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph, bpy.types.Object, "rna_enums.BakePassTypeItems", int, int, int], Outcome[npt.NDArray[np.float32]]]] = Nothing
-    joins: frozenset[str] = frozenset()
+    compat_engines: frozenset[str] = frozenset()
 
     # --- [CALLBACKS]
 
@@ -177,20 +179,20 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def joined(self, name: str) -> Generator[Outcome[None]]:
-        """Adds engine to `COMPAT_ENGINES` sets holding a `joins` name until scope exit."""
+        """Adds engine to `COMPAT_ENGINES` sets holding a `compat_engines` name until scope exit."""
         panels = tuple(engines for panel in bpy.types.Panel.__subclasses__() if isinstance(engines := getattr(panel, "COMPAT_ENGINES", None), set))
         answer = accumulated(
-            Ok(None) if any(identifier in engines for engines in panels) else Error(Fault.of(Reason.ABSENT, "COMPAT_ENGINES", member=identifier)) for identifier in sorted(self.joins)
+            Ok(None) if any(identifier in engines for engines in panels) else Error(Fault.of(Reason.ABSENT, "COMPAT_ENGINES", member=identifier)) for identifier in sorted(self.compat_engines)
         ).map(lambda _: None)
         with ExitStack() as scope:
-            for engines in {id(engines): engines for engines in panels if answer.is_ok() and self.joins.intersection(engines) and name not in engines}.values():
+            for engines in {id(engines): engines for engines in panels if answer.is_ok() and self.compat_engines.intersection(engines) and name not in engines}.values():
                 engines.add(name)
                 scope.callback(engines.discard, name)
             yield answer
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Acquires engine class, then `COMPAT_ENGINES` memberships."""
-        return identity.name(bpy.types.RenderEngine, self.key).map(lambda name: (self.built(identity, name), (Band.INTERFACE, self.joined(name))))
+        return identity.name(bpy.types.RenderEngine, self.key).map(lambda name: (self.built(identity, name), (Tier.INTERFACE, self.joined(name))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -226,12 +228,12 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
 
 
 def _filled(result: bpy.types.RenderResult, view: str, pass_: EnginePass, plane: npt.NDArray[np.float32]) -> Outcome[None]:
-    """Writes a plane, top row first, into the result's pass of that name and view, absent fault for a pass the engine never registered."""
+    """Writes a plane, top row first, into the result's pass of that name and view, absent fault for a pass the engine never registered, invalid fault for a plane the pass refuses."""
     return (
         Option
         .of_optional(result.layers[0].passes.find_by_name(pass_.name, view))
         .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(result), member=pass_.name))
-        .map(lambda found: found.rect.foreach_set(plane[::-1].ravel()))  # type: ignore[arg-type]
+        .bind(lambda found: catch(found.rect.foreach_set, exception=TypeError)(plane[::-1].ravel()).map_error(partial(Fault.of, Reason.INVALID, pass_.name)))
     )
 
 

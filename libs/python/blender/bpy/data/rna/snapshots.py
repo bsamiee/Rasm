@@ -1,4 +1,4 @@
-"""RNA value snapshots: capture walks reading member values into value trees, member values by owner path, host-ordered writes, projection, and clipboard transfer."""
+"""RNA value snapshots: capture walks into value trees, values by owner path, host-ordered writes, projection, and clipboard transfer."""
 
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from functools import partial, reduce
@@ -105,7 +105,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def placed(path: RnaPath) -> tuple[RnaPath, RnaPath]:
-            last = max(index for index, step in enumerate(path) if isinstance(step, str))
+            last = max((index for index, step in enumerate(path) if isinstance(step, str)), default=0)
             return path[:last], path[last:]
 
         rows = tuple((*placed(path), value) for path, value in values.items())
@@ -125,7 +125,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             owned: Whether the capturing extension declares a script property by its identifier, captured beside the host's own.
 
         Returns:
-            Snapshot, domain fault for an undecodable value.
+            Snapshot, outside fault for an undecodable value.
         """
 
         def stored(descriptor: Descriptor, struct: Native, _: frozenset[tuple[int, str]]) -> Option[Value]:
@@ -165,7 +165,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             locked: Paths whose members and owners stay as current holds them.
 
         Returns:
-            Sparse assignments and the state they leave, domain fault for a snapshot of another struct.
+            Sparse assignments and the state they leave, outside fault for a snapshot of another struct.
         """
         identifier = definition(owner).identifier
 
@@ -426,7 +426,7 @@ def captured[W](
     """Walks a source into a value tree under a value reader, the selected members alone when given, extending prior.
 
     Args:
-        owner: Struct the capture started from, anchoring native references.
+        owner: Struct the capture started from, root of native references.
         read: Value of one member, Nothing to leave it out.
         selection: Members to capture, every saved member when Nothing.
         prior: Tree whose values the walk keeps.
@@ -437,7 +437,7 @@ def captured[W](
         owned: Whether the walking extension declares a script property by its identifier, walked beside the host's own.
 
     Returns:
-        Tree keyed by owner path, each value named by its member path under that owner, a value no member decodes raising the reader's `msgspec.ValidationError` through the walk.
+        Tree keyed by owner path with values named by member path, a value no member decodes raising the reader's `msgspec.ValidationError`.
     """
     return _Capture(owner, source.default_value(owner), read, prior, native=native, expanded=expanded, enclosing=enclosing, owned=owned).tree(selection, prior)
 
@@ -459,8 +459,8 @@ def referenced(owner: Native, struct: Native, path: RnaPath) -> tuple[bpy.types.
 def applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Callable[[Descriptor, W], Value | Struct | Tree[W, RnaPath, RnaPath]]) -> Applied:
     """Writes stored or native values in host order, every write, resize, and skip reported once.
 
-    `LEADING` members go first across every owner, each resetting members it governs, then each root writes its members, resizes its collections, and descends.
-    Each member write re-reads its holder through its ID, an earlier write (`type`, `dimensions`) having refined the holder's class, and members the holder lacked before such a write resolve again on the refined holder.
+    `LEADING` members go first across every owner, then each root writes its members, resizes its collections, and descends.
+    Each write re-reads its holder through its ID, an earlier write (`type`, `dimensions`) refining its class, and missing members resolve again.
 
     Args:
         owner: Struct or collection the tree's owner paths start from.
@@ -552,12 +552,12 @@ def applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Callab
         return struct_at(owner, key).map(lambda found: wrote(found, key)).default_with(lambda: Applied(skipped=(key,)))
 
     @catch(exception=ReferenceError)
-    def settled() -> Applied:
+    def walked() -> Applied:
         return reduce(
             lambda done, prop: done.then(lambda: Applied.join(member(struct, key, descriptor, value) for struct, key, descriptor, value in leads if descriptor.prop == prop)), LEADING, Applied()
         ).then(lambda: Applied.join(located(key) for key in tree.roots))
 
-    return settled().map_error(partial(Fault.of, Reason.REFUSED, repr(owner))).default_with(Applied.refused)
+    return walked().map_error(partial(Fault.of, Reason.REFUSED, repr(owner))).default_with(Applied.refused)
 
 
 def assigned(root: Struct, members: Mapping[RnaPath, Value]) -> Outcome[None]:

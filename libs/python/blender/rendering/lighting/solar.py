@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome, Reason
-from blender.records.fields import Count
+from blender.records.fields import Bearing, Count, Frozen, Inclination
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -38,9 +38,9 @@ _DAY_SECONDS: Final = _DAY.total_seconds()
 class Site(msgspec.Struct, frozen=True, kw_only=True):
     """Place on Earth with clock time zone."""
 
-    latitude: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
-    longitude: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
-    north: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
+    latitude: Inclination = 0.0
+    longitude: Bearing = 0.0
+    north: Bearing = 0.0
     zone: str = "UTC"
 
     def __post_init__(self) -> None:
@@ -56,7 +56,7 @@ class Site(msgspec.Struct, frozen=True, kw_only=True):
         return zoneinfo.ZoneInfo(self.zone)
 
 
-class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class SunPosition(Frozen, frozen=True, kw_only=True, eq=False):
     """True azimuth and geometric elevation in radians."""
 
     azimuth: npt.NDArray[np.float64]
@@ -67,7 +67,7 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def rotation(self) -> npt.NDArray[np.float64]:
-        """Clockwise angle from scene +Y for sky and lamp."""
+        """Clockwise angle from scene +Y for sky and sun light."""
         return self.azimuth - self.north
 
     @property
@@ -155,7 +155,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, site: Site, date: datetime.date) -> Outcome[Self]:
-        """Solves solar noon and horizon crossings, time fault on overflow."""
+        """Solves solar noon and horizon crossings, `FAILED` fault on overflow."""
         zone = site.clock
         side = np.array([0.0, -1.0, 1.0], dtype=np.float64)
         latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
@@ -189,17 +189,17 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, Reason.FAILED, str(date)))
 
 
-class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class SunPaths(Frozen, frozen=True, kw_only=True, eq=False):
     """Hourly analemmas and yearly sky band as scene unit vectors."""
 
     spacing: ClassVar[float] = math.radians(1.0)
     analemmas: npt.NDArray[np.float64]
-    surface: npt.NDArray[np.float64]
+    sky_band: npt.NDArray[np.float64]
 
     @property
     def faces(self) -> npt.NDArray[np.int64]:
         """Sky band quads as rows of four corner indices."""
-        grid = np.arange(math.prod(self.surface.shape[:2]), dtype=np.int64).reshape(self.surface.shape[:2])
+        grid = np.arange(math.prod(self.sky_band.shape[:2]), dtype=np.int64).reshape(self.sky_band.shape[:2])
         return np.stack((grid[:-1, :-1], grid[:-1, 1:], grid[1:, 1:], grid[1:, :-1]), axis=-1).reshape(-1, 4)
 
     @classmethod
@@ -216,7 +216,7 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         high = min(float(declination.max()), site.latitude + math.pi / 2.0)
         rows = np.linspace(low, high, math.ceil((high - low) / cls.spacing) + 1)[:, None]
         half_day = np.arccos(np.clip(-math.tan(site.latitude) * np.tan(rows), -1.0, 1.0))
-        return cls(analemmas=SunPosition.of(site, declination, hour).vectors, surface=SunPosition.of(site, rows, half_day * np.linspace(-1.0, 1.0, round(math.tau / cls.spacing) + 1)).vectors)
+        return cls(analemmas=SunPosition.of(site, declination, hour).vectors, sky_band=SunPosition.of(site, rows, half_day * np.linspace(-1.0, 1.0, round(math.tau / cls.spacing) + 1)).vectors)
 
     @property
     def arcs(self) -> tuple[tuple[npt.NDArray[np.float64], bool], ...]:
@@ -239,7 +239,7 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
     frames: Count
 
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
-        """Returns study moments on the zone clock, time fault on overflow."""
+        """Returns study moments on the zone clock, `FAILED` fault on overflow."""
         first = self.start.replace(tzinfo=zone)
         origin = first.astimezone(datetime.UTC) if self.step % _DAY else first
 
@@ -250,7 +250,7 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
         return stepped().map_error(functools.partial(Fault.of, Reason.FAILED, f"{first} + {self.frames} x {self.step}"))
 
     def positions(self, site: Site, /, *, refraction: bool) -> Outcome[SunPosition]:
-        """Returns the sun position at each study moment on the site clock, apparent with `refraction`, or time fault."""
+        """Returns the sun position at each study moment on the site clock, apparent with `refraction`, or `FAILED` fault."""
         return self.moments(site.clock).map(lambda moments: SunPosition.at(site, np.array([moment.timestamp() for moment in moments]))).map(lambda found: found.apparent() if refraction else found)
 
 

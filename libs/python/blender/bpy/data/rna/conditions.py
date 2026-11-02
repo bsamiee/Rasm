@@ -1,4 +1,4 @@
-"""Requirements over context, collections, jobs, and extensions, and owner scopes: the scenes, view layers, or objects one edit reaches, chosen from context."""
+"""Requirements over context, collections, jobs, and extensions, and owner scopes: the scenes, view layers, or objects one edit reaches."""
 
 from abc import abstractmethod
 from collections.abc import Mapping
@@ -9,8 +9,8 @@ from expression import Nothing, Ok, Option, Some
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import case_choices
 from blender.bpy.data.rna.paths import root_in, rooted, Struct
+from blender.bpy.data.rna.properties import case_choices
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import Case
 
@@ -69,7 +69,7 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
         return f"opposite of {self.message}"
 
     def check(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
-        """Returns unmet fault carrying the requirement sentence."""
+        """Returns required fault holding the requirement sentence."""
         return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(Reason.REQUIRED, self.message))
 
     def __and__(self, other: "Condition") -> "AllOf":
@@ -313,7 +313,7 @@ SCOPES: Final = case_choices(Scope)
 # --- [CONDITIONS]
 
 
-def admits(condition: Option[Condition], context: bpy.types.Context, item: Option[Struct] = Nothing, /) -> bool:
+def satisfied(condition: Option[Condition], context: bpy.types.Context, item: Option[Struct] = Nothing, /) -> bool:
     """Whether a stated condition holds over the context and item, every context passing while none is stated."""
     return condition.map(lambda required: required.holds(context, item)).default_value(True)
 
@@ -321,7 +321,7 @@ def admits(condition: Option[Condition], context: bpy.types.Context, item: Optio
 def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
     """Returns the `poll` class member testing condition, empty when absent.
 
-    An operator states every unmet requirement through `poll_message_set`, the reason its disabled button shows.
+    Operator states every unmet requirement through `poll_message_set`, the reason its disabled button shows.
     """
 
     def poll(cls: type, context: bpy.types.Context) -> bool:
@@ -337,7 +337,7 @@ def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
 # --- [SCOPES]
 
 
-def scope_choice(default: type[Scenes | ViewLayers | Selection | Objects]) -> bpy.props._PropertyDeferred:
+def scope_choice(default: type[Scope]) -> bpy.props._PropertyDeferred:
     """Returns the scope enum an operator form declares beside `SCOPE_COLLECTION`, defaulting to one case."""
     return bpy.props.EnumProperty(name="Scope", description="Owners the operator reaches", items=SCOPES, default=default.__name__)
 
@@ -369,8 +369,8 @@ __all__ = [
     "Selection",
     "Setting",
     "ViewLayers",
-    "admits",
     "chosen",
     "polled",
+    "satisfied",
     "scope_choice",
 ]

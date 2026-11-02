@@ -1,4 +1,4 @@
-"""Node content the node's own members cannot state, each case reading, writing, and comparing itself on a live node: color ramps and curve maps kept as edited in drawn editors, loaded images and their frame windows, and images generated from planes."""
+"""Node content the node's own members cannot state: color ramps, curve maps, loaded images with frame windows, and images generated from planes."""
 
 from collections.abc import Callable, Mapping
 from functools import partial
@@ -35,7 +35,7 @@ type Points = tuple[tuple[float, float], ...]
 
 
 class Edited(Content, frozen=True, kw_only=True):
-    """Node content a drawn editor edits in place: a node takes it again only once it differs from the content the node last took, so editor edits stand until the record changes, `read` returning them for the record."""
+    """Node content a node editor edits in place, rewritten when its record changes, `read` returning editor edits."""
 
     @classmethod
     def read(cls, live: bpy.types.Node, /) -> Outcome[Self]:
@@ -212,7 +212,10 @@ class Loaded(Content, frozen=True, kw_only=True):
     @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
         def shown(image: bpy.types.Image) -> bool:
-            return Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(self.path)) and (image.source == "SEQUENCE") == self.tag.sequence
+            return (
+                Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(bpy.path.abspath(str(self.path))))
+                and (image.source == "SEQUENCE") == self.tag.sequence
+            )
 
         return (
             self.frames
@@ -275,7 +278,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 
     @property
     @override
-    def keyed(self) -> object:
+    def digest_form(self) -> object:
         """Ownership key, content hash, name, and tag, the plane read only when the image is made."""
         return (self.ownership.key, self.content, self.name, msgspec.to_builtins(self.tag))
 

@@ -13,7 +13,7 @@ from mathutils import Vector
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.calls import Called, Opened
+from blender.bpy.commands.calls import PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import RnaPath, Struct
@@ -21,10 +21,10 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.settings.attachments import Recovery
 from blender.bpy.ui.drawing.canvas import Rect
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Layout, Opens, Property
 from blender.bpy.ui.layout.sections import Section
-from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -112,14 +112,14 @@ def _on_camera(prop: bpy.types.Property, *accepted: Value) -> Setting:
 
 def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
     """Applies requirements to render cameras, recording earliest prior and final values."""
-    return Recovery.endpoints(identity, _PRIORS).bind(
+    return Recovery.before_after(identity, _PRIORS).bind(
         lambda recovery: accumulated(recovery.recorded(camera, ((camera, values),), lambda ends: ends) for camera in render_cameras(scene)).map(lambda _: None)
     )
 
 
 def released(identity: Identity) -> Outcome[None]:
     """Restores prior camera values unless later edits changed them."""
-    return Recovery.endpoints(identity, _PRIORS).bind(lambda recovery: accumulated(map(recovery.reverted, bpy.data.cameras)).map(lambda _: None))
+    return Recovery.before_after(identity, _PRIORS).bind(lambda recovery: accumulated(map(recovery.reverted, bpy.data.cameras)).map(lambda _: None))
 
 
 # --- [DISPLAY]
@@ -153,7 +153,7 @@ camera_display: Final = Section(
         Layout(rows=(_guides,), container=Some(lambda layout: layout.column(heading="Composition Guides"))),
         *map(_camera_row, ("show_name", "show_sensor", "show_limits", "show_mist")),
     ),
-    header=(Opens(target=Opened(CAMERA_PT_presets, Called.PANEL)),),
+    header=(Opens(target=PopupTarget(CAMERA_PT_presets, PopupKind.PANEL)),),
     condition=Some(_SCENE_CAMERA),
 )
 camera_views: Final = Section(

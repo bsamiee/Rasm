@@ -1,4 +1,4 @@
-"""Preview pixels of one extension: a preview collection holding staged glyphs and generated tiles over the theme transparency checker, and half-float GPU preview textures."""
+"""Preview pixels of one extension: a preview collection holding packaged icons and generated tiles over the theme transparency checker, and half-float GPU preview textures."""
 
 from collections import OrderedDict
 from collections.abc import Generator, Hashable

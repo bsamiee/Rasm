@@ -24,8 +24,8 @@ from blender.bpy.nodes.graphs import Expr, math, matrix, rgba, Scalar, switched,
 from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.colors import AXES, logarithmic, space_item
 from blender.bpy.render.compositor.coordinates import uv_mapped
-from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
-from blender.imaging.color.processors import converted, GREY, processor
+from blender.imaging.color.luts import cube_split, Lattice, Logarithmic, Rational, Uniform
+from blender.imaging.color.processors import converted, GRAY, processor
 from blender.imaging.files.buffers import applied
 from blender.records.faults import Fault, Outcome, Reason
 from blender.records.stores import content_hash
@@ -83,12 +83,16 @@ def matrixed(color: Expr, rows: tuple[Expr, Expr, Expr], offset: Expr) -> Expr:
 # --- [CDL]
 
 
+def _saturated(color: Expr, saturation: Scalar) -> Expr:
+    """Scales RGB away from OCIO's CDL luma by a saturation."""
+    luma = vector("DOT_PRODUCT", color, _SATURATION_LUMA)
+    return vector("MULTIPLY_ADD", color - luma, saturation, luma)
+
+
 def cdl(color: Expr, slope: Expr, offset: Expr, power: Expr, saturation: Scalar) -> Expr:
     """ASC CDL in OCIO's `CDL_NO_CLAMP` style, negative slopes passing power unchanged, saturation about OCIO's CDL luma."""
     sloped = vector("MULTIPLY_ADD", color, slope, offset)
-    graded = vector("POWER", vector("MAXIMUM", sloped, (0.0, 0.0, 0.0)), power) + vector("MINIMUM", sloped, (0.0, 0.0, 0.0))
-    luma = vector("DOT_PRODUCT", graded, _SATURATION_LUMA)
-    return vector("MULTIPLY_ADD", graded - luma, saturation, luma)
+    return _saturated(vector("POWER", vector("MAXIMUM", sloped, (0.0, 0.0, 0.0)), power) + vector("MINIMUM", sloped, (0.0, 0.0, 0.0)), saturation)
 
 
 # --- [PRIMARY]
@@ -105,10 +109,9 @@ def primary(
 ) -> Expr:
     """`GradingPrimaryTransform` in `GRADING_LIN` style: offset, exposure in stops, signed power contrast about `GREY * 2^pivot` its pivot OCIO's default when absent, and saturation about OCIO's luma."""
     exposed = vector("MULTIPLY", vector("ADD", color, offset), vector("POWER", (2.0, 2.0, 2.0), exposure))
-    center = math("MULTIPLY", GREY, math("POWER", 2.0, pivot.default_with(lambda: PyOpenColorIO.GradingPrimary(PyOpenColorIO.GRADING_LIN).pivot)))
+    center = math("MULTIPLY", GRAY, math("POWER", 2.0, pivot.default_with(lambda: PyOpenColorIO.GradingPrimary(PyOpenColorIO.GRADING_LIN).pivot)))
     contrasted = vector("MULTIPLY", vector("SIGN", exposed), vector("SCALE", vector("POWER", vector("DIVIDE", vector("ABSOLUTE", exposed), xyz(center, center, center)), contrast), center))
-    luma = vector("DOT_PRODUCT", contrasted, _SATURATION_LUMA)
-    return vector("MULTIPLY_ADD", contrasted - luma, saturation, luma)
+    return _saturated(contrasted, saturation)
 
 
 # --- [TONE]
@@ -400,7 +403,7 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
 
     def sampled(data: str) -> Expr:
         image = Generated(ownership=TILES, content=content_hash(Lattice, lattice, arrays=(plane,)), name=name, plane=lambda: Ok(Some(plane)), tag=Tag(space=Some(data)))
-        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", shape=bpy.types.NodeSocketColor).named(key), float(lattice.size))
+        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", socket_type=bpy.types.NodeSocketColor).keyed(key), float(lattice.size))
 
     return space_item(config, PyOpenColorIO.ROLE_DATA).map(sampled)
 
@@ -412,7 +415,7 @@ def latticed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpe
 
 def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, source: Expr) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Expr]]:
     """Tables a transform from its first 3D table on at that table's own lattice, answering the operations before it and the table output, the source where it holds none."""
-    return split(config, transform).bind(lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table)))
+    return cube_split(config, transform).bind(lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table)))
 
 
 # --- [CURVES]

@@ -32,12 +32,13 @@ from blender.bpy.nodes.trees import DATA_TYPES
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, with_alpha
 from blender.bpy.render.compositor.coordinates import FrameSpace
-from blender.bpy.render.compositor.effects import CompositorEffect, Entry
-from blender.bpy.render.compositor.entries import EffectRows
+from blender.bpy.render.compositor.effects import Blended, CompositorEffect, Entry
+from blender.bpy.render.compositor.entries import added_entry, relocated
 from blender.bpy.render.compositor.inputs import CameraFrame, entered, FRAME, FRAME_ASPECT, FRAME_SCALE, restored
 from blender.bpy.render.compositor.layers import (
     Adjustment,
     AFFINE,
+    COMPOSITE_PART,
     EFFECTS,
     ENTRY_BLEND,
     LAYER_BLEND,
@@ -58,7 +59,7 @@ from blender.bpy.render.compositor.layers import (
     TITLE,
 )
 from blender.bpy.render.compositor.masks import mixed_back, MODE, OPACITY
-from blender.bpy.render.compositor.placement import added_entry, relocated
+from blender.bpy.render.compositor.offered import OfferedEffects
 from blender.bpy.render.compositor.recipes import Valued
 from blender.bpy.render.compositor.recombination import LightGroups, Recombined
 from blender.bpy.render.outputs.formats import FileItem, FileItems, OutputFormat
@@ -69,10 +70,6 @@ from blender.bpy.settings.attachments import Attached, Stored
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.fields import amended, Case, Lens
 from blender.rendering.outputs.naming import Output
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Unit = tuple[Expr, Option[Expr], tuple[tuple[str, Expr], ...], InterfacePanel]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -95,14 +92,23 @@ class Selection[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         return self.record.layer(self.active)
 
 
+class _Unit(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """One layer of a planned group: its weighted content, its composite while shown, its file parts, and its interface panel."""
+
+    content: Expr
+    composite: Option[Expr]
+    parts: tuple[tuple[str, Expr], ...]
+    panel: InterfacePanel
+
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class LayerStackService[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Layer stacks bound to one extension: the offered effects and term filter while one is declared, the store of each layer's structure by key, the layer rows owning each layer's name, flags, and order, the view attachment, and pass flags."""
 
     identity: Identity
-    rows: EffectRows[M]
+    rows: OfferedEffects[M]
     filtering: Option[TermFiltering[M]]
     store: Stored[dict[Key, StoredLayer[M]]]
     layer_rows: Attached[LayerRows]
@@ -190,7 +196,13 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             return self.head(scene).to_option().map(Ok).default_with(lambda: self.made(scene, context).bind(lambda _: self.head(scene)))
 
         def placed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree) -> Outcome[bool]:
-            mixes: dict[Key, Value] = {item_key(layer.key, EFFECTS, index, ENTRY_BLEND, OPACITY.key): strength / 100 for layer in preset.structure.layers for index in range(1, len(layer.effects) + 1)}
+            mixes: dict[Key, Value] = {
+                item_key(layer.key, EFFECTS, index, ENTRY_BLEND, OPACITY.key): strength / 100
+                for layer in preset.structure.layers
+                for index, held in enumerate(layer.effects, 1)
+                for row in self.rows.offering(type(held.record)).to_option().to_list()
+                if isinstance(row.mix, Blended)
+            }
             return self.read(tree).bind(
                 lambda current: (
                     (Ok(False) if current == preset.structure else self.rebuilt(scene, tree, preset.structure, context).map(lambda _: True))
@@ -303,8 +315,8 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         config, shown = PyOpenColorIO.GetCurrentConfig(), frozenset(layer.key for layer, _ in record.composited())
         frame = {socket.key: group_input(socket.key) for socket in FRAME}
         aspect, scale = frame[FRAME_ASPECT.key], frame[FRAME_SCALE.key]
-        ramp = Expr(kind=bpy.types.ShaderNodeTexGradient, members={"gradient_type": "LINEAR"}, socket="Color", shape=bpy.types.NodeSocketColor)
-        canvas = with_alpha(ramp, 0.0, masked=True).named("canvas")
+        ramp = Expr(kind=bpy.types.ShaderNodeTexGradient, members={"gradient_type": "LINEAR"}, socket="Color", socket_type=bpy.types.NodeSocketColor)
+        canvas = with_alpha(ramp, 0.0, masked=True).keyed("canvas")
 
         def unit(layer: StackLayer[M], below: Expr, base: Expr, luminance: NodeGroup, lobe: NodeGroup) -> Outcome[_Unit]:
             layer_key = layer.key
@@ -316,7 +328,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 sockets = offered.get(layer.node, {})
                 match layer.source:
                     case Adjustment():
-                        return Ok(Expr(kind=bpy.types.NodeReroute, inputs=(("Input", base),), socket="Output", shape=bpy.types.NodeSocketColor))
+                        return Ok(Expr(kind=bpy.types.NodeReroute, inputs=(("Input", base),), socket="Output", socket_type=bpy.types.NodeSocketColor))
                     case RenderPass(output=output) | NodeSource(output=output) as source:
                         found = Option.of_optional(sockets.get(output)).to_result_with(partial(Fault.of, Reason.ABSENT, layer.node, member=output))
                         return paired(found, sourced(layer_key, source, scene)).map(lambda parts: parts[1].at(parts[0], bpy.types.NodeSocketColor))
@@ -342,7 +354,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                         def read(exprs: Mapping[Key, Expr], end: End) -> Expr:
                             match end:
                                 case End(node=node, socket=socket) if node != INPUTS:
-                                    return exprs[node].at(socket, exprs[node].shape)
+                                    return exprs[node].at(socket, exprs[node].socket_type)
                                 case End(socket=COLOR_INPUT.key):
                                     return entering
                                 case End(socket=str(socket)) if socket in frame:
@@ -353,7 +365,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                         def expressed(exprs: Mapping[Key, Expr], node: Key) -> Mapping[Key, Expr]:
                             value = nodes[node]
                             inputs = (*value.inputs.items(), *((link.target.socket, read(exprs, link.source)) for link in feeds[node]))
-                            return {**exprs, node: Expr(kind=value.kind, inputs=inputs, members=value.members, content=value.content, label=Some(f"{prefix}_{node}"))}
+                            return {**exprs, node: Expr(kind=value.kind, inputs=inputs, members=value.members, content=value.content, key=Some(f"{prefix}_{node}"))}
 
                         seed: Mapping[Key, Expr] = {}
                         exprs = functools.reduce(expressed, order, seed)
@@ -362,10 +374,10 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
                     return done.bind(lambda entering: inlined(entering).map(lambda result: switched(group_input(prefix), entering, result)))
 
-                ordered = sorted(entries, key=lambda held: (self.rows.rank(held[1]), held[0]))
+                ordered = sorted(entries, key=lambda held: self.rows.rank(held[1]))
                 return functools.reduce(step, ordered, Ok(source)).map(lambda chain: switched(outer(EFFECTS), source, chain))
 
-            def covered(original: Expr, content: Expr) -> Outcome[tuple[Expr, Option[Expr], tuple[tuple[str, Expr], ...]]]:
+            def covered(original: Expr, content: Expr, panel: InterfacePanel) -> Outcome[_Unit]:
                 keyed = masks.coverage(layer.blend.masks, original, aspect, scale, lambda inner: outer(LAYER_BLEND, MASKS, inner), config)
                 matted = (
                     masks.matte(luminance).map(
@@ -375,13 +387,13 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                     else Ok(Nothing)
                 )
 
-                def weighed(factors: tuple[Expr, ...]) -> Outcome[tuple[Expr, Option[Expr], tuple[tuple[str, Expr], ...]]]:
+                def weighed(factors: tuple[Expr, ...]) -> Outcome[_Unit]:
                     mask = Option.of_optional(functools.reduce(lambda held, factor: held * factor, factors) if factors else None)
                     opacity = outer(LAYER_BLEND, OPACITY.key)
                     weight = mask.map(lambda held: math("MULTIPLY", opacity, held)).default_value(opacity)
-                    items = ((layer_key, content), *((f"{layer_key} Mask", held) for held in mask.to_list()))
+                    items = ((layer_key, content), *((layer.mask_part, held) for held in mask.to_list()))
                     mixing = mixed_back(layer_key, base, content, outer(LAYER_BLEND, MODE.key), weight).map(Some) if layer_key in shown else Ok(Nothing)
-                    return mixing.map(lambda mixed: (with_alpha(content, weight, masked=True), mixed, items))
+                    return mixing.map(lambda mixed: _Unit(content=with_alpha(content, weight, masked=True), composite=mixed, parts=items, panel=panel))
 
                 return paired(keyed, matted).bind(lambda parts: weighed((*parts[0].to_list(), *parts[1].to_list())))
 
@@ -389,13 +401,13 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 space = FrameSpace.of(content, aspect, scale)
                 return space.placed(content, space.placement(*(outer(_AFFINE, socket.key) for socket in AFFINE.inputs)))
 
-            def faced(entries: tuple[tuple[Key, CompositorEffect[M], NodeGroup], ...]) -> InterfacePanel:
-                def panel(part: Key, face: Interface, toggle: Option[bool] = Nothing) -> InterfacePanel:
-                    return InterfacePanel.of(item_key(layer_key, part), face, name=bpy.path.display_name(part), toggle=toggle)
+            def layer_panel(entries: tuple[tuple[Key, CompositorEffect[M], NodeGroup], ...]) -> InterfacePanel:
+                def panel(part: Key, interface: Interface, toggle: Option[bool] = Nothing) -> InterfacePanel:
+                    return InterfacePanel.of(item_key(layer_key, part), interface, name=bpy.path.display_name(part), toggle=toggle)
 
                 def entry_panel(prefix: Key, row: CompositorEffect[M], group: NodeGroup) -> InterfacePanel:
-                    face = Interface(inputs=tuple(socket for socket in group.interface.inputs if socket.key not in {COLOR_INPUT.key, *frame}), panels=group.interface.panels)
-                    return InterfacePanel.of(prefix, face, name=row.title, toggle=Some(True))
+                    interface = Interface(inputs=tuple(socket for socket in group.interface.inputs if socket.key not in {COLOR_INPUT.key, *frame}), panels=group.interface.panels)
+                    return InterfacePanel.of(prefix, interface, name=row.title, toggle=Some(True))
 
                 sourcing = (panel(item_key(SOURCE), layer.source.interface),) if isinstance(layer.source, Recombined) else ()
                 effects = msgspec.structs.replace(panel(item_key(EFFECTS), Interface(), Some(True)), panels=tuple(itertools.starmap(entry_panel, entries)))
@@ -403,27 +415,29 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 return InterfacePanel(key=layer_key, name=layer.name, panels=(*sourcing, effects, panel(_AFFINE, AFFINE), panel(item_key(LAYER_BLEND), layer.blend.interface), *matting))
 
             def built(source: Expr, entries: tuple[tuple[Key, CompositorEffect[M], NodeGroup], ...]) -> Outcome[_Unit]:
-                return chained(source, entries).map(transformed).bind(lambda content: covered(source, content)).map(lambda parts: (*parts, faced(entries)))
+                return chained(source, entries).map(transformed).bind(lambda content: covered(source, content, layer_panel(entries)))
 
             return paired(entering(), accumulated(itertools.starmap(grouped, zip(layer.places, layer.effects, strict=True)))).bind(lambda parts: built(*parts))
 
         def folded(luminance: NodeGroup, lobe: NodeGroup) -> Outcome[tuple[tuple[_Unit, ...], Expr]]:
-            def step(done: Outcome[tuple[tuple[_Unit, ...], Expr, Expr]], layer: StackLayer[M]) -> Outcome[tuple[tuple[_Unit, ...], Expr, Expr]]:
-                return done.bind(lambda state: unit(layer, state[2], state[1], luminance, lobe).map(lambda made: ((*state[0], made), made[1].default_value(state[1]), made[0])))
+            def step(done: Outcome[tuple[tuple[_Unit, ...], Expr]], layer: StackLayer[M]) -> Outcome[tuple[tuple[_Unit, ...], Expr]]:
+                return done.bind(
+                    lambda state: unit(layer, state[0][-1].content if state[0] else canvas, state[1], luminance, lobe).map(lambda made: ((*state[0], made), made.composite.default_value(state[1])))
+                )
 
-            start: Outcome[tuple[tuple[_Unit, ...], Expr, Expr]] = Ok(((), canvas, canvas))
-            return functools.reduce(step, record.layers, start).map(lambda state: (state[0], state[1]))
+            start: Outcome[tuple[tuple[_Unit, ...], Expr]] = Ok(((), canvas))
+            return functools.reduce(step, record.layers, start)
 
         def built(units: tuple[_Unit, ...], composite: Expr, output: OutputFormat) -> Outcome[NodeGroup]:
             filed: tuple[tuple[str, Expr], ...] = (
-                ("Composite", composite),
-                *(item for held in units for item in held[2]),
-                *((f"{layer.key} Composite", held[1].default_value(composite)) for layer, held in zip(record.layers, units)),
+                (COMPOSITE_PART, composite),
+                *(item for held in units for item in held.parts),
+                *((layer.composite_part, held.composite.default_value(composite)) for layer, held in zip(record.layers, units)),
             )
-            content = FileItems(items=tuple(FileItem(name=label, socket_type=DATA_TYPES[term.shape]) for label, term in filed))
+            content = FileItems(items=tuple(FileItem(name=label, socket_type=DATA_TYPES[term.socket_type]) for label, term in filed))
             members: Members = {Pathed.directory.path: bpy.app.tempdir, Pathed.file_name.path: stack_file(uid), **output.members(("format",))}
             files = Expr(kind=bpy.types.CompositorNodeOutputFile, inputs=tuple((stored.name, term) for stored, (_, term) in zip(content.items, filed)), members=members, content=Some(content))
-            roots = tuple((held[0], *held[1].to_list(), *(term for _, term in held[2])) for held in units)
+            roots = tuple((held.content, *held.composite.to_list(), *(term for _, term in held.parts)) for held in units)
 
             def enframed(group: NodeGroup, claimed: tuple[frozenset[Key], ...]) -> NodeGroup:
                 owner = {node: layer.key for layer, nodes in reversed(tuple(zip(record.layers, claimed))) for node in nodes}
@@ -435,11 +449,11 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
             backdrop = lowered(bpy.types.CompositorNodeTree, canvas).map(lambda body: frozenset(body.nodes))
             claimed = backdrop.bind(lambda shared: accumulated(lowered(bpy.types.CompositorNodeTree, *held).map(lambda body: frozenset(body.nodes) - shared - {INPUTS}) for held in roots))
-            interface = Interface(inputs=(COLOR_INPUT, *FRAME), outputs=(COLOR_RESULT,), panels=tuple(held[3] for held in units))
+            interface = Interface(inputs=(COLOR_INPUT, *FRAME), outputs=(COLOR_RESULT,), panels=tuple(held.panel for held in units))
             outputs = {COLOR_RESULT.key: composite.keeping(canvas, files, *(root for held in roots for root in held))}
             return paired(functions.built(OWNERSHIP.key, interface, outputs, bpy.types.CompositorNodeTree, name=Some(TITLE)), claimed).map(lambda parts: enframed(*parts))
 
-        return paired(masks.working(config), lobe()).bind(lambda groups: paired(folded(*groups), OutputFormat.exr(Output.DATA, layered=True)).bind(lambda parts: built(*parts[0], parts[1])))
+        return paired(masks.luminance_group(config), lobe()).bind(lambda groups: paired(folded(*groups), OutputFormat.exr(Output.DATA, layered=True)).bind(lambda parts: built(*parts[0], parts[1])))
 
     def refreshed(self) -> Outcome[Option[str]]:
         """Reconciles each scene stack, naming the undo step when any changed."""
@@ -478,9 +492,9 @@ def sourced(key: Key, source: RenderPass | NodeSource | Recombined, scene: bpy.t
     node = item_key(key, SOURCE)
     match source:
         case RenderPass(layer=name) | Recombined(layer=name):
-            return Ok(Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": name}, label=Some(node)))
+            return Ok(Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": name}, key=Some(node)))
         case NodeSource(node=identifier):
-            return subclass(bpy.types.Node, identifier).map(lambda kind: Expr(kind=kind, label=Some(node)))
+            return subclass(bpy.types.Node, identifier).map(lambda kind: Expr(kind=kind, key=Some(node)))
 
 
 def stacked_by(identity: Identity, tree: bpy.types.NodeTree | None, /) -> Option[bpy.types.NodeTree]:
@@ -504,4 +518,4 @@ def _tree(name: str) -> Outcome[bpy.types.CompositorNodeTree]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LayerStacking", "Selection", "nested_tree", "sourced", "stacked_by"]
+__all__ = ["LayerStackService", "Selection", "nested_tree", "sourced", "stacked_by"]

@@ -51,7 +51,7 @@ class WhitePoint(msgspec.Struct, frozen=True, kw_only=True):
 
 
 @cache
-def table() -> npt.NDArray[np.float64]:
+def observer() -> npt.NDArray[np.float64]:
     """Returns read-only float64 rows (λ, x̄, ȳ, z̄) at every nanometer from 360 to 830 nm."""
     matching = colour.MSDS_CMFS["CIE 1931 2 Degree Standard Observer"]
     rows = np.column_stack((matching.wavelengths, matching.values)).astype(np.float64)
@@ -59,16 +59,16 @@ def table() -> npt.NDArray[np.float64]:
     return rows
 
 
-def sampled(count: int) -> npt.NDArray[np.float64]:
+def spectral_samples(count: int) -> npt.NDArray[np.float64]:
     """Returns rows (λ, x̄, ȳ, z̄) at `count` midpoint wavelengths spanning the table, long wavelengths first."""
-    rows = table()
+    rows = observer()
     wavelengths = rows[-1, 0] - (np.arange(count, dtype=np.float64) + 0.5) * (rows[-1, 0] - rows[0, 0]) / count
     return np.column_stack((wavelengths, *(np.interp(wavelengths, rows[:, 0], column) for column in rows[:, 1:].T)))
 
 
 def blackbody(temperatures: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Returns float64 XYZ at Y = 1 of Planckian emission at each kelvin temperature, integrated against the observer."""
-    rows = table()
+    rows = observer()
     tristimulus = colour.colorimetry.planck_law(rows[:, 0] * 1e-9, temperatures).reshape(len(rows), -1).T.reshape(*temperatures.shape, len(rows)) @ rows[:, 1:]
     return tristimulus / tristimulus[..., 1:2]
 
@@ -85,11 +85,11 @@ def coordinates(tristimulus: npt.NDArray[np.float32 | np.float64]) -> npt.NDArra
 
 def locus() -> npt.NDArray[np.float64]:
     """Returns spectral xy coordinates in wavelength order as an open curve."""
-    return coordinates(table()[:, 1:])
+    return coordinates(observer()[:, 1:])
 
 
 @cache
-def frame() -> npt.NDArray[np.float64]:
+def diagram_extent() -> npt.NDArray[np.float64]:
     """Returns the read-only diagram frame's far xy corner from the origin, the spectral locus maxima rounded up to tenths."""
     extent: npt.NDArray[np.float64] = np.ceil(locus().max(axis=0) * 10.0) / 10.0
     extent.setflags(write=False)
@@ -97,7 +97,7 @@ def frame() -> npt.NDArray[np.float64]:
 
 
 def chromaticities(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns float64 xy rows of red, green, blue, and white from unit codes every display encoding fixes, or color fault."""
+    """Returns float64 xy rows of red, green, blue, and white from unit codes every display encoding fixes, or `FAILED` fault."""
     return converted(config, xyz(config, space), np.vstack((np.eye(3, dtype=np.float32), np.ones((1, 3), dtype=np.float32)))).map(coordinates)
 
 
@@ -127,4 +127,4 @@ def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64])
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "frame", "locus", "matching", "sampled", "table"]
+__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "diagram_extent", "locus", "matching", "observer", "spectral_samples"]

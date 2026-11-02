@@ -34,16 +34,21 @@ class Toward(Enum):
 # --- [TREES]
 
 
-class Owner[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Owner values as name and value rows, any hashable name a JSON array encodes, and ordered child keys."""
+class _Valued[V, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Name and value rows, any hashable name a JSON array encodes."""
 
     rows: tuple[tuple[N, V], ...] = ()
-    children: tuple[K, ...] = ()
 
     @cached_property
     def values(self) -> Mapping[N, V]:
         """Values by name."""
         return MappingProxyType(dict(self.rows))
+
+
+class Owner[V, K: Hashable = str, N: Hashable = str](_Valued[V, N], frozen=True, kw_only=True, dict=True):
+    """Owner values with ordered child keys."""
+
+    children: tuple[K, ...] = ()
 
 
 class Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
@@ -97,17 +102,11 @@ class Tree[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True,
         return {key: Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
 
 
-class _Placed[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class _Placed[V, K: Hashable = str, N: Hashable = str](_Valued[V, N], frozen=True, kw_only=True, dict=True):
     """Owner with value rows at place."""
 
     key: K
     place: Place[K]
-    rows: tuple[tuple[N, V], ...] = ()
-
-    @cached_property
-    def values(self) -> Mapping[N, V]:
-        """Values by name."""
-        return MappingProxyType(dict(self.rows))
 
 
 class Inserted[V, K: Hashable = str, N: Hashable = str](_Placed[V, K, N], frozen=True, kw_only=True, dict=True):

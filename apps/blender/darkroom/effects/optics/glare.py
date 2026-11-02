@@ -19,7 +19,7 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, Stoc
 from blender.bpy.render.compositor import filters, masks
 from blender.bpy.render.compositor.coordinates import dimensions, shorter
 from blender.bpy.render.compositor.effects import CompositorEffect
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.imaging.sampling.tiles import Pupil, Specks
 from blender.records.faults import Outcome
 from blender.records.fields import Case
@@ -72,12 +72,12 @@ class Halation(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _spread[R: Case](shell: Shell[R], size: Scalar) -> Expr:
+def _spread[R: Case](shell: GraphInputs[R], size: Scalar) -> Expr:
     """Glare node size of a spread over the greater frame side, which the node reads over the shorter side of the overscanned image."""
     return shell.space.pixels(size) / shorter(dimensions(shell.color))
 
 
-def _bloomed(shell: Shell[Bloom]) -> Outcome[Expr]:
+def _bloomed(shell: GraphInputs[Bloom]) -> Outcome[Expr]:
     """Scatters toward the mip mean and lights camera-space lens dirt from a coverage field generated once a preview frame sizes it."""
     specks = shell.record.specks
     content = content_hash(Specks, specks, arrays=tuple(np.asarray(preview.framing.size[::-1], dtype=np.int64) for preview in shell.preview.to_list()), providers=(np,))
@@ -89,17 +89,20 @@ def _bloomed(shell: Shell[Bloom]) -> Outcome[Expr]:
         kind=bpy.types.CompositorNodeImage,
         content=Some(Generated(ownership=_DIRT_FIELDS, content=content, name="Lens Dirt", plane=plane, tag=Tag(space=Some(PyOpenColorIO.ROLE_DATA)))),
         socket="Image",
-        shape=bpy.types.NodeSocketColor,
-    ).named(_DIRT_FIELDS.key)
+        socket_type=bpy.types.NodeSocketColor,
+    ).keyed(_DIRT_FIELDS.key)
     mean = Expr(
-        kind=bpy.types.CompositorNodeGlare, inputs=(("Image", shell.color), ("Type", "Bloom"), *_WHOLE, ("Size", _spread(shell, shell.input(_SIZE)))), socket="Glare", shape=bpy.types.NodeSocketColor
+        kind=bpy.types.CompositorNodeGlare,
+        inputs=(("Image", shell.color), ("Type", "Bloom"), *_WHOLE, ("Size", _spread(shell, shell.input(_SIZE)))),
+        socket="Glare",
+        socket_type=bpy.types.NodeSocketColor,
     )
     scatter = shell.input(_SCATTER)
     clean = mixed(scatter, shell.color, mean)
     return Ok(switched(shell.input(_LENS_DIRT), clean, vector("ADD", clean, vector("SCALE", vector("MULTIPLY", mean, field), scatter * shell.input(_LENS_DIRT, _DIRT_STRENGTH)))))
 
 
-def _glared(shell: Shell[Glare]) -> Outcome[Expr]:
+def _glared(shell: GraphInputs[Glare]) -> Outcome[Expr]:
     """Applies the photopic veil, then signed spectral diffraction through a pupil kernel generated once a preview frame sizes it."""
     pupil = shell.record.pupil
     content = content_hash(
@@ -122,13 +125,13 @@ def _glared(shell: Shell[Glare]) -> Outcome[Expr]:
         kind=bpy.types.CompositorNodeGlare,
         inputs=(("Image", shell.color), ("Type", "Fog Glow"), *_WHOLE, ("Size", _spread(shell, shell.input(_VEIL, _VEIL_SIZE)))),
         socket="Glare",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
     veil = switched(shell.input(_VEIL), shell.color, spread)
     return Ok(switched(shell.input(_APERTURE), veil, filters.convolved(veil, kernel)))
 
 
-def _ghosted(shell: Shell[Ghosts]) -> Outcome[Expr]:
+def _ghosted(shell: GraphInputs[Ghosts]) -> Outcome[Expr]:
     """Adds recursive highlight ghosts to scene light."""
     ghosts = Expr(
         kind=bpy.types.CompositorNodeGlare,
@@ -143,14 +146,14 @@ def _ghosted(shell: Shell[Ghosts]) -> Outcome[Expr]:
             ("Color Modulation", shell.input(_COLOR_MODULATION)),
         ),
         socket="Glare",
-        shape=bpy.types.NodeSocketColor,
-    ).named("ghosts")
+        socket_type=bpy.types.NodeSocketColor,
+    ).keyed("ghosts")
     return Ok(mixed(1.0, shell.color, ghosts, blend="ADD"))
 
 
-def _haloed(shell: Shell[Halation]) -> Outcome[Expr]:
+def _haloed(shell: GraphInputs[Halation]) -> Outcome[Expr]:
     """Adds the Gaussian highlight halo under per-channel film response."""
-    key = masks.highlight(shell.color, shell.input(_HALO_HIGHLIGHTS, _THRESHOLD), shell.input(_HALO_HIGHLIGHTS, _SMOOTHNESS)).named("key")
+    key = masks.highlight(shell.color, shell.input(_HALO_HIGHLIGHTS, _THRESHOLD), shell.input(_HALO_HIGHLIGHTS, _SMOOTHNESS)).keyed("key")
     halo = filters.blurred(key, shell.space.pixel_size(shell.input(_RADIUS)))
     return Ok(mixed(1.0, shell.color, vector("MULTIPLY", halo, shell.input(_COLOR)), blend="ADD"))
 

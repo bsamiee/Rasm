@@ -13,18 +13,19 @@ from bl_ui.generic_ui_list import draw_ui_list
 import bpy
 from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.collections import Block
+import msgspec
 
 from blender.bpy.commands.modal import Gesture, Modal, Travel
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.mirrors import annotated, Callbacks, declared, pointed
 from blender.bpy.data.rna.paths import context_path, definition, Native, rna, Struct, struct_at
+from blender.bpy.data.rna.properties import annotated, Callbacks, declared, pointed
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band, Declaration
+from blender.bpy.extension.registration import Acquisitions, Declaration, Tier
 from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.members import At, Member, ResolvedMember
-from blender.bpy.ui.layout.rows import accepted, acquired, FUNCTIONS, Keywords, Line, placed, Property, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import accepted, acquired, ConditionalRow, FUNCTIONS, Keywords, layout_call, Property, realized, RowContent, RowDraw
 from blender.bpy.ui.resources.theme import Metrics
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
@@ -32,7 +33,6 @@ from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 type Predicate[O: Struct] = Condition | Callable[[bpy.types.Context, bpy.types.UIList, O], Outcome[bool]]
 type Move = Callable[[bpy.types.Context, int, int], Outcome[None]]
-type _Drag = tuple[int, float, At, At]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ _DRAW_UI_LIST: Final[Callable[..., bpy.types.UILayout]] = draw_ui_list
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct = Struct](Line, frozen=True, kw_only=True):
+class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct = Struct](ConditionalRow, frozen=True, kw_only=True):
     """`UIList` over a host collection: attached fields and `cells` after each item's name, `side` rows beside it, `absent` rows while no owner holds the collection, `menu` rows in a row's context menu.
 
     Without `active` the list declares its own selection index. A `bpy.props` collection drags its active item by rows, and takes the host's add, remove, and move buttons unless `move` states the reorder.
@@ -78,6 +78,11 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
         """Cell, side, absent, and menu rows."""
         return (*self.cells, *self.side, *self.absent, *self.menu)
 
+    @property
+    def _drag_key(self) -> Key:
+        """Key of the drag operator."""
+        return f"{self.key}_drag"
+
     # --- [SELECTION]
 
     def picked(self, identity: Identity) -> Outcome[Callable[[Struct, bpy.types.Context], tuple[Struct, ...]]]:
@@ -108,10 +113,10 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
             return (
                 *self.attachment.to_list(),
                 *acquired(self.children),
-                *((Band.ATTACHMENTS, pointed(owner, rna(selection.path), prop)) for prop in index.to_list() for owner in (selection.root,) if not isinstance(owner, Attachment)),
-                *((Operator[Empty](form=Empty, run=drag_item, invoke=Some(modal), internal=True, named=Some(f"{self.key}_drag")),) if dragging else ()),
-                (Band.INTERFACE, partial(self._classes, identity, name, collection, pointer, dragging=dragging)),
-                *(((Band.APPENDS, self._menu(identity, name)),) if self.menu else ()),
+                *((Tier.ATTACHMENTS, pointed(owner, rna(selection.path), prop)) for prop in index.to_list() for owner in (selection.root,) if not isinstance(owner, Attachment)),
+                *((Operator[Empty](form=Empty, run=drag_item, invoke=Some(modal), internal=True, named=Some(self._drag_key)),) if dragging else ()),
+                (Tier.INTERFACE, partial(self._classes, identity, name, collection, pointer, dragging=dragging)),
+                *(((Tier.APPENDS, self._menu(identity, name)),) if self.menu else ()),
             )
 
         return paired(identity.name(bpy.types.UIList, self.key), self._resolved(identity), compact).map(lambda parts: built(parts[0], *parts[1]))
@@ -147,7 +152,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
         holder: Struct,
         context: bpy.types.Context,
     ) -> None:
-        """Draws the host list at the located collection and selection with the side rows in its side column, the host's entry buttons over a `bpy.props` collection without a stated move while context paths reach both owners, absent rows while no owner holds the collection."""
+        """Draws the host list with the side rows, the host's entry buttons while context paths reach both owners of a `bpy.props` collection without a stated move, or the absent rows."""
         if (found := collection.at(holder, context)).is_none():
             absent(layout, holder, context)
         for listing, picking in product(found.to_list(), selection.at(holder, context).to_list()):
@@ -156,49 +161,51 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                     column = _DRAW_UI_LIST(layout, context, name, unique_id=_keyed(listing[0]), list_path=items, active_index_path=index, **keywords)
                 case _:
                     row = layout.row()
-                    placed(row, FUNCTIONS["template_list"], name, _keyed(listing[0]), *listing, *picking, **keywords)
+                    layout_call(row, FUNCTIONS["template_list"], name, _keyed(listing[0]), *listing, *picking, **keywords)
                     column = row.column(align=True)
             side(column, holder, context)
 
     # --- [RESOLUTION]
 
     def _resolved(self, identity: Identity) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member]]:
-        """Locates the collection and `active`, then resolves them through `_bound`."""
-        pointing = self.active.map(lambda member: member.located(identity).map(Some)).default_value(Ok(Nothing))
-        return paired(self.collection.located(identity), pointing).bind(lambda pair: self._bound(identity, *pair))
+        """Locates and resolves the collection, `active` as an integer index or item pointer, and the highlighted index: `active` when an integer, else the list's own index on a custom-property collection root sharing the pointer's root, or on the window manager."""
 
-    def _bound(self, identity: Identity, listing: Member, pointing: Option[Member]) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member]]:
-        """Resolves the located collection, `active` as an integer index or item pointer, and the highlighted index: `active` when an integer, else the list's own index on a custom-property collection root sharing the pointer's root, or on the window manager."""
-        shared = isinstance(listing.root, type(bpy.types.ID)) and pointing.map(lambda member: member.root is listing.root and member.reach == listing.reach).default_value(True)
+        def resolved(listing: Member, pointing: Option[Member]) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member]]:
+            shared = isinstance(listing.root, type(bpy.types.ID)) and pointing.map(lambda member: member.root is listing.root and member.reach == listing.reach).default_value(True)
 
-        def activated(collection: ResolvedMember[bpy.types.CollectionProperty]) -> Outcome[Option[ResolvedMember]]:
-            item = collection.descriptor.prop.fixed_type
+            def activated(collection: ResolvedMember[bpy.types.CollectionProperty]) -> Outcome[Option[ResolvedMember]]:
+                item = collection.descriptor.prop.fixed_type
 
-            def checked(held: ResolvedMember) -> Outcome[ResolvedMember]:
-                match held.descriptor.prop:
-                    case bpy.types.IntProperty(is_array=False):
-                        return Ok(held)
-                    case bpy.types.PointerProperty(fixed_type=target) if isinstance(item, type(target)):
-                        return Ok(held)
-                    case prop:
-                        return Error(Fault.of(Reason.OUTSIDE, rna(held.descriptor.path), type(prop).__name__, member="scalar integer or item pointer"))
+                def checked(held: ResolvedMember) -> Outcome[ResolvedMember]:
+                    match held.descriptor.prop:
+                        case bpy.types.IntProperty(is_array=False):
+                            return Ok(held)
+                        case bpy.types.PointerProperty(fixed_type=target) if isinstance(item, type(target)):
+                            return Ok(held)
+                        case prop:
+                            return Error(Fault.of(Reason.OUTSIDE, rna(held.descriptor.path), type(prop).__name__, member="scalar integer or item pointer"))
 
-            return pointing.map(lambda member: member.resolved().bind(checked).map(Some)).default_value(Ok(Nothing))
+                return pointing.map(lambda member: member.resolved().bind(checked).map(Some)).default_value(Ok(Nothing))
 
-        def selected(
-            collection: ResolvedMember[bpy.types.CollectionProperty], active: Option[ResolvedMember]
-        ) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member]]:
-            indexed = active.filter(lambda held: isinstance(held.descriptor.prop, bpy.types.IntProperty)).bind(lambda _: pointing).map(Ok)
-            own = indexed.default_with(
-                lambda: identity.identifier(self.key).map(lambda name: Member(root=listing.root, path=(name,), reach=listing.reach) if shared else Member(root=bpy.types.WindowManager, path=(name,)))
+            def selected(
+                collection: ResolvedMember[bpy.types.CollectionProperty], active: Option[ResolvedMember]
+            ) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member]]:
+                indexed = active.filter(lambda held: isinstance(held.descriptor.prop, bpy.types.IntProperty)).bind(lambda _: pointing).map(Ok)
+                own = indexed.default_with(
+                    lambda: identity.identifier(self.key).map(
+                        lambda name: Member(root=listing.root, path=(name,), reach=listing.reach) if shared else Member(root=bpy.types.WindowManager, path=(name,))
+                    )
+                )
+                return own.map(lambda selection: (collection, active, selection))
+
+            collected = listing.resolved(bpy.types.CollectionProperty).filter_with(
+                lambda bound: isinstance(bound.descriptor.prop.fixed_type, self.item),
+                lambda bound: Fault.of(Reason.OUTSIDE, rna(bound.descriptor.path), type(bound.descriptor.prop.fixed_type).__name__, member=self.item.__name__),
             )
-            return own.map(lambda selection: (collection, active, selection))
+            return collected.bind(lambda collection: activated(collection).bind(lambda active: selected(collection, active)))
 
-        collected = listing.resolved(bpy.types.CollectionProperty).filter_with(
-            lambda bound: isinstance(bound.descriptor.prop.fixed_type, self.item),
-            lambda bound: Fault.of(Reason.OUTSIDE, rna(bound.descriptor.path), type(bound.descriptor.prop.fixed_type).__name__, member=self.item.__name__),
-        )
-        return collected.bind(lambda collection: activated(collection).bind(lambda active: selected(collection, active)))
+        pointing = self.active.map(lambda member: member.located(identity).map(Some)).default_value(Ok(Nothing))
+        return paired(self.collection.located(identity), pointing).bind(lambda pair: resolved(*pair))
 
     # --- [REGISTRATION]
 
@@ -226,10 +233,10 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
             ),
             lambda _: Fault.of(Reason.OUTSIDE, self.key, "integer array", member="integer component"),
         )
-        drag = identity.name(bpy.types.Operator, f"{self.key}_drag").map(Some) if dragging else Ok(Nothing)
+        drag = identity.name(bpy.types.Operator, self._drag_key).map(Some) if dragging else Ok(Nothing)
 
         def classed(parts: tuple[tuple[tuple[RowDraw, ...], RowDraw], Option[ResolvedMember], Option[ResolvedMember], Option[str]]) -> builtins.type[bpy.types.UIList]:
-            (fields, drawn), glyphs, order, operator = parts
+            (fields, drawn), icons, order, operator = parts
             shown = (*fields, drawn)
 
             def draw_item(
@@ -238,7 +245,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 layout: bpy.types.UILayout,
                 data: Struct,
                 item: O,
-                glyph: int,
+                icon: int,
                 active_data: Struct,
                 active_property: str,
                 index: int = 0,
@@ -250,10 +257,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                     row = layout.row(align=True)
                     row.enabled = enabled
                     value = (
-                        glyphs
-                        .bind(lambda bound: struct_at(item, bound.descriptor.owner).map(bound.descriptor.read))
-                        .bind(lambda held: Option.of_optional(try_downcast(int, held)))
-                        .default_value(glyph)
+                        icons.bind(lambda bound: struct_at(item, bound.descriptor.owner).map(bound.descriptor.read)).bind(lambda held: Option.of_optional(try_downcast(int, held))).default_value(icon)
                     )
                     for named in label.to_list():
                         row.prop(item, named, text="", emboss=False, icon_value=value)
@@ -267,7 +271,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                         )
                     ).to_list():
                         row.context_pointer_set(name, data)
-                        row.context_pointer_set(f"{name}_active", active_data)
+                        row.context_pointer_set(_active(name), active_data)
                         row.operator(grip, text="", icon="GRIP", emboss=False)
 
             def filter_items(ui: bpy.types.UIList, context: bpy.types.Context, data: Struct, propname: str) -> tuple[list[int], list[int]]:
@@ -317,6 +321,15 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 stack.callback(menu.remove, shown)
 
             yield realized(self.menu, identity).map(added)
+
+
+class _Drag(msgspec.Struct, frozen=True, kw_only=True):
+    """Dragged row at press with the signed pixels per row, and the collection and selection it moves."""
+
+    origin: int
+    pitch: float
+    items: At
+    selection: At
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -411,6 +424,11 @@ def _grouped[T: bpy.types.PropertyGroup](attached: Attached[T], draw: RowDraw, l
 # --- [DRAG]
 
 
+def _active(name: str, /) -> str:
+    """Context member the grip row publishes the selection owner under."""
+    return f"{name}_active"
+
+
 def _began[O: Struct](where: Option[Predicate[O]], name: str, items: str, index: str, context: bpy.types.Context, _travel: Travel) -> Outcome[_Drag]:
     """Reads the owners the grip row publishes, refusing while the list filters by name, `where` hides an item, or the selection sits outside the collection, rows stepping up the list unless it shows reversed."""
 
@@ -422,7 +440,7 @@ def _began[O: Struct](where: Option[Predicate[O]], name: str, items: str, index:
         pitch = float(Metrics.read().unit) * (1.0 if ui.use_filter_sort_reverse else -1.0)
         hidden = any(not _held(predicate, context, ui, item).default_value(True) for predicate in where.to_list() for item in members)
         return (
-            Ok((origin, pitch, (data, items), (chosen, index)))
+            Ok(_Drag(origin=origin, pitch=pitch, items=(data, items), selection=(chosen, index)))
             .filter_with(lambda _: not hidden, lambda _: Fault.of(Reason.REQUIRED, f"{ui.list_id} without hidden items"))
             .filter_with(lambda _: 0 <= origin < len(members), lambda _: Fault.of(Reason.ABSENT, items, member=f"{index} {origin}"))
         )
@@ -433,29 +451,27 @@ def _began[O: Struct](where: Option[Predicate[O]], name: str, items: str, index:
         .to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member="ui_list"))
         .filter_with(lambda held: not held.filter_name, lambda held: Fault.of(Reason.REQUIRED, f"{held.list_id} without name filter")),
         pointer(name),
-        pointer(f"{name}_active"),
+        pointer(_active(name)),
     ).bind(lambda parts: state(*parts))
 
 
 def _previewed(move: Option[Move], context: bpy.types.Context, state: _Drag, travel: Travel) -> Outcome[Option[str]]:
     """Places the dragged item at the row the travel reaches."""
-    origin, pitch, _, _ = state
-    return _placed(move, context, state, origin + round(travel.dy / pitch)).map(lambda _: Nothing)
+    return _placed(move, context, state, state.origin + round(travel.dy / state.pitch)).map(lambda _: Nothing)
 
 
 def _restored(move: Option[Move], context: bpy.types.Context, state: _Drag) -> Outcome[None]:
     """Returns the dragged item to its row at press."""
-    return _placed(move, context, state, state[0])
+    return _placed(move, context, state, state.origin)
 
 
 def _placed(move: Option[Move], context: bpy.types.Context, state: _Drag, target: int) -> Outcome[None]:
     """Moves the selected item to the clamped target row, the stated move or the host collection's own, and points the selection at it."""
-    _, _, items, selection = state
-    members, current = getattr(*items), getattr(*selection)
+    members, current = getattr(*state.items), getattr(*state.selection)
     if (row := min(max(target, 0), len(members) - 1)) == current:
         return Ok(None)
     moved = move.map(lambda reorder: reorder(context, current, row)).default_with(lambda: Ok(members.move(current, row)))
-    return moved.map(lambda _: setattr(*selection, row))
+    return moved.map(lambda _: setattr(*state.selection, row))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

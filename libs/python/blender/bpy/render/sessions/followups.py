@@ -21,7 +21,7 @@ from blender.bpy.render.outputs.paths import OutputPath, ScenePaths
 from blender.bpy.render.outputs.results import COMBINED, Written
 from blender.bpy.render.sessions.plans import JobScope, Plan, scene_of
 from blender.bpy.render.view_layers.passes import PassRequest, required, used
-from blender.bpy.render.view_layers.routing import PassSet
+from blender.bpy.render.view_layers.routing import RoutingRow
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.sections import Section
@@ -63,7 +63,7 @@ class FollowedRender(bpy.types.PropertyGroup):
 class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Job queued after each planned render whose scene enables the `form` setting under `key`, `built` making its work in the job file at load.
 
-    The followed render writes Combined and the `passes` flags turn on, with `held` scene values applied; the follow-up job's file holds the written
+    Followed render writes Combined and the `passes` flags turn on, with `held` scene values applied; the follow-up job's file holds the written
     sequences in its followed render record, renders with every compositor entry off, and writes its frames one output version later.
     """
 
@@ -140,14 +140,14 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
                 Some(JobScope(scene=scope.scene, camera=scope.camera, layer=scope.layer, values=Snapshot.of(bpy.types.Scene, values), prerequisites=(index,))),
             )
 
-        return paired(ScenePaths().bound(identity), PassSet.bound(identity), self.record.bound(identity), ScenePaths.attachment.bound(identity)).bind(
+        return paired(ScenePaths().bound(identity), RoutingRow.bound(identity), self.record.bound(identity), ScenePaths.attachment.bound(identity)).bind(
             lambda bound: (
                 bound[0]
                 .path(scene, day)
                 .bind(lambda path: required(scene, bpy.context, requests).bind(lambda _: bound[1].reconciled(scene, bpy.context, Ok(path))).map(lambda _: path.copied))
                 .bind(
                     lambda copied: (
-                        PassSet()
+                        RoutingRow()
                         .written(scene, scene.frame_start, identity, path=Some(copied))
                         .bind(lambda files: accumulated(located(files, name) for name in self.names))
                         .map(lambda found: planned(bound[2].name, bound[3].name, bound[3].struct(scene).version, copied, found))
@@ -162,7 +162,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
         """Runs `built` for every scene a job file loads holding a followed render, under the scene's stored output root."""
 
         def ran(scene: bpy.types.Scene) -> Outcome[None]:
-            return paired(self.record.read(identity, scene), self.settings.read(identity, scene), ScenePaths().bound(identity).bind(lambda pathed: pathed.scope.read(scene))).bind(
+            return paired(self.record.read(identity, scene), self.settings.read(identity, scene), ScenePaths().bound(identity).bind(lambda pathed: pathed.stored.read(scene))).bind(
                 lambda parts: parts[2].filter(lambda _: parts[0].written(COMBINED).is_ok()).map(lambda path: self.built(identity, scene, parts[0], parts[1], path.base)).default_value(Ok(None))
             )
 

@@ -14,7 +14,7 @@ from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetS
 from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes
 from expression import Some
 
-from blender.bpy.commands.calls import Called, Opened
+from blender.bpy.commands.calls import PopupKind, PopupTarget
 from blender.bpy.render.outputs.exports import Export
 from blender.bpy.render.outputs.formats import format_listing
 from blender.bpy.render.outputs.framing import camera_border, FrameSize, Framing, selection_border
@@ -29,11 +29,11 @@ from blender.bpy.render.sessions.sets import RenderSet
 from blender.bpy.render.sessions.setups import EffectSetups
 from blender.bpy.render.view_layers.freestyle import FREESTYLE
 from blender.bpy.render.view_layers.layers import COLLECTIONS, LAYERS, OVERRIDES
-from blender.bpy.render.view_layers.routing import PassSet
+from blender.bpy.render.view_layers.routing import RoutingRow
 from blender.bpy.render.view_layers.sources import ids_export
+from blender.bpy.ui.elements.menus import Append, PresetMenu
+from blender.bpy.ui.elements.panels import Beside, Child, Panel, PanelCopy
 from blender.bpy.ui.layout.rows import Opens, OperatorButton
-from blender.bpy.ui.surfaces.menus import Append, PresetMenu
-from blender.bpy.ui.surfaces.panels import Beside, Child, Panel, PanelCopy
 
 from ..catalog import chain, render, stacks, tiles
 from ..effects.finish.dither import diffuse
@@ -90,8 +90,8 @@ categories: Final = (
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-passes: Final = PassSet()
-export: Final = Export(gain=gain, layering=(stacks.layering, PassSet.layering))
+passes: Final = RoutingRow()
+export: Final = Export(gain=gain, layering=(stacks.layering, RoutingRow.layering))
 render_sets: Final = RenderSet(capture=EffectSetups(effects=chain, tile=Some(lambda identity, slot, entries: tiles.icon(identity, slot, Recipe(entries=entries)))), categories=categories)
 checks: Final = Preflight()
 batch: Final = QueueRun(sets=render_sets, render=render.rendered, planning=Some(temporal_denoise.planned))
@@ -108,12 +108,15 @@ rows: Final = (
     batch,
     temporal_denoise,
     slots,
-    Append(target=RENDER_PT_output, rows=(Opens(target=Opened(format_listing.key, Called.MENU)),)),
+    Append(target=RENDER_PT_output, rows=(Opens(target=PopupTarget(format_listing.key, PopupKind.MENU)),)),
     Append(target=IMAGE_MT_image, rows=(OperatorButton(target=export.linear), OperatorButton(target=export.still), *(OperatorButton(target=command) for command in export.layered))),
     Append(target=NODE_MT_node, rows=(OperatorButton(target=output_replace), OperatorButton(target=output_version))),
     Append(target=VIEW3D_MT_object_context_menu, rows=(OperatorButton(target=camera_border), OperatorButton(target=selection_border))),
     Append(target=CYCLES_RENDER_PT_bake, rows=(RenderSlots.bake_presets,)),
-    Append(target=TOPBAR_MT_render, rows=(Opens(target=Opened(RenderSet.key, Called.MENU)), OperatorButton(target=batch.dispatching), *(OperatorButton(target=command) for command in batch.controls))),
+    Append(
+        target=TOPBAR_MT_render,
+        rows=(Opens(target=PopupTarget(RenderSet.key, PopupKind.MENU)), OperatorButton(target=batch.dispatching), *(OperatorButton(target=command) for command in batch.controls)),
+    ),
     Panel(section=ScenePaths.section, at=Child(parent=RENDER_PT_output)),
     Panel(section=passes.section(), at=Child(parent=VIEWLAYER_PT_layer_passes), copies=(PanelCopy(at=Child(parent=CYCLES_RENDER_PT_passes)),)),
     Panel(section=LAYERS, at=Child(parent=VIEWLAYER_PT_layer), children=(OVERRIDES, COLLECTIONS)),

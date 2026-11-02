@@ -11,7 +11,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.color.colorimetry import chromaticities, coordinates
-from blender.imaging.color.processors import converted, DisplayView, GREY, luma, xyz
+from blender.imaging.color.processors import converted, DisplayView, GRAY, luma, xyz
 from blender.imaging.files.buffers import unassociated
 from blender.imaging.geometry.frames import Region
 from blender.records.faults import Outcome, paired
@@ -45,7 +45,7 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
     @classmethod
     def stops(cls, values: npt.NDArray[np.float64], weights: npt.NDArray[np.float64] | None = None) -> float:
         """Returns stops from the weighted mean log2 of luminance `values`, clamped to `floor`, to scene gray."""
-        return math.log2(GREY) - float(np.average(np.log2(np.maximum(values, cls.floor)), weights=weights))
+        return math.log2(GRAY) - float(np.average(np.log2(np.maximum(values, cls.floor)), weights=weights))
 
     @property
     def finite(self) -> npt.NDArray[np.bool]:
@@ -89,7 +89,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
     low: Percent = 0.0
     high: Percent = 100.0
-    centre: Unit = 0.0
+    center_weight: Unit = 0.0
     middle: Region = Region(left=0.25, bottom=0.25, right=0.75, top=0.75)
     region: Region = Region()
 
@@ -98,7 +98,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
         def metered(samples: Samples) -> Option[float]:
             covered = samples.finite
-            found, weights = samples.luminance[covered], np.where(self.middle.mask(*samples.covered.shape), 1.0, 1.0 - self.centre)[covered]
+            found, weights = samples.luminance[covered], np.where(self.middle.mask(*samples.covered.shape), 1.0, 1.0 - self.center_weight)[covered]
             start = min(math.floor(found.size * min(self.low, self.high) / 100.0), found.size - 1)
             kept = np.argsort(found, stable=True)[start : max(math.ceil(found.size * max(self.low, self.high) / 100.0), start + 1)]
             return Some(weights[kept]).filter(lambda selected: bool(selected.sum(dtype=np.float64) > 0.0)).map(lambda selected: Samples.stops(found[kept], selected))
@@ -219,7 +219,7 @@ class Chromaticity(Frozen, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int], extent: npt.NDArray[np.float64]) -> Outcome["Chromaticity"]:
-        """Returns xy counts over `cells` spanning the diagram frame from the origin to the `extent` corner, or every color fault."""
+        """Returns xy counts over `cells` spanning the diagram frame from the origin to the `extent` corner, or every fault."""
 
         def built(parts: tuple[npt.NDArray[np.float32], npt.NDArray[np.float64], Option[npt.NDArray[np.float64]]]) -> Chromaticity:
             tristimulus, working, display = parts

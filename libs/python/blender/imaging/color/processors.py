@@ -50,13 +50,13 @@ type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-GREY: Final = 0.18
+GRAY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
 HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-CURVE_ONLY: Final[Callable[[HueCurve, bool], None]] = PyOpenColorIO.GradingHueCurve.setDrawCurveOnly  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-SPLINE_TYPED: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+SET_DRAW_CURVE_ONLY: Final[Callable[[HueCurve, bool], None]] = PyOpenColorIO.GradingHueCurve.setDrawCurveOnly  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                 .try_head()
                 .map(
                     lambda request: paired(
-                        processor(config, request).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()), candidate.transform(config)
+                        processor(config, request).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()), candidate.processor(config)
                     ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else Nothing)
                 )
                 .default_value(Ok(Nothing))
@@ -107,7 +107,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def encoding(cls, config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
-        """Returns the colorspace name of a display's certified baseline encoding, the first lookless matrix-only scene view in native view order."""
+        """Returns the colorspace name of a display's first lookless matrix-only scene view in native view order."""
         found: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = cls.for_encoding(config, display)
         return found.bind(
             lambda choice: (
@@ -125,13 +125,18 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
             Block.of_seq(cls(display=display, view=name) for name in config.getViews(display)).filter(lambda view: view.colorspace(config).filter(PyOpenColorIO.ColorSpace.isData).is_some()).try_head()
         )
 
+    @property
+    def inverse_gamma(self) -> float:
+        """Exponent of the display gamma, a zero gamma held at the smallest float32 step."""
+        return 1.0 / max(self.gamma, float(np.spacing(np.float32(1))))
+
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:
         """Returns view colorspace, resolving shared view display-name token."""
         name = config.getDisplayViewColorSpaceName(self.display, self.view)
         return Option.of_optional(config.getColorSpace(self.display if name == PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME else name))
 
-    def transform(self, config: PyOpenColorIO.Config, source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[PyOpenColorIO.Processor]:
-        """Returns the viewing pipeline processor from `source`, or color fault."""
+    def processor(self, config: PyOpenColorIO.Config, source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[PyOpenColorIO.Processor]:
+        """Returns the viewing pipeline processor from `source`, or `FAILED` fault."""
         built = PyOpenColorIO.LegacyViewingPipeline()
         built.setDisplayViewTransform(PyOpenColorIO.DisplayViewTransform(src=source, display=self.display, view=self.view))
         built.setLooksOverrideEnabled(self.looks_override_enabled)
@@ -139,14 +144,14 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
         if self.exposure:
             built.setLinearCC(PyOpenColorIO.MatrixTransform.Scale([2.0**self.exposure] * 3 + [1.0]))
         if self.gamma != 1.0:
-            built.setDisplayCC(PyOpenColorIO.ExponentTransform([1.0 / max(self.gamma, float(np.spacing(np.float32(1))))] * 3 + [1.0]))
+            built.setDisplayCC(PyOpenColorIO.ExponentTransform([self.inverse_gamma] * 3 + [1.0]))
         return called(built.getProcessor, repr(self), config)
 
     def form(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[npt.NDArray[np.float32]]:
         """Returns associated display colors of associated `values` in `source`."""
-        return self.transform(config, source).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
+        return self.processor(config, source).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
 
-    def formed(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[ImageFile]:
+    def image(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[ImageFile]:
         """Returns associated `values` in `source` formed into an image tagged with the view colorspace."""
         return paired(
             self.form(config, values, source), self.colorspace(config).to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"{self.display}/{self.view}"))
@@ -188,7 +193,7 @@ def matrix(values: npt.NDArray[np.float64]) -> PyOpenColorIO.MatrixTransform:
 def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
     """Returns OCIO's GRADING_LIN stop axis as a forward log camera transform."""
     shift = -0.000157849851665374
-    slope = 1.0 / (GREY + shift)
+    slope = 1.0 / (GRAY + shift)
     return PyOpenColorIO.LogCameraTransform(
         linSideBreak=[0.0041318374739483946] * 3,
         base=2.0,
@@ -204,19 +209,19 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 
 
 def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
-    """Returns the value of one OCIO call, or color fault naming `subject` for either OCIO exception class."""
-    return catch(catch(call, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(*args, **kwargs).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-        partial(Fault.of, Reason.FAILED, subject)
-    )
+    """Returns the value of one OCIO call, or `FAILED` fault naming `subject` for either OCIO exception class."""
+    failed = partial(Fault.of, Reason.FAILED, subject)
+    boxed = catch(lambda: (catch(call, exception=PyOpenColorIO.Exception)(*args, **kwargs),), exception=PyOpenColorIO.ExceptionMissingFile)()
+    return boxed.map_error(failed).bind(lambda held: held[0].map_error(failed))
 
 
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[PyOpenColorIO.Processor]:
-    """Returns processor, or color fault."""
+    """Returns processor, or `FAILED` fault."""
     return called(config.getProcessor, type(transform).__name__, transform)
 
 
 def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
-    """Applies `transform` to associated colors through its CPU processor, or color fault."""
+    """Applies `transform` to associated colors through its CPU processor, or `FAILED` fault."""
     return processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
 
 
@@ -224,7 +229,7 @@ def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, 
 
 
 def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns linear RGB-to-XYZ D65 matrix of `space`, or base fault."""
+    """Returns linear RGB-to-XYZ D65 matrix of `space`, or `FAILED` and `INVALID` faults."""
 
     def held(group: PyOpenColorIO.GroupTransform) -> Outcome[npt.NDArray[np.float64]]:
         match tuple(group):
@@ -239,7 +244,7 @@ def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.fl
 
 
 def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns the RGB-to-XYZ basis of `space` when its primaries hold positive luminance and one white sign with an invertible white-normalized matrix, else base fault."""
+    """Returns the RGB-to-XYZ basis of `space` when its primaries hold positive luminance and one white sign with an invertible white-normalized matrix, else `FAILED` or `INVALID` fault."""
 
     @np.errstate(all="ignore")
     def held(values: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
@@ -256,7 +261,7 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
 
 
 def luma(config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns scene-linear luminance coefficients, the Y row of its RGB-to-XYZ matrix, or base fault."""
+    """Returns scene-linear luminance coefficients, the Y row of its RGB-to-XYZ matrix, or `FAILED` and `INVALID` faults."""
     return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: matrix[1])
 
 
@@ -273,14 +278,14 @@ def pq(space: PyOpenColorIO.ColorSpace) -> bool:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "CURVE_ONLY",
-    "GREY",
+    "GET_SPLINE_TYPE",
+    "GRAY",
     "HUE_CURVE",
     "HUE_CURVE_TRANSFORM",
     "REC709_SCENE",
     "RGB_TO_HSY",
-    "SPLINE_TYPE",
-    "SPLINE_TYPED",
+    "SET_DRAW_CURVE_ONLY",
+    "SET_SPLINE_TYPE",
     "ColorSpace",
     "DisplayView",
     "Domain",

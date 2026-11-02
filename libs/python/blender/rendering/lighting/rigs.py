@@ -19,7 +19,7 @@ from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import luma, processor
 from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
+from blender.records.fields import Bearing, Case, Finite, Inclination, NonNegative, Positive, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -84,11 +84,11 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
 
     role: LightRole = LightRole.KEY
     emitter: _Emitter = Disk()
-    azimuth: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
-    elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
+    azimuth: Bearing = 0.0
+    elevation: Inclination = 0.0
     stops: Finite = 0.0
     size: _Diameter = 2.0 * math.asin(0.2)
-    color: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
+    color: Rgb = (1.0, 1.0, 1.0)
     temperature: Positive | None = None
 
     @property
@@ -106,7 +106,7 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
 class AmbientLight(msgspec.Struct, frozen=True, kw_only=True):
     """World light color and irradiance offset."""
 
-    color: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
+    color: Rgb = (1.0, 1.0, 1.0)
     stops: Finite = 0.0
 
 
@@ -127,7 +127,7 @@ class Matched(Case, frozen=True, kw_only=True):
     fill: Finite | None = None
     rim: Finite | None = 0.0
     ambient: Finite | None = 0.0
-    tint: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
+    tint: Rgb = (1.0, 1.0, 1.0)
 
     def arranged(self, reading: LightingReading) -> Outcome[Arranged]:
         """Derives key, fill, rim, accent, and world lights up to count."""
@@ -206,7 +206,7 @@ class PlacedLight(msgspec.Struct, frozen=True, kw_only=True):
 class Background(msgspec.Struct, frozen=True, kw_only=True):
     """Uniform world radiance."""
 
-    color: tuple[Finite, Finite, Finite]
+    color: Rgb
     strength: NonNegative
 
 
@@ -215,6 +215,26 @@ class PlacedRig(msgspec.Struct, frozen=True, kw_only=True):
 
     lights: tuple[PlacedLight, ...]
     background: Option[Background]
+
+
+class _Fixture(msgspec.Struct, frozen=True, kw_only=True):
+    """Measured light: role, offset from target in meters, radiant watts, emitter side in meters, and color temperature in kelvin."""
+
+    role: LightRole
+    offset: tuple[float, float, float]
+    watts: float
+    side: float
+    temperature: float
+
+    @property
+    def distance(self) -> float:
+        """Meters from target."""
+        return math.hypot(*self.offset)
+
+    @property
+    def irradiance(self) -> float:
+        """Watts per square meter delivered at target."""
+        return self.watts / (math.pi * (self.distance**2 + (self.side / 2.0) ** 2))
 
 
 class Rig(msgspec.Struct, frozen=True, kw_only=True):
@@ -249,8 +269,8 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
         def placed(arranged: Arranged, built: PyOpenColorIO.Processor, reach: float) -> Outcome[Option[PlacedRig]]:
             operation = built.getDefaultCPUProcessor()
 
-            def graded(color: tuple[Finite, Finite, Finite]) -> Outcome[tuple[Finite, Finite, Finite]]:
-                return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]).map_error(
+            def graded(color: Rgb) -> Outcome[Rgb]:
+                return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb).map_error(
                     partial(Fault.of, Reason.FAILED, repr(color))
                 )
 
@@ -273,22 +293,21 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     @classmethod
-    def measured(cls, rows: tuple[tuple[LightRole, tuple[float, float, float], float, float, float], ...]) -> Self:
-        """Returns arranged rig from key-first measured lamp rows of role, offset from target in meters, watts, side, and temperature."""
-        levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
+    def measured(cls, key: _Fixture, /, *others: _Fixture) -> Self:
+        """Returns arranged rig of measured lights at the irradiance `key` delivers."""
         return cls(
-            irradiance=levels[0],
+            irradiance=key.irradiance,
             layout=Arranged(
                 lights=tuple(
                     Light(
-                        role=role,
-                        azimuth=math.atan2(offset[0], -offset[1]),
-                        elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
-                        size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
-                        stops=math.log2(level / levels[0]),
-                        temperature=temperature,
+                        role=fixture.role,
+                        azimuth=math.atan2(fixture.offset[0], -fixture.offset[1]),
+                        elevation=math.atan2(fixture.offset[2], math.hypot(*fixture.offset[:2])),
+                        size=2.0 * math.asin(fixture.side / (2.0 * fixture.distance)),
+                        stops=math.log2(fixture.irradiance / key.irradiance),
+                        temperature=fixture.temperature,
                     )
-                    for (role, offset, _, side, temperature), level in zip(rows, levels)
+                    for fixture in (key, *others)
                 )
             ),
         )
@@ -298,7 +317,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
-    """Returns product times 2**stops as float, overflow as numeric fault."""
+    """Returns product times 2**stops as float, overflow as `FAILED` fault."""
 
     @catch(exception=FloatingPointError)
     @np.errstate(over="raise")
@@ -311,24 +330,27 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
 # --- [TABLES] ---------------------------------------------------------------------------
 
 RIGS: Final = MappingProxyType({
-    "Three-Point": Rig.measured((
-        (LightRole.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0),
-        (LightRole.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0),
-        (LightRole.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0),
-    )),
-    "Hard Low Key": Rig.measured((
-        (LightRole.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0),
-        (LightRole.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0),
-        (LightRole.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0),
-    )),
-    "Side Key": Rig.measured(((LightRole.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
-    "Soft High Key": Rig.measured((
-        (LightRole.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0),
-        (LightRole.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0),
-        (LightRole.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0),
-    )),
-    "Rim Only": Rig.measured(((LightRole.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
-    "Glamour": Rig.measured(((LightRole.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (LightRole.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
+    "Three-Point": Rig.measured(
+        _Fixture(role=LightRole.KEY, offset=(1.6, -1.6, 0.30), watts=250.0, side=0.6, temperature=5500.0),
+        _Fixture(role=LightRole.FILL, offset=(-1.6, -1.2, -0.10), watts=90.0, side=1.5, temperature=6500.0),
+        _Fixture(role=LightRole.RIM, offset=(0.5, 1.6, 0.80), watts=400.0, side=0.4, temperature=5000.0),
+    ),
+    "Hard Low Key": Rig.measured(
+        _Fixture(role=LightRole.KEY, offset=(2.0, -1.0, 0.40), watts=450.0, side=0.4, temperature=4500.0),
+        _Fixture(role=LightRole.FILL, offset=(-1.5, -1.0, -0.20), watts=25.0, side=1.0, temperature=7000.0),
+        _Fixture(role=LightRole.RIM, offset=(-0.4, 1.5, 0.80), watts=200.0, side=0.3, temperature=4200.0),
+    ),
+    "Side Key": Rig.measured(_Fixture(role=LightRole.KEY, offset=(2.4, -0.6, 1.00), watts=550.0, side=0.3, temperature=4200.0)),
+    "Soft High Key": Rig.measured(
+        _Fixture(role=LightRole.KEY, offset=(1.2, -2.0, 0.50), watts=300.0, side=2.0, temperature=5500.0),
+        _Fixture(role=LightRole.FILL, offset=(-1.2, -2.0, 0.50), watts=250.0, side=2.0, temperature=5500.0),
+        _Fixture(role=LightRole.SKY, offset=(0.0, 0.0, 2.20), watts=180.0, side=1.5, temperature=5500.0),
+    ),
+    "Rim Only": Rig.measured(_Fixture(role=LightRole.RIM, offset=(0.0, 1.5, 1.20), watts=600.0, side=0.5, temperature=5000.0)),
+    "Glamour": Rig.measured(
+        _Fixture(role=LightRole.KEY, offset=(0.0, -1.6, 1.40), watts=350.0, side=0.7, temperature=5500.0),
+        _Fixture(role=LightRole.FILL, offset=(0.0, -1.0, -0.40), watts=80.0, side=1.5, temperature=6000.0),
+    ),
     "Auto": Rig(),
     "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=(1.0, 0.97, 0.92))),
     "Rembrandt": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=math.log2(0.8), fill=math.log2(0.12), tint=(1.0, 0.95, 0.85))),

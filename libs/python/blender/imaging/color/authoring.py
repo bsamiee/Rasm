@@ -56,7 +56,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         """Adds the view transforms an earlier merged config holds that neither `base` nor the build names, in their earlier order, each resolved into the operations its processor runs so no file it read stays referenced.
 
         Returns:
-            Build, or `color` faults of an earlier transform that no longer resolves.
+            Build, or `FAILED` faults of an earlier transform that no longer resolves.
         """
         held = frozenset(base.getViewTransformNames())
         own = {view.getName(): view for view in self.view_transforms}
@@ -83,7 +83,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         """Merges rows into `base` with base files, LUT folders, and generated CLF tables staged in `stage`.
 
         Returns:
-            Merged config, or `color` and `write` faults.
+            Merged config, or `FAILED` and `UNWRITABLE` faults.
         """
         rows = PyOpenColorIO.Config()
         stage = stage.absolute()
@@ -190,7 +190,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         """Stages rows merged into `base` and atomically publishes them as an OCIO archive at `path`.
 
         Returns:
-            Published path, or `color` and `write` faults.
+            Published path, or `FAILED` and `UNWRITABLE` faults.
         """
         return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: called(config.archive, str(path), str(stage))))
 
@@ -198,7 +198,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         """Replaces `folder` whole with rows merged into `base` and their files.
 
         Returns:
-            Installed config path, or `color` and `write` faults.
+            Installed config path, or `FAILED` and `UNWRITABLE` faults.
         """
 
         def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[None]:

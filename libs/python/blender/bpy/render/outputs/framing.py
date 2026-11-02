@@ -18,15 +18,15 @@ from blender.bpy.commands.operators import Answer, answered, Call, Empty, Operat
 from blender.bpy.data.rna.conditions import Count, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import RnaPath, rooted
-from blender.bpy.data.rna.restoration import Endpoints
+from blender.bpy.data.rna.restoration import BeforeAfter
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.scene.cameras import render_cameras, widened
 from blender.bpy.settings.attachments import Attached, Attachment, Recovery, Stored
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.rows import Label
-from blender.bpy.ui.surfaces.menus import Append
 from blender.imaging.geometry.frames import Region
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Case, NonNegative
@@ -159,7 +159,7 @@ class Grown(msgspec.Struct, frozen=True, kw_only=True):
     """Original framing and native values around overscan writes."""
 
     base: Framing
-    ends: Endpoints
+    ends: BeforeAfter
 
 
 class Overscan(bpy.types.PropertyGroup):
@@ -213,14 +213,12 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
         return self.recovery.stored.read(scene).bind(lambda held: grow(self.read(scene, Some(Whole()) if held.is_some() else Nothing), held))
 
-    # --- [REGIONS_AND_READINGS]
+    # --- [REGIONS]
 
     def bordered(self, scene: bpy.types.Scene, region: Region) -> Outcome[Answer]:
         """Writes region with scene's existing crop preference."""
         extent = Border(region=region, crop=scene.render.use_crop_to_border)
-        return answered(
-            msgspec.structs.replace(self.read(scene), extent=extent).snapshot(scene.render.ppm_base).apply(scene.render), "Render region already covers area", (("INFO", "Render region set"),)
-        )
+        return answered(msgspec.structs.replace(self.read(scene), extent=extent).snapshot(scene.render.ppm_base).apply(scene.render), "Render region covers area", (("INFO", "Render region set"),))
 
     def selected(self, call: Call[Empty]) -> Outcome[Answer]:
         """Projects selected bounds into camera frame."""
@@ -296,7 +294,8 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
     def bound(self, identity: Identity) -> Outcome[Framed]:
         """Binds registered overscan and its recovery."""
         return paired(
-            self.attachment.bound(identity), Stored.keyed(identity, f"{self.key}_recovery", msgspec.msgpack.Decoder(Grown)).map(lambda stored: Recovery(stored=stored, ends=lambda grown: grown.ends))
+            self.attachment.bound(identity),
+            Stored.keyed(identity, f"{self.key}_recovery", msgspec.msgpack.Decoder(Grown)).map(lambda stored: Recovery(stored=stored, before_after_of=lambda grown: grown.ends)),
         ).map(lambda pair: Framed(attached=pair[0], recovery=pair[1]))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:

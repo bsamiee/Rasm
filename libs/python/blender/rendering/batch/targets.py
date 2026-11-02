@@ -131,7 +131,7 @@ class _JobTasks(msgspec.Struct, frozen=True, kw_only=True):
     prerequisites: tuple[int, ...]
 
 
-class _SubmittedJob(msgspec.Struct, frozen=True, kw_only=True):
+class _SubmittedJob(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """Job posted to Manager."""
 
     name: str
@@ -326,7 +326,10 @@ class Renderon(Case, frozen=True, kw_only=True):
             committed(path, lines)
             .bind(
                 lambda written: (
-                    Option.of_optional(self.executable).map(lambda program: detached((program, "-sq", str(written)), host.path(queue.stem, RunFile.RENDERON_LOG))).default_value(Ok(written))
+                    Option
+                    .of_optional(self.executable)
+                    .map(lambda program: detached((program, "-sq", str(written)), host.path(queue.stem, RunFile.RENDERON_LOG)).map(lambda _: written))
+                    .default_value(Ok(written))
                 )
             )
             .map(lambda _: (Ok(str(path)),))

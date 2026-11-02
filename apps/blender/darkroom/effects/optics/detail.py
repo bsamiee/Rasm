@@ -17,9 +17,9 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, S
 from blender.bpy.render.compositor import filters, masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.effects import Blended, CompositorEffect
-from blender.bpy.render.compositor.inputs import Based, Holds, path_key, Shell
+from blender.bpy.render.compositor.inputs import GraphInputs, Holds, path_key, ResultOverBase
 from blender.bpy.render.compositor.layers import TermFiltering
-from blender.bpy.render.compositor.masks import BLEND, LUMINANCE, OPACITY, working
+from blender.bpy.render.compositor.masks import BLEND, LUMINANCE, luminance_group, OPACITY
 from blender.bpy.render.compositor.recombination import LightGroups, Lobes, Recombined, TermFilter, TERMS
 from blender.bpy.render.view_layers.passes import DENOISING_ALBEDO, DENOISING_NORMAL, Family, PassFlags, PassRequest
 from blender.records.faults import Outcome
@@ -88,7 +88,7 @@ class Sharpen(Case, frozen=True, kw_only=True):
 
 
 def _denoiser(luminance: NodeGroup) -> Outcome[NodeGroup]:
-    """Builds the shared firefly and guided denoise unit.
+    """Builds the shared firefly and guided denoiser group.
 
     Fireflies scale toward the fourth brightest valid luminance on the 5x5 ring.
 
@@ -111,10 +111,10 @@ def _denoiser(luminance: NodeGroup) -> Outcome[NodeGroup]:
         kind=bpy.types.CompositorNodeDenoise,
         inputs=(("Image", cleaned), ("Albedo", albedo), ("Normal", normal), ("Prefilter", group_input(_PREFILTER.key)), ("Quality", group_input(_QUALITY.key))),
         socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
-    face = Interface(outputs=(COLOR_RESULT, _NOISY), inputs=(COLOR_INPUT, _ALBEDO, _NORMAL, *_FILTER.inputs), panels=(_FIREFLIES,))
-    return functions.built("denoiser", face, {COLOR_RESULT.key: filtered, _NOISY.key: cleaned}, bpy.types.CompositorNodeTree)
+    interface = Interface(outputs=(COLOR_RESULT, _NOISY), inputs=(COLOR_INPUT, _ALBEDO, _NORMAL, *_FILTER.inputs), panels=(_FIREFLIES,))
+    return functions.built("denoiser", interface, {COLOR_RESULT.key: filtered, _NOISY.key: cleaned}, bpy.types.CompositorNodeTree)
 
 
 def _guides(render: Expr, family: Option[Family]) -> tuple[Expr, Expr]:
@@ -123,35 +123,35 @@ def _guides(render: Expr, family: Option[Family]) -> tuple[Expr, Expr]:
     return render.at(albedo, bpy.types.NodeSocketColor), render.at(DENOISING_NORMAL, bpy.types.NodeSocketVector)
 
 
-def _unit(group: NodeGroup, read: Callable[[Key], Scalar], filter_at: Key, source: Scalar, guides: tuple[Expr, Expr]) -> Expr:
-    """Places the denoise unit over a source, its filter controls read under `filter_at` and the firefly controls at the record root."""
+def _placed(group: NodeGroup, read: Callable[[Key], Scalar], filter_at: Key, source: Scalar, guides: tuple[Expr, Expr]) -> Expr:
+    """Places the denoiser group over a source, its filter controls read under `filter_at` and the firefly controls at the record root."""
     albedo, normal = guides
     controls = {socket.key: read(item_key(filter_at, socket.key)) for socket in _FILTER.inputs} | {key: read(key) for key, _, _, _ in Interface(panels=(_FIREFLIES,)).walked()}
     return functions.placed(group, {COLOR_INPUT.key: source, _ALBEDO.key: albedo, _NORMAL.key: normal} | controls, COLOR_RESULT.key)
 
 
-def _denoised(shell: Shell[SpatialDenoise]) -> Outcome[Based]:
+def _denoised(shell: GraphInputs[SpatialDenoise]) -> Outcome[ResultOverBase]:
     """Filters the frame under its target over the noisy frame as base, the light-term targets passing the stage input to the layer that filters its terms."""
 
-    def built(group: NodeGroup) -> Based:
-        frame = _unit(group, group_input, _FRAME.key, shell.color, _guides(shell.render, Nothing)).named("target_frame")
-        chosen = shell.menu(_TARGET, cases={_FRAME.item: frame, _LIGHT_PASSES.item: shell.color, _LIGHT_GROUPS.item: shell.color}).named("target")
-        return Based(result=chosen, base=switched(chosen.at(_FRAME.title), shell.color, frame.at(_NOISY.key, bpy.types.NodeSocketColor)).named("frame_base"))
+    def built(group: NodeGroup) -> ResultOverBase:
+        frame = _placed(group, group_input, _FRAME.key, shell.color, _guides(shell.render, Nothing)).keyed("target_frame")
+        chosen = shell.menu(_TARGET, cases={_FRAME.item: frame, _LIGHT_PASSES.item: shell.color, _LIGHT_GROUPS.item: shell.color}).keyed("target")
+        return ResultOverBase(result=chosen, base=switched(chosen.at(_FRAME.title), shell.color, frame.at(_NOISY.key, bpy.types.NodeSocketColor)).keyed("frame_base"))
 
-    return working(shell.config).bind(_denoiser).map(built)
+    return luminance_group(shell.config).bind(_denoiser).map(built)
 
 
 # --- [LAYERS]
 
 
 def _term(source: Recombined, read: Callable[[Key], Expr], chosen: Expr, group: NodeGroup, key: Key, held: Expr, family: Option[Family], render: Expr) -> Expr:
-    """Filters one recombined term through the denoise unit while the effect's target selects its light passes or light groups."""
+    """Filters one recombined term through the denoiser group while the effect's target selects its light passes or light groups."""
     match source.recombination:
         case Lobes():
             at, active = path_key(_LIGHT_PASSES, key), chosen.at(_LIGHT_PASSES.title) * read(path_key(_LIGHT_PASSES, key))
         case LightGroups():
             at, active = _LIGHT_GROUPS.key, chosen.at(_LIGHT_GROUPS.title)
-    cleaned = _unit(group, read, at, held, _guides(render, family))
+    cleaned = _placed(group, read, at, held, _guides(render, family))
     return switched(active, held, mixed(read(item_key(BLEND, OPACITY.key)), cleaned.at(_NOISY.key, bpy.types.NodeSocketColor), cleaned))
 
 
@@ -164,7 +164,7 @@ def _term_filter(_record: Case, source: Recombined, read: Callable[[Key], Expr],
 # --- [SHARPEN]
 
 
-def _sharpened(shell: Shell[Sharpen]) -> Outcome[Expr]:
+def _sharpened(shell: GraphInputs[Sharpen]) -> Outcome[Expr]:
     """Adds the Laplace response scaled by sharpness, gated by the Sobel step of luminance under the later exposure gain."""
     source = shell.color
 

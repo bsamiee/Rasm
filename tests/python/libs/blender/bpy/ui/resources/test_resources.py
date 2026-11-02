@@ -1,4 +1,4 @@
-"""Staged glyphs, preview slots and tiles, GPU preview textures, region theme colors, interface metrics, and display colors under the fixture extension."""
+"""Packaged icons, preview slots and tiles, GPU preview textures, region theme colors, interface metrics, and display colors under the fixture extension."""
 
 from typing import Final
 
@@ -12,8 +12,8 @@ lazy from tests.python.libs.blender.bpy.conftest import Observations, Steps
 
 CASES: Final[tuple[tuple[Steps, object], ...]] = (
     (
-        ("enabled", "resources", "glyphs"),
-        {"brand": True, "staged": Ok(True), "built in": Ok(True), "unknown": Error(("ABSENT",)), "missing": Error(("ABSENT",)), "tool path": ("icons", "tools", "brush")},
+        ("enabled", "resources", "icon_values"),
+        {"brand": True, "packaged": Ok(True), "built in": Ok(True), "unknown": Error(("ABSENT",)), "missing": Error(("ABSENT",)), "tool path": ("icons", "tools", "brush")},
     ),
     (("enabled", "resources", "tinted"), {"opaque": True, "deviation": 0.0, "red": (True, False), "restored": (True, 0.0)}),
     (
@@ -57,12 +57,12 @@ def test_region_colors_read_their_theme_member(observed: Observations, member: s
 
 
 def test_regions_without_overlap_draw_opaque(observed: Observations) -> None:
-    """A header of an editor whose regions never overlap reads its theme color fully opaque."""
+    """Header of an editor with regions that never overlap reads its theme color fully opaque."""
     library, host = downcast(tuple, observed["enabled", "resources", "themed", "header back"])
     assert (library[:3], library[3]) == (host[:3], 1.0)
 
 
 def test_header_height_matches_host_headers(observed: Observations) -> None:
-    """The header height matches one of the host's header regions."""
+    """Header height matches one of the host's header regions."""
     height, headers = downcast(tuple, observed["enabled", "resources", "measured", "header"])
     assert height in headers

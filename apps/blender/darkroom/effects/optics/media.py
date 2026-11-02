@@ -13,10 +13,10 @@ from blender.bpy.render.compositor import lenses, motion
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, depth_precise, precise
 from blender.bpy.render.compositor.filters import blurred
-from blender.bpy.render.compositor.inputs import FRAME_METERS, Shell
+from blender.bpy.render.compositor.inputs import FRAME_METERS, GraphInputs
 from blender.bpy.render.compositor.shapes import turned
 from blender.bpy.scene import cameras
-from blender.imaging.color.processors import GREY
+from blender.imaging.color.processors import GRAY
 from blender.imaging.sampling import tiles
 from blender.records.faults import Outcome
 from blender.records.fields import Case
@@ -33,7 +33,7 @@ _START: Final = Socket(key="start", kind=bpy.types.NodeSocketFloat, description=
 _AMBIENT_COLOR: Final = Socket(
     key="color", kind=bpy.types.NodeSocketColor, description="Scene-linear scattered light", default_value=(*(float(colour.cctf_decoding(217 / 255, function="sRGB")),) * 3, 1.0)
 )
-_TINT: Final = Socket(key="tint", kind=bpy.types.NodeSocketColor, description="Scene-linear spread light factor", default_value=(GREY, GREY, GREY, 1.0))
+_TINT: Final = Socket(key="tint", kind=bpy.types.NodeSocketColor, description="Scene-linear spread light factor", default_value=(GRAY, GRAY, GRAY, 1.0))
 _SPREAD: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Gaussian spread size", min_value=0.0, default_value=0.75)
 _AMBIENT: Final = InterfacePanel.of("ambient", Interface(inputs=(_AMBIENT_COLOR,)), description="Uniformly lit medium scattering one color toward camera")
 _DIFFUSED: Final = InterfacePanel.of("diffused", Interface(inputs=(_TINT, _SPREAD)), description="Frame light spread through medium and tinted")
@@ -96,7 +96,7 @@ _EMISSION: Final = emission("emission", _GLOW, "Light the field adds", Some(True
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _hazed(shell: Shell[Atmosphere]) -> Outcome[Expr]:
+def _hazed(shell: GraphInputs[Atmosphere]) -> Outcome[Expr]:
     """Mixes inscattered light over the stage input by medium coverage along each camera ray, coverage joining alpha."""
     read, source = shell.input, shell.color
     distance = math("MULTIPLY", shell.layer("Depth"), read(FRAME_METERS)) / lenses.chief_ray(source)
@@ -112,16 +112,16 @@ def _hazed(shell: Shell[Atmosphere]) -> Outcome[Expr]:
         streams=(tiles.stream(Atmosphere.noise_basis),),
     )
     coverage = (1.0 - kept) * (1.0 - switched(read(_NOISE), 0.0, field * read(_NOISE, _VARIATION)))
-    alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).named("transmitted"), coverage)
+    alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).keyed("transmitted"), coverage)
     spread = blurred(source, shell.space.pixel_size(read(_INSCATTERING, _DIFFUSED, _SPREAD)))
     lit = shell.menu(_INSCATTERING, _LIGHT, cases={_AMBIENT.item: read(_INSCATTERING, _AMBIENT, _AMBIENT_COLOR), _DIFFUSED.item: vector("MULTIPLY", spread, read(_INSCATTERING, _DIFFUSED, _TINT))})
     return Ok(with_alpha(mixed(coverage, source, lit), alpha))
 
 
-def _fielded(shell: Shell[NoiseField]) -> Outcome[Expr]:
+def _fielded(shell: GraphInputs[NoiseField]) -> Outcome[Expr]:
     """Emits and extinguishes light over the field's density, coverage as alpha."""
     read, at = shell.input, shell.space
-    clock = motion.clocked(read, motion.CLOCK).named("clock")
+    clock = motion.clocked(read, motion.CLOCK).keyed("clock")
     axis = turned(at, read(_CENTER), read(_ANGLE))
     radius = read(_VORTEX, _VORTEX_RADIUS)
     rho = vector("LENGTH", axis) / radius

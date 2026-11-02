@@ -4,8 +4,9 @@ from functools import partial
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Some
+from expression import Error, Ok, Some
 import numpy as np
+import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Identity
@@ -17,13 +18,13 @@ from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
 from blender.bpy.render.compositor.grades import matrixed
-from blender.bpy.render.compositor.inputs import entered, Shell
+from blender.bpy.render.compositor.inputs import entered, GraphInputs
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import WhitePoint
 from blender.imaging.color.processors import ColorSpace
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -93,32 +94,41 @@ class GamutCompression(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def unread(entry: bpy.types.SceneCompositorEffect) -> Faults:
+    """Absent fault of a frame entering an entry that holds nothing its effect reads."""
+    return Fault.of(Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
+
+
+def finite_mean(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[npt.NDArray[np.float64]]:
+    """Returns the mean of the entering frame's covered finite pixels, the `unread` fault without one."""
+    return Samples.of(config, file.pixels).bind(lambda samples: Ok(samples.color[samples.finite].mean(axis=0, dtype=np.float64)) if samples.finite.any() else Error(unread(entry)))
+
+
 def white_pick(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[bool]:
     """Measure the source white from the stage input's covered mean."""
     config = PyOpenColorIO.GetCurrentConfig()
     temperature, tint = _WHITES[0].inputs
     return (
-        Samples
-        .of(config, file.pixels)
-        .bind(lambda samples: WhitePoint.of(config, samples.color[samples.covered].mean(axis=0, dtype=np.float64)) if samples.covered.any() else Ok(Nothing))
-        .bind(lambda white: white.to_result_with(partial(Fault.of, Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")))
+        finite_mean(config, entry, file)
+        .bind(partial(WhitePoint.of, config))
+        .bind(lambda white: white.to_result_with(partial(unread, entry)))
         .bind(lambda white: entered(identity, entry, {temperature.key: white.temperature, tint.key: tint_of(white)}))
     )
 
 
-def _white_balance(shell: Shell[WhiteBalance]) -> Outcome[Expr]:
+def _white_balance(shell: GraphInputs[WhiteBalance]) -> Outcome[Expr]:
     """Adapts straight scene-linear color between the white points through the Color Balance node's white point mode."""
     return Ok(
         Expr(
             kind=bpy.types.CompositorNodeColorBalance,
             inputs=(("Image", shell.color), ("Type", "White Point"), *((stock.input, shell.input(socket)) for panel in _WHITES for socket in panel.inputs for stock in socket.stock.to_list())),
             socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            socket_type=bpy.types.NodeSocketColor,
         )
     )
 
 
-def _primaries(shell: Shell[Primaries]) -> Outcome[Expr]:
+def _primaries(shell: GraphInputs[Primaries]) -> Outcome[Expr]:
     """Switches at the remap menu between the matrix form of the mixer weights and a colorspace conversion of the record's spaces."""
     red, green, blue = map(shell.input, MIXER.inputs)
     return paired(space_item(shell.config, shell.record.source), space_item(shell.config, shell.record.target)).map(
@@ -131,14 +141,14 @@ def _primaries(shell: Shell[Primaries]) -> Outcome[Expr]:
                     inputs=(("Image", shell.color),),
                     members={"from_color_space": named[0], "to_color_space": named[1]},
                     socket="Image",
-                    shape=bpy.types.NodeSocketColor,
+                    socket_type=bpy.types.NodeSocketColor,
                 ),
             },
         )
     )
 
 
-def _gamut_compression(shell: Shell[GamutCompression]) -> Outcome[Expr]:
+def _gamut_compression(shell: GraphInputs[GamutCompression]) -> Outcome[Expr]:
     """Binds each channel's limit and threshold and the power to the node form of OCIO's gamut compression."""
     cyan, magenta, yellow = (tuple(map(shell.input, panel.inputs)) for panel in _CHANNELS)
     return Ok(grades.gamut_compression(shell.color, limits=(cyan[0], magenta[0], yellow[0]), thresholds=(cyan[1], magenta[1], yellow[1]), power=shell.input(_POWER)))
@@ -156,4 +166,4 @@ gamut_compression: Final = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MIXER", "REMAP", "GamutCompression", "Primaries", "WhiteBalance", "gamut_compression", "primaries", "white_balance"]
+__all__ = ["MIXER", "REMAP", "GamutCompression", "Primaries", "WhiteBalance", "finite_mean", "gamut_compression", "primaries", "unread", "white_balance"]

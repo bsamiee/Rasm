@@ -12,8 +12,8 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.render.compositor.inputs import entered, path_key
 from blender.bpy.render.review.calibration import ChartCalibration
 from blender.bpy.render.review.editing import ChartEditing
+from blender.bpy.ui.elements.panels import Beside, Panel
 from blender.bpy.ui.layout.rows import OperatorButton
-from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.records.faults import Outcome, paired
 
 from ..catalog import chain
@@ -31,14 +31,14 @@ def apply_calibration(call: Call[Empty]) -> Outcome[Answer]:
 
     return paired(calibration.fitting(call), rooted(bpy.types.Scene, call.context)).bind(
         lambda pair: chain.assigned(call.identity, pair[1], Primaries()).bind(
-            lambda entry: mixed(entry, pair[0].calibration.gained).map(lambda _: Done(notes=(*calibration.conditioned(pair[0].fit), ("INFO", f"Calibrated {entry.name}"))))
+            lambda entry: mixed(entry, pair[0].calibration.color_matrix).map(lambda _: Done(notes=(*calibration.conditioned(pair[0].fit), ("INFO", f"Calibrated {entry.name}"))))
         )
     )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-editing: Final = ChartEditing(across=Path("flip.svg"), upright=Path("flip-upright.svg"))
+editing: Final = ChartEditing(horizontal=Path("flip.svg"), vertical=Path("flip-vertical.svg"))
 calibration: Final = ChartCalibration(charts=editing, actions=(OperatorButton(target=apply_calibration),))
 rows: Final = (editing, calibration, Panel(section=calibration.section(), at=Beside(IMAGE_PT_image_properties)), Panel(section=calibration.node_section(), at=Beside(NODE_PT_active_node_generic)))
 

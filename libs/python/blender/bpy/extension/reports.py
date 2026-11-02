@@ -24,7 +24,7 @@ class Pending(Protocol):
     """Request the host applies over later passes."""
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Applies one step, returning the request left to apply, Nothing once settled."""
+        """Applies one step, returning the request left to apply, Nothing once done."""
 
 
 type _Queued = _Deferral[...]
@@ -51,7 +51,7 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):
     kwargs: Mapping[str, object]
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Runs the write while its scope stands, pushing the undo step it names."""
+        """Runs the write while its scope is open, pushing the undo step it names."""
         applied = self.deferral.applied(*self.args, **self.kwargs) if self.deferral.open else Ok(Nothing)
         for message in applied.default_value(Nothing).to_list():
             bpy.ops.ed.undo_push(message=message)
@@ -62,7 +62,7 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Deferral[**P]:
-    """Write accepting calls while its scope stands."""
+    """Write accepting calls while its scope is open."""
 
     __slots__ = ("applied", "open", "reports")
 
@@ -149,7 +149,7 @@ class Reports(AbstractContextManager["Reports"]):
             self._redraw()
 
     def cleared(self) -> bool:
-        """Drops every held fault entry, redrawing and answering True once any was held."""
+        """Drops every held fault entry, redrawing and returning True once any was held."""
         with self._lock:
             held = bool(self._entries)
             self._entries.clear()
@@ -158,7 +158,7 @@ class Reports(AbstractContextManager["Reports"]):
         return held
 
     def reported[**P, T](self, callback: Callable[P, Outcome[T]], /) -> Callable[P, Option[T]]:
-        """Wraps callback to answer Some(value) on success, or Nothing after holding its faults."""
+        """Wraps callback to return Some(value) on success, or Nothing after holding its faults."""
 
         @functools.wraps(callback)
         def translated(*args: P.args, **kwargs: P.kwargs) -> Option[T]:
@@ -170,11 +170,11 @@ class Reports(AbstractContextManager["Reports"]):
     # --- [QUEUE]
 
     def queued(self, request: Pending, /) -> Outcome[None]:
-        """Applies the request's first step now, answering its faults, and leaves the rest to later passes."""
+        """Applies the request's first step, returning its faults, and leaves the rest to later passes."""
         return request.advanced().map(lambda later: later.map(self.waiting).default_value(None))
 
     def waiting(self, request: Pending, /) -> None:
-        """Queues request for the next pass the interface leaves unlocked unless an equal one waits, applying it whole now in background mode, where no timer runs."""
+        """Queues request for the next unlocked pass unless an equal one waits, applying it whole in background mode, where no timer runs."""
         if bpy.app.background:
             pending: Option[Pending] = Option.of_optional(request)
             while (current := pending.to_optional()) is not None:
@@ -187,7 +187,7 @@ class Reports(AbstractContextManager["Reports"]):
                     bpy.app.timers.register(self._ticked)
 
     def deferred[**P](self, write: Callable[P, Outcome[Option[str]]], /) -> AbstractContextManager[Callable[P, None]]:
-        """Scope yielding a callable that queues each distinct argument set of a write answering its optional undo step name once, queued calls applying nothing after scope exit."""
+        """Scope yielding a callable queueing each distinct argument set of a write returning its undo step name, calls applying nothing after exit."""
         return closing(_Deferral(self, write))
 
 
@@ -196,7 +196,7 @@ class Reports(AbstractContextManager["Reports"]):
 
 
 def level(fault: Fault, /) -> "rna_enums.WmReportItems":
-    """Returns the report type a fault raises: `ERROR_INVALID_INPUT` for values outside their domain, invalid values, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`."""
+    """Returns the report type a fault raises: `ERROR_INVALID_INPUT` for refused input, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`."""
     match fault.reason:
         case Reason.OUTSIDE | Reason.INVALID | Reason.ABSENT | Reason.TAKEN:
             return "ERROR_INVALID_INPUT"
@@ -208,7 +208,7 @@ def level(fault: Fault, /) -> "rna_enums.WmReportItems":
 
 def rendered(faults: Faults, /) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
     """Returns the report type and message of each fault in input order, each reason template translated before its fields fill it."""
-    return tuple((level(fault), bpy.app.translations.pgettext_rpt(fault.reason).format(subject=fault.subject, member=fault.member, cause=fault.cause)) for fault in faults)
+    return tuple((level(fault), fault.filled(bpy.app.translations.pgettext_rpt(fault.reason))) for fault in faults)
 
 
 # --- [ROWS]

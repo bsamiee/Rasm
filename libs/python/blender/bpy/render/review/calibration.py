@@ -14,11 +14,11 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.mirrors import Callbacks, choices, enum_choices
 from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.properties import Callbacks, choices, enum_choices
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Target(Enum):
+class Aim(Enum):
     """Colors samples map onto: published chart values in a config colorspace, or a second image's samples."""
 
     REFERENCE = auto()
@@ -63,7 +63,7 @@ class Calibrating(bpy.types.PropertyGroup):
     """Scene's calibration pairing and fit choices, its image pointers choosing images holding sampled charts."""
 
     source: bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Target))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     space: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Space", description="Reference value colorspace", items=_SPACES, default=PyOpenColorIO.GetCurrentConfig().getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
     )
@@ -78,7 +78,7 @@ class Calibrating(bpy.types.PropertyGroup):
     clamped: bpy.props.BoolProperty(name="Clamp", description="Clip exported values to [0, 1]")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Fitted(msgspec.Struct, frozen=True, kw_only=True):
+class Calibrated(msgspec.Struct, frozen=True, kw_only=True):
     """Scene calibration choices, the calibration they select, and the fit it came from."""
 
     chosen: Calibrating
@@ -117,9 +117,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Warns of a fit conditioned past the ceiling."""
         return (("WARNING", f"Fitted transform poorly conditioned ({fit.condition:.2e}), check chart alignment"),) if fit.condition > self.ceiling else ()
 
-    def calibrated(self, identity: Identity, chosen: Calibrating) -> Outcome[Fitted]:
+    def calibrated(self, identity: Identity, chosen: Calibrating) -> Outcome[Calibrated]:
         """Returns the chosen direction's calibration, normalized and without gain as chosen, with the choices and the fit it came from."""
-        config, target = PyOpenColorIO.GetCurrentConfig(), Target[chosen.target]
+        config, target = PyOpenColorIO.GetCurrentConfig(), Aim[chosen.target]
         forward = PyOpenColorIO.TransformDirectionFromString(chosen.direction) == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
         def held(image: bpy.types.Image | None, role: str) -> Outcome[tuple[bpy.types.Image, PlacedChart]]:
@@ -130,9 +130,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def aimed(source: PlacedChart) -> Outcome[Colors]:
             match target:
-                case Target.REFERENCE:
+                case Aim.REFERENCE:
                     return source.placement.chart.values(config, chosen.space)
-                case Target.IMAGE:
+                case Aim.IMAGE:
                     return (
                         held(chosen.image, "target")
                         .filter_with(
@@ -141,9 +141,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         .bind(samples)
                     )
 
-        def fitted(image: bpy.types.Image, record: PlacedChart, source: Colors, goal: Colors) -> Outcome[Fitted]:
+        def fitted(image: bpy.types.Image, record: PlacedChart, source: Colors, goal: Colors) -> Outcome[Calibrated]:
             neutral, linear = record.placement.chart.neutral, PyOpenColorIO.ROLE_SCENE_LINEAR
-            aimed_space = chosen.space if target is Target.REFERENCE else linear
+            aimed_space = chosen.space if target is Aim.REFERENCE else linear
 
             def selected(fit: Calibration) -> Outcome[Calibration]:
                 calibration, first, last, source_space, target_space = (
@@ -155,15 +155,15 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     else Result[Option[Calibration], Faults].Ok(Some(calibration))
                 )
                 return normalized.bind(lambda found: found.to_result_with(lambda: Fault.of(Need.LIT, image.name))).map(
-                    lambda kept: kept if chosen.gain else msgspec.convert({"gained": kept.matrix.tolist()}, type(kept))
+                    lambda kept: kept if chosen.gain else msgspec.convert({"color_matrix": kept.matrix.tolist()}, type(kept))
                 )
 
-            return Calibration.fit(tuple(zip(source, goal, strict=True))).bind(lambda fit: selected(fit).map(lambda calibration: Fitted(chosen=chosen, calibration=calibration, fit=fit)))
+            return Calibration.fit(tuple(zip(source, goal, strict=True))).bind(lambda fit: selected(fit).map(lambda calibration: Calibrated(chosen=chosen, calibration=calibration, fit=fit)))
 
         return held(chosen.source, "source").bind(lambda pair: paired(samples(pair), aimed(pair[1])).bind(lambda rows: fitted(*pair, *rows)))
 
-    def fitting[T: bpy.types.PropertyGroup](self, call: Call[T]) -> Outcome[Fitted]:
-        """Returns the calling scene's calibration choices with the calibration they fit and its fit, the read an action writing the calibration starts from."""
+    def fitting[T: bpy.types.PropertyGroup](self, call: Call[T]) -> Outcome[Calibrated]:
+        """Returns the calling scene's calibration choices with the calibration they fit and its fit."""
         return rooted(bpy.types.Scene, call.context).bind(lambda scene: self.calibrations.read(call.identity, scene)).bind(partial(self.calibrated, call.identity))
 
     # --- [COMMANDS]
@@ -171,7 +171,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def insert_calibration(self, call: Call[Empty]) -> Outcome[Answer]:
         """Insert calibration matrix after active node."""
 
-        def spliced(chosen: NodeEditing, made: Fitted) -> Outcome[Answer]:
+        def spliced(chosen: NodeEditing, made: Calibrated) -> Outcome[Answer]:
             calibration = made.calibration
             rows = dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True))
             return inserted(chosen.tree, chosen.active, chosen.cursor, color_matrix.group, call.identity, inputs={**rows, "gain": math.exp2(calibration.exposure)}).map(
@@ -181,7 +181,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return self.fitting(call).bind(lambda made: NodeEditing.of(call.context).bind(lambda chosen: spliced(chosen, made)))
 
     def filed[T: Baking | Writing](self, written: LutOutput, call: Call[T]) -> Outcome[Answer]:
-        """Writes the chosen direction's calibration to the forward destination and its inverse to the inverse one through an output, clamped to the unit range when chosen."""
+        """Writes the chosen direction's calibration to its direction's destination and its inverse to the other through an output, clamped to the unit range when chosen."""
 
         def exported(chosen: Calibrating, calibration: Calibration) -> Outcome[tuple[Path, ...]]:
             clamp = (PyOpenColorIO.RangeTransform(minInValue=0.0, maxInValue=1.0, minOutValue=0.0, maxOutValue=1.0),) if chosen.clamped else ()
@@ -216,12 +216,12 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def baking(self) -> Operator[Baking]:
         """Command baking the forward and inverse calibration LUTs."""
-        return Operator.of(Baking, invoke=Some(Save[Baking](extensions=extension, destinations=Some(self.sided))), undo=Nothing)(self.bake_calibration_lut)
+        return Operator.of(Baking, invoke=Some(Save[Baking](extensions=extension, destinations=Some(self.sided))), undo=NoUndo())(self.bake_calibration_lut)
 
     @cached_property
     def writing(self) -> Operator[Writing]:
         """Command writing the forward and inverse calibration transform files."""
-        return Operator.of(Writing, invoke=Some(Save[Writing](extensions=extension, destinations=Some(self.sided))), undo=Nothing)(self.write_calibration)
+        return Operator.of(Writing, invoke=Some(Save[Writing](extensions=extension, destinations=Some(self.sided))), undo=NoUndo())(self.write_calibration)
 
     # --- [SECTIONS]
 
@@ -256,4 +256,4 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibrating", "ChartCalibration", "Fitted", "Target"]
+__all__ = ["Aim", "Calibrated", "Calibrating", "ChartCalibration"]

@@ -1,4 +1,4 @@
-"""Elementwise arithmetic one map is written over, spelled with the Array API names so the numpy module serves as a namespace, and the periodic, normal, and Hermite maps written over it."""
+"""Elementwise protocols under Array API names, numpy serving as a namespace, and periodic, normal, and Hermite maps over them."""
 
 import math
 from typing import Final, Literal, Protocol, Self
@@ -107,7 +107,6 @@ class Namespace[V: Elementwise, B](Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TAU: Final = 2.0 * math.pi
 _EPSILON: Final = float(np.finfo(np.float32).eps)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -117,7 +116,7 @@ def periodic[V: Elementwise, B](profile: WaveProfile, cycles: V, ns: Namespace[V
     """Returns the Wave Texture profile in [0, 1] at a cycle coordinate, one period per unit, its identifiers those of `ShaderNodeTexWave.wave_profile`."""
     match profile:
         case "SIN":
-            return 0.5 - ns.cos(cycles * _TAU) * 0.5
+            return 0.5 - ns.cos(cycles * math.tau) * 0.5
         case "SAW":
             return cycles - ns.floor(cycles)
         case "TRI":
@@ -125,7 +124,7 @@ def periodic[V: Elementwise, B](profile: WaveProfile, cycles: V, ns: Namespace[V
 
 
 def gaussian[V: Elementwise, B](radius: V, angle: V, ns: Namespace[V, B]) -> tuple[V, V]:
-    """Returns the cosine and sine Box-Muller normals of two distinct uniform draws, such as two White Noise values.
+    """Returns the cosine and sine Box-Muller normals of two distinct uniform draws (two White Noise values).
 
     Args:
         radius: Uniform draw setting the shared radius, kept off zero by float32 epsilon.
@@ -136,7 +135,7 @@ def gaussian[V: Elementwise, B](radius: V, angle: V, ns: Namespace[V, B]) -> tup
         Normals over one radius and phase.
     """
     spread = ns.sqrt(ns.log((radius + _EPSILON) / (1.0 + 2.0 * _EPSILON)) * -2.0)
-    phase = angle * _TAU
+    phase = angle * math.tau
     return spread * ns.cos(phase), spread * ns.sin(phase)
 
 

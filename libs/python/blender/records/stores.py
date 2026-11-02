@@ -28,7 +28,7 @@ from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 
 
 class Provider(Protocol):
-    """Package whose name and version a content hash holds, each a property so a module constant matches it."""
+    """Package whose name and version a content hash holds."""
 
     @property
     def __name__(self) -> str:
@@ -60,7 +60,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Decodes and validates the record.
 
         Returns:
-            Ok(record), read fault for a missing, unreadable, or invalid file.
+            Ok(record), `UNREADABLE` fault for a missing, unreadable, or invalid file.
         """
         refused = partial(Fault.of, Reason.UNREADABLE, str(self.path))
         return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
@@ -69,7 +69,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Decodes and validates the record a present file holds.
 
         Returns:
-            Ok(Some(record)), Ok(Nothing) while no file sits at the path, read fault for an unreadable or invalid file.
+            Ok(Some(record)), Ok(Nothing) while no file sits at the path, `UNREADABLE` fault for an unreadable or invalid file.
         """
 
         def absent(faults: Faults) -> Outcome[Option[T]]:
@@ -86,10 +86,10 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         Args:
             value: Record to hold.
-            exclusive: Refuse a path that already holds a file.
+            exclusive: Refuse a path holding a file.
 
         Returns:
-            Ok(path), write fault for a refused write, `FileExistsError` when exclusive meets a held path.
+            Ok(path), `UNWRITABLE` fault for a refused write, `FileExistsError` when exclusive meets a held path.
         """
         return committed(self.path, msgspec.json.encode(value, order="deterministic"), exclusive=exclusive)
 
@@ -100,7 +100,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             change: Pure update of the decoded record.
 
         Returns:
-            Ok(changed record), read or write fault.
+            Ok(changed record), `UNREADABLE` or `UNWRITABLE` fault.
         """
         return self.read().map(change).bind(lambda value: self.written(value).map(lambda _: value))
 
@@ -111,12 +111,12 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 def folder_made(folder: Path) -> Outcome[Path]:
-    """Returns existing or created folder, or write fault."""
+    """Returns existing or created folder, or `UNWRITABLE` fault."""
     return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
 
 
 def removed(path: Path) -> Outcome[Path]:
-    """Returns path after removing the file it holds, a missing file counting as removed, or write fault."""
+    """Returns path after removing the file it holds, a missing file counting as removed, or `UNWRITABLE` fault."""
     return catch(path.unlink, exception=OSError)(missing_ok=True).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
 
 
@@ -146,10 +146,10 @@ def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *
     Args:
         path: File or folder to replace, its parent folder created.
         write: Bytes the file holds, or writer of the stage, a path named as `path` in a temporary sibling folder removed on every path.
-        exclusive: Refuse a path that already holds a file, held by the bytes form alone since the atomic move links files and no folder.
+        exclusive: Refuse a path holding a file, held by the bytes form alone since the atomic move links files and no folder.
 
     Returns:
-        Ok(path), writer faults, or write fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
+        Ok(path), writer faults, or `UNWRITABLE` fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
     """
     unwritable = partial(Fault.of, Reason.UNWRITABLE, str(path))
 
@@ -187,12 +187,12 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]
 
 
 def argument(record: msgspec.Struct) -> str:
-    """Returns the command argument carrying record, base64 JSON that no shell, worker, or host argument parser rewrites."""
+    """Returns the command argument holding record, base64 JSON that no shell, worker, or host argument parser rewrites."""
     return base64.b64encode(msgspec.json.encode(record)).decode("ascii")
 
 
 def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> Outcome[T]:
-    """Returns the record a command argument carries, read fault over subject for text no `argument` wrote."""
+    """Returns the record a command argument holds, `UNREADABLE` fault over subject for text no `argument` wrote."""
     unreadable = partial(Fault.of, Reason.UNREADABLE, subject)
     return catch(base64.b64decode, exception=ValueError)(text, validate=True).map_error(unreadable).bind(lambda data: catch(decoder.decode, exception=msgspec.DecodeError)(data).map_error(unreadable))
 
@@ -210,7 +210,7 @@ def content_hash(
 
     Args:
         scope: Type naming content domain.
-        *records: Records with naive or aware datetimes, no MessagePack Raw or Ext, or bytes such as a configuration cache ID.
+        *records: Records with naive or aware datetimes, no MessagePack Raw or Ext, or bytes (a configuration cache ID).
         arrays: Fixed-width real arrays hashed with shape and canonical bytes.
         providers: Modules hashed by name and version.
 

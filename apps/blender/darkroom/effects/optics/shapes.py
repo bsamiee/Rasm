@@ -18,7 +18,7 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, folded, FrameSpace
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import Shell, Step
+from blender.bpy.render.compositor.inputs import GraphInputs, Step
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED, timing
 from blender.bpy.render.compositor.shapes import angular, Bounded, coverage, diamond, linear, PROFILE, profiled, radial, rectangular, turned
 from blender.imaging.sampling.tiles import stream
@@ -133,7 +133,7 @@ class Shapes(Case, frozen=True, kw_only=True):
 # --- [REGIONS]
 
 
-def _fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Scalar, ...]) -> tuple[Expr, ...]:
+def _fielded(shell: GraphInputs[Shapes], frame: FrameSpace, growths: tuple[Scalar, ...]) -> tuple[Expr, ...]:
     """Returns grown coverages of the selected region under one noisy boundary, the whole frame covered under `Frame`."""
     record = shell.record
     regions: dict[MenuItem, Term] = {
@@ -159,7 +159,7 @@ def _fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Scalar, ...
 # --- [PAINT]
 
 
-def _painted(shell: Shell[Shapes], frame: FrameSpace) -> tuple[Expr, Expr]:
+def _painted(shell: GraphInputs[Shapes], frame: FrameSpace) -> tuple[Expr, Expr]:
     """Returns the frame-fixed fill color and its alpha coverage, the gradient's coverage zero past black ramp ends."""
 
     def read(*path: Step) -> Expr:
@@ -180,8 +180,8 @@ def _painted(shell: Shell[Shapes], frame: FrameSpace) -> tuple[Expr, Expr]:
     wave = partial(read, _GRADIENT, _WAVE)
     (waved,) = profiled(wave, (coordinate + (wave(_PHASE) / tau - clocked(shell.input, _FILL.panel(_GRADIENT.key, _WAVE.key, _CLOCK.key))),))
     extended, inside = folded(read(_GRADIENT, _EXTENSION), switched(read(_GRADIENT, _WAVE), coordinate, waved))
-    ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", extended),), content=Some(shell.record.ramp), socket="Color", shape=bpy.types.NodeSocketColor)
-    tint = ramp.named(item_key(_FILL.key, _GRADIENT.key, Shapes.ramp))
+    ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", extended),), content=Some(shell.record.ramp), socket="Color", socket_type=bpy.types.NodeSocketColor)
+    tint = ramp.keyed(item_key(_FILL.key, _GRADIENT.key, Shapes.ramp))
     across, up = (textures.MapRange(interpolation_type="SMOOTHERSTEP").node(frame.fraction[axis]) for axis in ("X", "Y"))
     distance, cell, thickness = gridded(partial(read, _CELLS, _LATTICE), frame.point)
     weight = shell.menu(
@@ -206,12 +206,12 @@ def _painted(shell: Shell[Shapes], frame: FrameSpace) -> tuple[Expr, Expr]:
 # --- [LIGHT]
 
 
-def _shaped(shell: Shell[Shapes]) -> Outcome[Expr]:
+def _shaped(shell: GraphInputs[Shapes]) -> Outcome[Expr]:
     """Returns the region's fill, outline, and emitted light with their coverage as alpha."""
     ring = partial(shell.input, _OUTLINE)
     region, inner, outer = _fielded(shell, shell.space, (0.0, ring(_GAP), ring(_GAP) + ring(_RING_WIDTH)))
     tint, opacity = _painted(shell, shell.space)
-    field = region.named("shape_field")
+    field = region.keyed("shape_field")
     filled = switched(shell.input(_FILL), 0.0, field * opacity)
     outlined = switched(shell.input(_OUTLINE), 0.0, outer - inner)
 

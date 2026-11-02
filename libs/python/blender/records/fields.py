@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 import datetime
+import math
 import sys
 from types import MemberDescriptorType
 from typing import Annotated, Final, Self
@@ -19,6 +20,9 @@ type Percent = Annotated[float, msgspec.Meta(ge=0.0, le=100.0)]
 type Positive = Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=sys.float_info.max)]
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
+type Bearing = Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)]
+type Inclination = Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)]
+type Rgb = tuple[Finite, Finite, Finite]
 type Count = Annotated[int, msgspec.Meta(ge=1)]
 type Name = Annotated[str, msgspec.Meta(min_length=1)]
 type Lens = tuple[object, ...]
@@ -79,13 +83,12 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
     future: tuple[Dated[T], ...] = ()
 
     def add(self, entry: Dated[T], retention: Retention) -> Self:
-        """Adds entry as the nearest past and drops the future, an entry within the merge interval of the nearest past merging into it, a held value leaving its place."""
-        held = tuple(present for present in self.past if present.value != entry.value)
-        match held:
-            case (head, *rest) if not self.future and datetime.timedelta() <= entry.moment - head.moment < retention.interval:
+        """Adds entry as the nearest past, dropping the future and older entries of its value, or moves a differing nearest past to its moment inside the merge interval."""
+        match self.past:
+            case (head, *rest) if not self.future and head.value != entry.value and datetime.timedelta() <= entry.moment - head.moment < retention.interval:
                 past = (msgspec.structs.replace(head, moment=entry.moment), *rest)
             case _:
-                past = (entry, *held)
+                past = (entry, *(present for present in self.past if present.value != entry.value))
         return type(self)(past=past[: retention.capacity])
 
     def at(self, offset: int) -> Option[Dated[T]]:
@@ -94,7 +97,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
         return Some(source[distance - 1]) if 0 < distance <= len(source) else Nothing
 
     def step(self, offset: int, current: Dated[T], retention: Retention) -> Option[tuple[T, Self, Self]]:
-        """Returns the value at a signed one-based offset, the history arrived there with current and the entries passed held across from it, and the history a refused write leaves with both branches kept and current nearest across."""
+        """Returns the value at a signed one-based offset, the history arriving there with current across, and the history a refused write keeps with both branches and current across."""
         distance = abs(offset)
         source, other = (self.past, self.future) if offset > 0 else (self.future, self.past)
 
@@ -147,12 +150,14 @@ def amended[T: msgspec.Struct](record: T, lens: Lens, change: Callable[[object],
 __all__ = [
     "SEED_BOUND",
     "AtLeastOne",
+    "Bearing",
     "Case",
     "Count",
     "Dated",
     "Finite",
     "Frozen",
     "History",
+    "Inclination",
     "Knot",
     "Lens",
     "Name",
@@ -160,6 +165,7 @@ __all__ = [
     "Percent",
     "Positive",
     "Retention",
+    "Rgb",
     "Seed",
     "Unit",
     "amended",

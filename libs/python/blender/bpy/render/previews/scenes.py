@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
-from enum import auto, Enum
+from enum import auto, Enum, StrEnum
 from functools import partial
 import math
 from pathlib import Path
@@ -23,8 +23,8 @@ from blender.bpy.data.ids.images import filled, Tag
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import rna, RnaPath, struct_at
+from blender.bpy.data.rna.properties import choices
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
@@ -34,17 +34,17 @@ from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.nodes.trees import DATA_TYPES, nested
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
+from blender.bpy.render.compositor.entries import added_entry, Enabled
 from blender.bpy.render.compositor.inputs import inputs_of, PreviewFrame
-from blender.bpy.render.compositor.placement import added_entry, Enabled
 from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
 from blender.bpy.render.outputs.framing import RESOLUTION
 from blender.bpy.render.outputs.paths import Pathed
-from blender.bpy.render.outputs.results import PRODUCTIONS
+from blender.bpy.render.outputs.results import RENDER_ORIGINS
 from blender.bpy.render.sessions.engines import ENGINE_SAMPLES
 from blender.bpy.render.sessions.renders import native, reads_render, Render, RenderCall
 from blender.bpy.scene.cameras import framed
 from blender.bpy.scene.objects import corners, owned_object
-from blender.bpy.scene.worlds import studio, swapped, WorldEnvironment
+from blender.bpy.scene.worlds import BackdropSource, studio, swapped, WorldEnvironment
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.multilayer import Multilayer
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
@@ -78,13 +78,33 @@ class PreviewMesh(Enum):
         (mesh.shade_smooth if self is PreviewMesh.SPHERE else mesh.shade_flat)()
         return Ok(mesh)
 
+    @property
+    def rest(self) -> Mapping[RnaPath, Value]:
+        """Members of the surface's object between renders: hidden at the origin, turned and scaled to fill the frame."""
+        match self:
+            case PreviewMesh.SPHERE:
+                rotation, scale = (0.0, 0.0, 0.0), (1.0, 1.0, 1.0)
+            case PreviewMesh.CUBE:
+                rotation, scale = (math.pi / 4.0, math.atan(math.sqrt(0.5)), 0.0), (0.98, 0.98, 0.98)
+            case PreviewMesh.FLAT:
+                rotation, scale = (0.0, 0.0, 0.0), (1.04, 1.04, 1.0)
+        return {("location",): (0.0, 0.0, 0.0), ("rotation_euler",): rotation, ("scale",): scale, ("hide_render",): True}
+
 
 class CameraPose(Enum):
-    """Fixed preview camera: orthographic above the surface, panoramic at the world origin, or perspective into a world volume."""
+    """Fixed preview camera: orthographic above the surface, panoramic at the world origin, or perspective from the front into a world volume."""
 
     TOP = auto()
     PANORAMA = auto()
-    INTERIOR = auto()
+    FRONT = auto()
+
+
+class _Capture(StrEnum):
+    """File Output item of a preview render, each value its file name part."""
+
+    IMAGE = auto()
+    VALUE = auto()
+    COVERAGE = auto()
 
 
 type Ambient = White | Studio
@@ -96,15 +116,10 @@ CAMERAS: Final[Mapping[tuple[CameraPose, str | None], tuple[Mapping[RnaPath, Val
     (CameraPose.TOP, None): ({("type",): "ORTHO", ("ortho_scale",): 2.0}, {("location",): (0.0, 0.0, 2.0), ("rotation_euler",): (0.0, 0.0, 0.0)}),
     (CameraPose.PANORAMA, "CYCLES"): ({("type",): "PANO", ("panorama_type",): "EQUIRECTANGULAR"}, {("location",): (0.0, 0.0, 0.0), ("rotation_euler",): (math.pi / 2.0, 0.0, 0.0)}),
     (CameraPose.PANORAMA, None): ({("type",): "PERSP", ("lens",): 12.0}, {("location",): (0.0, 0.0, 0.0), ("rotation_euler",): (1.3, 0.0, 0.0)}),
-    (CameraPose.INTERIOR, None): ({("type",): "PERSP", ("lens",): 45.0}, {("location",): (0.0, -4.0, 0.0), ("rotation_euler",): (math.pi / 2.0, 0.0, 0.0)}),
+    (CameraPose.FRONT, None): ({("type",): "PERSP", ("lens",): 45.0}, {("location",): (0.0, -4.0, 0.0), ("rotation_euler",): (math.pi / 2.0, 0.0, 0.0)}),
 })
 SURFACES: Final = choices(item for item in Descriptor.declared(bpy.types.Material, ("preview_render_type",), bpy.types.EnumProperty).prop.enum_items if item.identifier in PreviewMesh.__members__)
 _FIXED: Final[Mapping[RnaPath, Value]] = MappingProxyType({("location",): (0.0, 0.0, 0.0), ("rotation_euler",): (0.0, 0.0, 0.0), ("scale",): (1.0, 1.0, 1.0), ("hide_render",): False})
-_POSES: Final[Mapping[PreviewMesh, tuple[tuple[float, float, float], tuple[float, float, float]]]] = MappingProxyType({
-    PreviewMesh.SPHERE: ((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)),
-    PreviewMesh.CUBE: ((math.pi / 4.0, math.atan(math.sqrt(0.5)), 0.0), (0.98, 0.98, 0.98)),
-    PreviewMesh.FLAT: ((0.0, 0.0, 0.0), (1.04, 1.04, 1.0)),
-})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -133,15 +148,15 @@ class PreviewLighting(msgspec.Struct, frozen=True, kw_only=True):
         """Environment members lighting a studio light or a flat white backdrop."""
         match self.ambient:
             case White():
-                return Ok({("lighting", "mode"): "COLOR", ("lighting", "color"): (1.0, 1.0, 1.0), ("lighting", "strength"): self.strength})
+                return Ok({("lighting", "source"): BackdropSource.COLOR.name, ("lighting", "color"): (1.0, 1.0, 1.0), ("lighting", "strength"): self.strength})
             case Studio(name=name):
                 preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                return studio(name, preferences).map(lambda path: {("lighting", "mode"): "HDRI", ("lighting", "path"): path, ("lighting", "strength"): self.strength})
+                return studio(name, preferences).map(lambda path: {("lighting", "source"): BackdropSource.HDRI.name, ("lighting", "path"): path, ("lighting", "strength"): self.strength})
 
     @property
-    def lamp(self) -> Mapping[RnaPath, Value]:
-        """Key sun at key strength and aim as light object members, its type a `Light.type` item the host checks at the write."""
-        return {("data", "type"): "SUN", ("data", "energy"): self.key, ("location",): (0.0, 0.0, 0.0), ("rotation_euler",): self.aim}
+    def sun(self) -> Mapping[RnaPath, Value]:
+        """Key sun at key strength and aim as light object members."""
+        return {("data", "energy"): self.key, ("rotation_euler",): self.aim}
 
 
 class Fitted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -150,7 +165,7 @@ class Fitted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     subject: bpy.types.Object
 
 
-class Piece[D: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light](msgspec.Struct, frozen=True, kw_only=True):
+class PreviewObject[D: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light](msgspec.Struct, frozen=True, kw_only=True):
     """Owned preview object over owned data every preview render reuses, the data built by `created` from the session data and filled by `seeded`, the object placed at `rest`."""
 
     data: Ownership[D]
@@ -160,7 +175,7 @@ class Piece[D: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light](msgspec.Stru
 
     @property
     def objects(self) -> Ownership[bpy.types.Object]:
-        """Ownership of the piece's object, keyed as its data."""
+        """Ownership of the object, keyed as its data."""
         return Ownership(kind=bpy.types.Object, key=self.data.key, saved=Saved.NEVER)
 
     def placed(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[tuple[bpy.types.Object, D]]:
@@ -184,15 +199,15 @@ class RoutedEntry(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             cls(entry=entry, group=group)
             for entry in source.compositor_effects
             for group in Option.of_optional(entry.node_group).to_list()
-            if getattr(entry, enabled) and not any(reads_render(node) for tree in nested((group,)) for node in tree.nodes)
+            if enabled.descriptor.read(entry) is True and not any(reads_render(node) for tree in nested((group,)) for node in tree.nodes)
         )
 
 
 class PreviewStack(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Compositor entries of one preview render: the render input plane, ordered mirrored entries, and the placement adding entries after them."""
+    """Compositor entries of one preview render: the render input plane, ordered routed entries, and the placement adding entries after them."""
 
-    head: Option[npt.NDArray[np.float32]] = Nothing
-    mirrored: tuple[RoutedEntry, ...] = ()
+    plane: Option[npt.NDArray[np.float32]] = Nothing
+    routed: tuple[RoutedEntry, ...] = ()
     placing: Callable[[Identity, bpy.types.Scene, bpy.types.Scene, Option[PreviewFrame]], Outcome[Restoring]] = lambda _identity, _source, _scene, _preview: Ok(lambda: Ok(None))
 
 
@@ -202,7 +217,7 @@ class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     source: bpy.types.Scene
     size: tuple[int, int]
     world: Mapping[RnaPath, Value] | bpy.types.World
-    lamp: Mapping[RnaPath, Value] | bpy.types.Light
+    sun: Mapping[RnaPath, Value] | bpy.types.Light
     stack: PreviewStack = PreviewStack()
     transparent: bool = True
     surface: Option[PreviewMesh] = Nothing
@@ -227,7 +242,7 @@ class Readback(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def formed(self, view: DisplayView, config: PyOpenColorIO.Config) -> Outcome[Self]:
         """Returns the readback with its plane formed through a view into the view's colorspace."""
-        return view.formed(config, self.plane, self.colorspace).map(lambda image: msgspec.structs.replace(self, plane=image.pixels, colorspace=image.colorspace))
+        return view.image(config, self.plane, self.colorspace).map(lambda image: msgspec.structs.replace(self, plane=image.pixels, colorspace=image.colorspace))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -240,7 +255,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     scene: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="preview_scene", saved=Saved.NEVER)
     world: ClassVar[Ownership[bpy.types.World]] = Ownership(kind=bpy.types.World, key="preview_world", saved=Saved.NEVER)
     image: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="preview_image", saved=Saved.NEVER)
-    head: ClassVar[Ownership[bpy.types.NodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="preview_head", saved=Saved.NEVER)
+    input_group: ClassVar[Ownership[bpy.types.NodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="preview_input", saved=Saved.NEVER)
     capture: ClassVar[Ownership[bpy.types.NodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="preview_capture", saved=Saved.NEVER)
     routes: ClassVar[Ownership[bpy.types.ID]] = Ownership(kind=bpy.types.ID, key="preview_route", saved=Saved.NEVER, single=False)
     value: ClassVar[Key] = "value"
@@ -249,10 +264,10 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
     def made(self, identity: Identity) -> Outcome[bpy.types.Scene]:
         """Returns extension runtime preview scene."""
-        return self.scene.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("Preview").map_error(partial(Fault.of, Reason.REFUSED, self.scene.key)))
+        return self.scene.created(identity, bpy.data.scenes.new, "Preview")
 
-    def headed(self, identity: Identity, pixels: npt.NDArray[np.float32]) -> Outcome[bpy.types.NodeTree]:
-        """Returns head group reading pixels through a runtime image."""
+    def input_built(self, identity: Identity, pixels: npt.NDArray[np.float32]) -> Outcome[bpy.types.NodeTree]:
+        """Returns the group reading pixels through a runtime image."""
         height, width, _ = pixels.shape
         tag = Tag(space=Some(bpy.data.colorspace.working_space), alpha=Some("PREMUL"))
 
@@ -261,19 +276,19 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             return kept(created.map_error(partial(Fault.of, Reason.REFUSED, self.image.key)), lambda image: tag.applied(image).map(lambda _: image))
 
         def graphed(image: bpy.types.Image) -> Outcome[bpy.types.NodeTree]:
-            source = Expr(kind=bpy.types.CompositorNodeImage, members={"image": IdName.of(image)}, socket="Image", shape=bpy.types.NodeSocketColor)
+            source = Expr(kind=bpy.types.CompositorNodeImage, members={"image": IdName.of(image)}, socket="Image", socket_type=bpy.types.NodeSocketColor)
             face = Interface(outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),))
             return (
                 Result[None, Faults]
                 .bind(catch(image.scale, exception=RuntimeError)(width, height).map_error(partial(Fault.of, Reason.REFUSED, self.image.key)), lambda _: filled(image, pixels))
-                .bind(lambda _: functions.built(self.head.key, face, {"image": source}, bpy.types.CompositorNodeTree, name=Some("Preview Input")))
+                .bind(lambda _: functions.built(self.input_group.key, face, {"image": source}, bpy.types.CompositorNodeTree, name=Some("Preview Input")))
                 .bind(lambda group: made(msgspec.structs.replace(group, saved=Saved.NEVER), identity))
             )
 
         return self.image.made(identity, built).bind(graphed)
 
     def stacked(self, identity: Identity, staging: Staging, scene: bpy.types.Scene, release: ExitStack) -> Outcome[Restoring]:
-        """Appends head and mirrored entries with their source inputs, removed when `release` closes, then runs the stack's placement, answering its removal."""
+        """Appends input and routed entries with their source inputs, removed when `release` closes, then runs the stack's placement, returning its removal."""
         stack = staging.stack
 
         def copied(held: bpy.types.SceneCompositorEffect, entry: bpy.types.SceneCompositorEffect) -> Outcome[None]:
@@ -281,10 +296,10 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         with bpy.context.temp_override(scene=scene):
             return (
-                stack.head
-                .map(lambda pixels: self.headed(identity, pixels).bind(lambda group: added_entry(release, scene, group)).map(lambda _: None))
+                stack.plane
+                .map(lambda pixels: self.input_built(identity, pixels).bind(lambda group: added_entry(release, scene, group)).map(lambda _: None))
                 .default_value(Ok(None))
-                .bind(lambda _: accumulated(added_entry(release, scene, held.group).bind(lambda entry: copied(held.entry, entry)) for held in stack.mirrored))
+                .bind(lambda _: accumulated(added_entry(release, scene, held.group).bind(lambda entry: copied(held.entry, entry)) for held in stack.routed))
                 .bind(lambda _: stack.placing(identity, staging.source, scene, staging.preview))
             )
 
@@ -301,13 +316,13 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 light.data = data
 
             undone(light, relit)
-            match staging.lamp:
-                case bpy.types.Light() as lamp:
-                    return written(light, ("data",), lamp).map(lambda _: None)
+            match staging.sun:
+                case bpy.types.Light() as held:
+                    return written(light, ("data",), held).map(lambda _: None)
                 case members:
                     return assigned(light, members)
 
-        def surfaced(scene: bpy.types.Scene, shapes: tuple[tuple[PreviewMesh, tuple[bpy.types.Object, bpy.types.Mesh]], ...]) -> Outcome[None]:
+        def meshed(scene: bpy.types.Scene, shapes: tuple[tuple[PreviewMesh, tuple[bpy.types.Object, bpy.types.Mesh]], ...]) -> Outcome[None]:
             def shown(shape: PreviewMesh, item: bpy.types.Object, mesh: bpy.types.Mesh) -> None:
                 def hidden() -> None:
                     item.hide_render = True
@@ -354,7 +369,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         ) -> Outcome[bpy.types.Scene]:
             shapes, (camera, lens), (light, data) = pieces
             return (
-                paired(surfaced(scene, shapes), written(scene, ("camera",), camera))
+                paired(meshed(scene, shapes), written(scene, ("camera",), camera))
                 .bind(lambda _: paired(lit(light, data), aimed(scene, camera, lens), environment(scene)))
                 .bind(lambda _: self.stacked(identity, staging, scene, release))
                 .map(lambda restoring: release.callback(_held, identity, restoring))
@@ -396,7 +411,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda _: previewed.bind(lambda pairs: assigned(scene, dict(pairs))))
                 .bind(
                     lambda _: paired(
-                        accumulated(_SURFACES[shape].placed(identity, scene).map(lambda pair: (shape, pair)) for shape in PreviewMesh), _CAMERA.placed(identity, scene), _LAMP.placed(identity, scene)
+                        accumulated(_SURFACES[shape].placed(identity, scene).map(lambda pair: (shape, pair)) for shape in PreviewMesh), _CAMERA.placed(identity, scene), _SUN.placed(identity, scene)
                     )
                 )
                 .bind(lambda pieces: arranged(scene, pieces))
@@ -409,17 +424,17 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
     def rendered(self, identity: Identity, staging: Staging) -> Outcome[Readback]:
         """Renders staging and reads image and value AOV from File Output files."""
-        size = staging.stack.head.map(lambda pixels: (pixels.shape[1], pixels.shape[0])).default_value(staging.size)
+        size = staging.stack.plane.map(lambda pixels: (pixels.shape[1], pixels.shape[0])).default_value(staging.size)
 
-        def declared(scene: bpy.types.Scene, value: Option[str], output: OutputFormat, *, paths: Mapping[str, Path]) -> Outcome[None]:
+        def declared(scene: bpy.types.Scene, value: Option[str], output: OutputFormat, *, paths: Mapping[_Capture, Path]) -> Outcome[None]:
             image = group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor)
-            domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", size),), socket="Image", shape=bpy.types.NodeSocketColor, label=Some("domain"))
-            passes = value.map(lambda name: {"value": name, "coverage": "Alpha"}).default_value({})
-            sources: dict[str, Expr] = {
-                "image": Expr(kind=bpy.types.ShaderNodeMixRGB, inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", image)), socket="Color", shape=bpy.types.NodeSocketColor),
+            domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", size),), socket="Image", socket_type=bpy.types.NodeSocketColor, key=Some("domain"))
+            passes = value.map(lambda name: {_Capture.VALUE: name, _Capture.COVERAGE: "Alpha"}).default_value({})
+            sources: dict[_Capture, Expr] = {
+                _Capture.IMAGE: Expr(kind=bpy.types.ShaderNodeMixRGB, inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", image)), socket="Color", socket_type=bpy.types.NodeSocketColor),
                 **{key: Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene)}, socket=socket) for key, socket in passes.items()},
             }
-            content = FileItems(items=tuple(FileItem(name=paths[key].stem, socket_type=DATA_TYPES[term.shape]) for key, term in sources.items()))
+            content = FileItems(items=tuple(FileItem(name=paths[key].stem, socket_type=DATA_TYPES[term.socket_type]) for key, term in sources.items()))
             files = Expr(
                 kind=bpy.types.CompositorNodeOutputFile,
                 inputs=tuple((stored.name, term) for stored, term in zip(content.items, sources.values())),
@@ -435,19 +450,19 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             linear = Colorspace(name=bpy.data.colorspace.working_space)
             return OutputFormat.exr(Output.DATA, layered=False).map(lambda held: msgspec.structs.replace(held, color_mode="RGBA", color_management="OVERRIDE", linear_colorspace_settings=linear))
 
-        def covered(values: npt.NDArray[np.float32], coverage: npt.NDArray[np.float32]) -> Option[npt.NDArray[np.float32]]:
+        def covered(values: npt.NDArray[np.float32], coverage: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
             mask = coverage[..., 0] > Readback.covered
-            return Some(values[..., 0][mask] / coverage[..., 0][mask])
+            return values[..., 0][mask] / coverage[..., 0][mask]
 
-        def readback(paths: Mapping[str, Path]) -> Outcome[Readback]:
-            def read(key: str, channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
+        def readback(paths: Mapping[_Capture, Path]) -> Outcome[Readback]:
+            def read(key: _Capture, channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
                 return Multilayer.read(paths[key]).bind(lambda file: file.picked(("",), channels))
 
-            sampled = paired(read("value", ("R",)), read("coverage", ("R",))).map(lambda pair: covered(*pair)) if staging.value else Ok(Nothing)
-            return paired(read("image", ("R", "G", "B", "A")), sampled).map(lambda pair: Readback(plane=pair[0], colorspace=bpy.data.colorspace.working_space, values=pair[1]))
+            sampled = paired(read(_Capture.VALUE, ("R",)), read(_Capture.COVERAGE, ("R",))).map(lambda pair: Some(covered(*pair))) if staging.value else Ok(Nothing)
+            return paired(read(_Capture.IMAGE, ("R", "G", "B", "A")), sampled).map(lambda pair: Readback(plane=pair[0], colorspace=bpy.data.colorspace.working_space, values=pair[1]))
 
         def captured(scene: bpy.types.Scene) -> Outcome[Readback]:
-            paths = {key: Path(bpy.app.tempdir, f"{scene.session_uid}_{self.capture.key}_{key}.exr") for key in ("image", "value", "coverage")}
+            paths = {key: Path(bpy.app.tempdir, f"{scene.session_uid}_{self.capture.key}_{key}.exr") for key in _Capture}
             value = identity.identifier(self.value).map(Some) if staging.value else Ok(Nothing)
             release.callback(_held, identity, partial(_unlinked, paths))
             return (
@@ -465,8 +480,8 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         """Renders float pixels through entries without adding formation."""
         height, width, channels = pixels.shape
         lighting, low = PreviewLighting(), RESOLUTION.prop.hard_min
-        stack = PreviewStack(head=Some(pixels), mirrored=tuple(RoutedEntry(entry=entry, group=group) for entry in entries for group in Option.of_optional(entry.node_group).to_list()))
-        return lighting.environment.bind(lambda world: self.rendered(identity, Staging(source=scene, size=(max(width, low), max(height, low)), world=world, lamp=lighting.lamp, stack=stack))).map(
+        stack = PreviewStack(plane=Some(pixels), routed=tuple(RoutedEntry(entry=entry, group=group) for entry in entries for group in Option.of_optional(entry.node_group).to_list()))
+        return lighting.environment.bind(lambda world: self.rendered(identity, Staging(source=scene, size=(max(width, low), max(height, low)), world=world, sun=lighting.sun, stack=stack))).map(
             lambda readback: readback.plane[..., :channels]
         )
 
@@ -475,19 +490,19 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns owned data rows and world attachment."""
         return Ok((
-            PRODUCTIONS,
+            RENDER_ORIGINS,
             self.scene,
             self.world,
             self.image,
-            self.head,
+            self.input_group,
             self.capture,
             self.routes,
             WorldEnvironment.attachment,
             *(row for piece in _SURFACES.values() for row in (piece.objects, piece.data)),
             _CAMERA.objects,
             _CAMERA.data,
-            _LAMP.objects,
-            _LAMP.data,
+            _SUN.objects,
+            _SUN.data,
         ))
 
 
@@ -495,29 +510,30 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _held(identity: Identity, step: Callable[[], Outcome[object]]) -> None:
-    """Runs one release step answering an outcome, holding its faults for the extension."""
+    """Runs one release step, holding its faults for the extension."""
     for faults in step().swap().to_option().to_list():
         identity.reports.hold(faults)
 
 
-def _unlinked(paths: Mapping[str, Path]) -> Outcome[None]:
+def _unlinked(paths: Mapping[_Capture, Path]) -> Outcome[None]:
     """Deletes capture files a render writes, absent ones included."""
     return accumulated(catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path))) for path in paths.values()).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_SURFACES: Final[Mapping[PreviewMesh, Piece[bpy.types.Mesh]]] = MappingProxyType({
-    shape: Piece(
-        data=Ownership(kind=bpy.types.Mesh, key=f"preview_{shape.name.lower()}", saved=Saved.NEVER),
-        created=lambda data, name: data.meshes.new(name),
-        seeded=shape.filled,
-        rest={("location",): (0.0, 0.0, 0.0), ("rotation_euler",): rotation, ("scale",): scale, ("hide_render",): True},
+_SURFACES: Final[Mapping[PreviewMesh, PreviewObject[bpy.types.Mesh]]] = MappingProxyType({
+    shape: PreviewObject(
+        data=Ownership(kind=bpy.types.Mesh, key=f"preview_{shape.name.lower()}", saved=Saved.NEVER), created=lambda data, name: data.meshes.new(name), seeded=shape.filled, rest=shape.rest
     )
-    for shape, (rotation, scale) in _POSES.items()
+    for shape in PreviewMesh
 })
-_CAMERA: Final[Piece[bpy.types.Camera]] = Piece(data=Ownership(kind=bpy.types.Camera, key="preview_camera", saved=Saved.NEVER), created=lambda data, name: data.cameras.new(name), rest=_FIXED)
-_LAMP: Final[Piece[bpy.types.Light]] = Piece(data=Ownership(kind=bpy.types.Light, key="preview_lamp", saved=Saved.NEVER), created=lambda data, name: data.lights.new(name, type="SUN"), rest=_FIXED)
+_CAMERA: Final[PreviewObject[bpy.types.Camera]] = PreviewObject(
+    data=Ownership(kind=bpy.types.Camera, key="preview_camera", saved=Saved.NEVER), created=lambda data, name: data.cameras.new(name), rest=_FIXED
+)
+_SUN: Final[PreviewObject[bpy.types.Light]] = PreviewObject(
+    data=Ownership(kind=bpy.types.Light, key="preview_sun", saved=Saved.NEVER), created=lambda data, name: data.lights.new(name, type="SUN"), rest=_FIXED
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -527,9 +543,9 @@ __all__ = [
     "Ambient",
     "CameraPose",
     "Fitted",
-    "Piece",
     "PreviewLighting",
     "PreviewMesh",
+    "PreviewObject",
     "PreviewScene",
     "PreviewStack",
     "Readback",

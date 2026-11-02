@@ -107,7 +107,7 @@ def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
-    """Renames block, collision fault when another block holds name, the prior name restored where the host suffixed this one."""
+    """Renames block, taken fault when another block holds name, the prior name restored where the host suffixed this one."""
     prior, refused = block.name, partial(Fault.of, Reason.REFUSED, repr(block))
     taken: Outcome[T] = Error(Fault.of(Reason.TAKEN, name, member=member(type(block))))
 

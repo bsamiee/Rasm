@@ -16,7 +16,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Open
-from blender.bpy.commands.operators import Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import kept, Ownership, retained, Saved
 from blender.bpy.data.rna.conditions import Present, Scenes
@@ -74,7 +74,7 @@ class DataPass(IntEnum):
     @property
     def kind(self) -> Literal["VALUE", "COLOR"]:
         """AOV type the source output's socket shape takes."""
-        return "VALUE" if AOVS[self].shape is bpy.types.NodeSocketFloat else "COLOR"
+        return "VALUE" if AOVS[self].socket_type is bpy.types.NodeSocketFloat else "COLOR"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -164,8 +164,8 @@ MAPS: Final[Mapping[MapKind, MapRole]] = MappingProxyType({
 })
 AOVS: Final[Mapping[DataPass, Expr]] = MappingProxyType({
     DataPass.DEPTH: Expr(kind=bpy.types.ShaderNodeCameraData, socket="View Z Depth"),
-    DataPass.POSITION: Expr(kind=bpy.types.ShaderNodeNewGeometry, socket="Position", shape=bpy.types.NodeSocketVector),
-    DataPass.REFERENCE: Expr(kind=bpy.types.ShaderNodeAttribute, members={"attribute_name": "rest_position"}, socket="Vector", shape=bpy.types.NodeSocketVector),
+    DataPass.POSITION: Expr(kind=bpy.types.ShaderNodeNewGeometry, socket="Position", socket_type=bpy.types.NodeSocketVector),
+    DataPass.REFERENCE: Expr(kind=bpy.types.ShaderNodeAttribute, members={"attribute_name": "rest_position"}, socket="Vector", socket_type=bpy.types.NodeSocketVector),
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -173,7 +173,7 @@ AOVS: Final[Mapping[DataPass, Expr]] = MappingProxyType({
 # --- [CLASSIFY]
 
 
-def kind(path: str) -> Option[MapKind]:
+def map_kind(path: str) -> Option[MapKind]:
     """Returns kind of longest filename word match, each case change a word boundary, `Nothing` on no match or tie."""
     stem = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", PurePath(path).stem)
     found = tuple((len(word), member) for member, role in MAPS.items() for word in role.words if re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", stem, re.IGNORECASE))
@@ -187,7 +187,7 @@ def kind(path: str) -> Option[MapKind]:
 
 def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
     """Classifies files by map kind, accumulating each later file of a kind as a collision with its first."""
-    found = tuple((member, path) for path in paths for member in kind(path).to_list())
+    found = tuple((member, path) for path in paths for member in map_kind(path).to_list())
     first = dict(reversed(found))
     return accumulated(Ok(pair).filter_with(lambda held: first[held[0]] == held[1], lambda held: Fault.of(Reason.TAKEN, held[1], member=first[held[0]])) for pair in found).map(dict)
 
@@ -199,7 +199,7 @@ def material_graph(setup: ShadingSetup) -> Outcome[Graph]:
     """Builds shader graph of setup, its output and every AOV output lowered as roots, map colorspaces resolved by `Tag` on load."""
 
     def image(path: str, tag: Tag, inputs: tuple[tuple[str, Term], ...] = (), members: Members = MappingProxyType({})) -> Expr:
-        return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=Path(path), tag=tag)), socket="Color", shape=bpy.types.NodeSocketColor)
+        return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=Path(path), tag=tag)), socket="Color", socket_type=bpy.types.NodeSocketColor)
 
     def output(surface: Expr, displacement: Option[Expr] = Nothing) -> Expr:
         return Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", surface), *(("Displacement", held) for held in displacement.to_list())), members={"is_active_output": True})
@@ -208,9 +208,9 @@ def material_graph(setup: ShadingSetup) -> Outcome[Graph]:
         maps, displacement = setup.maps, Option.of_optional(setup.displacement)
         mapping = Expr(
             kind=bpy.types.ShaderNodeMapping,
-            inputs=(("Vector", Expr(kind=bpy.types.ShaderNodeTexCoord, socket=setup.projection.value, shape=bpy.types.NodeSocketVector)), ("Scale", (*setup.repeat, 1.0))),
+            inputs=(("Vector", Expr(kind=bpy.types.ShaderNodeTexCoord, socket=setup.projection.value, socket_type=bpy.types.NodeSocketVector)), ("Scale", (*setup.repeat, 1.0))),
             socket="Vector",
-            shape=bpy.types.NodeSocketVector,
+            socket_type=bpy.types.NodeSocketVector,
         )
         textures = {
             member: image(path, Tag(space=MAPS[member].space), (("Vector", mapping),), {"projection": setup.projection.name, "projection_blend": setup.projection_blend})
@@ -219,9 +219,9 @@ def material_graph(setup: ShadingSetup) -> Outcome[Graph]:
         normal = Option.of_optional(textures.get(MapKind.NORMAL)).or_else_with(
             lambda: Option.of_optional(textures.get(MapKind.NORMAL_DX)).map(lambda texture: vector("MULTIPLY_ADD", texture, (1.0, -1.0, 1.0), (0.0, 1.0, 0.0)))
         )
-        mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", shape=bpy.types.NodeSocketVector))
+        mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", socket_type=bpy.types.NodeSocketVector))
         relief = Option.of_optional(textures.get(MapKind.BUMP)).map(
-            lambda height: Expr(kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", shape=bpy.types.NodeSocketVector)
+            lambda height: Expr(kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", socket_type=bpy.types.NodeSocketVector)
         )
         glossed = Option.of_optional(textures.get(MapKind.GLOSS)).filter(lambda _: MapKind.ROUGHNESS not in maps)
         surface = Expr(
@@ -242,7 +242,7 @@ def material_graph(setup: ShadingSetup) -> Outcome[Graph]:
                     kind=bpy.types.ShaderNodeDisplacement,
                     inputs=(("Height", pair[0]), ("Scale", pair[1].scale), ("Midlevel", pair[1].midlevel)),
                     socket="Displacement",
-                    shape=bpy.types.NodeSocketVector,
+                    socket_type=bpy.types.NodeSocketVector,
                 )
             ),
         )
@@ -309,9 +309,10 @@ def color_matrix(color: ColorExpr, red: VectorExpr, green: VectorExpr, blue: Vec
 
 
 @Operator.of(Empty, condition=Some(Present(descriptor=_ACTIVE)), invoke=Some(Open(extensions=lambda _: _IMAGES)))
-def texture_setup(call: Call[Empty]) -> Outcome[Done]:
+def texture_setup(call: Call[Empty]) -> Outcome[Answer]:
     """Builds texture set material from chosen files into active object's active slot, noting unmatched files."""
     paths = tuple(map(str, call.paths))
+    answer: Outcome[Answer] = Ok(Unchanged(reason="No chosen file matches a map kind"))
 
     def assigned(maps: dict[MapKind, str], rollback: ExitStack) -> Outcome[dict[MapKind, str]]:
         return (
@@ -327,7 +328,7 @@ def texture_setup(call: Call[Empty]) -> Outcome[Done]:
         return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in frozenset(maps.values())))
 
     with ExitStack() as rollback:
-        return retained(classified(paths).bind(lambda maps: assigned(maps, rollback)), rollback).map(published)
+        return retained(classified(paths).bind(lambda maps: assigned(maps, rollback).map(published) if maps else answer), rollback)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -348,7 +349,7 @@ __all__ = [
     "Utility",
     "classified",
     "color_matrix",
-    "kind",
+    "map_kind",
     "material",
     "material_graph",
     "referenced",

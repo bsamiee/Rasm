@@ -155,7 +155,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
     def back(self) -> Color:
         """Region background display color by Blender's `region_background_color_id` and TH_BACK rules, opaque unless the region overlaps."""
         theme, space = self.preferences.themes[0], self.editor
-        stored: mathutils.Color | bpy.types.bpy_prop_array
+        stored: Shade
         match self.space, self.region:
             case "SEQUENCE_EDITOR", "PREVIEW":
                 stored = theme.sequence_editor.preview_back

@@ -27,7 +27,7 @@ type DocumentLayers[D: np.uint8 | np.uint16 | np.float32] = tuple[PixelLayer[D] 
 
 
 class PixelLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Pixel layer in unassociated color with alpha, a rasterized adjustment at its defaults."""
+    """Pixel layer in unassociated color with alpha."""
 
     name: str
     color: npt.NDArray[D]
@@ -60,7 +60,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
         """Writes layered TIFF with colorspace ICC profile.
 
         Returns:
-            Path, `read` fault for profile IO, or `write` fault.
+            Path, `UNREADABLE` fault for profile IO, or `UNWRITABLE` fault.
         """
         height, width = self.composite.shape[:2]
         canvas, void = psdtags.PsdRectangle(0, 0, height, width), psdtags.PsdRectangle(0, 0, 0, 0)
@@ -160,7 +160,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
         """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG, `basis` the frame's linear RGB-to-XYZ D65 matrix.
 
         Returns:
-            Path, or `numeric` or `write` fault.
+            Path, or `FAILED` or `UNWRITABLE` fault.
         """
 
         def signed(*values: float) -> tuple[tuple[int, int], ...]:

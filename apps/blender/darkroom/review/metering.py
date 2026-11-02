@@ -1,4 +1,4 @@
-"""Darkroom metering: the scene meter written into the earliest Exposure entry, a meter region picked or dragged over the image, and viewport following through the inverse of the shown forming."""
+"""Darkroom metering: the scene meter written into the earliest Exposure entry, a meter region picked or dragged over the image, and viewport following through the inverse of the shown formation."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
@@ -9,7 +9,6 @@ from typing import ClassVar, Final
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
 from expression import Nothing, Ok, Option, Some
-from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +16,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.keymaps import Button, Chord
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.ids.images import fingerprinted
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Job, Setting
@@ -28,6 +27,7 @@ from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.render.color.spaces import viewed
+from blender.bpy.render.compositor.entries import Enabled
 from blender.bpy.render.compositor.inputs import entered, path_key
 from blender.bpy.render.compositor.viewers import READ
 from blender.bpy.render.previews import queue
@@ -36,15 +36,15 @@ from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.scene.cameras import camera_frame
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.canvas import Canvas, captured, DrawType
-from blender.bpy.ui.drawing.handlers import Drawing, Handled, Overlay, Signal
+from blender.bpy.ui.drawing.handlers import Drawing, HandlerRefresh, Overlay, Signal
+from blender.bpy.ui.elements.panels import Child, Panel
+from blender.bpy.ui.elements.tools import Tool, Tools
 from blender.bpy.ui.images.views import FrameRegion, Picked, picking
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.bpy.ui.surfaces.panels import Child, Panel
-from blender.bpy.ui.surfaces.tools import Tool, Tools
 from blender.imaging.analysis.metering import Meter
 from blender.imaging.color.luts import Lattice, Logarithmic
 from blender.imaging.color.processors import DisplayView, processor
@@ -55,7 +55,7 @@ from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.stores import content_hash, ContentHash
 
 from ..catalog import chain
-from ..effects.grade.exposure import exposure, gain, STOPS
+from ..effects.grade.exposure import entry_stops, exposure, gain, STOPS
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -81,7 +81,7 @@ class Metering(bpy.types.PropertyGroup):
 
     low: bpy.props.FloatProperty(name="Low", description="Percentile trimmed below", subtype="PERCENTAGE", min=0.0, max=100.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     high: bpy.props.FloatProperty(name="High", description="Percentile trimmed above", subtype="PERCENTAGE", min=0.0, max=100.0, default=100.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    centre: bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    center: bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_region: bpy.props.BoolProperty(name="Region", description="Meter the region alone, the whole frame while off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     region: bpy.props.FloatVectorProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Bounds", description="Metered frame share from bottom left as left, bottom, right, and top", size=4, min=0.0, max=1.0, default=(0.0, 0.0, 1.0, 1.0)
@@ -94,11 +94,11 @@ class Metering(bpy.types.PropertyGroup):
     def meter(self) -> Meter:
         """Meter of the trims, center weight, and region, the whole frame while the region is off."""
         left, bottom, right, top = self.region
-        return Meter(low=self.low, high=self.high, centre=self.centre, region=Region(left=left, bottom=bottom, right=right, top=top) if self.use_region else Region())
+        return Meter(low=self.low, high=self.high, center_weight=self.center, region=Region.bounding(np.array(((left, bottom), (right, top)))) if self.use_region else Region())
 
 
 class Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Enabled viewport meter with its bias and agreement, the inverse of the scene view, the inverse of the composited forming, `Nothing` until its lattice is sampled, and the Exposure gain in stops."""
+    """Enabled viewport meter with its bias and agreement, the inverse of the scene view, the inverse of the composited formation, `Nothing` until its lattice is sampled, and the Exposure gain in stops."""
 
     scene: Handle[bpy.types.Scene]
     meter: Meter
@@ -117,7 +117,7 @@ _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
 class Follower:
-    """Viewport part metering the shown camera frame through the inverse of its forming, stepping toward targets consecutive readings agree on."""
+    """Viewport part metering the shown camera frame through the inverse of its formation, stepping toward targets consecutive readings agree on."""
 
     __slots__ = ("identity", "previous", "step")
     draw_type: ClassVar[DrawType] = "PRE_VIEW"
@@ -128,12 +128,12 @@ class Follower:
         self.previous: Option[tuple[Handle[bpy.types.Scene], float]] = Nothing
 
     def read(self, _metrics: Metrics) -> Outcome[Option[Following]]:
-        """Returns enabled metering with the inverses of the scene view and of the held composited forming."""
+        """Returns enabled metering with the inverses of the scene view and of the held composited formation."""
         config, identity = PyOpenColorIO.GetCurrentConfig(), self.identity
 
         def followed(scene: bpy.types.Scene, metering: Metering, view: DisplayView) -> Outcome[Following]:
             def held(viewing: PyOpenColorIO.CPUProcessor) -> Outcome[Following]:
-                return paired(AutoExposure.composited(identity, scene, view, viewing), gain(identity, scene)).map(
+                return paired(AutoExposure.composited(identity, scene, view, viewing), gain(identity, scene, enabled=Enabled.PREVIEW)).map(
                     lambda found: Following(
                         scene=Handle.of(scene), meter=metering.meter, bias=metering.bias, tolerance=metering.follow.tolerance, config=config, viewing=viewing, composited=found[0], gain=found[1]
                     )
@@ -141,7 +141,7 @@ class Follower:
 
             return (
                 view
-                .transform(config)
+                .processor(config)
                 .bind(lambda built: processor(config, PyOpenColorIO.GroupTransform([built.createGroupTransform()], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
                 .bind(lambda built: held(built.getDefaultCPUProcessor()))
             )
@@ -153,7 +153,7 @@ class Follower:
         )
 
     def drawn(self, canvas: Canvas, state: Following) -> None:
-        """Meters the scene ahead of the chain in the visible camera frame, through the composited forming's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
+        """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
         reports = self.identity.reports
 
         def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
@@ -176,7 +176,7 @@ class Follower:
 
 
 class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene meter of the earliest Exposure entry's input frame, writing absolute stops into that entry, and the viewport following it through OCIO's inverse of a lattice sampled through the composited forming."""
+    """Scene meter of the earliest Exposure entry's input frame, writing absolute stops into that entry, and the viewport following it through OCIO's inverse of a lattice sampled through the composited formation."""
 
     attachment: ClassVar[Attachment[Metering]] = Attachment(key="auto_exposure", form=Metering, owner=bpy.types.Scene)
     prerequisites: ClassVar[tuple[Declaration, ...]] = (attachment, _INVERSES, _SIGNAL)
@@ -186,7 +186,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def entry(identity: Identity, scene: bpy.types.Scene) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Returns the earliest Exposure entry, absent fault without one."""
-        return Block.of_seq(exposure.entries(identity, scene)).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
+        return exposure.earliest(identity, scene).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
 
     @staticmethod
     def written(identity: Identity, scene: bpy.types.Scene, stops: float) -> Outcome[bool]:
@@ -209,28 +209,35 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         """Moves the chain gain toward a target beyond the dead band, outside undo."""
 
         def moved(scene: bpy.types.Scene, follow: Follow, current: float) -> Outcome[Option[str]]:
-            return AutoExposure.written(identity, scene, current + follow.speed * (target - current)).map(lambda _: Nothing) if abs(target - current) > follow.band else Ok(Nothing)
+            step = follow.speed * (target - current)
+            return (
+                AutoExposure.entry(identity, scene).bind(lambda held: entry_stops(identity, held)).bind(lambda stops: AutoExposure.written(identity, scene, stops + step)).map(lambda _: Nothing)
+                if abs(target - current) > follow.band
+                else Ok(Nothing)
+            )
 
         return handle.resolve().bind(
-            lambda scene: AutoExposure.attachment.read(identity, scene).bind(lambda metering: gain(identity, scene).bind(lambda current: moved(scene, metering.follow, current)))
+            lambda scene: AutoExposure.attachment.read(identity, scene).bind(
+                lambda metering: gain(identity, scene, enabled=Enabled.PREVIEW).bind(lambda current: moved(scene, metering.follow, current))
+            )
         )
 
-    # --- [FORMING]
+    # --- [FORMATION]
 
     @staticmethod
-    def forming(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
-        """Returns the preview-enabled entries whose effects act per pixel other than the Exposure gains, the forming of the composited viewport a lattice samples, the gains it divides out."""
+    def viewport_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
+        """Returns preview-enabled pointwise entries other than Exposure, which a lattice samples as the composited viewport's formation."""
         return tuple(entry for entry in scene.compositor_effects if entry.enable_for_preview and chain.row(identity, entry).filter(lambda row: row.pointwise and row is not exposure).is_some())
 
     @staticmethod
     def keyed(config: PyOpenColorIO.Config, entries: tuple[bpy.types.SceneCompositorEffect, ...], view: DisplayView) -> Outcome[ContentHash]:
-        """Returns the content key of the forming through entries and the view under the config."""
+        """Returns the content key of the formation through entries and the view under the config."""
         return accumulated(map(fingerprinted, entries)).map(lambda keys: content_hash(AutoExposure, view, config.getCacheID().encode(), *(key for found in keys for key in found.to_list())))
 
     @staticmethod
     def composited(identity: Identity, scene: bpy.types.Scene, view: DisplayView, viewing: PyOpenColorIO.CPUProcessor) -> Outcome[Option[PyOpenColorIO.CPUProcessor]]:
-        """Returns the held inverse of the composited forming, the view's inverse `viewing` without a per-pixel entry, `Nothing` until its lattice is sampled."""
-        entries, held = AutoExposure.forming(identity, scene), identity.held[_INVERSES]
+        """Returns the held inverse of the composited formation, the view's inverse `viewing` without a per-pixel entry, `Nothing` until its lattice is sampled."""
+        entries, held = AutoExposure.viewport_entries(identity, scene), identity.resources[_INVERSES]
         return (
             AutoExposure.keyed(PyOpenColorIO.GetCurrentConfig(), entries, view).map(lambda key: held.wanted.filter(lambda wanted: wanted == key).bind(lambda _: held.value))
             if entries
@@ -247,17 +254,17 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
             .bind(lambda samples: PreviewScene().sampled(identity, scene, entries, samples))
             .bind(lambda plane: view.form(config, plane))
             .bind(lambda formed: processor(config, PyOpenColorIO.GroupTransform([_LATTICE.transform(formed)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
-            .map(lambda built: identity.held[_INVERSES].published(key, built.getDefaultCPUProcessor()))
-            .bind(lambda _: identity.held[_SIGNAL].fired())
+            .map(lambda built: identity.resources[_INVERSES].published(key, built.getDefaultCPUProcessor()))
+            .bind(lambda _: identity.resources[_SIGNAL].fired())
         )
 
     @staticmethod
     def jobs(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[queue.Job, ...]]:
-        """Returns the lattice sampling of the context scene's composited forming while the scene follows and holds no inverse of it."""
-        held = identity.held[_INVERSES]
+        """Returns the lattice sampling of the context scene's composited formation while the scene follows and holds no inverse of it."""
+        held = identity.resources[_INVERSES]
 
         def wanted(scene: bpy.types.Scene, metering: Metering) -> Outcome[tuple[queue.Job, ...]]:
-            entries, view = AutoExposure.forming(identity, scene), viewed(scene)
+            entries, view = AutoExposure.viewport_entries(identity, scene), viewed(scene)
             return AutoExposure.keyed(PyOpenColorIO.GetCurrentConfig(), entries, view).map(
                 lambda key: (
                     (queue.Job(place=AutoExposure, key=key, rank=Rank.SHOWN, run=partial(AutoExposure.inverted, identity, scene, entries, view, key)),)
@@ -302,7 +309,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                 Timer(body=partial(self.ticked, identity)),
                 Overlay[Following](
                     drawing=Drawing(
-                        area=_VIEWPORTS, part=Follower(identity, step), refreshes=(identity.held[_SIGNAL], Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
+                        area=_VIEWPORTS, part=Follower(identity, step), refreshes=(identity.resources[_SIGNAL], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
                     ),
                     respect_overlays=False,
                 ),
@@ -313,7 +320,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@Operator.of(Empty, condition=Some(Job(kind="RENDER")), undo=Nothing)
+@Operator.of(Empty, condition=Some(Job(kind="RENDER")), undo=NoUndo())
 def meter_exposure(call: Call[Empty]) -> Outcome[Answer]:
     """Meter the Exposure entry input and write absolute stops."""
     return (

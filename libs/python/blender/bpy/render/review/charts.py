@@ -7,7 +7,7 @@ from functools import partial
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,8 +17,8 @@ from blender.bpy.data.ids.images import fingerprinted, read
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.mirrors import enum_choices
 from blender.bpy.data.rna.paths import root_in, rooted
+from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.render.color.spaces import viewed
@@ -29,14 +29,14 @@ from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
 from blender.bpy.ui.drawing.canvas import Canvas, DrawType
 from blender.bpy.ui.drawing.charts import Layer
-from blender.bpy.ui.drawing.handlers import Handled, Refresh, Signal
+from blender.bpy.ui.drawing.handlers import HandlerRefresh, Refresh, Signal
 from blender.bpy.ui.images.views import framed, image_type, overlaid
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.color.calibration import ChartPlacement, Colors, PublishedChart
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Homography, Quad
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.stores import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -79,10 +79,10 @@ class PlacedChart(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ChartImage(bpy.types.PropertyGroup):
-    """Chart over an image: whether it draws, the chart a placement seats, and its patch fill opacity, its placement and samples stored on the group."""
+    """Chart over an image: whether it draws, the chart a placement positions, and its patch fill opacity, its placement and samples stored on the group."""
 
     shown: bpy.props.BoolProperty(name="Show Chart", description="Draw chart and handles over image", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    chart: bpy.props.EnumProperty(name="Chart", description="Chart a placement seats", items=enum_choices(PublishedChart))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    chart: bpy.props.EnumProperty(name="Chart", description="Chart a placement positions", items=enum_choices(PublishedChart))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     opacity: bpy.props.FloatProperty(name="Opacity", description="Patch fill opacity", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -140,27 +140,27 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
         return self.charts.bound(identity).bind(lambda chart: self.kept(chart, image)).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.SAMPLED, image.name)))
 
     def sampled(self, identity: Identity, _owner: object, image: bpy.types.Image) -> bool:
-        """Answers whether an image holds a chart with every patch sampled, the poll of an image pointer choosing sampled charts."""
+        """Returns whether an image holds a chart with every patch sampled, the poll of an image pointer choosing sampled charts."""
         return self.record(identity, image).to_option().bind(lambda record: record.sampled).is_some()
 
     @staticmethod
     def aspect(context: bpy.types.Context, image: bpy.types.Image) -> Outcome[float]:
-        """Returns an image's displayed width over height, Render Result's from the scene's framing."""
+        """Returns an image's displayed width over height, Render Result's from the scene's framing, absent fault for an image holding no pixels."""
         match image.type:
             case "RENDER_RESULT":
                 return rooted(bpy.types.Scene, context).map(lambda scene: Framing.of(scene.render).aspect)
             case _:
                 width, height = np.asarray(image.size)
-                return Ok(float(width / height))
+                return Ok(float(width / height)) if width > 0 and height > 0 else Error(Fault.of(Reason.ABSENT, repr(image), member="pixels"))
 
     @staticmethod
-    def seated(chart: PublishedChart, ratio: float) -> ChartPlacement:
-        """Returns a chart seated at the image center across half its width, its cells square at the image's aspect ratio."""
+    def centered(chart: PublishedChart, ratio: float) -> ChartPlacement:
+        """Returns a chart centered on the image across half its width, its cells square at the image's aspect ratio."""
         columns, rows = chart.shape
         return ChartPlacement(chart=chart, quad=Quad.of(np.array(((-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0))) * (0.25, 0.25 * ratio * rows / columns) + 0.5))
 
     @staticmethod
-    def planed(context: bpy.types.Context, image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
+    def plane(context: bpy.types.Context, image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
         """Returns an image's scene-linear associated RGBA plane, Render Result's as the context view layer's saved Combined pass."""
         config = PyOpenColorIO.GetCurrentConfig()
 
@@ -171,9 +171,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
 
         match image.type:
             case "RENDER_RESULT":
-                return paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(
-                    lambda pair: saved(pair[0]).bind(lambda path: combined(path, Some(pair[1].name))).map(lambda found: found[1])
-                )
+                return paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda pair: saved(pair[0]).bind(lambda path: combined(path, Some(pair[1].name))))
             case _:
                 return read(image, config).bind(linear)
 
@@ -192,7 +190,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
     def composited(self, identity: Identity, scene: bpy.types.Scene, values: npt.NDArray[np.float32]) -> Outcome[Option[npt.NDArray[np.float32]]]:
         """Returns scene-linear values passed through the scene's render effects, `Nothing` until their background sampling finished."""
         effects = self.effects(scene)
-        return self.keyed(effects, values).map(lambda key: Option.of_optional(identity.held[_COMPOSITED].get(key))) if effects else Ok(Some(values))
+        return self.keyed(effects, values).map(lambda key: Option.of_optional(identity.resources[_COMPOSITED].get(key))) if effects else Ok(Some(values))
 
     def colors(self, identity: Identity, scene: bpy.types.Scene, image: bpy.types.Image, values: npt.NDArray[np.float32]) -> Outcome[Option[npt.NDArray[np.float32]]]:
         """Returns scene-linear values in the colors the editor shows the image in: through the effects and the scene's view for Render Result, the scene's view for a view-as-render image, else the display's default view."""
@@ -206,15 +204,15 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
                 return DisplayView(display=view.display, view=config.getDefaultView(view.display)).form(config, values).map(Some)
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
-        """Returns the sampling request of each Render Result chart whose colors through the scene's effects are not held yet."""
-        held, config = identity.held[_COMPOSITED], PyOpenColorIO.GetCurrentConfig()
+        """Returns the sampling request of each Render Result chart with colors through the scene's effects not held yet."""
+        held, config = identity.resources[_COMPOSITED], PyOpenColorIO.GetCurrentConfig()
 
         def wanted(scene: bpy.types.Scene, image: bpy.types.Image, record: PlacedChart) -> Outcome[Option[Job]]:
             effects = self.effects(scene)
 
             def kept(key: ContentHash, plane: npt.NDArray[np.float32]) -> Outcome[None]:
                 held[key] = plane[0]
-                return identity.held[_SIGNAL].fired()
+                return identity.resources[_SIGNAL].fired()
 
             def stored(key: ContentHash, values: npt.NDArray[np.float32]) -> Outcome[None]:
                 return PreviewScene().sampled(identity, scene, effects, values[np.newaxis]).bind(partial(kept, key))
@@ -237,7 +235,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def refreshes(identity: Identity) -> tuple[Refresh, ...]:
         """Returns the refreshes of every drawing over charts: scene and image updates, and each finished effect sampling."""
-        return (Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)), identity.held[_SIGNAL])
+        return (HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)), identity.resources[_SIGNAL])
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
@@ -257,7 +255,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
     identity: Identity
 
     def read(self, _metrics: Metrics, /) -> Outcome[Option[Mapping[Handle[bpy.types.Image], tuple[Layer, Layer]]]]:
-        """Batches every charted image's fills at its opacity and its edges opaque, an image whose colors are not formed yet left out."""
+        """Batches every charted image's fills at its opacity and its edges opaque, an image with unformed colors left out."""
         charting, identity, config = self.charting, self.identity, PyOpenColorIO.GetCurrentConfig()
 
         def layered(scene: bpy.types.Scene, image: bpy.types.Image, group: ChartImage, record: PlacedChart) -> Outcome[Option[tuple[Handle[bpy.types.Image], tuple[Layer, Layer]]]]:

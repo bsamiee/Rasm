@@ -19,7 +19,7 @@ from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import Border, extended, FrameSpace
 from blender.bpy.render.compositor.editors import FilePath
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED, timing
 from blender.bpy.render.compositor.shapes import PROFILE, profiled, rotated
 from blender.imaging.geometry.arithmetic import smoothstep
@@ -45,7 +45,6 @@ class Front(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ZERO: Final = (0.0, 0.0, 0.0)
 _CENTER: Final = Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Point the field centers on in frame fractions", default_value=(0.5, 0.5))
 _TURN: Final = Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Counterclockwise turn at center", default_value=6.1)
 _REACH: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Distance where the turn reaches zero over greater frame side", min_value=0.0, default_value=0.5)
@@ -99,7 +98,7 @@ class Displacement(Case, frozen=True, kw_only=True):
 # --- [TERMS]
 
 
-def _twirled(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+def _twirled(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     """Offset turning points about the center, the turn falling smoothly to zero at the radius and lobed by the arms."""
     read = partial(shell.input, _TWIRL)
     arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
@@ -108,7 +107,7 @@ def _twirled(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
     return arm - rotated(arm, -read(_TURN) * falling * lobed)
 
 
-def _waved(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+def _waved(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     """Offsets of every superposed crest along its front's displacement axis at the held clock, one Menu Switch choosing profile and one choosing front."""
     read, varied, count = partial(shell.input, _WAVE), partial(shell.input, _WAVE.panel(_VARIATION.key)), shell.record.waves
     arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
@@ -134,16 +133,17 @@ def _waved(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
     swings = tuple(
         (amplitude * (straight * 2.0 - 1.0), amplitude * (round_ * 2.0 - 1.0) * envelope, normal) for straight, round_, (_, _, amplitude, normal) in zip(waves[::2], waves[1::2], crests, strict=True)
     )
+    rounds = reduce(add, (round_ for _, round_, _ in swings))
     fronts = {
         Front.LINEAR: reduce(add, (vector("SCALE", normal, straight) for straight, _, normal in swings)),
-        Front.RADIAL: vector("SCALE", spoke, reduce(add, (round_ for _, round_, _ in swings))),
-        Front.ZIGZAG: vector("SCALE", tangent, reduce(add, (round_ for _, round_, _ in swings))),
-        Front.POND: vector("SCALE", (spoke + tangent) * 0.5**0.5, reduce(add, (round_ for _, round_, _ in swings))),
+        Front.RADIAL: vector("SCALE", spoke, rounds),
+        Front.ZIGZAG: vector("SCALE", tangent, rounds),
+        Front.POND: vector("SCALE", (spoke + tangent) * 0.5**0.5, rounds),
     }
     return vector("MULTIPLY", shell.menu(_WAVE, _FRONT, cases={MenuItem.of(front): held for front, held in fronts.items()}), read(_AXES))
 
 
-def _turbulent(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+def _turbulent(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     """Offsets of one evolving noise per axis at the held clock."""
     read = partial(shell.input, _TURBULENCE)
     (across, _), (up, _) = textured(
@@ -158,7 +158,7 @@ def _turbulent(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
     return vector("MULTIPLY", xyz(across * 2.0 - 1.0, up * 2.0 - 1.0), read(_AXES)) * read(_AMPLITUDE)
 
 
-def _bulged(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
+def _bulged(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     """Offsets moving each point inside the circle along the hemisphere mapping, bulging above zero and pinching below."""
     read = partial(shell.input, _SPHERE)
     amount = read(_AMOUNT)
@@ -172,7 +172,7 @@ def _bulged(shell: Shell[Displacement], frame: FrameSpace) -> Expr:
 # --- [GRAPH]
 
 
-def _warped(shell: Shell[Displacement]) -> Outcome[Expr]:
+def _warped(shell: GraphInputs[Displacement]) -> Outcome[Expr]:
     """Samples the entry input at each point less the summed toggled displacement, drops mixing their inverted, blurred view over the glass view."""
     frame, record, color = shell.space, shell.record, shell.color
 
@@ -195,7 +195,7 @@ def _warped(shell: Shell[Displacement]) -> Outcome[Expr]:
             (GLASS, glass_offset),
             (MAP, map_offset),
         )
-        offset = reduce(add, (switched(shell.input(panel), _ZERO, term) for panel, term in terms))
+        offset = reduce(add, (switched(shell.input(panel), (0.0, 0.0, 0.0), term) for panel, term in terms))
         coverage = switched(shell.input(MAP), 1.0, map_coverage)
         seen = sample(switched(shell.input(GLASS), color, glass_source), frame.point - offset, coverage)
         dropped = sample(drop_source, frame.point - offset - inside, coverage)

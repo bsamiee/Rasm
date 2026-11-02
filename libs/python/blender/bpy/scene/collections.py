@@ -28,7 +28,7 @@ type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollectio
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
+class CollectionState(msgspec.Struct, frozen=True, kw_only=True):
     """Desired collection state, absent fields unchanged."""
 
     members: Option[tuple[Handle[Member], ...]] = Nothing
@@ -82,8 +82,8 @@ def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...
     )
 
 
-def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Outcome[tuple[Member, ...]]:
-    """Unlinks undesired members, links missing ones, and writes Outliner order, accumulating every expired member handle, then values, returning the members changed in that order and stopping at first fault."""
+def reconciled(tree: CollectionState, collection: bpy.types.Collection) -> Outcome[tuple[Member, ...]]:
+    """Unlinks undesired members, links missing ones, writes Outliner order and values, returning members changed, every expired handle accumulated."""
 
     def listed(wanted: tuple[Handle[Member], ...]) -> Outcome[tuple[Member, ...]]:
         held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
@@ -127,7 +127,7 @@ def _linked(collection: bpy.types.Collection, member: Member, *, linked: bool) -
 # --- [PLACEMENT]
 
 
-def landing(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
+def active_editable(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
     """Returns active collection or nearest editable included ancestor."""
     active: bpy.types.Collection = view_layer.active_layer_collection.collection  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     layers = {node.collection: node for node, _ in reversed(tuple(walked(view_layer.layer_collection)))}
@@ -173,7 +173,7 @@ def _holders(item: bpy.types.Object, scene: bpy.types.Scene) -> tuple[bpy.types.
 # --- [LIFETIME]
 
 
-def founded(parent: Option[bpy.types.Collection], name: str) -> Outcome[bpy.types.Collection]:
+def created(parent: Option[bpy.types.Collection], name: str) -> Outcome[bpy.types.Collection]:
     """Creates collection under parent named name, removing it on fault."""
     return kept(catch(bpy.data.collections.new, exception=RuntimeError)(name).map_error(partial(Fault.of, Reason.REFUSED, name)), lambda made: _parented(made, parent))
 
@@ -199,7 +199,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
             owned: set[bpy.types.ID] = set(mapping.values())
 
             def custom(group: IDPropertyGroup) -> Outcome[None]:
-                def rewired(name: str, value: object) -> Outcome[None]:
+                def remapped(name: str, value: object) -> Outcome[None]:
                     match value:
                         case bpy.types.ID() if value in mapping:
                             return catch(group.update, exception=ReferenceError)({name: mapping[value]}).map(lambda _: None).map_error(partial(Fault.of, Reason.REFUSED, f"{group!r}[{name!r}]"))
@@ -210,7 +210,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         case _:
                             return Ok(None)
 
-                return accumulated(starmap(rewired, group.items())).map(lambda _: None)
+                return accumulated(starmap(remapped, group.items())).map(lambda _: None)
 
             def repointed(owner: Struct) -> Outcome[None]:
                 if (identity := ((owner.as_pointer(), type(owner)))) in seen:
@@ -241,7 +241,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                     lambda _: None
                 )
 
-            def mirrored(original: bpy.types.Collection) -> Outcome[None]:
+            def rebuilt(original: bpy.types.Collection) -> Outcome[None]:
                 made = collections[original]
                 members = (*original.objects, *original.children)
                 wanted: tuple[Member, ...] = (*(objects[item] for item in original.objects), *(collections.get(child, child) for child in original.children))
@@ -270,7 +270,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                             relinked(parent, (made,), linked=True)
                             .bind(lambda _: entry(parent, made))
                             .bind(lambda held: values.apply(held).outcome)
-                            .bind(lambda _: reconciled(CollectionTree(members=Some(members)), parent))
+                            .bind(lambda _: reconciled(CollectionState(members=Some(members)), parent))
                         )
                     )
                     .map(lambda _: made)
@@ -278,7 +278,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 
             for original, made in objects.items():
                 made.matrix_parent_inverse = original.matrix_parent_inverse.copy()
-            return accumulated(repointed(made) for made in mapping.values()).bind(lambda _: accumulated(mirrored(held) for held in tree)).bind(placed)
+            return accumulated(repointed(made) for made in mapping.values()).bind(lambda _: accumulated(rebuilt(held) for held in tree)).bind(placed)
 
         return retained(
             copied(tree).bind(
@@ -295,7 +295,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.Collection]:
     """Wraps object in collection under its editable holders or scene collection, removing it on fault."""
     holders = _holders(item, scene) or (scene.collection,)
-    return kept(founded(Nothing, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made))
+    return kept(created(Nothing, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made))
 
 
 def ungrouped(collection: bpy.types.Collection) -> Outcome[int]:
@@ -324,17 +324,17 @@ def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "CollectionTree",
+    "CollectionState",
     "LayerPath",
     "Member",
+    "active_editable",
     "cloned",
+    "created",
     "deleted",
     "duplicated",
     "entry",
-    "founded",
     "grouped",
     "instanced",
-    "landing",
     "moved",
     "parents",
     "reconciled",

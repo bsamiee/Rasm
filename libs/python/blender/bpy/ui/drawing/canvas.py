@@ -100,6 +100,18 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
+class FontStyle(msgspec.Struct, frozen=True, kw_only=True):
+    """Text size in device pixels or a theme font style's scaled size, its alignment along the rotation, and its `blf` options, `shadow` the theme style's while unstated and `Some(Nothing)` none."""
+
+    size: float | bpy.types.ThemeFontStyle
+    align: Align = Align.START
+    shadow: Option[Option[Shadow]] = Nothing
+    font: int = 0
+    wrap: Option[float] = Nothing
+    clip: Option[Rect] = Nothing
+    rotation: float = 0.0
+
+
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     """Draw state of one region: interface metrics, visible extent, the editor and region drawn in, the clip planes of a clipping 3D View while drawing in its world space, and the window pointer a cursor drawing draws at."""
 
@@ -161,7 +173,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @contextmanager
     def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
-        """Narrows scissor to a pixel or View2D rectangle under the scissor test, which region drawing outside viewports already holds on, restoring the box it found."""
+        """Narrows scissor to a pixel or View2D rectangle under the scissor test, which region drawing outside viewports holds on, restoring the box it found."""
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
             case Option(tag="some", some=held):
@@ -181,7 +193,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def shader(self, name: str) -> Generator[gpu.types.GPUShader]:
-        """Binds a built-in shader for the scope, under held clip planes its clipped configuration with six clip distances and the model matrix the view matrix leaves of the stack, the configuration only uniform, flat, smooth, and uniform polyline shaders hold."""
+        """Binds a built-in shader for the scope, its `CLIPPED` configuration under held clip planes."""
         with ExitStack() as stack:
             match self.clipping, self.region.data:
                 case Option(tag="some", some=planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
@@ -221,32 +233,18 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [TEXT]
 
-    def measured(self, text: str, size: float | bpy.types.ThemeFontStyle, *, font: int = 0, wrap: Option[float] = Nothing) -> tuple[float, float]:
-        """Returns the width and height text takes at a device-pixel size or a theme font style's scaled size, wrapped to a width when given."""
-        with _typeset(self.metrics, font, size, Nothing, wrap, Nothing, 0.0):
-            return blf.dimensions(font, text)
+    def measured(self, text: str, style: FontStyle) -> tuple[float, float]:
+        """Returns the width and height text takes in a font style."""
+        with _typeset(self.metrics, style):
+            return blf.dimensions(style.font, text)
 
-    def label(  # ruff: ignore[too-many-arguments]
-        self,
-        text: str,
-        at: tuple[float, float],
-        color: Color,
-        size: float | bpy.types.ThemeFontStyle,
-        align: Align = Align.START,
-        shadow: Option[Option[Shadow]] = Nothing,
-        *,
-        font: int = 0,
-        wrap: Option[float] = Nothing,
-        clip: Option[Rect] = Nothing,
-        rotation: float = 0.0,
-    ) -> None:
-        """Draws text as given under the blend mode it found, aligned along its rotation, a theme font style giving its scaled size and its shadow unless one is stated, `Some(Nothing)` drawing none."""
-        styled = shadow.default_with(lambda: Shadow.of(size) if isinstance(size, bpy.types.ThemeFontStyle) else Nothing)
-        x, y = at
-        with Canvas.blended(_BLEND_GET()), _typeset(self.metrics, font, size, styled, wrap, clip, rotation):
-            reach = blf.dimensions(font, text)[0] * align.value
+    def label(self, text: str, at: tuple[float, float], color: Color, style: FontStyle) -> None:
+        """Draws text as given in a font style under the blend mode it found."""
+        font, x, y = style.font, *at
+        with Canvas.blended(_BLEND_GET()), _typeset(self.metrics, style):
+            reach = blf.dimensions(font, text)[0] * style.align.value
             blf.color(font, *color)
-            blf.position(font, x - reach * math.cos(rotation), y - reach * math.sin(rotation), 0.0)
+            blf.position(font, x - reach * math.cos(style.rotation), y - reach * math.sin(style.rotation), 0.0)
             blf.draw(font, text)
 
     # --- [PRIMITIVES]
@@ -390,8 +388,10 @@ def _restored[T](read: Callable[[], T], write: Callable[[T], None], value: T) ->
 
 
 @contextmanager
-def _typeset(metrics: Metrics, font: int, size: float | bpy.types.ThemeFontStyle, shadow: Option[Shadow], wrap: Option[float], clip: Option[Rect], rotation: float) -> Generator[None]:
+def _typeset(metrics: Metrics, style: FontStyle) -> Generator[None]:
     """Sets font size, a theme font style's at interface scale, and enables the shadow, wrap, clip, and rotation given, disabling each at scope exit."""
+    font, size, wrap, clip, rotation = style.font, style.size, style.wrap, style.clip, style.rotation
+    shadow = style.shadow.default_with(lambda: Shadow.of(size) if isinstance(size, bpy.types.ThemeFontStyle) else Nothing)
     blf.size(font, metrics.font(size) if isinstance(size, bpy.types.ThemeFontStyle) else size)
     with ExitStack() as stack:
         for shade in shadow.to_list():
@@ -498,4 +498,4 @@ PROGRAMS: Final = programs(_rounded.cache_clear, _textured.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "DrawType", "Offscreen", "Rect", "Shadow", "captured", "programs"]
+__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "DrawType", "FontStyle", "Offscreen", "Rect", "Shadow", "captured", "programs"]

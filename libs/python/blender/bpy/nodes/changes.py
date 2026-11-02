@@ -17,12 +17,12 @@ from blender.bpy.data.rna.descriptors import differing, Value, written
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.addressing import Addressed, Keyed
-from blender.bpy.nodes.desired import Addressing, Content, End, Graph, Link, member_paths, Node
+from blender.bpy.nodes.addressing import InterfaceKeys, OwnedNodes
+from blender.bpy.nodes.desired import Content, End, Graph, ItemContent, Link, Node
 from blender.bpy.nodes.interface_changes import Declared, interfaced, Placed, Restated, Withdrawn
 from blender.bpy.nodes.interfaces import Interface, NodeGroup
-from blender.bpy.nodes.trees import created, endpoints, group_tree, grouped, joined, links_of, ordered, socket_at
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
+from blender.bpy.nodes.trees import created, endpoints, group_set, group_tree, linked, links_of, new_group, ordered, socket_at
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -34,21 +34,21 @@ type Changes = tuple[tuple[_Row, ...], ...]
 # --- [CONTENT]
 
 
-class Nested(Addressing, frozen=True, kw_only=True):
+class GroupContent(ItemContent, frozen=True, kw_only=True):
     """Owned group a group node points at, reconciled as a hidden tree of its own."""
 
     group: NodeGroup
 
     @property
     @override
-    def keyed(self) -> object:
-        """Group key and name the lowering digest reads, the parts the node's owned tree takes from the group."""
+    def digest_form(self) -> object:
+        """Group key and name."""
         return (self.group.key, self.group.name)
 
     @property
     @override
     def groups(self) -> tuple[Ownership[bpy.types.NodeTree], ...]:
-        """The group, then every group it nests."""
+        """Group, then every group it nests."""
         return (self.group.ownership, *self.group.graph.groups)
 
     @override
@@ -62,14 +62,14 @@ class Nested(Addressing, frozen=True, kw_only=True):
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return made(msgspec.structs.replace(self.group, name=f".{self.group.name}"), identity).bind(lambda tree: grouped(live, tree))
+        return made(msgspec.structs.replace(self.group, name=f".{self.group.name}"), identity).bind(lambda tree: group_set(live, tree))
 
     @override
     def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
         return (
             self.group.ownership
             .reused(identity)
-            .bind(lambda tree: Addressed.of(tree, identity).to_option())
+            .bind(lambda tree: InterfaceKeys.of(tree, identity).to_option())
             .map(lambda held: (held.sockets, held.kept(self.group.interface)))
             .map(lambda pair: {key: identifier for key, identifier in pair[0].items() if key in pair[1]})
             .default_value({})
@@ -84,7 +84,7 @@ class Configured(msgspec.Struct, frozen=True, kw_only=True):
 
     members: Mapping[RnaPath, Value]
 
-    def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, _identity: Identity) -> Outcome[None]:
         """Writes the tree members."""
         return assigned(keyed.tree, self.members)
 
@@ -94,7 +94,7 @@ class Removed(msgspec.Struct, frozen=True, kw_only=True):
 
     item: bpy.types.Node | bpy.types.NodeLink
 
-    def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, _identity: Identity) -> Outcome[None]:
         """Removes the link or node, the node with its links."""
         match self.item:
             case bpy.types.NodeLink() as link:
@@ -110,7 +110,7 @@ class Added(msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     kind: type[bpy.types.Node]
 
-    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Creates the node and marks it with its key."""
         return created(keyed.tree, self.kind).bind(lambda made: Mark(key=self.key).write(identity, made))
 
@@ -123,7 +123,7 @@ class Altered(msgspec.Struct, frozen=True, kw_only=True):
     content: Option[Content] = Nothing
     parent: Option[Option[Key]] = Nothing
 
-    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Writes content, then members, then the parent frame."""
 
         def framed(live: bpy.types.Node, frame: Option[Key]) -> Outcome[None]:
@@ -145,10 +145,10 @@ class Connected(msgspec.Struct, frozen=True, kw_only=True):
 
     link: Link
 
-    def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, _identity: Identity) -> Outcome[None]:
         """Links the two ends, a target its node's members leave unavailable taking no link."""
         return paired(keyed.socket(self.link.source.node, self.link.source.socket, output=True), keyed.socket(self.link.target.node, self.link.target.socket, output=False)).bind(
-            lambda pair: joined(keyed.tree, *pair, verify_limits=False).map(lambda _: None) if pair[1].enabled else Ok(None)
+            lambda pair: linked(keyed.tree, *pair, verify_limits=False).map(lambda _: None) if pair[1].enabled else Ok(None)
         )
 
 
@@ -158,7 +158,7 @@ class Reordered(msgspec.Struct, frozen=True, kw_only=True):
     target: End
     sources: tuple[End, ...]
 
-    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Orders the owned links into the target by the sources' order."""
 
         def reordered(target: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> Outcome[None]:
@@ -185,7 +185,7 @@ class Valued(msgspec.Struct, frozen=True, kw_only=True):
     inputs: Mapping[str | int, Value] = MappingProxyType({})
     outputs: Mapping[str | int, Value] = MappingProxyType({})
 
-    def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
+    def applied(self, keyed: OwnedNodes, _identity: Identity) -> Outcome[None]:
         """Writes socket defaults."""
         return (
             keyed.node(self.key).bind(lambda live: paired(valued(live.inputs, self.inputs, keyed.sockets[self.key]), valued(live.outputs, self.outputs, keyed.sockets[self.key]))).map(lambda _: None)
@@ -205,10 +205,10 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
 
     Returns:
         `Ok` of rows by write phase: links to drop, structure, item retypes and places, node parts, links, link order, socket values, item parts, each phase empty
-        for a current tree. `Error` of `absent` or `choice` for content member node class lacks, `register` for refused attachment name.
+        for a current tree. `Error` of `absent` or `outside` for content member node class lacks, `unregistered` for refused attachment name.
     """
     graph, interface = (desired.graph, desired.interface) if isinstance(desired, NodeGroup) else (desired, Interface())
-    return paired(Keyed.of(tree, identity, graph.contents), Addressed.of(tree, identity)).bind(lambda pair: _read(graph, interface, *pair, identity))
+    return paired(OwnedNodes.of(tree, identity, graph.contents), InterfaceKeys.of(tree, identity)).bind(lambda pair: _read(graph, interface, *pair, identity))
 
 
 def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> Outcome[Changes]:
@@ -220,12 +220,12 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
         identity: Extension marking owned nodes.
 
     Returns:
-        `Ok` of rows written. `Error` of `changes` faults, or every `edit`, `absent`, or `choice` fault from phase writes.
+        `Ok` of rows written. `Error` of `changes` faults, or every `refused`, `absent`, or `outside` fault from phase writes.
     """
     contents = (desired.graph if isinstance(desired, NodeGroup) else desired).contents
 
     def wrote(phase: tuple[_Row, ...]) -> Outcome[None]:
-        return Keyed.of(tree, identity, contents).bind(lambda keyed: accumulated(row.applied(keyed, identity) for row in phase)).map(lambda _: None)
+        return OwnedNodes.of(tree, identity, contents).bind(lambda keyed: accumulated(row.applied(keyed, identity) for row in phase)).map(lambda _: None)
 
     return changes(desired, tree, identity).bind(lambda rows: reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), rows, Result[None, Faults](ok=None)).map(lambda _: rows))
 
@@ -241,13 +241,7 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
     Returns:
         `Ok` of group tree. `Error` of reconcile faults, removing any tree the call built.
     """
-    request = repr(bpy.data.node_groups)
-
-    def built() -> Outcome[bpy.types.NodeTree]:
-        tree = catch(bpy.data.node_groups.new, exception=TypeError)(group.name, group.graph.kind.__name__)
-        return tree.map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.NodeTree, request))
-
-    return group.ownership.made(identity, built, of=of, filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree))
+    return group.ownership.made(identity, partial(new_group, group.graph.kind, group.name), of=of, filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree))
 
 
 def valued(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str, Value] | Mapping[str | int, Value], keyed: Mapping[str, str]) -> Outcome[None]:
@@ -255,10 +249,10 @@ def valued(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mappin
     return accumulated(socket_at(sockets, address, keyed).bind(lambda socket: written(socket, ("default_value",), value)) for address, value in values.items()).map(lambda _: None)
 
 
-def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed, identity: Identity) -> Outcome[Changes]:
-    tree, first = keyed.tree, keyed.nodes
+def _read(graph: Graph, interface: Interface, keyed: OwnedNodes, addressed: InterfaceKeys, identity: Identity) -> Outcome[Changes]:
+    tree, marked = keyed.tree, keyed.nodes
     placed = graph.placed
-    held = {key: node for key, node in first.items() if key in placed and isinstance(node, placed[key][0].kind)}
+    held = {key: node for key, node in marked.items() if key in placed and isinstance(node, placed[key][0].kind)}
     owners = {node: key for key, node in held.items()}
     sockets = {key: keyed.sockets[key] for key in held}
 
@@ -278,17 +272,17 @@ def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed
         }
 
     def altered(key: Key, node: Node, parent: Option[Key]) -> Outcome[Option[Altered]]:
-        def drawn(live: bpy.types.Node) -> Outcome[Altered]:
-            framed = parent.bind(lambda frame: Option.of_optional(held.get(frame))).to_optional() == live.parent
+        def compared(live: bpy.types.Node) -> Outcome[Altered]:
+            framed = parent.map(lambda frame: frame in held and held[frame] == live.parent).default_with(lambda: live.parent is None)
             return (
                 node.content
                 .map(lambda wanted: wanted.holds(live, identity).map(lambda now: Nothing if now else Some(wanted)))
                 .default_value(Ok(Nothing))
-                .map(lambda content: Altered(key=key, members=differing(live, member_paths(node.members)), content=content, parent=Nothing if framed else Some(parent)))
+                .map(lambda content: Altered(key=key, members=differing(live, node.paths), content=content, parent=Nothing if framed else Some(parent)))
             )
 
-        fresh = Altered(key=key, members=member_paths(node.members), content=node.content, parent=parent.map(Some))
-        return (drawn(held[key]) if key in held else Ok(fresh)).map(lambda row: Some(row).filter(lambda row: row != Altered(key=key)))
+        fresh = Altered(key=key, members=node.paths, content=node.content, parent=parent.map(Some))
+        return (compared(held[key]) if key in held else Ok(fresh)).map(lambda row: Some(row).filter(lambda row: row != Altered(key=key)))
 
     def linked(
         alterations: tuple[Altered, ...], rewritten: frozenset[Key], surviving: Mapping[Key, tuple[str, type[bpy.types.NodeSocket]]]
@@ -313,7 +307,7 @@ def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed
             change.key: {item: (identifier, bpy.types.NodeSocket) for item, identifier in content.sockets(held[change.key], identity).items()}
             for change in alterations
             if change.key in held
-            for content in change.content.bind(lambda each: Option.of_optional(try_downcast(Addressing, each))).to_list()
+            for content in change.content.bind(lambda each: Option.of_optional(try_downcast(ItemContent, each))).to_list()
             if content.groups
         }
         interfaces: dict[Key, Mapping[str, tuple[str, type[bpy.types.NodeSocket]]]] = {**own, **pointed}
@@ -376,10 +370,10 @@ def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed
         return (
             disconnected,
             (
-                *(Configured(members=members) for members in (differing(tree, member_paths(graph.members)),) if members),
+                *(Configured(members=members) for members in (differing(tree, graph.paths),) if members),
                 *withdrawn,
                 *declared,
-                *(Removed(item=node) for node in first.values() if node not in owners),
+                *(Removed(item=node) for node in marked.values() if node not in owners),
                 *(Added(key=key, kind=node.kind) for key, (node, _) in placed.items() if key not in held),
             ),
             placements,
@@ -395,4 +389,4 @@ def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Added", "Altered", "Changes", "Configured", "Connected", "Nested", "Removed", "Reordered", "Valued", "changes", "made", "reconciled", "valued"]
+__all__ = ["Added", "Altered", "Changes", "Configured", "Connected", "GroupContent", "Removed", "Reordered", "Valued", "changes", "made", "reconciled", "valued"]

@@ -18,7 +18,7 @@ from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
 from blender.bpy.nodes.functions import POSITION, sampled, W
 from blender.bpy.nodes.graphs import Expr, math, menus, Scalar, switched, vector, xyz
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor.inputs import chosen, Shell, Step
+from blender.bpy.render.compositor.inputs import chosen, GraphInputs, Step
 from blender.bpy.render.compositor.motion import origin
 from blender.records.faults import Outcome, paired
 from blender.records.fields import Case, member, Positive
@@ -75,7 +75,7 @@ class Magic(Case, frozen=True, kw_only=True):
 class White(Case, frozen=True, kw_only=True):
     """Constant random values on lattice cells cut to a density."""
 
-    texture: textures.White = textures.White(noise_dimensions="4D")
+    texture: textures.WhiteNoise = textures.WhiteNoise(noise_dimensions="4D")
     spacing: Annotated[Positive, msgspec.Meta(description="Cell width over greater frame side")] = 0.1
     cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
 
@@ -124,7 +124,7 @@ def bases(key: Key, chosen: Basis, description: str, name: str | None = None) ->
 
 
 def textured[R: Case](
-    shell: Shell[R], panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
+    shell: GraphInputs[R], panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
 ) -> tuple[tuple[Expr, Expr], ...]:
     """Returns density and tone per stream of the basis panel's texture menu, every stream switched by the one menu.
 
@@ -206,7 +206,7 @@ def density_range(field: Basis) -> tuple[float, float]:
 # --- [FORMS]
 
 
-def _input[R: Case](shell: Shell[R], panel: InterfacePanel, kind: type[Basis], *path: object) -> Expr:
+def _input[R: Case](shell: GraphInputs[R], panel: InterfacePanel, kind: type[Basis], *path: object) -> Expr:
     """Group input of the socket at a path under one case of a basis panel."""
     return shell.input(panel.socket(kind, *path))
 
@@ -241,7 +241,7 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
     density = case.cut.node(raw - loss, linked=linked(kind.cut))
     match case:
         case Voronoi(cell_color=cell_color):
-            color = textures.evolving(case.feature_cells, point + offset, time, socket="Color", shape=bpy.types.NodeSocketColor, linked=linked(Voronoi.texture))
+            color = textures.evolving(case.feature_cells, point + offset, time, socket="Color", socket_type=bpy.types.NodeSocketColor, linked=linked(Voronoi.texture))
             gate = operand(cell_color, Voronoi.cell_color)
             return switched(gate, density, density * color["Green"]), switched(gate, density, color["Red"])
         case _:

@@ -1,6 +1,7 @@
 """Active compositor entry editor beside the stock effect list: its commands and reset, grading wheels, curve and ramp editors, record fields no socket holds, scene settings, effect rows, and Viewer buttons, with the field commands."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from enum import Enum
 from functools import cache, cached_property, partial, reduce
 from types import MappingProxyType
 from typing import Annotated, Final
@@ -18,8 +19,8 @@ from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Open, Popup
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import Callbacks, EnumItem, held_choices, rebound
 from blender.bpy.data.rna.paths import root_in, rooted, Struct
+from blender.bpy.data.rna.properties import Callbacks, EnumItem, held_choices, rebound
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.extension.reports import alerted
@@ -27,15 +28,15 @@ from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.desired import Content, item_key, MenuItem
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.effects import CompositorEffect, Named
-from blender.bpy.render.compositor.entries import EffectRows
 from blender.bpy.render.compositor.inputs import entry_input
+from blender.bpy.render.compositor.offered import OfferedEffects
 from blender.bpy.render.compositor.viewers import composites, Viewers
 from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.elements.panels import Beside, Panel
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import even, FUNCTIONS, gridded, Keywords, Label, Layout, pressed, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import even, FUNCTIONS, gridded, Keywords, Label, Layout, operator_button, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import fields, Section
 from blender.bpy.ui.layout.templates import wheel
-from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.imaging.color.processors import ColorSpace
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
@@ -44,8 +45,15 @@ from blender.records.fields import Case
 
 type FilePath = Annotated[str, msgspec.Meta(min_length=1)]
 type _Choices = Mapping[str, tuple[str, object]]
-type _Field = tuple[tuple[str, ...], tuple[type[msgspec.Struct], ...], object]
 type _Edited = tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mapping[str, float | str]]
+
+
+class _Flag(Enum):
+    """Two states of a flag field, valued by the field value each writes."""
+
+    OFF = False
+    ON = True
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -54,6 +62,14 @@ _SPACES: Final = Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettin
 _PICKER: Final[Keywords] = {"value_slider": True, "lock_luminosity": True, "cubic": True}
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Field(msgspec.Struct, frozen=True, kw_only=True):
+    """Field names along a path, the record class each value along it holds, and the declared type of the field it ends at."""
+
+    names: tuple[str, ...]
+    cases: tuple[type[msgspec.Struct], ...]
+    annotation: object
 
 
 class FieldEdit(Named):
@@ -72,7 +88,7 @@ class FieldEdit(Named):
 class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Editor of the scene's active compositor entry beside the stock effect list, `header` rows ahead of the entry's commands and `leading` and `trailing` rows around its body, each over the entry."""
 
-    rows: EffectRows[R]
+    rows: OfferedEffects[R]
     header: tuple[RowContent, ...] = ()
     leading: tuple[RowContent, ...] = ()
     trailing: tuple[RowContent, ...] = ()
@@ -82,7 +98,7 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
     @cached_property
     def form(self) -> type[FieldEdit]:
         """Field edit form, its choices the values the named field's type offers."""
-        return rebound(FieldEdit, choice=Callbacks(items=self.offered))
+        return rebound(FieldEdit, choice=Callbacks[FieldEdit](items=self.offered))
 
     @cached_property
     def choosing(self) -> Operator[FieldEdit]:
@@ -94,25 +110,24 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         """Command setting a flag field to the state its button seeds."""
         return Operator(form=self.form, run=self.choose_field_value, named=Some("toggle_field_value"))
 
+    def _dialog(self, run: Callable[[Call[FieldEdit]], Outcome[Answer]], member: str, /) -> Operator[FieldEdit]:
+        """Command entering one form member in a dialog."""
+        return Operator(
+            form=self.form,
+            run=run,
+            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
+            draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, member)),
+        )
+
     @cached_property
     def numbering(self) -> Operator[FieldEdit]:
         """Command entering a field number in a dialog."""
-        return Operator(
-            form=self.form,
-            run=self.enter_field_number,
-            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
-            draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, "number")),
-        )
+        return self._dialog(self.enter_field_number, "number")
 
     @cached_property
     def writing(self) -> Operator[FieldEdit]:
         """Command entering field text in a dialog."""
-        return Operator(
-            form=self.form,
-            run=self.enter_field_text,
-            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
-            draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, "text")),
-        )
+        return self._dialog(self.enter_field_text, "text")
 
     @cached_property
     def opening(self) -> Operator[FieldEdit]:
@@ -124,32 +139,33 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         """Viewer commands and buttons over the offered and pinned entries."""
         return Viewers(rows=self.rows)
 
-    def offered(self, owner: Struct, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
+    def offered(self, owner: FieldEdit, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
         """Items of the values the edited field's type offers, valued by position so the unset pick names the first."""
-        edit: FieldEdit = owner  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        rows = self.rows.offering(edit.kind).to_option().bind(lambda row: Option.of_optional(_declared(row.record).get(edit.field))).bind(lambda field: _choices(field[2]))
+        rows = self.rows.offering(owner.kind).to_option().bind(lambda row: Option.of_optional(_declared(row.record).get(owner.field))).bind(lambda field: _choices(field.annotation))
         return held_choices(tuple((identifier, label, "", "NONE", index) for found in rows.to_list() for index, (identifier, (label, _)) in enumerate(found.items())))
 
     def choose_field_value(self, call: Call[FieldEdit]) -> Outcome[Answer]:
-        """Set the record field to the picked value."""
+        """Set record field to picked value."""
         chosen = call.properties
         value = self.located(chosen).bind(
-            lambda field: _choices(field[2]).bind(lambda found: Option.of_optional(found.get(chosen.choice))).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.field, member=chosen.choice))
+            lambda field: (
+                _choices(field.annotation).bind(lambda found: Option.of_optional(found.get(chosen.choice))).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.field, member=chosen.choice))
+            )
         )
         return value.bind(lambda held: self.revised(call, held[1]))
 
     def enter_field_number(self, call: Call[FieldEdit]) -> Outcome[Answer]:
-        """Set the record field to the entered number."""
+        """Set record field to entered number."""
         chosen = call.properties
-        numeric = self.located(chosen).bind(lambda field: _numeric(field[2]).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.kind, member=chosen.field)))
+        numeric = self.located(chosen).bind(lambda field: _numeric(field.annotation).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.kind, member=chosen.field)))
         return numeric.bind(lambda conversion: self.revised(call, conversion(chosen.number)))
 
     def enter_field_text(self, call: Call[FieldEdit]) -> Outcome[Answer]:
-        """Set the record field to the entered text."""
+        """Set record field to entered text."""
         return self.revised(call, call.properties.text)
 
     def open_field_file(self, call: Call[FieldEdit]) -> Outcome[Answer]:
-        """Set the record field to the chosen file."""
+        """Set record field to chosen file."""
         return (
             Block
             .of_seq(call.paths)
@@ -167,7 +183,7 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         chosen = call.properties
         return paired(rooted(bpy.types.Scene, call.context), self.located(chosen)).bind(
             lambda parts: self.rows.found(call.identity, parts[0], chosen.name).bind(
-                lambda held: held.row.revised(call.identity, parts[0], held.entry, partial(_replaced, parts[1][0], value)).map(
+                lambda held: held.row.revised(call.identity, parts[0], held.entry, partial(_replaced, parts[1].names, value)).map(
                     lambda wrote: Done() if wrote else Unchanged(reason=f"{held.entry.name} holds {value}")
                 )
             )
@@ -203,7 +219,7 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
     def edited(self, interface: Interface, record: msgspec.Struct, /) -> tuple[_Edited, ...]:
         """Reads the edited fields of a record and the records it holds whose item key names no socket of the interface.
 
-        A flag field's button is a checkbox under the field's name seeding the other state, every other field's button is labelled by its current value.
+        Flag field's button is a checkbox under the field's name seeding the other state, every other field's button is labelled by its current value.
 
         Returns:
             Item key, field names along the path, editing command, button keywords, and seeded form values of each field.
@@ -229,27 +245,27 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         return tuple(
             (
                 key,
-                names,
+                field.names,
                 command,
-                shown(names, annotation, value, command),
+                shown(field.names, field.annotation, value, command),
                 {"number": float(value)}
                 if command is self.numbering and isinstance(value, int | float)
                 else {"text": str(value)}
                 if command is self.writing
-                else {"choice": "OFF" if value else "ON"}
+                else {"choice": _Flag(not value).name}
                 if command is self.toggling
                 else {},
             )
-            for key, (names, cases, annotation) in _declared(type(record)).items()
+            for key, field in _declared(type(record)).items()
             if key not in declared
-            for value in current(names, cases).to_list()
-            for command in self.editing(annotation).to_list()
+            for value in current(field.names, field.cases).to_list()
+            for command in self.editing(field.annotation).to_list()
         )
 
     def fielded(self, identity: Identity, row: CompositorEffect[R], layout: bpy.types.UILayout, holder: Struct, _context: bpy.types.Context) -> None:
         """Draws one button per edited record field at any depth, each run of nested fields headed by the names along their path.
 
-        A flag draws as a checkbox under its name in the value cell, any other field under its name in the label cell, labelled by its current value: a choice's or case's label, a number, a file's name, or the text.
+        Flag draws as a checkbox under its name in the value cell, any other field under its name in the label cell, labelled by its current value: a choice's or case's label, a number, a file's name, or the text.
         """
         held = Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).filter(lambda _: bool(msgspec.structs.fields(row.record)))
         records = tuple((entry, row.read(identity, entry)) for entry in held.to_list())
@@ -262,7 +278,7 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
             values = gridded("" if command is self.toggling else bpy.path.display_name(names[-1]), layout)
             values.alignment = "LEFT" if command is self.toggling else "EXPAND"
             placement = Placement(command, {"name": entry.name, "kind": row.kind, "field": key, **seeded})
-            alerted(values, pressed(values, identity, placement, {**keywords, "translate": False}))
+            alerted(values, operator_button(values, identity, placement, {**keywords, "translate": False}))
 
     @cached_property
     def headed(self) -> Mapping[Key, tuple[tuple[Operator[Named], Keywords], ...]]:
@@ -279,7 +295,7 @@ class EntryEditor[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         """Draws the owned entry's header commands."""
         held = tuple((entry, row) for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list() for row in self.rows.row(identity, entry).to_list())
         for entry, row in held:
-            alerted(layout, accumulated(pressed(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
+            alerted(layout, accumulated(operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
 
     def shown(self, identity: Identity, parts: Mapping[Key, RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the owned entry's body and its curve and ramp editors, or the conditions an unowned pinned entry misses."""
@@ -335,7 +351,7 @@ def _declared(kind: type[msgspec.Struct], /) -> Mapping[Key, _Field]:
     def walked(held: type[msgspec.Struct], names: tuple[str, ...], cases: tuple[type[msgspec.Struct], ...], parts: tuple[object, ...]) -> Iterator[tuple[Key, _Field]]:
         for field in msgspec.structs.fields(held):
             at, keyed, inner = (*names, field.name), (*parts, field.name), tuple(case for case in _cases(field.type) if not issubclass(case, Content))
-            yield item_key(*keyed), (at, cases, field.type)
+            yield item_key(*keyed), _Field(names=at, cases=cases, annotation=field.type)
             for case in inner:
                 yield from walked(case, at, (*cases, case), (*keyed, case) if len(inner) > 1 else keyed)
 
@@ -363,16 +379,16 @@ def _form(annotation: object, /) -> msgspec.inspect.Type:
 
 
 def _choices(annotation: object, /) -> Option[_Choices]:
-    """Values a field type offers by item identifier with their labels: the colorspaces Blender reads, the items of a host enum its `Annotated` metadata carries, an enum's members, a flag's two states, a literal's values, or the default record of each case of a union."""
-    carried = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
-    hosted = _SPACES.prop if annotation is ColorSpace else next((held.prop for held in carried if isinstance(held, Descriptor) and isinstance(held.prop, bpy.types.EnumProperty)), None)
+    """Values a field type offers by item identifier with their labels: the colorspaces Blender reads, the items of a host enum its `Annotated` metadata holds, an enum's members, a flag's two states, a literal's values, or the default record of each case of a union."""
+    metadata = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
+    hosted = _SPACES.prop if annotation is ColorSpace else next((held.prop for held in metadata if isinstance(held, Descriptor) and isinstance(held.prop, bpy.types.EnumProperty)), None)
     match hosted, _form(annotation):
         case bpy.types.EnumProperty(enum_items=items), _:
             return Some({item.identifier: (item.name, item.identifier) for item in items})
         case _, msgspec.inspect.EnumType(cls=kind):
             return Some({member.name: (bpy.path.display_name(member.name.lower()), msgspec.to_builtins(member)) for member in kind})
         case _, msgspec.inspect.BoolType():
-            return Some({"OFF": ("Off", False), "ON": ("On", True)})
+            return Some({flag.name: (bpy.path.display_name(flag.name.lower()), flag.value) for flag in _Flag})
         case _, msgspec.inspect.LiteralType(values=values):
             return Some({str(held): (str(held), held) for held in values})
         case _, msgspec.inspect.UnionType() if len(kinds := _cases(annotation)) > 1:

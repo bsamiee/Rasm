@@ -1,4 +1,4 @@
-"""Extension commands, operator calls, operator placements in the host keymap-data form, and registered popups their window manager call operator opens."""
+"""Extension commands, operator calls, placements in the host keymap-data form, and registered popups their window manager call operator opens."""
 
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
@@ -31,8 +31,8 @@ type Setting = Scalar | tuple[Scalar, ...]
 type Pairs = tuple[tuple[str, Setting], ...]
 
 
-class Called(Enum):
-    """Registered popup kind with the host base it extends, the window manager operator calling it, and the layout button opening it in place, a pie opening through its operator alone."""
+class PopupKind(Enum):
+    """Registered popup kind with its host base, window manager call operator, and layout button, a pie opening through its operator alone."""
 
     MENU = (bpy.types.Menu, bpy.ops.wm.call_menu, "menu")
     PIE = (bpy.types.Menu, bpy.ops.wm.call_menu_pie, None)
@@ -51,7 +51,7 @@ class Called(Enum):
 class Command(msgspec.Struct, frozen=True, kw_only=True):
     """Extension operator with poll condition, button icon, and search visibility, its host name and title derived from its key.
 
-    Commands of one kind and key are one host operator, equal and hashing alike whatever callables each holds, so a registration acquiring one twice registers it once.
+    Commands of one kind and key are one host operator and equal whatever callables they hold, a registration acquiring one twice registering it once.
     """
 
     condition: Option[Condition] = Nothing
@@ -111,11 +111,11 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
         }
 
 
-class Opened(msgspec.Struct, frozen=True):
+class PopupTarget(msgspec.Struct, frozen=True):
     """Registered menu, panel, or asset shelf by class or extension key, opened as its kind, a class an extension or the stock interface declares."""
 
     target: type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf | _bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key
-    kind: Called
+    kind: PopupKind
 
     def __post_init__(self) -> None:
         """Refuses a class outside the kind's host base."""
@@ -127,7 +127,7 @@ class Opened(msgspec.Struct, frozen=True):
 class Placement(msgspec.Struct, frozen=True):
     """Operator with property values in the host keymap-data form."""
 
-    operator: Command | Operation | Opened
+    operator: Command | Operation | PopupTarget
     values: Mapping[str, Setting] = MappingProxyType({})
 
     @classmethod
@@ -139,7 +139,7 @@ class Placement(msgspec.Struct, frozen=True):
         """Resolves operator idname and property pairs, an opened popup's name leading its call operator's values."""
         values = tuple(self.values.items())
         match self.operator:
-            case Opened(kind=kind) as opened:
+            case PopupTarget(kind=kind) as opened:
                 return idname(identity, opened).map(lambda name: (_dotted(kind.operator), (("name", name), *values)))
             case operator:
                 return idname(identity, operator).map(lambda name: (name, values))
@@ -148,12 +148,12 @@ class Placement(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def idname(identity: Identity, target: Command | Operation | Opened, /) -> Outcome[str]:
+def idname(identity: Identity, target: Command | Operation | PopupTarget, /) -> Outcome[str]:
     """Resolves an extension key under its host name form, a class's RNA identifier, or a stock operator's `bpy.ops` path."""
     match target:
-        case Opened(target=str(key), kind=kind):
+        case PopupTarget(target=str(key), kind=kind):
             return identity.name(kind.base, key)
-        case Opened(target=opened):
+        case PopupTarget(target=opened):
             declared: type[Struct] = opened  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return Result[str, Faults].Ok(definition(declared).identifier)
         case Command() as command:
@@ -163,7 +163,7 @@ def idname(identity: Identity, target: Command | Operation | Opened, /) -> Outco
 
 
 def filled(placed: tuple[str, Pairs], properties: object, /) -> Outcome[None]:
-    """Writes placed pairs onto the operator properties a button, keymap item, gizmo, or macro step answers."""
+    """Writes placed pairs onto the operator properties of a button, keymap item, gizmo, or macro step."""
     operator, pairs = placed
     return (
         Option
@@ -212,4 +212,4 @@ def _dotted(operator: Operation, /) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Called", "Command", "Opened", "Operation", "Pairs", "Placement", "Setting", "called", "filled", "idname"]
+__all__ = ["Command", "Operation", "Pairs", "Placement", "PopupKind", "PopupTarget", "Setting", "called", "filled", "idname"]

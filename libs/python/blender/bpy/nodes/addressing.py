@@ -13,9 +13,9 @@ import msgspec
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.desired import Addressing, Content
+from blender.bpy.nodes.desired import Content, ItemContent
 from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, Socket
-from blender.bpy.nodes.trees import socket_at
+from blender.bpy.nodes.trees import interface_of, socket_at
 from blender.records.faults import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ type InterfaceItem = bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInter
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Addressed(msgspec.Struct, frozen=True, kw_only=True):
+class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
     """Stored item keys of one group, under the ID property name the extension holds them in, read once against its live interface items."""
 
     tree: bpy.types.NodeTree
@@ -36,17 +36,12 @@ class Addressed(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, tree: bpy.types.NodeTree, identity: Identity, /) -> Outcome[Self]:
         """Reads item identifiers by stored key, list entries holding keys past the 63-byte ID property name limit, and live sockets and panels."""
-        live = {item.identifier: item for item in _face(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)}
+        live = {item.identifier: item for item in interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)}
         return identity.identifier("interface").map(
             lambda slot: cls(
                 tree=tree, slot=slot, stored={row["key"]: row["identifier"] for row in Option.of_optional(tree.get(slot)).filter(lambda value: isinstance(value, list)).default_value([])}, live=live
             )
         )
-
-    @property
-    def face(self) -> bpy.types.NodeTreeInterface:
-        """The tree's interface."""
-        return _face(self.tree)
 
     @property
     def resolved(self) -> dict[Key, InterfaceItem]:
@@ -95,14 +90,19 @@ class Addressed(msgspec.Struct, frozen=True, kw_only=True):
 
     def item[T: bpy.types.NodeTreeInterfaceItem](self, key: Key, kind: type[T], /) -> Outcome[T]:
         """Live item at stored key as `kind`, `absent` fault naming the key otherwise."""
-        return Option.of_optional(self.resolved.get(key)).bind(lambda each: Option.of_optional(try_downcast(kind, each))).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.face), member=key))
+        return (
+            Option
+            .of_optional(self.resolved.get(key))
+            .bind(lambda each: Option.of_optional(try_downcast(kind, each)))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(interface_of(self.tree)), member=key))
+        )
 
     def store(self, items: Mapping[Key, str | int], /) -> None:
         """Writes item identifiers by key as the tree's stored list."""
         self.tree[self.slot] = [{"key": key, "identifier": identifier} for key, identifier in items.items()]
 
 
-class Keyed(msgspec.Struct, frozen=True, kw_only=True):
+class OwnedNodes(msgspec.Struct, frozen=True, kw_only=True):
     """Owned nodes and their socket identifiers by item key or name, read once per write phase."""
 
     tree: bpy.types.NodeTree
@@ -119,9 +119,9 @@ class Keyed(msgspec.Struct, frozen=True, kw_only=True):
                 case bpy.types.NodeGroupInput() | bpy.types.NodeGroupOutput():
                     return own
                 case _:
-                    return Option.of_optional(try_downcast(Addressing, contents.get(key))).map(lambda content: content.sockets(node, identity)).default_value({})
+                    return Option.of_optional(try_downcast(ItemContent, contents.get(key))).map(lambda content: content.sockets(node, identity)).default_value({})
 
-        return Addressed.of(tree, identity).map(lambda live: cls(tree=tree, nodes=nodes, sockets={key: addressed(live.sockets, key, node) for key, node in nodes.items()}))
+        return InterfaceKeys.of(tree, identity).map(lambda live: cls(tree=tree, nodes=nodes, sockets={key: addressed(live.sockets, key, node) for key, node in nodes.items()}))
 
     def node(self, key: Key) -> Outcome[bpy.types.Node]:
         """Owned node at key, `absent` fault naming key when no node holds it."""
@@ -143,7 +143,7 @@ def owned(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.N
 def grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.Node, key: Key) -> Outcome[Value]:
     """Reads a group node input value by its group's interface item key."""
     return (
-        Addressed
+        InterfaceKeys
         .of(tree, identity)
         .bind(lambda live: Option.of_optional(live.sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree), member=key)))
         .bind(lambda found: socket_at(node.inputs, found))
@@ -153,15 +153,9 @@ def grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.
 
 def input_sockets(tree: bpy.types.NodeTree) -> dict[str, bpy.types.NodeTreeInterfaceSocket]:
     """Reads live input sockets of a tree's interface by identifier in tree order."""
-    return {item.identifier: item for item in _face(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
-
-
-def _face(tree: bpy.types.NodeTree) -> bpy.types.NodeTreeInterface:
-    """The tree's interface, the one read of a member the stubs type optional."""
-    face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return face
+    return {item.identifier: item for item in interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Addressed", "InterfaceItem", "Keyed", "grouped_value", "input_sockets", "owned"]
+__all__ = ["InterfaceItem", "InterfaceKeys", "OwnedNodes", "grouped_value", "input_sockets", "owned"]

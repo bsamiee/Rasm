@@ -22,9 +22,9 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, Startup, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.addressing import Addressed, input_sockets
+from blender.bpy.nodes.addressing import input_sockets, InterfaceKeys
 from blender.bpy.nodes.desired import Choice, item_key, MenuItem, MenuItems
-from blender.bpy.nodes.graphs import Expr, group_input, menu, Shape, Term
+from blender.bpy.nodes.graphs import Expr, group_input, menu, SocketType, Term
 from blender.bpy.nodes.interfaces import InterfacePanel, Socket
 from blender.bpy.render.compositor.coordinates import FrameSpace
 from blender.bpy.render.outputs.framing import FrameSize, Framing
@@ -38,7 +38,7 @@ from blender.records.trees import Owner, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Graph[R: Case] = Callable[[Shell[R]], Outcome[Expr | Based]]
+type Graph[R: Case] = Callable[[GraphInputs[R]], Outcome[Expr | ResultOverBase]]
 type Step = Key | int | Socket | InterfacePanel
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -52,7 +52,7 @@ _INPUTS: Final = "SceneCompositorEffectInterfaceInputs"
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Derives[R](msgspec.Struct, frozen=True, kw_only=True):
+class DerivedInputs[R](msgspec.Struct, frozen=True, kw_only=True):
     """Hidden sockets written from scene values by key, rewritten when one of `reads` changes."""
 
     of: Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, R], Outcome[Mapping[Key, Value]]]
@@ -131,7 +131,7 @@ class PreviewFrame(msgspec.Struct, frozen=True, kw_only=True):
     framing: Framing
 
 
-class Shell[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+class GraphInputs[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Graph builder's record, entry input color, render layer, and group sockets by item key, toggled panels reading as their toggles."""
 
     record: R
@@ -163,11 +163,11 @@ class Shell[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         """Camera frame of the entry input."""
         return FrameSpace.of(self.color, self.input(FRAME_ASPECT), self.input(FRAME_SCALE))
 
-    def layer(self, socket: str, shape: Shape = bpy.types.NodeSocketColor) -> Expr:
+    def layer(self, socket: str, socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
         """Reads one Render Layers output of the effect's pass request layer, in the shape of a color unless stated."""
-        return self.render.at(socket, shape)
+        return self.render.at(socket, socket_type)
 
-    def menu(self, *path: Step, cases: Mapping[MenuItem, Term], shape: Option[Shape] = Nothing) -> Expr:
+    def menu(self, *path: Step, cases: Mapping[MenuItem, Term], socket_type: Option[SocketType] = Nothing) -> Expr:
         """Switches between case terms at the menu socket ending a key path, one case per item the socket declares in its order.
 
         Returns:
@@ -180,14 +180,14 @@ class Shell[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         selector, key = self.input(*path), path_key(*path)
         match self.sockets[key].items.default_value(None):
             case MenuItems(items=declared) if set(cases) == set(declared):
-                return menu(selector, {item: cases[item] for item in declared}, shape=shape)
+                return menu(selector, {item: cases[item] for item in declared}, socket_type=socket_type)
             case MenuItems(items=declared):
                 raise ValueError(f"{key} cases {[item.name for item in cases]} differ from its items {[item.name for item in declared]}")
             case _:
                 raise LookupError(f"{key} names no menu socket the group declares")
 
 
-class Based(msgspec.Struct, frozen=True, kw_only=True):
+class ResultOverBase(msgspec.Struct, frozen=True, kw_only=True):
     """Graph result with the base a blended effect mixes it back over in place of the entry input, both in the effect's operation space."""
 
     result: Expr
@@ -207,7 +207,7 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Yields the previous-space cell, its startup seed, and the deferred conversion a depsgraph update finding a stale stamp queues."""
 
         def start(stamp: Stored[str], scene: bpy.types.Scene, target: str) -> Outcome[str]:
-            previous = identity.held[self.previous]
+            previous = identity.resources[self.previous]
             return stamp.read(scene).map(lambda found: found.or_else(Block.of_seq(previous).try_head()).default_value(target))
 
         def recolored(stamp: Stored[str]) -> Outcome[Option[str]]:
@@ -238,7 +238,7 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 )
 
             counted = accumulated(start(stamp, scene, target).bind(partial(each, scene)) for scene in bpy.data.scenes)
-            identity.held[self.previous].append(target)
+            identity.resources[self.previous].append(target)
             return counted.map(lambda wrote: Some("Convert Effect Colors") if any(wrote) else Nothing)
 
         with ExitStack() as scope:
@@ -247,7 +247,7 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 later = scope.enter_context(identity.reports.deferred(lambda: recolored(stamp)))
 
                 def seeded() -> Outcome[None]:
-                    identity.held[self.previous].append(bpy.data.colorspace.working_space)
+                    identity.resources[self.previous].append(bpy.data.colorspace.working_space)
                     return Ok(None)
 
                 def checked(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
@@ -271,7 +271,7 @@ def grouped(entry: bpy.types.SceneCompositorEffect) -> Outcome[bpy.types.NodeTre
 
 def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
     """Returns the entry's group with its live input socket identifiers by interface item key, panel keys at their toggles."""
-    return Result[bpy.types.NodeTree, Faults].bind(grouped(entry), lambda group: Addressed.of(group, identity).map(lambda live: (group, live.sockets)))
+    return Result[bpy.types.NodeTree, Faults].bind(grouped(entry), lambda group: InterfaceKeys.of(group, identity).map(lambda live: (group, live.sockets)))
 
 
 def inputs_of(entry: bpy.types.SceneCompositorEffect) -> Outcome[Native]:
@@ -450,7 +450,7 @@ def read(socket: Socket, key: Key = "") -> Expr:
     return group_input(key or socket.key, base if base in {bpy.types.NodeSocketColor, bpy.types.NodeSocketVector} else bpy.types.NodeSocketFloat)
 
 
-def passed[R: Case](shell: Shell[R]) -> Outcome[Expr]:
+def passed[R: Case](shell: GraphInputs[R]) -> Outcome[Expr]:
     """Graph of an effect whose `prepared` step does its work, passing the image that step answers and the entering color outside a render."""
     return Ok(shell.color)
 
@@ -458,7 +458,7 @@ def passed[R: Case](shell: Shell[R]) -> Outcome[Expr]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 WORKING_SPACE: Final = WorkingSpace()
-FRAMING: Final = Derives[Case](
+FRAMING: Final = DerivedInputs[Case](
     of=lambda identity, scene, _entry, _record: CameraFrame.of(identity, scene).map(lambda frame: frame.values),
     sockets=FRAME,
     reads=(
@@ -476,13 +476,13 @@ __all__ = [
     "FRAME_SCALE",
     "FRAMING",
     "WORKING_SPACE",
-    "Based",
     "CameraFrame",
-    "Derives",
+    "DerivedInputs",
     "Graph",
+    "GraphInputs",
     "Holds",
     "PreviewFrame",
-    "Shell",
+    "ResultOverBase",
     "Step",
     "WorkingSpace",
     "captured",

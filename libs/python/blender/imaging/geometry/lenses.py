@@ -12,8 +12,8 @@ import numpy.typing as npt
 from scipy.integrate import quad_vec
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
-from blender.imaging.geometry.panoramas import Bearing, ImagePoint, shares
-from blender.records.fields import Positive, Unit
+from blender.imaging.geometry.panoramas import ImagePoint, shares
+from blender.records.fields import Bearing, Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

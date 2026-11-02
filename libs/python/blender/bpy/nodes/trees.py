@@ -13,7 +13,7 @@ from expression.extra.result import catch
 from blender.bpy.data.ids.store import embedded
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.data.rna.paths import struct_at
-from blender.records.faults import Fault, Faults, Outcome, Reason
+from blender.records.faults import Fault, Faults, Outcome, Reason, typed
 from blender.records.trees import reached
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class Named(Protocol):
 
 
 class Items[I: Named](Protocol):
-    """Node item collection taking moves by index, such as Menu Switch `enum_items` and File Output `file_output_items`."""
+    """Node item collection taking moves by index (Menu Switch `enum_items` and File Output `file_output_items`)."""
 
     def __iter__(self) -> Iterator[I]:
         """Items in socket order."""
@@ -99,7 +99,7 @@ def base_socket(kind: type[bpy.types.NodeSocket]) -> type[bpy.types.NodeSocket]:
 
 
 def native(tree: type[bpy.types.NodeTree], kind: type[bpy.types.Node]) -> Outcome[type[bpy.types.Node]]:
-    """Returns the class a `tree` tree builds for a shader-tree node class, such as its own group node or color nodes, refusal fault for an unsupported tree."""
+    """Returns the class a `tree` tree builds for a shader-tree node class (its own group node, color nodes), refusal fault for an unsupported tree."""
     return (
         Option
         .of_optional(NATIVE.get(tree))
@@ -135,7 +135,19 @@ def links_of(socket: bpy.types.NodeSocket) -> tuple[bpy.types.NodeLink, ...]:
     return links
 
 
+def interface_of(tree: bpy.types.NodeTree, /) -> bpy.types.NodeTreeInterface:
+    """Returns tree interface, a member the stubs type optional."""
+    interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return interface
+
+
 # --- [EDITS]
+
+
+def new_group(kind: type[bpy.types.NodeTree], name: str, /) -> Outcome[bpy.types.NodeTree]:
+    """Creates empty node group of a tree class, `refused` fault for a class the host refuses."""
+    request = repr(bpy.data.node_groups)
+    return catch(bpy.data.node_groups.new, exception=TypeError)(name, kind.__name__).map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.NodeTree, request))
 
 
 @overload
@@ -175,7 +187,7 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outco
     """Adds node by `bpy.types` class name.
 
     Returns:
-        `Ok` of node. `Error` of `edit` for refused class, `choice` for alias add-ons rebind to another class, its node removed.
+        `Ok` of node. `Error` of `refused` for refused class, `outside` for alias add-ons rebind to another class, its node removed.
     """
     identifier = kind.__name__
 
@@ -191,8 +203,8 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outco
     return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(partial(Fault.of, Reason.REFUSED, repr(tree.nodes))).bind(narrowed)
 
 
-def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
-    """Points group node at group, `edit` fault for group containing node's tree."""
+def group_set(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
+    """Points group node at group, `refused` fault for group containing node's tree."""
     host: bpy.types.NodeTree = node.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return (
         Error(Fault.of(Reason.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
@@ -201,7 +213,7 @@ def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     )
 
 
-def joined(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.types.NodeSocket, *, verify_limits: bool = True, handle_dynamic_sockets: bool = False) -> Outcome[bpy.types.NodeLink]:
+def linked(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.types.NodeSocket, *, verify_limits: bool = True, handle_dynamic_sockets: bool = False) -> Outcome[bpy.types.NodeLink]:
     """Links output socket to input socket.
 
     Args:
@@ -212,7 +224,7 @@ def joined(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.t
         handle_dynamic_sockets: Whether virtual target grows socket link ends at.
 
     Returns:
-        `Ok` of valid link. `Error` of `edit` for refused link or invalid link the call removes, `absent` when host returns none.
+        `Ok` of valid link. `Error` of `refused` for refused link or invalid link the call removes, `absent` when host returns none.
     """
 
     def answered(link: bpy.types.NodeLink | None) -> Outcome[bpy.types.NodeLink]:
@@ -232,7 +244,7 @@ def joined(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.t
 
 
 def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> Outcome[None]:
-    """Orders multi-input links top to bottom within their slots by sort ID swaps, `edit` fault for the first swap the host refuses."""
+    """Orders multi-input links top to bottom within their slots by sort ID swaps, `refused` fault for the first swap the host refuses."""
     type Plan = tuple[tuple[bpy.types.NodeLink, ...], tuple[tuple[bpy.types.NodeLink, bpy.types.NodeLink], ...]]
 
     def planned(state: Plan, step: tuple[int, bpy.types.NodeLink]) -> Plan:
@@ -324,12 +336,14 @@ __all__ = [
     "emptied",
     "endpoints",
     "feeds",
+    "group_set",
     "group_tree",
-    "grouped",
-    "joined",
+    "interface_of",
+    "linked",
     "links_of",
     "native",
     "nested",
+    "new_group",
     "ordered",
     "socket_at",
     "tree_of",

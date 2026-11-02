@@ -13,7 +13,7 @@ import msgspec
 from msgspec import UNSET, UnsetType
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import RnaPath, Struct
@@ -40,7 +40,7 @@ UNTAGGED: Final = ("default_byte", "default_float")
 
 
 class Settings(msgspec.Struct, frozen=True, kw_only=True):
-    """Host settings record whose unset members keep the values the host holds, nested records standing for pointer members."""
+    """Host settings record with unset members keeping the host's values, nested records standing for pointer members."""
 
     def members(self, owner: RnaPath = ()) -> Members:
         """Set members by path under `owner`, nested records flattened to their member paths."""
@@ -79,14 +79,14 @@ class ViewSettings(Settings, frozen=True, kw_only=True):
     white_balance_tint: float | UnsetType = UNSET
 
 
-class Viewing(Settings, frozen=True, kw_only=True):
+class ColorManagement(Settings, frozen=True, kw_only=True):
     """Display and view settings of one color-managed owner: a scene, a display node, or an overriding image format."""
 
     display_settings: DisplaySettings = DisplaySettings()
     view_settings: ViewSettings = ViewSettings()
 
     @classmethod
-    def of(cls, view: DisplayView) -> "Viewing":
+    def of(cls, view: DisplayView) -> "ColorManagement":
         """Returns the settings a view forms through, the host's look `NO_LOOK` as disabled."""
         return cls(
             display_settings=DisplaySettings(display_device=view.display),
@@ -161,7 +161,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def installing(self) -> Operator[Empty]:
         """Command installing the build."""
-        return Operator(form=Empty, run=self.install_config, undo=Nothing)
+        return Operator(form=Empty, run=self.install_config, undo=NoUndo())
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns install command."""
@@ -169,7 +169,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 
 class HdrWindow(Condition, frozen=True, kw_only=True):
-    """Window showing in HDR color a frame the context scene's preview forms into an HDR display space, an absolute PQ space alone under `absolute`."""
+    """Window showing HDR color while the context scene's preview forms an HDR frame, PQ alone under `absolute`."""
 
     absolute: bool = False
 
@@ -223,11 +223,11 @@ def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay) -
 
 def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:
     """Writes a view to the scene in host order, outputs overriding color management keeping their own."""
-    return assigned(scene, member_paths(Viewing.of(view).members()))
+    return assigned(scene, member_paths(ColorManagement.of(view).members()))
 
 
 def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeConvertToDisplay]) -> Outcome[tuple[tuple[bpy.types.CompositorNodeConvertToDisplay, DisplayView], ...]]:
-    """Writes the scene display device to each display node showing another, answering each written node with the view Blender matched to the device."""
+    """Writes the scene display device to each display node showing another, returning each written node with the view Blender matched to the device."""
     display = viewed(scene).display
     return accumulated(written(node, ("display_settings", "display_device"), display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
 
@@ -263,7 +263,7 @@ def traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.t
         entering: Space of the value at each group input socket identifier of `tree`.
 
     Returns:
-        The space a Convert to Display or Convert Colorspace node writes, a data image holds, or a group input carries, through group nodes and
+        Space a Convert to Display or Convert Colorspace node writes, a data image holds, or a group input receives, through group nodes and
         every other node's first linked color input, scene linear for a node reading no color, Nothing for an unlinked socket or unknown space.
     """
     linear = Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())
@@ -318,13 +318,13 @@ __all__ = [
     "NO_LOOK",
     "TINT_PER_DUV",
     "UNTAGGED",
+    "ColorManagement",
     "ConfigInstall",
     "ConfigView",
     "DisplaySettings",
     "HdrWindow",
     "Settings",
     "ViewSettings",
-    "Viewing",
     "displayed",
     "followed",
     "leaving",

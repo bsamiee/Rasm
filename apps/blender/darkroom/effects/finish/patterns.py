@@ -17,12 +17,12 @@ from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, math, mixed, rgba, Scalar, switched, Term, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.nodes.textures import Linked, MapRange, Noise, Voronoi, White
+from blender.bpy.nodes.textures import Linked, MapRange, Noise, Voronoi, WhiteNoise
 from blender.bpy.render.compositor.colors import hsy, with_alpha
 from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, shorter, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
 from blender.bpy.render.compositor.filters import block_mean, blurred
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED, timing
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome, paired
@@ -72,8 +72,9 @@ _COLORING: Final = Socket(
 _GLYPHS: Final = InterfacePanel.of(
     "glyphs", Interface(inputs=(_ROWS, _TONE_JITTER, _GLYPH_PAPER, _COLORING), panels=(_TWO_TONE, _RANDOM_COLOR)), description="Replaces text-grid cells with glyphs selected by their tone"
 )
-_HEADINGS: Final = MappingProxyType({MenuItem(name="Left"): (-1.0, 0.0, 0.0), MenuItem(name="Right"): (1.0, 0.0, 0.0), MenuItem(name="Up"): (0.0, 1.0, 0.0), MenuItem(name="Down"): (0.0, -1.0, 0.0)})
-_DIRECTION: Final = Socket(key="direction", kind=bpy.types.NodeSocketMenu, description="Streak direction", default_value="Right", items=Some(MenuItems(items=tuple(_HEADINGS))))
+_RIGHT: Final = MenuItem(name="Right")
+_HEADINGS: Final = MappingProxyType({MenuItem(name="Left"): (-1.0, 0.0, 0.0), _RIGHT: (1.0, 0.0, 0.0), MenuItem(name="Up"): (0.0, 1.0, 0.0), MenuItem(name="Down"): (0.0, -1.0, 0.0)})
+_DIRECTION: Final = Socket(key="direction", kind=bpy.types.NodeSocketMenu, description="Streak direction", default_value=_RIGHT.name, items=Some(MenuItems(items=tuple(_HEADINGS))))
 _LOW: Final = Socket(key="low", kind=bpy.types.NodeSocketFloatFactor, description="Lower luma boundary, wrapping when above High")
 _HIGH: Final = Socket(key="high", kind=bpy.types.NodeSocketFloatFactor, description="Upper luma boundary", default_value=0.3)
 _LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloatFactor, description="Longest streak as a frame share", default_value=0.3)
@@ -192,26 +193,26 @@ def _halftone_screen(
 # --- [STRUCTURES]
 
 
-def _drawn[R: (Pixelation, Pattern)](shell: Shell[R], structure: InterfacePanel, instance: int = 0) -> Expr:
+def _drawn[R: (Pixelation, Pattern)](shell: GraphInputs[R], structure: InterfacePanel, instance: int = 0) -> Expr:
     """Decorrelation origin of one structure's draws, redrawn per whole clock unit."""
     return origin(shell.input(SEED), stream(type(shell.record), structure.key), math("FLOOR", clocked(shell.input, _CLOCK)), instance)
 
 
-def _pixelation(shell: Shell[Pixelation]) -> Outcome[Expr]:
+def _pixelation(shell: GraphInputs[Pixelation]) -> Outcome[Expr]:
     """Builds mosaic block means and Voronoi cells filled at their sites, each replacing the whole frame."""
     frame = shell.space
     offset, middle, side = vector("FLOOR", _drawn(shell, _CELLS)), vector("SCALE", frame.extent, 0.5), shell.input(_CELLS, _SPACING)
     site = Voronoi(voronoi_dimensions="2D", distance=shell.record.distance, scale=1.0).node(
         (frame.point - middle) / side + offset,
         socket="Position",
-        shape=bpy.types.NodeSocketVector,
+        socket_type=bpy.types.NodeSocketVector,
         linked=Some(_linked({Voronoi.randomness: shell.input(_CELLS, _SITE_JITTER), Voronoi.exponent: shell.input(_CELLS, _EXPONENT)})),
     )
     cells = uv_mapped(shell.color, frame.sampled(vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent), extension=("Extend", "Extend"))
     return Ok(shell.menu(_SAMPLING, cases={_MOSAIC.item: block_mean(frame, shell.color, shell.input(_MOSAIC, _BLOCK)), _CELLS.item: cells}))
 
 
-def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
+def _pattern(shell: GraphInputs[Pattern]) -> Outcome[Expr]:
     """Builds halftone screens, tone-ranked glyph strip lookups, and pixel sort streaks, each with its own coverage, kept as the structure weight."""
     source, frame = shell.color, shell.space
     centered = frame.point - vector("SCALE", frame.extent, 0.5)
@@ -245,12 +246,14 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
     glyphs = shell.record.glyphs
     levels = len(glyphs)
     height = shorter(frame.extent) / shell.input(_GLYPHS, _ROWS)
-    strip = Expr(kind=bpy.types.CompositorNodeStringToImage, inputs=(("String", "\n".join(glyphs)), ("Size", height * frame.greater), ("Wrap", False)), socket="Image", shape=bpy.types.NodeSocketColor)
+    strip = Expr(
+        kind=bpy.types.CompositorNodeStringToImage, inputs=(("String", "\n".join(glyphs)), ("Size", height * frame.greater), ("Wrap", False)), socket="Image", socket_type=bpy.types.NodeSocketColor
+    )
     sides = dimensions(strip)
     cell = xyz(height * (sides["X"] / sides["Y"] * levels), height, 1.0)
     indices, within = vector("FLOOR", frame.point / cell), vector("FRACTION", frame.point / cell)
     center = uv_mapped(source, frame.sampled(vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent), extension=("Extend", "Extend"))
-    draw = White().node(indices + _drawn(shell, _GLYPHS))
+    draw = WhiteNoise().node(indices + _drawn(shell, _GLYPHS))
     tone = math("MULTIPLY_ADD", draw - 0.5, shell.input(_GLYPHS, _TONE_JITTER), _toned(center), clamp=True)
     rank = (levels - 1) - math("MINIMUM", math("FLOOR", tone * levels), levels - 1)
     mask = uv_mapped(strip, xyz(within["X"], (rank + within["Y"]) / levels, 1.0), extension=("Extend", "Extend"))
@@ -259,7 +262,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
         inputs=(("Red", draw.at("Color", bpy.types.NodeSocketColor)["Red"]), ("Green", shell.input(_GLYPHS, _RANDOM_COLOR, _SATURATION)), ("Blue", 1.0), ("Alpha", 1.0)),
         members={"mode": "HSV"},
         socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
     color = shell.menu(_GLYPHS, _COLORING, cases={_SOURCE_COLOR: center, _TWO_TONE.item: shell.input(_GLYPHS, _TWO_TONE, _GLYPH_COLOR), _RANDOM_COLOR.item: random})
 
@@ -273,7 +276,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
         low, high = shell.input(_PIXEL_SORT, _LOW), shell.input(_PIXEL_SORT, _HIGH)
         above, below = 1.0 - (soft < low), 1.0 - (soft > high)
         band = mixed(low > high, above * below, math("MAXIMUM", above, below))
-        grain = White(noise_dimensions="2D").node(frame.point + _drawn(shell, _PIXEL_SORT, 0))
+        grain = WhiteNoise(noise_dimensions="2D").node(frame.point + _drawn(shell, _PIXEL_SORT, 0))
         streak = Noise(noise_dimensions="1D").node(
             (0.0, 0.0, 0.0),
             vector("DOT_PRODUCT", frame.fraction, (1.0, 1.0, 0.0) - axis) + math("MULTIPLY_ADD", _toned(source), 2.0, -1.0) + _drawn(shell, _PIXEL_SORT, 1)["X"],
@@ -291,7 +294,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
                 ("Extension Y", "Extend"),
             ),
             socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            socket_type=bpy.types.NodeSocketColor,
         )
         return with_alpha(mixed(weight, source, displaced), weight)
 
@@ -303,13 +306,13 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
             _PIXEL_SORT.item: sorted_along(shell.menu(_PIXEL_SORT, _DIRECTION, cases=_HEADINGS)),
         },
     )
-    return Ok(structured.keeping(structured["Alpha"].named("structure_weight")))
+    return Ok(structured.keeping(structured["Alpha"].keyed("structure_weight")))
 
 
 # --- [PALETTE]
 
 
-def _palette(shell: Shell[Palette]) -> Outcome[Expr]:
+def _palette(shell: GraphInputs[Palette]) -> Outcome[Expr]:
     """Quantizes straight display color under an 8-by-8 Bayer threshold, three interleaved bit planes of the cell index, and maps luminance through the color ramp.
 
     Args:
@@ -342,13 +345,13 @@ def _palette(shell: Shell[Palette]) -> Outcome[Expr]:
         ),
         members={"data_type": "FLOAT_VECTOR", "clamp": True},
         socket="Vector",
-        shape=bpy.types.NodeSocketVector,
+        socket_type=bpy.types.NodeSocketVector,
     )
 
     def finished(kept: Expr) -> Expr:
         retention = shell.input(_POSTERIZE, _RETAIN_HUE) * chosen.at(_RGB.name)
         posterized = switched(shell.input(_POSTERIZE), source, mixed(retention, rounded, kept))
-        ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", _toned(posterized)),), content=Some(shell.record.gradient), socket="Color", shape=bpy.types.NodeSocketColor).named(
+        ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", _toned(posterized)),), content=Some(shell.record.gradient), socket="Color", socket_type=bpy.types.NodeSocketColor).keyed(
             "gradient_value"
         )
         return switched(shell.input(_GRADIENT), posterized, ramp)

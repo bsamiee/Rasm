@@ -188,11 +188,11 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PROGRESS]
 
 
-class StageMark(msgspec.Struct, frozen=True, kw_only=True):
+class FrameTime(msgspec.Struct, frozen=True, kw_only=True):
     """Measured render time of one finished step."""
 
-    part: int
-    item: int
+    job: int
+    frame: int
     elapsed: datetime.timedelta
 
 
@@ -208,7 +208,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
     queue: ContentHash
     process: int
-    marks: tuple[StageMark, ...] = ()
+    marks: tuple[FrameTime, ...] = ()
     ending: Ending | None = None
     pending: tuple[tuple[int, int], ...] = ()
 
@@ -231,7 +231,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
     def remaining(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Returns renders no mark covers."""
-        marked = {(mark.part, mark.item) for mark in self.marks}
+        marked = {(mark.job, mark.frame) for mark in self.marks}
         return tuple(step for step in queue.steps if step not in marked)
 
     def done(self, queue: RenderQueue) -> Fraction:
@@ -248,7 +248,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark or past the longest duration."""
         counts = Counter(part for part, _ in self.remaining(queue))
         jobs = dict(enumerate(queue.jobs))
-        timed = {part: tuple(mark.elapsed.total_seconds() for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.part), key=lambda mark: mark.part)}
+        timed = {part: tuple(mark.elapsed.total_seconds() for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.job), key=lambda mark: mark.job)}
         if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
             return Nothing
         average = fmean(rates.values())
@@ -272,4 +272,4 @@ def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ending", "FixedCamera", "Forecast", "Frames", "Job", "JobCamera", "Liveness", "MarkedCamera", "Marker", "PackedFile", "Progress", "RenderFrames", "RenderQueue", "StageMark", "observed"]
+__all__ = ["Ending", "FixedCamera", "Forecast", "FrameTime", "Frames", "Job", "JobCamera", "Liveness", "MarkedCamera", "Marker", "PackedFile", "Progress", "RenderFrames", "RenderQueue", "observed"]

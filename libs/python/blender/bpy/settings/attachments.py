@@ -1,4 +1,4 @@
-"""Form group attachments with property callbacks bound to the extension, value locks, histories, startup seeds, before and after recovery, storage removal, and window manager groups saved in text blocks."""
+"""Form group attachments with bound callbacks, locks, histories, startup seeds, recovery, removal, and groups saved in text blocks."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
@@ -18,13 +18,13 @@ import msgspec
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import embedded
 from blender.bpy.data.rna.descriptors import custom_read, Descriptor, stored
-from blender.bpy.data.rna.mirrors import annotated, Callbacks, Changed, Declared, pointed
 from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct
-from blender.bpy.data.rna.restoration import Endpoints, native, NativeTree, NativeValue, persisted
+from blender.bpy.data.rna.properties import annotated, Callbacks, Changed, Declared, pointed
+from blender.bpy.data.rna.restoration import BeforeAfter, native, NativeTree, NativeValue, persisted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.events import Handler, Startup, Timer
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.fields import Dated, History, Retention
 from blender.records.trees import merge, transfer, Tree
@@ -55,7 +55,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def keyed[V](identity: Identity, key: Key, decoder: msgspec.msgpack.Decoder[V], /, *, enc_hook: Option[Callable[[object], object]] = Nothing) -> "Outcome[Stored[V]]":
-        """Returns the store under the extension's identifier of key, the decoder stating the record type and its decode hook, a record type built at runtime included."""
+        """Returns the store under the extension's identifier of key, the decoder stating the record type, runtime-built types included, and its hook."""
         return identity.identifier(key).map(lambda name: Stored(name=name, decoder=decoder, enc_hook=enc_hook))
 
     def read(self, host: Holder) -> Outcome[Option[T]]:
@@ -119,22 +119,22 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
     """Stored values the members an operation writes held before and after it, restored where live values still match after."""
 
     stored: Stored[T]
-    ends: Callable[[T], Endpoints]
+    before_after_of: Callable[[T], BeforeAfter]
 
     @staticmethod
-    def endpoints(identity: Identity, key: Key) -> "Outcome[Recovery[Endpoints]]":
-        """Returns recovery holding bare endpoints under the extension's identifier of key."""
-        return Stored.keyed(identity, key, msgspec.msgpack.Decoder(Endpoints)).map(lambda stored: Recovery(stored=stored, ends=lambda ends: ends))
+    def before_after(identity: Identity, key: Key) -> "Outcome[Recovery[BeforeAfter]]":
+        """Returns recovery holding unwrapped before and after records under the extension's identifier of key."""
+        return Stored.keyed(identity, key, msgspec.msgpack.Decoder(BeforeAfter)).map(lambda stored: Recovery(stored=stored, before_after_of=lambda ends: ends))
 
-    def recorded(self, holder: Host, writes: tuple[tuple[Native, Snapshot], ...], held: Callable[[Endpoints], T]) -> Outcome[tuple[Applied, ...]]:
+    def recorded(self, holder: Host, writes: tuple[tuple[Native, Snapshot], ...], held: Callable[[BeforeAfter], T]) -> Outcome[tuple[Applied, ...]]:
         """Stores the written members' live values, applies each snapshot, then stores both ends.
 
-        A held record keeps its earliest before values and its after values of members these writes leave unchanged.
+        Held record keeps its earliest before values and its after values of members these writes leave unchanged.
 
         Args:
             holder: Struct holding the record.
             writes: Owners and the snapshots applied to them, in write order.
-            held: Record of the endpoints.
+            held: Record of the before and after values.
 
         Returns:
             Outcome per write, faults of every refused write and of the after store accumulated.
@@ -143,7 +143,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
 
         def prior() -> Outcome[Option[tuple[NativeTree, NativeTree]]]:
             """Returns decoded before and after trees of the held record, absent fault for one never completed."""
-            return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.ends(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
+            return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.before_after_of(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
 
         def captured() -> Outcome[NativeTree]:
             return accumulated(native(owner, Some(selection)) for owner, selection in selections.items()).map(Tree[NativeValue, RnaPath, RnaPath].joined)
@@ -153,13 +153,13 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
 
             def finished(after: NativeTree) -> Outcome[None]:
                 latest = prior.map(lambda ends: ends[1].merged(merge(merge(current, transfer(current, ends[1])), transfer(current, after)))).default_value(after)
-                return paired(persisted(before), persisted(latest)).bind(lambda pair: self.stored.write(holder, held(Endpoints(before=pair[0], after=pair[1]))))
+                return paired(persisted(before), persisted(latest)).bind(lambda pair: self.stored.write(holder, held(BeforeAfter(before=pair[0], after=pair[1]))))
 
             def changed(_: None) -> Outcome[tuple[Applied, ...]]:
                 applied = tuple(snapshot.apply(owner) for owner, snapshot in writes)
                 return paired(accumulated(outcome.outcome for outcome in applied), captured().bind(finished)).map(lambda _: applied)
 
-            return persisted(before).bind(lambda kept: self.stored.write(holder, held(Endpoints(before=kept)))).bind(changed)
+            return persisted(before).bind(lambda kept: self.stored.write(holder, held(BeforeAfter(before=kept)))).bind(changed)
 
         return paired(captured(), prior()).bind(lambda pair: written(*pair))
 
@@ -174,7 +174,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def restored(kept: T) -> Outcome[bool]:
-            return self.ends(kept).restored().bind(lambda _: self.stored.removed(holder))
+            return self.before_after_of(kept).restored().bind(lambda _: self.stored.removed(holder))
 
         return self.stored.read(holder).bind(lambda found: found.map(restored).default_value(Ok(False)))
 
@@ -196,8 +196,8 @@ class RetentionSettings(bpy.types.PropertyGroup):
 class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Registered pointer property over its target class and the form group it holds, with the group's locks and snapshot history."""
 
-    locking: ClassVar[Stored[frozenset[str]]] = Stored(name=".locks", decoder=msgspec.msgpack.Decoder(frozenset[str]))
-    holding: ClassVar[Stored[History[Snapshot]]] = Stored(name=".history", decoder=msgspec.msgpack.Decoder(History[Snapshot]))
+    lock_store: ClassVar[Stored[frozenset[str]]] = Stored(name=".locks", decoder=msgspec.msgpack.Decoder(frozenset[str]))
+    history_store: ClassVar[Stored[History[Snapshot]]] = Stored(name=".history", decoder=msgspec.msgpack.Decoder(History[Snapshot]))
     name: str
     owner: type[Host]
     form: type[G]
@@ -206,17 +206,18 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
     def struct(self, host: Host) -> G:
         """Returns attached form group of host."""
-        return getattr(host, self.name)  # type: ignore[no-any-return]
+        group: G = getattr(host, self.name)
+        return group
 
     # --- [LOCKS]
 
     def locks(self, host: Host) -> Outcome[frozenset[str]]:
         """Returns stored locks on current form members."""
-        return self.locking.read(self.struct(host)).map(lambda found: found.default_with(frozenset) & frozenset(annotated(self.form)))
+        return self.lock_store.read(self.struct(host)).map(lambda found: found.default_with(frozenset) & frozenset(annotated(self.form)))
 
     def toggled(self, host: Host, key: str) -> Outcome[None]:
         """Toggles lock of one member in group storage."""
-        return self.locks(host).bind(lambda held: self.locking.write(self.struct(host), held ^ {key}))
+        return self.locks(host).bind(lambda held: self.lock_store.write(self.struct(host), held ^ {key}))
 
     # --- [PRESETS]
 
@@ -238,36 +239,38 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
     # --- [HISTORY]
 
-    def held(self, host: Host) -> Outcome[History[Snapshot]]:
+    def history(self, host: Host) -> Outcome[History[Snapshot]]:
         """Returns the group's stored history, empty when none is stored."""
-        return self.holding.read(self.struct(host)).map(lambda found: found.default_with(History[Snapshot]))
+        return self.history_store.read(self.struct(host)).map(lambda found: found.default_with(History[Snapshot]))
 
-    def replaced[V](self, host: Host, write: Callable[[], Outcome[Option[V]]], moment: datetime.datetime, retention: Retention) -> Outcome[Option[V]]:
+    def recorded[V](self, host: Host, write: Callable[[], Outcome[Option[V]]], moment: datetime.datetime, retention: Retention) -> Outcome[Option[V]]:
         """Runs edit, adding the group's prior snapshot when the edit reports a change."""
 
         def recorded(record: Snapshot, history: History[Snapshot]) -> Outcome[Option[V]]:
             return write().bind(
-                lambda change: change.map(lambda _: self.holding.write(self.struct(host), history.add(Dated(moment=moment, value=record), retention)).map(lambda _: change)).default_value(Ok(change))
+                lambda change: change.map(lambda _: self.history_store.write(self.struct(host), history.add(Dated(moment=moment, value=record), retention)).map(lambda _: change)).default_value(
+                    Ok(change)
+                )
             )
 
-        return paired(Snapshot.capture(self.struct(host)), self.held(host)).bind(lambda pair: recorded(*pair))
+        return paired(Snapshot.capture(self.struct(host)), self.history(host)).bind(lambda pair: recorded(*pair))
 
     def stepped(self, host: Host, offset: int, moment: datetime.datetime, retention: Retention) -> Outcome[Option[None]]:
-        """Undoes for positive offset, redoes for negative offset, a refused write keeping both branches with the current snapshot across from the target."""
+        """Undoes for positive offset, redoes for negative, a refused write keeping both branches, the current snapshot on the branch opposite the target."""
 
         def navigated(record: Snapshot, history: History[Snapshot]) -> Outcome[Option[None]]:
-            def moved(target: Snapshot, arrived: History[Snapshot], parked: History[Snapshot]) -> Outcome[Option[None]]:
+            def moved(target: Snapshot, arrived: History[Snapshot], kept: History[Snapshot]) -> Outcome[Option[None]]:
                 answer = target.apply(self.struct(host)).outcome
-                return paired(answer, self.holding.write(self.struct(host), answer.map(lambda _: arrived).default_value(parked))).map(lambda pair: Some(pair[0]))
+                return paired(answer, self.history_store.write(self.struct(host), answer.map(lambda _: arrived).default_value(kept))).map(lambda pair: Some(pair[0]))
 
             return history.step(offset, Dated(moment=moment, value=record), retention).map(lambda found: moved(*found)).default_value(Ok(Nothing))
 
-        return paired(Snapshot.capture(self.struct(host)), self.held(host)).bind(lambda pair: navigated(*pair))
+        return paired(Snapshot.capture(self.struct(host)), self.history(host)).bind(lambda pair: navigated(*pair))
 
     def forgotten(self, host: Host, offset: int) -> Outcome[Option[Snapshot]]:
         """Removes the snapshot at signed one-based offset, `Nothing` past either end, leaving the live group unchanged."""
-        return self.held(host).bind(
-            lambda history: history.at(offset).map(lambda entry: self.holding.write(self.struct(host), history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(Nothing))
+        return self.history(host).bind(
+            lambda history: history.at(offset).map(lambda entry: self.history_store.write(self.struct(host), history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(Nothing))
         )
 
     # --- [HOSTS]
@@ -310,7 +313,7 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
 
 class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Pointer property to a form group on its owner class, with startup seed, change callback, and the property callbacks bound to the extension each form property registers with."""
+    """Pointer property to a form group on its owner class, with startup seed, change callback, and property callbacks bound to the extension."""
 
     key: Key
     form: type[G]
@@ -331,8 +334,8 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
         """Returns host form group through the registered binding."""
         return self.bound(identity).map(lambda attached: attached.struct(host))
 
-    def fields(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: bpy.types.OperatorProperties, identity: Identity) -> None:
-        """Draws every form field of the group the context's owner holds, an operator dialog's draw editing the attachment, nothing where the context reaches no group."""
+    def fields(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: object, identity: Identity) -> None:
+        """Draws every form field of the group the context's owner holds, nothing where the context reaches no group."""
         for group in rooted(self.owner, context).bind(lambda host: self.read(identity, host)).to_option().to_list():
             for name in annotated(self.form):
                 layout.prop(group, name)
@@ -341,7 +344,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Yields form groups, pointer, and seed while each form property holds the callbacks the extension binds and the change callback runs after each value property's declared update."""
+        """Yields form groups, pointer, and seed while form properties hold bound callbacks and the change callback follows each value property's update."""
         with ExitStack() as stack:
             callbacks = self.callbacks.map(lambda build: stack.enter_context(build(identity))).default_value(MappingProxyType({}))
             declared = Declared(form=self.form, callbacks=callbacks, change=self.changed.map(lambda build: stack.enter_context(build(identity))))
@@ -351,7 +354,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
             yield identity.identifier(self.key).map(
                 lambda name: (
                     declared,
-                    (Band.ATTACHMENTS, pointed(self.owner, name, pointer)),
+                    (Tier.ATTACHMENTS, pointed(self.owner, name, pointer)),
                     *(Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded)) for seed in self.seed.to_list()),
                 )
             )

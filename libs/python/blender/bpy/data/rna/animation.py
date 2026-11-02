@@ -13,7 +13,7 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from blender.bpy.data.rna.descriptors import Descriptor, differing, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, differing, DTYPES, Value, written
 from blender.bpy.data.rna.paths import id_data, id_path, rna, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import assigned
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
@@ -28,7 +28,6 @@ type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SAMPLED: tuple[type[bpy.types.Property], ...] = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)
 _CO: Final = Descriptor.declared(bpy.types.Keyframe, ("co",), bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -48,7 +47,7 @@ class Keys(Case, frozen=True, kw_only=True):
 class Driven(Case, frozen=True, kw_only=True):
     """Driver members and one member mapping per variable, each written through the snapshot writer.
 
-    Driver values name `Driver` members (`type`, `expression`, `use_self`); each variable mapping names `DriverVariable` members and its targets (`("type",)`, `("targets", 0, "id")`, `("targets", 0, "transform_type")`), so any variable type, target ID, and combining driver type is reachable.
+    Values name `Driver` members (`type`, `expression`), variable mappings `DriverVariable` members and targets (`("targets", 0, "id")`).
     """
 
     values: Mapping[RnaPath, Value] = MappingProxyType({})
@@ -97,7 +96,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             block: ID the channel's owner sits under.
 
         Returns:
-            Whether a key, driver, mute, or modifier value changed, refusal faults of every host call accumulated.
+            Whether a key, driver, mute, or modifier value changed, refused faults of every host call accumulated.
         """
         refused = partial(Fault.of, Reason.REFUSED, f"{block!r}.{rna(self.path)}")
 
@@ -184,7 +183,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Outcome[NDArray[np.float32] | Driven]:
             match self.source:
                 case Keys(points=points):
-                    return Descriptor.quantized(_CO.prop, np.asarray(points, dtype=np.float64))
+                    return Descriptor.quantized(_CO.prop, np.asarray(points, dtype=np.float64).reshape(-1, 2))
                 case Driven() as source:
                     return Ok(source)
 
@@ -237,7 +236,7 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
             case bpy.types.EnumProperty():
                 return Ok(tuple(values.astype(np.int64).astype(float).tolist()))
             case _:
-                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in _SAMPLED)))
+                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in DTYPES)))
 
     def curve(descriptor: Descriptor) -> Option[bpy.types.FCurve]:
         return (
@@ -248,12 +247,13 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
         )
 
     def stored(descriptor: Descriptor) -> Outcome[float]:
-        return (
-            Some(descriptor)
-            .filter(lambda found: isinstance(found.prop, bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty))
-            .map(lambda found: float(np.asarray(found.read(owner), np.float64).item()))
-            .to_result_with(absent)
-        )
+        match descriptor.prop:
+            case bpy.types.EnumProperty(is_enum_flag=False, enum_items=items):
+                return Option.of_optional(items.get(str(descriptor.read(owner)))).map(lambda item: float(item.value)).to_result_with(absent)
+            case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty():
+                return Ok(float(np.asarray(descriptor.read(owner), np.float64).item()))
+            case _:
+                return Error(absent())
 
     def sample(descriptor: Descriptor) -> Outcome[tuple[float, ...]]:
         return (

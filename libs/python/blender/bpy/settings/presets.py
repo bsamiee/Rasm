@@ -14,7 +14,7 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.data.rna.mirrors import EnumItem, held_choices
+from blender.bpy.data.rna.properties import EnumItem, held_choices
 from blender.bpy.extension.identity import Identity, Key
 from blender.records.faults import Fault, Outcome, Reason
 from blender.records.stores import RecordFile
@@ -33,7 +33,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     form: TypeForm[T]
     stock: Mapping[str, T] = MappingProxyType({})
     directory: Option[Path] = Nothing
-    admitted: Option[Callable[[T], Outcome[T]]] = Nothing
+    validated: Option[Callable[[T], Outcome[T]]] = Nothing
 
     # --- [LISTING]
 
@@ -48,7 +48,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return {**{stem: users.get(stem, value) for stem, value in self.stock.items()}, **{stem: users[stem] for stem in added}}
 
     def entries(self, identity: Identity, *_: object) -> tuple[EnumItem, ...]:
-        """Returns enum items with a value fixed per stem, held while the listing stands so the strings Blender reads stay referenced.
+        """Returns enum items with a value fixed per stem, kept referenced for Blender's string reads.
 
         Stock stems read title-cased, user files keep their typed name and take their path as tooltip.
         """
@@ -72,7 +72,9 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, source: T | Path) -> Outcome[T]:
         """Decodes and validates user file, passing stock preset through."""
-        return RecordFile(path=source, form=self.form).read().bind(lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
+        return (
+            RecordFile(path=source, form=self.form).read().bind(lambda value: self.validated.map(lambda validate: validate(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
+        )
 
     def written(self, target: Path, value: T) -> Outcome[Path]:
         """Writes JSON at target through one atomic commit."""

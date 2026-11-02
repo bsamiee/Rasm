@@ -51,7 +51,7 @@ class Metric(IntEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Bar(msgspec.Struct, frozen=True, kw_only=True):
+class Threshold(msgspec.Struct, frozen=True, kw_only=True):
     """Advisory and refusal thresholds of an axis."""
 
     metric: Metric
@@ -112,11 +112,11 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
         ).map(measured)
 
-    def severity(self, bars: Iterable[Bar]) -> Severity:
+    def severity(self, bars: Iterable[Threshold]) -> Severity:
         """Returns worst grade across thresholds."""
         return max((bar.graded(self.measures) for bar in bars), default=Severity.PASS)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bar", "Comparison", "Metric", "Severity"]
+__all__ = ["Comparison", "Metric", "Severity", "Threshold"]

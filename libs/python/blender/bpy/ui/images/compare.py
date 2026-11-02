@@ -13,24 +13,24 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Value, written
-from blender.bpy.data.rna.mirrors import enum_choices
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
+from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, DrawType, programs, QUAD, Rect, Shadow
+from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, DrawType, FontStyle, programs, QUAD, Rect, Shadow
 from blender.bpy.ui.drawing.handlers import Refresh
+from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup, TargetHandler
 from blender.bpy.ui.images.views import framed, HANDLE, image_type, overlaid
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Layout, Property, Separator
-from blender.bpy.ui.resources.icons import Glyph
+from blender.bpy.ui.resources.icons import Icon
 from blender.bpy.ui.resources.previews import uploaded
 from blender.bpy.ui.resources.theme import color, Metrics
-from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos, TargetHandler
 from blender.records.faults import Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ class Compare(bpy.types.PropertyGroup):
     """Screen compare: the before frame's layout, split, and side."""
 
     mode: bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    split: bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    split: bpy.props.FloatProperty(name="Split", description="CompareOverlay position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     swapped: bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -77,7 +77,7 @@ class Before(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     shown: str
 
 
-class Sides(msgspec.Struct, frozen=True, kw_only=True):
+class CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
     """Compare layout in region pixels: the before plate, the clip it draws in, the split rule as the rectangle its diagonal spans, and the captions."""
 
     plate: Rect
@@ -114,7 +114,7 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
                 return cls(plate=plate, clip=bounds, rule=Nothing, captions=())
 
 
-class Wipe(msgspec.Struct, frozen=True, kw_only=True):
+class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
     """Part drawing the before frame in the editor's display channels under the screen's compare, its rule and captions in the theme's image metadata text color under the widget font style's shadow."""
 
     draw_type: ClassVar[DrawType] = "POST_PIXEL"
@@ -161,14 +161,14 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
             case bpy.types.SpaceImageEditor(zoom=zoom, display_channels=channels):
                 across, up = np.asarray(zoom)
                 for compare in self.compare(bpy.context).to_list():
-                    sides = Sides.of(compare, framed(canvas.region), canvas.extent, (texture.width * float(across), texture.height * float(up)), before, metrics, metrics.font(style))
+                    laid = CompareLayout.of(compare, framed(canvas.region), canvas.extent, (texture.width * float(across), texture.height * float(up)), before, metrics, metrics.font(style))
                     texture.filter_mode(bool(across < 1.0))
-                    with canvas.clipped(sides.clip):
-                        pictured(sides.plate, channels)
-                    for rule in sides.rule.to_list():
+                    with canvas.clipped(laid.clip):
+                        pictured(laid.plate, channels)
+                    for rule in laid.rule.to_list():
                         ruled(rule)
-                    for caption, x, y, align in sides.captions:
-                        canvas.label(caption, (x, y), tint, style, align)
+                    for caption, x, y, align in laid.captions:
+                        canvas.label(caption, (x, y), tint, FontStyle(size=style, align=align))
             case _:
                 pass
 
@@ -180,7 +180,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Before frame over images of `kinds` under each screen's compare, with its split handle, header toggles, and the show, mirror, and swap commands a consumer's keymap binds, each command keyed after the view."""
 
     key: Key
-    glyph: Glyph
+    icon: Icon
     read: Callable[[Identity, Metrics], Outcome[Option[Before]]]
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: Callable[[Identity], Outcome[tuple[Refresh, ...]]] = lambda _identity: Ok(())
@@ -224,17 +224,17 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def showing(self) -> Operator[Showing]:
         """Command toggling a layout, keyed `show_<key>`."""
-        return Operator.of(Showing, condition=Some(self.shown), undo=Nothing, named=Some(f"show_{self.key}"))(self.show_compare)
+        return Operator.of(Showing, condition=Some(self.shown), undo=NoUndo(), named=Some(f"show_{self.key}"))(self.show_compare)
 
     @cached_property
     def mirroring(self) -> Operator[Empty]:
         """Command mirroring the split, keyed `mirror_<key>`."""
-        return Operator.of(Empty, condition=Some(self.shown), undo=Nothing, icon=Some("MOD_MIRROR"), named=Some(f"mirror_{self.key}"))(self.mirror_split)
+        return Operator.of(Empty, condition=Some(self.shown), undo=NoUndo(), icon=Some("MOD_MIRROR"), named=Some(f"mirror_{self.key}"))(self.mirror_split)
 
     @cached_property
     def swapping(self) -> Operator[Empty]:
         """Command swapping the sides, keyed `swap_<key>`."""
-        return Operator.of(Empty, condition=Some(self.shown), undo=Nothing, icon=Some("ARROW_LEFTRIGHT"), named=Some(f"swap_{self.key}"))(self.swap_sides)
+        return Operator.of(Empty, condition=Some(self.shown), undo=NoUndo(), icon=Some("ARROW_LEFTRIGHT"), named=Some(f"swap_{self.key}"))(self.swap_sides)
 
     # --- [HANDLE]
 
@@ -284,11 +284,11 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return (
             Layout(
                 rows=(
-                    Property(target=Member(root=self.state, path=("mode",)), icon=Some(self.glyph)),
+                    Property(target=Member(root=self.state, path=("mode",)), icon=Some(self.icon)),
                     Separator(keywords={"type": "SPACE"}),
                     Property(target=Member(root=self.state, path=("swapped",)), keywords={"icon_only": True}, icon=Some("ARROW_LEFTRIGHT")),
                 ),
-                shown=Some(self.shown),
+                visible=Some(self.shown),
             ),
         )
 
@@ -299,13 +299,13 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def rows(attached: Attached[Compare], refreshes: tuple[Refresh, ...]) -> Acquisitions:
             bind = TargetHandler[tuple[float, ...]](get=lambda context: self.offset(attached, context), set=lambda context, values: self.moved(attached, context, values))
-            handle = GizmoPart(kind="GIZMO_GT_move_3d", place=lambda context: self.handle(attached, context), bind=bind, properties={"scale_basis": HANDLE, "draw_style": "RING_2D"})
+            handle = Gizmo(kind="GIZMO_GT_move_3d", place=lambda context: self.handle(attached, context), bind=bind, properties={"scale_basis": HANDLE, "draw_style": "RING_2D"})
             return (
                 self.showing,
                 self.mirroring,
                 self.swapping,
-                Gizmos(key=self.key, space="IMAGE_EDITOR", parts=(handle,), condition=Some(self.shown)),
-                overlaid(Wipe(source=lambda metrics: self.read(identity, metrics), compare=lambda context: self.compared(attached, context)), self.shown, refreshes),
+                GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(handle,), condition=Some(self.shown)),
+                overlaid(CompareOverlay(source=lambda metrics: self.read(identity, metrics), compare=lambda context: self.compared(attached, context)), self.shown, refreshes),
                 _PROGRAMS,
             )
 
@@ -346,4 +346,4 @@ _PROGRAMS: Final = programs(_channeled.cache_clear, _diagonal.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Before", "Compare", "CompareView", "Mode", "Showing", "Sides", "Wipe"]
+__all__ = ["Before", "Compare", "CompareLayout", "CompareOverlay", "CompareView", "Mode", "Showing"]

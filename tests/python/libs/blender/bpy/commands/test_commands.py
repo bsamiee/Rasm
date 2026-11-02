@@ -83,7 +83,7 @@ CASES: Final[tuple[tuple[Steps, object], ...]] = (
             ("kept", Error(("ANSWERED",)), 0),
             ("refused", Error(("FAILED",)), 0),
             ("macro", Ok(("FINISHED",)), 5),
-            ("bogus", Error(("FAILED",)), 0),
+            ("undeclared", Error(("FAILED",)), 0),
             ("over", Ok(("FINISHED",)), 14),
         )
     ),

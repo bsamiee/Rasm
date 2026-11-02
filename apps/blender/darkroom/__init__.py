@@ -5,8 +5,8 @@ from pathlib import Path
 from expression import Some
 
 from blender.bpy.extension.registration import Registration
+from blender.bpy.ui.elements.panels import PreferencesPage
 from blender.bpy.ui.resources.icons import Icons
-from blender.bpy.ui.surfaces.panels import PreferencesPage
 
 from . import catalog
 from .color import looks, luts, response

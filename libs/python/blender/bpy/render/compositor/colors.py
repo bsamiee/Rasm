@@ -53,8 +53,8 @@ def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, 
             inputs=(("Image", entering),),
             members={"from_color_space": pair[0], "to_color_space": pair[1]},
             socket="Image",
-            shape=bpy.types.NodeSocketColor,
-        ).named(key)
+            socket_type=bpy.types.NodeSocketColor,
+        ).keyed(key)
     )
 
 
@@ -64,25 +64,25 @@ def pointwise(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr
 
     def associated(adjusted: Expr) -> Expr:
         restored = with_alpha(adjusted, alpha)
-        return where(equal(alpha, 0.0), restored, premultiplied(restored)).named(key)
+        return where(equal(alpha, 0.0), restored, premultiplied(restored)).keyed(key)
 
     return operation(straight(entering)).map(associated)
 
 
 def straight(image: Term) -> Expr:
     """Divides associated color by its alpha through Alpha Convert."""
-    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image), ("Type", "To Straight")), socket="Image", shape=bpy.types.NodeSocketColor)
+    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image), ("Type", "To Straight")), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
 
 def premultiplied(image: Term) -> Expr:
     """Multiplies straight color by its alpha through Alpha Convert."""
-    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image),), socket="Image", shape=bpy.types.NodeSocketColor)
+    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image),), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
 
 def with_alpha(image: Term, alpha: Term, *, masked: bool = False) -> Expr:
     """Sets an image's alpha through Set Alpha, replacing it, or scaling every channel by it where `masked`."""
     return Expr(
-        kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", image), ("Alpha", alpha), ("Type", "Apply Mask" if masked else "Replace Alpha")), socket="Image", shape=bpy.types.NodeSocketColor
+        kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", image), ("Alpha", alpha), ("Type", "Apply Mask" if masked else "Replace Alpha")), socket="Image", socket_type=bpy.types.NodeSocketColor
     )
 
 

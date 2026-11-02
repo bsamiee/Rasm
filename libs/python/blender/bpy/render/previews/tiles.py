@@ -22,17 +22,17 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import CompositorEffect, Entry
-from blender.bpy.render.compositor.entries import EffectRows
+from blender.bpy.render.compositor.entries import Enabled
 from blender.bpy.render.compositor.inputs import PreviewFrame, restored
 from blender.bpy.render.compositor.layers import Adjustment, EFFECTS, LayerStack
-from blender.bpy.render.compositor.placement import Enabled
+from blender.bpy.render.compositor.offered import OfferedEffects
 from blender.bpy.render.compositor.recipes import Valued
-from blender.bpy.render.compositor.stacking import stacked_by
+from blender.bpy.render.compositor.stack_service import stacked_by
 from blender.bpy.render.outputs.framing import FrameSize, Framing
 from blender.bpy.render.outputs.results import combined, intermediate, INTERMEDIATES, ResultRead
 from blender.bpy.render.previews.queue import Demand, Demands, Job, PreviewFeed, Rank
 from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, PreviewStack, Restoring, RoutedEntry, Staging
-from blender.bpy.ui.layout.rows import Line, RowDraw
+from blender.bpy.ui.layout.rows import ConditionalRow, RowDraw
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.files.buffers import fitted
@@ -42,21 +42,21 @@ from blender.records.stores import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Tiled[R: Case] = Valued[Entry[R]] | Valued[LayerStack[R]] | Through | Recipe[R]
+type Tiled[R: Case] = Valued[Entry[R]] | Valued[LayerStack[R]] | EntryOutput | Recipe[R]
 type _Parts = Option[tuple[msgspec.Struct | ContentHash, ...]]
 type _Basis = tuple[Tiled[Any], int, bpy.types.Scene, str]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Through(msgspec.Struct, frozen=True, kw_only=True):
+class EntryOutput(msgspec.Struct, frozen=True, kw_only=True):
     """Stack through one named entry, the output that entry leaves."""
 
     name: str
 
 
 class Recipe[R: Case](msgspec.Struct, frozen=True, kw_only=True):
-    """Entries with their input values in stack order standing in for every mirrored entry."""
+    """Entries with their input values in stack order standing in for every routed entry."""
 
     entries: tuple[Valued[Entry[R]], ...]
 
@@ -87,55 +87,61 @@ class _TileState:
         self.requests: dict[str, tuple[EffectTiles[Any], Tiled[Any], int]] = {}
         self.demands: Demands[str, _Basis] = Demands()
 
+    def forgotten(self) -> None:
+        """Drops every request and demand, each drawn slot recording its tile again."""
+        self.requests.clear()
+        self.demands.forgotten()
+
 
 _TILES: Final = Resource[_TileState](made=lambda _identity: nullcontext(_TileState()), renewed=Some(lambda _held: _TileState()))
 
 
 class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
-    """Preview tiles of offered effects over the render proxy, each stack closing through `closing` where one is given and through the scene view alone otherwise, the closing effect's entries alone preceding the tiled record while `isolated`.
+    """Preview tiles of offered effects over the render proxy, each stack closing through `closing`, else through the scene view.
 
-    `icon` records a slot's tile at draw and answers its published icon, serving layer stack looks and gallery items alike, and the preview queue renders each tile its slot holds no current icon of.
+    `isolated` keeps the closing effect's entries alone ahead of the tiled record.
+    `icon` records a slot's tile at draw and returns its published icon, and the preview queue renders each tile its slot holds no current icon of.
     Slots name tiles across the extension.
     """
 
-    rows: EffectRows[R]
+    rows: OfferedEffects[R]
     closing: Option[CompositorEffect[R]] = Nothing
     isolated: bool = False
     preview: PreviewScene = PreviewScene()
 
     # --- [STACKS]
 
-    def closes(self, identity: Identity, mirror: RoutedEntry) -> bool:
-        """Whether the closing effect owns a mirrored entry."""
-        return self.closing.map(lambda closing: self.rows.row(identity, mirror.entry).filter(lambda row: row == closing).is_some()).default_value(False)
+    def closes(self, identity: Identity, item: RoutedEntry) -> bool:
+        """Whether the closing effect owns a routed entry."""
+        return self.closing.map(lambda closing: self.rows.row(identity, item.entry).filter(lambda row: row == closing).is_some()).default_value(False)
 
-    def mirrors(self, identity: Identity, scene: bpy.types.Scene) -> tuple[RoutedEntry, ...]:
+    def routed(self, identity: Identity, scene: bpy.types.Scene) -> tuple[RoutedEntry, ...]:
         """Returns preview-enabled entries, the closing effect's alone while isolated."""
         held = RoutedEntry.of(scene, Enabled.PREVIEW)
-        return tuple(mirror for mirror in held if self.closes(identity, mirror)) if self.isolated else held
+        return tuple(item for item in held if self.closes(identity, item)) if self.isolated else held
 
-    def stacked(self, identity: Identity, scene: bpy.types.Scene, record: Tiled[R], head: Option[npt.NDArray[np.float32]]) -> Outcome[PreviewStack]:
+    def stacked(self, identity: Identity, scene: bpy.types.Scene, record: Tiled[R], plane: Option[npt.NDArray[np.float32]]) -> Outcome[PreviewStack]:
         """Builds a tiled record's preview stack: an effect replacing its own or a rival's entry, adjustment effects the layer stacks, a recipe every entry, an entry output keeping entries through it, a seeded closing entry where none stands."""
-        mirrors = self.mirrors(identity, scene)
+        routed = self.routed(identity, scene)
 
         def offered(entries: tuple[Valued[Entry[R]], ...], kept: tuple[RoutedEntry, ...]) -> Outcome[PreviewStack]:
             def opened(closing: CompositorEffect[R]) -> Outcome[tuple[Valued[Entry[R]], ...]]:
-                closed = any(self.closes(identity, mirror) for mirror in kept) or any(type(entry.structure.record) is closing.record for entry in entries)
+                closed = any(self.closes(identity, item) for item in kept) or any(type(entry.structure.record) is closing.record for entry in entries)
                 return Ok(()) if closed else closing.seeded(scene).map(lambda seed: (Valued(structure=Entry(record=seed)),))
 
             opening: Outcome[tuple[Valued[Entry[R]], ...]] = self.closing.map(opened).default_value(Ok(()))
             return opening.bind(lambda first: accumulated(self.rows.offering(type(entry.structure.record)).map(lambda row: (row, entry)) for entry in (*first, *entries))).map(
-                lambda found: PreviewStack(head=head, mirrored=kept, placing=partial(_placed, self.rows, found))
+                lambda found: PreviewStack(plane=plane, routed=kept, placing=partial(_placed, self.rows, found))
             )
 
-        def rival(effect: R, mirror: RoutedEntry) -> bool:
+        def rival(effect: R, item: RoutedEntry) -> bool:
             chosen = self.rows.offering(type(effect)).to_option()
-            return self.rows.row(identity, mirror.entry).filter(lambda row: chosen.filter(lambda own: row == own or self.rows.rivals(own, row)).is_some()).is_some()
+            return self.rows.row(identity, item.entry).filter(lambda row: chosen.filter(lambda own: row == own or self.rows.rivals(own, row)).is_some()).is_some()
 
         match record:
-            case Through(name=name):
+            case EntryOutput(name=name):
                 through = (*itertools.takewhile(lambda entry: entry.name != name, scene.compositor_effects), *(entry for entry in scene.compositor_effects if entry.name == name))
-                return offered((), tuple(mirror for mirror in mirrors if mirror.entry in through))
+                return offered((), tuple(item for item in routed if item.entry in through))
             case Recipe(entries=entries):
                 return offered(entries, ())
             case Valued(structure=structure, values=values, prefix=prefix, enables=enables):
@@ -148,36 +154,36 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
                             if isinstance(layer.source, Adjustment)
                             for index, entry in enumerate(layer.effects, 1)
                         )
-                        return offered(layered, tuple(mirror for mirror in mirrors if stacked_by(identity, mirror.entry.node_group).is_none()))
+                        return offered(layered, tuple(item for item in routed if stacked_by(identity, item.entry.node_group).is_none()))
                     case Entry(record=effect):
-                        replaced = Block.of_seq(mirrors).filter(partial(rival, effect)).try_head()
-                        kept = tuple(mirror for mirror in mirrors if replaced.filter(lambda held: held is mirror).is_none())
+                        replaced = Block.of_seq(routed).filter(partial(rival, effect)).try_head()
+                        kept = tuple(item for item in routed if replaced.filter(lambda held: held is item).is_none())
                         return offered((Valued(structure=structure, values=values, prefix=prefix, enables=enables),), kept)
 
     def parts(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[_Parts]:
-        """Reads the scene view, proxy key, and each mirrored entry's record and fingerprint, `Nothing` for an entry without one."""
+        """Reads the scene view, proxy key, and each routed entry's record and fingerprint, `Nothing` for an entry without one."""
 
-        def captured(mirror: RoutedEntry) -> Outcome[_Parts]:
-            records = self.rows.row(identity, mirror.entry).map(lambda row: row.read(identity, mirror.entry).map(lambda record: (record,))).default_value(Ok(()))
-            return paired(records, fingerprinted(mirror.entry)).map(lambda pair: pair[1].map(lambda key: (*pair[0], key)))
+        def captured(item: RoutedEntry) -> Outcome[_Parts]:
+            records = self.rows.row(identity, item.entry).map(lambda row: row.read(identity, item.entry).map(lambda record: (record,))).default_value(Ok(()))
+            return paired(records, fingerprinted(item.entry)).map(lambda pair: pair[1].map(lambda key: (*pair[0], key)))
 
-        head: _Parts = Some((viewed(scene), *(proxy.key for proxy in identity.held[_TILES].proxy.to_list())))
-        return accumulated(map(captured, self.mirrors(identity, scene))).map(lambda values: reduce(lambda held, part: held.map2(lambda prior, current: (*prior, *current), part), values, head))
+        head: _Parts = Some((viewed(scene), *(proxy.key for proxy in identity.resources[_TILES].proxy.to_list())))
+        return accumulated(map(captured, self.routed(identity, scene))).map(lambda values: reduce(lambda held, part: held.map2(lambda prior, current: (*prior, *current), part), values, head))
 
     def rendered(self, identity: Identity, record: Tiled[R], side: int, scene: bpy.types.Scene) -> Outcome[npt.NDArray[np.float32]]:
         """Renders a tiled record over the render proxy fitted to `side`, over the preview surface without a proxy, the source's updates during the render marked as its own."""
-        lighting, proxy = PreviewLighting(), identity.held[_TILES].proxy
+        lighting, proxy = PreviewLighting(), identity.resources[_TILES].proxy
 
-        def staged(head: Option[npt.NDArray[np.float32]]) -> Outcome[npt.NDArray[np.float32]]:
-            staging = paired(self.stacked(identity, scene, record, head), lighting.environment).map(
+        def staged(plane: Option[npt.NDArray[np.float32]]) -> Outcome[npt.NDArray[np.float32]]:
+            staging = paired(self.stacked(identity, scene, record, plane), lighting.environment).map(
                 lambda pair: Staging(
                     source=scene,
-                    size=head.map(lambda plane: (plane.shape[1], plane.shape[0])).default_value((side, side)),
+                    size=plane.map(lambda held: (held.shape[1], held.shape[0])).default_value((side, side)),
                     world=pair[1],
-                    lamp=lighting.lamp,
+                    sun=lighting.sun,
                     stack=pair[0],
-                    surface=Nothing if head.is_some() else Some(lighting.surface),
-                    preview=proxy.map2(_Proxy.framed, head),
+                    surface=Nothing if plane.is_some() else Some(lighting.surface),
+                    preview=proxy.map2(_Proxy.framed, plane),
                 )
             )
             return staging.bind(lambda desired: self.preview.rendered(identity, desired)).map(lambda readback: readback.plane)
@@ -189,12 +195,12 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def icon(self, identity: Identity, slot: str, record: Tiled[R], /, side: Option[int] = Nothing) -> Option[int]:
         """Records the slot's tile at its side in pixels, Blender's preview render size by default, and returns the slot's published icon."""
-        identity.held[_TILES].requests[slot] = (self, record, side.default_with(lambda: bpy.app.render_preview_size))
-        return identity.held[PREVIEWS].icon_id(slot)
+        identity.resources[_TILES].requests[slot] = (self, record, side.default_with(lambda: bpy.app.render_preview_size))
+        return identity.resources[PREVIEWS].icon_id(slot)
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
-        """Returns a job per requested slot holding no current icon, its demand kept while the tile, scene, and config stand until a change outside a preview render or a new render proxy drops it, the stack parts read once per step only for a slot holding no demand."""
-        state, previews = identity.held[_TILES], identity.held[PREVIEWS]
+        """Returns a job per requested slot holding no current icon, stack parts read once per step for a slot holding no demand."""
+        state, previews = identity.resources[_TILES], identity.resources[PREVIEWS]
         requested = tuple((slot, record, side) for slot, (owner, record, side) in state.requests.items() if owner == self)
 
         def planned(scene: bpy.types.Scene, config: str) -> Outcome[tuple[Job, ...]]:
@@ -223,7 +229,7 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns tile state, previews, the queue feed, the preview scene, and the reader keeping the context view layer's Combined pass as render proxy, every demand dropped on a change outside a preview render and on each new proxy.
+        """Returns tile state, previews, the queue feed, the preview scene, and the reader keeping the context view layer's Combined pass as render proxy, every request and demand dropped on a change outside a preview render and on each new proxy.
 
         Renders holding no such pass, a sequencer frame or a layer off for render, keep the prior proxy.
         """
@@ -236,14 +242,14 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 
             def stored(plane: npt.NDArray[np.float32], framing: Framing, proxy: npt.NDArray[np.float32]) -> Option[str]:
                 scaled = framing.scaled(Fraction(max(proxy.shape[:2]), max(plane.shape[:2])))
-                identity.held[_TILES].proxy = Some(_Proxy(plane=proxy, framing=scaled, key=content_hash(_Proxy, scaled, arrays=(proxy,))))
-                identity.held[_TILES].demands.forgotten()
+                identity.resources[_TILES].proxy = Some(_Proxy(plane=proxy, framing=scaled, key=content_hash(_Proxy, scaled, arrays=(proxy,))))
+                identity.resources[_TILES].forgotten()
                 return Nothing
 
             def unrendered(faults: Faults) -> Outcome[Option[npt.NDArray[np.float32]]]:
                 return Ok(Nothing) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults)
 
-            held = rooted(bpy.types.ViewLayer, bpy.context).bind(lambda layer: combined(path, Some(layer.name)).map(lambda read: Some(read[1])).or_else_with(unrendered))
+            held = rooted(bpy.types.ViewLayer, bpy.context).bind(lambda layer: combined(path, Some(layer.name)).map(Some).or_else_with(unrendered))
             return paired(held, camera).bind(
                 lambda pair: (
                     pair[0].map(lambda plane: widest.map(lambda side: fitted(plane, (side, side))).default_value(Ok(plane)).map(lambda proxy: stored(plane, pair[1], proxy))).default_value(Ok(Nothing))
@@ -251,8 +257,8 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def invalidated(scene: bpy.types.Scene, *_: object) -> Outcome[None]:
-            if scene.session_uid not in identity.held[INTERMEDIATES]:
-                identity.held[_TILES].demands.forgotten()
+            if scene.session_uid not in identity.resources[INTERMEDIATES]:
+                identity.resources[_TILES].forgotten()
             return Ok(None)
 
         return Ok((
@@ -268,7 +274,7 @@ class EffectTiles[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         ))
 
 
-class EntryTile(Line, frozen=True, kw_only=True):
+class EntryTile(ConditionalRow, frozen=True, kw_only=True):
     """Tile of the output a compositor entry holder leaves, as wide as a panel in its region up to the height Blender opens a preview at."""
 
     tiles: EffectTiles[Any]
@@ -285,7 +291,7 @@ class EntryTile(Line, frozen=True, kw_only=True):
                 case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name), bpy.types.Region(width=width):
                     metrics = Metrics.read()
                     side = min(width - 2.0 * metrics.margin, metrics.preview)
-                    for icon in self.tiles.icon(identity, f"entry {scene.session_uid} {name}", Through(name=name), Some(round(side))).to_list():
+                    for icon in self.tiles.icon(identity, f"entry {scene.session_uid} {name}", EntryOutput(name=name), Some(round(side))).to_list():
                         layout.template_icon(icon_value=icon, scale=side / metrics.unit)
                 case _:
                     pass
@@ -297,9 +303,9 @@ class EntryTile(Line, frozen=True, kw_only=True):
 
 
 def _placed[R: Case](
-    rows: EffectRows[R], offered: tuple[tuple[CompositorEffect[R], Valued[Entry[R]]], ...], identity: Identity, _source: bpy.types.Scene, target: bpy.types.Scene, preview: Option[PreviewFrame]
+    rows: OfferedEffects[R], offered: tuple[tuple[CompositorEffect[R], Valued[Entry[R]]], ...], identity: Identity, _source: bpy.types.Scene, target: bpy.types.Scene, preview: Option[PreviewFrame]
 ) -> Outcome[Restoring]:
-    """Places offered entries with their input values after the mirrored ones, answering the removal of every entry it placed."""
+    """Places offered entries with their input values after the routed ones, returning the removal of every entry it placed."""
 
     def valued(row: CompositorEffect[R], entry: Valued[Entry[R]]) -> Outcome[bpy.types.SceneCompositorEffect]:
         return rows.placed(identity, target, row, entry.structure, preview=preview).bind(
@@ -309,11 +315,11 @@ def _placed[R: Case](
     return accumulated(itertools.starmap(valued, offered)).map(lambda held: partial(_removed, rows, identity, target, tuple(entry.name for entry in held)))
 
 
-def _removed[R: Case](rows: EffectRows[R], identity: Identity, scene: bpy.types.Scene, names: tuple[str, ...]) -> Outcome[None]:
+def _removed[R: Case](rows: OfferedEffects[R], identity: Identity, scene: bpy.types.Scene, names: tuple[str, ...]) -> Outcome[None]:
     """Removes the named preview entries."""
     return accumulated(rows.removed(identity, scene, name) for name in names).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EffectTiles", "EntryTile", "Recipe", "Through", "Tiled"]
+__all__ = ["EffectTiles", "EntryOutput", "EntryTile", "Recipe", "Tiled"]

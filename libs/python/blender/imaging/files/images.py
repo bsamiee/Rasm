@@ -145,14 +145,14 @@ class Quality(Case, frozen=True, kw_only=True):
         return (("CompressionQuality", OpenImageIO.TypeInt, self.level),)
 
 
-type Compressions = Plain | Deflate | Dwa | Quality
+type Compression = Plain | Deflate | Dwa | Quality
 
 
 class Storage(msgspec.Struct, frozen=True, kw_only=True):
     """Stored depth, compression, and the coding of integer depths."""
 
     depth: Depth = Depth.FLOAT
-    compression: Option[Compressions] = Nothing
+    compression: Option[Compression] = Nothing
     coding: Coding = Coding.ROUNDED
 
     @property
@@ -161,7 +161,7 @@ class Storage(msgspec.Struct, frozen=True, kw_only=True):
         return self.compression.map(lambda compression: compression.attributes).default_value(())
 
     def stored(self, plane: npt.NDArray[np.float32], /) -> Outcome[npt.NDArray[Coded]]:
-        """Returns associated float values as stored: integer depths coded from unassociated values, half floats clipped to the largest half less compression margin, or image fault."""
+        """Returns associated float values as stored: integer depths coded from unassociated values, half floats clipped to the largest half less compression margin, or `FAILED` fault."""
         match self.depth:
             case Depth.UINT8 | Depth.UINT16:
                 return self.depth.coded(unassociated(plane), self.coding)
@@ -197,7 +197,7 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, path: pathlib.Path) -> Outcome[Self]:
-        """Returns the writable format OpenImageIO picks for `path`, outside fault naming every writable suffix and the OpenImageIO refusal."""
+        """Returns the writable format OpenImageIO picks for `path`, `OUTSIDE` fault naming every writable suffix and the OpenImageIO refusal."""
         return (
             Option
             .of_optional(OpenImageIO.ImageOutput.create(str(path)))
@@ -217,9 +217,9 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(depth for depth in Depth if self.name in _DEPTH_WRITERS[depth])
 
     @property
-    def compressions(self) -> tuple[Compressions, ...]:
+    def compressions(self) -> tuple[Compression, ...]:
         """Default compression of each case the writer accepts."""
-        return tuple(form for form in (kind() for kind in typing.get_args(Compressions.__value__)) if self.name in form.writers)
+        return tuple(form for form in (kind() for kind in typing.get_args(Compression.__value__)) if self.name in form.writers)
 
     def stored(self, depth: Depth) -> Outcome[Depth]:
         """Accepts a depth the writer stores unchanged."""
@@ -245,7 +245,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Writes pixels at the storage depth, integer depths coded through its coding, with header, text fields, compression, and colorspace tags to the writer `path` suffix names.
 
         Returns:
-            Path, `read` fault for profile IO, image fault for coding, or `write` fault.
+            Path, `UNREADABLE` fault for profile IO, `FAILED` fault for coding, or `UNWRITABLE` fault.
         """
         (height, width, channels), coded = self.pixels.shape, storage.depth in {Depth.UINT8, Depth.UINT16}
         identifier = Option.of_optional(config.getColorSpace(self.colorspace)).map(interop).filter(bool)
@@ -293,7 +293,7 @@ def read_file(
         options: Reader configuration.
 
     Returns:
-        File, or `read` or `unresolved` fault.
+        File, or `UNREADABLE` or `ABSENT` fault.
     """
     name = str(path)
 
@@ -319,7 +319,7 @@ def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcom
     """Opens a file for reading under reader configuration `options`, uses it, and closes it on every path.
 
     Returns:
-        Reader value, or `read` fault for open, read, or close.
+        Reader value, or `UNREADABLE` fault for open, read, or close.
     """
 
     def held(image: OpenImageIO.ImageInput) -> Outcome[T]:
@@ -338,7 +338,7 @@ def written(path: pathlib.Path, write: Callable[[pathlib.Path], object]) -> Outc
     """Runs one encoder opening, writing, and closing the stage path of `path` through one atomic commit, creating its folder.
 
     Returns:
-        Path, or `write` fault for folder creation, encoding, or commit.
+        Path, or `UNWRITABLE` fault for folder creation, encoding, or commit.
     """
     return committed(path, lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, str(path))))
 
@@ -347,7 +347,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: pathlib.Path, subimages:
     """Encodes subimages built for the writer `path` suffix names through one output, closing it before replacing the file.
 
     Returns:
-        Path, or `write` fault.
+        Path, or `UNWRITABLE` fault.
     """
     refused = functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
 
@@ -412,7 +412,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
     """Reads the ICC profile a colorspace names from config search path.
 
     Returns:
-        Profile, `Nothing` when the colorspace names none, or `read` fault for a named profile the search path misses or fails to read.
+        Profile, `Nothing` when the colorspace names none, or `UNREADABLE` fault for a named profile the search path misses or fails to read.
     """
     context = config.getCurrentContext()
 
@@ -433,7 +433,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
 __all__ = [
     "Blocks",
     "Codec",
-    "Compressions",
+    "Compression",
     "Deflate",
     "Dwa",
     "Format",

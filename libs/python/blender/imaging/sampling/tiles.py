@@ -1,4 +1,4 @@
-"""Seeded draws, seamless noise tiles, and lens kernels: draw families, stable uniforms per key, filtered Gaussian tiles, centered rank tiles of provider images, tile statistics, seeded 1/f lens dirt, and spectral diffraction point spreads."""
+"""Seeded draws, seamless noise tiles, and lens kernels: draw streams, stable uniforms per key, filtered Gaussian tiles, centered rank tiles of provider images, tile statistics, seeded 1/f lens dirt, and spectral diffraction point spreads."""
 
 from fractions import Fraction
 import math
@@ -17,7 +17,7 @@ from scipy.signal import ZoomFFT
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from blender.imaging.color.colorimetry import matching, table
+from blender.imaging.color.colorimetry import matching, observer
 from blender.imaging.files.buffers import Depth, pixels
 from blender.imaging.geometry.lenses import Aperture
 from blender.records.faults import Outcome
@@ -38,12 +38,12 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
         """Returns spectral diffraction weights over every displacement of the stored `size` frame, `frame` the camera extent at stored pixel scale.
 
         Returns:
-            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, absent at zero core or a closed iris, or color and numeric refusals.
+            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, absent at zero core or a closed iris, or `FAILED` and `INVALID` faults.
         """
         if self.core == 0.0 or self.iris.obstruction == 1.0:
             return Ok(Nothing)
         shape = (2 * size[0] - 1, 2 * size[1] - 1, 3)
-        rows = table()
+        rows = observer()
         side = 2 * next_fast_len(max(frame))
         aspect = Fraction(pixel_aspect)
         sampling = Fraction(1.22 * 550.0) / (Fraction(self.core) * max(Fraction(frame[0]), frame[1] * aspect) * side)
@@ -99,7 +99,7 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def stream(*parts: object) -> int:
-    """Returns the draw family of a key path, below 2**24 so a float32 node coordinate holds it exactly.
+    """Returns the draw stream of a key path, below 2**24 so a float32 node coordinate holds it exactly.
 
     Record fields key by their member descriptor's struct and name, kinds by their qualified name, and integers by their text, parts typed over `object` as checkers read a field on its struct class as the field's value.
     """
@@ -116,23 +116,23 @@ def stream(*parts: object) -> int:
     return int.from_bytes(content_hash(np.random.SeedSequence, msgspec.msgpack.encode(tuple(map(spelled, parts))))[:3], "little")
 
 
-def uniforms(keys: npt.NDArray[np.int64], family: int, count: int, *, seed: int = 0) -> npt.NDArray[np.float64]:
-    """Returns `count` stable uniforms per integer key row and seed, each row seeding its own `SeedSequence` spawned from the draw family."""
+def uniforms(keys: npt.NDArray[np.int64], stream: int, count: int, *, seed: int = 0) -> npt.NDArray[np.float64]:
+    """Returns `count` stable uniforms per integer key row and seed, each row seeding its own `SeedSequence` spawned from the draw stream."""
     rows = np.ascontiguousarray(keys, dtype=np.int64).reshape(len(keys), -1).view(np.uint64)
-    return np.array([np.random.default_rng(np.random.SeedSequence((family, seed), spawn_key=tuple(row))).random(count) for row in rows.tolist()], dtype=np.float64).reshape(len(keys), count)
+    return np.array([np.random.default_rng(np.random.SeedSequence((stream, seed), spawn_key=tuple(row))).random(count) for row in rows.tolist()], dtype=np.float64).reshape(len(keys), count)
 
 
 # --- [TILES]
 
 
-def gaussian(generator: np.random.Generator, side: int, channels: int, deviation: float = 1.0) -> npt.NDArray[np.float32]:
+def gaussian_tile(generator: np.random.Generator, side: int, channels: int, deviation: float = 1.0) -> npt.NDArray[np.float32]:
     """Returns a seamless `(side, side, channels)` tile of standardized normal draws low-pass filtered by a Gaussian of `deviation` pixels."""
     draw = generator.standard_normal((channels, side, side), dtype=np.float32)
     return _standardized(np.moveaxis(np.fft.irfft2(ndimage.fourier_gaussian(np.fft.rfft2(draw), sigma=(0.0, deviation, deviation), n=side), s=(side, side)), 0, -1))
 
 
 def ranks(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
-    """Returns the first channel of a provider rank image, such as `ImageBufAlgo.bluenoise_image`, as centered unit ranks with rows bottom first."""
+    """Returns the first channel of a provider rank image (`ImageBufAlgo.bluenoise_image`) as centered unit ranks with rows bottom first."""
     return pixels(image, Depth.UINT16).map(lambda codes: (codes[::-1, :, :1].astype(np.float32) + 0.5) / float(codes[..., :1].size))
 
 
@@ -145,7 +145,7 @@ def _standardized(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np
     return np.ascontiguousarray(centered / np.sqrt(np.mean(centered**2, axis=(0, 1))), dtype=np.float32)
 
 
-def ranked(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32]:
+def normal_scores(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32]:
     """Maps each channel to standardized normal scores, averaging tied ranks."""
     values = np.asarray(plane.reshape(-1, plane.shape[-1]), dtype=np.float64)
     return _standardized(ndtri((rankdata(values, axis=0) - 0.5) / values.shape[0]).reshape(plane.shape))
@@ -160,4 +160,4 @@ def correlated(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pupil", "Specks", "correlated", "gaussian", "ranked", "ranks", "stream", "uniforms"]
+__all__ = ["Pupil", "Specks", "correlated", "gaussian_tile", "normal_scores", "ranks", "stream", "uniforms"]

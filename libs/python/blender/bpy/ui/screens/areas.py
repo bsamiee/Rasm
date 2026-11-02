@@ -11,7 +11,7 @@ from expression.collections import Block
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation, Setting
-from blender.bpy.data.rna.conditions import admits, Condition
+from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct, struct_at
 from blender.bpy.ui.resources.theme import Metrics, overlaps
@@ -76,7 +76,7 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
     def matches(self, area: bpy.types.Area) -> bool:
         """Returns whether the area's active space is of the class, its `ui_type` matches, and the condition holds over that space."""
         active = area.spaces.active
-        return isinstance(active, self.space) and all(area.ui_type == kind for kind in self.ui_type.to_list()) and admits(self.shows, bpy.context, Some(active))
+        return isinstance(active, self.space) and all(area.ui_type == kind for kind in self.ui_type.to_list()) and satisfied(self.shows, bpy.context, Some(active))
 
     def located(self, windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
         """Returns matching areas, largest first, each matched under its own override."""
@@ -189,7 +189,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def stepped(self, at: Located) -> Outcome[Option[Self]]:
-        """Applies the head step, a retype or split leaving its state as the next step and a nested arrangement merging its reverts once settled."""
+        """Applies the head step, a retype or split leaving its state as the next step and a nested arrangement merging its reverts once done."""
         window = at.window
 
         def kept(undo: Callable[[], Outcome[None]], *following: Step) -> Option[Self]:
@@ -268,7 +268,7 @@ def region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW"
 
 
 def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located], Outcome[None]]) -> Outcome[None]:
-    """Reverts the area by session pointer while it lives, Ok once removed."""
+    """Reverts the area by session pointer while it exists, Ok once removed."""
     return Located.found(window, pointer).map(revert).default_value(Ok(None))
 
 
@@ -277,7 +277,7 @@ def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located],
 
 def visible_bounds(area: bpy.types.Area, region: bpy.types.Region) -> _Bounds:
     """Returns the region's `(x, y, width, height)` in its own pixels less overlapping siblings, each inset from the bounds earlier siblings left, by Blender's `region_visible_rect_calc`."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences = Metrics.read().preferences
 
     def inset(bounds: _Bounds, sibling: bpy.types.Region) -> _Bounds:
         left, bottom, right, top = bounds

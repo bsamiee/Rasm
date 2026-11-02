@@ -36,7 +36,7 @@ class LutLayout(IntEnum):
         """Writes stored cube nodes as 16-bit image to a UINT16 writer path.
 
         Returns:
-            Path, outside fault when a Hald size is no perfect square, or `write` fault.
+            Path, `OUTSIDE` fault when a Hald size is no perfect square, or `UNWRITABLE` fault.
         """
         size = table.getGridSize()
         cube = table.getData().reshape(size, size, size, 3).transpose(2, 1, 0, 3)
@@ -56,7 +56,7 @@ class LutLayout(IntEnum):
         """Reads a Hald or KeyShot image as a uniform cube, its dimensions selecting the layout.
 
         Returns:
-            Table group, or `read`, outside, and `color` faults.
+            Table group, or `UNREADABLE`, `OUTSIDE`, and `FAILED` faults.
         """
 
         def decoded(image: ImageFile) -> Outcome[PyOpenColorIO.GroupTransform]:
@@ -119,7 +119,7 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def readable_suffixes(cls) -> tuple[str, ...]:
-        """Returns the distinct file suffixes of the formats `FileTransform` reads, in format order, as file browsers filter by."""
+        """Returns the distinct file suffixes of the formats `FileTransform` reads, in format order."""
         return tuple(dict.fromkeys(f".{row.extension}" for row in cls.readable()))
 
 
@@ -177,7 +177,7 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
     spacing: Spacing = Uniform()
 
     def samples(self) -> Outcome[npt.NDArray[np.float32]]:
-        """Returns RGB node inputs, evenly spaced codes decoded through the inverse of the spacing's shaper, or color fault."""
+        """Returns RGB node inputs, evenly spaced codes decoded through the inverse of the spacing's shaper, or `FAILED` fault."""
         codes = np.repeat(np.linspace(0.0, 1.0, self.size, dtype=np.float64).astype(np.float32)[:, None], 3, axis=1)
 
         def planed(decoded: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
@@ -251,7 +251,7 @@ def corrections(path: pathlib.Path) -> Outcome[tuple[tuple[Option[str], PyOpenCo
 # --- [TABLES]
 
 
-def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+def cube_split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
     """Returns the processor operations of `transform` before its first 3D table, and that table's lattice with the suffix sampled at its nodes."""
 
     def sampled(built: PyOpenColorIO.Processor) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
@@ -277,4 +277,4 @@ def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> O
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LATTICE_SIZES", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "split"]
+__all__ = ["LATTICE_SIZES", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "cube_split"]

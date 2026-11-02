@@ -15,12 +15,12 @@ from blender.bpy.data.ids.ownership import retained, tracked
 from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.nodes.addressing import Addressed, owned
+from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.nodes.addressing import InterfaceKeys, owned
 from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.interfaces import NodeGroup
-from blender.bpy.nodes.trees import created, endpoints, grouped, joined, links_of, native, ordered, tree_of
-from blender.bpy.ui.drawing.handlers import hooked
+from blender.bpy.nodes.trees import created, endpoints, group_set, linked, links_of, native, ordered, tree_of
+from blender.bpy.ui.drawing.handlers import draw_handler
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.trees import Gaps
 
@@ -41,9 +41,9 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
     gaps: Gaps = Gaps()
 
-    def owned(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
+    def moves(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
-        marked = _arranged(tree, identity)
+        marked = _placeable(tree, identity)
         sizes = {name: measured(node) for name, node in marked.items()}
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
         links = tuple(
@@ -71,7 +71,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                 held
                 .resolve()
                 .bind(tree_of)
-                .bind(lambda tree: accumulated(LOCATION.write(node, desired[name]) for name, node in _arranged(tree, identity).items() if name in desired))
+                .bind(lambda tree: accumulated(LOCATION.write(node, desired[name]) for name, node in _placeable(tree, identity).items() if name in desired))
                 .map(lambda _: Nothing)
             )
 
@@ -83,14 +83,14 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                     context = bpy.context
                     match context.space_data, context.window:
                         case bpy.types.SpaceNodeEditor(edit_tree=bpy.types.NodeTree(is_editable=True) as tree), bpy.types.Window() as window if not window.modal_operators:
-                            if places := self.owned(tree, identity):
+                            if places := self.moves(tree, identity):
                                 for found in holder(tree).to_list():
                                     later(Handle.of(found), places)
 
-                with hooked(bpy.types.SpaceNodeEditor, drew, "WINDOW", "POST_VIEW") as added:
+                with draw_handler(bpy.types.SpaceNodeEditor, drew, "WINDOW", "POST_VIEW") as added:
                     yield added
 
-        return Ok(((Band.DRAW_HANDLERS, drawn()),))
+        return Ok(((Tier.DRAW_HANDLERS, drawn()),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -116,8 +116,8 @@ def inserted(
     """Splices group after a node's first enabled output, routing each consumer link through group, at the cursor when no node leads.
 
     Args:
-        tree: Edited tree, such as a node editor's `edit_tree`.
-        after: Node the group follows, such as the selected active node.
+        tree: Edited tree (a node editor's `edit_tree`).
+        after: Node the group follows (the selected active node).
         cursor: Canvas position the group takes when no node leads.
         group: Owned group to make and place.
         identity: Extension owning the group.
@@ -137,7 +137,7 @@ def inserted(
             node.select = state
         tree.nodes.active = active
 
-    def rewired(target: bpy.types.NodeSocket, incoming: tuple[Incoming, ...]) -> Outcome[tuple[bpy.types.NodeLink, ...]]:
+    def linked_into(target: bpy.types.NodeSocket, incoming: tuple[Incoming, ...]) -> Outcome[tuple[bpy.types.NodeLink, ...]]:
         current = links_of(target)
         for socket in dict.fromkeys((target, *(endpoints(link)[1] for link in current), *(endpoints(each)[1] if isinstance(each, bpy.types.NodeLink) else each[0] for each in incoming))):
             if socket not in hidden:
@@ -166,7 +166,7 @@ def inserted(
         ) -> Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]]:
             index, source, muted = request
             return done.bind(
-                lambda held: joined(tree, source, held[0], verify_limits=False, handle_dynamic_sockets=True).bind(
+                lambda held: linked(tree, source, held[0], verify_limits=False, handle_dynamic_sockets=True).bind(
                     lambda link: written(link, ("is_muted",), muted).map(lambda _: (endpoints(link)[3], {**held[1], index: link}))
                 )
             )
@@ -181,7 +181,7 @@ def inserted(
 
     def replaced(replacements: Mapping[bpy.types.NodeLink, tuple[Incoming, ...]]) -> Outcome[None]:
         targets = tuple(dict.fromkeys(endpoints(link)[3] for link in replacements))
-        return accumulated(rewired(target, tuple(replacement for link in links_of(target) for replacement in replacements.get(link, (link,)))) for target in targets).map(lambda _: None)
+        return accumulated(linked_into(target, tuple(replacement for link in links_of(target) for replacement in replacements.get(link, (link,)))) for target in targets).map(lambda _: None)
 
     def spliced(node: bpy.types.Node, owned: bpy.types.NodeTree) -> Outcome[bpy.types.Node]:
         sources = tuple(socket for active in after.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])
@@ -195,7 +195,7 @@ def inserted(
 
             links = tuple(link for link in links_of(source) if link.is_valid)
             return paired(socket(node.inputs), socket(node.outputs)).bind(
-                lambda pair: rewired(pair[0], ((source, False),)).bind(lambda _: replaced({link: ((pair[1], link.is_muted),) for link in links}))
+                lambda pair: linked_into(pair[0], ((source, False),)).bind(lambda _: replaced({link: ((pair[1], link.is_muted),) for link in links}))
             )
 
         def activated(_: object) -> bpy.types.Node:
@@ -203,7 +203,7 @@ def inserted(
             return node
 
         return (
-            Addressed
+            InterfaceKeys
             .of(owned, identity)
             .bind(lambda live: valued(node.inputs, inputs, live.sockets))
             .bind(lambda _: accumulated(linked(source) for source in sources))
@@ -217,14 +217,14 @@ def inserted(
         return retained(
             native(type(tree), bpy.types.ShaderNodeGroup).bind(
                 lambda kind: made(group, identity).bind(
-                    lambda owned: tracked(resources, tree.nodes.remove, created(tree, kind)).bind(lambda node: grouped(node, owned).bind(lambda _: spliced(node, owned)))
+                    lambda owned: tracked(resources, tree.nodes.remove, created(tree, kind)).bind(lambda node: group_set(node, owned).bind(lambda _: spliced(node, owned)))
                 )
             ),
             resources,
         )
 
 
-def _arranged(tree: bpy.types.NodeTree, identity: Identity) -> dict[str, bpy.types.Node]:
+def _placeable(tree: bpy.types.NodeTree, identity: Identity) -> dict[str, bpy.types.Node]:
     """Owned nodes a layout places, frames left to wrap their members, by node name."""
     return {node.name: node for node in owned(tree, identity).values() if not isinstance(node, bpy.types.NodeFrame)}
 

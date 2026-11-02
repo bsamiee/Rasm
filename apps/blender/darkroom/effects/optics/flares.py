@@ -20,7 +20,7 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, Stoc
 from blender.bpy.render.compositor import masks, motion
 from blender.bpy.render.compositor.coordinates import dimensions
 from blender.bpy.render.compositor.effects import CompositorEffect, depth_precise
-from blender.bpy.render.compositor.inputs import entry_input, entry_value, PreviewFrame, Shell
+from blender.bpy.render.compositor.inputs import captured, chosen, entry_input, GraphInputs, PreviewFrame, valued
 from blender.bpy.render.compositor.lenses import Sighted
 from blender.bpy.render.compositor.shapes import coverage, rotated
 from blender.bpy.render.view_layers.passes import PassRequest
@@ -43,23 +43,33 @@ class Grading(Enum):
     AXIS = auto()
 
 
+class _Kind(Enum):
+    """Source at a frame position, needing no camera or depth, or at a bound scene object."""
+
+    FRAME_POSITION = auto()
+    OBJECT = auto()
+
+
+class _Reading(Enum):
+    """Bound object read as a location, or as the direction toward a light at infinity."""
+
+    POSITION = auto()
+    DIRECTION = auto()
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # --- [SOURCE]
 
 _LIGHT: Final[Key] = "emission"
 _STREAKS: Final[Key] = "basis"
-_FRAME_POSITION: Final = MenuItem(name="Frame Position", description="Source at frame position, needing no camera or depth")
-_OBJECT: Final = MenuItem(name="Object", description="Bound scene object read as location or local +Z direction")
-_LOCATION: Final = MenuItem(name="Position", description="Object location")
-_DIRECTION: Final = MenuItem(name="Direction", description="Direction toward a light at infinity")
 _KIND: Final = Socket(
-    key="kind", kind=bpy.types.NodeSocketMenu, description="Frame position or bound scene object", default_value=_FRAME_POSITION.name, items=Some(MenuItems(items=(_FRAME_POSITION, _OBJECT)))
+    key="kind", kind=bpy.types.NodeSocketMenu, description="Frame position or bound scene object", default_value=MenuItem.of(_Kind.FRAME_POSITION).name, items=Some(MenuItems.of(_Kind))
 )
 _POSITION: Final = Socket(key="position", kind=bpy.types.NodeSocketVector2D, description="Source in frame fractions", default_value=(0.3, 0.6))
 _BOUND: Final = Socket(key="object", kind=bpy.types.NodeSocketObject, description="Bound scene object")
 _READING: Final = Socket(
-    key="reading", kind=bpy.types.NodeSocketMenu, description="Location or local +Z toward distant light", default_value=_LOCATION.name, items=Some(MenuItems(items=(_LOCATION, _DIRECTION)))
+    key="reading", kind=bpy.types.NodeSocketMenu, description="Location or local +Z toward distant light", default_value=MenuItem.of(_Reading.POSITION).name, items=Some(MenuItems.of(_Reading))
 )
 _OCCLUSION: Final = Socket(key="occlusion", kind=bpy.types.NodeSocketBool, description="Nearer surfaces hide source", default_value=True)
 _SOURCE: Final = InterfacePanel.of("source", Interface(inputs=(_KIND, _POSITION, _BOUND, _READING, _OCCLUSION)), description="Frame position or bound scene object the light comes from")
@@ -160,10 +170,10 @@ _GHOSTS: Final = InterfacePanel.of(
 # --- [SOURCE]
 
 
-def _located[R: LightRays | LensFlare](shell: Shell[R]) -> tuple[Expr, Expr, Expr]:
+def _located[R: LightRays | LensFlare](shell: GraphInputs[R]) -> tuple[Expr, Expr, Expr]:
     """Returns the source's frame fractions, its ahead gate, and its depth-pass occlusion, zero unless a bound object occludes."""
-    direction = shell.menu(_SOURCE, _READING, cases={_LOCATION: False, _DIRECTION: True})
-    bound = shell.menu(_SOURCE, _KIND, cases={_FRAME_POSITION: False, _OBJECT: True})
+    direction = shell.menu(_SOURCE, _READING, cases={MenuItem.of(_Reading.POSITION): False, MenuItem.of(_Reading.DIRECTION): True})
+    bound = shell.menu(_SOURCE, _KIND, cases={MenuItem.of(_Kind.FRAME_POSITION): False, MenuItem.of(_Kind.OBJECT): True})
     sighted = Sighted.of(shell.input(_SOURCE, _BOUND), direction)
     return (switched(bound, shell.input(_SOURCE, _POSITION), sighted.position), switched(bound, 1.0, sighted.ahead), (shell.layer("Depth") < sighted.depth) * shell.input(_SOURCE, _OCCLUSION) * bound)
 
@@ -171,20 +181,25 @@ def _located[R: LightRays | LensFlare](shell: Shell[R]) -> tuple[Expr, Expr, Exp
 def _source_checked[R: LightRays | LensFlare](identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], _record: R, _preview: Option[PreviewFrame]) -> Outcome[None]:
     """Refuses a bound object source without an object or under a camera that cannot project it."""
 
-    def bound(held: bpy.types.SceneCompositorEffect, kind: object, reading: object) -> Outcome[None]:
+    def bound(held: bpy.types.SceneCompositorEffect, kind: _Kind, reading: _Reading) -> Outcome[None]:
         present = entry_input(identity, held, _SOURCE, _BOUND).bind(
             lambda socket: Descriptor.resolve(socket, ("value",), bpy.types.PointerProperty).bind(lambda descriptor: Present(descriptor=descriptor).check(bpy.context, Some(socket)))
         )
-        camera = camera_type(*(("PERSP",) if reading == _DIRECTION.name else ("PERSP", "ORTHO"))).check(bpy.context, Some(scene))
-        return paired(present, camera).map(lambda _: None) if kind == _OBJECT.name else Ok(None)
+        camera = camera_type(*(("PERSP",) if reading is _Reading.DIRECTION else ("PERSP", "ORTHO"))).check(bpy.context, Some(scene))
+        return paired(present, camera).map(lambda _: None) if kind is _Kind.OBJECT else Ok(None)
 
-    return entry.map(lambda held: paired(entry_value(identity, held, _SOURCE, _KIND), entry_value(identity, held, _SOURCE, _READING)).bind(lambda pair: bound(held, *pair))).default_value(Ok(None))
+    def read(held: bpy.types.SceneCompositorEffect) -> Outcome[None]:
+        return (
+            captured(identity, held).map(valued).bind(lambda values: paired(chosen(values, _Kind, _SOURCE, _KIND), chosen(values, _Reading, _SOURCE, _READING))).bind(lambda pair: bound(held, *pair))
+        )
+
+    return entry.map(read).default_value(Ok(None))
 
 
 # --- [GRAPHS]
 
 
-def _rayed(shell: Shell[LightRays]) -> Outcome[Expr]:
+def _rayed(shell: GraphInputs[LightRays]) -> Outcome[Expr]:
     """Adds highlight shafts marched toward the source through its depth gaps."""
     key = masks.highlight(shell.color, shell.input(_THRESHOLD), shell.input(_SMOOTHNESS))
     position, front, occluded = _located(shell)
@@ -201,12 +216,12 @@ def _rayed(shell: Shell[LightRays]) -> Outcome[Expr]:
             ("Jitter", shell.input(_JITTER)),
         ),
         socket="Glare",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
     return Ok(mixed(1.0, shell.color, vector("SCALE", vector("MULTIPLY", rays, shell.input(_COLOR)), front), blend="ADD"))
 
 
-def _flared(shell: Shell[LensFlare]) -> Outcome[Expr]:
+def _flared(shell: GraphInputs[LensFlare]) -> Outcome[Expr]:
     """Adds the source-centered flare sections to the stage input under finite-disc visibility."""
     read, frame, record = shell.input, shell.space, shell.record
     center = frame.extent * 0.5

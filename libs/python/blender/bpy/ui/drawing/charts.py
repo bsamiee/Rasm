@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, Rect
+from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, FontStyle, Rect
 from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics, Spacing
 from blender.imaging.analysis.metering import Bands, Chromaticity, Histogram
 from blender.imaging.color import colorimetry
@@ -109,9 +109,9 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 for layer in self.layers:
                     layer.drawn(canvas)
             for label in self.labels:
-                canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, size, label.align)
+                canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, FontStyle(size=size, align=label.align))
             for index, line in enumerate(self.caption, 1):
-                canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, size, self.corner)
+                canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, FontStyle(size=size, align=self.corner))
             canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, _RIM, _RADIUS)
 
 
@@ -131,7 +131,7 @@ def histogram(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDArray
         stops: Lowest and highest exposure the bands span.
 
     Returns:
-        The chart captioned with the scene-linear space, or each color fault of the reads.
+        Chart captioned with the scene-linear space, or each color fault of the reads.
     """
     width = float(metrics.unit * _UNITS)
 
@@ -166,15 +166,15 @@ def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDAr
         extent: Far xy corner the diagram frames from the origin, the locus maxima rounded up to tenths while unstated.
 
     Returns:
-        The chart captioned with each gamut's primaries and white, or each color fault of the read.
+        Chart captioned with each gamut's primaries and white, or each color fault of the read.
     """
-    framed = extent.default_with(colorimetry.frame)
+    framed = extent.default_with(colorimetry.diagram_extent)
     tenths = np.rint(framed * 10.0).astype(np.intp)
     width, locus = float(metrics.unit * _UNITS), colorimetry.locus()
     height = width * float(framed[1] / framed[0])
     outward = np.gradient(locus, axis=0)[:, ::-1] * (-1.0, 1.0)
     normal = np.divide(outward, length := np.linalg.norm(outward, axis=1, keepdims=True), out=np.zeros_like(outward), where=length > 0.0)
-    tenth = np.flatnonzero(colorimetry.table()[:, 0] % 10 == 0)
+    tenth = np.flatnonzero(colorimetry.observer()[:, 0] % 10 == 0)
     square = np.array(((-1, -1), (1, -1), (1, -1), (1, 1), (1, 1), (-1, 1), (-1, 1), (-1, -1)), np.float64) * float(metrics.scaled(2.0)) / (width, height)
 
     def gamut(rows: npt.NDArray[np.float64], color: Color, blend: Blend, stroke: float) -> Layer:

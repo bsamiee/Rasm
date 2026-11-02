@@ -9,7 +9,7 @@ import bpy
 from expression import Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import Called, called, Opened, Placement, Setting
+from blender.bpy.commands.calls import called, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.commands.operators import Answer, Done
 from blender.bpy.data.rna.conditions import Scenes
 from blender.bpy.data.rna.descriptors import Descriptor
@@ -17,15 +17,15 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.settings.presets import Preset
+from blender.bpy.ui.elements.menus import PresetMenu
+from blender.bpy.ui.elements.panels import EditorRegion, Panel
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.members import marked, Member
 from blender.bpy.ui.layout.rows import accepted, acquired, FUNCTIONS, Label, Layout, Opens, OperatorButton, Property, realized, RowContent, Status
-from blender.bpy.ui.layout.sections import fields, Items, reached, Section
-from blender.bpy.ui.layout.tables import Matrix, Tree, TreeMatrix
+from blender.bpy.ui.layout.sections import fields, Items, Section, sections_in
+from blender.bpy.ui.layout.tables import SettingsTable, Tree, TreeTable
 from blender.bpy.ui.layout.templates import ImageFormat, Preview, Shortcut, wheel
-from blender.bpy.ui.layout.values import Listing, Store, Verb
-from blender.bpy.ui.surfaces.menus import PresetMenu
-from blender.bpy.ui.surfaces.panels import EditorRegion, Panel
+from blender.bpy.ui.layout.values import Listing, Store, StoreCommand
 from blender.records.faults import Outcome
 
 from .commands import COUNTED, KEYS, operation
@@ -117,8 +117,8 @@ def bound(identity: Identity) -> dict[str, object]:
         "scoped": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",), scope=Some(Scenes())))),
         "absent": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("fixture_absent",)))),
         "keyword": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",)), keywords={"fixture": 1})),
-        "glyph": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",)), icon=Some("ADD"))),
-        "unknown glyph": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",)), icon=Some(Path("fixture_absent.png")))),
+        "icon": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",)), icon=Some("ADD"))),
+        "unknown icon": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("frame_start",)), icon=Some(Path("fixture_absent.png")))),
         "function": _drawn(identity, Property(target=Member(root=bpy.types.Scene, path=("render", "engine")), function=FUNCTIONS["prop_tabs_enum"])),
         "search": _drawn(
             identity, Property(target=Member(root=bpy.types.Scene, path=("camera",)), search=Some(Member(root=bpy.types.BlendData, path=("objects",))), function=FUNCTIONS["template_search"])
@@ -137,13 +137,13 @@ def pressed(identity: Identity) -> dict[str, object]:
         "placement": _drawn(identity, OperatorButton(target=Placement(bpy.ops.wm.context_toggle, {"data_path": "scene.use_gravity"}), keywords={"text": "Gravity"})),
         "keyword": _drawn(identity, OperatorButton(target=COUNTED, keywords={"fixture": 1})),
         "acquired": tuple(type(row).__name__ for row in OperatorButton(target=COUNTED).acquisitions(identity).default_value(())),
-        "menu": _drawn(identity, Opens(target=Opened(VIEW3D_MT_add, Called.MENU))),
-        "panel": _drawn(identity, Opens(target=Opened("main", Called.PANEL))),
-        "pie": _drawn(identity, Opens(target=Opened(VIEW3D_MT_pivot_pie, Called.PIE))),
+        "menu": _drawn(identity, Opens(target=PopupTarget(VIEW3D_MT_add, PopupKind.MENU))),
+        "panel": _drawn(identity, Opens(target=PopupTarget("main", PopupKind.PANEL))),
+        "pie": _drawn(identity, Opens(target=PopupTarget(VIEW3D_MT_pivot_pie, PopupKind.PIE))),
     }
 
 
-def labelled(identity: Identity) -> dict[str, object]:
+def labeled(identity: Identity) -> dict[str, object]:
     """Realizes fixed and read labels, a label through another function, and the report status row."""
     return {
         "fixed": _drawn(identity, Label(text="Fixture")),
@@ -169,17 +169,15 @@ def templated(identity: Identity) -> dict[str, object]:
 def tabled(identity: Identity) -> dict[str, object]:
     """Realizes a setting table across scenes, a path tree, and a tree table with mark rows, and refuses a setting the owner type lacks."""
     return {
-        "matrix": _drawn(identity, Matrix(scope=Scenes(), settings=(("frame_start",), ("frame_end",)))),
-        "absent setting": _drawn(identity, Matrix(scope=Scenes(), settings=(("fixture_absent",),))),
+        "matrix": _drawn(identity, SettingsTable(scope=Scenes(), settings=(("frame_start",), ("frame_end",)))),
+        "absent setting": _drawn(identity, SettingsTable(scope=Scenes(), settings=(("fixture_absent",),))),
         "tree": _drawn(identity, Tree(paths=lambda _context: Ok((PurePath("textures/wood.png"), PurePath("textures/stone.png"))))),
-        "tree matrix": _drawn(
-            identity, TreeMatrix[bpy.types.Scene, bpy.types.Scene](tree=lambda _context: ((), ()), cell=lambda _layout, _owner, _cell, _label: Ok(None), marks=(Label(text="Mark"),))
-        ),
+        "tree matrix": _drawn(identity, TreeTable[bpy.types.Scene, bpy.types.Scene](tree=lambda _context: ((), ()), cell=lambda _layout, _owner, _cell, _label: Ok(None), marks=(Label(text="Mark"),))),
     }
 
 
 def composed(identity: Identity) -> dict[str, object]:
-    """Realizes a sub-layout of rows and plain draws, a layout built per identity, and rows whose refusals accumulate."""
+    """Realizes a sub-layout of rows and plain draws, a layout built per identity, and rows with accumulating refusals."""
     rows = (Label(text="Fixture"), _separated, OperatorButton(target=COUNTED))
     return {
         "layout": _drawn(identity, Layout(rows=rows, container=Some(lambda layout: layout.box()))),
@@ -207,7 +205,7 @@ def walked(_identity: Identity) -> tuple[str, ...]:
     """Walks sections through rows, headers, absent rows, and tuple sub-layouts, each ahead of its own."""
     inner = Section(key="inner")
     nested = Section(key="nested", rows=(Layout(rows=(inner,)),), header=(Section(key="headed"),))
-    return tuple(section.key for section in reached((Label(text="Fixture"), nested, Section(key="absent", absent=(Section(key="fallback"),)))))
+    return tuple(section.key for section in sections_in((Label(text="Fixture"), nested, Section(key="absent", absent=(Section(key="fallback"),)))))
 
 
 def sectioned(identity: Identity) -> dict[str, object]:
@@ -249,17 +247,17 @@ def stored(identity: Identity) -> dict[str, object]:
     look: Look = scene.fixture_look  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     commands = STORE.commands
 
-    def ran(verb: Verb, values: Mapping[str, Setting]) -> object:
+    def ran(command: StoreCommand, values: Mapping[str, Setting]) -> object:
         with bpy.context.temp_override(fixture_look=scene):
-            return called(operation(identity, commands[verb]), values)
+            return called(operation(identity, commands[command]), values)
 
     look.exposure = 2.0
-    reset = (ran(Verb.RESET, {}), look.exposure)
-    older = (ran(Verb.RESTORE, {"offset": 1}), look.exposure)
-    newer = (ran(Verb.RESTORE, {"offset": -1}), look.exposure)
-    unchanged = ran(Verb.RESET, {})
-    unhosted = called(operation(identity, commands[Verb.RESET]), {})
-    return {"verbs": tuple(sorted(verb.name for verb in commands)), "reset": reset, "older": older, "newer": newer, "unchanged": unchanged, "unhosted": unhosted}
+    reset = (ran(StoreCommand.RESET, {}), look.exposure)
+    older = (ran(StoreCommand.RESTORE, {"offset": 1}), look.exposure)
+    newer = (ran(StoreCommand.RESTORE, {"offset": -1}), look.exposure)
+    unchanged = ran(StoreCommand.RESET, {})
+    unhosted = called(operation(identity, commands[StoreCommand.RESET]), {})
+    return {"commands": tuple(sorted(command.name for command in commands)), "reset": reset, "older": older, "newer": newer, "unchanged": unchanged, "unhosted": unhosted}
 
 
 def preset(identity: Identity) -> dict[str, object]:
@@ -267,18 +265,18 @@ def preset(identity: Identity) -> dict[str, object]:
     scene: bpy.types.Scene = bpy.context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     commands = LISTING.commands
 
-    def ran(verb: Verb, values: Mapping[str, Setting]) -> tuple[object, int]:
-        return called(operation(identity, commands[verb]), values), int(scene.get(TONE, 0))
+    def ran(command: StoreCommand, values: Mapping[str, Setting]) -> tuple[object, int]:
+        return called(operation(identity, commands[command]), values), int(scene.get(TONE, 0))
 
-    applied = ran(Verb.APPLY, {"stem": "soft"})
-    following = ran(Verb.STEP, {"offset": 1})
-    wrapped = ran(Verb.STEP, {"offset": 1})
+    applied = ran(StoreCommand.APPLY, {"stem": "soft"})
+    following = ran(StoreCommand.STEP, {"offset": 1})
+    wrapped = ran(StoreCommand.STEP, {"offset": 1})
     scene[TONE] = 9
-    saved = ran(Verb.SAVE, {"name": "Mine"})
+    saved = ran(StoreCommand.SAVE, {"name": "Mine"})
     listed_stems = tuple(LISTING.preset.listed(identity))
-    taken = ran(Verb.SAVE, {"name": "Soft"})
+    taken = ran(StoreCommand.SAVE, {"name": "Soft"})
     return {
-        "verbs": tuple(sorted(verb.name for verb in commands)),
+        "commands": tuple(sorted(command.name for command in commands)),
         "applied": applied,
         "next": following,
         "wrapped": wrapped,
@@ -311,7 +309,7 @@ LOOKED: Final = Section(key="look", holder=Some(Member(root=bpy.types.Scene, pat
 LISTING: Final = Listing(preset=Preset(key="tone", form=Tone, stock={"soft": Tone(level=1), "hard": Tone(level=5)}), current=_current, matches=_matching, applied=_applied)
 
 rows: Final = (LOOK, Panel(section=LOOKED, at=EditorRegion(space="PROPERTIES", region="WINDOW")), LISTING, PresetMenu(source=LISTING))
-PROBES: Final = (bound, pressed, labelled, templated, tabled, composed, checked, fielded, walked, sectioned, listed, stored, preset)
+PROBES: Final = (bound, pressed, labeled, templated, tabled, composed, checked, fielded, walked, sectioned, listed, stored, preset)
 RELEASED: Final = (released_lists,)
 
 # --- [EXPORTS] --------------------------------------------------------------------------

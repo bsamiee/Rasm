@@ -75,15 +75,19 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         return RecordFile(path=RenderHistory.folder(identity) / f"{RenderHistory.key}.json", form=Renders)
 
     @staticmethod
-    def files(identity: Identity, key: ContentHash) -> tuple[Path, RecordFile[Snapshot]]:
-        """Returns a stored render's frame path and settings snapshot file."""
-        stem = RenderHistory.folder(identity) / key.hex()
-        return stem.with_suffix(".exr"), RecordFile(path=stem.with_suffix(".json"), form=Snapshot)
+    def frame(identity: Identity, key: ContentHash) -> Path:
+        """Returns a stored render's frame path."""
+        return RenderHistory.folder(identity) / f"{key.hex()}.exr"
+
+    @staticmethod
+    def snapshot(identity: Identity, key: ContentHash) -> RecordFile[Snapshot]:
+        """Returns a stored render's settings snapshot file."""
+        return RecordFile(path=RenderHistory.folder(identity) / f"{key.hex()}.json", form=Snapshot)
 
     @staticmethod
     def output(identity: Identity, key: ContentHash, layer: Option[str] = Nothing) -> Outcome[npt.NDArray[np.float32]]:
         """Returns a stored render's output plane, a named view layer's Combined pass in place of the composite."""
-        return combined(str(RenderHistory.files(identity, key)[0]), layer).map(lambda found: found[1])
+        return combined(str(RenderHistory.frame(identity, key)), layer)
 
     @staticmethod
     def formed(identity: Identity, scene: bpy.types.Scene, key: ContentHash) -> Outcome[npt.NDArray[np.float32]]:
@@ -93,14 +97,16 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def served(identity: Identity, renders: Renders) -> Renders:
         """Holds renders as the history file's read, returning them."""
-        identity.held[_SERVED][RenderHistory.record(identity).path] = renders
+        identity.resources[_SERVED][RenderHistory.record(identity).path] = renders
         return renders
 
     @staticmethod
     def held(identity: Identity) -> Outcome[Renders]:
         """Returns the served renders, read from the history file on first use and empty without one."""
         record = RenderHistory.record(identity)
-        return Option.of_optional(identity.held[_SERVED].get(record.path)).map(Ok).default_with(lambda: record.found().map(lambda found: RenderHistory.served(identity, found.default_with(Renders))))
+        return (
+            Option.of_optional(identity.resources[_SERVED].get(record.path)).map(Ok).default_with(lambda: record.found().map(lambda found: RenderHistory.served(identity, found.default_with(Renders))))
+        )
 
     def kept(self, identity: Identity, before: Renders, after: Renders) -> Outcome[None]:
         """Writes and serves renders without the notes of dropped entries, then deletes each dropped entry's files, tile, and stored image."""
@@ -108,10 +114,9 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         current = msgspec.structs.replace(after, notes={stem: note for stem, note in after.notes.items() if bytes.fromhex(stem) in live})
 
         def erased(key: ContentHash) -> Outcome[None]:
-            frame, values = self.files(identity, key)
             return (
-                accumulated(map(removed, (frame, values.path)))
-                .bind(lambda _: identity.held[PREVIEWS].dropped(key.hex()))
+                accumulated(map(removed, (self.frame(identity, key), self.snapshot(identity, key).path)))
+                .bind(lambda _: identity.resources[PREVIEWS].dropped(key.hex()))
                 .bind(lambda _: released(tuple(self.stored.found(identity, content=Some(key)).to_list())))
                 .map(lambda _: None)
             )
@@ -139,14 +144,14 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 .map(Ok)
                 .default_with(lambda: rooted(bpy.types.Scene, bpy.context).bind(lambda scene: self.formed(identity, scene, key)))
                 .bind(lambda found: fitted(found, (shown.side, shown.side)))
-                .bind(lambda pixels: identity.held[PREVIEWS].written(key.hex(), shown, Some(shown.checkered(pixels))))
+                .bind(lambda pixels: identity.resources[PREVIEWS].written(key.hex(), shown, Some(shown.checkered(pixels))))
                 .map(lambda _: None)
             ),
         )
 
     def jobs(self, identity: Identity, _context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the tile request of every stale stored render from one history read."""
-        previews = identity.held[PREVIEWS]
+        previews = identity.resources[PREVIEWS]
         return self.held(identity).map(
             lambda renders: tuple(self.tiled(identity, entry.value) for entry in renders.history.past if not previews.current(entry.value.hex(), PreviewKey.read(entry.value)))
         )
@@ -158,22 +163,26 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         def stored(snapshot: Snapshot, plane: npt.NDArray[np.float32], renders: Renders, retention: Retention) -> Outcome[None]:
             key = content_hash(Renders, snapshot, arrays=(plane,))
             added = msgspec.structs.replace(renders, history=renders.history.add(Dated(moment=moment, value=key), retention))
-            frame, values = self.files(identity, key)
-            written = Ok(None) if any(entry.value == key for entry in renders.history.past) else files_copied(((Path(path), frame),)).bind(lambda _: values.written(snapshot)).map(lambda _: None)
+
+            def written() -> Outcome[None]:
+                return (
+                    Ok(None)
+                    if any(entry.value == key for entry in renders.history.past)
+                    else files_copied(((Path(path), self.frame(identity, key)),)).bind(lambda _: self.snapshot(identity, key).written(snapshot)).map(lambda _: None)
+                )
+
             return (
-                written
+                written()
                 .bind(lambda _: self.kept(identity, renders, added))
                 .bind(lambda _: viewed(scene).form(config, plane))
                 .bind(lambda shown: PreviewQueue.executed(identity, self.tiled(identity, key, Some(shown)), feed=Some(self.jobs)))
-                .bind(lambda _: identity.held[self.signal].fired())
+                .bind(lambda _: identity.resources[self.signal].fired())
                 if any(entry.value == key for entry in added.history.past)
                 else Ok(None)
             )
 
         retention = RENDER_HISTORY.read(identity).map(lambda held: held.retention)
-        return (
-            paired(Snapshot.capture(scene, owned=identity.owns), combined(path).map(lambda found: found[1]), self.held(identity), retention).bind(lambda found: stored(*found)).map(lambda _: Nothing)
-        )
+        return paired(Snapshot.capture(scene, owned=identity.owns), combined(path), self.held(identity), retention).bind(lambda found: stored(*found)).map(lambda _: Nothing)
 
     # --- [REGISTRATION]
 

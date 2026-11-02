@@ -18,14 +18,14 @@ from blender.bpy.nodes.textures import Noise
 from blender.bpy.render.color.spaces import EXPOSURE
 from blender.bpy.render.compositor import motion
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.entries import Enabled
 from blender.bpy.render.compositor.filters import bilateral
-from blender.bpy.render.compositor.inputs import entered, entry_input, Shell
+from blender.bpy.render.compositor.inputs import captured, entered, entry_input, GraphInputs, value, valued
 from blender.bpy.render.compositor.masks import BLEND, luminance, OPACITY
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED
-from blender.bpy.render.compositor.placement import Enabled
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.processors import GREY
+from blender.imaging.color.processors import GRAY
 from blender.imaging.files.images import ImageFile
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
@@ -70,11 +70,11 @@ class LocalExposure(Case, frozen=True, kw_only=True):
 # --- [GAIN]
 
 
-def _products(identity: Identity, held: tuple[bpy.types.SceneCompositorEffect, ...], frames: tuple[float, ...]) -> Outcome[npt.NDArray[np.float64]]:
-    """Products over frames of the held Exposure entries' gains, each mixed by its opacity and render enable."""
+def _products(identity: Identity, held: tuple[bpy.types.SceneCompositorEffect, ...], frames: tuple[float, ...], *, enabled: Enabled = Enabled.RENDER) -> Outcome[npt.NDArray[np.float64]]:
+    """Products over frames of the held Exposure entries' gains, each mixed by its opacity and enable flag."""
 
     def samples(entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[tuple[float, ...], ...]]:
-        channels: tuple[tuple[Outcome[Struct], str], ...] = ((entry_input(identity, entry, STOPS), "value"), (entry_input(identity, entry, BLEND, OPACITY), "value"), (Ok(entry), Enabled.RENDER.value))
+        channels: tuple[tuple[Outcome[Struct], str], ...] = ((entry_input(identity, entry, STOPS), "value"), (entry_input(identity, entry, BLEND, OPACITY), "value"), (Ok(entry), enabled.value))
 
         def each(owner: Outcome[Struct], member: str) -> Outcome[tuple[float, ...]]:
             return owner.bind(lambda found: sampled(found, (member,), frames))
@@ -82,8 +82,8 @@ def _products(identity: Identity, held: tuple[bpy.types.SceneCompositorEffect, .
         return accumulated(starmap(each, channels))
 
     def product(found: tuple[tuple[tuple[float, ...], ...], ...]) -> npt.NDArray[np.float64]:
-        values, weights, enabled = np.asarray(found, dtype=np.float64).reshape(-1, 3, len(frames)).transpose(1, 0, 2)
-        return np.asarray(np.prod(1.0 + weights * enabled * (np.exp2(values) - 1.0), axis=0), dtype=np.float64)
+        values, weights, flags = np.asarray(found, dtype=np.float64).reshape(-1, 3, len(frames)).transpose(1, 0, 2)
+        return np.asarray(np.prod(1.0 + weights * flags * (np.exp2(values) - 1.0), axis=0), dtype=np.float64)
 
     return accumulated(map(samples, held)).map(product)
 
@@ -99,9 +99,14 @@ def later(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     ).map(lambda pair: (Animation(path=(*pair[0], "value"), source=Keys(points=tuple(zip(frames, map(float, pair[1]))))),))
 
 
-def gain(identity: Identity, scene: bpy.types.Scene) -> Outcome[float]:
-    """Returns the stops of the Exposure entries' opacity-weighted render gains at the current frame, zero without an entry."""
-    return _products(identity, exposure.entries(identity, scene), (scene.frame_current_final,)).map(lambda product: float(np.log2(product[0])))
+def gain(identity: Identity, scene: bpy.types.Scene, *, enabled: Enabled = Enabled.RENDER) -> Outcome[float]:
+    """Returns the stops of the Exposure entries' opacity-weighted gains under an enable flag at the current frame, zero without an entry."""
+    return _products(identity, exposure.entries(identity, scene), (scene.frame_current_final,), enabled=enabled).map(lambda product: float(np.log2(product[0])))
+
+
+def entry_stops(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[float]:
+    """Returns an Exposure entry's own stops input."""
+    return captured(identity, entry).map(valued).bind(lambda values: value(values, float, STOPS))
 
 
 # --- [LEVELS]
@@ -125,31 +130,31 @@ def auto_levels(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.Sc
 
 def exposed(color: Term, stops: Term) -> Expr:
     """Scales RGB by two to the stops through the Exposure node, alpha unchanged."""
-    return Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color), ("Exposure", stops)), socket="Image", shape=bpy.types.NodeSocketColor)
+    return Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color), ("Exposure", stops)), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
 
-def _exposure(shell: Shell[Exposure]) -> Outcome[Expr]:
+def _exposure(shell: GraphInputs[Exposure]) -> Outcome[Expr]:
     """Scales stage input RGB by two to the stops."""
     return Ok(exposed(shell.color, shell.input(STOPS)))
 
 
-def _flicker(shell: Shell[Flicker]) -> Outcome[Expr]:
+def _flicker(shell: GraphInputs[Flicker]) -> Outcome[Expr]:
     """Exposes the entry color by the signed noise wave scaled to the amplitude in stops."""
     phase = clocked(shell.input, _CLOCK) * shell.input(_RATE) + origin(shell.input(SEED), float(stream(Flicker)))["X"]
     wave = Noise(noise_dimensions="1D", scale=1.0).node((0.0, 0.0, 0.0), phase)
     return Ok(exposed(shell.color, math("MULTIPLY_ADD", wave, 2.0, -1.0) * shell.input(_AMPLITUDE)))
 
 
-def _levels(shell: Shell[Levels]) -> Outcome[Expr]:
+def _levels(shell: GraphInputs[Levels]) -> Outcome[Expr]:
     """Subtracts the coverage-weighted black point and lowers by the white span in stops."""
     color = shell.color
     return Ok(exposed(color - shell.input(_BLACK) * color["Alpha"], -shell.input(_WHITE)))
 
 
-def _local_exposure(shell: Shell[LocalExposure]) -> Outcome[Expr]:
+def _local_exposure(shell: GraphInputs[LocalExposure]) -> Outcome[Expr]:
     """Scales the straight stage input by its local gain about the base, detail scaled by clarity, alpha unchanged."""
     highlights, shadows, clarity, smoothing, reach = map(shell.input, (_HIGHLIGHTS, _SHADOWS, _CLARITY, _SMOOTHING, _REACH))
-    source, frame, grey = shell.color, shell.space, float(np.log2(GREY))
+    source, frame, gray = shell.color, shell.space, float(np.log2(GRAY))
     alpha = source["Alpha"]
 
     def built(level: Expr) -> Expr:
@@ -158,11 +163,11 @@ def _local_exposure(shell: Shell[LocalExposure]) -> Outcome[Expr]:
             kind=bpy.types.CompositorNodeBlur,
             inputs=(("Image", rgba(alpha * log, alpha, 0.0)), ("Size", frame.pixel_size(xyz(reach, reach))), ("Type", "Fast Gaussian")),
             socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            socket_type=bpy.types.NodeSocketColor,
         )
         smooth = spread["Red"] / spread["Green"]
         base = mixed(smoothing, bilateral(log, log, alpha, frame, smooth, bounds=(-8.0, 4.0), pairs=16, radius=0.1), smooth)
-        return exposed(source, math("MULTIPLY_ADD", base - grey, where(base > grey, highlights, shadows) - 1.0, (log - base) * (clarity - 1.0)))
+        return exposed(source, math("MULTIPLY_ADD", base - gray, where(base > gray, highlights, shadows) - 1.0, (log - base) * (clarity - 1.0)))
 
     return luminance(shell.config, source).map(built)
 
@@ -176,4 +181,4 @@ local_exposure: Final = CompositorEffect(_local_exposure, record=LocalExposure, 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LATER", "STOPS", "Exposure", "Flicker", "Levels", "LocalExposure", "exposed", "exposure", "flicker", "gain", "later", "levels", "local_exposure"]
+__all__ = ["LATER", "STOPS", "Exposure", "Flicker", "Levels", "LocalExposure", "entry_stops", "exposed", "exposure", "flicker", "gain", "later", "levels", "local_exposure"]

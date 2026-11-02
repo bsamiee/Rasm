@@ -2,7 +2,7 @@
 
 from enum import auto, Enum
 from functools import partial
-from typing import Annotated, Final, Literal
+from typing import Annotated, Final
 
 import bpy
 from expression import Ok, Option, Some
@@ -12,14 +12,14 @@ import numpy as np
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.nodes.content import Ramp
 from blender.bpy.nodes.desired import MenuItem, MenuItems
-from blender.bpy.nodes.graphs import cell, Expr, math, Scalar, switched, vector, xyz
+from blender.bpy.nodes.graphs import cell, Component, Expr, math, Scalar, switched, vector, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor.coordinates import dimensions, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
 from blender.bpy.render.compositor.filters import filtered
-from blender.bpy.render.compositor.inputs import FRAME_SCALE, Shell
-from blender.bpy.render.compositor.lenses import lensed
-from blender.bpy.render.view_layers.passes import Entity, PassRequest
+from blender.bpy.render.compositor.inputs import FRAME_SCALE, GraphInputs
+from blender.bpy.render.compositor.lenses import camera_info
+from blender.bpy.render.view_layers.passes import CryptomatteKind, PassRequest
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import Case
 
@@ -34,10 +34,10 @@ class IdSource(Enum):
 
     def requested(self, layer: str) -> PassRequest:
         """Requests the object and material passes of the source with the engines writing them."""
-        kinds = Entity.OBJECT | Entity.MATERIAL
+        kinds = CryptomatteKind.OBJECT | CryptomatteKind.MATERIAL
         return PassRequest.indexed(layer, kinds) if self is IdSource.INDEX else PassRequest.matted(layer, kinds)
 
-    def pass_name(self, entity: Entity) -> Option[str]:
+    def pass_name(self, entity: CryptomatteKind) -> Option[str]:
         """Render pass holding the entity's identities: its index pass, or its first Cryptomatte rank."""
         return entity.index.map(lambda held: held[1]) if self is IdSource.INDEX else Some(f"{entity.pass_name}00")
 
@@ -121,7 +121,7 @@ def _requested(record: Edges, layer: str) -> Outcome[PassRequest]:
     return Ok(msgspec.structs.replace(identities, flags=identities.flags | PassRequest.depth(layer, precise=True).flags | {_NORMAL}, precise=True))
 
 
-def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
+def _edges(shell: GraphInputs[Edges]) -> Outcome[Expr]:
     """Builds painted regions, rendered guide cores, and nearest-width line coverage.
 
     Args:
@@ -149,10 +149,10 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
             ("High Precision", paint(_CLASSIC, _HIGH_PRECISION)),
         ),
         socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        socket_type=bpy.types.NodeSocketColor,
     )
     painted = switched(shell.input(_PAINT), source, kuwahara)
-    orthographic, inverse, depth_gap = lensed("Is Orthographic"), math("DIVIDE", 1.0, depth), shell.input(_OUTER, _DEPTH_GAP, _GAP)
+    orthographic, inverse, depth_gap = camera_info("Is Orthographic"), math("DIVIDE", 1.0, depth), shell.input(_OUTER, _DEPTH_GAP, _GAP)
     coordinate = switched(orthographic, inverse, depth)
     occluding = math("MULTIPLY", math("DIVIDE", filtered(coordinate, "Laplace"), coordinate), 8.0 / (3.0 * float(np.sqrt(2.0)))) > depth_gap
     turning = (math("GREATER_THAN", dilated(vector("LENGTH", normals), -1), 0.0)) * (
@@ -160,15 +160,15 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
     )
     nearer = math("LESS_THAN", filtered(inverse, "Soften"), inverse * math("MULTIPLY_ADD", depth_gap, -0.25, 1.0))
     nearest = dilated(inverse, 1)
-    focal = math("MINIMUM", *(abs(cell(lensed("Projection Matrix"), index, index)) for index in (1, 2))) * 0.5 / shell.input(FRAME_SCALE)
+    focal = math("MINIMUM", *(abs(cell(camera_info("Projection Matrix"), index, index)) for index in (1, 2))) * 0.5 / shell.input(FRAME_SCALE)
     world_scale = switched(orthographic, focal * nearest, focal)
     tapering = Expr(
         kind=bpy.types.ShaderNodeValToRGB,
         inputs=(("Fac", math("MULTIPLY", shell.input(_TAPER, _NEAR), nearest, clamp=True)),),
         content=Some(record.taper),
         socket="Color",
-        shape=bpy.types.NodeSocketColor,
-    ).named("taper_ramp")
+        socket_type=bpy.types.NodeSocketColor,
+    ).keyed("taper_ramp")
     tapered = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", tapering),), members={"mode": "HSV"}, socket="Blue")
 
     def reach(line: InterfacePanel) -> Expr:
@@ -189,14 +189,16 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
         return math("MULTIPLY_ADD", signed, -1.0, width * 0.5, clamp=True)
 
     def overlaid(line: InterfacePanel, coverage: Expr, below: Expr) -> tuple[Expr, Expr]:
-        smooth = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", coverage),), socket="Image", shape=bpy.types.NodeSocketColor)
-        over = Expr(kind=bpy.types.CompositorNodeAlphaOver, inputs=(("Background", below), ("Foreground", shell.input(line, _COLOR)), ("Fac", smooth)), socket="Image", shape=bpy.types.NodeSocketColor)
+        smooth = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", coverage),), socket="Image", socket_type=bpy.types.NodeSocketColor)
+        over = Expr(
+            kind=bpy.types.CompositorNodeAlphaOver, inputs=(("Background", below), ("Foreground", shell.input(line, _COLOR)), ("Fac", smooth)), socket="Image", socket_type=bpy.types.NodeSocketColor
+        )
         return switched(shell.input(line), below, over), math("MULTIPLY", smooth, shell.input(line))
 
     def drawn(passes: tuple[str, ...]) -> Expr:
         identities = xyz(*(shell.layer(name)["Red"] for name in passes))
 
-        def changed(axis: Literal["X", "Y"], gate: Expr) -> Expr:
+        def changed(axis: Component, gate: Expr) -> Expr:
             return switched(gate, 0.0, dilated(identities[axis], 1) > dilated(identities[axis], -1))
 
         canvas = switched(shell.input(_PAPER), painted, shell.input(_PAPER, _PAPER_COLOR))
@@ -219,11 +221,11 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
         }
         inner_drawn, inner_shown = overlaid(_INNER, centered(inner_core, reach(_INNER)), canvas)
         outer_drawn, outer_shown = overlaid(_OUTER, shell.menu(_OUTER, _PLACEMENT, cases=placements), inner_drawn)
-        return outer_drawn.keeping(math("MAXIMUM", inner_shown, outer_shown).named("lines"))
+        return outer_drawn.keeping(math("MAXIMUM", inner_shown, outer_shown).keyed("lines"))
 
-    return accumulated(record.source.pass_name(entity).to_result_with(partial(Fault.of, Reason.ABSENT, entity.label, member=record.source.name)) for entity in (Entity.OBJECT, Entity.MATERIAL)).map(
-        drawn
-    )
+    return accumulated(
+        record.source.pass_name(entity).to_result_with(partial(Fault.of, Reason.ABSENT, entity.label, member=record.source.name)) for entity in (CryptomatteKind.OBJECT, CryptomatteKind.MATERIAL)
+    ).map(drawn)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Operator and macro classes over a command body, the invoke form protocol, body answers, and the steps and draws bodies compose."""
+"""Operator and macro classes over a command body, the invoke form protocol, body results, and the steps and draws bodies compose."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
@@ -16,10 +16,10 @@ import msgspec
 from blender.bpy.commands.calls import Command, filled, Placement
 from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.mirrors import annotated, nested
+from blender.bpy.data.rna.properties import annotated, nested
 from blender.bpy.data.rna.snapshots import Applied, assigned
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.extension.reports import alerted, rendered
 from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 
@@ -29,13 +29,14 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Returns = set[rna_enums.OperatorReturnItems]
-type Draw = Callable[[bpy.types.UILayout, bpy.types.Context, bpy.types.OperatorProperties, Identity], None]
+type Draw[T] = Callable[[bpy.types.UILayout, bpy.types.Context, T, Identity], None]
 type Answer = Done | Unchanged
+type Undo = NoUndo | UndoStep | UndoGroup
 type Notes = tuple[tuple[rna_enums.WmReportItems, str], ...]
 
 
 class Invoke[T: bpy.types.PropertyGroup](Protocol):
-    """Invoke form deriving the registered operator class from the class its command builds, `asks` stating whether it asks for input before the body runs."""
+    """Invoke form deriving the operator class from its command's class, `asks` stating whether it asks for input before the body."""
 
     asks: ClassVar[bool]
 
@@ -44,10 +45,10 @@ class Invoke[T: bpy.types.PropertyGroup](Protocol):
 
         Args:
             body: Callbacks over the command and extension identity.
-            base: Class carrying the command's names, flags, poll, form properties, and execute.
+            base: Class holding the command's names, flags, poll, form properties, and execute.
 
         Returns:
-            Classes and banded scopes, the operator class first, register fault for a host call the form cannot make.
+            Classes and banded scopes, the operator class first, unregistered fault for a host call the form cannot make.
         """
         ...
 
@@ -60,8 +61,8 @@ class Options[T: bpy.types.PropertyGroup](TypedDict, total=False):
     internal: bool
     invoke: Option[Invoke[T]]
     seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]]
-    undo: Option[Option[str]]
-    draw: Option[Draw]
+    undo: Undo
+    draw: Option[Draw[T]]
     check: Option[Callable[[bpy.types.Operator, bpy.types.Context], bool]]
     describe: Option[Callable[[bpy.types.Context, T], str]]
     presets: bool
@@ -74,6 +75,25 @@ class Options[T: bpy.types.PropertyGroup](TypedDict, total=False):
 
 class Empty(bpy.types.PropertyGroup):
     """Form of operator without properties."""
+
+
+class NoUndo(msgspec.Struct, frozen=True, kw_only=True):
+    """Operator pushing no undo step."""
+
+    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ()
+
+
+class UndoStep(msgspec.Struct, frozen=True, kw_only=True):
+    """Operator pushing one undo step per run."""
+
+    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ("UNDO",)
+
+
+class UndoGroup(msgspec.Struct, frozen=True, kw_only=True):
+    """Operator pushing one undo step across consecutive runs of a group."""
+
+    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ("UNDO_GROUPED",)
+    group: str
 
 
 class Done(msgspec.Struct, frozen=True, kw_only=True):
@@ -103,7 +123,7 @@ class Call[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
     paths: tuple[Path, ...] = ()
 
 
-class Over[S, T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
+class BoundBody[S, T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
     """Body running a step over what the call's identity binds, keyed and described by the step it wraps."""
 
     binding: Callable[[Identity], Outcome[S]]
@@ -115,10 +135,9 @@ class Over[S, T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
 
 
 class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
-    """Form group and body with invoke form and undo, its key the body function name unless stated and its description the first paragraph of the body docstring.
+    """Form group and body with invoke form and undo, keyed by the body function name unless stated, described by its docstring's first paragraph.
 
-    The body function is the def `run` wraps, read through `__wrapped__`, `functools.partial`, and the step of an `Over`.
-    `undo` holds Nothing for no undo step, `Some(Nothing)` for one step per run, and `Some(Some(group))` for one step across consecutive runs of the group.
+    Body function is the def `run` wraps, read through `__wrapped__`, `functools.partial`, and the step of an `Over`.
     `describe` computes the tooltip from context and properties in place of the docstring.
     """
 
@@ -126,8 +145,8 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     run: Callable[[Call[T]], Outcome[Answer]]
     invoke: Option[Invoke[T]] = Nothing
     seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing
-    undo: Option[Option[str]] = Some(Nothing)
-    draw: Option[Draw] = Nothing
+    undo: Undo = UndoStep()
+    draw: Option[Draw[T]] = Nothing
     check: Option[Callable[[bpy.types.Operator, bpy.types.Context], bool]] = Nothing
     describe: Option[Callable[[bpy.types.Context, T], str]] = Nothing
     presets: bool = False
@@ -136,9 +155,8 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
 
     def __post_init__(self) -> None:
         """Refuses a body holding no function name or docstring."""
-        function = _function(self.run)
-        if not (isinstance(function, FunctionType | MethodType) and inspect.getdoc(function) is not None):
-            raise TypeError(f"{function!r} has no function name or docstring")
+        if _function(self.run).filter(lambda function: inspect.getdoc(function) is not None).is_none():
+            raise TypeError(f"{self.run!r} has no function name or docstring")
 
     @staticmethod
     def of[U: bpy.types.PropertyGroup](form: type[U], /, **options: Unpack[Options[U]]) -> Callable[[Callable[[Call[U]], Outcome[Answer]]], "Operator[U]"]:
@@ -151,13 +169,13 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     @override
     def key(self) -> Key:
         """Stated key, else the body function name."""
-        return self.named.default_with(lambda: _function(self.run).__name__)  # ty: ignore[unresolved-attribute]
+        return self.named.default_with(lambda: _function(self.run).map(lambda function: function.__name__).default_with(lambda: repr(self.run)))
 
     @property
     @override
     def description(self) -> str:
         """First paragraph of the body docstring."""
-        return " ".join(str(inspect.getdoc(_function(self.run))).split("\n\n")[0].split()).removesuffix(".")
+        return _function(self.run).bind(lambda function: Option.of_optional(inspect.getdoc(function))).map(lambda doc: " ".join(doc.split("\n\n")[0].split()).removesuffix(".")).default_value("")
 
     @property
     @override
@@ -175,11 +193,10 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     @property
     def flags(self) -> frozenset["rna_enums.OperatorTypeFlagItems"]:
         """`REGISTER` with `PRESET` and the undo flag the `undo` declaration names."""
-        undo: tuple[rna_enums.OperatorTypeFlagItems, ...] = tuple(self.undo.map(lambda group: "UNDO_GROUPED" if group.is_some() else "UNDO").to_list())
-        return frozenset(("REGISTER", *(("PRESET",) if self.presets else ()), *undo))
+        return frozenset(("REGISTER", *(("PRESET",) if self.presets else ()), *self.undo.flags))
 
     @property
-    def property(self) -> Option[str]:
+    def bl_property(self) -> Option[str]:
         """Primary property a search popup edits and an enum button's tooltip describes, the form's one enum while none is stated."""
         enums = tuple(name for name, definition in annotated(self.form).items() if definition.function is bpy.props.EnumProperty)
         return self.primary.or_else(Some(enums[0]) if len(enums) == 1 else Nothing)
@@ -197,8 +214,8 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
                     "__annotations__": annotated(self.form),
                     "execute": body.execute,
                     **self.namespace(name, self.flags),
-                    **self.property.map(lambda member: {"bl_property": member}).default_value({}),
-                    **self.undo.bind(lambda group: group).map(lambda group: {"bl_undo_group": group}).default_value({}),
+                    **self.bl_property.map(lambda member: {"bl_property": member}).default_value({}),
+                    **({"bl_undo_group": self.undo.group} if isinstance(self.undo, UndoGroup) else {}),
                     **self.draw.map(lambda _: {"draw": body.draw}).default_value({}),
                     **self.check.map(lambda callback: {"check": callback}).default_value({}),
                     **self.describe.map(lambda describe: {"description": classmethod(lambda _cls, context, properties: describe(context, properties))}).default_value({}),
@@ -220,7 +237,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
     @staticmethod
     def properties(operator: bpy.types.Operator, /) -> T:
-        """Returns the operator properties as the form group whose properties its class copies, which no host type states."""
+        """Returns operator properties typed as the form group."""
         properties: T = operator.properties  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return properties
 
@@ -228,7 +245,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
     @staticmethod
     def noted(operator: bpy.types.Operator, entries: Iterable[tuple["rna_enums.WmReportItems", str]], outcome: "rna_enums.OperatorReturnItems", /) -> Returns:
-        """Reports entries, answering outcome."""
+        """Reports entries, returning outcome."""
         for severity, text in entries:
             operator.report({severity}, text)
         return {outcome}
@@ -253,7 +270,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         return self.command.run(Call(identity=self.identity, context=context, properties=self.properties(operator), paths=paths))
 
     def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> Returns:
-        """Runs the command over the paths a browser chose and reports its result, refusing no path as unchosen."""
+        """Runs the command over the paths a browser chose and reports its result, required fault when no path was chosen."""
         return self.finished(operator, Ok(paths).filter_with(bool, lambda _: Fault.of(Reason.REQUIRED, f"chosen file for {self.command.title}")).bind(partial(self.performed, operator, context)))
 
     @property
@@ -265,7 +282,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         return execute
 
-    def settled(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[bool], Outcome[None]], /) -> Returns:
+    def modal_finished(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[bool], Outcome[None]], /) -> Returns:
         """Runs the command after a modal run, releasing the run kept on Done and rolled back otherwise."""
 
         def completed(ran: Answer) -> Returns:
@@ -293,7 +310,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
             layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             for drawn in self.command.draw.to_list():
-                drawn(layout, context, operator.properties, self.identity)
+                drawn(layout, context, self.properties(operator), self.identity)
 
         return draw
 
@@ -336,7 +353,7 @@ class Macro(Command, frozen=True, kw_only=True):
             def defined() -> Generator[Outcome[None]]:
                 yield accumulated(step.resolved(identity).bind(lambda placed: filled(placed, kind.define(placed[0]).properties)) for step in self.steps).map(lambda _: None)
 
-            return kind, (Band.OPERATORS, defined())
+            return kind, (Tier.OPERATORS, defined())
 
         return identity.name(bpy.types.Operator, self.key).map(built)
 
@@ -364,13 +381,13 @@ def tallied(edits: tuple[Outcome[object], ...], notes: Notes = (), /) -> Outcome
 # --- [DRAWS]
 
 
-def confirmed[S](
+def confirmed[S, T: bpy.types.PropertyGroup](
     binding: Callable[[Identity], Outcome[S]],
-    message: Callable[[S, bpy.types.Context, bpy.types.OperatorProperties], Outcome[tuple[str, ...]]],
+    message: Callable[[S, bpy.types.Context, T], Outcome[tuple[str, ...]]],
     fields: tuple[str, ...],
     layout: bpy.types.UILayout,
     context: bpy.types.Context,
-    properties: bpy.types.OperatorProperties,
+    properties: T,
     identity: Identity,
     /,
 ) -> None:
@@ -386,20 +403,22 @@ def confirmed[S](
 # --- [BODIES]
 
 
-def _function(run: Callable[..., object], /) -> Callable[..., object]:
-    """Returns the def a body wraps, through `__wrapped__`, `functools.partial`, and the step of an `Over`."""
+def _function(run: Callable[..., object], /) -> Option[FunctionType | MethodType]:
+    """Returns the def a body wraps through `__wrapped__`, `functools.partial`, and an `BoundBody` step, Nothing for a callable with no function name."""
     unwrapped: Callable[..., object] = inspect.unwrap(run)
     match unwrapped:
-        case partial(func=func) | Over(step=func):
+        case partial(func=func) | BoundBody(step=func):
             return _function(func)
-        case found:
-            return found
+        case FunctionType() | MethodType() as found:
+            return Some(found)
+        case _:
+            return Nothing
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@Operator.of(Empty, icon=Some("X"), internal=True, undo=Nothing)
+@Operator.of(Empty, icon=Some("X"), internal=True, undo=NoUndo())
 def dismiss_reports(call: Call[Empty]) -> Outcome[Answer]:
     """Clears the extension's held callback reports."""
     return Ok(Done() if call.identity.reports.cleared() else Unchanged(reason="No reports are held"))
@@ -407,4 +426,27 @@ def dismiss_reports(call: Call[Empty]) -> Outcome[Answer]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Answer", "Body", "Call", "Done", "Draw", "Empty", "Invoke", "Macro", "Notes", "Operator", "Options", "Over", "Returns", "Unchanged", "answered", "confirmed", "dismiss_reports", "tallied"]
+__all__ = [
+    "Answer",
+    "Body",
+    "BoundBody",
+    "Call",
+    "Done",
+    "Draw",
+    "Empty",
+    "Invoke",
+    "Macro",
+    "NoUndo",
+    "Notes",
+    "Operator",
+    "Options",
+    "Returns",
+    "Unchanged",
+    "Undo",
+    "UndoGroup",
+    "UndoStep",
+    "answered",
+    "confirmed",
+    "dismiss_reports",
+    "tallied",
+]

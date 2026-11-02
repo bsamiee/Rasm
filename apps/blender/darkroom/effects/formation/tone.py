@@ -28,12 +28,12 @@ from blender.bpy.render.color.spaces import EXPOSURE, shown
 from blender.bpy.render.compositor.colors import AXES, extreme, nonnegative, preserved, spanned
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Prepared, Stage
 from blender.bpy.render.compositor.grades import tabled, TILES
-from blender.bpy.render.compositor.inputs import captured, entered, path_key, Shell, value, valued
+from blender.bpy.render.compositor.inputs import captured, entered, GraphInputs, path_key, value, valued
 from blender.bpy.render.compositor.viewers import READ
 from blender.bpy.ui.layout.rows import Label
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.luts import Rational, split
-from blender.imaging.color.processors import ColorSpace, DisplayView, GREY, REC709_SCENE, rendering_basis
+from blender.imaging.color.luts import cube_split, Rational
+from blender.imaging.color.processors import ColorSpace, DisplayView, GRAY, REC709_SCENE, rendering_basis
 from blender.imaging.files.buffers import pixels
 from blender.imaging.files.images import ImageFile
 from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
@@ -97,7 +97,7 @@ class ToneCurve(Case, frozen=True, kw_only=True):
 
 
 class Hable(Case, frozen=True, kw_only=True):
-    """White-normalized Uncharted 2 response with independent authored coefficients, a manual white holding nonzero contrast."""
+    """White-normalized Uncharted 2 response with independent authored coefficients, a metered white refused at zero contrast."""
 
 
 class Neutral(Case, frozen=True, kw_only=True):
@@ -128,13 +128,13 @@ def sigmoid(
     """Log-logistic response pinning scene zero to black and middle gray to itself."""
     skewed = 0.2**skew
     inverse = 1.0 / skewed
-    grey = (GREY / display_white) ** inverse
-    relation = (1.0 - grey) / grey
-    film = contrast * (1.0 - GREY) / (skewed * (1.0 - grey))
+    gray = (GRAY / display_white) ** inverse
+    relation = (1.0 - gray) / gray
+    film = contrast * (1.0 - GRAY) / (skewed * (1.0 - gray))
     floor = (display_black / display_white) ** inverse
     root = (relation * floor / (1.0 - floor)) ** (1.0 / film)
-    fog = root * GREY / (1.0 - root)
-    relative = (fog + math("MAXIMUM", level, 0.0)) / (fog + GREY)
+    fog = root * GRAY / (1.0 - root)
+    relative = (fog + math("MAXIMUM", level, 0.0)) / (fog + GRAY)
     rising = relative**film
     ratio = where(relative > 1.0, 1.0 / math("MULTIPLY_ADD", relation, relative ** (film * -1.0), 1.0), rising / (relation + rising))
     return ratio**skewed * display_white
@@ -246,7 +246,7 @@ def _contrasted(values: Mapping[Key, Value], stops: float) -> Outcome[float]:
     )
 
 
-def _case(values: Mapping[Key, Value]) -> Outcome[Option[InterfacePanel]]:
+def _white_panel(values: Mapping[Key, Value]) -> Outcome[Option[InterfacePanel]]:
     """Case panel of the selected curve when it reads a scene white."""
     return value(values, str, _CURVE).map(lambda name: Option.of_optional(_WHITENED.get(name)))
 
@@ -260,7 +260,7 @@ def _read[R: (ToneCurve, Hable)](stage: Stage[R], prefix: tuple[InterfacePanel, 
 
 def _read_white(stage: Stage[ToneCurve]) -> Outcome[Option[Prepared]]:
     """Reads the selected curve's scene white from the entering image while its manual white is off."""
-    return _case(stage.values).bind(lambda found: found.map(lambda panel: _read(stage, (panel,), Ok)).default_value(Ok(Nothing)))
+    return _white_panel(stage.values).bind(lambda found: found.map(lambda panel: _read(stage, (panel,), Ok)).default_value(Ok(Nothing)))
 
 
 def _read_hable_white(stage: Stage[Hable]) -> Outcome[Option[Prepared]]:
@@ -277,7 +277,7 @@ def meter_white(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.Sce
 
     def curved(values: Mapping[Key, Value]) -> Outcome[bool]:
         return (
-            _case(values)
+            _white_panel(values)
             .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, entry.name, member="curve reading a scene white")))
             .bind(lambda panel: _measured(config, file.pixels).bind(partial(manual, (panel,))))
         )
@@ -303,7 +303,7 @@ def _unencoded(context: bpy.types.Context) -> tuple[str, ...]:
 # --- [GRAPHS]
 
 
-def _tone_curve(shell: Shell[ToneCurve]) -> Outcome[Expr]:
+def _tone_curve(shell: GraphInputs[ToneCurve]) -> Outcome[Expr]:
     """Applies the live per-channel curve between rendering primaries inset and rotated within the base gamut."""
 
     def body(basis: npt.NDArray[np.float64]) -> Outcome[Expr]:
@@ -324,7 +324,7 @@ def _tone_curve(shell: Shell[ToneCurve]) -> Outcome[Expr]:
                 inputs=(("Vector", (*map(float, offset), 0.0)), ("Angle", shell.input(rotation) * limit)),
                 members={"rotation_type": "Z_AXIS"},
                 socket="Vector",
-                shape=bpy.types.NodeSocketVector,
+                socket_type=bpy.types.NodeSocketVector,
             )
             first, second, third = (vector("DOT_PRODUCT", turned, (*map(float, normal), 0.0)) / float(span) for normal, span in zip(normals, spans))
             edge = vector("MULTIPLY_ADD", turned, 1.0 / math("MAXIMUM", math("MAXIMUM", first, second), third), planar)
@@ -354,7 +354,7 @@ def _tone_curve(shell: Shell[ToneCurve]) -> Outcome[Expr]:
     return rendering_basis(shell.config, shell.record.space).bind(body)
 
 
-def _hable(shell: Shell[Hable]) -> Outcome[Expr]:
+def _hable(shell: GraphInputs[Hable]) -> Outcome[Expr]:
     """Applies independent Hable coefficients normalized at the live white, the response held in log magnitude and sign past middle tones."""
     a, b, c, d, e, f = map(shell.input, (_A, _B, _C, _D, _E, _F))
     stops = shell.input(_WHITE_STOPS)
@@ -394,7 +394,7 @@ def _hable(shell: Shell[Hable]) -> Outcome[Expr]:
     return Ok(xyz(*(response(lifted[axis]) for axis in AXES)))
 
 
-def _neutral(shell: Shell[Neutral]) -> Outcome[Expr]:
+def _neutral(shell: GraphInputs[Neutral]) -> Outcome[Expr]:
     """Builds Khronos PBR Neutral over straight linear Rec.709 at its published F90 reflectance, 0.8 compression start, and 0.15 desaturation."""
     reflectance, compression, desaturation = 0.04, 0.8 - 0.04, 0.15
     positive = nonnegative(shell.color)
@@ -406,27 +406,27 @@ def _neutral(shell: Shell[Neutral]) -> Outcome[Expr]:
     return Ok(where(peak < compression, shifted, mixed(fade, vector("SCALE", shifted, compressed / peak), compressed)))
 
 
-def _photoreceptor(shell: Shell[Photoreceptor]) -> Outcome[Expr]:
+def _photoreceptor(shell: GraphInputs[Photoreceptor]) -> Outcome[Expr]:
     """Runs the R/D Photoreceptor Tonemap node, a zero contrast read from the frame's luminance range."""
     return Ok(
         Expr(
             kind=bpy.types.CompositorNodeTonemap,
             inputs=(("Image", shell.color), ("Type", "R/D Photoreceptor"), *((stock.input, shell.input(socket)) for socket in _ADAPTATION for stock in socket.stock.to_list())),
             socket="Image",
-            shape=bpy.types.NodeSocketColor,
+            socket_type=bpy.types.NodeSocketColor,
         )
     )
 
 
-def _tony(shell: Shell[Tony]) -> Outcome[Expr]:
-    """Samples the shipped Tony McMapface table tetrahedrally over its rational input shaping."""
+def _tony(shell: GraphInputs[Tony]) -> Outcome[Expr]:
+    """Samples the packaged Tony McMapface table tetrahedrally over its rational input shaping."""
     with ExitStack() as scope:
         table = files(__package__).joinpath("tony_mc_mapface.spi3d")
         return (
             Result[Path, Faults]
             .bind(
                 catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(partial(Fault.of, Reason.UNREADABLE, str(table))),
-                lambda path: split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
+                lambda path: cube_split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
                     lambda parts: parts[1].to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=PyOpenColorIO.Lut3DTransform.__name__))
                 ),
             )

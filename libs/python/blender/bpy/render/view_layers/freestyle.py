@@ -21,7 +21,7 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.render.view_layers.passes import listed, spread, used
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.rows import Line, OperatorButton, realized, RowDraw
+from blender.bpy.ui.layout.rows import ConditionalRow, OperatorButton, realized, RowDraw
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Listing
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
@@ -67,7 +67,7 @@ class Freestyle(msgspec.Struct, frozen=True, kw_only=True):
     linesets: tuple[LineSet, ...] = ()
 
 
-class FreestyleSection(Line, frozen=True):
+class FreestyleRow(ConditionalRow, frozen=True):
     """Row of Freestyle presets and copy button."""
 
     preset: ClassVar[Preset[Freestyle]] = Preset(key="freestyle", form=Freestyle)
@@ -112,7 +112,7 @@ def applied(identity: Identity, freestyle: Freestyle, layer: bpy.types.ViewLayer
     linesets = layer.freestyle_settings.linesets
     wanted = tuple(row.name for row in freestyle.linesets)
     prefix = wanted[: kept((held.name for held in linesets), wanted, operator.eq)]
-    ownership = FreestyleSection.ownership
+    ownership = FreestyleRow.ownership
 
     def stacked(row: LineSet, style: bpy.types.FreestyleLineStyle, identifier: str, kinds: tuple[str, ...]) -> Outcome[None]:
         held = getattr(style, identifier)
@@ -182,8 +182,8 @@ def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-FREESTYLE: Final = Section(key="freestyle", rows=(FreestyleSection(),))
+FREESTYLE: Final = Section(key="freestyle", rows=(FreestyleRow(),))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FREESTYLE", "Freestyle", "FreestyleSection", "LineSet", "StyleModifier", "applied", "captured", "freestyle_copy"]
+__all__ = ["FREESTYLE", "Freestyle", "FreestyleRow", "LineSet", "StyleModifier", "applied", "captured", "freestyle_copy"]

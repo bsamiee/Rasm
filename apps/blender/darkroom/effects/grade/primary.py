@@ -11,7 +11,7 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.imaging.color.processors import luma
 from blender.records.faults import Outcome
 from blender.records.fields import Case
@@ -95,7 +95,7 @@ class Zones(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _primary(shell: Shell[Primary]) -> Outcome[Expr]:
+def _primary(shell: GraphInputs[Primary]) -> Outcome[Expr]:
     """Binds the offset wheel to the primary form's offset, the gain wheel to its exposure in stops, and the slope to its contrast about the pivot."""
     tint, stops = map(shell.input, _GAIN.inputs)
     offset, added = map(shell.input, _OFFSET.inputs)
@@ -111,7 +111,7 @@ def _primary(shell: Shell[Primary]) -> Outcome[Expr]:
     )
 
 
-def _saturation(shell: Shell[Saturation]) -> Outcome[Expr]:
+def _saturation(shell: GraphInputs[Saturation]) -> Outcome[Expr]:
     """Scales chroma about configured luminance by the saturation, raised for muted pixels and lowered for vivid ones by the vibrance."""
     scale, vibrance = shell.input(_SCALE), shell.input(_VIBRANCE)
     color = shell.color
@@ -127,7 +127,7 @@ def _saturation(shell: Shell[Saturation]) -> Outcome[Expr]:
     return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
 
 
-def _zones(shell: Shell[Zones]) -> Outcome[Expr]:
+def _zones(shell: GraphInputs[Zones]) -> Outcome[Expr]:
     """Binds each zone's color over its adjustment range, master, and placement, and the s-contrast, to the node form of OCIO's tone transform."""
 
     def zone(panel: InterfacePanel, reach: float) -> grades.Zone:

@@ -39,26 +39,26 @@ class Change(Flag):
 
 
 class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Callback on one `bpy.app.handlers` list, each row distinct since equal lists name different host events."""
+    """Callback on one `bpy.app.handlers` list, each row distinct."""
 
     handlers: list[Callable[..., None]]
     body: Callable[..., Outcome[None]]
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[None]:
-        """Joins the extension's one persistent dispatcher on the handler list until scope exit, appending it with the list's first call and removing it with the last, the call running body over the leading host arguments it takes and skipping the extension's runtime scenes."""
+        """Joins the extension's persistent dispatcher on the list until scope exit, running body over its host arguments and skipping runtime scenes."""
         body = identity.reports.reported(self.body)
         count = sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values())
 
         def called(*arguments: object) -> None:
-            """Runs body over the arguments it takes, the host passing both to a callback declaring no single positional parameter."""
+            """Runs body over the leading arguments it takes."""
             match arguments:
                 case (bpy.types.Scene() as scene, *_) if runtime(identity, scene):
                     return
                 case _:
                     _ = body(*arguments[:count])
 
-        lists, key = identity.held[DISPATCHERS], id(self.handlers)
+        lists, key = identity.resources[DISPATCHERS], id(self.handlers)
         if key not in lists:
             lists[key] = (_dispatching(calls := list[Callable[..., None]]()), calls)
             self.handlers.append(lists[key][0])
@@ -90,7 +90,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
         owner, body = object(), identity.reports.reported(self.body)
 
         def notified() -> None:
-            """Runs body through reports, the host taking a plain function answering None."""
+            """Runs body through reports, the host taking a plain function returning None."""
             _ = body()
 
         def subscribed() -> Outcome[None]:
@@ -121,7 +121,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
             return body().bind(lambda interval: interval).to_optional()
 
         def stopped() -> None:
-            """Unregisters the timer while the host holds it, one that answered `None` being gone."""
+            """Unregisters the timer while the host holds it, one that returned `None` being gone."""
             if bpy.app.timers.is_registered(ticked):
                 bpy.app.timers.unregister(ticked)
 
@@ -134,7 +134,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
 class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Work run after every file load, and on the first main-loop pass after each registration unless a load ran it first.
 
-    Blender startup registers extensions before the startup file's load handlers run and before the first main-loop pass, so the work runs once there, the timer idle in background mode.
+    Blender startup registers extensions before load handlers and the first main-loop pass, and the work runs once there, the timer idle in background.
     """
 
     body: Callable[[], Outcome[None]]
@@ -176,7 +176,7 @@ def _dispatching(calls: list[Callable[..., None]], /) -> Callable[..., None]:
 
 
 def runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
-    """Answers whether a scene a callback received is a runtime scene holding the extension's manifest ID as its mark."""
+    """Whether a scene a callback received is a runtime scene holding the extension's manifest ID as its mark."""
     return scene.is_runtime_data and identity.manifest.id in scene  # type: ignore[operator]
 
 
@@ -194,7 +194,7 @@ def updated(
     *,
     changes: Option[Change] = Nothing,
 ) -> Outcome[None]:
-    """Passes the scene and this pass's depsgraph updates of the ID types reporting one of the change kinds (any kind for Nothing) to body, Ok(None) when none matches."""
+    """Passes the scene and depsgraph updates of ID types reporting a change kind (any for Nothing) to body, Ok(None) when none matches."""
     updates = tuple(item for item in depsgraph.updates if isinstance(item.id, ids) and changes.map(lambda kinds: bool(Change.of(item) & kinds)).default_value(True))
     return body(scene, updates) if updates else Ok(None)
 

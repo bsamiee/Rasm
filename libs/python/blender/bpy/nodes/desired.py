@@ -17,8 +17,8 @@ import msgspec.structs
 
 from blender.bpy.data.ids.ownership import Ownership
 from blender.bpy.data.rna.descriptors import Value, written
-from blender.bpy.data.rna.mirrors import titled
 from blender.bpy.data.rna.paths import RnaPath
+from blender.bpy.data.rna.properties import titled
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.trees import arranged, GraphTree
@@ -41,10 +41,10 @@ RESULT: Final[Key] = "result"
 
 
 class Content(msgspec.Struct, frozen=True, kw_only=True):
-    """Node content a node's own members cannot state, such as ramp stops, curve points, images, groups, menu items, and File Output items, each case writing and reading itself."""
+    """Node content a node's own members cannot state (ramp stops, curve points, images, groups, menu items, File Output items), each case writing and reading itself."""
 
     @property
-    def keyed(self) -> object:
+    def digest_form(self) -> object:
         """Builtin form the lowering digest reads."""
         return msgspec.to_builtins(self, enc_hook=str)
 
@@ -70,7 +70,7 @@ class Content(msgspec.Struct, frozen=True, kw_only=True):
         raise NotImplementedError(type(self).__name__)
 
 
-class Addressing(Content, frozen=True, kw_only=True):
+class ItemContent(Content, frozen=True, kw_only=True):
     """Node content whose items add sockets that links and values address by item key or item name."""
 
     def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
@@ -103,14 +103,14 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
         return Block.of_seq(choices).filter(lambda choice: MenuItem.of(choice).name == name).try_head()
 
 
-class MenuItems(Addressing, frozen=True, kw_only=True):
+class MenuItems(ItemContent, frozen=True, kw_only=True):
     """Ordered Menu Switch items, the content a Menu Switch node holds."""
 
     items: tuple[MenuItem, ...]
 
     @classmethod
     def of(cls, source: bpy.types.EnumProperty | Iterable[Choice] | TypeAliasType, /) -> Self:
-        """Builds items from the RNA enum the menu mirrors, from enum members or case classes, or from a union alias's cases, each item named and described as `MenuItem.of` states it."""
+        """Builds items from the RNA enum the menu matches, from enum members or case classes, or from a union alias's cases, each item named and described as `MenuItem.of` states it."""
         match source:
             case bpy.types.EnumProperty(enum_items=items):
                 return cls(items=tuple(MenuItem(name=item.name, description=item.description) for item in items))
@@ -155,42 +155,42 @@ class Link(msgspec.Struct, frozen=True, kw_only=True):
     target: End
 
 
-class Node(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired node with members by path, an identifier naming a one-step path, and socket values by address."""
+class Membered(msgspec.Struct, frozen=True, kw_only=True):
+    """Record holding RNA members under their paths, an identifier given as its one-step path."""
+
+    members: Members = MappingProxyType({})
+
+    def __post_init__(self) -> None:
+        """Holds members under their paths."""
+        msgspec.structs.force_setattr(self, "members", member_paths(self.members))
+
+    @property
+    def paths(self) -> Mapping[RnaPath, Value]:
+        """Members by RNA path."""
+        return member_paths(self.members)
+
+
+class Node(Membered, frozen=True, kw_only=True):
+    """Desired node with members by path and socket values by address."""
 
     kind: type[bpy.types.Node]
-    members: Members = MappingProxyType({})
     inputs: Mapping[str | int, Value] = MappingProxyType({})
     outputs: Mapping[str | int, Value] = MappingProxyType({})
     content: Option[Content] = Nothing
 
-    def __post_init__(self) -> None:
-        """Holds members under their paths."""
-        msgspec.structs.force_setattr(self, "members", member_paths(self.members))
 
-
-class FrameNode(msgspec.Struct, frozen=True, kw_only=True):
+class FrameNode(Membered, frozen=True, kw_only=True):
     """Frame node members and framed nodes."""
 
-    members: Members = MappingProxyType({})
     nodes: Mapping[Key, "Node | FrameNode"] = MappingProxyType({})
 
-    def __post_init__(self) -> None:
-        """Holds members under their paths."""
-        msgspec.structs.force_setattr(self, "members", member_paths(self.members))
 
-
-class Graph(msgspec.Struct, frozen=True, kw_only=True):
+class Graph(Membered, frozen=True, kw_only=True):
     """Desired contents of one node tree, or of a part of one that joins others."""
 
     kind: type[GraphTree]
-    members: Members = MappingProxyType({})
     nodes: Mapping[Key, Node | FrameNode] = MappingProxyType({})
     links: tuple[Link, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Holds members under their paths."""
-        msgspec.structs.force_setattr(self, "members", member_paths(self.members))
 
     @property
     def placed(self) -> dict[Key, tuple[Node, Option[Key]]]:
@@ -226,7 +226,7 @@ class Graph(msgspec.Struct, frozen=True, kw_only=True):
             parts: Parts to join, earlier keys first.
 
         Returns:
-            `Ok` of joined graph. `Error` of `edit` per key holding different nodes.
+            `Ok` of joined graph. `Error` of `refused` per key holding different nodes.
         """
         held = tuple(parts)
         pairs = tuple((key, item) for part in held for key, item in part.nodes.items())
@@ -258,7 +258,7 @@ def member_paths(members: Members) -> Mapping[RnaPath, Value]:
 
 
 def item_key(*parts: object) -> Key:
-    """Joins key path into item key, record fields by their member descriptor's name, case classes as their snake-case names, and keys and indexes as their text, parts typed over `object` as checkers read a field on its struct class as the field's value."""
+    """Joins key path into item key: field descriptors by name, case classes in snake case, other parts as text."""
 
     def part(value: object) -> str:
         match value:
@@ -279,4 +279,4 @@ def _switch(live: bpy.types.Node) -> Outcome[bpy.types.GeometryNodeMenuSwitch]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["INPUTS", "OUTPUTS", "RESULT", "Addressing", "Choice", "Content", "End", "FrameNode", "Graph", "Link", "Members", "MenuItem", "MenuItems", "Node", "item_key", "member_paths"]
+__all__ = ["INPUTS", "OUTPUTS", "RESULT", "Choice", "Content", "End", "FrameNode", "Graph", "ItemContent", "Link", "Membered", "Members", "MenuItem", "MenuItems", "Node", "item_key", "member_paths"]

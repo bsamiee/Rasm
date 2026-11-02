@@ -1,4 +1,4 @@
-"""View layer passes: the pass vocabulary, flags of the running build, requests, used layers, presets spread over them, and AOV and light group sync."""
+"""View layer passes: pass kinds, flags of the running build, requests, used layers, presets spread over them, and AOV and light group sync."""
 
 from collections.abc import Callable, Mapping
 import enum
@@ -42,6 +42,14 @@ class Family(enum.Flag):
         return f"{bpy.path.display_name(str(self.name).lower())} Total"
 
 
+class LightSlot(enum.StrEnum):
+    """Term of a light family's total, valued by its flag suffix and lobe group input."""
+
+    DIRECT = enum.auto()
+    INDIRECT = enum.auto()
+    COLOR = enum.auto()
+
+
 class Derived(enum.Flag):
     """Layer built from render passes, named by its member and valued by its persisted flag bit."""
 
@@ -51,7 +59,7 @@ class Derived(enum.Flag):
     INVERSE_DEPTH = 8
 
 
-class Entity(enum.Flag):
+class CryptomatteKind(enum.Flag):
     """Cryptomatte kind, valued by its persisted flag bit."""
 
     OBJECT = 1
@@ -87,7 +95,7 @@ class Entity(enum.Flag):
         """Display color member of the blocks the kind names."""
         return (
             Descriptor.declared(bpy.types.Material, ("diffuse_color",), bpy.types.FloatProperty)
-            if self is Entity.MATERIAL
+            if self is CryptomatteKind.MATERIAL
             else Descriptor.declared(bpy.types.Object, ("color",), bpy.types.FloatProperty)
         )
 
@@ -104,6 +112,7 @@ ENVIRONMENT: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_environ
 OCCLUSION: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_ambient_occlusion",), bpy.types.BoolProperty)
 DENOISING_ALBEDO: Final = "Denoising Albedo"
 DENOISING_NORMAL: Final = "Denoising Normal"
+_DEPTH: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_z",), bpy.types.BoolProperty)
 _ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
 _CYCLES: Final = Setting(descriptor=_ENGINE, accepted=("CYCLES",))
 
@@ -142,30 +151,30 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
     def families(self) -> Mapping[Family, tuple[Flags, Flags, Flags]]:
         """Direct, indirect, and color flags of each family, the flags named `use_pass_<family>_<slot>` on any owner."""
 
-        def slot(family: Family, kind: str) -> Flags:
+        def slot(family: Family, kind: LightSlot) -> Flags:
             return frozenset(flag for _, flag in self.every if flag.prop.identifier == f"use_pass_{str(family.name).lower()}_{kind}")
 
-        return {family: (slot(family, "direct"), slot(family, "indirect"), slot(family, "color")) for family in Family}
+        return {family: (slot(family, LightSlot.DIRECT), slot(family, LightSlot.INDIRECT), slot(family, LightSlot.COLOR)) for family in Family}
 
     @property
     def lobes(self) -> Flags:
         """Every family flag."""
         return frozenset().union(*(slot for slots in self.families.values() for slot in slots))
 
-    def opened(self, totals: Family, derived: Derived, ids: Entity) -> Flags:
+    def enabled_for(self, totals: Family, derived: Derived, ids: CryptomatteKind) -> Flags:
         """Returns flags the families summed, the derived layers, and the ID kinds read."""
         families = self.families
 
-        def lit(item: Derived) -> tuple[Flags, ...]:
+        def read(item: Derived) -> tuple[Flags, ...]:
             match item:
                 case Derived.DIRECT_LIGHT:
                     return tuple(direct | color for direct, _, color in families.values())
                 case Derived.INDIRECT_LIGHT:
                     return tuple(indirect | color for _, indirect, color in families.values())
                 case _:
-                    return ()
+                    return (frozenset({_DEPTH}),)
 
-        return frozenset().union(*(slot for family in totals for slot in families[family]), *(held for item in derived for held in lit(item)), (entity.flag for entity in ids))
+        return frozenset().union(*(slot for family in totals for slot in families[family]), *(held for item in derived for held in read(item)), (entity.flag for entity in ids))
 
 
 class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
@@ -179,15 +188,15 @@ class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def depth(cls, layer: str, *, precise: bool) -> Self:
         """Returns Depth pass request of a layer."""
-        return cls(layer=layer, flags=frozenset({Descriptor.declared(bpy.types.ViewLayer, ("use_pass_z",), bpy.types.BoolProperty)}), precise=precise)
+        return cls(layer=layer, flags=frozenset({_DEPTH}), precise=precise)
 
     @classmethod
-    def indexed(cls, layer: str, kinds: Entity) -> Self:
+    def indexed(cls, layer: str, kinds: CryptomatteKind) -> Self:
         """Returns the request of the kinds' index passes under Cycles, the one engine writing them."""
         return cls(layer=layer, flags=frozenset(flag for kind in kinds for flag, _ in kind.index.to_list()), condition=Some(_CYCLES))
 
     @classmethod
-    def matted(cls, layer: str, kinds: Entity) -> Self:
+    def matted(cls, layer: str, kinds: CryptomatteKind) -> Self:
         """Returns the request of the kinds' Cryptomatte passes under Cycles or EEVEE, the engines writing them."""
         return cls(layer=layer, flags=frozenset(kind.flag for kind in kinds), condition=Some(Setting(descriptor=_ENGINE, accepted=("CYCLES", "BLENDER_EEVEE"))))
 
@@ -214,7 +223,7 @@ def layer_of(scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.ViewLayer]:
 
 
 def soloed(scene: bpy.types.Scene, name: str) -> bool:
-    """Renders the layer `name` alone, answering whether any layer's `use` changed."""
+    """Turns `use` on for the layer `name` alone, answering whether any layer's `use` changed."""
     changed = tuple(layer for layer in scene.view_layers if layer.use != (layer.name == name))
     for layer in changed:
         layer.use = layer.name == name
@@ -338,10 +347,11 @@ __all__ = [
     "EMISSION",
     "ENVIRONMENT",
     "OCCLUSION",
+    "CryptomatteKind",
     "Derived",
-    "Entity",
     "Family",
     "Flags",
+    "LightSlot",
     "PassFlags",
     "PassRequest",
     "layer_of",

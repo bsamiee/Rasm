@@ -1,4 +1,4 @@
-"""Restoration: native value captures, operation endpoints stored by ID, decoded against current IDs, and restored where live values still match."""
+"""Restoration: native value captures, operation before and after values stored by ID, decoded against current IDs, and restored where live values still match."""
 
 from functools import partial
 from itertools import islice
@@ -25,7 +25,7 @@ type _Persisted = Tree[tuple[tuple[object, RnaPath], object], RnaPath, RnaPath]
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Endpoints(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
+class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
     """Stored before and after values of one operation, after unset until write finishes."""
 
     before: _Persisted
@@ -66,7 +66,7 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, p
         prior: Tree whose values the capture keeps, adding paths it lacks.
 
     Returns:
-        Native tree, domain fault for an undecodable value.
+        Native tree, outside fault for an undecodable value.
     """
     return catch(captured, exception=msgspec.ValidationError)(owner, partial(_native_read, owner), selection, prior, native=True).map_error(
         partial(Fault.of, Reason.OUTSIDE, repr(owner), member=Value.__name__)
@@ -111,7 +111,7 @@ def decoded(tree: _Persisted, *, compound: bool = False) -> Outcome[NativeTree]:
         compound: Whether tree holds one compound member's items, its keys kept and its members resolved by type.
 
     Returns:
-        Native tree, domain fault for a stored value no member accepts.
+        Native tree, outside fault for a stored value no member accepts.
     """
 
     def value_of(descriptor: Descriptor, value: object) -> Outcome[Value | Struct | NativeTree]:
@@ -218,4 +218,4 @@ def _rooted(target: NativeOwner) -> tuple[Native, RnaPath]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Endpoints", "NativeOwner", "NativeTree", "NativeValue", "decoded", "native", "persisted", "restore"]
+__all__ = ["BeforeAfter", "NativeOwner", "NativeTree", "NativeValue", "decoded", "native", "persisted", "restore"]

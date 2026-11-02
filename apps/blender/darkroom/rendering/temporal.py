@@ -61,7 +61,7 @@ def reconstructed(identity: Identity, scene: bpy.types.Scene, render: FollowedRe
                 kind=bpy.types.CompositorNodeImage,
                 content=Some(Loaded(path=base / sequence.path, tag=Tag(sequence=True), frames=Some(frames))),
                 socket=sequence.output,
-                shape=bpy.types.NodeSocketColor,
+                socket_type=bpy.types.NodeSocketColor,
             )
 
         def hsv(image: Expr, channel: Component) -> Expr:

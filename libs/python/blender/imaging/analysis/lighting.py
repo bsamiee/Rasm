@@ -61,7 +61,7 @@ class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
     ambient: npt.NDArray[np.float64]
     rim: Option[npt.NDArray[np.float64]]
     contrast: float
-    range: float
+    dynamic_range: float
     metered_exposure: float
     mean_luminance: float
     direction: tuple[float, float]
@@ -76,7 +76,7 @@ class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
 class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     """Lighting read settings: analysis grid, palette clusters and merge distance, split and rim thresholds, gel chroma, subject regions, backlight ratios, and mood thresholds.
 
-    The class constants are the estimator's own: sorted-luminance bands reading key, fill, ambient, shadow, highlight, and weighted samples, the range and variation
+    Class constants are the estimator's own: sorted-luminance bands reading key, fill, ambient, shadow, highlight, and weighted samples, the range and variation
     percentiles, the shadow-to-highlight cue gain, and the weights mixing the asymmetry, shadow-to-highlight, centroid, and gradient cues into one direction.
     """
 
@@ -91,11 +91,11 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     shadow_gain: ClassVar[float] = 1.25
     cue_weights: ClassVar[tuple[float, float, float, float]] = (0.42, 0.28, 0.18, 0.12)
     grid: Count = 256
-    size: Count = 3
+    palette_size: Count = 3
     separation: NonNegative = 0.08
     split_range: Positive = math.log2(6.0)
-    highlights: Percent = 85.0
-    chromatic: Unit = 0.18
+    rim_percentile: Percent = 85.0
+    gel_chroma: Unit = 0.18
     subject: Region = Region(left=0.12, bottom=0.12, right=0.88, top=0.88)
     center: Region = Region(left=0.25, bottom=0.25, right=0.75, top=0.75)
     core: Region = Region(left=0.18, bottom=0.18, right=0.82, top=0.82)
@@ -111,7 +111,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
 
     def gels(self, reading: LightingReading) -> Option[tuple[PaletteEntry, PaletteEntry]]:
         """Two largest palette entries of `reading` as key and accent when both are chromatic."""
-        match tuple(entry for entry in reading.palette[:2] if entry.chroma >= self.chromatic):
+        match tuple(entry for entry in reading.palette[:2] if entry.chroma >= self.gel_chroma):
             case (first, second):
                 return Some((first, second) if np.dot(np.subtract(first.position, second.position), reading.direction) >= 0.0 else (second, first))
             case _:
@@ -166,7 +166,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 return np.asarray(stacked / np.maximum(1.0, np.linalg.norm(stacked, axis=-1, keepdims=True)), dtype=np.float64)
 
             def palette() -> tuple[PaletteEntry, ...]:
-                count = min(self.size, found.size)
+                count = min(self.palette_size, found.size)
                 centers, _ = kmeans(colors, np.stack(tuple(colors[band((index / count, (index + 1) / count))].mean(axis=0) for index in range(count))), thresh=0.0, check_finite=False)
                 labels, _ = vq(colors, centers, check_finite=False)
                 counts = np.bincount(labels, minlength=centers.shape[0])
@@ -185,7 +185,8 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 first: tuple[tuple[int, ...], npt.NDArray[np.float64]] = ((0,), counts[clusters].astype(np.float64) / found.size)
                 kept, shares = functools.reduce(merged, range(1, clusters.size), first)
                 return tuple(
-                    PaletteEntry(color=means[clusters[index], :3], position=(float(means[clusters[index], 3]), float(means[clusters[index], 4])), share=float(shares[index])) for index in kept
+                    PaletteEntry(color=means[clusters[index], :3], position=(float(means[clusters[index], 3]), float(means[clusters[index], 4])), share=float(shares[index]))
+                    for index in sorted(kept, key=lambda index: float(shares[index]), reverse=True)
                 )
 
             def backlight() -> tuple[Option[npt.NDArray[np.float64]], Option[float], bool]:
@@ -197,7 +198,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 rim = (
                     Some(levels[border])
                     .filter(lambda held: held.size > 0)
-                    .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.highlights, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
+                    .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.rim_percentile, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
                 )
                 backlit = border_mean.map2(lambda outside, inner: outside > self.border_ratio * inner and inner <= self.center_ratio * frame_mean, center_mean).default_value(False) or ring_mean.map(
                     lambda ring: ring > self.ring_ratio * subject_mean and subject_mean < self.subject_ratio * frame_mean
@@ -223,7 +224,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                         ambient=ambient,
                         rim=rim,
                         contrast=math.log2(max(key_y, Samples.floor) / max(fill_y, Samples.floor)),
-                        range=spread,
+                        dynamic_range=spread,
                         metered_exposure=Samples.stops(found),
                         mean_luminance=float(levels[covered].mean(dtype=np.float64)),
                         direction=(float(direction[0]), float(direction[1])),

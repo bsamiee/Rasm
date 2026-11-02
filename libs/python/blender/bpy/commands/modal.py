@@ -14,7 +14,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.operators import Body, Notes, Returns
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.extension.reports import rendered
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
@@ -183,7 +183,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 draw(layout, run.state)
 
         def began(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> Outcome["rna_enums.OperatorReturnItems"]:
-            """Returns RUNNING_MODAL once the host holds the modal handler, faulting before any resource is acquired and restoring what `begin` wrote when the host refuses the handler."""
+            """Returns RUNNING_MODAL once the host holds the modal handler, restoring what `begin` wrote when the host refuses the handler."""
 
             def started(manager: bpy.types.WindowManager, window: bpy.types.Window, workspace: bpy.types.WorkSpace, press: Press, state: S) -> Outcome["rna_enums.OperatorReturnItems"]:
                 if not manager.modal_handler_add(operator):
@@ -314,7 +314,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         def returned(operator: bpy.types.Operator, context: bpy.types.Context, outcome: "rna_enums.OperatorReturnItems") -> Returns:
             match outcome:
                 case "FINISHED":
-                    return body.settled(operator, context, lambda rolled: ended(operator, context, cancelled=rolled))
+                    return body.modal_finished(operator, context, lambda rolled: ended(operator, context, cancelled=rolled))
                 case "CANCELLED":
                     return cancelled(operator, context, ())
                 case _:
@@ -339,7 +339,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             "cancel": lambda operator, context: cancelled(operator, context, ()),
             "invoke": body.invoking(lambda operator, context, event: began(operator, context, event).map(lambda outcome: {outcome})),
         }
-        return Ok((type(base.__name__, (base,), members), (Band.OPERATORS, released())))
+        return Ok((type(base.__name__, (base,), members), (Tier.OPERATORS, released())))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

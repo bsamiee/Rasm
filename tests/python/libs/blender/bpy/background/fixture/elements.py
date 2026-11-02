@@ -1,4 +1,4 @@
-"""Surface rows: panels at every placement kind, menus of every body, a header, appends, gizmo groups with a custom shape, toolbar tools, an asset shelf, and the preferences page, with probes reading what the host registered."""
+"""Interface element rows: panels at every placement kind, menus of every body, a header, appends, gizmo groups with a custom shape, toolbar tools, an asset shelf, and the preferences page, with probes reading what the host registered."""
 
 from collections.abc import Iterable, Sequence
 from typing import Final
@@ -21,14 +21,15 @@ from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Declaration, Gathering, Registration
 from blender.bpy.ui.drawing.handlers import Signal
+from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup, Shape, TargetHandler
+from blender.bpy.ui.elements.menus import Append, ContextMenu, Dropdown, Header, Menu, Pie, Submenus
+from blender.bpy.ui.elements.panels import Beside, Child, DynamicPlacement, EditorRegion, FixedPlacement, Panel, PanelCopy, POPOVER, Preference, PreferencesPage, Sidebar
+from blender.bpy.ui.elements.shelves import Shelf
+from blender.bpy.ui.elements.tools import Tool, Tools
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Label, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import ICONS
-from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos, Shape, TargetHandler
-from blender.bpy.ui.surfaces.menus import Append, ContextMenu, Dropdown, Header, Menu, Pie, Shelf, Submenus
-from blender.bpy.ui.surfaces.panels import Beside, Child, Docked, EditorRegion, FixedPlacement, Panel, PanelCopy, POPOVER, Preference, PreferencesPage, Sidebar
-from blender.bpy.ui.surfaces.tools import Tool, Tools
 from blender.records.faults import Outcome
 
 from .commands import binding, COUNTED
@@ -104,7 +105,7 @@ def _origin(_context: bpy.types.Context) -> Outcome[Option[Matrix]]:
 
 
 def _extended() -> tuple[bool, ...]:
-    """Reads whether each stock surface holds draw functions beyond its own."""
+    """Reads whether each stock panel and menu holds draw functions beyond its own."""
     return tuple(stock.is_extended() for stock in STOCK)
 
 
@@ -140,8 +141,8 @@ def panels(_identity: Identity) -> dict[str, object]:
 
 
 def iconed(identity: Identity) -> dict[str, object]:
-    """Reads whether the Sidebar panel carries the brand icon and the docked panel's members before and after the dock moves."""
-    sidebar = _registered(bpy.types.Panel, "FIXTURE_PT_main").map(lambda read: read["bl_icon_value"]) == identity.held[ICONS].brand
+    """Reads whether the Sidebar panel holds the brand icon and the docked panel's members before and after the dock moves."""
+    sidebar = _registered(bpy.types.Panel, "FIXTURE_PT_main").map(lambda read: read["bl_icon_value"]) == identity.resources[ICONS].brand
     before = _registered(bpy.types.Panel, "FIXTURE_PT_docked")
     HELD.dock = EditorRegion(space="IMAGE_EDITOR", region="UI")
     fired = DOCKED.fired()
@@ -161,8 +162,8 @@ def headed(_identity: Identity) -> object:
 
 
 def appended(_identity: Identity) -> dict[str, object]:
-    """Reads whether each stock surface held draw functions beyond its own before registration and holds them now."""
-    return {"before": BASELINE, "now": _extended()}
+    """Reads whether each stock panel and menu holds draw functions beyond its own before and after registration."""
+    return {"before": BASELINE, "after": _extended()}
 
 
 def gizmos(identity: Identity) -> dict[str, object]:
@@ -218,7 +219,7 @@ def preferred(identity: Identity) -> dict[str, object]:
         "properties": names,
         "read": SETTINGS.read(identity).map(lambda held: held.level),
         "show": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_show_preferences") is not None,
-        "purge": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_purge_preferences") is not None,
+        "purge": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_clear_stored_settings") is not None,
     }
 
 
@@ -226,7 +227,7 @@ def preferred(identity: Identity) -> dict[str, object]:
 
 
 def released_classes() -> dict[str, bool]:
-    """Answers which surface classes the host still holds."""
+    """Answers which element classes the host holds."""
     return {
         **{name: bpy.types.Panel.bl_rna_get_subclass_py(name) is not None for name in PANELS},
         **{name: bpy.types.Menu.bl_rna_get_subclass_py(name) is not None for name in MENUS},
@@ -237,8 +238,8 @@ def released_classes() -> dict[str, bool]:
     }
 
 
-def released_surfaces() -> dict[str, object]:
-    """Reads whether the stock surfaces still hold draw functions beyond their own and the extension tools left after release."""
+def released_elements() -> dict[str, object]:
+    """Reads whether the stock panels and menus hold draw functions beyond their own and the extension tools left after release."""
     return {"appended": _extended(), "tools": tuple(entry for entry in _tools() if "fixture" in repr(entry))}
 
 
@@ -258,18 +259,18 @@ def refusals() -> dict[str, str]:
 BASELINE: Final = _extended()
 HELD: Final = Held()
 SHAPE: Final = Shape(key="mark", primitive="TRIS", vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)), targets={"offset": 1})
-GIZMOS: Final = Gizmos(
+GIZMOS: Final = GizmoGroup(
     key="main",
     space="VIEW_3D",
-    parts=(
-        GizmoPart(kind="GIZMO_GT_arrow_3d", place=_origin, bind=Member(root=bpy.types.Object, path=("empty_display_size",), reach=Some(lambda context: Option.of_optional(context.active_object)))),
-        GizmoPart(kind=SHAPE, place=_origin, bind=TargetHandler[float](get=HELD.read, set=HELD.written), prepare=Some(lambda _context, _gizmo: Ok(None))),
-        GizmoPart(kind="GIZMO_GT_button_2d", place=_origin, bind=(Placement(COUNTED, {"amount": 2}),), glyph=Some("ADD"), properties={"draw_options": {"BACKDROP", "OUTLINE"}}),
+    gizmos=(
+        Gizmo(kind="GIZMO_GT_arrow_3d", place=_origin, bind=Member(root=bpy.types.Object, path=("empty_display_size",), reach=Some(lambda context: Option.of_optional(context.active_object)))),
+        Gizmo(kind=SHAPE, place=_origin, bind=TargetHandler[float](get=HELD.read, set=HELD.written), prepare=Some(lambda _context, _gizmo: Ok(None))),
+        Gizmo(kind="GIZMO_GT_button_2d", place=_origin, bind=(Placement(COUNTED, {"amount": 2}),), icon=Some("ADD"), properties={"draw_options": {"BACKDROP", "OUTLINE"}}),
     ),
     keymap=Some("3D View"),
     options=frozenset(),
 )
-PERSISTENT: Final = Gizmos(key="persistent", space="VIEW_3D", parts=(GizmoPart(kind="GIZMO_GT_dial_3d", place=_origin),))
+PERSISTENT: Final = GizmoGroup(key="persistent", space="VIEW_3D", gizmos=(Gizmo(kind="GIZMO_GT_dial_3d", place=_origin),))
 TOOLS: Final = Tools(
     space="VIEW_3D",
     mode=Some("OBJECT"),
@@ -283,28 +284,28 @@ TOOLS: Final = Tools(
 )
 SETTINGS: Final = Preference(key="settings", form=Settings)
 PAGE: Final = PreferencesPage(preferences=(SETTINGS,), sections=(Section(key="page", rows=(Label(text="Fixture"),)),))
-LABELLED: Final = (Label(text="Fixture"),)
+LABELED: Final = (Label(text="Fixture"),)
 
 rows: Final = (
     Panel(
-        section=Section(key="main", rows=LABELLED),
+        section=Section(key="main", rows=LABELED),
         at=Sidebar(space="VIEW_3D", category="Fixture"),
         copies=(PanelCopy(at=Beside(SCENE_PT_unit)),),
         children=(Section(key="detail", opened=True),),
         units=Some(12),
     ),
-    Panel(section=Section(key="nested", rows=LABELLED), at=Child(parent=RENDER_PT_format)),
-    Panel(section=Section(key="regioned", rows=LABELLED), at=EditorRegion(space="IMAGE_EDITOR", region="TOOLS"), options=frozenset({"HIDE_HEADER"})),
-    Panel(section=Section(key="popped", rows=LABELLED), at=POPOVER, units=Some(10)),
-    Panel(section=Section(key="docked", rows=LABELLED), at=Docked(read=HELD.docked, changed=DOCKED)),
-    Menu(key="main", description="Fixture commands", body=Dropdown(entries=(OperatorButton(target=COUNTED), *LABELLED))),
-    Menu(key="searched", description="Searchable commands", body=Dropdown(entries=LABELLED, order=Some(lambda _context: (0, 4)), search=True)),
+    Panel(section=Section(key="nested", rows=LABELED), at=Child(parent=RENDER_PT_format)),
+    Panel(section=Section(key="regioned", rows=LABELED), at=EditorRegion(space="IMAGE_EDITOR", region="TOOLS"), options=frozenset({"HIDE_HEADER"})),
+    Panel(section=Section(key="popped", rows=LABELED), at=POPOVER, units=Some(10)),
+    Panel(section=Section(key="docked", rows=LABELED), at=DynamicPlacement(read=HELD.docked, changed=DOCKED)),
+    Menu(key="main", description="Fixture commands", body=Dropdown(entries=(OperatorButton(target=COUNTED), *LABELED))),
+    Menu(key="searched", description="Searchable commands", body=Dropdown(entries=LABELED, order=Some(lambda _context: (0, 4)), search=True)),
     Menu(key="grouped", description="Grouped commands", body=Submenus(entries=(("first", Label(text="First")), ("second", Label(text="Second"))))),
     Menu(key="pie", description="Radial commands", body=Pie(west=Some(OperatorButton(target=COUNTED)), east=Some(Property(target=Member(root=bpy.types.Scene, path=("use_gravity",)))))),
-    Header(key="main", space="VIEW_3D", rows=LABELLED),
+    Header(key="main", space="VIEW_3D", rows=LABELED),
     Append(target=VIEW3D_MT_add, rows=(OperatorButton(target=COUNTED),)),
-    Append(target=SCENE_PT_unit, rows=LABELLED, prepend=True),
-    Append(target=ContextMenu(menu=UI_MT_button_context_menu, hovered=bpy.types.Scene), rows=LABELLED),
+    Append(target=SCENE_PT_unit, rows=LABELED, prepend=True),
+    Append(target=ContextMenu(menu=UI_MT_button_context_menu, hovered=bpy.types.Scene), rows=LABELED),
     GIZMOS,
     PERSISTENT,
     TOOLS,
@@ -312,7 +313,7 @@ rows: Final = (
     PAGE,
 )
 PROBES: Final = (panels, iconed, menus, headed, appended, gizmos, tooled, shelved, preferred)
-RELEASED: Final = (released_classes, released_surfaces, refusals)
+RELEASED: Final = (released_classes, released_elements, refusals)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -1,9 +1,9 @@
-"""Image loads, tags, pixels, and readings, and content hashes of data-blocks over their saved members, element buffers, pixels, node graphs, and compositor entries."""
+"""Image loads, tags, pixels, and readings, and data-block content hashes over members, buffers, pixels, node graphs, and compositor entries."""
 
 from collections.abc import Iterable
 from functools import partial, reduce
 from itertools import starmap, takewhile
-from typing import Final
+from typing import Final, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -42,7 +42,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
     """Requested image reading, absent values keeping image settings, a space naming a color space or an OCIO role of the current config."""
 
     space: Option[str] = Nothing
-    alpha: Option[str] = Nothing
+    alpha: Option[Literal["STRAIGHT", "PREMUL", "CHANNEL_PACKED", "NONE"]] = Nothing
     view_as_render: Option[bool] = Nothing
     sequence: bool = False
 
@@ -73,7 +73,7 @@ def loaded(path: str, tag: Tag) -> Outcome[bpy.types.Image]:
 
 
 def pixels(image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
-    """Reads float32 pixels bottom row first as height, width, channels, refusal fault for an image holding no buffer."""
+    """Reads float32 pixels bottom row first as height, width, channels, refused fault for an image holding no buffer."""
     (width, height), channels = np.asarray(image.size), image.channels
     plane = np.empty((height, width, channels), np.float32)
     return catch(image.pixels.foreach_get, exception=TypeError)(plane.reshape(-1)).map_error(partial(Fault.of, Reason.REFUSED, repr(image))).map(lambda _: plane)
@@ -119,13 +119,13 @@ def _straight(image: bpy.types.Image) -> bool:
 # --- [HASHES]
 
 
-def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneCompositorEffect, *, weighted: bool = False, entering: Option[str] = Nothing) -> Outcome[Option[ContentHash]]:
+def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneCompositorEffect, *, weighted: bool = False, before_modifier: Option[str] = Nothing) -> Outcome[Option[ContentHash]]:
     """Hashes the content of a data-block, of a node's upstream graph, or of a scene compositor entry.
 
     Args:
-        owner: Image, node tree, node, compositor entry over its input values, enables, and group, object, mesh, curve, text, hair curves, point cloud, Grease Pencil, or any other data-block, the last hashed by its members alone.
+        owner: Image, node tree, node, compositor entry, object, or any data-block, geometry adding its element buffers to its members.
         weighted: Whether mesh vertex group weights join the key.
-        entering: Object modifier whose input geometry the key covers: the object's data and vertex groups, the modifiers before it with their groups, and its own members.
+        before_modifier: Object modifier whose input geometry the key covers: object data, vertex groups, earlier modifiers with their groups, and its own members.
 
     Returns:
         Content hash, Nothing for an image or graph whose content the file holds no buffer of, capture faults of any struct accumulated.
@@ -256,8 +256,8 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneComposit
         )
 
     def item(block: bpy.types.Object) -> Outcome[Option[ContentHash]]:
-        earlier = tuple(takewhile(lambda modifier: entering != Some(modifier.name), block.modifiers))
-        named = tuple(modifier for modifier in block.modifiers if entering == Some(modifier.name))[:1]
+        earlier = tuple(takewhile(lambda modifier: before_modifier != Some(modifier.name), block.modifiers))
+        named = tuple(modifier for modifier in block.modifiers if before_modifier == Some(modifier.name))[:1]
         groups = msgspec.msgpack.encode(tuple(group.name for group in block.vertex_groups))
         return paired(
             accumulated(Snapshot.capture(modifier) for modifier in (*earlier, *named)),

@@ -19,7 +19,7 @@ CASES: Final[tuple[tuple[Steps, object], ...]] = (
     (("enabled", "screens", "located", "main"), Ok("WINDOW")),
     (("enabled", "screens", "located", "preview"), _ABSENT),
     (("enabled", "screens", "located", "within"), Ok(Some("HEADER"))),
-    (("enabled", "screens", "retyped"), {"before": "TIMELINE", "applied": "FCURVES", "settled": Ok(None), "reverted": Ok(None), "after": "TIMELINE"}),
+    (("enabled", "screens", "retyped"), {"before": "TIMELINE", "applied": "FCURVES", "completed": Ok(None), "reverted": Ok(None), "after": "TIMELINE"}),
     (("enabled", "screens", "split", "reverts"), Ok(1)),
     (("enabled", "screens", "shared"), "ValueError"),
     *(
@@ -64,7 +64,7 @@ def test_areas_list_screen_then_global_areas_largest_query_first(observed: Obser
 
 
 def test_split_adds_the_editor_at_its_edge(observed: Observations) -> None:
-    """A right split adds a Text Editor right of the source area at its share."""
+    """Right split adds a Text Editor right of the source area at its share."""
     width, before = downcast(tuple, observed["enabled", "screens", "split", "before"])
     _, after = downcast(tuple, observed["enabled", "screens", "split", "after"])
     _, text_x = downcast(tuple, observed["enabled", "screens", "split", "x"])
@@ -74,7 +74,7 @@ def test_split_adds_the_editor_at_its_edge(observed: Observations) -> None:
 
 
 def test_visible_bounds_exclude_overlapping_siblings(observed: Observations) -> None:
-    """The main region's visible bounds start past the overlapping toolbar and below the overlapping headers, and cover the whole region without overlap."""
+    """Main region's visible bounds start past overlapping toolbar and below overlapping headers, covering the whole region without overlap."""
     x, y, width, height = downcast(tuple, observed["enabled", "screens", "bounded", "overlapping"])
     _, _, region_width, region_height = downcast(tuple, observed["enabled", "screens", "bounded", "region"])
     _, _, toolbar_width, _ = downcast(tuple, observed["enabled", "screens", "bounded", "toolbar"])

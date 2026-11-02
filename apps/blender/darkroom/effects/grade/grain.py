@@ -17,17 +17,17 @@ from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import equal, Expr, math, mixed, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.nodes.textures import MapRange, White
+from blender.bpy.nodes.textures import MapRange, WhiteNoise
 from blender.bpy.render.compositor import motion
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.coordinates import PixelGrid
 from blender.bpy.render.compositor.editors import FilePath
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
 from blender.bpy.render.compositor.filters import tiled
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.masks import luminance
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED
-from blender.imaging.color.processors import GREY
+from blender.imaging.color.processors import GRAY
 from blender.imaging.files.images import read_file
 from blender.imaging.geometry.arithmetic import gaussian
 from blender.imaging.sampling import tiles
@@ -64,7 +64,7 @@ _SENSOR: Final = InterfacePanel.of(
     "sensor",
     Interface(
         inputs=(
-            Socket(key="shot", kind=bpy.types.NodeSocketFloat, description="Photon noise deviation at scene-linear gray", min_value=0.0, default_value=0.046875 * float(np.sqrt(GREY))),
+            Socket(key="shot", kind=bpy.types.NodeSocketFloat, description="Photon noise deviation at scene-linear gray", min_value=0.0, default_value=0.046875 * float(np.sqrt(GRAY))),
             Socket(key="read", kind=bpy.types.NodeSocketFloat, description="Signal-independent deviation", min_value=0.0),
         )
     ),
@@ -89,11 +89,11 @@ class Grain(Case, frozen=True, kw_only=True):
 @functools.cache
 def _procedural() -> tuple[npt.NDArray[np.float32], ContentHash, npt.NDArray[np.float64]]:
     """Seamless tile of four standardized normal channels low-pass filtered to unit texel deviation, the content key naming its packed image, and its neighbor correlations."""
-    tile = tiles.gaussian(rng(content_hash(Grain, _PROCEDURAL.name.encode(), providers=(np,))), _SIDE, 4)
+    tile = tiles.gaussian_tile(rng(content_hash(Grain, _PROCEDURAL.name.encode(), providers=(np,))), _SIDE, 4)
     return tile, content_hash(Grain, arrays=(tile,)), tiles.correlated(tile)
 
 
-def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
+def _grain(shell: GraphInputs[Grain]) -> Outcome[Expr]:
     """Builds the selected medium on straight scene-linear color, film over the tiled field and sensor over hashed normal draws."""
     field, size, span, granularity, shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span = _FILM.inputs
     shot, read_noise = map(shell.input, _SENSOR.inputs)
@@ -103,7 +103,7 @@ def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
     pattern = math("FLOOR", clocked(shell.input, _CLOCK))
 
     def developed(content: Generated, texels: int, extent: Expr, correlation: npt.NDArray[np.float64]) -> Expr:
-        image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(content), socket="Image", shape=bpy.types.NodeSocketColor)
+        image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(content), socket="Image", socket_type=bpy.types.NodeSocketColor)
         shift = vector("SCALE", vector("FRACTION", origin(shell.input(SEED), float(stream(Grain, _FILM.key)), pattern)), extent)
         scores = tiled(image, vector("MULTIPLY_ADD", shift, (1.0, 1.0, 0.0), shell.space.point), texels / extent, correlation)
         normal = vector("MULTIPLY_ADD", scores, own, scores["Alpha"] * shared)
@@ -119,7 +119,7 @@ def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
 
             def scores(found: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
                 color = found[..., (0, 1, 2) if found.shape[2] >= 3 else (0, 0, 0)]
-                return tiles.ranked(np.dstack((color, color.mean(axis=2, dtype=np.float64))))
+                return tiles.normal_scores(np.dstack((color, color.mean(axis=2, dtype=np.float64))))
 
             plane = (
                 _TILES
@@ -135,7 +135,7 @@ def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
 
         scan: Outcome[Option[Expr]] = Option.of_optional(shell.record.scan).map(lambda path: scanned(path).map(Some)).default_value(Ok(Nothing))
         return scan.map(
-            lambda held: shell.menu(field, cases={_PROCEDURAL: developed(procedural, _SIDE, shell.input(size) * (_SIDE / 2.0), correlation), _SCAN: held.default_value((1.0, 1.0, 1.0))}).named("field")
+            lambda held: shell.menu(field, cases={_PROCEDURAL: developed(procedural, _SIDE, shell.input(size) * (_SIDE / 2.0), correlation), _SCAN: held.default_value((1.0, 1.0, 1.0))}).keyed("field")
         )
 
     def filmed(factor: Expr, level: Expr) -> Expr:
@@ -144,16 +144,16 @@ def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
 
         low, middle, high, edge, middle_extent, high_extent = map(shell.input, (shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span))
         toned = math("MULTIPLY_ADD", 1.0 - band(level, edge), low - middle, middle)
-        weight = math("MULTIPLY_ADD", band(level - edge - middle_extent, high_extent), high - middle, toned).named("weight")
+        weight = math("MULTIPLY_ADD", band(level - edge - middle_extent, high_extent), high - middle, toned).keyed("weight")
         return mixed(weight, source, factor, blend="MULTIPLY")
 
     def sensored(level: Expr) -> Expr:
         grid = PixelGrid.of(source)
         sited = vector("FLOOR", grid.base / grid.inverse) + origin(shell.input(SEED), float(stream(Grain, _SENSOR.key)), pattern)
-        draws = tuple(White(noise_dimensions="4D").node(sited, float(index)) for index in range(4))
+        draws = tuple(WhiteNoise(noise_dimensions="4D").node(sited, float(index)) for index in range(4))
         (common, red), (green, blue) = gaussian(draws[0], draws[1], EXPRESSIONS), gaussian(draws[2], draws[3], EXPRESSIONS)
-        gain, floor = shot * shot / GREY, read_noise * read_noise
-        spread = vector("POWER", vector("MULTIPLY_ADD", vector("MAXIMUM", source, (0.0, 0.0, 0.0)), gain, floor), (0.5, 0.5, 0.5)).named("deviation")
+        gain, floor = shot * shot / GRAY, read_noise * read_noise
+        spread = vector("POWER", vector("MULTIPLY_ADD", vector("MAXIMUM", source, (0.0, 0.0, 0.0)), gain, floor), (0.5, 0.5, 0.5)).keyed("deviation")
         scatter = vector("SCALE", xyz(red, green, blue), own) * spread + common * shared * math("SQRT", math("MULTIPLY_ADD", math("MAXIMUM", level, 0.0), gain, floor))
         return where(equal(source["Alpha"], 0.0), source, vector("ADD", source, scatter))
 

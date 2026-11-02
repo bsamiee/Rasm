@@ -12,18 +12,19 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.mirrors import Callbacks, held_choices, IconedItem
 from blender.bpy.data.rna.paths import id_data, Struct
+from blender.bpy.data.rna.properties import Callbacks, held_choices, IconedItem
 from blender.bpy.extension.identity import Identity
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.color.spaces import ConfigInstall, ConfigView, NO_LOOK, viewed
 from blender.bpy.render.compositor.effects import Entry
 from blender.bpy.render.compositor.recipes import Valued
 from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.elements.panels import Child, Panel
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import aligned, Layout, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.templates import Gallery
-from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.imaging.color.film import Film
 from blender.imaging.color.processors import DisplayView
 from blender.records.faults import Outcome
@@ -67,12 +68,12 @@ def _viewing(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.Colo
 
 
 def offered(identity: Identity, owner: Struct, _context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
-    """Item rows of the looks Blender offers the holder's view, labelled by the host, each under its tile through the formation."""
+    """Item rows of the looks Blender offers the holder's view, labeled by the host, each under its tile through the formation."""
     config = PyOpenColorIO.GetCurrentConfig()
 
     def tile(view: DisplayView, name: str) -> int:
         record = Formation(display_view=msgspec.structs.replace(view, looks_override=name, looks_override_enabled=name != NO_LOOK))
-        return tiles.icon(identity, f"{LOOKS.key}_{name}", Valued(structure=Entry(record=record))).default_value(0)
+        return tiles.icon(identity, item_key(LOOKS.key, name), Valued(structure=Entry(record=record))).default_value(0)
 
     return held_choices(
         tuple(

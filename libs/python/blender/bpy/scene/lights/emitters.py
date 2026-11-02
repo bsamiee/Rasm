@@ -17,8 +17,8 @@ from blender.bpy.commands.operators import Call, Done, Operator
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle, IdName
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.mirrors import mirrored, reconciling
 from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.properties import reconciling, redeclared
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -28,11 +28,11 @@ from blender.bpy.nodes.graphs import Expr, mixed
 from blender.bpy.nodes.trees import active_output, emptied, feeds, nested, socket_at, tree_of
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import acquired, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.fields import Retention
 
@@ -50,7 +50,7 @@ class MeshLight(bpy.types.PropertyGroup):
     strength: bpy.props.FloatProperty(name="Strength", description="Emission strength", min=0.0, soft_max=100.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     color: bpy.props.FloatVectorProperty(name="Color", description="Emission filter", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Blackbody", description="Filter a blackbody color", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: mirrored(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: redeclared(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     single_sided: bpy.props.BoolProperty(name="Single Sided", description="Front face alone emits", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     constant: bpy.props.BoolProperty(name="Constant Falloff", description="Strength equal at every distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     camera: bpy.props.BoolProperty(name="Camera", description="Visible to camera")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -70,7 +70,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
             identity: Identity binding attachment and marking owned data.
 
         Returns:
-            `Nothing` naming no undo step, or `absent`, `register`, `read`, and `lit` faults.
+            `Nothing` naming no undo step, or `absent`, `unregistered`, `unreadable`, and `lit` faults.
         """
         return light.resolve().bind(lambda item: MeshLights.attachment.read(identity, item).bind(lambda group: lit(group, item, identity))).map(lambda _: Nothing)
 
@@ -104,8 +104,7 @@ def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketF
             case _ if not socket.is_output:
                 return tuple((source, output, path) for source, output in fed.get(socket, ())), ()
             case _ if node.mute:
-                routed: tuple[bpy.types.NodeSocket, ...] = tuple(link.from_socket for link in node.internal_links if link.to_socket == socket)  # type: ignore[misc]  # ty: ignore[invalid-assignment]
-                return tuple((node, inner, path) for inner in routed), ()
+                return tuple((node, link.from_socket, path) for link in node.internal_links if link.to_socket == socket), ()  # type: ignore[misc]  # ty: ignore[invalid-return-type]
             case bpy.types.ShaderNodeGroup(node_tree=tree) if tree is not None:
                 return tuple((output, inner, (*path, node)) for output in active_output(tree).to_option().to_list() for inner in output.inputs if inner.identifier == socket.identifier), ()
             case bpy.types.NodeGroupInput() if path:
@@ -146,9 +145,9 @@ def picked(chosen: frozenset[bpy.types.Object], view_layer: bpy.types.ViewLayer)
 
 
 def emission_graph(record: MeshLight) -> Outcome[Graph]:
-    """Returns shader graph of mesh light values, `absent` and `choice` faults for missing node members."""
+    """Returns shader graph of mesh light values, `absent` and `outside` faults for missing node members."""
     filtered = (*record.color, 1.0)
-    blackbody = Expr(kind=bpy.types.ShaderNodeBlackbody, inputs=(("Temperature", record.temperature),), socket="Color", shape=bpy.types.NodeSocketColor)
+    blackbody = Expr(kind=bpy.types.ShaderNodeBlackbody, inputs=(("Temperature", record.temperature),), socket="Color", socket_type=bpy.types.NodeSocketColor)
     falloff = Expr(kind=bpy.types.ShaderNodeLightFalloff, inputs=(("Strength", record.strength),), socket="Constant")
     emission = Expr(
         kind=bpy.types.ShaderNodeEmission,
@@ -214,7 +213,7 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
         identity: Identity marking object, material, and nodes.
 
     Returns:
-        Mesh light, or `register`, `edit`, and `lit` faults.
+        Mesh light, or `unregistered`, `refused`, and `lit` faults.
     """
 
     def configured(item: bpy.types.Object) -> Outcome[bpy.types.Object]:

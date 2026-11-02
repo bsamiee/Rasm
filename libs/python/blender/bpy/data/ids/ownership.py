@@ -16,7 +16,7 @@ from blender.bpy.data.ids.store import blocks, named
 from blender.bpy.data.rna.descriptors import custom_read
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key, Resource
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.records.faults import Fault, Outcome, Reason
 from blender.records.stores import ContentHash
 
@@ -145,6 +145,10 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             .default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, slot=slot, filled=filled, scope=scope)))
         )
 
+    def created(self, identity: Identity, new: Callable[[str], T], name: str) -> Outcome[T]:
+        """Reuses equal-mark holder of single row or owns the block a collection's `new` creates under name."""
+        return self.made(identity, lambda: catch(new, exception=RuntimeError)(name).map_error(partial(Fault.of, Reason.REFUSED, self.key)))
+
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], Outcome[T]]) -> Outcome[T]:
         """Replaces marked block with built one under its name."""
 
@@ -169,7 +173,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the saved single row's place on its extension's import merge."""
-        return Ok((_MERGES, (Band.APP_HANDLERS, _Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
+        return Ok((_MERGES, (Tier.APP_HANDLERS, _Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -196,7 +200,7 @@ class _Merges:
     @contextmanager
     def holding(identity: Identity, row: tuple[type[bpy.types.ID], Key]) -> Generator[None]:
         """Holds row on the extension's merge until scope exit."""
-        merges = identity.held[_MERGES]
+        merges = identity.resources[_MERGES]
         with ExitStack() as stack:
             merges.rows.append(row)
             stack.callback(merges.rows.remove, row)

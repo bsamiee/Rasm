@@ -10,9 +10,9 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.extension.identity import Identity
-from blender.bpy.ui.drawing.canvas import Align, Canvas, captured, DrawType, Offscreen, Rect
+from blender.bpy.ui.drawing.canvas import Align, Canvas, captured, DrawType, FontStyle, Offscreen, Rect
 from blender.bpy.ui.drawing.charts import Chart, Label, Layer, TRACE
-from blender.bpy.ui.drawing.handlers import Drawing, Handled, hooked, Overlay, Refresh, refreshing, Signal
+from blender.bpy.ui.drawing.handlers import draw_handler, Drawing, HandlerRefresh, Overlay, Refresh, refreshing, Signal
 from blender.bpy.ui.resources.theme import Checker, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.records.faults import Outcome
@@ -82,14 +82,14 @@ def charted(_identity: Identity) -> dict[str, object]:
 def written(_identity: Identity) -> dict[str, object]:
     """Measures text at a size, longer, and wrapped narrower than it, draws a label offscreen, and draws the transparency checker's two cells."""
     canvas = Canvas.of(*_view())
-    single = canvas.measured("Fixture", 14.0)
+    single = canvas.measured("Fixture", FontStyle(size=14.0))
     checker = Checker(primary=(1.0, 1.0, 1.0, 1.0), secondary=(0.0, 0.0, 0.0, 1.0), cell=4)
     checkered = Offscreen(width=8, height=4).drawn(canvas, lambda pixels: pixels.checkered(Rect(x=0.0, y=0.0, width=8.0, height=4.0), checker))
     return {
         "single": single,
-        "longer": canvas.measured("Fixture Fixture", 14.0)[0] > single[0],
-        "wrapped": canvas.measured("Fixture Fixture Fixture", 14.0, wrap=Some(single[0]))[1] > single[1],
-        "label": Offscreen(width=32, height=32).drawn(canvas, lambda pixels: pixels.label("F", (4.0, 4.0), (1.0, 1.0, 1.0, 1.0), 24.0)).map(lambda plane: float(plane[..., 3].max())),
+        "longer": canvas.measured("Fixture Fixture", FontStyle(size=14.0))[0] > single[0],
+        "wrapped": canvas.measured("Fixture Fixture Fixture", FontStyle(size=14.0, wrap=Some(single[0])))[1] > single[1],
+        "label": Offscreen(width=32, height=32).drawn(canvas, lambda pixels: pixels.label("F", (4.0, 4.0), (1.0, 1.0, 1.0, 1.0), FontStyle(size=24.0))).map(lambda plane: float(plane[..., 3].max())),
         "checker": checkered.map(lambda plane: (plane[0, 0].tolist(), plane[0, 4].tolist())),
     }
 
@@ -119,11 +119,11 @@ def read_back(_identity: Identity) -> dict[str, object]:
 
 def handled(_identity: Identity) -> object:
     """Holds a draw handle on the 3D View main region, answering what the scope yielded."""
-    with hooked(bpy.types.SpaceView3D, lambda: None, "WINDOW", "POST_PIXEL") as accepted:
+    with draw_handler(bpy.types.SpaceView3D, lambda: None, "WINDOW", "POST_PIXEL") as accepted:
         return accepted
 
 
-def signalled(identity: Identity) -> dict[str, object]:
+def signaled(identity: Identity) -> dict[str, object]:
     """Fires a signal while a refresh follows it and after its scope released, and holds every refresh source kind and an absent msgbus key."""
     refreshes: list[str] = []
 
@@ -137,9 +137,9 @@ def signalled(identity: Identity) -> dict[str, object]:
     after = signal.fired()
     sources: tuple[Refresh, ...] = (
         (bpy.types.Scene, "frame_current"),
-        Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,)),
+        HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,)),
         signal,
-        Handled(handlers=bpy.app.handlers.frame_change_post),
+        HandlerRefresh(handlers=bpy.app.handlers.frame_change_post),
     )
     with refreshing(identity, sources, lambda: Ok(None)) as held, refreshing(identity, ((bpy.types.Scene, "fixture_absent"),), lambda: Ok(None)) as absent:
         return {"inside": inside, "after": after, "refreshes": tuple(refreshes), "sources": held, "absent": absent}
@@ -151,12 +151,16 @@ OVERLAY: Final = Overlay(
     drawing=Drawing(
         area=AreaQuery(space=bpy.types.SpaceView3D),
         part=Marker(),
-        refreshes=((bpy.types.Scene, "frame_current"), Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,)), Handled(handlers=bpy.app.handlers.frame_change_post)),
+        refreshes=(
+            (bpy.types.Scene, "frame_current"),
+            HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,)),
+            HandlerRefresh(handlers=bpy.app.handlers.frame_change_post),
+        ),
     )
 )
 
 rows: Final = (OVERLAY,)
-PROBES: Final = (charted, written, pointed, read_back, handled, signalled)
+PROBES: Final = (charted, written, pointed, read_back, handled, signaled)
 RELEASED: Final = ()
 
 # --- [EXPORTS] --------------------------------------------------------------------------

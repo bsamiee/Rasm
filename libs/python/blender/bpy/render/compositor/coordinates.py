@@ -12,7 +12,7 @@ import OpenImageIO
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.desired import MenuItem, MenuItems
-from blender.bpy.nodes.graphs import cell, composed, directed, Expr, inverted, math, matrix, menu, projected, Scalar, Shape, switched, Term, transform, transformed, vector, where, xyz
+from blender.bpy.nodes.graphs import cell, composed, directed, Expr, inverted, math, matrix, menu, projected, Scalar, SocketType, switched, Term, transform, transformed, vector, where, xyz
 from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.colors import AXES, with_alpha
 from blender.imaging.geometry.frames import Homography
@@ -23,10 +23,10 @@ from blender.imaging.geometry.frames import Homography
 class Border(IntEnum):
     """Sampling past an image edge, valued by the number of OpenImageIO's wrap mode, records holding it by that number."""
 
-    BLACK = int(OpenImageIO.Wrap.Black)
-    CLAMP = int(OpenImageIO.Wrap.Clamp)
-    PERIODIC = int(OpenImageIO.Wrap.Periodic)
-    MIRROR = int(OpenImageIO.Wrap.Mirror)
+    BLACK = OpenImageIO.Wrap.Black.value
+    CLAMP = OpenImageIO.Wrap.Clamp.value
+    PERIODIC = OpenImageIO.Wrap.Periodic.value
+    MIRROR = OpenImageIO.Wrap.Mirror.value
 
     @property
     def wrap(self) -> OpenImageIO.Wrap:
@@ -54,8 +54,8 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, image: Scalar, /) -> Self:
         """Builds the grid over an image's realized data window."""
-        realized = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image),), socket="Image", shape=bpy.types.NodeSocketColor)
-        pixel = Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", realized),), socket="Pixel", shape=bpy.types.NodeSocketVector)
+        realized = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image),), socket="Image", socket_type=bpy.types.NodeSocketColor)
+        pixel = Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", realized),), socket="Pixel", socket_type=bpy.types.NodeSocketVector)
         lowest = tuple(Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", pixel), ("Channel", channel)), socket="Minimum") for channel in ("Red", "Green"))
         centre, offset, inverse = vector("ADD", pixel, (0.5, 0.5, 0.0)), xyz(*lowest), vector("DIVIDE", (1.0, 1.0, 0.0), dimensions(image))
         sides = Expr(
@@ -63,7 +63,7 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
             inputs=(("Image", image), ("Float Value", 1.0)),
             members={"data_type": "FLOAT", "reference_dimension": "PER_DIMENSION"},
             socket="Vector Value",
-            shape=bpy.types.NodeSocketVector,
+            socket_type=bpy.types.NodeSocketVector,
         )
         return cls(base=vector("ADD", vector("MULTIPLY", vector("SUBTRACT", centre, offset), inverse), (0.0, 0.0, 1.0)), inverse=inverse, point=centre, offset=offset, sides=sides)
 
@@ -88,7 +88,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
     greater: Expr
     fraction: Expr
     scale: Expr
-    placing: Expr
+    uv_scale: Expr
     margin: Expr
 
     # --- [POSITIONS]
@@ -118,22 +118,22 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
             greater=greater,
             fraction=vector("DIVIDE", point, extent),
             scale=vector("DIVIDE", greater, axes),
-            placing=vector("MULTIPLY", camera, grid.inverse),
+            uv_scale=vector("MULTIPLY", camera, grid.inverse),
             margin=vector("ADD", vector("MULTIPLY", vector("SUBTRACT", offset, grid.offset), grid.inverse), (0.0, 0.0, 1.0)),
         )
 
     def sampled(self, fraction: Scalar) -> Expr:
         """Maps camera frame fractions from the bottom-left corner to the Map UV coordinate of the source holding the frame, coverage 1 in Z."""
-        return vector("MULTIPLY_ADD", fraction, self.placing, self.margin)
+        return vector("MULTIPLY_ADD", fraction, self.uv_scale, self.margin)
 
     def covered(self, position: Expr) -> Expr:
         """Maps camera frame fractions to the Map UV coordinate keeping their geometric coverage in Z."""
         uv = self.sampled(position)
         return xyz(uv["X"], uv["Y"], position["Z"])
 
-    def entering(self, uv: Scalar | tuple[float, ...]) -> Expr:
+    def from_uv(self, uv: Scalar | tuple[float, ...]) -> Expr:
         """Maps a Map UV coordinate of the source back to camera frame fractions with unit coverage in Z."""
-        return vector("ADD", vector("DIVIDE", vector("SUBTRACT", uv, self.margin), self.placing), (0.0, 0.0, 1.0))
+        return vector("ADD", vector("DIVIDE", vector("SUBTRACT", uv, self.margin), self.uv_scale), (0.0, 0.0, 1.0))
 
     def pixels(self, length: Scalar) -> Expr:
         """Converts a length over the greater frame side to stored X pixels."""
@@ -158,14 +158,14 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Forward affine `Matrix` expression, singular and reflected placements included.
         """
-        anchor = vector("MULTIPLY", pivot, self.extent)
+        pivot_point = vector("MULTIPLY", pivot, self.extent)
         scale_x, scale_y, skew_x, skew_y = (
             term[axis] if isinstance(term, Expr) else Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(("Vector", term),), socket=axis) for term in (scale, skew) for axis in AXES[:2]
         )
         horizontal, vertical = matrix({(1, 2): math("TANGENT", skew_x)}), matrix({(2, 1): math("TANGENT", skew_y)})
         turn = transform("Rotation", Expr(kind=bpy.types.FunctionNodeEulerToRotation, inputs=(("Euler", xyz(z=rotation)),), socket="Rotation"))
         linear = composed(turn, composed(vertical, composed(horizontal, transform("Scale", xyz(scale_x, scale_y, 1.0)))))
-        return composed(transform("Translation", vector("SUBTRACT", vector("ADD", vector("MULTIPLY", position, self.extent), anchor), directed(anchor, linear))), linear)
+        return composed(transform("Translation", vector("SUBTRACT", vector("ADD", vector("MULTIPLY", position, self.extent), pivot_point), directed(pivot_point, linear))), linear)
 
     def placed(self, source: Scalar, forward: Expr) -> Expr:
         """Places the displayed rectangle through rotate, scale, rotate, and translate nodes of the matrix's singular value decomposition, keeping deferred bounds.
@@ -180,7 +180,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         basis = transform("Scale", xyz(self.scale["X"], self.scale["Y"], 1.0))
         pixel = composed(basis, composed(forward, inverted(basis)))
         planar = matrix({**{(row, column): cell(pixel, row, column) for column in range(1, 3) for row in range(1, 3)}, (3, 3): 0.0})
-        decomposed = Expr(kind=bpy.types.FunctionNodeMatrixSVD, inputs=(("Matrix", planar),), socket="S", shape=bpy.types.NodeSocketVector)
+        decomposed = Expr(kind=bpy.types.FunctionNodeMatrixSVD, inputs=(("Matrix", planar),), socket="S", socket_type=bpy.types.NodeSocketVector)
         reflection = math("SIGN", Expr(kind=bpy.types.FunctionNodeMatrixDeterminant, inputs=(("Matrix", pixel),), socket="Determinant"))
         center = vector("SCALE", self.extent, 0.5)
         location = dimensions(source).at("Location", bpy.types.NodeSocketVector)
@@ -188,14 +188,14 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         def rotated(image: Expr, side: Literal["U", "V"], direction: float) -> Expr:
             factor = decomposed.at(side, bpy.types.NodeSocketMatrix)
             angle = math("ARCTAN2", cell(factor, 2, 1), cell(factor, 1, 1)) * direction
-            return Expr(kind=bpy.types.CompositorNodeRotate, inputs=(("Image", image), ("Angle", angle)), socket="Image", shape=bpy.types.NodeSocketColor)
+            return Expr(kind=bpy.types.CompositorNodeRotate, inputs=(("Image", image), ("Angle", angle)), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
         def translated(image: Scalar, offset: Expr) -> Expr:
-            return Expr(kind=bpy.types.CompositorNodeTranslate, inputs=(("Image", image), ("X", offset["X"]), ("Y", offset["Y"])), socket="Image", shape=bpy.types.NodeSocketColor)
+            return Expr(kind=bpy.types.CompositorNodeTranslate, inputs=(("Image", image), ("X", offset["X"]), ("Y", offset["Y"])), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
         unrotated = rotated(translated(source, vector("SCALE", location, -1.0)), "V", -1.0)
         stretched = Expr(
-            kind=bpy.types.CompositorNodeScale, inputs=(("Image", unrotated), ("X", decomposed["X"]), ("Y", decomposed["Y"] * reflection)), socket="Image", shape=bpy.types.NodeSocketColor
+            kind=bpy.types.CompositorNodeScale, inputs=(("Image", unrotated), ("X", decomposed["X"]), ("Y", decomposed["Y"] * reflection)), socket="Image", socket_type=bpy.types.NodeSocketColor
         )
         shifted = vector("ADD", location, vector("MULTIPLY", vector("SUBTRACT", transformed(center, forward), center), self.scale))
         image = translated(rotated(stretched, "U", 1.0), shifted)
@@ -209,7 +209,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
 
 def dimensions(image: Scalar) -> Expr:
     """Data-window size of an image in pixels."""
-    return Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", image),), socket="Dimensions", shape=bpy.types.NodeSocketVector)
+    return Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", image),), socket="Dimensions", socket_type=bpy.types.NodeSocketVector)
 
 
 def shorter(extent: Expr) -> Expr:
@@ -245,10 +245,10 @@ def pinned(fraction: Expr, rows: tuple[Expr, Expr, Expr], *, forward: bool) -> E
 # --- [SAMPLING]
 
 
-def uv_mapped(image: Term, uv: Term, *, interpolation: Term = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), shape: Shape = bpy.types.NodeSocketColor) -> Expr:
+def uv_mapped(image: Term, uv: Term, *, interpolation: Term = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
     """Samples an image at Map UV positions under one interpolation and each axis' extension, Map UV premultiplying the coverage in Z."""
     inputs = (("Image", image), ("UV", uv), ("Interpolation", interpolation), ("Extension X", extension[0]), ("Extension Y", extension[1]))
-    return Expr(kind=bpy.types.CompositorNodeMapUV, inputs=inputs, socket="Image", shape=shape)
+    return Expr(kind=bpy.types.CompositorNodeMapUV, inputs=inputs, socket="Image", socket_type=socket_type)
 
 
 def folded(border: Border | Scalar, coordinate: Expr, /) -> tuple[Expr, Expr | float]:
@@ -282,7 +282,7 @@ def extended(source: Scalar, uv: Expr, borders: Border | Scalar | tuple[Border |
         uv: Map UV positions with geometric coverage in Z.
         borders: One border for both axes, or one for X then one for Y, each a `Border` member or a `BORDERS` menu operand.
         clipped: Whether black borders fade over the edge pixel as coverage, else Map UV clips them.
-        interpolation: Map UV interpolation item name or menu operand, such as `Anisotropic` filtering each lookup over its UV footprint.
+        interpolation: Map UV interpolation item name or menu operand (`Anisotropic` filtering each lookup over its UV footprint).
 
     Returns:
         Covered associated sample.
@@ -295,7 +295,7 @@ def extended(source: Scalar, uv: Expr, borders: Border | Scalar | tuple[Border |
             case Border():
                 return border
             case selector:
-                return menu(selector, {MenuItem.of(member): native[member] for member in Border}, shape=Some(bpy.types.NodeSocketMenu))
+                return menu(selector, {MenuItem.of(member): native[member] for member in Border}, socket_type=Some(bpy.types.NodeSocketMenu))
 
     def axis(name: Literal["X", "Y"], choice: Border | Expr) -> tuple[Expr, Expr | float, Term]:
         coordinate = uv[name]

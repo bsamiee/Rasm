@@ -15,7 +15,7 @@ from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.render.previews.queue import Demands
 from blender.bpy.render.previews.scenes import PreviewLighting
 from blender.bpy.render.previews.targets import Editor, NODE_PREVIEWS, NodePreviews, Position, RenderKind, Target
-from blender.bpy.ui.drawing.canvas import Align, Canvas, DrawType, Rect, Shadow
+from blender.bpy.ui.drawing.canvas import Align, Canvas, DrawType, FontStyle, Rect, Shadow
 from blender.bpy.ui.resources.previews import TEXTURES
 from blender.bpy.ui.resources.theme import color, Metrics, Spacing
 from blender.imaging.color.processors import DisplayView
@@ -46,8 +46,8 @@ class Cell(msgspec.Struct, frozen=True, kw_only=True):
     value: Option[float] = Nothing
 
 
-class Staged(msgspec.Struct, frozen=True, kw_only=True):
-    """Settings a change key hashes."""
+class ThumbnailSettings(msgspec.Struct, frozen=True, kw_only=True):
+    """Settings a thumbnail's content hash covers."""
 
     kind: RenderKind
     socket: str
@@ -70,16 +70,10 @@ class NodeState:
 
     def __init__(self) -> None:
         """Holds no demand, value, held hash, or cell."""
-        self.demands: Demands[Target, Staged] = Demands()
+        self.demands: Demands[Target, ThumbnailSettings] = Demands()
         self.values: dict[Hashable, float] = {}
         self.held: dict[tuple[Handle[bpy.types.Object], str], Option[ContentHash]] = {}
         self.cells: dict[Editor, tuple[Cell, ...]] = {}
-
-    def cleared(self) -> int:
-        """Drops every held uniform value, answering how many it held."""
-        count = len(self.values)
-        self.values.clear()
-        return count
 
     def released(self, block: bpy.types.ID) -> None:
         """Drops the content hashes held for a changed object."""
@@ -98,33 +92,33 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, _metrics: Metrics, /) -> Outcome[Option[tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]]]:
         """Reads the node preview preference and editor cells while previews show."""
-        return NODE_PREVIEWS.read(self.identity).map(lambda settings: Some((settings, self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
+        return NODE_PREVIEWS.read(self.identity).map(lambda settings: Some((settings, self.identity.resources[NODE_STATES].cells)) if settings.enabled else Nothing)
 
     def drawn(self, canvas: Canvas, state: tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]) -> None:
         """Draws cells beside nodes, active node grid last."""
         (settings, shown), metrics = state, canvas.metrics
         theme, style = metrics.preferences.themes[0], metrics.preferences.ui_styles[0].widget
-        cache, points, pad, gap, checker = self.identity.held[TEXTURES], metrics.font(style), metrics.spaced(Spacing.BUTTON_Y), metrics.spaced(Spacing.TEMPLATE), metrics.checker()
+        cache, points, pad, gap, checker = self.identity.resources[TEXTURES], metrics.font(style), metrics.spaced(Spacing.BUTTON_Y), metrics.spaced(Spacing.TEMPLATE), metrics.checker()
         marks = {Status.QUEUED: ("…", color(theme.info.info_warning_text)), Status.FAILED: ("!", color(theme.info.info_error_text))} if settings.status else {}
         position = Position[settings.position]
 
-        def cell(item: Cell, rect: Rect, *, several: bool, view: bpy.types.View2D) -> None:
+        def cell(item: Cell, rect: Rect, *, labeled: bool, view: bpy.types.View2D) -> None:
             mark = Option.of_optional(marks.get(item.status))
             inner = Rect(x=rect.x + pad, y=rect.y + pad, width=rect.width - 2 * pad, height=rect.height - 2 * pad)
-            centre = (rect.x + rect.width / 2, rect.y + rect.height / 2)
+            center = (rect.x + rect.width / 2, rect.y + rect.height / 2)
             canvas.frame(rect, fill=color(theme.node_editor.node_backdrop), edge=next((edge for _, edge in mark.to_list()), color(theme.node_editor.wire)), radius=0.0)
             if settings.checker:
                 canvas.checkered(inner, checker)
             for texture in cache.shown(item.key).to_list():
                 canvas.picture(texture, inner, blend="ALPHA_PREMULT")
             for text, _ in mark.to_list():
-                canvas.label(text, at=centre, color=canvas.theme.text_hi, size=points, align=Align.CENTER)
+                canvas.label(text, at=center, color=canvas.theme.text_hi, style=FontStyle(size=points, align=Align.CENTER))
             for number in (f"{held:.4g}" for held in item.value.to_list() if settings.values and mark.is_none()):
-                if canvas.measured(number, points)[0] <= inner.width:
-                    canvas.label(number, at=centre, color=canvas.theme.text_hi, size=points, align=Align.CENTER, shadow=Some(Shadow.of(style)))
-            if several:
+                if canvas.measured(number, FontStyle(size=points))[0] <= inner.width:
+                    canvas.label(number, at=center, color=canvas.theme.text_hi, style=FontStyle(size=points, align=Align.CENTER, shadow=Some(Shadow.of(style))))
+            if labeled:
                 with Canvas.clipped(rect, view=Some(view)):
-                    canvas.label(item.label, at=(inner.x, inner.y), color=canvas.theme.text, size=points)
+                    canvas.label(item.label, at=(inner.x, inner.y), color=canvas.theme.text, style=FontStyle(size=points))
 
         def grid(node: bpy.types.Node, cells: tuple[Cell, ...], grown: float, view: bpy.types.View2D) -> None:
             columns, scale = 2 if len(cells) > 1 else 1, metrics.scale
@@ -141,10 +135,10 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
                 case Position.RIGHT:
                     x, y = left + node.dimensions[0] + gap, top - height
             for index, item in enumerate(cells):
-                cell(item, Rect(x=x + (index % columns) * side, y=y + height - (index // columns + 1) * side, width=side, height=side), several=columns > 1, view=view)
+                cell(item, Rect(x=x + (index % columns) * side, y=y + height - (index // columns + 1) * side, width=side, height=side), labeled=columns > 1, view=view)
 
         views = tuple(
-            (tree, cells, tuple(Option.of_optional(tree.nodes.active).filter(lambda _: settings.enlarged).to_list()))
+            (tree, cells, tuple(Option.of_optional(tree.nodes.active).filter(lambda _: settings.use_enlarge).to_list()))
             for space in (canvas.space,)
             if isinstance(space, bpy.types.SpaceNodeEditor)
             for tree in Option.of_optional(space.edit_tree).to_list()
@@ -164,4 +158,4 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["NODE_STATES", "Cell", "NodeState", "NodeThumbnails", "Staged", "Status"]
+__all__ = ["NODE_STATES", "Cell", "NodeState", "NodeThumbnails", "Status", "ThumbnailSettings"]

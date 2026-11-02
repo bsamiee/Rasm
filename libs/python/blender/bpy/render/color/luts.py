@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import ClassVar, Final, get_args
+from typing import ClassVar, Final
 
 import bpy
 from expression import Error, Nothing, Ok, Some
@@ -18,12 +18,12 @@ import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Call, Done, Operator
+from blender.bpy.commands.operators import Call, Done, NoUndo, Operator
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import rna, RnaPath
+from blender.bpy.data.rna.properties import case_choices, choices
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
@@ -38,7 +38,6 @@ from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SPACINGS: Final = MappingProxyType({case.__name__: case for case in get_args(Spacing.__value__)})
 FORMATS: Final = MappingProxyType({row.name: row for row in (*LutFormat.writable(), *LutFormat.bakeable())})
 _LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color_depth="32")
 
@@ -46,10 +45,10 @@ _LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color
 
 
 class LatticeFields(bpy.types.PropertyGroup):
-    """Sampled lattice size and node spacing a bake or view install form extends, defaults the lattice record's."""
+    """Lattice size and node spacing of bake and view install forms."""
 
     size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=case_choices(Spacing), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Baking(LatticeFields):
@@ -75,16 +74,16 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [COMMANDS]
 
     @cached_property
-    def stripping(self) -> Operator[Baking]:
+    def strip_baking(self) -> Operator[Baking]:
         """Command baking the active strip's modifiers."""
-        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
+        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=NoUndo())
 
     # --- [BAKES]
 
     @contextmanager
     def staged(self, identity: Identity) -> Generator[Outcome[bpy.types.Scene]]:
         """Owns a marked runtime scene, removed on exit on every path."""
-        made = self.lattices.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(partial(Fault.of, Reason.REFUSED, "LUT Lattice")))
+        made = self.lattices.created(identity, bpy.data.scenes.new, "LUT Lattice")
         with ExitStack() as scope:
             for scene in made.to_option().to_list():
                 scope.callback(bpy.data.scenes.remove, scene)
@@ -92,7 +91,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def sequenced(self, call: Call[Baking], active: bpy.types.Strip, space: str) -> Outcome[Done]:
         """Samples strip modifiers in one sequencer render over their native space."""
-        lattice = spaced(call.properties)
+        lattice = lattice_of(call.properties)
 
         def arranged(scene: bpy.types.Scene, nodes: Path, look: Path) -> Outcome[None]:
             match scene.sequence_editor_create().strips.new_image(name="Lattice", filepath=str(nodes), channel=1, frame_start=1), scene.sequencer_colorspace_settings:
@@ -153,7 +152,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns lattice ownership, read stamps, and the strip bake command."""
-        return Ok((self.lattices, STAMPS, self.stripping))
+        return Ok((self.lattices, STAMPS, self.strip_baking))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -163,15 +162,15 @@ STAMPS: Final = Resource[dict[str, tuple[int, int]]](made=lambda _identity: null
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def spaced(fields: LatticeFields) -> Lattice:
+def lattice_of(fields: LatticeFields) -> Lattice:
     """Returns the lattice the fields choose, each spacing at its defaults."""
-    return Lattice(size=fields.size, spacing=SPACINGS[fields.spacing]())
+    return Lattice(size=fields.size, spacing=msgspec.convert({"kind": fields.spacing}, Spacing.__value__))
 
 
 def output(properties: Baking) -> LutOutput:
     """Returns exact writer for a writable format, else a lattice bake."""
     row = FORMATS[properties.format]
-    return LutOutput(format=row, lattice=Nothing if row in LutFormat.writable() else Some(spaced(properties)))
+    return LutOutput(format=row, lattice=Nothing if row in LutFormat.writable() else Some(lattice_of(properties)))
 
 
 def extension(properties: Baking | Writing) -> tuple[str]:
@@ -179,9 +178,9 @@ def extension(properties: Baking | Writing) -> tuple[str]:
     return (f".{FORMATS[properties.format].extension}",)
 
 
-def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
+def reloaded(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
     """Returns the resolved path, clearing OCIO's process-wide caches when the file's modification time or size differs from the extension's last read."""
-    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), identity.held[STAMPS]
+    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), identity.resources[STAMPS]
 
     def held(status: os.stat_result) -> str:
         if stamps.get(str(resolved)) != (stamp := (status.st_mtime_ns, status.st_size)):
@@ -195,4 +194,4 @@ def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outc
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FORMATS", "SPACINGS", "STAMPS", "Baking", "LatticeFields", "LutExport", "Writing", "current", "extension", "output", "spaced"]
+__all__ = ["FORMATS", "STAMPS", "Baking", "LatticeFields", "LutExport", "Writing", "extension", "lattice_of", "output", "reloaded"]

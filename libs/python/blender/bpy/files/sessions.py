@@ -18,6 +18,7 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
+import numpy as np
 
 from blender.bpy.commands.calls import called, Operation, Setting
 from blender.bpy.data.ids.ownership import retained, tracked
@@ -33,7 +34,6 @@ from blender.rendering.batch.queue import PackedFile
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _OPTIONS: Final = Options()
-_TRACING: Final[type[OSError | BlendFileError | BackgroundProcessNotRunningError]] = (OSError, BlendFileError, BackgroundProcessNotRunningError)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -50,10 +50,11 @@ class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Returns current file state."""
+        major, minor, patch = np.asarray(bpy.data.version).tolist()
         return cls(
             path=Option.of_optional(bpy.data.filepath or None).map(Path),
             dirty=bpy.data.is_dirty,
-            version=bpy.data.version,  # type: ignore[arg-type]
+            version=(major, minor, patch),
             autopack=bpy.data.use_autopack,
             blocked=Option.of_optional(bpy.app.autoexec_fail_message or None),
         )
@@ -161,7 +162,7 @@ class PackReport(BATPackReporter):
 
 
 class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Started blender-asset-tracer pack with its reporter, the scope holding its abort, and the step reading the finished pack, stepped by the reports queue or drained at once."""
+    """Started blender-asset-tracer pack with its reporter, abort scope, and finish step, stepped by the reports queue or drained at once."""
 
     packer: BATPacker
     report: PackReport
@@ -175,7 +176,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs one pack step, keeping the pack queued while steps remain, else finishing with the pack, or aborting and finishing with the refusal."""
-        match _traced(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root))):
+        match _bat_called(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root))):
             case Result(tag="ok", ok=True):
                 return Ok(Some(self))
             case Result(tag="ok"):
@@ -188,7 +189,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def drained(self) -> Outcome[Pack]:
         """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
         return (
-            _traced(lambda: tuple(iter(self.packer.step, False)))
+            _bat_called(lambda: tuple(iter(self.packer.step, False)))
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root)))
             .or_else_with(partial(_released, self.release))
             .map(lambda _: self.pack)
@@ -196,7 +197,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class FarmTransfer(FileTransferProtocol):
-    """blender-asset-tracer transfer placing every traced file present on disk at its path in the pack with its SHA-256, copying nothing, a farm upload sending the placements."""
+    """blender-asset-tracer transfer placing each traced file on disk at its pack path with its SHA-256, copying nothing for a farm upload to send."""
 
     __slots__ = ("_placed",)
 
@@ -340,9 +341,9 @@ def _released[T](release: ExitStack, faults: Faults) -> Outcome[T]:
     return Error(faults)
 
 
-def _traced[T](step: Callable[[], T]) -> Result[T, OSError | BlendFileError | BackgroundProcessNotRunningError]:
+def _bat_called(step: Callable[[], object]) -> Result[object, OSError | BlendFileError | BackgroundProcessNotRunningError]:
     """Runs one blender-asset-tracer call, which raises for an unreadable file, an unparsable blend file, and a stopped rewrite process."""
-    return catch(step, exception=_TRACING)()
+    return catch(catch(catch(step, exception=OSError), exception=BlendFileError), exception=BackgroundProcessNotRunningError)()
 
 
 def _started(target: Path | FileTransferProtocol, project: Path, options: Options, finished: Callable[[Outcome[Pack]], Outcome[object]], /) -> Outcome[Packing]:
@@ -355,7 +356,7 @@ def _started(target: Path | FileTransferProtocol, project: Path, options: Option
         finished: Step reading the finished pack or the refusal that aborted it.
 
     Returns:
-        Started pack, required fault for an unsaved or modified session, read fault for an unreadable file.
+        Started pack, required fault for an unsaved or modified session, unreadable fault for an unreadable file.
     """
     report = PackReport()
     match target:
@@ -370,7 +371,7 @@ def _started(target: Path | FileTransferProtocol, project: Path, options: Option
         .of_optional(bpy.data.filepath or None)
         .filter(lambda _: not bpy.data.is_dirty)
         .to_result_with(lambda: Fault.of(Reason.REQUIRED, "saved session file"))
-        .bind(lambda _: _traced(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, str(project))).or_else_with(partial(_released, release)))
+        .bind(lambda _: _bat_called(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, str(project))).or_else_with(partial(_released, release)))
         .map(lambda _: Packing(packer=packer, report=report, release=release, finished=finished))
     )
 
@@ -386,12 +387,12 @@ def packed(identity: Identity, target: Path | FileTransferProtocol, *, project: 
         options: blender-asset-tracer trace options.
 
     Returns:
-        Ok(None) once the first step ran, required fault for an unsaved or modified session, read fault for an unreadable file.
+        Ok(None) once the first step ran, required fault for an unsaved or modified session, unreadable fault for an unreadable file.
     """
     return _started(target, project, options, finished).bind(identity.reports.queued)
 
 
-def traced(target: Path | FileTransferProtocol, *, project: Path, options: Options = _OPTIONS) -> Outcome[Pack]:
+def packed_session(target: Path | FileTransferProtocol, *, project: Path, options: Options = _OPTIONS) -> Outcome[Pack]:
     """Packs the saved session file and every dependency under target in one call, the form a background run takes, where no pass steps a pack.
 
     Args:
@@ -400,7 +401,7 @@ def traced(target: Path | FileTransferProtocol, *, project: Path, options: Optio
         options: blender-asset-tracer trace options.
 
     Returns:
-        The finished pack with its skipped files as faults, required fault for an unsaved or modified session, read fault for an unreadable file.
+        Finished pack with its skipped files as faults, required fault for an unsaved or modified session, unreadable fault for an unreadable file.
     """
     return _started(target, project, options, Ok).bind(Packing.drained)
 
@@ -408,14 +409,12 @@ def traced(target: Path | FileTransferProtocol, *, project: Path, options: Optio
 # --- [PROJECT]
 
 
-def projected(project: Project) -> Outcome[None]:
+def project_reconciled(project: Project) -> Outcome[None]:
     """Reconciles open project with desired state, removing items it created when any write refuses."""
 
     def initialized() -> Outcome[bpy.types.BlenderProject]:
-        return (
-            catch(bpy.data.project_init, exception=RuntimeError)(project.name, str(project.root))
-            .map_error(partial(Fault.of, Reason.REFUSED, "bpy.data"))
-            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.data", member="project")))
+        return called(bpy.ops.project.new, {"name": project.name, "directory": str(project.root)}).bind(
+            lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.data", member="project"))
         )
 
     def reconciled(current: bpy.types.BlenderProject) -> Outcome[None]:
@@ -464,7 +463,7 @@ def projected(project: Project) -> Outcome[None]:
                         return accumulated(assigned(item, {("path",): path}) for item in items).map(lambda _: None)
 
             def saved_project(_: object) -> Outcome[None]:
-                return catch(bpy.data.project_save, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, "bpy.data.project")) if current.is_dirty else Ok(None)
+                return called(bpy.ops.project.config_save, {}).map(lambda _: None) if current.is_dirty else Ok(None)
 
             return retained(
                 accumulated((assigned(current, {("name",): project.name}), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(saved_project), cleanup
@@ -490,9 +489,9 @@ __all__ = [
     "TemplateVariable",
     "dependencies",
     "packed",
-    "projected",
+    "packed_session",
+    "project_reconciled",
     "relinked",
     "saved",
     "session_loaded",
-    "traced",
 ]

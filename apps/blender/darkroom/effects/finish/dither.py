@@ -1,6 +1,7 @@
 """Output dither: triangular blue-noise offsets at the output code step, or a Floyd-Steinberg diffused PNG copy beside each written float frame."""
 
 from collections.abc import Mapping
+from enum import auto, Enum
 from functools import partial
 from pathlib import Path
 from typing import Final
@@ -13,8 +14,8 @@ import PyOpenColorIO
 
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.content import Generated
@@ -25,8 +26,7 @@ from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import Derives, entry_value, Holds, Shell
-from blender.bpy.render.compositor.placement import Enabled
+from blender.bpy.render.compositor.inputs import captured, chosen, DerivedInputs, GraphInputs, Holds, valued
 from blender.bpy.render.outputs.formats import code_step, rounds_straight
 from blender.bpy.render.outputs.results import Finish, Written
 from blender.bpy.settings.attachments import Attachment
@@ -40,12 +40,27 @@ from blender.rendering.outputs.naming import Output
 
 from ..formation.display import displayed_frame
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class _Method(Enum):
+    """Triangular blue-noise offsets of one output code step, or Floyd-Steinberg diffusion of a whole-frame copy."""
+
+    BLUE_NOISE = auto()
+    DIFFUSED = auto()
+
+
+class _CopyDepth(Enum):
+    """Channel depth a diffused copy stores."""
+
+    BIT_8 = Depth.UINT8
+    BIT_16 = Depth.UINT16
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BLUE_NOISE: Final = MenuItem(name="Blue Noise", description="Triangular blue-noise dither at one output code step with exact black and white endpoints")
-_DIFFUSED: Final = MenuItem(name="Diffused", description="Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded")
 _METHOD: Final = Socket(
-    key="method", kind=bpy.types.NodeSocketMenu, description="Blue-noise dither or whole-frame error diffusion", default_value=_BLUE_NOISE.name, items=Some(MenuItems(items=(_BLUE_NOISE, _DIFFUSED)))
+    key="method", kind=bpy.types.NodeSocketMenu, description="Blue-noise dither or whole-frame error diffusion", default_value=MenuItem.of(_Method.BLUE_NOISE).name, items=Some(MenuItems.of(_Method))
 )
 _STEP: Final = Socket(key="step", kind=bpy.types.NodeSocketFloat, description="Output code step")
 _STRAIGHT: Final = Socket(key="straight", kind=bpy.types.NodeSocketBool, description="Whether the writer rounds straight color")
@@ -62,12 +77,7 @@ class Dither(Case, frozen=True, kw_only=True):
 class DiffusedCopy(bpy.types.PropertyGroup):
     """PNG copy written beside each float frame a diffusing dither entry renders."""
 
-    depth: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Copy Depth",
-        description="Channel depth of diffused PNG copy",
-        items=choices(item for item in Descriptor.declared(bpy.types.ImageFormatSettings, ("color_depth",), bpy.types.EnumProperty).prop.enum_items if item.identifier in {"8", "16"}),
-        default="8",
-    )
+    depth: bpy.props.EnumProperty(name="Copy Depth", description="Channel depth of diffused PNG copy", items=enum_choices(_CopyDepth), default=_CopyDepth.BIT_8.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -95,7 +105,7 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
 
     def write(settings: DiffusedCopy, extension: str) -> Outcome[None]:
         target = Path(file.path).with_suffix(extension) if scene.render.use_file_extension else Path(f"{file.path}{extension}")
-        storage = Storage(depth=Depth.UINT16 if settings.depth == "16" else Depth.UINT8, coding=Coding.DIFFUSED)
+        storage = Storage(depth=_CopyDepth[settings.depth].value, coding=Coding.DIFFUSED)
 
         def displayed(source: ImageFile) -> Outcome[None]:
             plane = file.display.map(lambda window: source.pixels[window.ybegin : window.yend, window.xbegin : window.xend]).default_value(source.pixels)
@@ -108,12 +118,14 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
         return Result[ImageFile, Faults].bind(read_file(Path(file.path), config, untagged=Some(UNTAGGED)), displayed)
 
     diffusing = accumulated(
-        entry_value(identity, entry, _METHOD).map(lambda method: method == _DIFFUSED.name) for entry in dither.entries(identity, scene) if Enabled.RENDER.descriptor.read(entry) is True
+        captured(identity, entry).map(valued).bind(lambda values: chosen(values, _Method, _METHOD)).map(lambda method: method is _Method.DIFFUSED)
+        for entry in dither.entries(identity, scene)
+        if entry.enable_for_render
     ).map(lambda found: scene.render.use_compositing and any(found))
     return diffusing.bind(lambda diffuses: COPY.read(identity, scene).bind(lambda settings: suffix.bind(partial(write, settings))) if diffuses else Ok(None))
 
 
-def _dither(shell: Shell[Dither]) -> Outcome[Expr]:
+def _dither(shell: GraphInputs[Dither]) -> Outcome[Expr]:
     """Adds triangular blue-noise offsets of one code step as the last display step, passing the source under diffusion.
 
     Args:
@@ -132,7 +144,7 @@ def _dither(shell: Shell[Dither]) -> Outcome[Expr]:
             plane=lambda: ranks(OpenImageIO.ImageBufAlgo.bluenoise_image()).map(Some),
             tag=Tag(space=Some(data)),
         )
-        tile = Expr(kind=bpy.types.CompositorNodeImage, content=Some(generated), socket="Image", shape=bpy.types.NodeSocketColor)
+        tile = Expr(kind=bpy.types.CompositorNodeImage, content=Some(generated), socket="Image", socket_type=bpy.types.NodeSocketColor)
         rank = uv_mapped(tile, vector("ADD", vector("DIVIDE", PixelGrid.of(source).point, dimensions(tile)), (0.0, 0.0, 1.0)), interpolation="Nearest", extension=("Repeat", "Repeat"))["Red"]
         rectangular, signed = rank - 0.5, math("MULTIPLY_ADD", rank, 2.0, -1.0)
         triangular_rank = math("SIGN", signed) * (1.0 - math("SQRT", 1.0 - abs(signed)))
@@ -140,9 +152,9 @@ def _dither(shell: Shell[Dither]) -> Outcome[Expr]:
         value = vector("DIVIDE", source, weight)
         nearest = vector("MINIMUM", value, vector("SUBTRACT", (1.0, 1.0, 1.0), value))
         ends = vector("MINIMUM", vector("MAXIMUM", vector("DIVIDE", nearest, step * 0.5), (0.0, 0.0, 0.0)), (1.0, 1.0, 1.0))
-        triangular = vector("MULTIPLY_ADD", ends, triangular_rank - rectangular, rectangular).named("triangular")
+        triangular = vector("MULTIPLY_ADD", ends, triangular_rank - rectangular, rectangular).keyed("triangular")
         added = mixed(1.0, source, vector("SCALE", triangular, step * weight), blend="ADD")
-        return shell.menu(_METHOD, cases={_BLUE_NOISE: added, _DIFFUSED: source})
+        return shell.menu(_METHOD, cases={MenuItem.of(_Method.BLUE_NOISE): added, MenuItem.of(_Method.DIFFUSED): source})
 
     return space_item(shell.config, PyOpenColorIO.ROLE_DATA).map(built)
 
@@ -157,7 +169,7 @@ dither: Final = CompositorEffect(
     mix=Blended(alpha=Alpha.RESULT),
     request=Some(precise),
     derives=(
-        Derives[Dither](
+        DerivedInputs[Dither](
             of=_coded,
             sockets=(_STEP, _STRAIGHT),
             reads=tuple((bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[name]) for name in ("media_type", "file_format", "color_depth", "color_mode")),

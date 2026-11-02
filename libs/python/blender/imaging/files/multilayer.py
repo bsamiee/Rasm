@@ -19,7 +19,7 @@ import numpy.typing as npt
 import OpenImageIO
 
 from blender.imaging.files.buffers import Coded, Depth
-from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
+from blender.imaging.files.images import Compression, Deflate, emitted, opened, Storage, Subimage
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -90,7 +90,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """Indexes the parts of the file at `path`.
 
         Returns:
-            Indexed file, or `read` fault.
+            Indexed file, or `UNREADABLE` fault.
         """
 
         def indexed(image: OpenImageIO.ImageInput) -> Outcome[Self]:
@@ -117,7 +117,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """Reads named layer channels in plane order as a float32 plane.
 
         Returns:
-            `(height, width, len(channels))` plane, or `read` fault per channel the layer lacks.
+            `(height, width, len(channels))` plane, `ABSENT` fault per channel the layer lacks, or `UNREADABLE` fault.
         """
         held = self.parts[layer.part].channels
 
@@ -132,19 +132,19 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
         return accumulated(
             Option.of_optional(next((index for index, full in enumerate(held) if full == (f"{layer.name}.{name}" if layer.name else name)), None)).to_result_with(
-                partial(Fault.of, Reason.UNREADABLE, f"{self.path}:{layer.name}", f"No {name} channel", member=name)
+                partial(Fault.of, Reason.ABSENT, f"{self.path}:{layer.name}", member=f"{name} channel")
             )
             for name in channels
         ).bind(lambda indices: opened(self.path, partial(read, indices)))
 
     def picked(self, names: tuple[str, ...], channels: tuple[str, ...], /) -> Outcome[npt.NDArray[np.float32]]:
-        """Reads named channels of the first layer of `names` the file holds, absent fault naming the last name."""
+        """Reads named channels of the first layer of `names` the file holds, `ABSENT` fault naming the last name."""
         return (
             Block
             .of_seq(names)
             .choose(lambda name: Block.of_seq(self.layers).filter(lambda found: found.name == name).try_head())
             .try_head()
-            .to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(self.path), f"No {names[-1]} layer", member=names[-1]))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.path), member=f"{names[-1]} layer"))
             .bind(lambda layer: self.plane(layer, channels))
         )
 
@@ -155,7 +155,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """Writes passes in file order to one file, `storage` setting color pass type and compression, each plane read once as its part writes.
 
         Returns:
-            Path, or `write` fault.
+            Path, or `UNWRITABLE` fault.
         """
         groups = tuple((item,) for item in passes) if layout is PassLayout.PARTS else (passes,)
         lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
@@ -176,11 +176,11 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return emitted(path, lambda _: tuple(subimage(group) for group in groups))
 
     @staticmethod
-    def rewritten(path: pathlib.Path, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> Outcome[pathlib.Path]:
+    def rewritten(path: pathlib.Path, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compression]) -> Outcome[pathlib.Path]:
         """Rewrites windows to `display` in data window pixels, channel names through `channels`, and `compression` where a part names none, skipping unchanged files.
 
         Returns:
-            Path, or `read` or `write` fault.
+            Path, or `UNREADABLE` or `UNWRITABLE` fault.
         """
 
         def parts(image: OpenImageIO.ImageInput) -> Outcome[Option[tuple[Subimage[np.float32], ...]]]:
@@ -219,7 +219,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         """Decodes every Cryptomatte layer a file's header names.
 
         Returns:
-            Mattes in header order, or `read` fault per undecodable manifest.
+            Mattes in header order, or `UNREADABLE` fault per undecodable manifest.
         """
         header = {key: value for part in file.parts for key, value in part.header.items()}
         layers = sorted(file.layers, key=lambda owner: owner.name)
@@ -254,7 +254,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         """Sums coverage of named IDs, unknown names adding nothing.
 
         Returns:
-            `(height, width)` coverage, or `read` fault.
+            `(height, width)` coverage, or `UNREADABLE` fault.
         """
         targets = np.fromiter((code for entity, code in self.ids.items() if entity in names), dtype=np.uint32)
         return self._planes().map(lambda planes: np.where(np.isin(planes[0], targets), planes[1], 0.0).sum(axis=-1, dtype=np.float32))
@@ -263,7 +263,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         """Measures frame share each manifest name covers.
 
         Returns:
-            Share per name, 0 for names no pixel holds, or `read` fault.
+            Share per name, 0 for names no pixel holds, or `UNREADABLE` fault.
         """
         part = self.file.parts[0]
 
@@ -278,7 +278,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         """Fills named ID coverage with a `(3,)` color as associated RGBA.
 
         Returns:
-            `(height, width, 4)` plane with coverage alpha, or `read` fault.
+            `(height, width, 4)` plane with coverage alpha, or `UNREADABLE` fault.
         """
         tint = np.append(color, 1.0).astype(np.float32)
         return self.coverage(names).map(lambda covered: covered[..., None] * tint)

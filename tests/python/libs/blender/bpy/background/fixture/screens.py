@@ -5,7 +5,7 @@ from contextlib import contextmanager, ExitStack
 from typing import Final, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Some
+from expression import downcast, Nothing, Ok, Some
 from expression.extra.result import catch
 
 from blender.bpy.extension.identity import Identity
@@ -52,18 +52,18 @@ def _overlap(*, enabled: bool) -> Generator[bpy.types.Preferences]:
         yield preferences
 
 
-def _settled(arrangement: Arrangement) -> Outcome[Arrangement]:
-    """Advances an arrangement until it settles, answering its last pending form, which holds every revert."""
-    return arrangement.advanced().bind(lambda pending: pending.map(_settled).default_value(Ok(arrangement)))
+def _completed(arrangement: Arrangement) -> Outcome[Arrangement]:
+    """Advances an arrangement until it completes, answering its last pending form, which holds every revert."""
+    return arrangement.advanced().bind(lambda pending: pending.map(_completed).default_value(Ok(arrangement)))
 
 
 def _arranged(area: bpy.types.Area, steps: tuple[Step, ...], read: Callable[[], object]) -> dict[str, object]:
     """Applies steps to an area and reverts them, reading the screen before, between, and after."""
     before = read()
-    settled = _settled(Arrangement(at=Located(window=_window(), area=area), steps=steps))
+    completed = _completed(Arrangement(at=Located(window=_window(), area=area), steps=steps))
     applied = read()
-    reverted = settled.bind(lambda held: held.reverted())
-    return {"before": before, "applied": applied, "settled": settled.map(lambda _: None), "reverted": reverted, "after": read()}
+    reverted = completed.bind(lambda held: held.reverted())
+    return {"before": before, "applied": applied, "completed": completed.map(lambda _: None), "reverted": reverted, "after": read()}
 
 
 # --- [PROBES]
@@ -102,7 +102,7 @@ def bounded(_identity: Identity) -> dict[str, object]:
 def shown(_identity: Identity) -> dict[str, object]:
     """Shows the 3D View Sidebar through an editor state and applies the state it replaced, refusing region types no member toggles."""
     area = _area("VIEW_3D")
-    space: bpy.types.SpaceView3D = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    space = downcast(bpy.types.SpaceView3D, area.spaces.active)
     before = space.show_region_ui
     prior = visibility(bpy.types.SpaceView3D, "UI", visible=not before).bind(lambda state: state.applied(area))
     flipped_to = space.show_region_ui
@@ -154,19 +154,19 @@ def split(_identity: Identity) -> dict[str, object]:
     """Splits a Text Editor off the 3D View's right edge through an arrangement, its revert left unrun since `screen.area_close` never returns in a background session."""
     view = _area("VIEW_3D")
     before = (view.width, tuple(area.type for area in _window().screen.areas))
-    settled = _settled(Arrangement(at=Located(window=_window(), area=view), steps=(Split(side="RIGHT", share=0.25, ui_type="TEXT_EDITOR"),)))
+    completed = _completed(Arrangement(at=Located(window=_window(), area=view), steps=(Split(side="RIGHT", share=0.25, ui_type="TEXT_EDITOR"),)))
     text = _area("TEXT_EDITOR")
     return {
         "before": before,
         "after": (view.width, tuple(area.type for area in _window().screen.areas)),
         "text": text.width,
-        "reverts": settled.map(lambda held: len(held.undo)),
+        "reverts": completed.map(lambda held: len(held.undo)),
         "x": (view.x, text.x),
     }
 
 
 def shared(_identity: Identity) -> str:
-    """Builds a split whose share leaves the source less than the new editor, answering the error type construction raises."""
+    """Builds a split with a share that leaves the source less than the new editor, answering the error type construction raises."""
     return catch(Split, exception=ValueError)(side="LEFT", share=0.7, ui_type="TEXT_EDITOR").swap().map(lambda error: type(error).__name__).default_value("")
 
 
@@ -187,7 +187,7 @@ def flips(_identity: Identity) -> dict[str, object]:
 def quads(_identity: Identity) -> dict[str, object]:
     """Shows and hides quad view of the 3D View, reading the quad regions after each."""
     area = _area("VIEW_3D")
-    space: bpy.types.SpaceView3D = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    space = downcast(bpy.types.SpaceView3D, area.spaces.active)
     shown_quads = quadded(Located(window=_window(), area=area, region=Some(_region(area, "WINDOW"))), shown=True).map(lambda _: len(space.region_quadviews))
     hidden_quads = quadded(Located(window=_window(), area=area, region=Some(_region(area, "WINDOW"))), shown=False).map(lambda _: len(space.region_quadviews))
     return {"shown": shown_quads, "hidden": hidden_quads}

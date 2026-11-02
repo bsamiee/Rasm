@@ -18,13 +18,13 @@ from blender.bpy.data.rna.descriptors import Descriptor, differing
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes.desired import Addressing, member_paths
+from blender.bpy.nodes.desired import ItemContent, member_paths
 from blender.bpy.nodes.trees import arranged, nested
 from blender.bpy.render.color.spaces import DisplaySettings, Settings, ViewSettings
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.values import Listing
 from blender.imaging.files.buffers import Depth
-from blender.imaging.files.images import Codec, Compressions, Plain
+from blender.imaging.files.images import Codec, Compression, Plain
 from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 from blender.records.trees import transfer
 from blender.rendering.outputs.naming import Output, RESERVED
@@ -35,7 +35,8 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 FILE_FORMATS: Final = frozenset(item.identifier for item in Descriptor.declared(bpy.types.ImageFormatSettings, ("file_format",), bpy.types.EnumProperty).prop.enum_items)
-_EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
+EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
+_JPEG2000: Final = MappingProxyType({"JP2": ".jp2", "J2K": ".j2c"})
 _EXTENSIONS: Final = MappingProxyType({
     "BMP": ".bmp",
     "IRIS": ".rgb",
@@ -51,8 +52,6 @@ _EXTENSIONS: Final = MappingProxyType({
     "TIFF": ".tif",
     "WEBP": ".webp",
     "AVIF": ".avif",
-    "JPEG2000_JP2": ".jp2",
-    "JPEG2000_J2K": ".j2c",
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -126,9 +125,9 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
         return self.media_type == "MULTI_LAYER_IMAGE"
 
     @property
-    def codec(self) -> Option[Compressions]:
+    def codec(self) -> Option[Compression]:
         """HTJ2K codec a reader's header metadata lacks, Nothing for every other storage."""
-        return Some(Plain(codec=Codec.HTJ2K32)) if self.file_format in _EXR and self.exr_codec == "HTJ2K" else Nothing
+        return Some(Plain(codec=Codec.HTJ2K32)) if self.file_format in EXR and self.exr_codec == "HTJ2K" else Nothing
 
     def applied(self, settings: bpy.types.ImageFormatSettings) -> Outcome[None]:
         """Writes the set members onto image format settings."""
@@ -155,7 +154,7 @@ class FileItem(Settings, frozen=True, kw_only=True):
     format: OutputFormat | UnsetType = UNSET
 
 
-class FileItems(Addressing, frozen=True, kw_only=True):
+class FileItems(ItemContent, frozen=True, kw_only=True):
     """Ordered File Output node items, the content a File Output node holds, each name the spelling the host stores."""
 
     items: tuple[FileItem, ...]
@@ -166,7 +165,7 @@ class FileItems(Addressing, frozen=True, kw_only=True):
 
     @staticmethod
     def stored(requested: Iterable[str], held: tuple[str, ...] = ()) -> tuple[str, ...]:
-        """Predicts the host's truncation, sanitization, and uniqueness of item names in item order, kept spellings of `held` items staying, the names no host member states before a write."""
+        """Predicts item names as the host stores them: cut, sanitized, and unique in item order, `held` spellings kept."""
         asked = tuple(requested)
 
         def spelled(done: tuple[str, ...], name: str) -> tuple[str, ...]:
@@ -204,7 +203,7 @@ class FileItems(Addressing, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def pointer(struct: type[Struct]) -> Option[str]:
+def format_member(struct: type[Struct]) -> Option[str]:
     """Returns the member holding the struct's image format, Nothing for a struct holding none."""
     return Option.of_optional(
         next((prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings)), None)
@@ -236,10 +235,10 @@ def rounds_straight(settings: bpy.types.ImageFormatSettings) -> bool:
 
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
     """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
-    return Option.of_optional(_EXTENSIONS.get(f"{settings.file_format}_{settings.jpeg2k_codec}" if settings.file_format == "JPEG2000" else settings.file_format))
+    return Option.of_optional(_JPEG2000.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
 
 
-def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
+def image_formats(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
     """Returns scene, nested File Output, and overriding item formats once per tree."""
     nodes = tuple(
         node
@@ -270,9 +269,24 @@ format_listing: Final = Listing(
     preset=Preset(key="image_formats", form=Snapshot),
     current=_captured,
     matches=lambda context, values: _captured(context).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values)),
-    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds preset")),
+    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format holds preset")),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FILE_FORMATS", "Colorspace", "FileItem", "FileItems", "OutputFormat", "Stereo3dFormat", "code_step", "depth", "extension", "format_listing", "owners", "pointer", "rounds_straight"]
+__all__ = [
+    "EXR",
+    "FILE_FORMATS",
+    "Colorspace",
+    "FileItem",
+    "FileItems",
+    "OutputFormat",
+    "Stereo3dFormat",
+    "code_step",
+    "depth",
+    "extension",
+    "format_listing",
+    "format_member",
+    "image_formats",
+    "rounds_straight",
+]

@@ -13,12 +13,10 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome, Reason
-from blender.records.fields import Finite, NonNegative, Seed, SEED_BOUND, Unit
+from blender.records.fields import Finite, NonNegative, Rgb, Seed, SEED_BOUND, Unit
 from blender.records.stores import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Rgb = tuple[Finite, Finite, Finite]
 
 
 class ReferenceFamily(IntEnum):
@@ -65,7 +63,7 @@ class Highlight(msgspec.Struct, frozen=True, kw_only=True):
     position: tuple[Finite, Finite] = (0.5, 0.5)
     sharpness: NonNegative = 1.2
     intensity: NonNegative = 0.8
-    color: _Rgb = (1.0, 1.0, 1.0)
+    color: Rgb = (1.0, 1.0, 1.0)
 
 
 class Dapple(msgspec.Struct, frozen=True, kw_only=True):
@@ -90,7 +88,7 @@ class Rim(msgspec.Struct, frozen=True, kw_only=True):
     """Colored glow rising toward edges."""
 
     amount: NonNegative = 0.6
-    color: _Rgb = (1.0, 1.0, 1.0)
+    color: Rgb = (1.0, 1.0, 1.0)
     radius: Annotated[float, msgspec.Meta(ge=0.0, le=math.sqrt(2.0))] = 0.5
     falloff: NonNegative = 1.4
 
@@ -98,7 +96,7 @@ class Rim(msgspec.Struct, frozen=True, kw_only=True):
 class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     """Scene-linear lighting reference image."""
 
-    tint: _Rgb = (1.0, 1.0, 1.0)
+    tint: Rgb = (1.0, 1.0, 1.0)
     level: NonNegative = 0.08
     gradient: tuple[Finite, Finite] = (0.0, 0.0)
     highlights: tuple[Highlight, ...] = ()
@@ -124,15 +122,15 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         highlights = tuple(
             Highlight(position=position, sharpness=uniform(*draw.sharpness), intensity=uniform(*draw.intensity), color=color) for position, color in draw.placement.slots(generator, draw.colors)
         )
-        rim_on, vignette_on = float(generator.random()) < draw.rim[0], float(generator.random()) < draw.vignette[0]
+        rim_on, vignette_on = float(generator.random()) < draw.rim_chance, float(generator.random()) < draw.vignette_chance
         stripes, dapple_count = chosen(draw.cycles), chosen(draw.dapples)
         return cls(
             tint=chosen(draw.tints),
             level=uniform(*draw.level),
             gradient=(uniform(*draw.gradient), uniform(*draw.gradient)),
             highlights=highlights,
-            rim=Rim(amount=uniform(0.0, draw.rim[1])) if rim_on else None,
-            vignette=uniform(*draw.vignette[1:]) if vignette_on else 0.0,
+            rim=Rim(amount=uniform(0.0, draw.rim_amount)) if rim_on else None,
+            vignette=uniform(*draw.vignette) if vignette_on else 0.0,
             blinds=Blinds(cycles=stripes) if stripes > 0.0 else None,
             dapple=Dapple(count=dapple_count, seed=int(generator.integers(SEED_BOUND + 1))) if dapple_count > 0 else None,
         )
@@ -194,7 +192,7 @@ class _Scattered(msgspec.Struct, frozen=True, kw_only=True):
     horizontal: tuple[float, float]
     vertical: tuple[float, float]
 
-    def slots(self, generator: np.random.Generator, colors: tuple[_Rgb, ...]) -> tuple[tuple[tuple[float, float], _Rgb], ...]:
+    def slots(self, generator: np.random.Generator, colors: tuple[Rgb, ...]) -> tuple[tuple[tuple[float, float], Rgb], ...]:
         """Returns a drawn count of frame positions over the whole frame, each with a drawn color."""
         return tuple(
             (((float(generator.uniform(*self.horizontal)) + 1.0) / 2.0, (float(generator.uniform(*self.vertical)) + 1.0) / 2.0), colors[int(generator.integers(len(colors)))])
@@ -209,7 +207,7 @@ class _Slotted(msgspec.Struct, frozen=True, kw_only=True):
     spreads: tuple[tuple[tuple[int, ...], ...], ...]
     jitter: float
 
-    def slots(self, generator: np.random.Generator, colors: tuple[_Rgb, ...]) -> tuple[tuple[tuple[float, float], _Rgb], ...]:
+    def slots(self, generator: np.random.Generator, colors: tuple[Rgb, ...]) -> tuple[tuple[tuple[float, float], Rgb], ...]:
         """Returns the jittered positions of one drawn slot group, each with the color at its slot index."""
         spread = self.spreads[int(generator.integers(len(self.spreads)))]
         return tuple(
@@ -220,17 +218,19 @@ class _Slotted(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Draw(msgspec.Struct, frozen=True, kw_only=True):
-    """Ranges one reference distribution draws its fields from, rim and vignette leading with their chance."""
+    """Ranges one reference distribution draws its fields from."""
 
-    colors: tuple[_Rgb, ...]
+    colors: tuple[Rgb, ...]
     placement: _Scattered | _Slotted
     sharpness: tuple[float, float]
     intensity: tuple[float, float]
     level: tuple[float, float]
     gradient: tuple[float, float]
-    tints: tuple[_Rgb, ...]
-    rim: tuple[float, float]
-    vignette: tuple[float, float, float]
+    tints: tuple[Rgb, ...]
+    rim_chance: float
+    rim_amount: float
+    vignette_chance: float
+    vignette: tuple[float, float]
     cycles: tuple[float, ...] = (0.0,)
     dapples: tuple[int, ...] = (0,)
 
@@ -246,8 +246,10 @@ _DRAWS: Final = MappingProxyType({
         level=(0.03, 0.5),
         gradient=(0.0, 0.6),
         tints=tuple(gel.value for gel in Gel),
-        rim=(0.4, 1.2),
-        vignette=(0.5, 0.0, 0.5),
+        rim_chance=0.4,
+        rim_amount=1.2,
+        vignette_chance=0.5,
+        vignette=(0.0, 0.5),
         cycles=(0.0, 0.0, 0.0, 5.0, 7.0),
         dapples=(0, 0, 0, 12),
     ),
@@ -263,8 +265,10 @@ _DRAWS: Final = MappingProxyType({
         level=(0.03, 0.1),
         gradient=(0.0, 0.15),
         tints=((0.42, 0.46, 0.52),),
-        rim=(0.25, 0.5),
-        vignette=(1.0, 0.15, 0.45),
+        rim_chance=0.25,
+        rim_amount=0.5,
+        vignette_chance=1.0,
+        vignette=(0.15, 0.45),
     ),
     ReferenceDistribution.SOFT: _Draw(
         colors=((1.0, 0.96, 0.92), (0.94, 0.96, 1.0), (0.98, 0.95, 0.9)),
@@ -274,8 +278,10 @@ _DRAWS: Final = MappingProxyType({
         level=(0.32, 0.55),
         gradient=(0.0, 0.25),
         tints=((0.97, 0.95, 0.92), (0.93, 0.95, 0.98)),
-        rim=(0.0, 0.0),
-        vignette=(0.3, 0.0, 0.2),
+        rim_chance=0.0,
+        rim_amount=0.0,
+        vignette_chance=0.3,
+        vignette=(0.0, 0.2),
     ),
 })
 _FAMILIES: Final = MappingProxyType({

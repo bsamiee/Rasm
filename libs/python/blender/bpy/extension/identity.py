@@ -58,13 +58,18 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
     website: str | None = None
 
     @property
+    def prefix(self) -> str:
+        """Prefix of every property, record, and command identifier the extension declares."""
+        return f"{self.id.lower()}_"
+
+    @property
     def stamp(self) -> Mapping[str, str]:
         """File metadata naming the extension and its version as the software that wrote the file."""
         return {"Software": f"{self.name} {self.version}"}
 
 
 class Resource[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Value each extension holds while its registration scope stands, made after the resources its make reads, optionally renewed after every file load."""
+    """Value each extension holds while registered, made after the resources its make reads, optionally renewed after every file load."""
 
     made: _Made[T]
     renewed: Option[Callable[[T], T]] = Nothing
@@ -74,7 +79,7 @@ class Resource[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Held:
+class ResourceValues:
     """Values one extension's resources made, keyed by resource, each read typed by the resource that made it."""
 
     __slots__ = ("values",)
@@ -113,12 +118,12 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
     manifest: Manifest
     folder: Path
     reports: Reports
-    held: Held
+    resources: ResourceValues
 
     # --- [NAMING]
 
     def name(self, base: type[Struct], key: Key, /) -> Outcome[str]:
-        """Builds the host name of a class of the base under a key, register fault for a name past the 63 bytes the host keeps or a base no name form serves, an operator name past 60 characters refused by the host at registration."""
+        """Builds the host name of a class under a key, unregistered fault for a name past the host's 63 bytes or a base no name form serves."""
 
         def formed(template: str) -> Outcome[str]:
             name = template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), BASE=base.__name__, digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{key}").hex)
@@ -127,12 +132,12 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, Reason.UNREGISTERED, base.__name__, member="name form")).bind(formed)
 
     def identifier(self, key: Key, /) -> Outcome[str]:
-        """Builds a property, record, or command identifier under the manifest ID, register fault for a key outside lowercase snake case."""
-        return _checked(f"{self.manifest.id.lower()}_{key}", key, Key)
+        """Builds a property, record, or command identifier under the manifest ID, unregistered fault for a key outside lowercase snake case."""
+        return _checked(f"{self.manifest.prefix}{key}", key, Key)
 
     def owns(self, identifier: str, /) -> bool:
-        """Whether an identifier takes the manifest ID prefix `identifier` builds, a property, record, or command the extension declares."""
-        return identifier.startswith(f"{self.manifest.id.lower()}_")
+        """Whether an identifier takes the manifest prefix, a property, record, or command the extension declares."""
+        return identifier.startswith(self.manifest.prefix)
 
     # --- [READING]
 
@@ -143,7 +148,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, package: str, /) -> Outcome[Self]:
-        """Reads an enabled extension package's manifest and user folder, read fault for an unreadable manifest, register fault for a package Blender holds as no extension."""
+        """Reads an extension package's manifest and user folder, unreadable fault for its manifest, unregistered fault for a package outside extensions."""
         path = importlib.resources.files(package) / "blender_manifest.toml"
         manifest = (
             Result[bytes, OSError | msgspec.DecodeError]
@@ -152,7 +157,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         )
         folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package).map_error(partial(Fault.of, Reason.UNREGISTERED, package))
         return paired(manifest, folder).map(
-            lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id)), held=Held())
+            lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id)), resources=ResourceValues())
         )
 
 
@@ -160,10 +165,10 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _checked(name: str, parts: object, form: object, /) -> Outcome[str]:
-    """Returns name once parts convert to form, register fault naming it otherwise."""
+    """Returns name once parts convert to form, unregistered fault naming it otherwise."""
     return catch(msgspec.convert, exception=msgspec.ValidationError)(parts, form).map(lambda _: name).map_error(partial(Fault.of, Reason.UNREGISTERED, name))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Held", "Identity", "Key", "Manifest", "Resource"]
+__all__ = ["Identity", "Key", "Manifest", "Resource", "ResourceValues"]

@@ -23,7 +23,7 @@ from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 type At = tuple[Native, str]
 type Reach = Callable[[bpy.types.Context], Option[Struct]]
-type Located = tuple[tuple[ResolvedMember, At], ...]
+type LocatedMembers = tuple[tuple[ResolvedMember, At], ...]
 type _Kinds = tuple[type[Struct], ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class ResolvedMember[P: bpy.types.Property = bpy.types.Property](msgspec.Struct,
 class Member(msgspec.Struct, frozen=True, kw_only=True):
     """Property path rooted at its owner type, or at the form group an attachment holds on its owner, reached through context when the owner is no drawing holder, labelled as mixed while the owners `scope` selects differ.
 
-    An attachment root locates under the extension's pointer once rows realize, each row declaring the attachment it reads.
+    Attachment root locates under the extension's pointer once rows realize, each row declaring the attachment it reads.
     """
 
     root: type[Struct] | Attachment[Any]
@@ -119,7 +119,7 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
         return self.reach.bind(lambda reach: reach(context)).map(lambda root: self.resolved(root=Some(root)).bind(lambda held: held.accepts(kinds)).map(Some)).default_value(Ok(Nothing))
 
     def labelled(self, setting: Descriptor, context: bpy.types.Context) -> Outcome[Mapping[str, str | bool]]:
-        """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree so the host labels the property itself."""
+        """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree, the host labelling the property itself."""
         return (
             self.scope
             .map(lambda scope: scope.owners(context).bind(partial(marked, setting)))
@@ -134,7 +134,7 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def marked[P: bpy.types.Property](setting: Descriptor[P], owners: tuple[Struct, ...], /) -> Outcome[Option[str]]:
-    """Translated name of a setting marked as mixed while owner values differ, nothing while they agree so the host labels it."""
+    """Translated name of a setting marked as mixed while owner values differ, nothing while they agree, the host labelling it."""
     prop = setting.prop
     return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
         lambda values: Some(f"{bpy.app.translations.pgettext_iface(prop.name, prop.translation_context)} —").filter(lambda _: any(left != right for left, right in pairwise(values)))
@@ -145,14 +145,14 @@ def marked[P: bpy.types.Property](setting: Descriptor[P], owners: tuple[Struct, 
 
 
 def bound(
-    members: tuple[Member, ...], place: Callable[[Located, bpy.types.UILayout, Struct, bpy.types.Context], None], /, kinds: _Kinds = ()
+    members: tuple[Member, ...], place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None], /, kinds: _Kinds = ()
 ) -> Outcome[Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]]:
     """Resolves fixed members once and reached members each draw, each within the kinds, drawing over the located owners while every one is found."""
     return accumulated(member.bound(kinds) for member in members).map(lambda held: partial(_bound, place, kinds, held))
 
 
 def _bound(
-    place: Callable[[Located, bpy.types.UILayout, Struct, bpy.types.Context], None],
+    place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None],
     kinds: _Kinds,
     held: tuple[ResolvedMember | Member, ...],
     layout: bpy.types.UILayout,
@@ -170,4 +170,4 @@ def _bound(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["At", "Located", "Member", "Reach", "ResolvedMember", "bound", "marked"]
+__all__ = ["At", "LocatedMembers", "Member", "Reach", "ResolvedMember", "bound", "marked"]

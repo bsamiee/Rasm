@@ -12,19 +12,19 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Popup, Save
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Notes, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Notes, NoUndo, Operator
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna import conditions
-from blender.bpy.data.rna.mirrors import Callbacks, held_choices, IconedItem
 from blender.bpy.data.rna.paths import rooted, Struct
+from blender.bpy.data.rna.properties import Callbacks, held_choices, IconedItem
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.render.color.luts import Baking, extension, LatticeFields, LutExport, output, spaced
+from blender.bpy.render.color.luts import Baking, extension, lattice_of, LatticeFields, LutExport, output
 from blender.bpy.render.color.spaces import ConfigInstall, ConfigView, viewed
-from blender.bpy.render.compositor.entries import Owned
+from blender.bpy.render.compositor.offered import Owned
 from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.rows import OperatorButton
-from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import Fault, Outcome, paired
 
 from ..catalog import chain, tones
@@ -68,10 +68,10 @@ def formed(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.
 # --- [COMMANDS]
 
 
-@Operator.of(Baking, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
+@Operator.of(Baking, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=NoUndo())
 def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
     """Bake the render-enabled pointwise chain entries into a LUT sampled through the compositor."""
-    lattice = spaced(call.properties)
+    lattice = lattice_of(call.properties)
 
     def baked(scene: bpy.types.Scene) -> Outcome[Done]:
         entries, left = selected(call.identity, scene, Nothing)
@@ -104,12 +104,12 @@ def offered(identity: Identity, _owner: Struct, context: bpy.types.Context | Non
 TONE_VIEW: Final = Attachment(key="tone_view", form=ToneView, owner=bpy.types.WindowManager, callbacks=Some(lambda identity: nullcontext({"entry": Callbacks(items=partial(offered, identity))})))
 
 
-@Operator.of(Empty, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(TONE_VIEW.fields), undo=Nothing)
+@Operator.of(Empty, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(TONE_VIEW.fields), undo=NoUndo())
 def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
     """Install a sampled tone entry as a view read on restart."""
 
     def installed(scene: bpy.types.Scene, settings: ToneView) -> Outcome[Answer]:
-        lattice = spaced(settings)
+        lattice = lattice_of(settings)
         return (
             chain
             .found(call.identity, scene, settings.entry)
@@ -124,7 +124,7 @@ def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
 
 
 luts: Final = LutExport()
-rows: Final = (luts, TONE_VIEW, Append(target=TOPBAR_MT_file_export, rows=(OperatorButton(target=bake_chain), OperatorButton(target=luts.stripping))))
+rows: Final = (luts, TONE_VIEW, Append(target=TOPBAR_MT_file_export, rows=(OperatorButton(target=bake_chain), OperatorButton(target=luts.strip_baking))))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -15,7 +15,7 @@ from skimage.transform import ProjectiveTransform
 
 from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import Fault, Outcome, paired, Reason
-from blender.records.fields import Count, Finite
+from blender.records.fields import Count, Finite, Frozen
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -118,7 +118,7 @@ class Quad(msgspec.Struct, frozen=True, kw_only=True):
         return bool((turns > 0.0).all() or (turns < 0.0).all())
 
 
-class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Homography(Frozen, frozen=True, kw_only=True, eq=False):
     """Projective map from the unit plane onto a strictly convex quad, homogeneous scale one at the plane origin."""
 
     quad: Quad
@@ -126,7 +126,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, quad: Quad) -> Outcome[Option[Self]]:
-        """Returns map of `quad`, absent for a quad that is not strictly convex, domain fault when its corners admit no projective map."""
+        """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners admit no projective map."""
         if not quad.convex:
             return Ok(Nothing)
         match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
@@ -144,7 +144,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return _projected(np.asarray(np.linalg.inv(self.matrix), dtype=np.float64), samples)
 
 
-class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class StMap(Frozen, frozen=True, kw_only=True, eq=False):
     """Source positions with coverage in blue and alpha, rows top first, sampled past each source edge by its OIIO wrap."""
 
     plane: npt.NDArray[np.float32]

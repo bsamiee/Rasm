@@ -19,12 +19,12 @@ from blender.bpy.data.ids.ownership import Mark, Ownership, retained, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.animation import Animation, Driven, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import titled
 from blender.bpy.data.rna.paths import rna, Struct
+from blender.bpy.data.rna.properties import titled
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.addressing import Addressed
+from blender.bpy.nodes.addressing import InterfaceKeys
 from blender.bpy.nodes.changes import made, reconciled
 from blender.bpy.nodes.desired import End, INPUTS, item_key, Link, Node, OUTPUTS
 from blender.bpy.nodes.editing import Arranger
@@ -33,9 +33,9 @@ from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, S
 from blender.bpy.nodes.trees import endpoints, links_of, socket_at
 from blender.bpy.render.compositor import colors
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, converted, with_alpha
-from blender.bpy.render.compositor.inputs import Based, CameraFrame, Derives, entered, FRAME_ASPECT, FRAME_SCALE, FRAMING, Graph, grouped, Holds, PreviewFrame, Shell
+from blender.bpy.render.compositor.entries import added_entry, marked
+from blender.bpy.render.compositor.inputs import CameraFrame, DerivedInputs, entered, FRAME_ASPECT, FRAME_SCALE, FRAMING, Graph, GraphInputs, grouped, Holds, PreviewFrame, ResultOverBase
 from blender.bpy.render.compositor.masks import Blend, blended
-from blender.bpy.render.compositor.placement import added_entry
 from blender.bpy.render.view_layers.passes import PassRequest, required, used
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.ui.layout.rows import acquired, RowContent
@@ -136,9 +136,9 @@ class Stage[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
     """Scene compositor effect of one structure record and its group interface, declared as `name: Final = CompositorEffect(_graph, record=..., ...)` over a private graph function.
 
-    The interface sockets are the effect's parameters, the entry's inputs their values; the record holds what the group cannot, persisted on the group. `pointwise` states that each result pixel
-    reads its entering pixel alone, and `prepared` the CPU step a render runs before the graph, the image it answers entering the graph as `Shell.color`. The pass request, derived and keyed
-    inputs, scene check, operation space, record source, scene holds, rows the active entry editor draws, and registered rows decide what else it does; derivations over any record, such as `motion.timing`, join the record's own.
+    Interface sockets are the effect's parameters and the entry's inputs their values, and the record holds what the group cannot, persisted on the group.
+    `pointwise` states that each result pixel reads its entering pixel alone, and `prepared` the CPU step a render runs before the graph, the image it answers entering the graph as `Shell.color`.
+    Pass request, derived and keyed inputs, scene check, operation space, record source, scene holds, active entry editor rows, and registered rows decide the rest, derivations over any record (`motion.timing`) joining the record's own.
     """
 
     graph: Graph[R]
@@ -148,7 +148,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
     pointwise: bool = False
     prepared: Option[Callable[[Stage[R]], Outcome[Option[Prepared]]]] = Nothing
     request: Option[Callable[[R, str], Outcome[PassRequest]]] = Nothing
-    derives: tuple[Derives[R] | Derives[Case], ...] = ()
+    derives: tuple[DerivedInputs[R] | DerivedInputs[Case], ...] = ()
     animates: Option[Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, R], Outcome[tuple[Animation, ...]]]] = Nothing
     check: Option[Callable[[Identity, bpy.types.Scene, Option[bpy.types.SceneCompositorEffect], R, Option[PreviewFrame]], Outcome[None]]] = Nothing
     space: Option[Callable[[R], Name]] = Nothing
@@ -175,7 +175,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
         return Option.of_optional(inspect.getdoc(self.record)).default_value("")
 
     @property
-    def framed(self) -> tuple[Derives[Case] | Derives[R], ...]:
+    def framed(self) -> tuple[DerivedInputs[Case] | DerivedInputs[R], ...]:
         """Camera frame derivation every entry holds, then the effect's own."""
         return (FRAMING, *self.derives)
 
@@ -214,11 +214,13 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
     # --- [ENTRIES]
 
     def entries(self, identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
-        """Returns the entries whose groups carry either ownership mark of the effect, in stack order."""
+        """Returns the entries whose groups hold either ownership mark of the effect, in stack order."""
         keys = frozenset(owner.key for owner in self.ownerships)
-        return tuple(
-            entry for entry in scene.compositor_effects for group in Option.of_optional(entry.node_group).to_list() if Mark.read(identity, group).filter(lambda mark: mark.key in keys).is_some()
-        )
+        return tuple(entry for entry, mark in marked(identity, scene) if mark.key in keys)
+
+    def earliest(self, identity: Identity, scene: bpy.types.Scene) -> Option[bpy.types.SceneCompositorEffect]:
+        """Returns the first entry of the effect in stack order."""
+        return Block.of_seq(self.entries(identity, scene)).try_head()
 
     def read(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[Entry[R]]:
         """Reads the entry record its group stores, absent before the group stores one."""
@@ -228,7 +230,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
 
     def current(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[R]]:
         """Reads earliest owned record, Nothing when absent."""
-        return Block.of_seq(self.entries(identity, scene)).try_head().map(lambda entry: self.read(identity, entry).map(lambda record: Some(record.record))).default_value(Ok(Nothing))
+        return self.earliest(identity, scene).map(lambda entry: self.read(identity, entry).map(lambda record: Some(record.record))).default_value(Ok(Nothing))
 
     def named(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Finds named entry among the effect's owned groups."""
@@ -327,26 +329,26 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
     ) -> Outcome[NodeGroup]:
         """Builds the owned group of a record and blend over the met view layer and pass request, its interface the image, the effect's sockets, the hidden frame and derived sockets, and the blend panel of a blended effect.
 
-        The graph reads the staged image in place of the entry input when staged, and a blended result mixes back over the base the graph answers, else over the entry input.
+        Graph reads the staged image in place of the entry input when staged, and a blended result mixes back over the base the graph answers, else over the entry input.
 
         Returns:
             `Ok` of the group. `Error` of graph, colorspace, and blend faults.
         """
         layer, request = met
         original = group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor)
-        entering = staged.map(lambda image: Expr(kind=bpy.types.CompositorNodeImage, members={"image": image}, socket="Image", shape=bpy.types.NodeSocketColor)).default_value(original)
+        entering = staged.map(lambda image: Expr(kind=bpy.types.CompositorNodeImage, members={"image": image}, socket="Image", socket_type=bpy.types.NodeSocketColor)).default_value(original)
         space = self.space.map(lambda part: part(record.record)).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR)
         straight = isinstance(self.mix, Blended) and self.mix.alpha is Alpha.STRAIGHT
         derived = tuple(msgspec.structs.replace(socket, hide_in_modifier=True) for part in self.framed for socket in part.sockets)
-        face = Interface(
+        interface = Interface(
             outputs=(COLOR_RESULT,), inputs=(COLOR_INPUT, *self.interface.inputs, *derived), panels=(*self.interface.panels, *((record.blend.panel,) if isinstance(self.mix, Blended) else ()))
         )
-        walked = tuple(face.walked())
+        walked = tuple(interface.walked())
         sockets = {
             **{key: item[0] for key, item, _, _ in walked if isinstance(item, tuple)},
             **{key: Socket(key=key, kind=bpy.types.NodeSocketBool) for key, item, _, _ in walked if isinstance(item, InterfacePanel) and item.toggle.is_some()},
         }
-        render = Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": layer}, socket="Image", shape=bpy.types.NodeSocketColor).named("render")
+        render = Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": layer}, socket="Image", socket_type=bpy.types.NodeSocketColor).keyed("render")
         kept = (render,) if request.filter(lambda held: bool(held.flags)).is_some() else ()
 
         def converting(key: Key, source: str, target: str, term: Expr) -> Outcome[Expr]:
@@ -355,15 +357,15 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
         def leaving(key: Key, term: Expr) -> Outcome[Expr]:
             return space.map(lambda name: converting(key, name, PyOpenColorIO.ROLE_SCENE_LINEAR, term)).default_value(Ok(term))
 
-        def split(graphed: Expr | Based) -> _Graphed:
+        def split(graphed: Expr | ResultOverBase) -> _Graphed:
             match graphed:
-                case Based(result=result, base=base):
+                case ResultOverBase(result=result, base=base):
                     return result, Some(base)
                 case _:
                     return graphed, Nothing
 
         def operation(source: Expr) -> Outcome[_Graphed]:
-            shell = Shell(record=record.record, identity=identity, config=config, color=source, render=render, sockets=sockets, preview=preview)
+            shell = GraphInputs(record=record.record, identity=identity, config=config, color=source, render=render, sockets=sockets, preview=preview)
             return (
                 space
                 .map(lambda name: converting("space_in", PyOpenColorIO.ROLE_SCENE_LINEAR, name, source))
@@ -381,7 +383,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
 
         def assembled(result: Expr) -> Outcome[NodeGroup]:
             ownership = self.ownership(record)
-            return functions.built(ownership.key, face, {COLOR_RESULT.key: result.keeping(*kept)}, bpy.types.CompositorNodeTree, name=Some(self.title)).map(
+            return functions.built(ownership.key, interface, {COLOR_RESULT.key: result.keeping(*kept)}, bpy.types.CompositorNodeTree, name=Some(self.title)).map(
                 lambda group: msgspec.structs.replace(group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members={_DESCRIPTION.path: self.description}))
             )
 
@@ -391,7 +393,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
                 case Replaced():
                     return assembled(result)
                 case Blended(alpha=alpha):
-                    restored = with_alpha(result, original["Alpha"].named(item_key(COLOR_RESULT.key, "alpha_split"))).named(item_key(COLOR_RESULT.key, "alpha")) if alpha is Alpha.INPUT else result
+                    restored = with_alpha(result, original["Alpha"].keyed(item_key(COLOR_RESULT.key, "alpha_split"))).keyed(item_key(COLOR_RESULT.key, "alpha")) if alpha is Alpha.INPUT else result
                     frame = (original, group_input(FRAME_ASPECT.key), group_input(FRAME_SCALE.key))
                     return blended(record.blend, base.default_value(original), restored, frame, config).bind(assembled)
 
@@ -410,19 +412,19 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
         """Reconciles the held group of the record's ownership, keeping an owned Viewer and its feed, else makes one, answering whether it changed."""
 
         def refreshed(group: NodeGroup, live: bpy.types.NodeTree, keys: Mapping[Key, str]) -> Outcome[tuple[bpy.types.NodeTree, bool]]:
-            marked = {node: mark.key for node in live.nodes for mark in Mark.read(identity, node).to_list()}
-            viewers = tuple(node for node, key in marked.items() if key == VIEWER)
+            keyed = {node: mark.key for node in live.nodes for mark in Mark.read(identity, node).to_list()}
+            viewers = tuple(node for node, key in keyed.items() if key == VIEWER)
             semantic = {identifier: key for key, identifier in keys.items()}
 
-            def endpoint(socket: bpy.types.NodeSocket) -> End:
-                return End(node=marked[socket.node], socket=semantic.get(socket.identifier, socket.identifier) if marked[socket.node] in {INPUTS, OUTPUTS} else socket.identifier)  # type: ignore[index]  # ty: ignore[invalid-argument-type]
+            def endpoint(node: bpy.types.Node, socket: bpy.types.NodeSocket) -> End:
+                return End(node=keyed[node], socket=semantic.get(socket.identifier, socket.identifier) if keyed[node] in {INPUTS, OUTPUTS} else socket.identifier)
 
             def fed(socket: bpy.types.NodeSocket) -> tuple[Link, ...]:
                 return tuple(
-                    Link(source=endpoint(outlet), target=endpoint(inlet))
+                    Link(source=endpoint(source, outlet), target=endpoint(target, inlet))
                     for link in links_of(socket)
-                    for source, outlet, _, inlet in (endpoints(link),)
-                    if source in marked and marked[source] in group.graph.placed
+                    for source, outlet, target, inlet in (endpoints(link),)
+                    if source in keyed and keyed[source] in group.graph.placed
                 )
 
             graph = msgspec.structs.replace(
@@ -438,7 +440,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True):
             lambda: Block.of_seq(own.held(identity)).filter(lambda pair: pair[1].of == owner).try_head().map(lambda pair: pair[0]) if own.single else Nothing
         )
         return self.built(identity, scene, record, config, preview, met).bind(
-            lambda group: held.map(lambda live: Addressed.of(live, identity).bind(lambda addressed: refreshed(group, live, addressed.sockets))).default_with(
+            lambda group: held.map(lambda live: InterfaceKeys.of(live, identity).bind(lambda addressed: refreshed(group, live, addressed.sockets))).default_with(
                 lambda: made(group, identity, of=owner).map(lambda live: (live, True))
             )
         )

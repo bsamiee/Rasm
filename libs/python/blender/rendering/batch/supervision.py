@@ -47,6 +47,7 @@ class RunFile(StrEnum):
 
     PLAN = ".plan.json"
     PLAN_LOG = ".plan.log"
+    REFUSED = ".refused.json"
     SENT = ".sent.json"
     QUEUE = ".json"
     PROGRESS = ".progress.json"
@@ -105,11 +106,12 @@ class LocalMachine(Case, frozen=True, kw_only=True):
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Writes queue file, then starts detached supervisor over the file, returning log path."""
+        log = host.path(queue.stem, RunFile.LOG)
         return (
             RecordFile(path=host.path(queue.stem, RunFile.QUEUE), form=RenderQueue)
             .written(queue)
-            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), host.path(queue.stem, RunFile.LOG)))
-            .map(lambda log: (Ok(str(log)),))
+            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), log))
+            .map(lambda _: (Ok(str(log)),))
         )
 
 
@@ -145,17 +147,15 @@ def spawned(argv: tuple[str, ...], stream: int | None = None) -> Outcome[subproc
     return started().map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv)))
 
 
-def detached(argv: tuple[str, ...], log: Path) -> Outcome[Path]:
-    """Starts process in own session with output appended to log."""
+def detached(argv: tuple[str, ...], log: Path) -> Outcome[subprocess.Popen[bytes]]:
+    """Starts process in own session with output appended to log, returning its handle for `poll`."""
 
     @catch(exception=OSError)
-    def launched() -> Path:
+    def launched() -> subprocess.Popen[bytes]:
         with log.open("ab") as sink:
             if sys.platform == "win32":
-                subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)  # ty: ignore[possibly-missing-attribute]
-            else:
-                subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
-        return log
+                return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)  # ty: ignore[possibly-missing-attribute]
+            return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
 
     return folder_made(log.parent).bind(lambda _: launched().map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv))))
 
@@ -263,7 +263,7 @@ def awake[T](operation: Callable[[], Outcome[T]], /) -> Outcome[T]:
     return spawned(argv, subprocess.DEVNULL).bind(lambda holder: paired(operation(), released(holder)).map(lambda pair: pair[0]))
 
 
-def shut() -> Outcome[None]:
+def shutdown() -> Outcome[None]:
     """Schedules machine shutdown in one minute."""
     return ran(
         ("shutdown", "/s", "/t", "60")
@@ -274,11 +274,11 @@ def shut() -> Outcome[None]:
     )
 
 
-def cancelled(progress: Progress) -> Outcome[None]:
+def shutdown_cancelled(progress: Progress) -> Outcome[None]:
     """Cancels scheduled shutdown."""
     return ran(("shutdown", "/a")) if sys.platform == "win32" else stop(progress) if sys.platform == "darwin" else ran(("shutdown", "-c"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HostCommands", "LocalMachine", "Run", "RunCommand", "RunFile", "awake", "cancelled", "cleared", "detached", "ran", "shut", "spawned", "stop", "supervise"]
+__all__ = ["HostCommands", "LocalMachine", "Run", "RunCommand", "RunFile", "awake", "cleared", "detached", "ran", "shutdown", "shutdown_cancelled", "spawned", "stop", "supervise"]

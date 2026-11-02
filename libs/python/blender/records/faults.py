@@ -45,11 +45,15 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def message(self) -> str:
         """Report text of the fault."""
-        return self.reason.format(subject=self.subject, member=self.member, cause=self.cause)
+        return self.filled(self.reason)
+
+    def filled(self, template: str, /) -> str:
+        """Returns a message template with the fault fields filled, the form a translated template takes."""
+        return template.format(subject=self.subject, member=self.member, cause=self.cause)
 
     @classmethod
     def of(cls, reason: StrEnum, subject: str, cause: object = "", /, *, member: str = "") -> Faults:
-        """Faults of one fault over subject, the refused value or caught error as cause."""
+        """Returns a one-fault tuple over subject, the refused value or caught error as cause."""
         return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 
 
@@ -82,7 +86,7 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
 
 
 def typed[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
-    """Returns value narrowed to kind, domain fault naming the kind and the class found, kind and subject first so `partial(typed, kind, subject)` serves a chain."""
+    """Returns value narrowed to kind, `OUTSIDE` fault naming the kind and the class found."""
     return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=kind.__name__))
 
 

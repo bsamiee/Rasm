@@ -1,4 +1,4 @@
-"""Registration bands derived from host base classes, class registration in dependency order, host registries for translations, manual links, and command-line commands, and the extension registration service."""
+"""Registration bands, class registration in dependency order, translation, manual, and CLI registries, and the extension service."""
 
 from collections import deque
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -16,8 +16,8 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.mirrors import annotated
 from blender.bpy.data.rna.paths import definition, Struct
+from blender.bpy.data.rna.properties import annotated
 from blender.bpy.extension.events import DISPATCHERS, Handler, Subscription, Timer
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.reports import rendered
@@ -27,7 +27,7 @@ from blender.records.stores import argued
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Band(Enum):
+class Tier(Enum):
     """Acquisition order, with resources released in reverse."""
 
     GROUPS = auto()
@@ -47,7 +47,7 @@ class Band(Enum):
 
 type Acquisition = type | AbstractContextManager[Outcome[None] | None] | Callable[[], Outcome[tuple[type, ...]]]
 type Declaration = Registrable | Resource[Any] | Handler | Subscription | Timer
-type _Banded = tuple[Band, Acquisition]
+type _Banded = tuple[Tier, Acquisition]
 type Acquisitions = tuple[Declaration | type | _Banded, ...]
 
 
@@ -78,15 +78,15 @@ class Gathering(Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EAGER: Final = (Band.GROUPS, Band.ATTACHMENTS, Band.RESOURCES)
-_EVENTS: Final[Mapping[type[Handler | Subscription | Timer], Band]] = MappingProxyType({Handler: Band.APP_HANDLERS, Subscription: Band.SUBSCRIPTIONS, Timer: Band.TIMERS})
-_BANDS: Final[Mapping[type, Band]] = MappingProxyType({
-    bpy.types.PropertyGroup: Band.GROUPS,
-    bpy.types.AddonPreferences: Band.PREFERENCES,
-    bpy.types.KeyConfigPreferences: Band.PREFERENCES,
-    bpy.types.Operator: Band.OPERATORS,
-    bpy.types.Macro: Band.OPERATORS,
-    bpy.types.bpy_struct: Band.INTERFACE,
+_EAGER: Final = (Tier.GROUPS, Tier.ATTACHMENTS, Tier.RESOURCES)
+_EVENTS: Final[Mapping[type[Handler | Subscription | Timer], Tier]] = MappingProxyType({Handler: Tier.APP_HANDLERS, Subscription: Tier.SUBSCRIPTIONS, Timer: Tier.TIMERS})
+_BANDS: Final[Mapping[type, Tier]] = MappingProxyType({
+    bpy.types.PropertyGroup: Tier.GROUPS,
+    bpy.types.AddonPreferences: Tier.PREFERENCES,
+    bpy.types.KeyConfigPreferences: Tier.PREFERENCES,
+    bpy.types.Operator: Tier.OPERATORS,
+    bpy.types.Macro: Tier.OPERATORS,
+    bpy.types.bpy_struct: Tier.INTERFACE,
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -100,27 +100,27 @@ class Translations(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Builds the registry acquisition holding the table under the extension package."""
         table = {locale: dict(entries) for locale, entries in self.table.items()}
-        return Ok(((Band.REGISTRIES, scoped(identity.package, partial(bpy.app.translations.register, identity.package, table), lambda _: bpy.app.translations.unregister(identity.package))),))
+        return Ok(((Tier.REGISTRIES, scoped(identity.package, partial(bpy.app.translations.register, identity.package, table), lambda _: bpy.app.translations.unregister(identity.package))),))
 
 
 class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
-    """Command-line command with base64 JSON first argument, exiting with the code its run answers, 1 after faults."""
+    """Command-line command with base64 JSON first argument, exiting with the code its run returns, 1 after faults."""
 
     key: Key
     decoder: msgspec.json.Decoder[A]
     run: Callable[[A, tuple[str, ...]], Outcome[int]]
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Builds the registry acquisition holding the command under its manifest-prefixed name, its decode and run faults held in reports, register fault for a refused key."""
+        """Builds the registry acquisition holding the command under its prefixed name, reports holding its faults, unregistered fault for a refused key."""
 
         def registered(command: str) -> AbstractContextManager[Outcome[None]]:
             executed = identity.reports.reported(partial(self.executed, command))
             return scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: executed(arguments).default_value(1)), bpy.utils.unregister_cli_command)
 
-        return identity.identifier(self.key).map(lambda command: ((Band.REGISTRIES, registered(command)),))
+        return identity.identifier(self.key).map(lambda command: ((Tier.REGISTRIES, registered(command)),))
 
     def executed(self, command: str, arguments: list[str], /) -> Outcome[int]:
-        """Runs over the decoded first argument after the command name and the rest unchanged, read fault for an undecodable document, absent fault for no argument."""
+        """Runs over the decoded first argument and the rest unchanged, unreadable fault for an undecodable document, absent fault for no argument."""
         match arguments:
             case [document, *trailing]:
                 return argued(self.decoder, command, document).bind(lambda value: self.run(value, tuple(trailing)))
@@ -134,9 +134,9 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 class Registration:
     """Register and unregister callbacks of one extension over its rows, rebuilt on each registration.
 
-    The handler dispatcher every handler row joins builds first, prerequisites of every row precede the rows and resources are held once built, a nested row's prerequisites precede it, and gathering rows build last.
+    Handler dispatcher builds first, prerequisites precede their rows, resources are held once built, and gathering rows build last.
     Equal declarations build once, each class acquires in the band of its host base, and a manifest website holds Online Manual links over the extension.
-    A refused registration raises one `RuntimeError` of rendered faults after every acquisition before it released.
+    Refused registration raises one `RuntimeError` of rendered faults after every acquisition before it released.
     """
 
     __slots__ = ("_declarations", "_held", "_pairs", "_stacks", "package", "rows", "unregister")
@@ -146,8 +146,8 @@ class Registration:
         self.package, self.rows, self._held = package, rows, ExitStack()
         self.unregister: Callable[[], None] = self._held.close
         self._declarations: list[Declaration | Gathering] = []
-        self._pairs: dict[tuple[Band, Acquisition], bool] = {}
-        self._stacks: dict[Band, ExitStack] = {}
+        self._pairs: dict[tuple[Tier, Acquisition], bool] = {}
+        self._stacks: dict[Tier, ExitStack] = {}
 
     # --- [LIFECYCLE]
 
@@ -162,7 +162,7 @@ class Registration:
             manager.keyconfigs.update(keep_properties=True)
 
         def registered(stack: ExitStack, identity: Identity) -> Outcome[None]:
-            """Enters the keymap merge, reports, and band stacks onto stack, holding the manual map hook while the manifest names a website, then builds every row's prerequisites, the rows with gathering rows last, and enters the bands no build entered."""
+            """Enters keymap merge, reports, and band stacks with the manual map hook of a manifest website, builds rows, and enters the remaining bands."""
 
             def manual(website: str) -> AbstractContextManager[Outcome[None]]:
                 hook = partial(_mapped, identity, website)
@@ -170,13 +170,13 @@ class Registration:
 
             stack.callback(merged)
             stack.enter_context(identity.reports)
-            self._stacks = {band: stack.enter_context(ExitStack()) for band in Band}
+            self._stacks = {band: stack.enter_context(ExitStack()) for band in Tier}
             self._declarations = []
-            self._pairs = dict.fromkeys(((Band.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
+            self._pairs = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
             built = partial(self._built, stack, identity)
             prerequisites = chain.from_iterable(map(_prerequisites, self.rows))
             return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(
-                lambda _: _each(self._opened, (band for band in Band if band not in _EAGER))
+                lambda _: _each(self._opened, (band for band in Tier if band not in _EAGER))
             )
 
         with ExitStack() as stack:
@@ -185,7 +185,7 @@ class Registration:
     # --- [BUILD]
 
     def _built(self, stack: ExitStack, identity: Identity, row: Declaration | Gathering | type | _Banded, /) -> Outcome[None]:
-        """Pairs each class with the band of the host base nearest it in its method resolution order, and builds each declaration once after its prerequisites, holding a construction scope on the registration stack and entering the group, attachment, and resource acquisitions each build adds."""
+        """Pairs a class with its nearest host base's band, or builds a declaration once after its prerequisites and enters the eager bands it fills."""
         built = partial(self._built, stack, identity)
 
         def declared(declaration: Declaration | Gathering) -> Outcome[Acquisitions]:
@@ -193,8 +193,8 @@ class Registration:
             match declaration:
                 case Resource():
                     answer = Ok((
-                        (Band.RESOURCES, identity.held.holding(declaration, partial(declaration.made, identity))),
-                        *(Handler(handlers=bpy.app.handlers.load_post, body=partial(identity.held.renewed, declaration, renew)) for renew in declaration.renewed.to_list()),
+                        (Tier.RESOURCES, identity.resources.holding(declaration, partial(declaration.made, identity))),
+                        *(Handler(handlers=bpy.app.handlers.load_post, body=partial(identity.resources.renewed, declaration, renew)) for renew in declaration.renewed.to_list()),
                     ))
                 case Handler() | Subscription() | Timer():
                     answer = Ok(((_EVENTS[type(declaration)], declaration.held(identity)),))
@@ -226,7 +226,7 @@ class Registration:
                 self._pairs.setdefault(row, False)
                 return Ok(None)
 
-    def _opened(self, band: Band, /) -> Outcome[None]:
+    def _opened(self, band: Tier, /) -> Outcome[None]:
         """Enters the band's pairs not yet entered, marking them entered."""
         fresh = tuple((kind, acquisition) for (kind, acquisition), done in self._pairs.items() if kind is band and not done)
         return entered(self._stacks[band], tuple(acquisition for _, acquisition in fresh)).map(lambda _: self._pairs.update(dict.fromkeys(fresh, True)))
@@ -245,17 +245,17 @@ def _prerequisites(row: object, /) -> tuple[Declaration, ...]:
 
 
 def entered(stack: ExitStack, acquisitions: tuple[Acquisition, ...], /) -> Outcome[None]:
-    """Registers classes in dependency order, then enters managers and runs deferred builds, onto stack until first refusal, each class released in reverse whenever the host holds it.
+    """Registers classes in dependency order, then enters managers and runs deferred builds, onto stack until first refusal.
 
-    Classes order after their pointer and collection property targets and parent panels, names read as the host reads them through the class and its bases: a panel keys by its `bl_idname`, else its class name, and names its parent in `bl_parent_id`.
-    A dependency cycle answers a register fault.
+    Classes order after pointer and collection targets and parent panels, a panel keyed by `bl_idname`, else class name, with parent `bl_parent_id`.
+    Dependency cycle returns a unregistered fault.
 
     Args:
         stack: Registration stack each release goes on.
         acquisitions: Classes, managers, and deferred builds of one band.
 
     Returns:
-        Ok(None) once every acquisition entered, the first refusal's register fault, or a register fault naming the classes of a dependency cycle.
+        Ok(None) once every acquisition entered, the first refusal's unregistered fault, or a unregistered fault naming the classes of a dependency cycle.
     """
     classes = tuple(acquisition for acquisition in acquisitions if isinstance(acquisition, type) and issubclass(acquisition, bpy.types.bpy_struct))
     declared = {cls: {name: value for base in reversed(cls.__mro__) for name, value in vars(base).items()} for cls in classes}
@@ -275,7 +275,7 @@ def entered(stack: ExitStack, acquisitions: tuple[Acquisition, ...], /) -> Outco
 
 
 def _acquired(stack: ExitStack, acquisition: Acquisition, /) -> Outcome[None]:
-    """Registers a class after pushing its release, enters a manager, or registers the classes a deferred build answers."""
+    """Registers a class after pushing its release, enters a manager, or registers the classes a deferred build returns."""
     match acquisition:
         case type() as cls:
 
@@ -285,8 +285,8 @@ def _acquired(stack: ExitStack, acquisition: Acquisition, /) -> Outcome[None]:
                     bpy.utils.unregister_class(cls)  # ty: ignore[invalid-argument-type]
 
             stack.callback(released)
-            registered: Result[None, Exception] = catch(bpy.utils.register_class, exception=(AttributeError, RuntimeError, ValueError))(cls)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
-            return registered.map_error(partial(Fault.of, Reason.UNREGISTERED, cls.__name__))
+            register: Callable[[type], Result[object, Exception]] = catch(catch(catch(bpy.utils.register_class, exception=ValueError), exception=RuntimeError), exception=AttributeError)
+            return register(cls).map(lambda _: None).map_error(partial(Fault.of, Reason.UNREGISTERED, cls.__name__))
         case AbstractContextManager() as manager:
             return Option.of_optional(stack.enter_context(manager)).default_value(Ok(None))
         case build:
@@ -303,14 +303,14 @@ def _each[T](step: Callable[[T], Outcome[None]], items: Iterable[T], /) -> Outco
 
 @contextmanager
 def scoped[H](subject: str, acquired: Callable[[], H], released: Callable[[H], object], /, *, exception: type[Exception] = ValueError) -> Generator[Outcome[None]]:
-    """Runs a host acquisition and holds the release of the handle it answers until scope exit, yielding the register fault on subject when it raises exception."""
+    """Runs a host acquisition and holds its handle's release until scope exit, yielding the unregistered fault on subject when it raises exception."""
     with ExitStack() as stack:
         yield catch(acquired, exception=exception)().map(lambda handle: stack.callback(released, handle)).map(lambda _: None).map_error(partial(Fault.of, Reason.UNREGISTERED, subject))
 
 
 def _mapped(identity: Identity, website: str, /) -> tuple[str, list[tuple[str, str]]]:
-    """Returns website with extension operator, type, and property patterns, then one pattern per preferences struct and property group behind an extension-prefixed property reachable from `BlendData` or nested in such a group or in the extension's preferences."""
-    category, group = identity.manifest.id.lower(), definition(bpy.types.PropertyGroup)
+    """Returns website with extension operator, type, and property patterns, and one per preferences struct and property group a property reaches."""
+    category, prefix, group = identity.manifest.id.lower(), identity.manifest.prefix, definition(bpy.types.PropertyGroup)
 
     def grouped(struct: bpy.types.Struct) -> bool:
         return struct.base == group
@@ -320,14 +320,14 @@ def _mapped(identity: Identity, website: str, /) -> tuple[str, list[tuple[str, s
     nested = tuple(target for _, target in _walked((*attached, *owned), grouped) if grouped(target))
     return website, [
         *((f"bpy.ops.{category}.{key}", f"#{key}") for key in dir(getattr(bpy.ops, category))),
-        (f"bpy.types.{category}_*", ""),
-        (f"bpy.types.*.{category}_*", ""),
+        (f"bpy.types.{prefix}*", ""),
+        (f"bpy.types.*.{prefix}*", ""),
         *((f"bpy.types.{identifier.lower()}.*", "") for identifier in dict.fromkeys(struct.identifier for struct in (*owned, *attached, *nested))),
     ]
 
 
 def _walked(starts: tuple[bpy.types.Struct, ...], followed: Callable[[bpy.types.Struct], bool], /) -> tuple[tuple[str, bpy.types.Struct], ...]:
-    """Returns identifier and fixed target of every pointer and collection property breadth-first from starts, entering each target `followed` accepts once."""
+    """Returns identifier and fixed target of each pointer and collection property breadth-first, entering each target `followed` accepts once."""
     seen, frontier, edges = {start.identifier for start in starts}, deque(starts), list[tuple[str, bpy.types.Struct]]()
     while frontier:
         properties = frontier.popleft().properties
@@ -343,4 +343,4 @@ def _walked(starts: tuple[bpy.types.Struct, ...], followed: Callable[[bpy.types.
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Acquisition", "Acquisitions", "Band", "CliCommand", "Declaration", "Dependent", "Gathering", "Registrable", "Registration", "Translations", "entered", "scoped"]
+__all__ = ["Acquisition", "Acquisitions", "CliCommand", "Declaration", "Dependent", "Gathering", "Registrable", "Registration", "Tier", "Translations", "entered", "scoped"]

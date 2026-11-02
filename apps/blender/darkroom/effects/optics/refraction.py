@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final
 
 import bpy
-from expression import Ok, Option, Some
+from expression import Ok, Some
 import PyOpenColorIO
 
 from blender.bpy.data.ids.images import Tag
@@ -15,15 +15,15 @@ from blender.bpy.nodes import textures
 from blender.bpy.nodes.content import Loaded
 from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import Expr, math, Scalar, Shape, switched, vector, xyz
+from blender.bpy.nodes.graphs import Expr, math, Scalar, SocketType, switched, vector, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import filters, masks
 from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, uv_mapped
 from blender.bpy.render.compositor.editors import FilePath
-from blender.bpy.render.compositor.inputs import Shell
+from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, origin, SEED
 from blender.bpy.render.compositor.shapes import rotated
-from blender.imaging.color.processors import GREY
+from blender.imaging.color.processors import GRAY
 from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.sampling.integration import placement, Population
 from blender.imaging.sampling.tiles import stream
@@ -91,46 +91,46 @@ RAINDROPS: Final = InterfacePanel.of(
 
 
 def lifted(luminance: Scalar, gain: Expr) -> Expr:
-    """Height in [0, 1) of scene-linear luminance under the keyed gain of later exposure, middle grey at one half."""
+    """Height in [0, 1) of scene-linear luminance under the keyed gain of later exposure, middle gray at one half."""
     positive = math("MAXIMUM", luminance, 0.0)
-    return positive / (positive + GREY / gain)
+    return positive / (positive + GRAY / gain)
 
 
-_softened: Final = partial(filters.blurred, shape=bpy.types.NodeSocketFloat)
+_softened: Final = partial(filters.blurred, socket_type=bpy.types.NodeSocketFloat)
 
 
-def _sampled(image: Expr, frame: FrameSpace, point: Expr) -> Expr:
-    """Height image at greater-side frame points, bilinear and clamped past its edges."""
-    return uv_mapped(image, frame.sampled(point / frame.extent), extension=("Extend", "Extend"), shape=bpy.types.NodeSocketFloat)
+def _difference(image: Expr, frame: FrameSpace, span: Scalar) -> Expr:
+    """Central difference of a height image along each axis, `span` each way."""
+
+    def sampled(point: Expr) -> Expr:
+        return uv_mapped(image, frame.sampled(point / frame.extent), extension=("Extend", "Extend"), socket_type=bpy.types.NodeSocketFloat)
+
+    return xyz(*(sampled(frame.point + shift) - sampled(frame.point - shift) for shift in (xyz(span), xyz(0.0, span))))
 
 
 def _slope(image: Expr, frame: FrameSpace) -> Expr:
     """Central-difference gradient of a height image per greater-side unit, one pixel each way."""
-    step = 1.0 / frame.greater
-    shifts = (xyz(step), xyz(0.0, step))
-    return xyz(*((_sampled(image, frame, frame.point + shift) - _sampled(image, frame, frame.point - shift)) / (step * 2.0) for shift in shifts))
+    return vector("SCALE", _difference(image, frame, 1.0 / frame.greater), frame.greater * 0.5)
 
 
 # --- [TERMS]
 
 
-def luminous[R: Case](shell: Shell[R], frame: FrameSpace, height: Expr) -> Expr:
+def luminous[R: Case](shell: GraphInputs[R], frame: FrameSpace, height: Expr) -> Expr:
     """Offset moving bright content toward the luma direction and dark content against it."""
     read = partial(shell.input, LUMA)
     angle = read(_DIRECTION)
     return vector("SCALE", xyz(math("COSINE", angle), math("SINE", angle)), (_softened(height, frame.pixel_size(read(_SOFTNESS))) * 2.0 - 1.0) * read(_AMPLITUDE))
 
 
-def bubbled[R: Case](shell: Shell[R], frame: FrameSpace, height: Expr) -> Expr:
+def bubbled[R: Case](shell: GraphInputs[R], frame: FrameSpace, height: Expr) -> Expr:
     """Offset down the blurred luminance height, differences taken one softness each way."""
     read = partial(shell.input, BUBBLES)
     span = read(_SPAN)
-    level = _softened(height, frame.pixel_size(span))
-    shifts = (xyz(span), xyz(0.0, span))
-    return vector("SCALE", xyz(*(_sampled(level, frame, frame.point - shift) - _sampled(level, frame, frame.point + shift) for shift in shifts)), read(_STRENGTH))
+    return vector("SCALE", _difference(_softened(height, frame.pixel_size(span)), frame, span), -read(_STRENGTH))
 
 
-def mapped[R: Case](shell: Shell[R], frame: FrameSpace, source: FilePath | None, reading: MapReading, gain: Expr) -> Outcome[tuple[Expr, Scalar]]:
+def mapped[R: Case](shell: GraphInputs[R], frame: FrameSpace, source: FilePath | None, reading: MapReading, gain: Expr) -> Outcome[tuple[Expr, Scalar]]:
     """Returns the map offset and its coverage: a file or the entry input read as a gradient, luma, offset, or coordinate field, spanning the frame or tiled, turned with the map axes.
 
     Args:
@@ -146,27 +146,21 @@ def mapped[R: Case](shell: Shell[R], frame: FrameSpace, source: FilePath | None,
     read = partial(shell.input, MAP)
     turn, tiled, step = read(_ROTATION), read(_TILING), 1.0 / frame.greater
     data = reading in {MapReading.OFFSETS, MapReading.COORDINATES}
-    plane, file = (
-        Option
-        .of_optional(source)
-        .map(
-            lambda path: (
-                Expr(
-                    kind=bpy.types.CompositorNodeImage,
-                    content=Some(Loaded(path=Path(path), tag=Tag(space=Some(PyOpenColorIO.ROLE_DATA)) if data else Tag())),
-                    socket="Image",
-                    shape=bpy.types.NodeSocketColor,
-                ),
-                True,
-            )
+    plane = (
+        Expr(
+            kind=bpy.types.CompositorNodeImage,
+            content=Some(Loaded(path=Path(source), tag=Tag(space=Some(PyOpenColorIO.ROLE_DATA)) if data else Tag())),
+            socket="Image",
+            socket_type=bpy.types.NodeSocketColor,
         )
-        .default_value((shell.color, False))
+        if source is not None
+        else shell.color
     )
 
-    def at(image: Expr, point: Expr, shape: Shape = bpy.types.NodeSocketColor) -> Expr:
+    def at(image: Expr, point: Expr, socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
         local = rotated(point, turn, inverted=True)
         fraction = switched(tiled, local / frame.extent, vector("FRACTION", local / read(_TILING, _TILE)))
-        return uv_mapped(image, fraction if file else frame.sampled(fraction), extension=("Extend", "Extend"), shape=shape)
+        return uv_mapped(image, fraction if source is not None else frame.sampled(fraction), extension=("Extend", "Extend"), socket_type=socket_type)
 
     def turned(field: Expr) -> tuple[Expr, Scalar]:
         return rotated(vector("MULTIPLY", vector("MULTIPLY", field, read(_AXES)), frame.extent), turn), 1.0
@@ -198,7 +192,7 @@ def mapped[R: Case](shell: Shell[R], frame: FrameSpace, source: FilePath | None,
             return masks.luminance(shell.config, plane).map(leveled)
 
 
-def refracted[R: Case](shell: Shell[R], frame: FrameSpace) -> tuple[Expr, Expr]:
+def refracted[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, Expr]:
     """Returns the offset down the blurred glass height of the chosen surface, scaled by strength over cell size, and the entry input blurred behind the glass."""
     read = partial(shell.input, GLASS)
     size = read(_SIZE)
@@ -216,7 +210,7 @@ def refracted[R: Case](shell: Shell[R], frame: FrameSpace) -> tuple[Expr, Expr]:
     return vector("SCALE", _slope(level, frame), read(_SLOPE) * size), filters.blurred(shell.color, frame.pixel_size(read(_GLASS_BLUR)))
 
 
-def rained[R: Case](shell: Shell[R], frame: FrameSpace) -> tuple[Expr, Expr, Expr]:
+def rained[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, Expr, Expr]:
     """Returns drop coverage, the offset showing each drop's inverted view with trails refracting through their blurred height, and the view blurred inside drops.
 
     Args:

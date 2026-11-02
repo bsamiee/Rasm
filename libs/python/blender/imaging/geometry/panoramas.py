@@ -13,11 +13,10 @@ from scipy.spatial.transform import RigidTransform, Rotation
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace
 from blender.imaging.geometry.frames import Quad
-from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
+from blender.records.fields import Bearing, Case, Finite, Inclination, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Bearing = Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)]
 type _FieldOfView = Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=math.pi)]
 type _Ray[V] = tuple[V, V, V, V]
 type ImagePoint[V] = tuple[V, V, V]
@@ -81,13 +80,13 @@ class Equirectangular(Panorama, frozen=True, kw_only=True):
     def to_image[V: Elementwise, B](ray: _Ray[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps rays to longitude and latitude."""
         x, y, z, coverage = ray
-        return ns.atan2(x, ns.negative(z)) / (2.0 * math.pi) + 0.5, ns.atan2(y, ns.hypot(x, z)) / math.pi + 0.5, coverage
+        return ns.atan2(x, ns.negative(z)) / math.tau + 0.5, ns.atan2(y, ns.hypot(x, z)) / math.pi + 0.5, coverage
 
     @staticmethod
     def to_ray[V: Elementwise, B](point: ImagePoint[V], ns: Namespace[V, B]) -> _Ray[V]:
         """Maps longitude and latitude to unit rays."""
         s, t, coverage = point
-        longitude, latitude = (s - 0.5) * (2.0 * math.pi), (t - 0.5) * math.pi
+        longitude, latitude = (s - 0.5) * math.tau, (t - 0.5) * math.pi
         return ns.cos(latitude) * ns.sin(longitude), ns.sin(latitude), ns.negative(ns.cos(latitude) * ns.cos(longitude)), coverage
 
 
@@ -105,12 +104,12 @@ class CentralCylindrical(Panorama, frozen=True, kw_only=True):
         radial, span = ns.hypot(x, z), self.height_max - self.height_min
         around = ns.greater(radial, 0.0)
         vertical = (_over(ns, y, radial, around) - self.height_min) / (span or 1.0)
-        return ns.atan2(x, ns.negative(z)) / (2.0 * math.pi) + 0.5, vertical, ns.where(around, coverage, 0.0) * float(span != 0.0)
+        return ns.atan2(x, ns.negative(z)) / math.tau + 0.5, vertical, ns.where(around, coverage, 0.0) * float(span != 0.0)
 
     def to_ray[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> _Ray[V]:
         """Lifts cylinder positions to rays, reversed or equal heights included."""
         s, t, coverage = point
-        longitude = (s - 0.5) * (2.0 * math.pi)
+        longitude = (s - 0.5) * math.tau
         return (*_normalized(ns, ns.sin(longitude), t * (self.height_max - self.height_min) + self.height_min, ns.negative(ns.cos(longitude))), coverage)
 
 
@@ -191,7 +190,7 @@ class Stereographic(Panorama, frozen=True, kw_only=True):
     """Conformal projection of sphere from point behind viewer."""
 
     centered = True
-    field_of_view: Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=2.0 * math.pi)] = math.pi
+    field_of_view: Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=math.tau)] = math.pi
 
     @property
     def scale(self) -> float:
@@ -290,7 +289,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     source: Panoramas = Equirectangular()
     view: Rectilinear = Rectilinear()
     heading: Bearing = 0.0
-    elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
+    elevation: Inclination = 0.0
     roll: Bearing = 0.0
 
     @property
@@ -367,13 +366,13 @@ def to_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float],
     """Wraps a full rectangular turn into the frame's inscribed disc, seam above center, for frame sides `span` over the greater side."""
     s, t, coverage = point
     across, up, short = (s - 0.5) * span[0], (t - 0.5) * span[1], min(span)
-    return ns.atan2(across, up) % (2.0 * math.pi) / (2.0 * math.pi), 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
+    return ns.atan2(across, up) % math.tau / math.tau, 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
 
 
 def from_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float], ns: Namespace[V, B]) -> ImagePoint[V]:
     """Unwraps the frame's inscribed disc into a full rectangular turn, inverse of `to_polar`."""
     s, t, coverage = point
-    bearing, radius = s * (2.0 * math.pi), (1.0 - t) * (min(span) / 2.0)
+    bearing, radius = s * math.tau, (1.0 - t) * (min(span) / 2.0)
     return radius * ns.sin(bearing) / span[0] + 0.5, radius * ns.cos(bearing) / span[1] + 0.5, coverage
 
 
@@ -392,7 +391,6 @@ def _normalized[V: Elementwise, B](ns: Namespace[V, B], x: V, y: V, z: V | float
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Bearing",
     "Camera",
     "CentralCylindrical",
     "Equirectangular",

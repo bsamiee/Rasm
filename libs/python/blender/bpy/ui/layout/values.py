@@ -1,4 +1,4 @@
-"""Value stores over attached form groups and preset catalogs: value sets held as history, clipboard copies, member locks, and presets applied, saved, imported, exported, replaced, renamed, deleted, and stepped through, with the verbs their operators share."""
+"""Value stores over attached form groups and preset catalogs: value sets held as history, clipboard copies, member locks, and presets applied, saved, imported, exported, replaced, renamed, deleted, and stepped through, with the commands their operators share."""
 
 from collections.abc import Callable, Mapping
 import datetime
@@ -18,8 +18,8 @@ from blender.bpy.commands import invocations, operators
 from blender.bpy.commands.calls import Command, Placement
 from blender.bpy.data.rna.conditions import Scoped
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import annotated
 from blender.bpy.data.rna.paths import definition, rna, RnaPath, rooted, Struct
+from blender.bpy.data.rna.properties import annotated
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
@@ -27,7 +27,7 @@ from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attached, Attachment, Host
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import Keywords, Line, OperatorButton, pressed, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import ConditionalRow, Keywords, operator_button, OperatorButton, realized, RowContent, RowDraw
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import removed
@@ -41,26 +41,26 @@ type Replacement = Callable[[Member], RowContent]
 
 
 @unique
-class Verb(Enum):
-    """Store and preset operator verb with the icon its operators and buttons share and the undo step of its runs, none for a verb writing only outside the blend file, each keyed `<verb>_<stem>`."""
+class StoreCommand(Enum):
+    """Store or preset command with the icon its operators and buttons share and the undo step of its runs, none for a command writing outside the blend file alone, each operator keyed `<command>_<stem>`."""
 
-    RESET = ("LOOP_BACK", Some(Nothing))
-    COPY = ("COPYDOWN", Nothing)
-    PASTE = ("PASTEDOWN", Some(Nothing))
-    RESTORE = ("RECOVER_LAST", Some(Nothing))
-    FORGET = ("X", Some(Nothing))
-    LOCK = ("LOCKED", Some(Nothing))
-    APPLY = ("PRESET", Some(Nothing))
-    STEP = ("FORWARD", Some(Nothing))
-    SAVE = ("ADD", Nothing)
-    DELETE = ("X", Nothing)
-    IMPORT = ("IMPORT", Nothing)
-    EXPORT = ("EXPORT", Nothing)
-    REPLACE = ("FILE_REFRESH", Nothing)
-    RENAME = ("GREASEPENCIL", Nothing)
+    RESET = ("LOOP_BACK", operators.UndoStep())
+    COPY = ("COPYDOWN", operators.NoUndo())
+    PASTE = ("PASTEDOWN", operators.UndoStep())
+    RESTORE = ("RECOVER_LAST", operators.UndoStep())
+    FORGET = ("X", operators.UndoStep())
+    LOCK = ("LOCKED", operators.UndoStep())
+    APPLY = ("PRESET", operators.UndoStep())
+    STEP = ("FORWARD", operators.UndoStep())
+    SAVE = ("ADD", operators.NoUndo())
+    DELETE = ("X", operators.NoUndo())
+    IMPORT = ("IMPORT", operators.NoUndo())
+    EXPORT = ("EXPORT", operators.NoUndo())
+    REPLACE = ("FILE_REFRESH", operators.NoUndo())
+    RENAME = ("GREASEPENCIL", operators.NoUndo())
 
-    def __init__(self, icon: "IconItems", undo: Option[Option[str]]) -> None:
-        """Holds the verb's icon and the undo step of its runs."""
+    def __init__(self, icon: "IconItems", undo: operators.Undo) -> None:
+        """Holds the command's icon and the undo step of its runs."""
         self.icon, self.undo = icon, undo
 
     def command[T: bpy.types.PropertyGroup](
@@ -71,7 +71,7 @@ class Verb(Enum):
         invoke: Option[operators.Invoke[T]] = Nothing,
         seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing,
     ) -> operators.Operator[T]:
-        """Builds the internal verb operator over a store or preset stem under the verb's undo step."""
+        """Builds the internal operator over a store or preset stem under the command's undo step."""
         return operators.Operator(icon=Some(self.icon), internal=True, form=form, run=run, undo=self.undo, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
 
 
@@ -109,10 +109,16 @@ class _Saved(bpy.types.PropertyGroup):
     name: _NAME  # type: ignore[valid-type]
 
 
+class _Lock(bpy.types.PropertyGroup):
+    """Member a lock button names, each store declaring the enum of its own form members in a subclass."""
+
+    field: str
+
+
 # --- [PRESETS]
 
 
-class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
+class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict=True):
     """Preset catalog applying, saving, importing, exporting, replacing, renaming, deleting, and stepping through presets of the current values."""
 
     preset: Preset[T]
@@ -128,8 +134,8 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
     # --- [COMMANDS]
 
     @cached_property
-    def commands(self) -> Mapping[Verb, Command]:
-        """Verb operators over the preset stem, preset files filtered as JSON and the rename dialog seeded with the preset's typed name."""
+    def commands(self) -> Mapping[StoreCommand, Command]:
+        """StoreCommand operators over the preset stem, preset files filtered as JSON and the rename dialog seeded with the preset's typed name."""
         stem = self.preset.key
 
         def json(_properties: object) -> tuple[str, *tuple[str, ...]]:
@@ -139,24 +145,24 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
             return {"name": bpy.path.display_name(properties.stem, title_case=False)}
 
         return MappingProxyType({
-            Verb.APPLY: Verb.APPLY.command(stem, _Named, self.apply_preset),
-            Verb.STEP: Verb.STEP.command(stem, _Offset, self.step_preset),
-            Verb.SAVE: Verb.SAVE.command(stem, _Saved, self.save_preset, Some(invocations.Popup(partial(bpy.types.WindowManager.invoke_props_dialog)))),
-            Verb.DELETE: Verb.DELETE.command(
+            StoreCommand.APPLY: StoreCommand.APPLY.command(stem, _Named, self.apply_preset),
+            StoreCommand.STEP: StoreCommand.STEP.command(stem, _Offset, self.step_preset),
+            StoreCommand.SAVE: StoreCommand.SAVE.command(stem, _Saved, self.save_preset, Some(invocations.Popup(partial(bpy.types.WindowManager.invoke_props_dialog)))),
+            StoreCommand.DELETE: StoreCommand.DELETE.command(
                 stem,
                 _Named,
                 self.delete_preset,
                 Some(invocations.Popup[_Named](partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Remove", icon="WARNING"), message=Some(partial(_asked, "Remove {}")))),
             ),
-            Verb.IMPORT: Verb.IMPORT.command(stem, operators.Empty, self.import_presets, Some(invocations.Open[operators.Empty](extensions=json))),
-            Verb.EXPORT: Verb.EXPORT.command(stem, _Named, self.export_preset, Some(invocations.Save[_Named](extensions=json))),
-            Verb.REPLACE: Verb.REPLACE.command(
+            StoreCommand.IMPORT: StoreCommand.IMPORT.command(stem, operators.Empty, self.import_presets, Some(invocations.Open[operators.Empty](extensions=json))),
+            StoreCommand.EXPORT: StoreCommand.EXPORT.command(stem, _Named, self.export_preset, Some(invocations.Save[_Named](extensions=json))),
+            StoreCommand.REPLACE: StoreCommand.REPLACE.command(
                 stem,
                 _Named,
                 self.replace_preset,
                 Some(invocations.Popup[_Named](partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Replace"), message=Some(partial(_asked, "Replace preset {} with current values?")))),
             ),
-            Verb.RENAME: Verb.RENAME.command(stem, _Renamed, self.rename_preset, Some(invocations.Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), Some(renaming)),
+            StoreCommand.RENAME: StoreCommand.RENAME.command(stem, _Renamed, self.rename_preset, Some(invocations.Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), Some(renaming)),
         })
 
     def apply_preset(self, call: operators.Call[_Named]) -> Outcome[operators.Answer]:
@@ -166,7 +172,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
     def step_preset(self, call: operators.Call[_Offset]) -> Outcome[operators.Answer]:
         """Applies the preset the offset places from the first one the current values match, the first or last while none matches."""
         step = call.properties.offset
-        if not (values := tuple(map(self.preset.read, self.preset.listed(call.identity).values()))):
+        if not (values := tuple(self.preset.read(source) for source in self.preset.listed(call.identity).values())):
             return Ok(operators.Unchanged(reason="No presets"))
         return (
             paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list())))
@@ -220,7 +226,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the stepping, save, and import buttons beneath the entries read each redraw."""
         commands = self.commands
-        footer = (*_steps(commands[Verb.STEP], -1, {"text": ""}), *(OperatorButton(target=commands[verb], keywords={"text": ""}) for verb in (Verb.SAVE, Verb.IMPORT)))
+        footer = (*_steps(commands[StoreCommand.STEP], -1, {"text": ""}), *(OperatorButton(target=commands[command], keywords={"text": ""}) for command in (StoreCommand.SAVE, StoreCommand.IMPORT)))
         return realized(footer, identity).map(lambda buttons: partial(self.shown, identity, buttons))
 
     def shown(self, identity: Identity, footer: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
@@ -235,14 +241,14 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True, dict=True):
             label: Keywords = {"text": bpy.path.display_name(stem, title_case=not user), "translate": False, "icon": "CHECKMARK" if matched.default_value({}).get(stem, False) else "BLANK1"}
             alerted(line, value)
             for _ in value.to_option().to_list():
-                alerted(line, pressed(line, identity, Placement(commands[Verb.APPLY], chosen), label))
-            for verb in (Verb.REPLACE, Verb.RENAME, Verb.EXPORT, Verb.DELETE) if user else (Verb.EXPORT,):
-                alerted(line, pressed(line, identity, Placement(commands[verb], chosen), {"text": "", "icon": verb.icon}))
+                alerted(line, operator_button(line, identity, Placement(commands[StoreCommand.APPLY], chosen), label))
+            for command in (StoreCommand.REPLACE, StoreCommand.RENAME, StoreCommand.EXPORT, StoreCommand.DELETE) if user else (StoreCommand.EXPORT,):
+                alerted(line, operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
         layout.separator()
         footer(layout.row(align=True), holder, context)
 
     def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires the verb operators."""
+        """Acquires the command operators."""
         return Ok(tuple(self.commands.values()))
 
 
@@ -284,7 +290,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
             if not outcomes:
                 return Ok(operators.Unchanged(reason=bpy.app.translations.pgettext_rpt("No {} in scope").format(owner)))
             absent = (Applied(outcome=Error(Fault.of(Reason.ABSENT, owner, member=rna(path)))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
-            return operators.answered(Applied.join((*outcomes, *absent)), "Settings already hold preset")
+            return operators.answered(Applied.join((*outcomes, *absent)), "Settings hold preset")
 
         return self.scope.owners(context).map(lambda owners: tuple(map(stored.apply, owners))).bind(finished)
 
@@ -292,7 +298,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 # --- [STORES]
 
 
-class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=True):
+class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=True, dict=True):
     """Value sets of an attached form group held as snapshots, its host read through `host` at the section holder, drawn as the values popover.
 
     `fields` replace the property rows a section draws for the named form members.
@@ -344,21 +350,21 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
     # --- [COMMANDS]
 
     @cached_property
-    def commands(self) -> Mapping[Verb, Command]:
-        """Verb operators over the attachment key, the lock verb present while presets apply over a hidden form naming one declared member."""
+    def commands(self) -> Mapping[StoreCommand, Command]:
+        """Command operators over the attachment key, the lock command present while presets apply over a hidden form naming one declared member."""
         stem, form = self.attachment.key, self.attachment.form
 
-        def locked() -> type[bpy.types.PropertyGroup]:
+        def locked() -> type[_Lock]:
             field = bpy.props.EnumProperty(name="Member", description="Member to lock or unlock", items=tuple((name, name, "") for name in annotated(form)), options={"HIDDEN"})
-            return type(f"{form.__name__}Lock", (bpy.types.PropertyGroup,), {"__annotations__": {"field": field}})
+            return type(f"{form.__name__}Lock", (_Lock,), {"__annotations__": {"field": field}})
 
-        locking = self.presets.map(lambda _: {Verb.LOCK: Verb.LOCK.command(stem, locked(), self.lock_value)}).default_value({})
+        locking = self.presets.map(lambda _: {StoreCommand.LOCK: StoreCommand.LOCK.command(stem, locked(), self.lock_value)}).default_value({})
         return MappingProxyType({
-            Verb.RESET: Verb.RESET.command(stem, operators.Empty, self.reset_values),
-            Verb.COPY: Verb.COPY.command(stem, operators.Empty, self.copy_values),
-            Verb.PASTE: Verb.PASTE.command(stem, operators.Empty, self.paste_values),
-            Verb.RESTORE: Verb.RESTORE.command(stem, _Offset, self.restore_values),
-            Verb.FORGET: Verb.FORGET.command(stem, _Offset, self.forget_values),
+            StoreCommand.RESET: StoreCommand.RESET.command(stem, operators.Empty, self.reset_values),
+            StoreCommand.COPY: StoreCommand.COPY.command(stem, operators.Empty, self.copy_values),
+            StoreCommand.PASTE: StoreCommand.PASTE.command(stem, operators.Empty, self.paste_values),
+            StoreCommand.RESTORE: StoreCommand.RESTORE.command(stem, _Offset, self.restore_values),
+            StoreCommand.FORGET: StoreCommand.FORGET.command(stem, _Offset, self.forget_values),
             **locking,
         })
 
@@ -417,10 +423,9 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
         """Removes a value set from history."""
         return self._held(call.identity, call.context).bind(lambda held: held[0].forgotten(held[1], call.properties.offset)).map(_concluded)
 
-    def lock_value(self, call: operators.Call[bpy.types.PropertyGroup]) -> Outcome[operators.Answer]:
+    def lock_value(self, call: operators.Call[_Lock]) -> Outcome[operators.Answer]:
         """Keeps the member's value when presets apply."""
-        field: str = call.properties.field  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return self._held(call.identity, call.context).bind(lambda held: held[0].toggled(held[1], field)).map(lambda _: operators.Done())
+        return self._held(call.identity, call.context).bind(lambda held: held[0].toggled(held[1], call.properties.field)).map(lambda _: operators.Done())
 
     # --- [STEPS]
 
@@ -436,7 +441,7 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
         """Runs an edit, adding the prior value set to history when it changes a value."""
         return (
             paired(self._held(identity, context), self._kept(identity))
-            .bind(lambda pair: pair[0][0].replaced(pair[0][1], lambda: write(*pair[0]), datetime.datetime.now(datetime.UTC), pair[1]))
+            .bind(lambda pair: pair[0][0].recorded(pair[0][1], lambda: write(*pair[0]), datetime.datetime.now(datetime.UTC), pair[1]))
             .map(lambda change: change.default_value(operators.Unchanged(reason="No value changed")))
         )
 
@@ -445,7 +450,10 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the preset catalog, member locks, clipboard and history steps, and one restore and forget row per history entry."""
         commands = self.commands
-        lines = accumulated(realized(buttons, identity) for buttons in (tuple(OperatorButton(target=commands[verb]) for verb in (Verb.COPY, Verb.PASTE)), _steps(commands[Verb.RESTORE], 1)))
+        lines = accumulated(
+            realized(buttons, identity)
+            for buttons in (tuple(OperatorButton(target=commands[command]) for command in (StoreCommand.COPY, StoreCommand.PASTE)), _steps(commands[StoreCommand.RESTORE], 1))
+        )
         listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
         return paired(self.attached(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
 
@@ -454,17 +462,17 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
         commands, found = self.commands, hosted(attached.name, context)
         for draw in listing.to_list():
             draw(layout, holder, context)
-        for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(Verb.LOCK)).to_list()):
+        for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(StoreCommand.LOCK)).to_list()):
             kept, group, declared = attached.locks(host), attached.struct(host), annotated(attached.form)
             alerted(layout, kept)
             locks = kept.default_value(frozenset())
             for prop in (prop for prop in definition(group).properties if prop.identifier in declared):
                 keywords: Keywords = {"text": prop.name, "text_ctxt": prop.translation_context, "icon": "LOCKED" if prop.identifier in locks else "UNLOCKED"}
-                alerted(layout, pressed(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
+                alerted(layout, operator_button(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
         layout.separator()
         for draw in lines:
             draw(layout.row(align=True), holder, context)
-        held = found.bind(attached.held)
+        held = found.bind(attached.history)
         entries = held.map(
             lambda value: (*((index, entry.moment) for index, entry in enumerate(value.past, 1)), *((-index, entry.moment) for index, entry in enumerate(value.future, 1)))
         ).default_value(())
@@ -473,14 +481,16 @@ class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=Tr
             alerted(
                 line,
                 paired(
-                    pressed(line, identity, Placement(commands[Verb.RESTORE], chosen), {"text": f"{moment.astimezone():%X}", "translate": False, "icon": "BACK" if offset > 0 else "FORWARD"}),
-                    pressed(line, identity, Placement(commands[Verb.FORGET], chosen), {"text": "", "icon": "X"}),
+                    operator_button(
+                        line, identity, Placement(commands[StoreCommand.RESTORE], chosen), {"text": f"{moment.astimezone():%X}", "translate": False, "icon": "BACK" if offset > 0 else "FORWARD"}
+                    ),
+                    operator_button(line, identity, Placement(commands[StoreCommand.FORGET], chosen), {"text": "", "icon": "X"}),
                 ),
             )
         alerted(layout, held)
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires the verb operators and the preset catalog over the bound attachment."""
+        """Acquires the command operators and the preset catalog over the bound attachment."""
         return self.listing(identity).map(lambda listing: (*self.commands.values(), *listing.to_list()))
 
 
@@ -538,4 +548,4 @@ def _concluded[V](change: Option[V]) -> operators.Answer:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Captured", "Listing", "Replacement", "Store", "Verb", "hosted", "menu_key"]
+__all__ = ["Captured", "Listing", "Replacement", "Store", "StoreCommand", "hosted", "menu_key"]

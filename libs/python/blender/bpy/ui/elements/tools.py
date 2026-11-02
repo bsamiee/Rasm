@@ -18,11 +18,11 @@ from blender.bpy.commands.keymaps import Bindings, resolved, Row
 from blender.bpy.commands.operators import Operator
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.ui.drawing.handlers import Drawing, Drew
+from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.ui.drawing.handlers import DrawCallback, Drawing
+from blender.bpy.ui.elements.gizmos import GizmoGroup
 from blender.bpy.ui.layout.rows import acquired, realized, RowContent, RowDraw
 from blender.bpy.ui.resources.icons import Icons
-from blender.bpy.ui.surfaces.gizmos import Gizmos
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -38,9 +38,9 @@ type _Draws = tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]
 class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     """Toolbar tool labelled by its key, running an operator, with its icon, key bindings in the tool keymap, widget group, cursor drawing, and header settings.
 
-    `icon` names a stock geometry icon (`ops.generic.select_circle`) or a staged `.dat` geometry icon, the only icon form the toolbar loads.
+    `icon` names a stock geometry icon (`ops.generic.select_circle`) or a packaged `.dat` geometry icon, the only icon form the toolbar loads.
     `settings` draw over the operator's tool properties, every visible one while none is declared, `widget_settings` over the widget group's properties, and `extra_settings` in the host's extra options popover the header opens.
-    A brush type narrows a brush tool's brushes and requires `USE_BRUSHES`.
+    Brush type narrows a brush tool's brushes and requires `USE_BRUSHES`.
     """
 
     key: Key
@@ -49,7 +49,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     bindings: Bindings = ()
     description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = Nothing
     cursor: "Option[rna_enums.WindowCursorItems]" = Nothing
-    widget: Option[Gizmos | type[bpy.types.GizmoGroup]] = Nothing
+    widget: Option[GizmoGroup | type[bpy.types.GizmoGroup]] = Nothing
     widget_properties: tuple[tuple[str, object], ...] = ()
     pointer: Option[Drawing[S]] = Nothing
     options: frozenset[Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] = frozenset()
@@ -59,8 +59,12 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     widget_settings: tuple[RowContent, ...] = ()
     extra_settings: tuple[RowContent, ...] = ()
 
+    def named(self, identity: Identity) -> Outcome[str]:
+        """Returns the tool `bl_idname` its class and activation share."""
+        return identity.name(bpy.types.Operator, self.key)
+
     def __post_init__(self) -> None:
-        """Refuses a brush type on a tool that offers no brushes, and a staged icon the toolbar cannot load."""
+        """Refuses a brush type on a tool that offers no brushes, and a packaged icon the toolbar cannot load."""
         if self.brush_type.is_some() and "USE_BRUSHES" not in self.options:
             raise ValueError(self.key)
         if isinstance(self.icon, Path) and self.icon.suffix != ".dat":
@@ -84,8 +88,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
     def activation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> Outcome[Placement]:
         """Returns the `wm.tool_set_by_id` placement activating the tool in its space."""
-        flags = {flag: True for flag, stated in (("cycle", cycle), ("as_fallback", as_fallback)) if stated}
-        return identity.name(bpy.types.Operator, tool.key).map(lambda name: Placement(bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": self.space, **flags}))
+        return tool.named(identity).map(lambda name: Placement(bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": self.space, "cycle": cycle, "as_fallback": as_fallback}))
 
     # --- [REGISTRATION]
 
@@ -96,21 +99,21 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             row
             for tool, pointed in zip(self.tools, pointers, strict=True)
             for row in (
-                *(widget for widget in tool.widget.to_list() if isinstance(widget, Gizmos)),
+                *(widget for widget in tool.widget.to_list() if isinstance(widget, GizmoGroup)),
                 *(row for rows, _ in pointed.to_list() for row in rows),
                 *acquired((*tool.settings, *tool.widget_settings, *tool.extra_settings)),
             )
         )
-        return Ok((*held, (Band.INTERFACE, _registered(self, identity, tuple(pointed.map(lambda pair: pair[1]) for pointed in pointers)))))
+        return Ok((*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.map(lambda pair: pair[1]) for pointed in pointers)))))
 
-    def drafted(self, identity: Identity, tool: Tool[S], pointer: Option[Drew]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
+    def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
         """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
         match tool.operator:
             case Operator(invoke=Option(tag="some", some=Pick(cursor=picked))):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
                 pending = Nothing
-        widget = tool.widget.map(lambda held: (held.named(identity) if isinstance(held, Gizmos) else Ok(definition(held).identifier)).map(Some)).default_value(Ok(Nothing))
+        widget = tool.widget.map(lambda held: (held.named(identity) if isinstance(held, GizmoGroup) else Ok(definition(held).identifier)).map(Some)).default_value(Ok(Nothing))
 
         def realizing(rows: tuple[RowContent, ...]) -> Outcome[Option[RowDraw]]:
             """Realizes declared rows into one draw, Nothing while none is declared."""
@@ -133,12 +136,12 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 "bl_keymap": rows or None,
                 "bl_operator": operator,
                 "draw_settings": partial(_settings, operator, group, draws),
-                "draw_cursor": pointer.map(lambda drew: partial(_pointed, drew)).to_optional(),
+                "draw_cursor": pointer.map(lambda callback: partial(_pointed, callback)).to_optional(),
             }
             return type(name, (bpy.types.WorkSpaceTool,), native)
 
         drawn = paired(realizing(tool.settings), realizing(tool.widget_settings), realizing(tool.extra_settings))
-        return paired(identity.name(bpy.types.Operator, tool.key), idname(identity, tool.operator), resolved(identity, tool.bindings), widget, drawn).map(lambda parts: built(*parts))
+        return paired(tool.named(identity), idname(identity, tool.operator), resolved(identity, tool.bindings), widget, drawn).map(lambda parts: built(*parts))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -147,8 +150,8 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
 
 @contextmanager
-def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[Drew], ...]) -> Generator[Outcome[None]]:
-    """Registers each tool in order for the scope after the one before, named by the `bl_idname` its class is built under, the host building its keymap in the add-on keyconfig, stopping at the first refusal."""
+def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[DrawCallback], ...]) -> Generator[Outcome[None]]:
+    """Registers each tool after the one before for the scope, stopping at the first refusal."""
     with ExitStack() as stack:
 
         def placed(classes: tuple[type[bpy.types.WorkSpaceTool], ...], result: Outcome[None], order: int) -> Outcome[None]:
@@ -163,7 +166,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
                 )
             )
 
-        drafts = accumulated(tools.drafted(identity, tool, pointer) for tool, pointer in zip(tools.tools, pointers, strict=True))
+        drafts = accumulated(tools.tool_class(identity, tool, pointer) for tool, pointer in zip(tools.tools, pointers, strict=True))
         yield drafts.bind(lambda classes: reduce(partial(placed, classes), range(len(classes)), Result[None, Faults](ok=None)))
 
 
@@ -190,9 +193,9 @@ def _settings(operator: str, group: Option[str], draws: _Draws, context: bpy.typ
         layout.popover("TOPBAR_PT_tool_settings_extra", text="...")
 
 
-def _pointed(drew: Drew, _context: bpy.types.Context, _tool: bpy.types.WorkSpaceTool, xy: tuple[int, int]) -> None:
+def _pointed(callback: DrawCallback, _context: bpy.types.Context, _tool: bpy.types.WorkSpaceTool, xy: tuple[int, int]) -> None:
     """Draws the cursor drawing at the pointer in window pixels."""
-    drew("POST_PIXEL", Some(xy))
+    callback("POST_PIXEL", Some(xy))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -17,20 +17,20 @@ import PyOpenColorIO
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import case_choices, enum_choices
 from blender.bpy.data.rna.paths import struct_at
+from blender.bpy.data.rna.properties import case_choices, enum_choices
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.desired import Graph, Members
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.trees import active_output, created, endpoints, group_tree, Holder, joined, OUTPUT_NODES, socket_at, tree_of
+from blender.bpy.nodes.trees import active_output, created, endpoints, group_tree, Holder, linked, socket_at, tree_of
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.results import intermediate
 from blender.bpy.render.previews.scenes import Ambient, Fitted, PreviewLighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, SURFACES
 from blender.bpy.scene.materials import Clay, shaded
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.surfaces.panels import Preference
+from blender.bpy.ui.elements.panels import Preference
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -85,7 +85,7 @@ class NodePreviews(bpy.types.PropertyGroup):
     key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=_LIGHTING.key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scale: bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     position: bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=enum_choices(Position))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    enlarged: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_enlarge: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     enlarge: bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     checker: bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     status: bpy.props.BoolProperty(name="Status Marks", description="Queued and failed marks on thumbnails", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -163,9 +163,9 @@ def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settin
 
     def chosen(node: bpy.types.Node, setting: NodeSetting) -> tuple[str, ...]:
         eligible = outputs_of(node)
-        linked = tuple(socket.identifier for socket in eligible if socket.is_linked)
+        used = tuple(socket.identifier for socket in eligible if socket.is_linked)
         picked = tuple(socket.identifier for socket in eligible if setting.use_output and socket.name == setting.output)
-        return linked if settings.every else (picked or linked or tuple(socket.identifier for socket in eligible))[:1]
+        return used if settings.every else (picked or used or tuple(socket.identifier for socket in eligible))[:1]
 
     def shown(node: bpy.types.Node) -> bool:
         match PreviewScope[settings.scope]:
@@ -181,7 +181,7 @@ def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settin
             return Some(RenderKind.GEOMETRY_CLAY) if socket.type == "GEOMETRY" else Some(RenderKind.FIELD_SWATCH) if settings.fields and isinstance(node, bpy.types.ShaderNode) else Nothing
 
         return (
-            socket_at(node.inputs if isinstance(node, OUTPUT_NODES) else node.outputs, identifier)
+            socket_at(node.outputs, identifier)
             .to_option()
             .bind(lambda socket: kind(socket).map(lambda found: Target(editor=editor, node=node.name, socket=identifier, kind=found, valued=socket.type in _VALUED)))
         )
@@ -246,13 +246,13 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target, copies: Exi
     """Copies the holder and every group down the target's editor path for the copies' scope, exposing the target output on the copied holder's tree.
 
     Args:
-        identity: Extension whose marks the copies hold.
+        identity: Extension marking the copies.
         holder: Tree holder nesting target node.
         target: Route of copies.
         copies: Scope removing the copies.
 
     Returns:
-        Copied holder and the socket carrying the target output.
+        Copied holder and the socket holding the target output.
     """
 
     def found(tree: bpy.types.NodeTree, name: str) -> Outcome[bpy.types.Node]:
@@ -262,7 +262,7 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target, copies: Exi
         return (
             active_output(inner)
             .bind(lambda output: socket_at(output.inputs, "__extend__"))
-            .bind(lambda extend: joined(inner, source, extend, handle_dynamic_sockets=True))
+            .bind(lambda extend: linked(inner, source, extend, handle_dynamic_sockets=True))
             .map(lambda link: endpoints(link)[3].identifier)
         )
 
@@ -291,7 +291,7 @@ def rendered(identity: Identity, preview: PreviewScene, target: Target, size: in
     aov: Outcome[Option[str]] = identity.identifier(PreviewScene.value).map(Some) if target.valued else Ok(Nothing)
 
     def staged(lit: PreviewLighting, **changes: object) -> Outcome[Staging]:
-        return lit.environment.map(lambda world: msgspec.structs.replace(Staging(source=scene, size=(size, size), world=world, lamp=lit.lamp), **changes))
+        return lit.environment.map(lambda world: msgspec.structs.replace(Staging(source=scene, size=(size, size), world=world, sun=lit.sun), **changes))
 
     def swatched() -> Outcome[bpy.types.Material]:
         def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
@@ -300,13 +300,13 @@ def rendered(identity: Identity, preview: PreviewScene, target: Target, size: in
 
         def graph(source: bpy.types.Node, name: Option[str]) -> Outcome[Graph]:
             own: Members = {member.path: member.read(source) for member in Descriptor.saved(source, lambda prop: not prop.is_readonly and prop.identifier not in bpy.types.Node.bl_rna.properties)}
-            coordinates = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Generated", shape=bpy.types.NodeSocketVector, label=Some("coordinates"))
+            coordinates = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Generated", socket_type=bpy.types.NodeSocketVector, key=Some("coordinates"))
             inputs = tuple((item.identifier, coordinates if item.type == "VECTOR" else held) for item in source.inputs if not item.is_linked for held in defaulted(item).to_list())
-            field = Expr(kind=type(source), inputs=inputs, members=own, socket=target.socket, label=Some("field"))
-            emission = Expr(kind=bpy.types.ShaderNodeEmission, inputs=(("Color", field),), socket="Emission", label=Some("emission"))
+            field = Expr(kind=type(source), inputs=inputs, members=own, socket=target.socket, key=Some("field"))
+            emission = Expr(kind=bpy.types.ShaderNodeEmission, inputs=(("Color", field),), socket="Emission", key=Some("emission"))
             roots = (
-                Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", emission),), members={"target": "ALL"}, label=Some("output")),
-                *(Expr(kind=bpy.types.ShaderNodeOutputAOV, inputs=(("Value", field),), members={"aov_name": held}, label=Some("aov")) for held in name.to_list()),
+                Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", emission),), members={"target": "ALL"}, key=Some("output")),
+                *(Expr(kind=bpy.types.ShaderNodeOutputAOV, inputs=(("Value", field),), members={"aov_name": held}, key=Some("aov")) for held in name.to_list()),
             )
             return functions.lowered(bpy.types.ShaderNodeTree, *roots)
 
@@ -316,22 +316,22 @@ def rendered(identity: Identity, preview: PreviewScene, target: Target, size: in
             .map(lambda root: editor.tree(root) if isinstance(root, bpy.types.NodeTree) else Nothing)
             .bind(lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(partial(Fault.of, Reason.ABSENT, repr(editor), member=target.node)))
         )
-        material = SWATCH.made(identity, lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Swatch").map_error(partial(Fault.of, Reason.REFUSED, SWATCH.key)))
+        material = SWATCH.created(identity, bpy.data.materials.new, "Swatch")
         return paired(found, aov, material).bind(lambda parts: paired(graph(parts[0], parts[1]), tree_of(parts[2])).bind(lambda pair: reconciled(*pair, identity)).map(lambda _: parts[2]))
 
     def clayed(copies: ExitStack) -> Outcome[bpy.types.Object]:
-        def clothed(group: bpy.types.NodeTree, carried: bpy.types.NodeSocket, material: bpy.types.Material) -> Outcome[None]:
-            def set_material(output: bpy.types.NodeGroupOutput, node: bpy.types.Node) -> Outcome[None]:
+        def material_set(group: bpy.types.NodeTree, upstream: bpy.types.NodeSocket, material: bpy.types.Material) -> Outcome[None]:
+            def connected(output: bpy.types.NodeGroupOutput, node: bpy.types.Node) -> Outcome[None]:
                 return accumulated((
-                    socket_at(node.inputs, "Geometry").bind(lambda socket: joined(group, carried, socket)),
-                    socket_at(node.outputs, "Geometry").bind(lambda socket: joined(group, socket, output.inputs[0])),
+                    socket_at(node.inputs, "Geometry").bind(lambda socket: linked(group, upstream, socket)),
+                    socket_at(node.outputs, "Geometry").bind(lambda socket: linked(group, socket, output.inputs[0])),
                     socket_at(node.inputs, "Material").bind(lambda socket: written(socket, ("default_value",), material)),
                 )).map(lambda _: None)
 
-            return paired(active_output(group), created(group, bpy.types.GeometryNodeSetMaterial)).bind(lambda pair: set_material(*pair))
+            return paired(active_output(group), created(group, bpy.types.GeometryNodeSetMaterial)).bind(lambda pair: connected(*pair))
 
-        def dressed(source: bpy.types.Object, carried: tuple[Holder, bpy.types.NodeSocket], material: bpy.types.Material) -> Outcome[bpy.types.Object]:
-            holder, socket = carried
+        def prepared(source: bpy.types.Object, held: tuple[Holder, bpy.types.NodeSocket], material: bpy.types.Material) -> Outcome[bpy.types.Object]:
+            holder, socket = held
             return paired(tree_of(holder), copied(identity, source, copies)).bind(
                 lambda pair: accumulated((
                     written(pair[1], ("parent",), None),
@@ -342,14 +342,12 @@ def rendered(identity: Identity, preview: PreviewScene, target: Target, size: in
                         for later in itertools.dropwhile(lambda modifier: modifier.name != editor.modifier, pair[1].modifiers)
                         if later.name != editor.modifier
                     ),
-                    clothed(pair[0], socket, material),
+                    material_set(pair[0], socket, material),
                 )).map(lambda _: pair[1])
             )
 
-        clay = CLAY.made(identity, lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Clay").map_error(partial(Fault.of, Reason.REFUSED, CLAY.key))).bind(
-            lambda material: shaded(material, Clay(), identity)
-        )
-        return paired(editor.item.resolve(), editor.held().bind(lambda group: routed(identity, group, target, copies)), clay).bind(lambda parts: dressed(*parts))
+        clay = CLAY.created(identity, bpy.data.materials.new, "Clay").bind(lambda material: shaded(material, Clay(), identity))
+        return paired(editor.item.resolve(), editor.held().bind(lambda group: routed(identity, group, target, copies)), clay).bind(lambda parts: prepared(*parts))
 
     with intermediate(identity, scene), ExitStack() as copies:
         match target.kind:

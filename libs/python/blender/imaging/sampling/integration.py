@@ -41,7 +41,7 @@ class Precision(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Estimate with replicate standard error and no exactness certificate."""
+    """Estimated value with replicate standard error."""
 
     value: T
     standard_error: npt.NDArray[np.float64]
@@ -108,7 +108,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         """Estimates mean disc coverage and covered `paint` tone over each pixel of `raster`, each disc's Sobol net rotated by its own draws.
 
         Returns:
-            `(rows, columns, 2)` coverage and covered paint, or numeric refusal.
+            `(rows, columns, 2)` coverage and covered paint, or `FAILED` fault.
         """
 
         @catch(exception=FloatingPointError)
@@ -155,7 +155,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 def placement[V: Elementwise, B](
     cell: tuple[V, V], draws: Sequence[V], ns: Namespace[V, B], *, spacing: V | float, diameter: V | float, variation: V | float, spread: V | float, scale: V | float = 1.0
 ) -> tuple[V, V, V, V]:
-    """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms, every population value an operand of the namespace, such as group inputs over node expressions.
+    """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms, every population value an operand of the namespace (group inputs over node expressions).
 
     Args:
         cell: Lattice column and row.

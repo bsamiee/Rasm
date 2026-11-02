@@ -19,8 +19,8 @@ from blender.bpy.data.ids.ownership import kept, Ownership
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import chosen, Objects, Scenes, Scope, scope_choice, SCOPE_COLLECTION, Selection, ViewLayers
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import mirrored
 from blender.bpy.data.rna.paths import definition, RnaPath, rooted, Struct
+from blender.bpy.data.rna.properties import redeclared
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.scene.collections import relinked
@@ -35,7 +35,6 @@ type _Step = Callable[[], Outcome[None]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EDIT: Final = "EDIT"
 _LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, ("levels",), bpy.types.IntProperty)
 _RENDER_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, ("render_levels",), bpy.types.IntProperty)
 VERTEX: Final = Descriptor.declared(bpy.types.MeshVertex, ("co",), bpy.types.FloatProperty)
@@ -78,8 +77,8 @@ class ObjectState(msgspec.Struct, frozen=True, kw_only=True):
 class LevelEdit(bpy.types.PropertyGroup):
     """Viewport and render subdivision levels within Subsurf bounds and the objects they write."""
 
-    levels: mirrored(_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    render_levels: mirrored(_RENDER_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    levels: redeclared(_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    render_levels: redeclared(_RENDER_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scope: scope_choice(Selection)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
@@ -88,7 +87,7 @@ class LevelEdit(bpy.types.PropertyGroup):
 # --- [READS]
 
 
-def focused(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
+def active_object(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
     """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
     return Option.of_optional(objects.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(objects), member="active"))
@@ -249,7 +248,7 @@ def _diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.type
     return accumulated((
         *data.map(
             lambda block: unchanged.filter_with(
-                lambda _: item.data == block or item.mode != _EDIT, lambda _: Fault.of(Reason.OUTSIDE, f"{item!r}.mode", item.mode, member="a mode other than Edit Mode, where data writes drop")
+                lambda _: item.data == block or item.mode != "EDIT", lambda _: Fault.of(Reason.OUTSIDE, f"{item!r}.mode", item.mode, member="a mode other than Edit Mode, where data writes drop")
             )
         ).to_list(),
         *state.material_slots.map(resized).to_list(),
@@ -264,7 +263,7 @@ def _diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.type
     )).map(lambda parts: tuple(chain.from_iterable(parts)))
 
 
-def reconciling(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], Outcome[Applied]]]:
+def _reconciler(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], Outcome[Applied]]]:
     """Resolves state handles once, returning per-object reconcile writing placement in parent frame."""
     framed = state.placement.map(
         lambda matrix: Snapshot.of(bpy.types.Object, {("matrix_parent_inverse",): tuple(np.eye(4).ravel().tolist()), ("matrix_basis",): tuple(np.asarray(matrix, np.float64).T.ravel().tolist())})
@@ -301,7 +300,7 @@ def reconciling(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple
 
 def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> Outcome[Applied]:
     """Reconciles object to state, returning its value writes."""
-    return reconciling(state).bind(lambda each: each(item, layers))
+    return _reconciler(state).bind(lambda each: each(item, layers))
 
 
 # --- [GEOMETRY]
@@ -316,7 +315,7 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
         faces: Corner vertex indices, one row per face of equal corner count.
 
     Returns:
-        `Ok` once geometry matches, or `edit` fault.
+        `Ok` once geometry matches, or `refused` fault.
     """
     live, loops, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
     mesh.vertices.foreach_get("co", live)
@@ -359,10 +358,10 @@ def targets(scope: Scope, context: bpy.types.Context) -> Outcome[tuple[tuple[bpy
 
 def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> Outcome[tuple[Applied, ...]]:
     """Reconciles every scope object to state, accumulating faults."""
-    return paired(reconciling(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
+    return paired(_reconciler(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
 
 
-def levelled(levels: Mapping[RnaPath, Value], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
+def leveled(levels: Mapping[RnaPath, Value], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
     """Writes subdivision levels to each Subsurf and Multires modifier in scope.
 
     Args:
@@ -388,7 +387,7 @@ def levelled(levels: Mapping[RnaPath, Value], scope: Scope, context: bpy.types.C
 @Operator.of(LevelEdit, presets=True)
 def subdivision_levels(call: Call[LevelEdit]) -> Outcome[Answer]:
     """Writes subdivision levels to the modifiers in scope."""
-    return levelled({("levels",): call.properties.levels, ("render_levels",): call.properties.render_levels}, chosen(call.properties), call.context)
+    return leveled({("levels",): call.properties.levels, ("render_levels",): call.properties.render_levels}, chosen(call.properties), call.context)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -401,12 +400,12 @@ __all__ = [
     "ObjectState",
     "Stack",
     "StackEntry",
+    "active_object",
     "corners",
     "descendants",
     "extent",
     "fanned",
-    "focused",
-    "levelled",
+    "leveled",
     "owned_object",
     "reconciled",
     "shaped",

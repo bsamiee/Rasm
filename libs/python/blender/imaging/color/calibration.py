@@ -84,7 +84,7 @@ class PublishedChart(IntEnum):
         return np.array((self.checker.columns, self.checker.rows), dtype=np.int64)
 
     def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[Colors]:
-        """Returns white-adapted patch RGB in `colorspace`, or color faults."""
+        """Returns white-adapted patch RGB in `colorspace`."""
         patches = colour.xyY_to_XYZ(np.array(tuple(self.checker.data.values()), dtype=np.float64))
         white = np.asarray(colour.xy_to_XYZ(self.checker.illuminant), dtype=np.float64)
         return (
@@ -162,18 +162,19 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         return Option.of_optional(self.panorama).map(lambda panorama: panorama.source.extension).default_value((OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black))
 
     @property
-    def aligned(self) -> Outcome[Option[Homography]]:
-        """Convex chart map in alignment frame, absent for undefined or nonconvex corners."""
+    def viewed(self) -> Option[Quad]:
+        """Corners in alignment frame, absent while a corner falls behind the panorama view."""
         return (
             Option
             .of_optional(self.panorama)
-            .map(
-                lambda panorama: (
-                    Some(panorama.to_view(self.quad.samples)).filter(lambda viewed: bool(np.all(viewed[:, 2] > 0.0))).map(lambda viewed: Homography.of(Quad.of(viewed))).default_value(Ok(Nothing))
-                )
-            )
-            .default_with(lambda: Homography.of(self.quad))
+            .map(lambda panorama: Some(panorama.to_view(self.quad.samples)).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(Quad.of))
+            .default_value(Some(self.quad))
         )
+
+    @property
+    def aligned(self) -> Outcome[Option[Homography]]:
+        """Convex chart map in alignment frame, absent for undefined or nonconvex corners."""
+        return self.viewed.map(Homography.of).default_value(Ok(Nothing))
 
     def mapping(self, homography: Homography) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """Returns chart-to-source map for aligned homography."""
@@ -247,7 +248,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     """Invertible output-channel RGB rows with factored exposure in stops."""
 
-    gained: tuple[Rgb, Rgb, Rgb] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    color_matrix: tuple[Rgb, Rgb, Rgb] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
     exposure: Stops = 0.0
 
     def __post_init__(self) -> None:
@@ -257,13 +258,13 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def fit(cls, samples: tuple[tuple[Rgb, Rgb], ...]) -> Outcome[Self]:
-        """Returns the Cheung 2004 linear fit of measured onto reference colors, or numeric and ill-conditioned fit faults."""
+        """Returns the Cheung 2004 linear fit of measured onto reference colors, `FAILED` fault for a singular fit, or `OUTSIDE` fault for an ill-conditioned one."""
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
         return (
             catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
             .map_error(functools.partial(Fault.of, Reason.FAILED, str(source)))
             .bind(
-                lambda found: catch(msgspec.convert, exception=msgspec.ValidationError)({"gained": np.asarray(found, dtype=np.float64).tolist()}, cls).map_error(
+                lambda found: catch(msgspec.convert, exception=msgspec.ValidationError)({"color_matrix": np.asarray(found, dtype=np.float64).tolist()}, cls).map_error(
                     functools.partial(Fault.of, Reason.OUTSIDE, cls.__name__, member=f"matrix condition below {_CEILING:.3g}")
                 )
             )
@@ -272,12 +273,12 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def condition(self) -> float:
         """Condition number of the RGB rows."""
-        return float(np.linalg.cond(np.array(self.gained, dtype=np.float64)))
+        return float(np.linalg.cond(np.array(self.color_matrix, dtype=np.float64)))
 
     @property
     def inverted(self) -> Self:
         """Calibration undoing this one, its exposure negated."""
-        return msgspec.convert({"gained": np.linalg.inv(np.array(self.gained, dtype=np.float64)).tolist(), "exposure": -self.exposure}, type(self))
+        return msgspec.convert({"color_matrix": np.linalg.inv(np.array(self.color_matrix, dtype=np.float64)).tolist(), "exposure": -self.exposure}, type(self))
 
     def normalized(
         self, source: Rgb, target: Rgb, config: PyOpenColorIO.Config, *, source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR, target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR
@@ -295,12 +296,12 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def matrix(self) -> npt.NDArray[np.float64]:
         """RGB rows without factored exposure."""
-        return np.array(self.gained, dtype=np.float64) * math.exp2(-self.exposure)
+        return np.array(self.color_matrix, dtype=np.float64) * math.exp2(-self.exposure)
 
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:
         """OCIO matrix transform with exposure."""
-        return matrix(np.array(self.gained, dtype=np.float64))
+        return matrix(np.array(self.color_matrix, dtype=np.float64))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

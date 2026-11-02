@@ -15,7 +15,7 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import alerted
 from blender.bpy.ui.layout.members import marked, Member, ResolvedMember
-from blender.bpy.ui.layout.rows import acquired, Line, Property, realized, RowContent, RowDraw, split
+from blender.bpy.ui.layout.rows import acquired, ConditionalRow, Property, realized, RowContent, RowDraw, split
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -26,7 +26,7 @@ type Branch[L: Struct, C: Struct] = tuple[int, L, tuple[Option[C], ...]]
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Matrix(Line, frozen=True, kw_only=True):
+class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
     """Setting rows across the owners of an edit scope under the owners' names, each compound pointer drawn through its host editor under the cell action, each field beside it.
 
     Rows a cell action draws register through their owner.
@@ -74,8 +74,8 @@ class Matrix(Line, frozen=True, kw_only=True):
                     drawing(cells.column(), owner, context)
 
 
-class Tree(Line, frozen=True, kw_only=True):
-    """Resolved paths listed once per prefix, indented by depth, files and folders under their glyphs."""
+class Tree(ConditionalRow, frozen=True, kw_only=True):
+    """Resolved paths listed once per prefix, indented by depth, files and folders under their icons."""
 
     paths: Callable[[bpy.types.Context], Outcome[tuple[PurePath, ...]]]
 
@@ -84,7 +84,7 @@ class Tree(Line, frozen=True, kw_only=True):
         return Ok(self.shown)
 
     def shown(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
-        """Draws every path prefix once in order, indented by depth, a file glyph on full paths and a folder glyph on the rest."""
+        """Draws every path prefix once in order, indented by depth, a file icon on full paths and a folder icon on the rest."""
         found = self.paths(context)
         alerted(layout, found)
         for paths in found.to_option().to_list():
@@ -96,7 +96,7 @@ class Tree(Line, frozen=True, kw_only=True):
                 line.label(text=node[-1], icon="FILE_BLANK" if node in files else "FILE_FOLDER", translate=False)
 
 
-class TreeMatrix[L: Struct, C: Struct](Line, frozen=True, kw_only=True):
+class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True):
     """Tree rows indented by depth under the column owners' names, each label struct's name and marks in the label cell, one cell drawn per column owner the row holds."""
 
     tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[Branch[L, C], ...]]]
@@ -162,4 +162,4 @@ def _beside(field: RowDraw, action: Option[RowDraw], layout: bpy.types.UILayout,
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Branch", "Editor", "Matrix", "Tree", "TreeMatrix"]
+__all__ = ["Branch", "Editor", "SettingsTable", "Tree", "TreeTable"]

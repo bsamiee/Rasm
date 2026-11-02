@@ -16,15 +16,16 @@ from idprop.types import IDPropertyGroup
 import msgspec
 import numpy as np
 from numpy.typing import NDArray
+from typing_extensions import TypeForm
 
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.paths import defined, definition, definition_at, Native, rna, RnaPath, root_in, Struct, struct_at
-from blender.records.faults import Fault, Faults, Outcome, Reason, typed
+from blender.records.faults import Fault, Outcome, Reason, typed
 
 if TYPE_CHECKING:
 
     class _UncoercedMember(bpy.types.Property):
-        """Uncoerced host member `path_resolve(name, False)` answers, which the stubs type as a bare property."""
+        """Uncoerced host member `path_resolve(name, False)` returns, which the stubs type as a plain `Property`."""
 
         def __len__(self) -> int: ...
 
@@ -35,8 +36,7 @@ if TYPE_CHECKING:
 
 type Scalar = bool | int | float | str
 type Value = Scalar | tuple[Scalar, ...] | IdName | None
-P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
-type _Uncoerced = _UncoercedMember
+_P_co = TypeVar("_P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -75,12 +75,12 @@ DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.flo
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
+class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
     """Property definition from root type, no live data."""
 
     root: type[Native]
     owner: RnaPath = ()
-    prop: P_co
+    prop: _P_co
     coordinates: tuple[int, ...] = ()
 
     # --- [RESOLUTION]
@@ -113,10 +113,10 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     @staticmethod
     def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: RnaPath, kind: type[K]) -> Outcome["Descriptor[K]"]:
-        """Resolves path to descriptor, choice fault for another kind.
+        """Resolves path to descriptor, outside fault for another kind.
 
         Args:
-            root: Struct type whose definitions the path walks, or live struct whose refined definitions answer.
+            root: Struct type whose definitions the path walks, or live struct whose refined definitions apply.
             path: RNA path from root to the member, element coordinates trailing.
             kind: Property class the member must hold.
 
@@ -152,7 +152,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     @staticmethod
     def located(root: Native, path: RnaPath) -> "Outcome[tuple[Native, Descriptor]]":
-        """Resolves path under a live root to the struct or collection holding the member and the member's descriptor, a collection holding the members its own definition declares (`RenderSlots.active`).
+        """Resolves path under a live root to the member's descriptor and holder, a collection holding members it declares (`RenderSlots.active`).
 
         Args:
             root: Live struct or collection the path starts from.
@@ -167,14 +167,14 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     @staticmethod
     def saved(root: type[Struct] | Native, where: Callable[[bpy.types.Property], bool] = lambda _: True, *, owned: Callable[[str], bool] = lambda _: False) -> "tuple[Descriptor, ...]":
-        """Returns host-declared members a saved file stores, ID, name, hidden, and registered members left out, with members a live struct's governor disables.
+        """Returns host-declared members a saved file stores, without ID, name, hidden, and registered members and members a live struct's governor disables.
 
-        A script assigning a property onto an existing class leaves its definition as a class attribute, which no host member, generated socket input, or group annotation holds.
-        Such a property stays out, so no read runs another add-on's callbacks, unless the host's bundled scripts define its pointed group (`Scene.cycles`) or `owned` names it.
-        A script pointer no write reached on a live struct stays out too: its storage holds no value, and a read would create storage the host saves.
+        Script properties assigned onto an existing class hold their definition as a class attribute, unlike host members and group annotations.
+        These stay out unless bundled scripts define the pointed group (`Scene.cycles`) or `owned` names them, no read running another add-on's callbacks.
+        Script pointers no write reached on a live struct stay out, a read creating storage the host saves.
 
         Args:
-            root: Struct type, or live struct whose refined definition answers.
+            root: Struct type, or live struct whose refined definition applies.
             where: Members kept beyond the saved rule.
             owned: Whether the reading extension declares a script property by its identifier, kept beside the host's own.
 
@@ -275,8 +275,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         """Returns declared numeric array dimensions, empty for other properties."""
         match prop:
             case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty() as array:
-                sizes: Iterable[int] = array.array_dimensions  # type: ignore[assignment]
-                return tuple(size for size in sizes if size)
+                return tuple(size for size in np.asarray(array.array_dimensions).tolist() if size)
             case _:
                 return ()
 
@@ -309,7 +308,13 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         """Compares floats by float32 bits, other values exactly."""
         if isinstance(self.prop, bpy.types.StringProperty) and isinstance(desired, bytes):
             desired = msgspec.to_builtins(desired) if self.prop.subtype == "BYTE_STRING" else os.fsdecode(desired)
-        return np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(desired, np.float32).view(np.uint32)) if isinstance(self.prop, bpy.types.FloatProperty) else held == desired
+        if isinstance(self.prop, bpy.types.FloatProperty):
+            return (
+                _converted(desired, float | tuple[float, ...], repr(self.prop))
+                .map(lambda number: np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(number, np.float32).view(np.uint32)))
+                .default_value(False)
+            )
+        return held == desired
 
     def write(self, owner: Native, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
         """Assigns value through the host, returning prior value or Nothing when equal.
@@ -319,7 +324,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             value: Stored value, `IdName` of a pointed ID, or struct.
 
         Returns:
-            Prior value, domain fault outside a range the host clamps, refusal fault carrying the host's error.
+            Prior value, outside fault outside a range the host clamps, refused fault holding the host's error.
         """
         name = self.prop.identifier
         prior = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)
@@ -333,16 +338,12 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         def stored() -> Outcome[object]:
             match self.prop, value:
                 case bpy.types.FloatProperty() as real, _:
-                    number: Outcome[float | tuple[float, ...]] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, float | tuple[float, ...]).map_error(
-                        partial(_outside, repr(real), value)
-                    )
-                    return number.bind(partial(self.quantized, real)).map(lambda held: tuple(held.tolist()) if held.ndim else float(held))
+                    return _converted(value, float | tuple[float, ...], repr(real)).bind(partial(self.quantized, real)).map(lambda held: tuple(held.tolist()) if held.ndim else float(held))
                 case bpy.types.IntProperty(hard_min=low, hard_max=high) as integer, _:
                     bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
                     return _converted(value, bounded | tuple[bounded, ...], repr(integer))
                 case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str(encoded):
-                    decoded: Outcome[bytes] = catch(msgspec.convert, exception=msgspec.ValidationError)(encoded, bytes).map_error(partial(_outside, repr(text), value))
-                    return decoded.bind(partial(self.validated, text))
+                    return _converted(encoded, bytes, repr(text)).bind(partial(self.validated, text))
                 case bpy.types.StringProperty() as text, str() | bytes() as content:
                     return self.validated(text, content)
                 case _:
@@ -374,7 +375,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     @staticmethod
     @np.errstate(over="ignore")
     def quantized(prop: bpy.types.FloatProperty, value: float | tuple[float, ...] | NDArray[np.float64]) -> Outcome[NDArray[np.float32]]:
-        """Returns float32 storage, domain fault outside hard range."""
+        """Returns float32 storage, outside fault outside hard range."""
         return Ok(np.asarray(value, dtype=np.float32)).filter_with(
             lambda target: not np.any((target < prop.hard_min) | (target > prop.hard_max)),
             lambda _: Fault.of(Reason.OUTSIDE, repr(prop), str(value), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
@@ -382,7 +383,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     @staticmethod
     def validated[T: str | bytes](prop: bpy.types.StringProperty, value: T) -> Outcome[T]:
-        """Returns storable value, domain fault for NUL or text past the host's length."""
+        """Returns storable value, outside fault for NUL or text past the host's length."""
         encoded = (os.fsencode(value) if prop.subtype in _PATHS else value.encode("utf-8")) if isinstance(value, str) else value
         text = Ok(value) if prop.subtype == "BYTE_STRING" else _converted(os.fsdecode(value) if prop.subtype in _PATHS else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")], repr(prop))
         return text.bind(lambda _: _converted(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)], repr(prop)) if prop.length_max else Ok(encoded)).map(lambda _: value)
@@ -428,8 +429,7 @@ def _kept(value: object) -> bool:
 def stored(struct: Struct, name: str) -> bool:
     """Whether a write left a value under a script pointer of struct.
 
-    The host creates a script pointer's storage on the first read, a drawn panel included, as empty groups and unset ID slots holding no value.
-    Storage alone so marks no write, and a struct whose storage holds no written leaf reads as never written.
+    Host creates a script pointer's storage on first read, a drawn panel included, and empty groups and unset ID slots count as no write.
 
     Args:
         struct: Struct declaring the script pointer.
@@ -513,24 +513,19 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tup
 # --- [READERS]
 
 
-def _uncoerced(owner: Struct, name: str) -> _Uncoerced:
+def _uncoerced(owner: Struct, name: str) -> "_UncoercedMember":
     """Returns a member's uncoerced host property, the msgbus key of its value and, for an array, its live length and buffer read."""
-    held: _Uncoerced = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    held: _UncoercedMember = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return held
 
 
-def _outside(subject: str, value: object, error: Exception) -> Faults:
-    """Returns the domain fault of a value a conversion refused."""
-    return Fault.of(Reason.OUTSIDE, subject, str(value), member=str(error))
-
-
-def _converted(value: object, kind: object, subject: str) -> Outcome[object]:
-    """Returns value converted to kind, domain fault naming the refused constraint."""
-    held: Outcome[object] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, kind).map_error(partial(_outside, subject, value))
+def _converted[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
+    """Returns value converted to kind, outside fault naming the refused constraint."""
+    held: Outcome[T] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, kind).map_error(lambda error: Fault.of(Reason.OUTSIDE, subject, str(value), member=str(error)))
     return held
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DTYPES", "LEADING", "Descriptor", "P_co", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "stored", "written"]
+__all__ = ["DTYPES", "LEADING", "Descriptor", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "stored", "written"]

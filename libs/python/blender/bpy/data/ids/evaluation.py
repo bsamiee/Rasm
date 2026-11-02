@@ -93,7 +93,7 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[Instance, ...]:
 
 
 def evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
-    """Returns updated layer depsgraph, edit fault while evaluation runs."""
+    """Returns updated layer depsgraph, refused fault while evaluation runs."""
     return (
         catch(view_layer.update, exception=RuntimeError)()
         .map_error(partial(Fault.of, Reason.REFUSED, repr(view_layer)))
@@ -118,14 +118,14 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
     """Returns object-space surface hit, Nothing on miss.
 
     Args:
-        source: Object whose evaluated surface answers.
+        source: Object whose evaluated surface the query tests.
         depsgraph: Evaluation the surface reads.
         origin: Object-space query point.
-        distance: Farthest answered distance.
+        distance: Farthest hit distance.
         direction: Ray direction casting from origin, Nothing for the nearest surface point.
 
     Returns:
-        Optional hit, edit fault for a refused query.
+        Optional hit, refused fault for a refused query.
     """
     queried: Result[tuple[bool, Vector, Vector, int], RuntimeError] = direction.map(
         lambda toward: catch(source.ray_cast, exception=RuntimeError)(origin, toward, distance=distance, depsgraph=depsgraph)

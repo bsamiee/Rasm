@@ -14,9 +14,9 @@ from blender.bpy.data.rna.paths import rna
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.render.compositor.effects import CompositorEffect, Entry
-from blender.bpy.render.compositor.entries import EffectRows
+from blender.bpy.render.compositor.entries import Enabled, relocated
 from blender.bpy.render.compositor.inputs import captured, hold, PreviewFrame, rebased, regrouped, restored
-from blender.bpy.render.compositor.placement import Enabled, relocated
+from blender.bpy.render.compositor.offered import OfferedEffects
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Name
 
@@ -48,7 +48,7 @@ class Valued[T](msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def recorded[R: Case](rows: EffectRows[R], identity: Identity, scene: bpy.types.Scene) -> Outcome[dict[Name, Valued[Entry[R]]]]:
+def recorded[R: Case](rows: OfferedEffects[R], identity: Identity, scene: bpy.types.Scene) -> Outcome[dict[Name, Valued[Entry[R]]]]:
     """Reads owned entry records, input values, and enables by name in stack order."""
     return accumulated(
         paired(held.row.read(identity, held.entry), captured(identity, held.entry)).map(
@@ -59,7 +59,7 @@ def recorded[R: Case](rows: EffectRows[R], identity: Identity, scene: bpy.types.
 
 
 def applied[R: Case](
-    rows: EffectRows[R],
+    rows: OfferedEffects[R],
     identity: Identity,
     scene: bpy.types.Scene,
     recipe: Mapping[Name, Valued[Entry[R]]],

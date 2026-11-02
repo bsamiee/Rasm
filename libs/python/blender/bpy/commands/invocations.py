@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import partial
 import inspect
 from pathlib import Path
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
@@ -15,8 +15,8 @@ import msgspec
 
 from blender.bpy.commands.operators import Body, Returns
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.data.rna.mirrors import annotated
 from blender.bpy.data.rna.paths import definition, preferred
+from blender.bpy.data.rna.properties import annotated
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import rendered
@@ -25,15 +25,19 @@ from blender.records.faults import Fault, Outcome, Reason
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_DIRECTORY: Final = bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"})
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
-    """Window manager popup the operator opens: confirmation, properties dialog or popup, redo popup, enum search, or a menu, pie, or popover `draw` lays out.
+    """Window manager popup: confirmation, properties dialog or popup, redo popup, enum search, or a menu, pie, or popover `draw` lays out.
 
-    `call` binds the host function's keywords, checked against its parameters at registration, its positional operator, event, and draw arguments following the function's own parameters.
-    A menu, pie, or popover outlives the operator the host frees once invoke answers, so `draw` reads no operator properties.
-    A redo popup adds `UNDO`, without which the host refuses it.
+    `call` binds host function keywords, checked at registration, with operator, event, and draw arguments in the function's parameter order.
+    Menu, pie, or popover outlives the operator the host frees once invoke returns, and `draw` reads no operator properties.
+    Redo popup adds `UNDO`, without which the host refuses it.
     """
 
     asks: ClassVar[bool] = True
@@ -42,7 +46,7 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
     draw: Option[Callable[[bpy.types.UILayout, bpy.types.Context, Identity], None]] = Nothing
 
     def classed(self, body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
-        """Derives the class invoking the bound host function, register fault for keywords or a draw the function does not take."""
+        """Derives the class invoking the bound host function, unregistered fault for keywords or a draw the function does not take."""
 
         def painted(popup: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, context: bpy.types.Context) -> None:
             layout: bpy.types.UILayout = popup.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -104,7 +108,7 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
             return body.finished(operator, body.performed(operator, context).bind(lambda answer: cleared(operator, context).map(lambda _: answer)))
 
-        def listed(layout: bpy.types.UILayout, _context: bpy.types.Context, properties: bpy.types.OperatorProperties, _identity: object) -> None:
+        def listed(layout: bpy.types.UILayout, _context: bpy.types.Context, properties: T, _identity: object) -> None:
             for prop in definition(properties).properties:
                 if prop.identifier in form and not prop.is_hidden:
                     layout.prop(properties, prop.identifier)
@@ -113,7 +117,7 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
             layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             layout.use_property_split = True
             layout.label_multiline(text=self.message(context, body.properties(operator)), icon=self.icon)
-            body.command.draw.default_value(listed)(layout, context, operator.properties, body.identity)
+            body.command.draw.default_value(listed)(layout, context, body.properties(operator), body.identity)
             layout.prop(operator.properties, "suppress")
 
         def built(_names: tuple[str, ...]) -> Acquisitions:
@@ -157,7 +161,7 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "__annotations__": {
                         "filter_glob": _globbed(self.extensions),
                         "files": bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={"HIDDEN", "SKIP_SAVE"}),
-                        "directory": bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"}),
+                        "directory": _DIRECTORY,
                     },
                     "check": _checking(ImportHelper, body),
                     "execute": execute,
@@ -190,10 +194,7 @@ class Folder(msgspec.Struct, frozen=True):
                 base,
                 body,
                 {
-                    "__annotations__": {
-                        "directory": bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"}),
-                        "filter_folder": bpy.props.BoolProperty(default=True, options={"HIDDEN", "SKIP_SAVE"}),
-                    },
+                    "__annotations__": {"directory": _DIRECTORY, "filter_folder": bpy.props.BoolProperty(default=True, options={"HIDDEN", "SKIP_SAVE"})},
                     "execute": execute,
                     "invoke": body.invoking(opened),
                 },
@@ -250,7 +251,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
 
 class Pick(msgspec.Struct, frozen=True, kw_only=True):
-    """Invocation the host defers until the pointer picks a location, showing the pending cursor, asking for no input since the pointer location comes with the event."""
+    """Invocation the host defers until the pointer picks a location, showing the pending cursor and asking for no input."""
 
     asks: ClassVar[bool] = False
     cursor: "rna_enums.WindowCursorItems"
@@ -264,15 +265,15 @@ class Pick(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _derived[T: bpy.types.PropertyGroup](base: type[bpy.types.Operator], body: Body[T], namespace: dict[str, object], /, *, mixins: tuple[type, ...] = ()) -> type[bpy.types.Operator]:
-    """Returns the class an invoke form registers in place of base, after the mixins, stating the command's primary property again since Blender reads it from a class's own namespace alone."""
-    derived: type[bpy.types.Operator] = type(base.__name__, (*mixins, base), {**body.command.property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
+    """Returns the class an invoke form registers for base, after the mixins, restating `bl_property`, read from a class's own namespace."""
+    derived: type[bpy.types.Operator] = type(base.__name__, (*mixins, base), {**body.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
     return derived
 
 
 def _accepted(function: Callable[..., object], named: tuple[str, ...], /) -> Outcome[tuple[str, ...]]:
-    """Returns the names a window manager function takes positionally once it takes every named keyword, register fault naming the keywords it lacks.
+    """Returns the names a window manager function takes positionally once it takes every named keyword, unregistered fault naming the keywords it lacks.
 
-    An RNA class function takes its required inputs positionally and its other inputs as keywords, a script method its leading parameters positionally and the rest as keywords.
+    RNA class functions take required inputs positionally and others as keywords, script methods leading parameters positionally and the rest as keywords.
     """
     positional, keywords = (
         Block

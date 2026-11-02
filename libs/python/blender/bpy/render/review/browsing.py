@@ -16,12 +16,12 @@ import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.mirrors import annotated, Callbacks, choices, enum_choices, EnumItem, held_choices, IconedItem, offered
 from blender.bpy.data.rna.paths import rna, RnaPath, rooted, Struct
+from blender.bpy.data.rna.properties import annotated, Callbacks, choices, enum_choices, EnumItem, held_choices, IconedItem, offered
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
@@ -35,11 +35,11 @@ from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import even, grouped, Label, Layout, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.templates import Gallery
-from blender.bpy.ui.resources.icons import Glyph
+from blender.bpy.ui.resources.icons import Icon
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import color, Metrics
 from blender.bpy.ui.screens.areas import EditorState
-from blender.imaging.analysis.comparison import Bar, Comparison, Metric, Severity
+from blender.imaging.analysis.comparison import Comparison, Metric, Severity, Threshold
 from blender.imaging.color.processors import DisplayView, Domain
 from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.stores import ContentHash
@@ -79,14 +79,18 @@ class Noting(bpy.types.PropertyGroup):
 
 
 class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Render history browsed per window manager, its picked render compared as a before frame under `glyph`, measured against `gates`, and restored or diffed against the scene.
+    """Render history browsed per window manager, its picked render compared as a before frame under `icon`, measured against `gates`, and restored or diffed against the scene.
 
     Stored renders and the shown frame draw through the scene's view, as the editor shows them, and the view layer ahead of effects through `view`, its exposure holding any gain the effects apply.
     """
 
-    glyph: Glyph
+    icon: Icon
     view: Callable[[Identity, bpy.types.Scene], Outcome[DisplayView]] = lambda _identity, scene: Ok(viewed(scene))
-    gates: tuple[Bar, ...] = (Bar(metric=Metric.PSNR, advisory=35.0, refuse=30.0), Bar(metric=Metric.NRMSE, advisory=0.05, refuse=0.10), Bar(metric=Metric.SSIM, advisory=0.98, refuse=0.95))
+    gates: tuple[Threshold, ...] = (
+        Threshold(metric=Metric.PSNR, advisory=35.0, refuse=30.0),
+        Threshold(metric=Metric.NRMSE, advisory=0.05, refuse=0.10),
+        Threshold(metric=Metric.SSIM, advisory=0.98, refuse=0.95),
+    )
     history: ClassVar[RenderHistory] = RenderHistory()
 
     # --- [BROWSING]
@@ -103,7 +107,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def listed(self, identity: Identity, _owner: Struct, _context: bpy.types.Context | None) -> tuple[_Row, *tuple[_Row, ...]]:
         """Item rows of the stored renders newest first under their preview tiles, each value fixed per stored render key, the `NONE` row while none is stored."""
-        previews = identity.held[PREVIEWS]
+        previews = identity.resources[PREVIEWS]
         return offered(
             held_choices(
                 tuple(
@@ -140,7 +144,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
         )
 
-    def beneath(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Renders, ContentHash]]:
+    def shown_render(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Renders, ContentHash]]:
         """Returns renders and the stored render the editor shows: the newest for Render Result, the one a stored image's ownership mark names for a stored image."""
 
         def shown(space: bpy.types.SpaceImageEditor, renders: Renders) -> Outcome[tuple[Renders, ContentHash]]:
@@ -171,7 +175,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 case _:
                     return Error(faults)
 
-        return self.beneath(identity, context).map(lambda pair: pair[0].named(pair[1])).or_else_with(imaged)
+        return self.shown_render(identity, context).map(lambda pair: pair[0].named(pair[1])).or_else_with(imaged)
 
     def note(self, identity: Identity, context: bpy.types.Context) -> tuple[str, ...]:
         """Returns the picked stored render's note, none while it holds none."""
@@ -192,7 +196,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     lambda found: self.history.formed(identity, found[2], found[0][1]).map(lambda plane: Before(plane=plane, name=found[0][0].named(found[0][1]), shown=found[1]))
                 )
             case Baseline.VIEW_LAYER:
-                return paired(self.beneath(identity, context), rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(
+                return paired(self.shown_render(identity, context), rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(
                     lambda found: (
                         self.history
                         .output(identity, found[0][1], Some(found[2].name))
@@ -213,7 +217,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def compared(self, identity: Identity, context: bpy.types.Context) -> Outcome[Comparison]:
         """Compares the browser's before frame with the frame the editor shows, both in the colors the editor shows them."""
-        shown = paired(self.beneath(identity, context), rooted(bpy.types.Scene, context)).bind(lambda found: self.history.formed(identity, found[1], found[0][1]))
+        shown = paired(self.shown_render(identity, context), rooted(bpy.types.Scene, context)).bind(lambda found: self.history.formed(identity, found[1], found[0][1]))
         return (
             self
             .browsed(identity, context)
@@ -231,12 +235,12 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def compare(self) -> CompareView:
         """Before frame over the shown image, redrawn on browser change and each stored render."""
-        return CompareView(key=f"{self.history.key}_compare", glyph=self.glyph, read=lambda identity, _metrics: self.before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=self.refreshes)
+        return CompareView(key=f"{self.history.key}_compare", icon=self.icon, read=lambda identity, _metrics: self.before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=self.refreshes)
 
     @staticmethod
     def refreshes(identity: Identity) -> Outcome[tuple[Refresh, ...]]:
         """Returns a refresh per browser field and the stored render signal."""
-        return Ok((*((Browsing, name) for name in annotated(Browsing)), identity.held[RenderHistory.signal]))
+        return Ok((*((Browsing, name) for name in annotated(Browsing)), identity.resources[RenderHistory.signal]))
 
     # --- [COMMANDS]
 
@@ -244,7 +248,11 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Writes the picked render's change to the stored renders, then fires the compare signal."""
         identity = call.identity
         return (
-            self.chosen(identity, call.context).bind(lambda pair: self.history.kept(identity, pair[0], change(*pair))).bind(lambda _: identity.held[RenderHistory.signal].fired()).map(lambda _: Done())
+            self
+            .chosen(identity, call.context)
+            .bind(lambda pair: self.history.kept(identity, pair[0], change(*pair)))
+            .bind(lambda _: identity.resources[RenderHistory.signal].fired())
+            .map(lambda _: Done())
         )
 
     def restore_settings(self, call: Call[Empty]) -> Outcome[Answer]:
@@ -257,7 +265,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return (
             self
             .chosen(call.identity, call.context)
-            .bind(lambda pair: paired(self.history.files(call.identity, pair[1])[1].read(), rooted(bpy.types.Scene, call.context)))
+            .bind(lambda pair: paired(self.history.snapshot(call.identity, pair[1]).read(), rooted(bpy.types.Scene, call.context)))
             .bind(lambda pair: restored(*pair))
         )
 
@@ -279,7 +287,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             self
             .chosen(call.identity, call.context)
             .bind(
-                lambda pair: paired(self.history.files(call.identity, pair[1])[1].read(), rooted(bpy.types.Scene, call.context).bind(lambda scene: Snapshot.capture(scene, owned=call.identity.owns)))
+                lambda pair: paired(self.history.snapshot(call.identity, pair[1]).read(), rooted(bpy.types.Scene, call.context).bind(lambda scene: Snapshot.capture(scene, owned=call.identity.owns)))
             )
             .map(lambda snapshots: Done(notes=tuple(("INFO", noted(edit)) for edit in diff(snapshots[0].tree, snapshots[1].tree)) or (("INFO", "Settings match stored render"),)))
         )
@@ -300,7 +308,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return (
             self
             .chosen(call.identity, call.context)
-            .bind(lambda pair: self.history.stored.made(call.identity, lambda: loaded(str(self.history.files(call.identity, pair[1])[0]), Tag(view_as_render=Some(True))), content=Some(pair[1])))
+            .bind(lambda pair: self.history.stored.made(call.identity, lambda: loaded(str(self.history.frame(call.identity, pair[1])), Tag(view_as_render=Some(True))), content=Some(pair[1])))
             .bind(shown)
         )
 
@@ -327,7 +335,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def clear_history(self, call: Call[Empty]) -> Outcome[Answer]:
         """Delete every stored render."""
         identity = call.identity
-        return self.history.held(identity).bind(lambda renders: self.history.kept(identity, renders, Renders())).bind(lambda _: identity.held[RenderHistory.signal].fired()).map(lambda _: Done())
+        return self.history.held(identity).bind(lambda renders: self.history.kept(identity, renders, Renders())).bind(lambda _: identity.resources[RenderHistory.signal].fired()).map(lambda _: Done())
 
     def open_history_folder(self, call: Call[Empty]) -> Outcome[Answer]:
         """Open stored render folder."""
@@ -341,37 +349,37 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def diffing(self) -> Operator[Empty]:
         """Command reporting the settings changed since the picked render."""
-        return Operator.of(Empty, undo=Nothing)(self.compare_settings)
+        return Operator.of(Empty, undo=NoUndo())(self.compare_settings)
 
     @cached_property
     def opening(self) -> Operator[Empty]:
         """Command showing the picked render."""
-        return Operator.of(Empty, undo=Nothing)(self.open_render)
+        return Operator.of(Empty, undo=NoUndo())(self.open_render)
 
     @cached_property
     def measuring(self) -> Operator[Empty]:
         """Command grading the before frame against the shown frame."""
-        return Operator.of(Empty, undo=Nothing)(self.measure_difference)
+        return Operator.of(Empty, undo=NoUndo())(self.measure_difference)
 
     @cached_property
     def noting(self) -> Operator[Noting]:
         """Command writing the picked render's note through a dialog seeded with it."""
-        return Operator.of(Noting, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), seed=Some(self.noted), undo=Nothing)(self.edit_note)
+        return Operator.of(Noting, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), seed=Some(self.noted), undo=NoUndo())(self.edit_note)
 
     @cached_property
     def removing(self) -> Operator[Empty]:
         """Command deleting the picked render."""
-        return Operator.of(Empty, undo=Nothing)(self.remove_render)
+        return Operator.of(Empty, undo=NoUndo())(self.remove_render)
 
     @cached_property
     def clearing(self) -> Operator[Empty]:
         """Command deleting every stored render after a confirmation."""
-        return Operator.of(Empty, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))), undo=Nothing)(self.clear_history)
+        return Operator.of(Empty, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))), undo=NoUndo())(self.clear_history)
 
     @cached_property
     def revealing(self) -> Operator[Empty]:
         """Command opening the history folder."""
-        return Operator.of(Empty, undo=Nothing)(self.open_history_folder)
+        return Operator.of(Empty, undo=NoUndo())(self.open_history_folder)
 
     # --- [ROWS]
 

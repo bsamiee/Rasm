@@ -21,7 +21,7 @@ from blender.bpy.data.ids.store import Handle
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Declaration
-from blender.bpy.render.outputs.formats import depth, FILE_FORMATS, OutputFormat
+from blender.bpy.render.outputs.formats import depth, EXR, FILE_FORMATS, OutputFormat
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.buffers import Depth
@@ -46,7 +46,7 @@ _SAVED: Final = OutputFormat(
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Production(msgspec.Struct, frozen=True, kw_only=True):
+class RenderOrigin(msgspec.Struct, frozen=True, kw_only=True):
     """Completed image origin and encoding colorspace, recorded per image and render slot."""
 
     scene: Handle[bpy.types.Scene]
@@ -55,14 +55,16 @@ class Production(msgspec.Struct, frozen=True, kw_only=True):
     view: Option[DisplayView] = Nothing
 
     @staticmethod
-    def recorded(identity: Identity, image: bpy.types.Image, production: Option["Production"], /) -> None:
+    def recorded(identity: Identity, image: bpy.types.Image, production: Option["RenderOrigin"], /) -> None:
         """Records the production facts of the image's displayed slot, Nothing clearing them."""
-        identity.held[PRODUCTIONS][image.session_uid, image.render_slots.active_index] = production
+        identity.resources[RENDER_ORIGINS][image.session_uid, image.render_slots.active_index] = production
 
     @classmethod
     def shown(cls, identity: Identity, image: bpy.types.Image, /) -> Outcome[Self]:
         """Returns the recorded production facts of the image's displayed slot."""
-        return identity.held[PRODUCTIONS].get((image.session_uid, image.render_slots.active_index), Nothing).to_result_with(partial(Fault.of, Reason.ABSENT, repr(image), member="production facts"))
+        return (
+            identity.resources[RENDER_ORIGINS].get((image.session_uid, image.render_slots.active_index), Nothing).to_result_with(partial(Fault.of, Reason.ABSENT, repr(image), member="render origin"))
+        )
 
 
 class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
@@ -78,7 +80,7 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Holds the consumer on the extension's consumer list until scope exit."""
-        consumers = identity.held[_CONSUMERS]
+        consumers = identity.resources[_CONSUMERS]
         with ExitStack() as stack:
             consumers.append(self.consume)
             stack.callback(consumers.remove, self.consume)
@@ -132,12 +134,12 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
         """Declares handlers binding registered framing per event."""
 
         def bracket(scene: bpy.types.Scene, *, started: bool) -> Outcome[None]:
-            running = identity.held[_RUNNING]
+            running = identity.resources[_RUNNING]
             (running.add if started else running.discard)(scene.session_uid)
             return Ok(None)
 
         def windowed(scene: bpy.types.Scene, files: tuple[Written, ...]) -> Outcome[None]:
-            if scene.session_uid in identity.held[INTERMEDIATES]:
+            if scene.session_uid in identity.resources[INTERMEDIATES]:
                 return Ok(None)
             return (
                 FrameSize()
@@ -175,7 +177,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
                 handlers=bpy.app.handlers.render_post,
                 body=lambda scene: (
                     self.files(scene, scene.frame_current, identity).bind(lambda files: windowed(scene, files))
-                    if scene.session_uid in identity.held[_RUNNING] and scene.session_uid not in identity.held[INTERMEDIATES]
+                    if scene.session_uid in identity.resources[_RUNNING] and scene.session_uid not in identity.resources[INTERMEDIATES]
                     else Ok(None)
                 ),
             ),
@@ -185,7 +187,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
-PRODUCTIONS: Final = Resource[dict[tuple[int, int | None], Option[Production]]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {}))
+RENDER_ORIGINS: Final = Resource[dict[tuple[int, int | None], Option[RenderOrigin]]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {}))
 _RUNNING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -196,7 +198,7 @@ _RUNNING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 @contextmanager
 def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
     """Hides scene renders from the extension's completed-image consumers during scope."""
-    held = identity.held[INTERMEDIATES]
+    held = identity.resources[INTERMEDIATES]
     with ExitStack() as stack:
         held.add(scene.session_uid)
         stack.callback(held.remove, scene.session_uid)
@@ -204,10 +206,7 @@ def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
 
 
 def built(kind: ResultKind) -> Outcome[bpy.types.Image]:
-    """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it.
-
-    Callers read Viewer completion pixels before deferring.
-    """
+    """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it."""
     return Block.of_seq(bpy.data.images).filter(lambda image: image.type == kind).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images).__name__, member=kind))
 
 
@@ -239,28 +238,28 @@ def _consuming(identity: Identity) -> Generator[list[Consume]]:
         )
 
     with identity.reports.deferred(consumed) as deferred:
-        completed = Handler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene))))
+        completed = Handler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.resources[INTERMEDIATES] else deferred(Handle.of(scene))))
         with completed.held(identity):
             yield consumers
 
 
-def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
-    """Reads a saved render's Combined RGBA with its owner.
+def combined(path: str, layer: Option[str] = Nothing) -> Outcome[npt.NDArray[np.float32]]:
+    """Reads a saved render's Combined RGBA.
 
     Args:
         path: Saved multilayer render.
         layer: View layer to read, else the compositor's output, then the unnamed sequencer layer, then the first view layer.
 
     Returns:
-        Owner name and RGBA plane, absent fault without a matching Combined layer.
+        RGBA plane, absent fault without a matching Combined layer.
     """
 
-    def selected(file: Multilayer) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
+    def selected(file: Multilayer) -> Outcome[npt.NDArray[np.float32]]:
         owners = {owner: found for found in file.layers for owner, _, kind in (found.name.rpartition("."),) if kind in {COMBINED, ""}}
         rendered = (*(owner for owner in (COMPOSITE, "") if owner in owners), *tuple(owner for owner in owners if owner not in {COMPOSITE, ""})[:1])
         match layer.map(lambda name: (name,)).default_value(rendered):
             case (owner, *_) if owner in owners:
-                return file.plane(owners[owner], ("R", "G", "B", "A")).map(lambda pixels: (owner, pixels))
+                return file.plane(owners[owner], ("R", "G", "B", "A"))
             case _:
                 return Error(Fault.of(Reason.ABSENT, path, member=layer.map(lambda name: f"{name}.{COMBINED}").default_value(COMBINED)))
 
@@ -292,7 +291,7 @@ def _rewritten(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> O
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _CONSUMERS: Final = Resource[list[Consume]](made=_consuming, prerequisites=(INTERMEDIATES,))
-rewrite: Final = Finish(run=_rewritten, formats=frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
+rewrite: Final = Finish(run=_rewritten, formats=EXR, depths=frozenset({Depth.HALF, Depth.FLOAT}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -300,11 +299,11 @@ __all__ = [
     "COMBINED",
     "COMPOSITE",
     "INTERMEDIATES",
-    "PRODUCTIONS",
+    "RENDER_ORIGINS",
     "Consume",
     "Finish",
     "Finishing",
-    "Production",
+    "RenderOrigin",
     "ResultKind",
     "ResultRead",
     "Written",

@@ -8,6 +8,7 @@ from itertools import chain, count
 from pathlib import Path
 import posixpath
 import re
+from types import MappingProxyType
 from typing import ClassVar, Final, Self
 
 import bpy
@@ -17,12 +18,12 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Suppressible
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, tallied, Unchanged, UndoGroup
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.mirrors import Changed
 from blender.bpy.data.rna.paths import definition, rooted
+from blender.bpy.data.rna.properties import Changed
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.events import Handler, located, runtime, Subscription
 from blender.bpy.extension.identity import Identity, Key
@@ -36,10 +37,11 @@ from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.stores import existing, removed
-from blender.rendering.outputs.naming import Field, Fields, Number, NumberField, Output, OutputName, Slot, stepped, Word
+from blender.rendering.outputs.naming import Field, Fields, NumberField, NumberKey, Output, OutputName, stepped, TextField, TextKey
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+_NATIVE: Final = MappingProxyType({TextKey.SCENE: "{scene_name}", TextKey.CAMERA: "{camera_name}", TextKey.FILE: "{blend_name}"})
 _EDITED: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("tree_type",), bpy.types.EnumProperty), accepted=(bpy.types.CompositorNodeTree.__name__,)) & Setting(
     descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
 )
@@ -101,12 +103,12 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     base: Path
     fields: Fields
     orders: Mapping[str, int]
-    spelled: frozenset[Word] = frozenset({Word.SCENE, Word.CAMERA, Word.FILE})
+    spelled: frozenset[TextKey] = frozenset(_NATIVE)
 
     @property
     def copied(self) -> Self:
         """Job-copy path spelling source folder and file name literally."""
-        return msgspec.structs.replace(self, root=escaped(self.base.as_posix()), spelled=self.spelled - {Word.FILE})
+        return msgspec.structs.replace(self, root=escaped(self.base.as_posix()), spelled=self.spelled - {TextKey.FILE})
 
     def rerooted(self, base: Path) -> Self:
         """Returns path under worker's mapped output directory."""
@@ -115,11 +117,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     def spelling(self, part: Field) -> Option[str]:
         """Returns native variables for selected words and frame padding."""
         match part:
-            case Slot(key=key):
-                return Option.of_optional({Word.SCENE: "{scene_name}", Word.CAMERA: "{camera_name}", Word.FILE: "{blend_name}"}.get(key)).filter(lambda _: key in self.spelled)
-            case Number(key=NumberField.FRAME, width=width):
+            case TextField(key=key):
+                return Option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled)
+            case NumberField(key=NumberKey.FRAME, width=width):
                 return Some("#" * width)
-            case Number():
+            case NumberField():
                 return Nothing
 
     @classmethod
@@ -129,14 +131,14 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
         def built(name: OutputName, stem: OutputName) -> Outcome[Self]:
             shared = name.keys & stem.keys
-            words, counted = shared - frozenset(NumberField), NumberField.VERSION in shared
+            words, counted = shared - frozenset(NumberKey), NumberKey.VERSION in shared
             parsed = (
                 Result[Path, Faults].bind(blend.to_result_with(lambda: Fault.of(Reason.REQUIRED, Pathed.unsaved.message)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
             )
             host = (
-                {Word.SCENE: scene.name, Word.DATE: day.isoformat()}
-                | dict(Option.of_optional(scene.camera).map(lambda camera: (Word.CAMERA, camera.name)).to_list())
-                | {Word.FILE: blend.map(lambda path: path.stem).default_with(lambda: bpy.app.translations.pgettext_data("Unsaved"))}
+                {TextKey.SCENE: scene.name, TextKey.DATE: day.isoformat()}
+                | dict(Option.of_optional(scene.camera).map(lambda camera: (TextKey.CAMERA, camera.name)).to_list())
+                | {TextKey.FILE: blend.map(lambda path: path.stem).default_with(lambda: bpy.app.translations.pgettext_data("Unsaved"))}
             )
             return parsed.map(
                 lambda found: cls(
@@ -144,7 +146,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                     root=native,
                     base=base,
                     fields=Fields(
-                        words=host | {key: value for key, value in found.words.items() if key in words}, counts={NumberField.VERSION: found.counts[NumberField.VERSION] if counted else outputs.version}
+                        texts=host | {key: value for key, value in found.texts.items() if key in words}, numbers={NumberKey.VERSION: found.numbers[NumberKey.VERSION] if counted else outputs.version}
                     ),
                     orders={layer.name: position for position, layer in enumerate(scene.view_layers, 1)},
                 )
@@ -154,11 +156,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
     def _filled(self, layer: str, output: Output, item: Option[str], frame: Option[int] = Nothing) -> Fields:
         return Fields(
-            words={**self.fields.words, Word.LAYER: layer, Word.OUTPUT: output, Word.PASS: item.default_value(output)},
-            counts={
-                **self.fields.counts,
-                **dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (NumberField.ORDER, order)).to_list()),
-                **dict(frame.map(lambda held: (NumberField.FRAME, held)).to_list()),
+            texts={**self.fields.texts, TextKey.LAYER: layer, TextKey.OUTPUT: output, TextKey.PASS: item.default_value(output)},
+            numbers={
+                **self.fields.numbers,
+                **dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (NumberKey.ORDER, order)).to_list()),
+                **dict(frame.map(lambda held: (NumberKey.FRAME, held)).to_list()),
             },
         )
 
@@ -167,13 +169,14 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         filled = self._filled(layer, output, item)
         return (
             Error(Fault.of(Reason.REQUIRED, f"template of {layer} without {{date}}, which Blender cannot expand"))
-            if Word.DATE in self.name.keys
-            else self.name.compose(msgspec.structs.replace(filled, words={key: escaped(value) for key, value in filled.words.items()}), self.spelling)
+            if TextKey.DATE in self.name.keys
+            else self.name.compose(msgspec.structs.replace(filled, texts={key: escaped(value) for key, value in filled.texts.items()}), self.spelling)
         )
 
-    def scene_output(self) -> Outcome[str]:
-        """Composes the context view layer's preview output under native root."""
-        return rooted(bpy.types.ViewLayer, bpy.context).bind(lambda layer: self.text(layer.name, Output.PREVIEW)).map(lambda text: posixpath.join(self.root, text))
+    def scene_output(self, scene: bpy.types.Scene) -> Outcome[str]:
+        """Composes a scene's preview output under native root, for the context view layer of the context scene and the first view layer of any other."""
+        layer = Option.of_optional(bpy.context.view_layer).filter(lambda held: held.id_data == scene).default_with(lambda: scene.view_layers[0])
+        return self.text(layer.name, Output.PREVIEW).map(lambda text: posixpath.join(self.root, text))
 
     def written(self, layer: str, output: Output, item: Option[str], frame: int, suffix: str) -> Outcome[Path]:
         """Composes literal written-file path."""
@@ -181,8 +184,8 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
     def next_version(self) -> int:
         """Returns next take after matching files, ignoring date."""
-        held = self.name.keys - {Word.DATE}
-        return self.name.next_version(self.base, Fields(words={key: value for key, value in self.fields.words.items() if key in held}))
+        held = self.name.keys - {TextKey.DATE}
+        return self.name.next_version(self.base, Fields(texts={key: value for key, value in self.fields.texts.items() if key in held}))
 
     def removed(self, scene: bpy.types.Scene, frames: range) -> Outcome[None]:
         """Removes scene outputs under job root."""
@@ -201,7 +204,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     file_name: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, ("file_name",), bpy.types.StringProperty)
     unsaved: ClassVar[Condition] = ~Setting(descriptor=Descriptor.declared(bpy.types.Context, ("blend_data", "filepath"), bpy.types.StringProperty), accepted=("",))
     attached: Attached[Outputs]
-    scope: Stored[OutputPath]
+    stored: Stored[OutputPath]
 
     def path(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[OutputPath]:
         """Returns stored render path, else composes scene settings at day for the file being saved or the session file."""
@@ -225,13 +228,13 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         outputs = self.attached.struct(scene)
-        return self.scope.read(scene).bind(lambda held: held.map(Ok).default_with(lambda: root(outputs).bind(lambda found: OutputPath.of(outputs, scene, found, blend, day))))
+        return self.stored.read(scene).bind(lambda held: held.map(Ok).default_with(lambda: root(outputs).bind(lambda found: OutputPath.of(outputs, scene, found, blend, day))))
 
     def node(self, path: OutputPath, layer: str, output: Output, passes: tuple[str, ...], *, layered: bool) -> Outcome[NodePaths]:
         """Builds node members and requested item names for one multilayer file or a file per item."""
         return (
             path.text(layer, output).map(
-                lambda text: NodePaths(members={self.directory: path.root, self.file_name: text}, items=passes if Word.LAYER in path.name.keys else tuple(f"{layer}.{name}" for name in passes))
+                lambda text: NodePaths(members={self.directory: path.root, self.file_name: text}, items=passes if TextKey.LAYER in path.name.keys else tuple(f"{layer}.{name}" for name in passes))
             )
             if layered
             else accumulated(path.text(layer, output, Some(name)) for name in passes).map(lambda texts: NodePaths(members={self.directory: path.root, self.file_name: ""}, items=texts))
@@ -239,11 +242,11 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
     def recomposed(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[None]:
         """Writes scene output at `day` when native value differs."""
-        return self.path(scene, day, saving).bind(OutputPath.scene_output).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: None)
+        return self.path(scene, day, saving).bind(lambda path: path.scene_output(scene)).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: None)
 
     def placed(self, scene: bpy.types.Scene, path: OutputPath) -> Outcome[OutputPath]:
         """Stores path as the scene's render path and writes its scene output, a job copy or a rerooted farm path rendering through it."""
-        return self.scope.write(scene, path).bind(lambda _: path.scene_output()).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: path)
+        return self.stored.write(scene, path).bind(lambda _: path.scene_output(scene)).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: path)
 
     def refreshed(self, identity: Identity, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[None]:
         """Recomposes stored scenes at `day` except owned runtime scenes."""
@@ -315,9 +318,11 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
 
     def substituted(pattern: re.Pattern[str], text: str) -> Outcome[Option[str]]:
         insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(properties.replace)) if properties.regex else (lambda _: properties.replace)
+        refused = partial(Fault.of, Reason.INVALID, properties.replace)
         return (
-            catch(pattern.sub, exception=re.PatternError)(insert, text)
-            .map_error(partial(Fault.of, Reason.INVALID, properties.replace))
+            catch(catch(pattern.sub, exception=IndexError), exception=re.PatternError)(insert, text)
+            .map_error(refused)
+            .bind(lambda named: named.map_error(refused))
             .map(lambda changed: Some(changed) if changed != text else Nothing)
         )
 
@@ -384,7 +389,7 @@ def output_replace(call: Call[Replace]) -> Outcome[Answer]:
     return planned(call.context.selected_nodes, call.properties).bind(lambda renames: _applied(renames, "No selected path holds find text"))
 
 
-@Operator.of(Bump, condition=Some(_EDITED & _FILE_OUTPUT), undo=Some(Some("output_version")))
+@Operator.of(Bump, condition=Some(_EDITED & _FILE_OUTPUT), undo=UndoGroup(group="output_version"))
 def output_version(call: Call[Bump]) -> Outcome[Answer]:
     """Move version tokens in active File Output node."""
     match call.context.active_node:
@@ -402,7 +407,7 @@ def output_take(call: Call[Empty]) -> Outcome[Answer]:
     )
 
 
-@Operator.of(Empty, icon=Some("FILE_FOLDER"), undo=Nothing)
+@Operator.of(Empty, icon=Some("FILE_FOLDER"), undo=NoUndo())
 def output_folder(call: Call[Empty]) -> Outcome[Answer]:
     """Open deepest existing output folder."""
     return (
@@ -435,10 +440,10 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     def bound(self, identity: Identity) -> Outcome[Pathed]:
         """Binds registered scene settings."""
-        return paired(self.attachment.bound(identity), self.scope(identity)).map(lambda pair: Pathed(attached=pair[0], scope=pair[1]))
+        return paired(self.attachment.bound(identity), self.stored(identity)).map(lambda pair: Pathed(attached=pair[0], stored=pair[1]))
 
     @staticmethod
-    def scope(identity: Identity) -> Outcome[Stored[OutputPath]]:
+    def stored(identity: Identity) -> Outcome[Stored[OutputPath]]:
         """Names persistent render paths shared by preparation, workers, and finishing."""
         return Stored.keyed(
             identity, "output_path", msgspec.msgpack.Decoder(OutputPath, dec_hook=lambda kind, value: kind(value)), enc_hook=Some(lambda value: value.as_posix() if isinstance(value, Path) else value)

@@ -15,7 +15,7 @@ import msgspec
 
 from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.ids.evaluation import evaluated, instances
 from blender.bpy.data.ids.store import embedded, resolved
 from blender.bpy.data.rna import conditions
@@ -91,11 +91,11 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
         """Audit operators in section order."""
         return (
-            Operator.of(Empty, icon=Some("CHECKMARK"), undo=Nothing)(self.audit_file),
-            Operator.of(Empty, undo=Nothing)(self.list_users),
-            Operator.of(Shader, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), undo=Nothing, primary=Some("kind"))(self.list_shader_users),
-            Operator.of(Empty, undo=Nothing)(self.measure_view_layer),
-            Operator.of(Empty, icon=Some("FILE_BLEND"), undo=Nothing)(self.open_library),
+            Operator.of(Empty, icon=Some("CHECKMARK"), undo=NoUndo())(self.audit_file),
+            Operator.of(Empty, undo=NoUndo())(self.list_users),
+            Operator.of(Shader, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), undo=NoUndo(), primary=Some("kind"))(self.list_shader_users),
+            Operator.of(Empty, undo=NoUndo())(self.measure_view_layer),
+            Operator.of(Empty, icon=Some("FILE_BLEND"), undo=NoUndo())(self.open_library),
         )
 
     @staticmethod

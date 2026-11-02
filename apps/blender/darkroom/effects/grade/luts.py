@@ -1,6 +1,7 @@
 """Color transforms exchanged as files: the ASC CDL grade in the color timing space with corrections read from and written to ASC and transform files, and LUT files applied in their declared colorspace."""
 
 from collections.abc import Mapping
+from enum import auto, Enum
 import functools
 from pathlib import Path
 from typing import Final, Literal
@@ -13,20 +14,20 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Open, Save
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.properties import choices, enum_choices
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interfaces import Interface, Socket
-from blender.bpy.render.color.luts import current, FORMATS
+from blender.bpy.render.color.luts import FORMATS, reloaded
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.editors import FilePath
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, FromFile, Named, Prepared, Stage
 from blender.bpy.render.compositor.grades import latticed, tabled, TILES
-from blender.bpy.render.compositor.inputs import captured, entered, Shell, value, valued
-from blender.imaging.color.luts import corrections, Lattice, LutFormat, LutOutput, Rational, split
+from blender.bpy.render.compositor.inputs import captured, entered, GraphInputs, value, valued
+from blender.imaging.color.luts import corrections, cube_split, Lattice, LutFormat, LutOutput, Rational
 from blender.imaging.color.processors import bracketed, ColorSpace, converted, processor
 from blender.imaging.files.buffers import located, pixels
 from blender.records.faults import Fault, Outcome, paired, Reason
@@ -36,6 +37,14 @@ from blender.records.fields import Case
 
 type _Triple = tuple[float, float, float]
 type _Parts = tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]
+
+
+class _Source(Enum):
+    """Correction written alone or between scene-linear conversions."""
+
+    CORRECTION = auto()
+    SCENE_LINEAR = auto()
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -61,7 +70,7 @@ class Exported(Named):
     """Correction written in an exact transform format, alone or resolved between scene-linear conversions."""
 
     format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    source: bpy.props.EnumProperty(name="Source", items=choices((("CORRECTION", "Correction", "Correction alone"), ("SCENE_LINEAR", "Scene Linear", "Correction between scene-linear conversions"))))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", items=enum_choices(_Source))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Lookup(Case, frozen=True, kw_only=True):
@@ -106,7 +115,7 @@ def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
 
     entry = rooted(bpy.types.Scene, call.context).bind(lambda scene: cdl.named(call.identity, scene, properties.name))
     return (
-        paired(current(call.identity, path, PyOpenColorIO.GetCurrentConfig()).bind(lambda resolved: corrections(Path(resolved))).bind(chosen), entry)
+        paired(reloaded(call.identity, path, PyOpenColorIO.GetCurrentConfig()).bind(lambda resolved: corrections(Path(resolved))).bind(chosen), entry)
         .bind(
             lambda pair: entered(
                 call.identity, pair[1], {_SLOPE.key: tuple(pair[0].getSlope()), _OFFSET.key: tuple(pair[0].getOffset()), _POWER.key: tuple(pair[0].getPower()), _SATURATION.key: pair[0].getSat()}
@@ -121,10 +130,10 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
     properties = call.properties
 
     def operations(held: PyOpenColorIO.CDLTransform) -> Outcome[PyOpenColorIO.GroupTransform]:
-        match properties.source:
-            case "SCENE_LINEAR":
+        match _Source[properties.source]:
+            case _Source.SCENE_LINEAR:
                 return processor(PyOpenColorIO.GetCurrentConfig(), bracketed(PyOpenColorIO.ROLE_COLOR_TIMING, held)).map(PyOpenColorIO.Processor.createGroupTransform)
-            case _:
+            case _Source.CORRECTION:
                 held.getFormatMetadata().setID(properties.name)
                 return Ok(PyOpenColorIO.GroupTransform([held]))
 
@@ -140,7 +149,7 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
     )
 
 
-def _cdl(shell: Shell[CDL]) -> Outcome[Expr]:
+def _cdl(shell: GraphInputs[CDL]) -> Outcome[Expr]:
     """Binds the grade's inputs to the node form of OCIO's CDL."""
     return Ok(grades.cdl(shell.color, shell.input(_SLOPE), shell.input(_OFFSET), shell.input(_POWER), shell.input(_SATURATION)))
 
@@ -149,8 +158,8 @@ def _cdl(shell: Shell[CDL]) -> Outcome[Expr]:
 
 
 def _parts(identity: Identity, record: Lookup, config: PyOpenColorIO.Config) -> Outcome[_Parts]:
-    """Splits the current file into the operations before its first 3D table and that table on its own lattice."""
-    return current(identity, record.source, config).bind(lambda path: split(config, PyOpenColorIO.FileTransform(src=path, interpolation=PyOpenColorIO.INTERP_BEST)))
+    """Splits the reloaded file into the operations before its first 3D table and that table on its own lattice."""
+    return reloaded(identity, record.source, config).bind(lambda path: cube_split(config, PyOpenColorIO.FileTransform(src=path, interpolation=PyOpenColorIO.INTERP_BEST)))
 
 
 def _applied(stage: Stage[Lookup]) -> Outcome[Option[Prepared]]:
@@ -170,11 +179,11 @@ def lookup_reload(call: Call[Named]) -> Outcome[Answer]:
     return (
         rooted(bpy.types.Scene, call.context)
         .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: lookup.revised(call.identity, scene, entry, Ok)))
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its current file"))
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its reloaded file"))
     )
 
 
-def _lookup(shell: Shell[Lookup]) -> Outcome[Expr]:
+def _lookup(shell: GraphInputs[Lookup]) -> Outcome[Expr]:
     """Samples the operations before the file's first 3D table on the stated lattice, then that table and the rest."""
     record = shell.record
     name = Path(record.source).name
@@ -204,7 +213,7 @@ cdl: Final = CompositorEffect(
     space=Some(lambda _record: PyOpenColorIO.ROLE_COLOR_TIMING),
     registers=(
         Operator(form=Imported, run=import_cdl, invoke=Some(Open[Imported](extensions=lambda _properties: LutFormat.readable_suffixes()))),
-        Operator(form=Exported, run=export_cdl, invoke=Some(Save[Exported](extensions=lambda properties: (f".{FORMATS[properties.format].extension}",))), undo=Nothing),
+        Operator(form=Exported, run=export_cdl, invoke=Some(Save[Exported](extensions=lambda properties: (f".{FORMATS[properties.format].extension}",))), undo=NoUndo()),
     ),
 )
 lookup: Final = CompositorEffect(

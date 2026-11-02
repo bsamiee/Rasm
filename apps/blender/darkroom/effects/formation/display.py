@@ -6,8 +6,7 @@ from itertools import starmap
 from typing import Final
 
 import bpy
-from expression import Ok, Option, Result, Some, try_downcast
-from expression.collections import Block
+from expression import Ok, Option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -23,16 +22,16 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interfaces import Interface, Socket
-from blender.bpy.render.color.spaces import followed, HdrWindow, NO_LOOK, viewed, Viewing
+from blender.bpy.render.color.spaces import ColorManagement, followed, HdrWindow, NO_LOOK, viewed
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import CompositorEffect, Named, Replaced, Seeded
-from blender.bpy.render.compositor.inputs import entered, Holds, Shell
+from blender.bpy.render.compositor.inputs import entered, GraphInputs, Holds
 from blender.bpy.render.compositor.viewers import READ
 from blender.bpy.ui.layout.rows import Label
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
 from ..grade.exposure import exposed
@@ -87,16 +86,14 @@ class DisplayFollowing(msgspec.Struct, frozen=True, kw_only=True):
 # --- [GRAPH]
 
 
-def _formation(shell: Shell[Formation]) -> Outcome[Expr]:
+def _formation(shell: GraphInputs[Formation]) -> Outcome[Expr]:
     """Builds the Convert to Display node keyed `display` between the view's exposure ahead and its display gamma after, the node holding the display, view, and look Blender lets it set."""
-    view, viewing = shell.record.display_view, Viewing.of(shell.record.display_view)
+    view, viewing = shell.record.display_view, ColorManagement.of(shell.record.display_view)
     members = msgspec.structs.replace(viewing, view_settings=msgspec.structs.replace(viewing.view_settings, exposure=msgspec.UNSET, gamma=msgspec.UNSET)).members()
     entering = exposed(shell.color, view.exposure) if view.exposure else shell.color
-    formed = Expr(kind=bpy.types.CompositorNodeConvertToDisplay, inputs=(("Image", entering),), members=members, socket="Image", shape=bpy.types.NodeSocketColor).named(_DISPLAY)
+    formed = Expr(kind=bpy.types.CompositorNodeConvertToDisplay, inputs=(("Image", entering),), members=members, socket="Image", socket_type=bpy.types.NodeSocketColor).keyed(_DISPLAY)
     return Ok(
-        Expr(kind=bpy.types.CompositorNodeGamma, inputs=(("Image", formed), ("Gamma", 1.0 / max(view.gamma, float(np.spacing(np.float32(1)))))), socket="Image", shape=bpy.types.NodeSocketColor)
-        if view.gamma != 1.0
-        else formed
+        Expr(kind=bpy.types.CompositorNodeGamma, inputs=(("Image", formed), ("Gamma", view.inverse_gamma)), socket="Image", socket_type=bpy.types.NodeSocketColor) if view.gamma != 1.0 else formed
     )
 
 
@@ -123,7 +120,7 @@ def _unformed(scene: bpy.types.Scene) -> Outcome[Snapshot]:
     )
 
 
-def _peak_mapping(shell: Shell[PeakMapping]) -> Outcome[Expr]:
+def _peak_mapping(shell: GraphInputs[PeakMapping]) -> Outcome[Expr]:
     """Maps formed PQ codes through the BT.2390 EETF over live peak, black, and knee inputs."""
     return Ok(grades.eetf(shell.color, source=shell.input(_SOURCE_PEAK), target=shell.input(_TARGET_PEAK), black=shell.input(_DISPLAY_BLACK), knee=shell.input(_KNEE_OFFSET)))
 
@@ -146,8 +143,23 @@ def formed_view(identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[Di
     return formation.current(identity, scene).map(lambda found: found.map(lambda record: record.display_view))
 
 
+def current_view(identity: Identity, scene: bpy.types.Scene) -> Outcome[DisplayView]:
+    """Returns the earliest formation entry's view, else the scene's."""
+    return formed_view(identity, scene).map(lambda found: found.default_with(lambda: viewed(scene)))
+
+
+def encoding(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
+    """Returns the encoding view of the current view's display with its processor."""
+
+    def found(view: DisplayView) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
+        listed: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, view.display)
+        return listed.bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, view.display, member="encoding view")))
+
+    return current_view(identity, scene).bind(found)
+
+
 def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile]:
-    """Returns display values of a written frame: formed already by a formation entry and tagged with its view's colorspace, else formed through the scene view."""
+    """Returns display values of a written frame: a formation entry's frame tagged with its view's colorspace, else formed through the scene view."""
 
     def tagged(view: DisplayView) -> Outcome[ImageFile]:
         return paired(
@@ -155,15 +167,14 @@ def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArr
             view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}")),
         ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
 
-    return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: viewed(scene).formed(config, plane, source)))
+    return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: viewed(scene).image(config, plane, source)))
 
 
 def _reformed(identity: Identity, scene: bpy.types.Scene, change: Callable[[DisplayView], DisplayView], unformed: Callable[[], Outcome[bool]]) -> Outcome[bool]:
     """Writes a changed view into the earliest formation entry, else the scene view settings, answering whether either changed."""
     return (
-        Block
-        .of_seq(formation.entries(identity, scene))
-        .try_head()
+        formation
+        .earliest(identity, scene)
         .map(lambda entry: formation.revised(identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=change(record.display_view)))))
         .default_with(unformed)
     )
@@ -195,24 +206,12 @@ def measure_peak(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.S
 def encode_formation(call: Call[Named]) -> Outcome[Answer]:
     """Select encoding-only formation after tone curve."""
 
-    def chosen(scene: bpy.types.Scene, config: PyOpenColorIO.Config, held: Option[DisplayView]) -> Outcome[Answer]:
-        display = held.map(lambda view: view.display).default_with(lambda: viewed(scene).display)
+    def selected(scene: bpy.types.Scene, target: DisplayView) -> Outcome[Answer]:
+        return _reformed(
+            call.identity, scene, lambda _view: target, lambda: assigned(scene, {("view_settings", "view_transform"): target.view, ("view_settings", "look"): NO_LOOK}).map(lambda _: True)
+        ).map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
 
-        def selected(target: DisplayView) -> Outcome[Answer]:
-            return _reformed(
-                call.identity, scene, lambda _view: target, lambda: assigned(scene, {("view_settings", "view_transform"): target.view, ("view_settings", "look"): NO_LOOK}).map(lambda _: True)
-            ).map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
-
-        return (
-            Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults]
-            .bind(
-                DisplayView.for_encoding(config, display),
-                lambda found: found.map(lambda pair: pair[0]).to_result_with(partial(Fault.of, Reason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
-            )
-            .bind(selected)
-        )
-
-    return rooted(bpy.types.Scene, call.context).bind(lambda scene: formed_view(call.identity, scene).bind(lambda held: chosen(scene, PyOpenColorIO.GetCurrentConfig(), held)))
+    return rooted(bpy.types.Scene, call.context).bind(lambda scene: encoding(call.identity, scene, PyOpenColorIO.GetCurrentConfig()).bind(lambda found: selected(scene, found[0])))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -238,4 +237,4 @@ peak_mapping: Final = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DisplayFollowing", "Formation", "PeakMapping", "displayed_frame", "displays", "formation", "formed_view", "looked", "peak_mapping"]
+__all__ = ["DisplayFollowing", "Formation", "PeakMapping", "current_view", "displayed_frame", "displays", "encoding", "formation", "formed_view", "looked", "peak_mapping"]

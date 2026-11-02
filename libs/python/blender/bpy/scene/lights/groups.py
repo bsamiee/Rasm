@@ -17,14 +17,14 @@ from blender.bpy.data.ids.ownership import Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.mirrors import case_choices
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
+from blender.bpy.data.rna.properties import case_choices
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import relinked
 from blender.bpy.scene.lights.emitters import emitters, picked
-from blender.bpy.scene.objects import focused, ObjectState, reconciled, spawned
+from blender.bpy.scene.objects import active_object, ObjectState, reconciled, spawned
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
@@ -72,8 +72,8 @@ class PerEmitter(Case, frozen=True, kw_only=True):
 
     @staticmethod
     def named(holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns the holder's name."""
-        return Some(holder.name)
+        """Returns the holder's name as a light group name."""
+        return Some(light_group(holder.name))
 
 
 class Shared(Case, frozen=True, kw_only=True):
@@ -82,8 +82,8 @@ class Shared(Case, frozen=True, kw_only=True):
     name: Name = "Emission"
 
     def named(self, _holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns the shared group name."""
-        return Some(self.name)
+        """Returns the shared group name as a light group name."""
+        return Some(light_group(self.name))
 
 
 class Ungrouped(Case, frozen=True, kw_only=True):
@@ -151,6 +151,11 @@ class Assignment(bpy.types.PropertyGroup):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def light_group(name: str, /) -> str:
+    """Returns name as `ViewLayer.lightgroups` holds it, which replaces dots with underscores."""
+    return name.replace(".", "_")
+
+
 def grouping(choice: str, shared: str) -> Outcome[Grouping]:
     """Returns the rule a `GROUPINGS` choice names, a shared rule under its group name."""
     return catch(msgspec.convert, exception=msgspec.ValidationError)({"kind": choice, "name": shared}, Grouping).map_error(
@@ -169,7 +174,7 @@ def assigned(scope: Scope, context: bpy.types.Context, *, lights: Grouping, emis
         world: Rule of each world, `Kept` leaving them.
 
     Returns:
-        Group names written, `Nothing` when every holder held its group, or `absent` and `edit` faults.
+        Group names written, `Nothing` when every holder held its group, or `absent` and `refused` faults.
     """
 
     def wrote(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> Outcome[Option[str]]:
@@ -202,9 +207,9 @@ def split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lob
         identity: Identity marking each child.
 
     Returns:
-        Children in lobe order, or `absent` and `edit` faults.
+        Children in lobe order, or `absent` and `refused` faults.
     """
-    group, holders = master.lightgroup or master.name, tuple(master.users_collection)
+    group, holders = light_group(master.lightgroup or master.name), tuple(master.users_collection)
     kept = frozenset(lobe.slot for lobe in lobes)
     stale = tuple(item for item, mark in LightGroupEdits.children.held(identity) if mark.of == Some(master) and mark.slot.filter(kept.__contains__).is_none())
 
@@ -233,7 +238,7 @@ def split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lob
                 Block.of_seq(holders).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, repr(master), member="users_collection")),
                 lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))),
             )
-            .bind(lambda children: reconciled(ObjectState(values=Some(hidden)), master, ()).map(lambda _: children)),
+            .bind(lambda children: hidden.apply(master).outcome.map(lambda _: children)),
             rollback,
         )
 
@@ -272,7 +277,7 @@ def toggled(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[Answ
         identity: Identity reading child marks.
 
     Returns:
-        `Done`, `Unchanged` when no split light is selected, or `edit` faults.
+        `Done`, `Unchanged` when no split light is selected, or `refused` faults.
     """
     if not (held := splits(view_layer, identity)):
         return Ok(Unchanged(reason="No split light selected"))
@@ -289,13 +294,13 @@ def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[Answ
         identity: Identity reading child marks.
 
     Returns:
-        `Done` noting removed child count, `Unchanged` when no split light is selected, or `edit` faults.
+        `Done` noting removed child count, `Unchanged` when no split light is selected, or `refused` faults.
     """
     if not (held := splits(view_layer, identity)):
         return Ok(Unchanged(reason="No split light selected"))
     shown = Snapshot.of(bpy.types.Object, {("hide_render",): False})
     return released(tuple(chain.from_iterable(held.values()))).bind(
-        lambda count: accumulated(reconciled(ObjectState(values=Some(shown)), master, ()) for master in held).map(lambda _: Done(notes=(("INFO", f"Removed {count} children"),)))
+        lambda count: accumulated(shown.apply(master).outcome for master in held).map(lambda _: Done(notes=(("INFO", f"Removed {count} children"),)))
     )
 
 
@@ -320,7 +325,7 @@ def light_groups_assign(call: Call[Assignment]) -> Outcome[Answer]:
 @Operator.of(Empty, condition=LightGroupEdits.cycles)
 def light_group_select(call: Call[Empty]) -> Outcome[Answer]:
     """Selects the objects in the active emitter's light group."""
-    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: focused(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done())
+    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: active_object(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done())
 
 
 @Operator.of(Split, condition=LightGroupEdits.cycles)
@@ -356,6 +361,7 @@ __all__ = [
     "Ungrouped",
     "assigned",
     "grouping",
+    "light_group",
     "light_group_select",
     "light_groups_assign",
     "light_split",

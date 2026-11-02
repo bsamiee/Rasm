@@ -20,7 +20,7 @@ settings.register_profile("default", deadline=None)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Mark tests requesting ``socket_enabled`` as ``network``."""
+    """Marks tests requesting `socket_enabled` as `network`."""
     for item in items:
         if isinstance(item, pytest.Function) and pytest_socket.socket_enabled.name in item.fixturenames:
             item.add_marker(pytest.mark.network, append=False)
@@ -31,7 +31,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture
 def anyio_backend() -> tuple[str, dict[str, object]]:
-    """Run ``anyio`` tests on Trio under a clock that jumps to the next deadline once every task blocks."""
+    """Runs `anyio` tests on Trio under a clock that jumps to the next deadline once every task blocks."""
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
 
 
@@ -40,7 +40,7 @@ def anyio_backend() -> tuple[str, dict[str, object]]:
 
 @pytest.fixture(scope="session")
 def _otel_exporter() -> InMemorySpanExporter:
-    """Set process ``TracerProvider`` with in-memory exporter and return exporter."""
+    """Sets process `TracerProvider` with in-memory exporter and returns exporter."""
     exporter = InMemorySpanExporter()
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
@@ -50,19 +50,19 @@ def _otel_exporter() -> InMemorySpanExporter:
 
 @pytest.fixture
 def otel_spans(_otel_exporter: InMemorySpanExporter) -> InMemorySpanExporter:
-    """Clear and return session exporter."""
+    """Clears and returns session exporter."""
     _otel_exporter.clear()
     return _otel_exporter
 
 
 @pytest.fixture
 def log_processors() -> tuple[Processor, ...]:
-    """Return processors before ``log_events`` capture sink, empty unless a package conftest overrides it."""
+    """Returns processors before `log_events` capture sink, empty unless a package conftest overrides it."""
     return ()
 
 
 @pytest.fixture
 def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDict]]:
-    """Capture structlog events as plain dictionaries."""
+    """Captures structlog events as plain dictionaries."""
     with capture_logs(processors=log_processors) as events:
         yield events

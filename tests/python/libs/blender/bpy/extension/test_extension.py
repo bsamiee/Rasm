@@ -1,4 +1,4 @@
-"""Extension: identity names and reads, band order and reverse release, dependency-ordered classes, registries, refused registrations unwinding, host event callbacks, held resources, and callback fault reports."""
+"""Extension: identity names and reads, tier order and reverse release, dependency-ordered classes, registries, refused registrations unwinding, host event callbacks, held resources, and callback fault reports."""
 
 from typing import Final
 from uuid import NAMESPACE_URL, uuid5
@@ -88,7 +88,7 @@ def test_extension(observed: Observations, path: Steps, expected: object) -> Non
 
 
 def test_manual_map_links_operators_types_and_preferences(observed: Observations) -> None:
-    """The manifest website maps every extension operator, extension types and members, the preferences struct, and attached groups."""
+    """Manifest website maps every extension operator, extension types and members, the preferences struct, and attached groups."""
     patterns = observed[*ON, "texts", "patterns"]
     assert isinstance(patterns, tuple)
     expected = {("bpy.types.fixture_*", ""), ("bpy.types.*.fixture_*", ""), ("bpy.types.bl_ext.user_default.fixture.*", ""), ("bpy.types.look.*", "")}

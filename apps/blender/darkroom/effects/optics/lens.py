@@ -1,11 +1,12 @@
 """Lens optics of the frame: variable-radius bokeh through the iris, circular radial distortion with its ST map export, lateral spectral aberration with axial iris defocus, and edge falloff."""
 
 from collections.abc import Mapping
+from enum import auto, Enum
 from functools import partial
 from itertools import starmap
 from math import pi
 import sys
-from typing import Annotated, Final, Literal
+from typing import Annotated, Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -15,20 +16,20 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
 from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import Expr, math, mixed, rgba, switched, vector
+from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, switched, vector
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import lenses, masks
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, shorter
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, depth_precise, Named
-from blender.bpy.render.compositor.inputs import captured, chosen, entered, FRAME_ASPECT, FRAME_METERS, FRAME_SCALE, Holds, path_key, Shell, value, valued
+from blender.bpy.render.compositor.inputs import captured, chosen, entered, FRAME_ASPECT, FRAME_METERS, FRAME_SCALE, GraphInputs, Holds, path_key, value, valued
 from blender.bpy.render.compositor.shapes import turned
 from blender.bpy.render.outputs.framing import FrameSize, Framing, Whole
 from blender.imaging.files.images import ImageFile, Storage
@@ -41,7 +42,14 @@ from blender.records.fields import Case
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Coefficient = Annotated[float, msgspec.Meta(gt=-1.0, le=sys.float_info.max, description="Barrel above 0, pincushion below 0")]
-type _Channel = Literal["Red", "Green", "Blue"]
+
+
+class _Direction(Enum):
+    """Distort a rectilinear image, or undistort a lens image."""
+
+    DISTORT = auto()
+    UNDISTORT = auto()
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -66,17 +74,15 @@ _FRINGE: Final = Socket(key="fringe", kind=bpy.types.NodeSocketFloat, descriptio
 
 # --- [DISTORTION]
 
-_DISTORT: Final = MenuItem(name="Distort", description="Distort a rectilinear image")
-_UNDISTORT: Final = MenuItem(name="Undistort", description="Undistort a lens image")
 _DISTORTION: Final = Socket.of("distortion", _Coefficient, 0.05).value
 _FIT: Final = Socket(key="fit", kind=bpy.types.NodeSocketBool, description="Barrel fit to frame corners")
 _DIRECTION: Final = Socket(
-    key="direction", kind=bpy.types.NodeSocketMenu, description="Distort rectilinear or undistort lens image", default_value=_DISTORT.name, items=Some(MenuItems(items=(_DISTORT, _UNDISTORT)))
+    key="direction", kind=bpy.types.NodeSocketMenu, description="Distort rectilinear or undistort lens image", default_value=MenuItem.of(_Direction.DISTORT).name, items=Some(MenuItems.of(_Direction))
 )
 _EXTENSION: Final = Socket(key="extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=MenuItem.of(Border.BLACK).name, items=Some(BORDERS))
 _DISPERSION: Final = Socket(key="dispersion", kind=bpy.types.NodeSocketFloat, description="Image height spread from red to blue", min_value=0.0, default_value=0.05)
 _AXIAL: Final = Socket(key="axial", kind=bpy.types.NodeSocketFloat, description="Blue defocus radius, red at half and green in focus", min_value=0.0)
-_AXIAL_SHARES: Final[tuple[tuple[_Channel, float], ...]] = (("Red", 0.5), ("Green", 0.0), ("Blue", 1.0))
+_AXIAL_SHARES: Final[tuple[tuple[Component, float], ...]] = (("Red", 0.5), ("Green", 0.0), ("Blue", 1.0))
 _SPECTRAL_EXTENSION: Final = msgspec.structs.replace(_EXTENSION, default_value=MenuItem.of(Border.CLAMP).name)
 
 # --- [VIGNETTE]
@@ -146,7 +152,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
     return rooted(bpy.types.Scene, call.context).bind(matched)
 
 
-def _defocused(shell: Shell[Defocus]) -> Outcome[Expr]:
+def _defocused(shell: GraphInputs[Defocus]) -> Outcome[Expr]:
     """Gathers the stage input through the iris at the selected radius field."""
     read, at = shell.input, shell.space
     cap = read(_MAX_BLUR)
@@ -160,7 +166,12 @@ def _defocused(shell: Shell[Defocus]) -> Outcome[Expr]:
     radius = shell.menu(_FOCUS, cases={_DEPTH_OF_FIELD.item: math("MINIMUM", spread, projected), _RADIAL.item: curvature * curvature * cap, _TILT_SHIFT.item: tilt * cap})
     bokeh = lenses.iris(read, shift=read(_FRINGE))
     return Ok(
-        Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", shell.color), ("Bokeh", bokeh), ("Size", at.pixels(radius.named("select")))), socket="Image", shape=bpy.types.NodeSocketColor)
+        Expr(
+            kind=bpy.types.CompositorNodeBokehBlur,
+            inputs=(("Image", shell.color), ("Bokeh", bokeh), ("Size", at.pixels(radius.keyed("select")))),
+            socket="Image",
+            socket_type=bpy.types.NodeSocketColor,
+        )
     )
 
 
@@ -175,12 +186,12 @@ def _zoom[V: Elementwise, B](distortion: V, fit: V | float, smaller: V | float, 
 def export_st_map(call: Call[Named]) -> Outcome[Done]:
     """Write lens map as float OpenEXR data."""
 
-    def baked(read: tuple[float, bool, str, Border], framing: Framing, size: tuple[int, int]) -> Outcome[Done]:
+    def baked(read: tuple[float, bool, _Direction, Border], framing: Framing, size: tuple[int, int]) -> Outcome[Done]:
         coefficient, fit, direction, border = read
         smaller = min(framing.aspect, 1.0) / max(framing.aspect, 1.0)
         held = np.asarray(coefficient)
         lens = Radial(distortion=held, scale=_zoom(held, float(fit), smaller, np), aspect=framing.aspect)
-        forward = lens.to_rectilinear if direction == _DISTORT.name else lens.to_lens
+        forward = lens.to_rectilinear if direction is _Direction.DISTORT else lens.to_lens
 
         def mapping(points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             return np.stack(forward((points[..., 0], points[..., 1], points[..., 2]), np), axis=-1)
@@ -188,9 +199,8 @@ def export_st_map(call: Call[Named]) -> Outcome[Done]:
         plane = StMap.bake(*size, mapping, (border.wrap, border.wrap), source_size=size).plane
         return ImageFile(pixels=plane, colorspace=PyOpenColorIO.ROLE_DATA).written(call.paths[0], Storage(), {}, PyOpenColorIO.GetCurrentConfig()).map(lambda path: Done.wrote((path,)))
 
-    def read(values: Mapping[Key, Value]) -> Outcome[tuple[float, bool, str, Border]]:
-        border = chosen(values, Border, _EXTENSION)
-        return paired(value(values, _Coefficient, _DISTORTION), value(values, bool, _FIT), value(values, str, _DIRECTION), border)
+    def read(values: Mapping[Key, Value]) -> Outcome[tuple[float, bool, _Direction, Border]]:
+        return paired(value(values, _Coefficient, _DISTORTION), value(values, bool, _FIT), chosen(values, _Direction, _DIRECTION), chosen(values, Border, _EXTENSION))
 
     def ready(scene: bpy.types.Scene) -> Outcome[Done]:
         held = distortion.named(call.identity, scene, call.properties.name).bind(lambda entry: captured(call.identity, entry)).map(valued).bind(read)
@@ -200,15 +210,15 @@ def export_st_map(call: Call[Named]) -> Outcome[Done]:
     return rooted(bpy.types.Scene, call.context).bind(ready)
 
 
-def _distorted(shell: Shell[Distortion]) -> Outcome[Expr]:
+def _distorted(shell: GraphInputs[Distortion]) -> Outcome[Expr]:
     """Samples the stage input through the fitted lens map or its covered inverse."""
     frame, coefficient = shell.space, shell.input(_DISTORTION)
     lens = Radial(distortion=coefficient, scale=_zoom(coefficient, shell.input(_FIT), shorter(frame.extent), EXPRESSIONS), aspect=1.0)
-    positions = shell.menu(_DIRECTION, cases={_DISTORT: lenses.radial(frame, lens.to_rectilinear), _UNDISTORT: lenses.radial(frame, lens.to_lens)})
+    positions = shell.menu(_DIRECTION, cases={MenuItem.of(_Direction.DISTORT): lenses.radial(frame, lens.to_rectilinear), MenuItem.of(_Direction.UNDISTORT): lenses.radial(frame, lens.to_lens)})
     return Ok(extended(shell.color, frame.covered(positions), shell.input(_EXTENSION), clipped=False))
 
 
-def _aberrated(shell: Shell[Aberration]) -> Outcome[Expr]:
+def _aberrated(shell: GraphInputs[Aberration]) -> Outcome[Expr]:
     """Integrates the spectral lens maps, then gathers red and blue axial light through the iris."""
     frame, dispersion, border = shell.space, shell.input(_DISPERSION), shell.input(_SPECTRAL_EXTENSION)
     samples = tuple(
@@ -220,7 +230,7 @@ def _aberrated(shell: Shell[Aberration]) -> Outcome[Expr]:
     lateral = with_alpha(sum(colors[1:], colors[0]), sum(alphas[1:], alphas[0]))
     bokeh = lenses.iris(shell.input)
 
-    def gathered(channel: _Channel, share: float) -> Expr:
+    def gathered(channel: Component, share: float) -> Expr:
         size = frame.pixels(shell.input(_AXIAL) * share)
         return Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", lateral[channel]), ("Bokeh", bokeh), ("Size", size)), socket="Image") if share > 0.0 else lateral[channel]
 
@@ -231,7 +241,7 @@ def _aberrated(shell: Shell[Aberration]) -> Outcome[Expr]:
 # --- [VIGNETTE]
 
 
-def _vignetted(shell: Shell[Vignette]) -> Outcome[Expr]:
+def _vignetted(shell: GraphInputs[Vignette]) -> Outcome[Expr]:
     """Mixes the stage input toward the pull color by the selected falloff weight."""
     source = shell.color
 
@@ -259,7 +269,7 @@ distortion: Final = CompositorEffect(
     record=Distortion,
     interface=Interface(inputs=(_DISTORTION, _FIT, _DIRECTION, _EXTENSION)),
     mix=Blended(alpha=Alpha.RESULT),
-    registers=(Operator(form=Named, run=export_st_map, invoke=Some(Save(extensions=lambda _: (".exr",))), undo=Nothing),),
+    registers=(Operator(form=Named, run=export_st_map, invoke=Some(Save(extensions=lambda _: (".exr",))), undo=NoUndo()),),
 )
 aberration: Final = CompositorEffect(_aberrated, record=Aberration, interface=Interface(inputs=(_DISPERSION, _AXIAL, _SPECTRAL_EXTENSION), panels=(lenses.IRIS,)), mix=Blended(alpha=Alpha.RESULT))
 vignette: Final = CompositorEffect(_vignetted, record=Vignette, interface=Interface(inputs=(_FALLOFF,), panels=(_SHAPED,)))

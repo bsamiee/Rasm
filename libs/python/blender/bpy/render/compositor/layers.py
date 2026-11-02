@@ -12,15 +12,15 @@ from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.mirrors import case_choices, choices, enum_choices, EnumItem, held_choices
 from blender.bpy.data.rna.paths import Struct
+from blender.bpy.data.rna.properties import case_choices, choices, enum_choices, EnumItem, held_choices
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
 from blender.bpy.render.compositor.effects import Entry
+from blender.bpy.render.compositor.entries import Pinned, StackEnd
 from blender.bpy.render.compositor.masks import Blend
-from blender.bpy.render.compositor.placement import Edge, Pinned
 from blender.bpy.render.compositor.recombination import Recombination, Recombined, TermFilter
 from blender.bpy.render.view_layers.passes import used
 from blender.bpy.settings.attachments import Attachment
@@ -71,9 +71,10 @@ AFFINE: Final = Interface(
     )
 )
 IMAGE: Final = "Image"
+COMPOSITE_PART: Final = "Composite"
 OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
 TITLE: Final = bpy.path.display_name(OWNERSHIP.key)
-PINNED: Final = Pinned(ownership=OWNERSHIP, edge=Edge.HEAD)
+PINNED: Final = Pinned(ownership=OWNERSHIP, edge=StackEnd.HEAD)
 _PADDING: Final = 4
 
 # --- [CHOICES] --------------------------------------------------------------------------
@@ -156,6 +157,16 @@ class StackLayer[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         return tuple(item_key(self.key, EFFECTS, index) for index in range(1, len(self.effects) + 1))
 
     @property
+    def mask_part(self) -> str:
+        """Multilayer frame part holding the layer's mask coverage."""
+        return f"{self.key} Mask"
+
+    @property
+    def composite_part(self) -> str:
+        """Multilayer frame part holding the composite through the layer."""
+        return f"{self.key} {COMPOSITE_PART}"
+
+    @property
     def plain(self) -> bool:
         """Whether the layer composites its source unmasked, unmatted, and through no effect."""
         return not self.blend.masks and not self.matte and not self.effects
@@ -224,8 +235,8 @@ class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         def written(items: tuple[object, ...]) -> Outcome[tuple[Self, int, Order]]:
             order = edit.reordered(index, len(items), drawn_reversed=isinstance(target, LayerAt))
             kept = accumulated(prior.map(lambda at: Ok(items[at])).default_with(lambda: fresh(items[index])) for prior in order)
-            settled = max((position for position, prior in enumerate(order) if prior == Some(index)), default=index if edit is Edit.RESET else max(index - 1, 0))
-            active = settled if isinstance(target, LayerAt) else target.layer
+            moved = max((position for position, prior in enumerate(order) if prior == Some(index)), default=index if edit is Edit.RESET else max(index - 1, 0))
+            active = moved if isinstance(target, LayerAt) else target.layer
             return kept.bind(lambda changed: amended(self, lens, lambda _: changed).to_result_with(absent).map(lambda stack: (stack, active, order)))
 
         found = focused(self, lens).bind(lambda held: Option.of_optional(try_downcast(tuple, held))).filter(lambda items: 0 <= index < len(items))
@@ -254,7 +265,7 @@ class StoredLayer[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class TermFiltering[M: Case](msgspec.Struct, frozen=True, kw_only=True):
-    """Filter a recombined layer's terms pass through before they sum, built while the layer holds an effect of the record type over that first entry's record, the recombined source, the reader of its inputs, and the working luminance group, the passes it reads the ones that effect requests."""
+    """Term filter a recombined layer builds from its first effect of `record`, reading that effect's inputs and requested passes."""
 
     record: type[M]
     filter: Callable[[M, Recombined, Callable[[Key], Expr], NodeGroup], Outcome[TermFilter]]
@@ -392,6 +403,7 @@ VIEW: Final = Attachment(key=f"{OWNERSHIP.key}_view", form=StackView, owner=bpy.
 
 __all__ = [
     "AFFINE",
+    "COMPOSITE_PART",
     "EFFECTS",
     "ENTRY_BLEND",
     "IMAGE",

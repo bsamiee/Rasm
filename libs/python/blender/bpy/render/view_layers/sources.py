@@ -1,8 +1,7 @@
-"""View layer routing settings and the sources its files write: Render Layers outputs in reader axes, light family totals, derived layers, ID colors with their images, files, and documents, and the File Output nodes filing them."""
+"""View layer routing settings and the sources its files write: Render Layers outputs in reader axes, light family totals, derived layers, ID colors with their images, files, and documents, and the File Output nodes file_output them."""
 
 from collections.abc import Callable, Mapping
 from enum import auto, Enum
-import functools
 import itertools
 from pathlib import Path
 from types import MappingProxyType
@@ -19,8 +18,8 @@ import numpy.typing as npt
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import choices, enum_choices, flagged
 from blender.bpy.data.rna.paths import RnaPath, rooted
+from blender.bpy.data.rna.properties import choices, enum_choices, flagged
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.functions import built, placed
 from blender.bpy.nodes.graphs import Expr, group_input, rgba, Term, xyz
@@ -31,7 +30,7 @@ from blender.bpy.render.outputs.formats import FileItem, FileItems, OutputFormat
 from blender.bpy.render.outputs.paths import NodePaths, OutputPath, Pathed, ScenePaths, today
 from blender.bpy.render.outputs.results import Finish, Written
 from blender.bpy.render.view_layers.layers import colors, Role
-from blender.bpy.render.view_layers.passes import Derived, Entity, Family, Flags, layer_of, PassFlags
+from blender.bpy.render.view_layers.passes import CryptomatteKind, Derived, Family, Flags, layer_of, LightSlot, PassFlags
 from blender.bpy.scene.materials import DataPass
 from blender.bpy.settings.attachments import Attachment
 from blender.imaging.files.buffers import Coded, Depth, unassociated
@@ -79,7 +78,7 @@ class Recolor(Enum):
 _NUKE_LAYERS: Final = MappingProxyType({"Combined": "rgba", "Position": "Pworld", "Depth": "z"})
 NUKE_CHANNELS: Final = MappingProxyType({"Depth": "Z"})
 _NUKE_AXES: Final[Mapping[VectorSpace, tuple[Axis, Axis, Axis]]] = MappingProxyType({VectorSpace.WORLD: (1, 3, -2), VectorSpace.CAMERA: (1, 2, -3)})
-_NUKE_MOTION: Final = (3, 4, 2, 3)
+_NUKE_MOTION: Final = (3, 4, 1, 2)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -101,23 +100,8 @@ class Routing(bpy.types.PropertyGroup):
     normals: bpy.props.EnumProperty(name="Normals", description="Normal pass space", items=enum_choices(VectorSpace))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     totals: bpy.props.EnumProperty(name="Totals", description="Light families summed into one layer each", options={"ENUM_FLAG"}, items=enum_choices(Family))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     derived: bpy.props.EnumProperty(name="Derived", description="Light sums and depth layers built from passes", options={"ENUM_FLAG"}, items=enum_choices(Derived))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    ids: bpy.props.EnumProperty(name="ID Colors", description="Cryptomatte kinds drawn as one color per name", options={"ENUM_FLAG"}, items=enum_choices(Entity))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    ids: bpy.props.EnumProperty(name="ID Colors", description="Cryptomatte kinds drawn as one color per name", options={"ENUM_FLAG"}, items=enum_choices(CryptomatteKind))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     files: bpy.props.CollectionProperty(type=PassFile, name="Passes", description="File choice per pass")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-    @property
-    def families(self) -> Family:
-        """Light families summed."""
-        return flagged(Family, self.totals)
-
-    @property
-    def layers(self) -> Derived:
-        """Derived layers built."""
-        return flagged(Derived, self.derived)
-
-    @property
-    def kinds(self) -> Entity:
-        """Cryptomatte kinds drawn as ID colors."""
-        return flagged(Entity, self.ids)
 
 
 class Recoloring(bpy.types.PropertyGroup):
@@ -136,7 +120,7 @@ class FileSocket(msgspec.Struct, frozen=True, kw_only=True):
     output: Output
 
 
-class Filing(msgspec.Struct, frozen=True, kw_only=True):
+class FileOutput(msgspec.Struct, frozen=True, kw_only=True):
     """Sources, output class, and node format of one File Output node."""
 
     output: Output
@@ -148,7 +132,7 @@ class Filing(msgspec.Struct, frozen=True, kw_only=True):
 # --- [IDS]
 
 
-def named(layer: bpy.types.ViewLayer, entity: Entity) -> Named:
+def named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Named:
     """Returns name, block, and scene-linear color per Cryptomatte name of a layer in name order."""
     shown = tuple(item for item in layer.objects if not item.hide_render and item.data is not None)
     member = entity.color.prop.identifier
@@ -158,21 +142,21 @@ def named(layer: bpy.types.ViewLayer, entity: Entity) -> Named:
 
     blocks: dict[str, bpy.types.ID]
     match entity:
-        case Entity.OBJECT:
+        case CryptomatteKind.OBJECT:
             blocks = {item.name: item for item in shown}
-        case Entity.ASSET:
+        case CryptomatteKind.ASSET:
             blocks = {top.name: top for top in map(root, shown)}
         case _:
             blocks = {held.name: held for held in ((layer.material_override,) if layer.material_override else (slot.material for item in shown for slot in item.material_slots if slot.material))}
     return tuple((name, block, (red, green, blue)) for name, block in sorted(blocks.items()) for red, green, blue, *_ in (getattr(block, member),))
 
 
-def located(scene: bpy.types.Scene, matte: Matte, layer: str) -> Outcome[tuple[bpy.types.ViewLayer, Entity]]:
+def located(scene: bpy.types.Scene, matte: Matte, layer: str) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
     """Returns view layer `layer` and the Cryptomatte kind its matte names after the layer prefix."""
-    return paired(layer_of(scene, layer), Entity.named(matte.name.removeprefix(f"{layer}.")).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name)))
+    return paired(layer_of(scene, layer), CryptomatteKind.named(matte.name.removeprefix(f"{layer}.")).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name)))
 
 
-def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: Entity, rows: Named) -> Outcome[Option[Expr]]:
+def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: CryptomatteKind, rows: Named) -> Outcome[Option[Expr]]:
     """Builds entity ID image of name colors under mattes summed into alpha, `Nothing` without names."""
     source = f"{layer.name}.{entity.pass_name}"
 
@@ -186,10 +170,13 @@ def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: Ent
             case _:
                 return Nothing
 
-    return accumulated(Ok((matte(name), color)) if "," not in name and name == name.strip() else Error(Fault.of(Reason.TAKEN, name, member=source)) for name, _, color in rows).map(image)
+    return accumulated(
+        Ok((matte(name), color)) if "," not in name and name == name.strip() else Error(Fault.of(Reason.INVALID, name, f"{source} matte IDs split at commas and trim spaces"))
+        for name, _, color in rows
+    ).map(image)
 
 
-def colors_written(layer: bpy.types.ViewLayer, entity: Entity, chosen: Callable[[tuple[Color, ...]], tuple[Color, ...]]) -> Outcome[int]:
+def colors_written(layer: bpy.types.ViewLayer, entity: CryptomatteKind, chosen: Callable[[tuple[Color, ...]], tuple[Color, ...]]) -> Outcome[int]:
     """Writes chosen colors onto entity names, each block keeping its alpha."""
     rows, member = named(layer, entity), entity.color
     return accumulated(member.write(block, (*color, getattr(block, member.prop.identifier)[3])) for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))).map(
@@ -210,11 +197,9 @@ def ids_recolor(call: Call[Recoloring]) -> Outcome[Answer]:
                 return tuple(held[index] for index in rng(content_hash(Routing, arrays=(np.asarray(held),))).permutation(len(held)))
 
     def painted(layer: bpy.types.ViewLayer, routing: Routing) -> Outcome[Answer]:
-        if not routing.kinds:
+        if not (kinds := flagged(CryptomatteKind, routing.ids)):
             return Ok(Unchanged(reason=f"{layer.name} draws no ID colors"))
-        return accumulated(colors_written(layer, entity, chosen) for entity in routing.kinds).map(
-            lambda counts: Done() if sum(counts) else Unchanged(reason=f"{layer.name} ID colors hold chosen colors")
-        )
+        return accumulated(colors_written(layer, entity, chosen) for entity in kinds).map(lambda counts: Done() if sum(counts) else Unchanged(reason=f"{layer.name} ID colors hold chosen colors"))
 
     return Result[bpy.types.ViewLayer, Faults].bind(rooted(bpy.types.ViewLayer, call.context), lambda layer: ROUTING.read(call.identity, layer).bind(lambda routing: painted(layer, routing)))
 
@@ -222,7 +207,7 @@ def ids_recolor(call: Call[Recoloring]) -> Outcome[Answer]:
 def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcome[None]:
     """Writes one ID layer file per matte of a written multilayer file, one layer per matte name a scene block colors, refusing a path equal to source."""
 
-    def painted(path: OutputPath, matte: Matte, layer: bpy.types.ViewLayer, entity: Entity) -> Outcome[str]:
+    def painted(path: OutputPath, matte: Matte, layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Outcome[str]:
         shown = {name: color for name, _, color in named(layer, entity)}
         known = {name: shown[name] for name in matte.ids if name in shown}
         return (
@@ -263,7 +248,7 @@ def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, dep
             shown = mathutils.Color(color).from_scene_linear_to_srgb()
             return matte.coverage(frozenset({name})).map(lambda plane: (name, (shown.r, shown.g, shown.b), plane))
 
-        def covered(layer: bpy.types.ViewLayer, entity: Entity) -> Outcome[tuple[tuple[str, Color, npt.NDArray[np.float32]], ...]]:
+        def covered(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Outcome[tuple[tuple[str, Color, npt.NDArray[np.float32]], ...]]:
             return accumulated(cover(name, color) for name, _, color in named(layer, entity))
 
         def layered(name: str, color: Color, plane: npt.NDArray[np.float32]) -> Outcome[PixelLayer[Coded]]:
@@ -274,7 +259,7 @@ def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, dep
                 lambda rows: accumulated(itertools.starmap(layered, rows)).map(
                     lambda layers: (
                         LayerGroup(name=matte.name, visible=index == 0, layers=layers),
-                        functools.reduce(np.add, (plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), np.zeros((*size, 4), np.float32)),
+                        sum((plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), start=np.zeros((*size, 4), np.float32)),
                     )
                 )
             )
@@ -297,19 +282,16 @@ def lobe() -> Outcome[NodeGroup]:
     """Builds shared lobe total group, `(direct + indirect) * color`."""
     interface = Interface(
         outputs=(Socket(key="total", kind=bpy.types.NodeSocketColor),),
-        inputs=tuple(
-            Socket(key=key, kind=bpy.types.NodeSocketColor, default_value=value)
-            for key, value in (("direct", (0.0, 0.0, 0.0, 1.0)), ("indirect", (0.0, 0.0, 0.0, 1.0)), ("color", (1.0, 1.0, 1.0, 1.0)))
-        ),
+        inputs=tuple(Socket(key=slot, kind=bpy.types.NodeSocketColor, default_value=(1.0, 1.0, 1.0, 1.0) if slot is LightSlot.COLOR else (0.0, 0.0, 0.0, 1.0)) for slot in LightSlot),
     )
-    terms = {key: group_input(key, bpy.types.NodeSocketColor) for key in ("direct", "indirect", "color")}
-    return built("lobe_total", interface, {"total": (terms["direct"] + terms["indirect"]) * terms["color"]}, bpy.types.CompositorNodeTree)
+    terms = {slot: group_input(slot, bpy.types.NodeSocketColor) for slot in LightSlot}
+    return built("lobe_total", interface, {"total": (terms[LightSlot.DIRECT] + terms[LightSlot.INDIRECT]) * terms[LightSlot.COLOR]}, bpy.types.CompositorNodeTree)
 
 
 def lobed(slots: tuple[Flags, Flags, Flags], offered: Mapping[str, Term], group: NodeGroup) -> Option[Expr]:
     """Places lobe group over the live Render Layers outputs a family's direct, indirect, and color flags name, `Nothing` without a direct or indirect output."""
-    linked = {key: offered[name] for key, flags in zip(("direct", "indirect", "color"), slots, strict=True) for name in sorted(flag.prop.name for flag in flags) if name in offered}
-    return Some(placed(group, linked, "total")) if linked.keys() & {"direct", "indirect"} else Nothing
+    linked: dict[str, Term] = {slot: offered[name] for slot, flags in zip(LightSlot, slots, strict=True) for name in sorted(flag.prop.name for flag in flags) if name in offered}
+    return Some(placed(group, linked, "total")) if linked.keys() & {LightSlot.DIRECT, LightSlot.INDIRECT} else Nothing
 
 
 # --- [AXES]
@@ -332,7 +314,7 @@ def turned(vector: Expr, axes: tuple[Axis, Axis, Axis], camera: Option[bpy.types
                 ),
             ),
             socket="Vector",
-            shape=bpy.types.NodeSocketVector,
+            socket_type=bpy.types.NodeSocketVector,
         )
     ).default_value(vector)
     names: Mapping[int, Literal["X", "Y", "Z"]] = {1: "X", 2: "Y", 3: "Z"}
@@ -350,22 +332,22 @@ def reordered(vector: Expr, order: tuple[int, int, int, int]) -> Expr:
 
 
 def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, live: bpy.types.Node, routing: Routing, role: Role, group: NodeGroup) -> Outcome[tuple[FileSocket, ...]]:
-    """Returns sources layer files write in socket order, derived layers and ID images after, each under its file row's gate."""
+    """Returns sources layer files write in socket order, derived layers and ID images after, each kept by its file row's `use_output`."""
     families = PassFlags.of().families
     offered = {socket.name: socket for socket in live.outputs if socket.enabled and socket.name != "Alpha" and base_socket(type(socket)) in DATA_TYPES}
-    outputs = {name: msgspec.structs.replace(rendered, socket=socket.identifier, shape=type(socket)) for name, socket in offered.items()}
+    outputs = {name: msgspec.structs.replace(rendered, socket=socket.identifier, socket_type=type(socket)) for name, socket in offered.items()}
     spaces = {"Normal": VectorSpace[routing.normals], "Position": VectorSpace.WORLD, DataPass.POSITION.name.lower(): VectorSpace.WORLD, DataPass.REFERENCE.name.lower(): VectorSpace.WORLD}
-    gates = {row.name: row for row in routing.files}
+    rows = {row.name: row for row in routing.files}
 
     def missing(name: str) -> Faults:
         return Fault.of(Reason.ABSENT, repr(live.outputs), member=name)
 
     def sourced(expr: Expr, name: str, socket_type: "rna_enums.NodeSocketDataTypeItems", output: Output, dimensions: Option[int] = Nothing) -> tuple[FileSocket, ...]:
-        gate = Option.of_optional(gates.get(name))
+        listed = Option.of_optional(rows.get(name))
         return (
             ()
-            if gate.filter(lambda row: not row.use_output).is_some()
-            else (FileSocket(name=name, term=expr, socket_type=socket_type, dimensions=dimensions, output=gate.map(lambda row: Output[row.output]).default_value(output)),)
+            if listed.filter(lambda row: not row.use_output).is_some()
+            else (FileSocket(name=name, term=expr, socket_type=socket_type, dimensions=dimensions, output=listed.map(lambda row: Output[row.output]).default_value(output)),)
         )
 
     def oriented(name: str) -> Outcome[Expr]:
@@ -389,7 +371,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
         dimensions = Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if socket.type == "VECTOR" else Ok(Nothing)
         classed = (
             Output.MATTE
-            if any(name.startswith(entity.pass_name) and name.removeprefix(entity.pass_name).isdigit() for entity in Entity)
+            if any(name.startswith(entity.pass_name) and name.removeprefix(entity.pass_name).isdigit() for entity in CryptomatteKind)
             else Output.DATA
             if role is Role.DATA or socket.type != "RGBA"
             else Output.BEAUTY
@@ -401,7 +383,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
 
     def derived(item: Derived) -> Outcome[tuple[FileSocket, ...]]:
         name = bpy.path.display_name(str(item.name).lower())
-        depth = Option.of_optional(outputs.get(DataPass.DEPTH.name.lower())).to_result_with(lambda: missing(DataPass.DEPTH.name.lower()))
+        depth = Option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
         match item:
             case Derived.DIRECT_LIGHT | Derived.INDIRECT_LIGHT:
                 match tuple(
@@ -418,30 +400,33 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             case _:
                 return depth.map(lambda read: sourced(1.0 / read, name, "FLOAT", Output.DATA))
 
-    def identified(entity: Entity) -> Outcome[tuple[FileSocket, ...]]:
+    def identified(entity: CryptomatteKind) -> Outcome[tuple[FileSocket, ...]]:
         return entity_image(scene, layer, entity, named(layer, entity)).map(lambda found: found.map(lambda image: sourced(image, f"{entity.label} IDs", "RGBA", Output.MATTE)).default_value(()))
 
-    return accumulated((*itertools.starmap(passed, offered.items()), *map(totaled, routing.families), *map(derived, routing.layers), *map(identified, routing.kinds))).map(
-        lambda parts: tuple(source for part in parts for source in part)
-    )
+    return accumulated((
+        *itertools.starmap(passed, offered.items()),
+        *map(totaled, flagged(Family, routing.totals)),
+        *map(derived, flagged(Derived, routing.derived)),
+        *map(identified, flagged(CryptomatteKind, routing.ids)),
+    )).map(lambda parts: tuple(source for part in parts for source in part))
 
 
 # --- [FILES]
 
 
-def filings(found: tuple[FileSocket, ...], split: FileSplit) -> Outcome[tuple[Filing, ...]]:
+def file_outputs(found: tuple[FileSocket, ...], split: FileSplit) -> Outcome[tuple[FileOutput, ...]]:
     """Splits layer sources into File Output nodes, one multilayer file unless split, each node in its output class's EXR."""
     match split:
         case FileSplit.ONE:
             classed: tuple[tuple[Output, tuple[FileSocket, ...]], ...] = ((Output.BEAUTY, found),) if found else ()
         case FileSplit.CLASSES | FileSplit.PASSES:
             classed = tuple((output, held) for output in Output if output is not Output.PREVIEW for held in (tuple(source for source in found if source.output is output),) if held)
-    return accumulated(OutputFormat.exr(output, layered=split is not FileSplit.PASSES).map(lambda chosen: Filing(output=output, format=chosen, sources=held)) for output, held in classed)
+    return accumulated(OutputFormat.exr(output, layered=split is not FileSplit.PASSES).map(lambda chosen: FileOutput(output=output, format=chosen, sources=held)) for output, held in classed)
 
 
-def filed(pathed: Pathed, path: OutputPath, layer: str, filing: Filing, key: Key, *, nuke: bool) -> Outcome[Expr]:
-    """Builds File Output node of a filing under `key` in its node format, data items of a file per pass overriding it with full-float EXR, items under the names the host stores."""
-    data = OutputFormat.exr(Output.DATA, layered=False).to_option().filter(lambda _: not filing.format.layered)
+def file_node(pathed: Pathed, path: OutputPath, layer: str, file_output: FileOutput, key: Key, *, nuke: bool) -> Outcome[Expr]:
+    """Builds File Output node under `key` in its node format, data items of a file per pass overriding it with full-float EXR, items under the names the host stores."""
+    data = OutputFormat.exr(Output.DATA, layered=False).to_option().filter(lambda _: not file_output.format.layered)
 
     def item(source: FileSocket, requested: str) -> FileItem:
         overridden = data.filter(lambda _: source.socket_type != "RGBA")
@@ -455,17 +440,17 @@ def filed(pathed: Pathed, path: OutputPath, layer: str, filing: Filing, key: Key
         )
 
     def node(paths: NodePaths) -> Expr:
-        content = FileItems(items=tuple(map(item, filing.sources, paths.items)))
-        members = dict[str | RnaPath, Value](itertools.chain(((member.path, held) for member, held in paths.members.items()), filing.format.members(("format",)).items()))
+        content = FileItems(items=tuple(map(item, file_output.sources, paths.items)))
+        members = dict[str | RnaPath, Value](itertools.chain(((member.path, held) for member, held in paths.members.items()), file_output.format.members(("format",)).items()))
         return Expr(
             kind=bpy.types.CompositorNodeOutputFile,
-            inputs=tuple((stored.name, source.term) for stored, source in zip(content.items, filing.sources)),
+            inputs=tuple((stored.name, source.term) for stored, source in zip(content.items, file_output.sources)),
             members=members,
             content=Some(content),
-            label=Some(key),
+            key=Some(key),
         )
 
-    return pathed.node(path, layer, filing.output, tuple(layer_name(source.name, nuke=nuke) for source in filing.sources), layered=filing.format.layered).map(node)
+    return pathed.node(path, layer, file_output.output, tuple(layer_name(source.name, nuke=nuke) for source in file_output.sources), layered=file_output.format.layered).map(node)
 
 
 def layer_name(name: str, *, nuke: bool) -> str:
@@ -485,9 +470,9 @@ __all__ = [
     "ROUTING",
     "Axis",
     "Color",
+    "FileOutput",
     "FileSocket",
     "FileSplit",
-    "Filing",
     "Named",
     "PassFile",
     "Recolor",
@@ -498,8 +483,8 @@ __all__ = [
     "document",
     "entity_image",
     "exported",
-    "filed",
-    "filings",
+    "file_node",
+    "file_outputs",
     "ids_export",
     "ids_recolor",
     "layer_name",

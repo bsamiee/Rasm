@@ -12,7 +12,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import Placement
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Unchanged
 from blender.bpy.data.ids.images import read
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle
@@ -24,7 +24,7 @@ from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.addressing import Keyed, owned
+from blender.bpy.nodes.addressing import owned, OwnedNodes
 from blender.bpy.nodes.changes import Added, Connected, made, Removed
 from blender.bpy.nodes.desired import End, INPUTS, Link, OUTPUTS
 from blender.bpy.nodes.graphs import Expr, group_input
@@ -32,11 +32,11 @@ from blender.bpy.nodes.interfaces import Interface
 from blender.bpy.nodes.trees import links_of, socket_at
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.effects import CompositorEffect, Named, VIEWER
-from blender.bpy.render.compositor.entries import EffectRows
+from blender.bpy.render.compositor.entries import added_entry
 from blender.bpy.render.compositor.inputs import grouped
-from blender.bpy.render.compositor.placement import added_entry
+from blender.bpy.render.compositor.offered import OfferedEffects
 from blender.bpy.render.outputs.results import built, INTERMEDIATES
-from blender.bpy.ui.layout.rows import pressed, RowDraw
+from blender.bpy.ui.layout.rows import operator_button, RowDraw
 from blender.bpy.ui.screens.areas import AreaQuery, EditorState
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Region
@@ -71,7 +71,7 @@ class ViewTarget(Named):
     socket: bpy.props.StringProperty(name="Socket", description="Output socket key", default=COLOR_INPUT.key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Arm(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class PendingRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Pending read of one entry: its crop, its consumer, and whether a completed frame was captured for it."""
 
     name: str
@@ -86,23 +86,23 @@ class Arm(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Entering-frame reads delivered after compositor completion, one pending read per scene, forgotten at file load."""
 
-    pending: Resource[dict[Handle[bpy.types.Scene], Arm]] = msgspec.field(default_factory=lambda: Resource(made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {})))
+    pending: Resource[dict[Handle[bpy.types.Scene], PendingRead]] = msgspec.field(default_factory=lambda: Resource(made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {})))
 
     def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: Consume, region: Option[Region] = Nothing) -> Outcome[None]:
         """Views entry input, replacing the scene's pending read."""
-        return shown(identity, entry, Viewers.entering).map(lambda _: identity.held[self.pending].update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
+        return shown(identity, entry, Viewers.entering).map(lambda _: identity.resources[self.pending].update({Handle.of(scene): PendingRead(name=entry.name, region=region, consume=consume)}))
 
-    def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile) -> Outcome[Option[str]]:
+    def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], pending: PendingRead, file: ImageFile) -> Outcome[Option[str]]:
         """Consumes captured pixels while the capture is the scene's pending read."""
-        if (held := identity.held[self.pending]).get(handle) is not arm:
+        if (held := identity.resources[self.pending]).get(handle) is not pending:
             return Ok(Nothing)
         del held[handle]
-        cropped = arm.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
+        cropped = pending.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
         return handle.resolve().bind(
             lambda scene: (
                 Option
-                .of_optional(scene.compositor_effects.get(arm.name))
-                .map(lambda entry: cleared(identity, entry).bind(lambda _: arm.consume(identity, scene, entry, cropped)))
+                .of_optional(scene.compositor_effects.get(pending.name))
+                .map(lambda entry: cleared(identity, entry).bind(lambda _: pending.consume(identity, scene, entry, cropped)))
                 .default_value(Ok(Nothing))
             )
         )
@@ -111,7 +111,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Builds the command measuring the named entry's entering frame, keyed, described, and undo-titled by the measure, available while no render runs and the condition holds."""
         running = Job(kind="RENDER")
         return Operator(
-            form=Named, run=update_wrapper(partial(self.measured, measure), measure), undo=Nothing, icon=icon, condition=Some(condition.map(lambda held: running & held).default_value(running))
+            form=Named, run=update_wrapper(partial(self.measured, measure), measure), undo=NoUndo(), icon=icon, condition=Some(condition.map(lambda held: running & held).default_value(running))
         )
 
     def measured(self, measure: Measure, call: Call[Named]) -> Outcome[Answer]:
@@ -137,22 +137,22 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Yields the pending cell and the completion handler capturing the compositor result for deferred delivery."""
-        with identity.reports.deferred(lambda handle, arm, file: self.delivered(identity, handle, arm, file)) as deferred:
+        with identity.reports.deferred(lambda handle, pending, file: self.delivered(identity, handle, pending, file)) as deferred:
 
             def completed(scene: bpy.types.Scene) -> Outcome[None]:
-                if scene.session_uid in identity.held[INTERMEDIATES]:
+                if scene.session_uid in identity.resources[INTERMEDIATES]:
                     return Ok(None)
-                handle, held = Handle.of(scene), identity.held[self.pending]
+                handle, held = Handle.of(scene), identity.resources[self.pending]
 
-                def queued(arm: Arm, file: ImageFile) -> None:
-                    taken = held[handle] = msgspec.structs.replace(arm, captured=True)
+                def queued(pending: PendingRead, file: ImageFile) -> None:
+                    taken = held[handle] = msgspec.structs.replace(pending, captured=True)
                     deferred(handle, taken, file)
 
                 return (
                     Option
                     .of_optional(held.get(handle))
-                    .filter(lambda arm: not arm.captured and Option.of_optional(scene.compositor_effects.get(arm.name)).filter(lambda entry: entry.is_active).is_some())
-                    .map(lambda arm: built("COMPOSITING").bind(lambda image: read(image, PyOpenColorIO.GetCurrentConfig())).map(lambda file: queued(arm, file)))
+                    .filter(lambda pending: not pending.captured and Option.of_optional(scene.compositor_effects.get(pending.name)).filter(lambda entry: entry.is_active).is_some())
+                    .map(lambda pending: built("COMPOSITING").bind(lambda image: read(image, PyOpenColorIO.GetCurrentConfig())).map(lambda file: queued(pending, file)))
                     .default_value(Ok(None))
                 )
 
@@ -162,7 +162,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """View and clear commands over the owned Viewer of offered and pinned entries."""
 
-    rows: EffectRows[R]
+    rows: OfferedEffects[R]
     entering: ClassVar[End] = End(node=INPUTS, socket=COLOR_INPUT.key)
     leaving: ClassVar[End] = End(node=OUTPUTS, socket=COLOR_RESULT.key)
     ends: ClassVar[tuple[tuple[str, End], ...]] = (("Input", entering), ("Result", leaving))
@@ -228,8 +228,8 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Draws the buttons viewing the entry's input and result and clearing its Viewer."""
         for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
             line = layout.row(align=True)
-            viewed = (pressed(line, identity, Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
-            alerted(line, accumulated((*viewed, pressed(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
+            viewed = (operator_button(line, identity, Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
+            alerted(line, accumulated((*viewed, operator_button(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -240,7 +240,7 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End) -> Outcome[None]:
     """Connects owned Viewer to target end and activates entry."""
 
-    def source(keyed: Keyed, key: Key) -> Outcome[End]:
+    def source(keyed: OwnedNodes, key: Key) -> Outcome[End]:
         keys = {node: key for key, node in keyed.nodes.items()}
 
         def ended(link: bpy.types.NodeLink) -> Option[End]:
@@ -258,16 +258,16 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.tree.links), member=key))
         )
 
-    def placed(tree: bpy.types.NodeTree, keyed: Keyed, end: End) -> Outcome[None]:
+    def placed(tree: bpy.types.NodeTree, keyed: OwnedNodes, end: End) -> Outcome[None]:
         stale = tuple(link for viewer in _viewer(identity, tree).to_list() for link in tree.links if link.to_node == viewer)
         adding = () if _viewer(identity, tree).is_some() else (Added(key=VIEWER, kind=bpy.types.CompositorNodeViewer),)
         return (
             accumulated(row.applied(keyed, identity) for row in (*(Removed(item=link) for link in stale), *adding))
-            .bind(lambda _: Keyed.of(tree, identity))
+            .bind(lambda _: OwnedNodes.of(tree, identity))
             .bind(lambda fresh: Connected(link=Link(source=end, target=End(node=VIEWER, socket="Image"))).applied(fresh, identity))
         )
 
-    def viewed(tree: bpy.types.NodeTree, keyed: Keyed) -> Outcome[None]:
+    def viewed(tree: bpy.types.NodeTree, keyed: OwnedNodes) -> Outcome[None]:
         match target:
             case End(node=node, socket=str(key)) if node == OUTPUTS:
                 entering = source(keyed, key)
@@ -281,14 +281,14 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
             .bind(lambda viewer: written(tree.nodes, ("active",), viewer).map(lambda _: None))
         )
 
-    return grouped(entry).bind(lambda tree: Keyed.of(tree, identity).bind(lambda keyed: viewed(tree, keyed)))
+    return grouped(entry).bind(lambda tree: OwnedNodes.of(tree, identity).bind(lambda keyed: viewed(tree, keyed)))
 
 
 def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[bool]:
     """Removes owned Viewer, answering whether it existed."""
 
     def removed(tree: bpy.types.NodeTree) -> Outcome[bool]:
-        return _viewer(identity, tree).map(lambda viewer: Keyed.of(tree, identity).bind(lambda keyed: Removed(item=viewer).applied(keyed, identity)).map(lambda _: True)).default_value(Ok(False))
+        return _viewer(identity, tree).map(lambda viewer: OwnedNodes.of(tree, identity).bind(lambda keyed: Removed(item=viewer).applied(keyed, identity)).map(lambda _: True)).default_value(Ok(False))
 
     return grouped(entry).bind(removed)
 
@@ -307,7 +307,7 @@ def capturing(
 ) -> Generator[Outcome[bpy.types.SceneCompositorEffect]]:
     """Places scoped pass-through capture entry before the scene's entry, holding the output roots beside its pass-through, the active entry kept active."""
     at = tuple(scene.compositor_effects).index(before)
-    face = Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,))
+    interface = Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,))
     with ExitStack() as scope:
         for active in Option.of_optional(scene.compositor_effects.active).to_list():
             scope.callback(setattr, active, "is_active", True)
@@ -323,7 +323,7 @@ def capturing(
             composites
             .check(bpy.context, Some(scene))
             .bind(lambda _: accumulated(written(entry, ("enable_for_render",), False) for entry in suffix))
-            .bind(lambda _: functions.built("input_capture", face, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
+            .bind(lambda _: functions.built("input_capture", interface, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
             .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
             .bind(lambda group: made(group, identity, of=Some(scene)))
             .bind(placed)
@@ -337,4 +337,4 @@ composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("re
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["READ", "Arm", "Consume", "Measure", "ViewTarget", "ViewerRead", "Viewers", "capturing", "cleared", "composites", "shown"]
+__all__ = ["READ", "Consume", "Measure", "PendingRead", "ViewTarget", "ViewerRead", "Viewers", "capturing", "cleared", "composites", "shown"]

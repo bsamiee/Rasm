@@ -17,12 +17,12 @@ from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, Scalar, switched, vector, where, xyz
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket
-from blender.bpy.nodes.textures import White
+from blender.bpy.nodes.textures import WhiteNoise
 from blender.bpy.render.compositor.colors import from_ycc, ycc
 from blender.bpy.render.compositor.coordinates import Border, dimensions, extended, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise, Prepared, Stage
 from blender.bpy.render.compositor.filters import blurred
-from blender.bpy.render.compositor.inputs import FRAME_SCALE, Shell, toggled, value
+from blender.bpy.render.compositor.inputs import FRAME_SCALE, GraphInputs, toggled, value
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED, timing
 from blender.bpy.render.outputs.framing import capacity
 from blender.imaging.files import buffers, images
@@ -202,7 +202,7 @@ def _prepared(stage: Stage[Emulation]) -> Outcome[Option[Prepared]]:
 # --- [TUBE]
 
 
-def _displayed(shell: Shell[Emulation], image: Expr, *, time: Expr, lines: Expr) -> Expr:
+def _displayed(shell: GraphInputs[Emulation], image: Expr, *, time: Expr, lines: Expr) -> Expr:
     """Shows a received signal on a picture tube whose sockets the display panel declares, the entering image's data window setting the beam's pixel footprint.
 
     Args:
@@ -284,7 +284,7 @@ def _displayed(shell: Shell[Emulation], image: Expr, *, time: Expr, lines: Expr)
 # --- [GRAPH]
 
 
-def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
+def _emulation(shell: GraphInputs[Emulation]) -> Outcome[Expr]:
     """Builds corruption, tape, reception, and display after the CPU coding, color differences in BT.601 luma weights at unit swing about zero.
 
     Args:
@@ -294,7 +294,7 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
         Displayed color.
     """
     source, frame, held = shell.color, shell.space, shell.input
-    corrupting, taping, signalling = partial(held, _CORRUPTION), partial(held, _TAPE), partial(held, _SIGNAL)
+    corrupting, taping, signaling = partial(held, _CORRUPTION), partial(held, _TAPE), partial(held, _SIGNAL)
     seed, lines = held(SEED), held(_LINES)
     red_weight, blue_weight = (float(weight) for weight in WEIGHTS_YCBCR["ITU-R BT.601"])
     weights = (red_weight, 1.0 - red_weight - blue_weight, blue_weight)
@@ -305,7 +305,7 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
     line_cell, sample_cell = xyz(line), xyz(math("FLOOR", x * math("ROUND", lines * frame.extent["X"] / frame.extent["Y"])), line)
 
     def white(coordinate: Scalar) -> Expr:
-        return White(noise_dimensions="4D").node(coordinate, pattern)
+        return WhiteNoise(noise_dimensions="4D").node(coordinate, pattern)
 
     def shifted(image: Scalar, horizontal: Scalar, vertical: Scalar = y, across: Border = Border.CLAMP, up: Border = Border.CLAMP) -> Expr:
         return extended(image, frame.sampled(xyz(horizontal, vertical)), (across, up), clipped=True)
@@ -342,10 +342,10 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
         first, support, rows, taps = _canvases(held(FRAME_SCALE), dimensions(source)["Y"], lines, taping(_JITTER_PERIOD), EXPRESSIONS)
         padding = support * 2.0
         jitter_canvas, impulse_canvas = (
-            Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", xyz(1.0, extent)),), socket="Image", shape=bpy.types.NodeSocketColor) for extent in (rows, taps)
+            Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", xyz(1.0, extent)),), socket="Image", socket_type=bpy.types.NodeSocketColor) for extent in (rows, taps)
         )
         jitter_row, impulse_row = (
-            Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", canvas),), socket="Pixel", shape=bpy.types.NodeSocketVector)["Y"] for canvas in (jitter_canvas, impulse_canvas)
+            Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", canvas),), socket="Pixel", socket_type=bpy.types.NodeSocketVector)["Y"] for canvas in (jitter_canvas, impulse_canvas)
         )
         filtered = xyz(0.0, taping(_JITTER_PERIOD) * lines)
         jittered = blurred(normals(_JITTER, xyz(jitter_row + (first - support)))[0], filtered)
@@ -366,20 +366,20 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
     def received(image: Expr) -> Expr:
         luma, blue_difference, red_difference = ycc(image, weights)
         luma_noise, chroma_noises = normals(_NOISE, sample_cell), normals(_CHROMA_NOISE, sample_cell)
-        strength = math("SUBTRACT", luma, banded(luma, 1.0 / 377.0, 0.0)) * signalling(_CROSS_COLOR)
+        strength = math("SUBTRACT", luma, banded(luma, 1.0 / 377.0, 0.0)) * signaling(_CROSS_COLOR)
         phase = math("MULTIPLY_ADD", x, 188.3, (line + pattern) * 0.5) * 2.0 * np.pi
         green, blue = (
-            math("MULTIPLY_ADD", noise, signalling(_CHROMA_NOISE), math("MULTIPLY_ADD", strength, wave, difference))
+            math("MULTIPLY_ADD", noise, signaling(_CHROMA_NOISE), math("MULTIPLY_ADD", strength, wave, difference))
             for difference, wave, noise in ((blue_difference, math("COSINE", phase), chroma_noises[0]), (red_difference, math("SINE", phase), chroma_noises[1]))
         )
-        band = banded(math("MULTIPLY_ADD", luma_noise[0], signalling(_NOISE), luma), signalling(_LUMA_BLUR), 0.0)
-        chroma = shifted(banded(rgba(green, blue, 0.0), signalling(_CHROMA_BLUR), signalling(_CHROMA_VERTICAL)), x - signalling(_CHROMA_DELAY))
-        ringed = (shifted(band, math("MULTIPLY_ADD", signalling(_LUMA_BLUR) / 3.0, direction, x)) for direction in (-1.0, 1.0))
+        band = banded(math("MULTIPLY_ADD", luma_noise[0], signaling(_NOISE), luma), signaling(_LUMA_BLUR), 0.0)
+        chroma = shifted(banded(rgba(green, blue, 0.0), signaling(_CHROMA_BLUR), signaling(_CHROMA_VERTICAL)), x - signaling(_CHROMA_DELAY))
+        ringed = (shifted(band, math("MULTIPLY_ADD", signaling(_LUMA_BLUR) / 3.0, direction, x)) for direction in (-1.0, 1.0))
         overshoot = -math("MULTIPLY_ADD", band, -2.0, math("ADD", *ringed))
-        packed = rgba(math("MULTIPLY_ADD", overshoot, signalling(_RINGING), band), chroma["Red"] * signalling(_SATURATION), chroma["Green"] * signalling(_SATURATION))
-        amplitude = signalling(_GHOST, _ECHO)
-        echoed = switched(signalling(_GHOST), packed, mixed(amplitude / (amplitude + 1.0), packed, shifted(packed, x - signalling(_GHOST, _DELAY))))
-        loss = math("MULTIPLY_ADD", math("SINE", math("MULTIPLY_ADD", time, -0.002, y) * 2.0 * np.pi), 0.5, 0.5) * signalling(_HUM)
+        packed = rgba(math("MULTIPLY_ADD", overshoot, signaling(_RINGING), band), chroma["Red"] * signaling(_SATURATION), chroma["Green"] * signaling(_SATURATION))
+        amplitude = signaling(_GHOST, _ECHO)
+        echoed = switched(signaling(_GHOST), packed, mixed(amplitude / (amplitude + 1.0), packed, shifted(packed, x - signaling(_GHOST, _DELAY))))
+        loss = math("MULTIPLY_ADD", math("SINE", math("MULTIPLY_ADD", time, -0.002, y) * 2.0 * np.pi), 0.5, 0.5) * signaling(_HUM)
         return switched(held(_SIGNAL), image, from_ycc(echoed["Red"] * (1.0 - loss), echoed["Green"], echoed["Blue"], weights))
 
     return Ok(_displayed(shell, received(played(corrupted(source))), time=time, lines=lines))

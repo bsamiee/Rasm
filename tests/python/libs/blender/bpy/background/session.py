@@ -93,7 +93,7 @@ def main(target: Path) -> None:
     installed()
     bpy.ops.preferences.addon_enable(module=PACKAGE)
     fixture = importlib.import_module(PACKAGE)
-    identity: Identity = fixture.extension.WITNESS.identity.value
+    identity: Identity = fixture.extension.RECORDER.identity.value
     enabled = observed(((area, area.PROBES) for area in fixture.AREAS), identity)
     bpy.ops.preferences.addon_disable(module=PACKAGE)
     released = observed((area, area.RELEASED) for area in fixture.AREAS)

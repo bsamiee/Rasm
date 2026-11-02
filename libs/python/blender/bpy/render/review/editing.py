@@ -4,10 +4,10 @@ from collections.abc import Callable
 from enum import Enum
 from functools import cached_property, partial, update_wrapper
 import math
-from typing import ClassVar
+from typing import ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 from mathutils import Matrix
 import msgspec
 import numpy as np
@@ -16,27 +16,30 @@ import PyOpenColorIO
 
 from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Invoke, Operator, Unchanged
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.data.rna.mirrors import enum_choices
 from blender.bpy.data.rna.paths import root_in, rooted
+from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.content import Generated
 from blender.bpy.render.review.charts import ChartImage, Charting, Need, PlacedChart
 from blender.bpy.settings.attachments import Attached
+from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup
 from blender.bpy.ui.images.views import framed, FrameRegion, HANDLE
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import grouped, Layout, OperatorButton, Property, RowContent
-from blender.bpy.ui.resources.icons import Glyph
-from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos
+from blender.bpy.ui.resources.icons import Icon
 from blender.imaging.color.calibration import ChartPlacement, Clipped, Colors, Finding, PublishedChart, Reversed, Skewed, Wide
 from blender.imaging.geometry.frames import Homography, Quad, StMap
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.stores import content_hash
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,8 +49,8 @@ type _Located = tuple[bpy.types.Image, PlacedChart, Attached[ChartImage]]
 class Mirror(Enum):
     """Patch order mirror axis, valued by its corner permutation in `Quad` corner order."""
 
-    ACROSS = (1, 0, 3, 2)
-    UPRIGHT = (3, 2, 1, 0)
+    HORIZONTAL = (1, 0, 3, 2)
+    VERTICAL = (3, 2, 1, 0)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -71,8 +74,8 @@ class Flipping(bpy.types.PropertyGroup):
 class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Commands, corner cage, and flip buttons over the shown image's chart, the buttons drawn under the `across` and `upright` glyphs."""
 
-    across: Glyph
-    upright: Glyph
+    horizontal: Icon
+    vertical: Icon
     charting: ClassVar[Charting] = Charting()
 
     # --- [COMMANDS]
@@ -96,7 +99,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return self.located(call.identity, call.context).bind(lambda found: kept(*found))
 
     def moved[T: bpy.types.PropertyGroup](self, move: Callable[[Call[T], npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]], call: Call[T]) -> Outcome[Answer]:
-        """Writes the shown chart's corners as a move carries them in its alignment frame."""
+        """Writes the shown chart's corners as a move places them in its alignment frame."""
         return self.edited(
             lambda each, image, record: Result[Option[Homography], Faults].bind(
                 record.placement.aligned,
@@ -114,7 +117,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Place a square-cell chart at shown image center."""
 
         def placed(image: bpy.types.Image, chart: Attached[ChartImage], ratio: float) -> Outcome[None]:
-            return self.charting.placed.write(chart.struct(image), PlacedChart(placement=self.charting.seated(PublishedChart[chart.struct(image).chart], ratio)))
+            return self.charting.placed.write(chart.struct(image), PlacedChart(placement=self.charting.centered(PublishedChart[chart.struct(image).chart], ratio)))
 
         image = _shown(call.context).to_result_with(partial(Fault.of, Reason.ABSENT, repr(call.context.space_data), member="image"))
         return paired(image, self.charting.charts.bound(call.identity)).bind(lambda pair: self.charting.aspect(call.context, pair[0]).bind(lambda ratio: placed(*pair, ratio))).map(lambda _: Done())
@@ -130,9 +133,9 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .map(lambda _: Done(notes=(("INFO", f"Sampled {image.name}"),)))
             )
 
-        return self.located(call.identity, call.context).bind(lambda found: self.charting.planed(call.context, found[0]).bind(lambda plane: kept(*found, plane)))
+        return self.located(call.identity, call.context).bind(lambda found: self.charting.plane(call.context, found[0]).bind(lambda plane: kept(*found, plane)))
 
-    def warned(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+    def warned(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: object, identity: Identity) -> None:
         """Draws the shown chart's placement findings above the sample confirmation."""
 
         def described(finding: Finding, chart: PublishedChart) -> str:
@@ -166,7 +169,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def reset_chart(self, call: Call[Empty], image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
         """Reset chart layout."""
-        return self.charting.aspect(call.context, image).map(lambda ratio: msgspec.structs.replace(record, placement=self.charting.seated(record.placement.chart, ratio)))
+        return self.charting.aspect(call.context, image).map(lambda ratio: msgspec.structs.replace(record, placement=self.charting.centered(record.placement.chart, ratio)))
 
     @staticmethod
     def leave_view(call: Call[Empty], image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
@@ -233,13 +236,19 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             lambda found: (
                 (Some(found[1].placement) if found[1].placement.panorama is not None else found[1].placement.framed(call.properties.share))
                 .to_result_with(lambda: Fault.of(Need.PLACED, found[0].name))
-                .bind(lambda placement: self.charting.planed(call.context, found[0]).bind(lambda plane: baked(*found, placement, plane)))
+                .bind(lambda placement: self.charting.plane(call.context, found[0]).bind(lambda plane: baked(*found, placement, plane)))
             )
         )
 
+    def _bound[T: bpy.types.PropertyGroup, S: Callable[..., object]](
+        self, form: type[T], apply: Callable[[S, Call[T]], Outcome[Answer]], step: S, /, *, icon: Option["rna_enums.IconItems"] = Nothing, invoke: Option[Invoke[T]] = Nothing
+    ) -> Operator[T]:
+        """Returns the operator running a step through `edited` or `moved` over the shown image's chart, described by the step."""
+        return Operator(condition=Some(self.charting.imaged), form=form, run=update_wrapper(partial(apply, step), step), icon=icon, invoke=invoke)
+
     @cached_property
     def placing(self) -> Operator[Empty]:
-        """Command seating the chosen chart on the shown image."""
+        """Command placing the chosen chart on the shown image."""
         return Operator.of(Empty, condition=Some(self.charting.imaged))(self.place_chart)
 
     @cached_property
@@ -252,32 +261,27 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def clearing(self) -> Operator[Empty]:
         """Command clearing the shown chart's samples after a confirmation."""
-        return Operator(
-            condition=Some(self.charting.imaged),
-            form=Empty,
-            run=update_wrapper(partial(self.edited, self.clear_samples), self.clear_samples),
-            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))),
-        )
+        return self._bound(Empty, self.edited, self.clear_samples, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))))
 
     @cached_property
     def flipping(self) -> Operator[Flipping]:
         """Command mirroring the shown chart's patch order."""
-        return Operator(condition=Some(self.charting.imaged), form=Flipping, run=update_wrapper(partial(self.moved, self.flip_chart), self.flip_chart))
+        return self._bound(Flipping, self.moved, self.flip_chart)
 
     @cached_property
     def turning(self) -> Operator[Empty]:
         """Command turning the shown chart's patch order."""
-        return Operator(icon=Some("FILE_REFRESH"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.moved, self.turn_chart), self.turn_chart))
+        return self._bound(Empty, self.moved, self.turn_chart, icon=Some("FILE_REFRESH"))
 
     @cached_property
     def centering(self) -> Operator[Empty]:
         """Command centering the shown chart in the visible frame."""
-        return Operator(icon=Some("ALIGN_CENTER"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.moved, self.center_chart), self.center_chart))
+        return self._bound(Empty, self.moved, self.center_chart, icon=Some("ALIGN_CENTER"))
 
     @cached_property
     def resetting(self) -> Operator[Empty]:
-        """Command seating the shown chart again."""
-        return Operator(icon=Some("LOOP_BACK"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.edited, self.reset_chart), self.reset_chart))
+        """Command placing the shown chart again."""
+        return self._bound(Empty, self.edited, self.reset_chart, icon=Some("LOOP_BACK"))
 
     @cached_property
     def viewing(self) -> Operator[ChartFraming]:
@@ -287,26 +291,19 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def leaving(self) -> Operator[Empty]:
         """Command returning from a chart view to its panorama."""
-        return Operator(icon=Some("SCREEN_BACK"), condition=Some(self.charting.imaged), form=Empty, run=update_wrapper(partial(self.edited, self.leave_view), self.leave_view))
+        return self._bound(Empty, self.edited, self.leave_view, icon=Some("SCREEN_BACK"))
 
     # --- [HANDLES]
 
     def quad(self, identity: Identity, context: bpy.types.Context) -> Outcome[Option[Quad]]:
         """Returns the shown chart's corners in its alignment frame, Nothing while a corner falls behind its view."""
-
-        def framed_quad(record: PlacedChart) -> Option[Quad]:
-            placement = record.placement
-            samples = Option.of_optional(placement.panorama).map(lambda panorama: panorama.to_view(placement.quad.samples)).default_value(placement.quad.samples)
-            return Some(samples).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(Quad.of)
-
-        return self.charting.charted(identity, context).map(lambda found: found.bind(lambda pair: framed_quad(pair[1])))
+        return self.charting.charted(identity, context).map(lambda found: found.bind(lambda pair: pair[1].placement.viewed))
 
     def requad(self, identity: Identity, context: bpy.types.Context, quad: Quad) -> Outcome[None]:
         """Writes the shown chart's corners an edit of its alignment frame gives."""
 
         def realigned(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage]) -> Outcome[None]:
-            placement = record.placement
-            return self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=msgspec.structs.replace(placement, quad=placement.realigned(quad).quad)))
+            return self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=record.placement.realigned(quad)))
 
         return self.located(identity, context).bind(lambda found: realigned(*found))
 
@@ -321,6 +318,11 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [ROWS]
 
     @property
+    def mirrors(self) -> tuple[tuple[Mirror, Icon, tuple[int, int]], ...]:
+        """Each mirror axis with its button icon and the corners of the edge its gizmo sits on."""
+        return ((Mirror.HORIZONTAL, self.horizontal, (0, 1)), (Mirror.VERTICAL, self.vertical, (0, 3)))
+
+    @property
     def rows(self) -> tuple[RowContent, ...]:
         """Shown image's chart fields and the chart command groups."""
         return (
@@ -328,10 +330,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             Layout(rows=tuple(OperatorButton(target=command) for command in (self.placing, self.sampling, self.clearing)), container=Some(grouped)),
             Layout(
                 rows=(
-                    *(
-                        OperatorButton(target=Placement(self.flipping, {"mirror": mirror.name}), keywords={"text": ""}, icon=Some(glyph))
-                        for mirror, glyph in ((Mirror.ACROSS, self.across), (Mirror.UPRIGHT, self.upright))
-                    ),
+                    *(OperatorButton(target=Placement(self.flipping, {"mirror": mirror.name}), keywords={"text": ""}, icon=Some(icon)) for mirror, icon, _ in self.mirrors),
                     *(OperatorButton(target=command, keywords={"text": ""}) for command in (self.turning, self.centering, self.resetting, self.viewing, self.leaving)),
                 ),
                 container=Some(grouped),
@@ -349,15 +348,15 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns the commands, the corner cage, and the flip buttons."""
         imaged = self.charting.imaged
         flips = tuple(
-            GizmoPart(
+            Gizmo(
                 kind="GIZMO_GT_button_2d",
                 place=partial(self.edge, identity, corners),
                 bind=(Placement(self.flipping, {"mirror": mirror.name}),),
-                glyph=Some(glyph),
+                icon=Some(icon),
                 properties={"scale_basis": HANDLE, "draw_options": frozenset({"OUTLINE", "BACKDROP"})},
                 role=lambda ui: (ui.wcol_tool.inner, ui.wcol_tool.inner_sel),
             )
-            for corners, glyph, mirror in (((0, 1), self.across, Mirror.ACROSS), ((0, 3), self.upright, Mirror.UPRIGHT))
+            for mirror, icon, corners in self.mirrors
         )
         return Ok((
             self.placing,
@@ -378,7 +377,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 shown=imaged,
                 refreshes=self.charting.refreshes(identity),
             ),
-            Gizmos(key="chart", space="IMAGE_EDITOR", parts=flips, condition=Some(imaged)),
+            GizmoGroup(key="chart", space="IMAGE_EDITOR", gizmos=flips, condition=Some(imaged)),
         ))
 
 

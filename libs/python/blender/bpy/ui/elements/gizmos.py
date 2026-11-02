@@ -16,14 +16,14 @@ import msgspec
 from blender.bpy.commands.calls import filled, Pairs, Placement
 from blender.bpy.commands.keymaps import Location, nesting
 from blender.bpy.commands.modal import Press, Travel
-from blender.bpy.data.rna.conditions import admits, Condition
+from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import assign
 from blender.bpy.data.rna.paths import rna
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band, Declaration
+from blender.bpy.extension.registration import Acquisitions, Declaration, Tier
 from blender.bpy.ui.layout.members import Member, ResolvedMember
-from blender.bpy.ui.layout.rows import glyphed
-from blender.bpy.ui.resources.icons import Glyph, Icons
+from blender.bpy.ui.layout.rows import icon_prerequisites
+from blender.bpy.ui.resources.icons import Icon, Icons
 from blender.bpy.ui.resources.theme import color, Shade
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
@@ -114,19 +114,19 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
         return self.named(identity).map(lambda name: (type(name, (base,), {"bl_idname": name, "bl_target_properties": declared}),))
 
 
-class GizmoPart(msgspec.Struct, frozen=True, kw_only=True):
+class Gizmo(msgspec.Struct, frozen=True, kw_only=True):
     """Gizmo of a stock type or custom shape placed each redraw, bound to a member, a target handler, or one operator per highlighted part.
 
-    `role` gives the color with alpha drawn normally and highlighted, read each draw so theme edits apply.
+    `role` gives the color with alpha at rest and highlighted, read each draw.
     `properties` set every other gizmo member and type property alike, the host forwarding a type property through the gizmo.
-    A member or handler binding pushes one undo step per use, and `prepare` runs as the gizmo is pressed.
+    Member or handler binding pushes one undo step per use, and `prepare` runs as the gizmo is pressed.
     """
 
     kind: _Stock | Shape
     place: Callable[[bpy.types.Context], Outcome[Option[mathutils.Matrix]]]
     bind: Member | TargetHandler[float] | TargetHandler[tuple[float, ...]] | tuple[Placement, ...] = ()
     properties: Mapping[str, object] = MappingProxyType({})
-    glyph: Option[Glyph] = Nothing
+    icon: Option[Icon] = Nothing
     role: Callable[[bpy.types.ThemeUserInterface], tuple[Shade, Shade]] = lambda ui: ((*color(ui.gizmo_primary)[:3], 0.5), ui.gizmo_hi)
     prepare: Option[Callable[[bpy.types.Context, bpy.types.Gizmo], Outcome[None]]] = Nothing
 
@@ -141,18 +141,18 @@ class GizmoPart(msgspec.Struct, frozen=True, kw_only=True):
             case TargetHandler() as handler:
                 return named.map(lambda key: partial(_handled, key, handler, identity.reports.reported(handler.set)))
             case Member() as member:
-                return paired(named, member.located(identity).bind(lambda found: found.bound())).map(lambda pair: (pair[0], pair[1]))
+                return paired(named, member.located(identity).bind(lambda found: found.bound()))
 
 
-class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
+class GizmoGroup(msgspec.Struct, frozen=True, kw_only=True):
     """Gizmo group of parts in one editor region, labelled by its key, polled by its condition and every member owner it binds.
 
-    A group without `PERSISTENT` shows while a tool names it or an `ensured` scope stands, and `keymap` names the keymap handling its events in place of the host's generic one.
+    Group without `PERSISTENT` shows while a tool names it or an `ensured` scope stands, and `keymap` names the keymap handling its events in place of the host's generic one.
     """
 
     key: Key
     space: "rna_enums.SpaceTypeItems"
-    parts: tuple[GizmoPart, ...]
+    gizmos: tuple[Gizmo, ...]
     region: "rna_enums.RegionTypeItems" = "WINDOW"
     condition: Option[Condition] = Nothing
     keymap: Option[str] = Nothing
@@ -168,16 +168,16 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
-        """Icon set the parts' staged glyphs read and attachments their members bind."""
-        return tuple(held for part in self.parts for held in (*glyphed(part.glyph), *(part.bind.prerequisites if isinstance(part.bind, Member) else ())))
+        """Icon set the parts' packaged icons read and attachments their members bind."""
+        return tuple(held for part in self.gizmos for held in (*icon_prerequisites(part.icon), *(part.bind.prerequisites if isinstance(part.bind, Member) else ())))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns each custom shape, then the group class built when the interface band opens and its glyphs resolve."""
-        kinds = accumulated(part.kind.named(identity) if isinstance(part.kind, Shape) else Ok(part.kind) for part in self.parts)
-        bound = accumulated(part.bound(identity) for part in self.parts)
+        """Returns each custom shape, then the group class built when the interface band opens and its icons resolve."""
+        kinds = accumulated(part.kind.named(identity) if isinstance(part.kind, Shape) else Ok(part.kind) for part in self.gizmos)
+        bound = accumulated(part.bound(identity) for part in self.gizmos)
         located = self.keymap.map(lambda name: nesting(name).map(lambda found: Some(found[0]))).default_value(Ok(Nothing))
-        shapes = tuple(part.kind for part in self.parts if isinstance(part.kind, Shape))
-        return paired(self.named(identity), kinds, bound, located).map(lambda held: (*shapes, (Band.INTERFACE, partial(_grouped, self, identity, *held))))
+        shapes = tuple(part.kind for part in self.gizmos if isinstance(part.kind, Shape))
+        return paired(self.named(identity), kinds, bound, located).map(lambda held: (*shapes, (Tier.INTERFACE, partial(_grouped, self, identity, *held))))
 
     # --- [LINKING]
 
@@ -201,9 +201,9 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 # --- [CLASSES]
 
 
-def _grouped(group: Gizmos, identity: Identity, name: str, kinds: tuple[str, ...], bound: tuple[_Bound, ...], keymap: Option[Location]) -> Outcome[tuple[type[bpy.types.GizmoGroup]]]:
-    """Builds the group class once every glyph resolves: creating its gizmos with their operators, rebinding members on refresh, and at each draw rebinding handlers, whose values the host caches until a rebind, then theming and placing them."""
-    hold, parts = identity.reports.hold, group.parts
+def _grouped(group: GizmoGroup, identity: Identity, name: str, kinds: tuple[str, ...], bound: tuple[_Bound, ...], keymap: Option[Location]) -> Outcome[tuple[type[bpy.types.GizmoGroup]]]:
+    """Builds the group class once every icon resolves, rebinding handlers at each draw since the host caches their values until a rebind."""
+    hold, parts = identity.reports.hold, group.gizmos
     members = tuple(binding for binding in bound if isinstance(binding, tuple))
 
     def rebound(gizmo: bpy.types.Gizmo, binding: tuple[str, Member | ResolvedMember], context: bpy.types.Context) -> Outcome[None]:
@@ -212,7 +212,7 @@ def _grouped(group: Gizmos, identity: Identity, name: str, kinds: tuple[str, ...
         return member.current((), context).bind(lambda found: found.map(partial(_targeted, gizmo, key, context)).default_value(Ok(None)))
 
     def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
-        if not admits(group.condition, context):
+        if not satisfied(group.condition, context):
             return False
         found = accumulated(member.current((), context) for _, member in members).map_error(hold).to_option()
         return found.is_some() and all(present.bind(lambda held: held.at(context, context)).is_some() for each in found.to_list() for present in each)
@@ -224,7 +224,7 @@ def _grouped(group: Gizmos, identity: Identity, name: str, kinds: tuple[str, ...
             for gizmo, kind, part in made
             for member, value in (
                 ("use_undo", isinstance(part.bind, Member | TargetHandler)),
-                *(("icon_value", value) for glyph in part.glyph.to_list() for value in Icons.value(identity, glyph).to_option().to_list()),
+                *(("icon_value", value) for held in part.icon.to_list() for value in Icons.value(identity, held).to_option().to_list()),
                 *part.properties.items(),
             )
         )
@@ -266,8 +266,8 @@ def _grouped(group: Gizmos, identity: Identity, name: str, kinds: tuple[str, ...
         **({"invoke_prepare": invoke_prepare} if any(part.prepare.is_some() for part in parts) else {}),
         **keymap.map(lambda location: {"setup_keymap": classmethod(lambda _cls, keyconfig: keyconfig.keymaps.new(location[0], space_type=location[1], region_type=location[2]))}).default_value({}),
     }
-    glyphs = accumulated(Icons.value(identity, glyph) for part in parts for glyph in part.glyph.to_list())
-    return glyphs.map(lambda _: (type(name, (bpy.types.GizmoGroup,), native),))
+    icons = accumulated(Icons.value(identity, held) for part in parts for held in part.icon.to_list())
+    return icons.map(lambda _: (type(name, (bpy.types.GizmoGroup,), native),))
 
 
 # --- [TARGETS]
@@ -301,4 +301,4 @@ def _operated(placed: tuple[tuple[str, Pairs], ...], gizmo: bpy.types.Gizmo, _co
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GizmoPart", "Gizmos", "Shape", "TargetHandler"]
+__all__ = ["Gizmo", "GizmoGroup", "Shape", "TargetHandler"]

@@ -31,7 +31,7 @@ class Coding(Enum):
     DIFFUSED = auto()
 
     def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth, /) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]:
-        """Returns clamped integer codes of the same shape, NaN and negative infinity at zero, ties to even, each diffused color error spread over unvisited neighbors along anti-diagonal wavefronts, or image fault."""
+        """Returns clamped integer codes of the same shape, NaN and negative infinity at zero, ties to even, each diffused color error spread over unvisited neighbors along anti-diagonal wavefronts, or `FAILED` fault."""
         rounded = pixels(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)), depth).map(lambda codes: codes.reshape(plane.shape))
         if self is Coding.ROUNDED:
             return rounded
@@ -40,7 +40,7 @@ class Coding(Enum):
         def diffused(rounded_codes: npt.NDArray[np.uint8 | np.uint16]) -> npt.NDArray[np.uint8 | np.uint16]:
             coded = rounded_codes.copy()
             levels = float(np.iinfo(coded.dtype).max)
-            color = levels * plane[..., :3]
+            color = levels * np.nan_to_num(plane[..., :3], nan=0.0, posinf=np.inf, neginf=-np.inf)
             ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
             for step in range(width + 2 * height - 2):
                 low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
@@ -62,10 +62,10 @@ class Coding(Enum):
 class Depth(IntEnum):
     """Stored channel type, its value the OpenImageIO base type."""
 
-    UINT8 = int(OpenImageIO.UINT8)
-    UINT16 = int(OpenImageIO.UINT16)
-    HALF = int(OpenImageIO.HALF)
-    FLOAT = int(OpenImageIO.FLOAT)
+    UINT8 = OpenImageIO.UINT8.value
+    UINT16 = OpenImageIO.UINT16.value
+    HALF = OpenImageIO.HALF.value
+    FLOAT = OpenImageIO.FLOAT.value
 
     @property
     def basetype(self) -> OpenImageIO.BASETYPE:
@@ -78,7 +78,7 @@ class Depth(IntEnum):
         return OpenImageIO.TypeDesc(self.basetype).size() * 8
 
     def coded(self, plane: npt.NDArray[np.float32], coding: Coding = Coding.ROUNDED) -> Outcome[npt.NDArray[Coded]]:
-        """Returns straight display values stored at the depth, integer depths coded through `coding`, or image fault."""
+        """Returns straight display values stored at the depth, integer depths coded through `coding`, or `FAILED` fault."""
         match self:
             case Depth.UINT8 | Depth.UINT16 as integer:
                 return coding.coded(plane, integer)
@@ -92,7 +92,7 @@ class Depth(IntEnum):
 
 
 def checked(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
-    """Returns buffer, or image fault when buffer holds an error."""
+    """Returns buffer, or `FAILED` fault when buffer holds an error."""
     return Ok(image).filter_with(lambda held: not held.has_error, lambda held: Fault.of(Reason.FAILED, held.name, held.geterror()))
 
 
@@ -112,7 +112,7 @@ def pixels(image: OpenImageIO.ImageBuf, depth: Literal[Depth.UINT8]) -> Outcome[
 @overload
 def pixels(image: OpenImageIO.ImageBuf, depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]: ...
 def pixels(image: OpenImageIO.ImageBuf, depth: Depth = Depth.FLOAT) -> Outcome[npt.NDArray[np.generic]]:
-    """Returns pixels of buffer stored at `depth`, float32 by default, or image fault."""
+    """Returns pixels of buffer stored at `depth`, float32 by default, or `FAILED` fault."""
     return Option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(Reason.FAILED, image.name, image.geterror()))
 
 
@@ -142,7 +142,7 @@ def rescaled(spec: OpenImageIO.ImageSpec, width: int, /) -> OpenImageIO.ImageSpe
 
 
 def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, /, *, filtername: str = "") -> Outcome[OpenImageIO.ImageBuf]:
-    """Returns the buffer resampled through `filtername` into the data and display windows of `spec`, display window onto display window, or image fault."""
+    """Returns the buffer resampled through `filtername` into the data and display windows of `spec`, display window onto display window, or `FAILED` fault."""
     target = OpenImageIO.ImageBuf(spec)
     OpenImageIO.ImageBufAlgo.resize(target, image, filtername=filtername, roi=target.roi)
     return checked(target)

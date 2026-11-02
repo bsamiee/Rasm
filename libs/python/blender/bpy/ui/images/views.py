@@ -15,7 +15,7 @@ import numpy.typing as npt
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Pick
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import root_in, rooted
@@ -23,11 +23,11 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.ui.drawing.canvas import Canvas, DrawType, Rect
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Part, Refresh
+from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup, TargetHandler
+from blender.bpy.ui.elements.panels import Beside, Sidebar
 from blender.bpy.ui.resources.previews import uploaded
 from blender.bpy.ui.resources.theme import Color, color, Metrics, Shade
 from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, EditorState, Located, visibility
-from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos, TargetHandler
-from blender.bpy.ui.surfaces.panels import Beside, Sidebar
 from blender.imaging.geometry.frames import Quad, Region
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
@@ -52,7 +52,7 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def command(self) -> Operator[Empty]:
         """Command revealing the view at the placement's tab."""
-        return Operator(undo=Nothing, form=Empty, run=self.show_render_view)
+        return Operator(undo=NoUndo(), form=Empty, run=self.show_render_view)
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
         """Shows the render view, opening one unless an editor shows Render Result, then queues the Sidebar tab the placement's members name, none for a stock panel declaring no category."""
@@ -145,8 +145,8 @@ class Edges(msgspec.Struct, frozen=True, kw_only=True):
 class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     """Quad over images `shown` accepts in frame fractions, read and written through its owner and edited through one host cage.
 
-    The cage moves, turns, and scales the quad as `transform` allows, Shift scaling uniformly and Escape restoring the press value.
-    `corners` adds the quad outline and one move handle per corner, ahead of the cage so a press on a corner takes the corner, and every edit stays inside `bounds`, a pure move shifting the whole quad.
+    Cage moves, turns, and scales the quad as `transform` allows, Shift scaling uniformly and Escape restoring the press value.
+    `corners` adds the quad outline and one move handle per corner, ahead of the cage, a press on a corner taking the corner, and every edit stays inside `bounds`, a pure move shifting the whole quad.
     """
 
     key: Key
@@ -160,11 +160,11 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the handle group, then the quad outline when corners are edited."""
-        cage = GizmoPart(
+        cage = Gizmo(
             kind="GIZMO_GT_cage_2d", place=self.origin, bind=TargetHandler[tuple[float, ...]](get=self.caging, set=self.caged), properties={"transform": self.transform, "draw_options": frozenset()}
         )
         corners = tuple(
-            GizmoPart(
+            Gizmo(
                 kind="GIZMO_GT_move_3d",
                 place=self.origin,
                 bind=TargetHandler[tuple[float, ...]](get=partial(self.corner, index), set=partial(self.cornered, index)),
@@ -172,7 +172,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             )
             for index in range(len(Quad().corners) if self.corners else 0)
         )
-        group = Gizmos(key=self.key, space="IMAGE_EDITOR", parts=(*corners, cage), condition=Some(self.shown))
+        group = GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(*corners, cage), condition=Some(self.shown))
         outline = overlaid(Edges(quad=self.read, role=lambda ui: ui.gizmo_primary), self.shown, self.refreshes)
         return Ok((group, *((outline,) if self.corners else ())))
 
@@ -198,25 +198,25 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     # --- [WRITING]
 
     def caged(self, context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
-        """Writes the quad the cage's change of frame carries, a pure move shifting it whole inside the bounds."""
+        """Writes the quad the cage's change of frame moves, a pure move shifting it whole inside the bounds."""
 
-        def carried(quad: Quad, frame: Rect) -> Outcome[None]:
+        def rewritten(quad: Quad, frame: Rect) -> Outcome[None]:
             pixels = _pixels(quad, frame)
             change = Matrix(np.reshape(values, (4, 4)).tolist()).transposed() @ _frame(pixels).inverted_safe()
             moved = np.asarray([(change @ Vector((x, y, 0.0))).to_2d() for x, y in pixels]) / (frame.width, frame.height)
             return self.write(context, Quad.of(self.bounded(moved, shifted=np.allclose(np.asarray(change.to_2x2()), np.eye(2)))))
 
-        return self.pressed(context).bind(lambda pair: carried(*pair))
+        return self.pressed(context).bind(lambda pair: rewritten(*pair))
 
     def cornered(self, index: int, context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
         """Writes the quad with one corner at the handle's offset."""
 
-        def carried(quad: Quad, frame: Rect) -> Outcome[None]:
+        def rewritten(quad: Quad, frame: Rect) -> Outcome[None]:
             fractions = quad.samples[:, :2].copy()
             fractions[index] = np.asarray(values[:2]) / (frame.width, frame.height)
             return self.write(context, Quad.of(self.bounded(fractions, shifted=False)))
 
-        return self.pressed(context).bind(lambda pair: carried(*pair))
+        return self.pressed(context).bind(lambda pair: rewritten(*pair))
 
     def pressed(self, context: bpy.types.Context) -> Outcome[tuple[Quad, Rect]]:
         """Reads the quad and frame under a handle, absent fault while the owner holds none."""
@@ -284,7 +284,7 @@ def viewing(context: bpy.types.Context) -> Outcome[Located]:
 def revealed(context: bpy.types.Context) -> Outcome[Located]:
     """Returns the editor `viewing` finds, first opening the render view where the render display preference places it when none shows Render Result.
 
-    A temporary context window opens nothing, the host toggle lowering that window in place of opening a view.
+    Temporary context window opens nothing, the host toggle lowering that window in place of opening a view.
 
     Args:
         context: Context the render view opens from.
@@ -322,7 +322,7 @@ def overlaid[S](part: Part[S], shown: Setting, refreshes: tuple[Refresh, ...]) -
 def picking[P: Picked](cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], Outcome[Answer]], shown: Option[Setting] = Nothing) -> Operator[P]:
     """Returns an operator reading a pick in the main region while `shown` holds as the frame region `taken` edits, keyed and described by `taken`.
 
-    The button opening the pick draws anywhere, the host deferring the operator until the pointer picks a location, so `shown` tests the editor picked in.
+    Button opening the pick draws anywhere, the host deferring the operator until the pointer picks a location, and `shown` tests the editor picked in.
 
     Args:
         cursor: Cursor the pending pick shows.

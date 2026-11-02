@@ -11,19 +11,19 @@ import msgspec
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.rna.conditions import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.mirrors import mirrored
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
+from blender.bpy.data.rna.properties import redeclared
 from blender.bpy.data.rna.snapshots import Applied, assigned, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.lights.emitters import emitters, emitting, picked, strengths, TEMPERATURE
-from blender.bpy.scene.objects import focused, ObjectState, reconciled
+from blender.bpy.scene.objects import active_object
 from blender.bpy.settings.attachments import Attached, Attachment
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import acquired, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
-from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ class Bulk(bpy.types.PropertyGroup):
     collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: mirrored(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: redeclared(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Emissives(bpy.types.PropertyGroup):
@@ -116,13 +116,13 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Solo
         solo: Bound solo attachment.
 
     Returns:
-        `Done`, `Unchanged` when solo hides every other emitter, or `edit` faults.
+        `Done`, `Unchanged` when solo hides every other emitter, or `refused` faults.
     """
 
     def hid(item: bpy.types.Object) -> Outcome[None]:
         return (
             assigned(solo.struct(item), {("hidden",): True, ("render",): not item.hide_render, ("viewport",): not item.hide_viewport})
-            .bind(lambda _: reconciled(ObjectState(values=Some(_shown(render=False, viewport=False))), item, ()))
+            .bind(lambda _: _shown(render=False, viewport=False).apply(item).outcome)
             .map(lambda _: None)
         )
 
@@ -143,7 +143,7 @@ def unsoloed(scene: bpy.types.Scene, solo: Attached[Solo]) -> Outcome[Answer]:
         solo: Bound solo attachment.
 
     Returns:
-        `Done`, `Unchanged` when solo hides no emitter, or `edit` faults.
+        `Done`, `Unchanged` when solo hides no emitter, or `refused` faults.
     """
     if not (hidden := tuple(item for item in scene.objects if solo.stored(item) and solo.struct(item).hidden)):
         return Ok(Unchanged(reason="Solo hides no emitter"))
@@ -160,7 +160,7 @@ def multiplied(factor: float, temperature: Option[float], scope: Scope, context:
         context: Context `scope.owners` reads.
 
     Returns:
-        `Done` with skipped faults when a write changed, `Unchanged` when no value changes, or `absent`, `edit`, and `choice` faults when none changed.
+        `Done` with skipped faults when a write changed, `Unchanged` when no value changes, or `absent`, `refused`, and `outside` faults when none changed.
     """
 
     def powered(data: LightData) -> Applied:
@@ -194,7 +194,7 @@ def _shown(*, render: bool, viewport: bool) -> Snapshot:
 def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
     """Restores emitter visibility solo held, clearing its solo mark."""
     held = solo.struct(item)
-    return reconciled(ObjectState(values=Some(_shown(render=held.render, viewport=held.viewport))), item, ()).bind(lambda _: assigned(held, {("hidden",): False}))
+    return _shown(render=held.render, viewport=held.viewport).apply(item).outcome.bind(lambda _: assigned(held, {("hidden",): False}))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -203,7 +203,7 @@ def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
 @Operator.of(Empty)
 def light_solo(call: Call[Empty]) -> Outcome[Answer]:
     """Hides every other scene emitter, storing visibility for unsolo."""
-    return paired(paired(rooted(bpy.types.ViewLayer, call.context).bind(focused), rooted(bpy.types.Scene, call.context)), LightList.solo.bound(call.identity)).bind(
+    return paired(paired(rooted(bpy.types.ViewLayer, call.context).bind(active_object), rooted(bpy.types.Scene, call.context)), LightList.solo.bound(call.identity)).bind(
         lambda pair: soloed(*pair[0], pair[1])
     )
 

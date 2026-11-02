@@ -1,4 +1,4 @@
-"""Stock nodes as expressions: settings records split into the node's RNA members and input sockets over the coordinate sockets each node reads, the inputs declared as group sockets the way the stock node declares them, and textures evolving over time by their dimensions."""
+"""Stock node settings records as expressions and group sockets, and textures evolving over time by their dimensions."""
 
 from collections.abc import Callable
 import math
@@ -11,13 +11,13 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.nodes.desired import Members
-from blender.bpy.nodes.graphs import Expr, Scalar, Shape, Term, xyz
+from blender.bpy.nodes.graphs import Expr, Scalar, SocketType, Term, xyz
 from blender.bpy.nodes.interfaces import Socket, StockInput
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Linked = Callable[[MemberDescriptorType], Option[Term]]
-type Texture = Noise | Voronoi | Wave | Magic | Gabor | White
+type Texture = Noise | Voronoi | Wave | Magic | Gabor | WhiteNoise
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,23 +42,23 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def sockets(self) -> tuple[Socket, ...]:
-        """Group sockets of every input field at its value by field name, each declared as the stock node declares its input, for a panel `InterfacePanel.of` prefixes."""
+        """Group sockets of every input field at its value by field name, each declared as the stock node declares its input."""
         return tuple(Socket(key=field, kind=StockInput(node=self.kind, input=identifier), default_value=getattr(self, field)) for field, identifier in self.inputs.items())
 
-    def node(self, *operands: Term, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+    def node(self, *operands: Term, socket: str | int = 0, socket_type: SocketType = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
         """Builds the node over its coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
 
         Args:
-            *operands: Coordinate operands in `coordinates` order, such as `Vector` and `W`, later coordinates keeping the node's own values.
+            *operands: Coordinate operands in `coordinates` order (`Vector`, `W`), later coordinates keeping the node's own values.
             socket: Output identifier read, else position among the enabled outputs, the first enabled output by default.
-            shape: Socket class of the output read.
-            linked: Operand per input field member descriptor in place of its record value, such as the group input of its socket.
+            socket_type: Socket class of the output read.
+            linked: Operand per input field member descriptor in place of its record value (the group input of its socket).
 
         Returns:
             Output expression.
         """
         inputs = tuple((identifier, linked.bind(lambda read: read(getattr(type(self), field))).default_value(getattr(self, field))) for field, identifier in self.inputs.items())
-        return Expr(kind=self.kind, inputs=(*zip(self.coordinates, operands), *inputs), members=self.members, socket=socket, shape=shape)
+        return Expr(kind=self.kind, inputs=(*zip(self.coordinates, operands), *inputs), members=self.members, socket=socket, socket_type=socket_type)
 
 
 class Noise(NodeSettings, frozen=True, kw_only=True):
@@ -134,7 +134,7 @@ class Gabor(NodeSettings, frozen=True, kw_only=True):
     orientation_3d: tuple[float, float, float] = (math.sqrt(2.0), math.sqrt(2.0), 0.0)
 
 
-class White(NodeSettings, frozen=True, kw_only=True):
+class WhiteNoise(NodeSettings, frozen=True, kw_only=True):
     """White Noise Texture node: a uniform value and color hashed from the coordinates themselves."""
 
     kind = bpy.types.ShaderNodeTexWhiteNoise
@@ -161,13 +161,13 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
 def dimensions(texture: Texture, /) -> int:
     """Coordinate axes a texture reads by its dimensions member, Wave and Magic reading three."""
     match texture:
-        case Noise(noise_dimensions=held) | White(noise_dimensions=held) | Voronoi(voronoi_dimensions=held) | Gabor(gabor_type=held):
+        case Noise(noise_dimensions=held) | WhiteNoise(noise_dimensions=held) | Voronoi(voronoi_dimensions=held) | Gabor(gabor_type=held):
             return int(held[0])
         case _:
             return 3
 
 
-def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, socket_type: SocketType = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
     """Builds a texture node at a point evolving over time by its dimensions: one reading the point's X as W, three taking time as Z, four as W, and two staying still.
 
     Args:
@@ -175,7 +175,7 @@ def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | in
         point: Coordinate the texture reads.
         time: Evolution coordinate.
         socket: Output identifier read, else position among the enabled outputs.
-        shape: Socket class of the output read.
+        socket_type: Socket class of the output read.
         linked: Operand per input field member descriptor in place of its record value.
 
     Returns:
@@ -188,9 +188,9 @@ def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | in
             coordinates = (point + xyz(z=time), time)
         case _:
             coordinates = (point, time)
-    return texture.node(*coordinates, socket=socket, shape=shape, linked=linked)
+    return texture.node(*coordinates, socket=socket, socket_type=socket_type, linked=linked)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "White", "dimensions", "evolving"]
+__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "WhiteNoise", "dimensions", "evolving"]

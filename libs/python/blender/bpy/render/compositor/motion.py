@@ -19,7 +19,7 @@ from blender.bpy.nodes.graphs import Expr, math, Scalar, vector, xyz
 from blender.bpy.nodes.interfaces import InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import dimensions
-from blender.bpy.render.compositor.inputs import Derives, entry_input, entry_value
+from blender.bpy.render.compositor.inputs import DerivedInputs, entry_input, entry_value
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Count, NonNegative, SEED_BOUND
 
@@ -133,7 +133,7 @@ def clocked(read: Callable[[Socket], Scalar], panel: InterfacePanel) -> Expr:
     """Clock units of a clock panel's speed at the scene frame held `hold` frames at a time, timed through the derived `RATE` input.
 
     Args:
-        read: Group input of a declaring socket, such as `Shell.input`.
+        read: Group input of a declaring socket (`Shell.input`).
         panel: Clock panel, `CLOCK` or `InterfacePanel.of(<key>, Clock(...))`.
 
     Returns:
@@ -144,7 +144,7 @@ def clocked(read: Callable[[Socket], Scalar], panel: InterfacePanel) -> Expr:
 
 
 def clock(speed: Scalar, hold: Scalar, rate: Scalar) -> Expr:
-    """Clock units of a speed at the scene frame held `hold` frames at a time, for clocks whose speed and hold `clocked` cannot read through one reader, such as shutter poses.
+    """Clock units of a speed at the scene frame held `hold` frames at a time, for clocks whose speed and hold `clocked` cannot read through one reader (shutter poses).
 
     Args:
         speed: Clock units per second.
@@ -172,7 +172,11 @@ def hashed(seed: Scalar, noise: Scalar, pattern: Scalar = 0, instance: Scalar = 
         White Noise `Color` expression.
     """
     return Expr(
-        kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", xyz(seed, noise, pattern)), ("W", instance)), members={"noise_dimensions": "4D"}, socket="Color", shape=bpy.types.NodeSocketColor
+        kind=bpy.types.ShaderNodeTexWhiteNoise,
+        inputs=(("Vector", xyz(seed, noise, pattern)), ("W", instance)),
+        members={"noise_dimensions": "4D"},
+        socket="Color",
+        socket_type=bpy.types.NodeSocketColor,
     )
 
 
@@ -216,9 +220,11 @@ def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
     )
 
     def blurred(held: Expr) -> Expr:
-        return Expr(kind=bpy.types.CompositorNodeDBlur, inputs=(("Image", held), ("Center", (0.5, 0.5)), *settings), socket="Image", shape=bpy.types.NodeSocketColor)
+        return Expr(kind=bpy.types.CompositorNodeDBlur, inputs=(("Image", held), ("Center", (0.5, 0.5)), *settings), socket="Image", socket_type=bpy.types.NodeSocketColor)
 
-    unit = vector("ADD", vector("SCALE", Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", source),), socket="Pixel", shape=bpy.types.NodeSocketVector), 0.0), (1.0, 1.0, 1.0))
+    unit = vector(
+        "ADD", vector("SCALE", Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", source),), socket="Pixel", socket_type=bpy.types.NodeSocketVector), 0.0), (1.0, 1.0, 1.0)
+    )
     trail, coverage = blurred(image), blurred(with_alpha(unit, 1.0))
     return with_alpha(vector("DIVIDE", trail, coverage), trail["Alpha"] / coverage["Alpha"])
 
@@ -226,10 +232,10 @@ def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 CLOCK: Final = InterfacePanel.of("clock", Clock())
-timing: Final = Derives[Case](
+timing: Final = DerivedInputs[Case](
     of=lambda _identity, scene, _entry, _record: Ok({RATE.key: rate(scene)}), sockets=(RATE,), reads=((bpy.types.RenderSettings, _FPS), (bpy.types.RenderSettings, _FPS_BASE))
 )
-shutter: Final = Derives[Case](
+shutter: Final = DerivedInputs[Case](
     of=lambda _identity, scene, _entry, _record: Ok(Shutter.of(scene).values),
     sockets=SHUTTER,
     reads=tuple((bpy.types.RenderSettings, bpy.types.RenderSettings.bl_rna.properties[name]) for name in ("motion_blur_shutter", "motion_blur_position")),

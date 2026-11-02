@@ -20,24 +20,23 @@ from blender.bpy.data.rna.paths import root_in
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.previews.queue import Job, Latest, PreviewFeed, Rank
 from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.charts import Chart, GRID, Label, Layer, ruled, TRACE
-from blender.bpy.ui.drawing.handlers import Reading, Signal
+from blender.bpy.ui.drawing.handlers import SelfDrawnPart, Signal
+from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.images.views import image_type, overlaid
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Layout, Property
 from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.surfaces.menus import Append
-from blender.imaging.color.processors import DisplayView, GREY
+from blender.imaging.color.processors import GRAY
 from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.stores import content_hash, ContentHash
 
 from ..catalog import tones
-from ..effects.formation.display import formation
+from ..effects.formation.display import encoding, formation
 from .luts import formed, selected
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -61,8 +60,8 @@ class _Request(msgspec.Struct, frozen=True, kw_only=True):
     content: Option[ContentHash]
 
     @property
-    def centres(self) -> npt.NDArray[np.float32]:
-        """Plot fractions at the centre of each column."""
+    def centers(self) -> npt.NDArray[np.float32]:
+        """Plot fractions at the center of each column."""
         return np.linspace(0.5 / self.columns, 1.0 - 0.5 / self.columns, self.columns, dtype=np.float32)
 
 
@@ -75,7 +74,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     """Response of the render-enabled entries of `kinds` at middle gray scaled across the compositing log window, closed through the scene view without a formation entry, and guided through the encoding view of the formed display."""
 
     kinds: frozenset[Key]
-    levels: ClassVar[tuple[float, ...]] = (*(GREY * 2.0**stop for stop in range(-4, 3)), 1.0)
+    levels: ClassVar[tuple[float, ...]] = (*(GRAY * 2.0**stop for stop in range(-4, 3)), 1.0)
     key: ClassVar[Key] = "tone_response"
 
     # --- [READOUT]
@@ -87,7 +86,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
 
     def chart(self, identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
         """Charts the response of the wanted request at the plot columns the interface scale gives, while the context screen shows it."""
-        latest, columns = identity.held[_LATEST], self.columns(metrics)
+        latest, columns = identity.resources[_LATEST], self.columns(metrics)
 
         def plotted(request: _Request, values: npt.NDArray[np.float32]) -> Chart:
             return Chart(
@@ -95,7 +94,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                 height=columns * 0.5,
                 layers=(
                     Layer.of("LINES", ruled((), request.codes), GRID),
-                    Layer.of("LINE_STRIP", np.column_stack((request.centres, values.mean(axis=1))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5),
+                    Layer.of("LINE_STRIP", np.column_stack((request.centers, values.mean(axis=1))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5),
                 ),
                 labels=tuple(Label(text=f"{level:.2%}", x=0.0, y=code) for level, code in zip(self.levels, request.codes)),
                 caption=(bpy.path.display_name(self.key),),
@@ -108,7 +107,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
 
     def fed(self, signal: Signal, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the sampling job of the current request while a window's screen shows the chart, an equal request keeping its response."""
-        latest, config = identity.held[_LATEST], PyOpenColorIO.GetCurrentConfig()
+        latest, config = identity.resources[_LATEST], PyOpenColorIO.GetCurrentConfig()
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
         def requested(scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], window: tuple[float, float], guide: PyOpenColorIO.Processor) -> Outcome[tuple[Job, ...]]:
@@ -147,9 +146,9 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     def rendered(signal: Signal, identity: Identity, request: _Request) -> Outcome[None]:
         """Samples the request's levels through its entries and publishes the response while the request stays wanted."""
         low, high = request.window
-        levels = (GREY * np.exp2(low + (high - low) * request.centres)).astype(np.float32)
+        levels = (GRAY * np.exp2(low + (high - low) * request.centers)).astype(np.float32)
         return formed(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2)).bind(
-            lambda values: signal.fired() if identity.held[_LATEST].published(request, values[0, :, :3]) else Ok(None)
+            lambda values: signal.fired() if identity.resources[_LATEST].published(request, values[0, :, :3]) else Ok(None)
         )
 
     # --- [LIFETIME]
@@ -157,7 +156,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def cleared(signal: Signal, identity: Identity) -> Outcome[tuple[Job, ...]]:
         """Clears the wanted request and its response."""
-        return (signal.fired() if identity.held[_LATEST].cleared() else Ok(None)).map(lambda _: ())
+        return (signal.fired() if identity.resources[_LATEST].cleared() else Ok(None)).map(lambda _: ())
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
@@ -171,14 +170,14 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
             later = scopes.enter_context(identity.reports.deferred(invalidated))
 
             def edited(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
-                return Ok(later() if identity.held[_LATEST].wanted.filter(lambda request: request.scene == scene and request.content.is_none()).is_some() else None)
+                return Ok(later() if identity.resources[_LATEST].wanted.filter(lambda request: request.scene == scene and request.content.is_none()).is_some() else None)
 
             yield Ok((
                 _LATEST,
                 CHARTED,
                 PreviewScene(),
                 PreviewFeed(feed=partial(self.fed, signal)),
-                overlaid(Reading(read=partial(self.chart, identity)), image_type(("COMPOSITING",)), (signal, (ResponseChart, "shown"))),
+                overlaid(SelfDrawnPart(read=partial(self.chart, identity)), image_type(("COMPOSITING",)), (signal, (ResponseChart, "shown"))),
                 Handler(handlers=bpy.app.handlers.load_post, body=lambda: self.cleared(signal, identity).map(lambda _: None)),
                 Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene, bpy.types.NodeTree, bpy.types.Image), edited)),
             ))
@@ -192,7 +191,7 @@ def windowed(config: PyOpenColorIO.Config) -> Outcome[tuple[float, float]]:
 
     def stops(allocation: PyOpenColorIO.AllocationTransform) -> tuple[float, float]:
         low, high, *_ = allocation.getVars()
-        return low - math.log2(GREY), high - math.log2(GREY)
+        return low - math.log2(GRAY), high - math.log2(GRAY)
 
     def window(space: PyOpenColorIO.ColorSpace) -> Option[tuple[float, float]]:
         transform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
@@ -209,13 +208,7 @@ def windowed(config: PyOpenColorIO.Config) -> Outcome[tuple[float, float]]:
 
 def guided(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Processor]:
     """Returns the encoding view processor of the display the formation forms, the scene's without one."""
-
-    def encoded(held: Option[DisplayView]) -> Outcome[PyOpenColorIO.Processor]:
-        display = held.map(lambda view: view.display).default_with(lambda: viewed(scene).display)
-        found: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display)
-        return found.bind(lambda pair: pair.map(lambda held: held[1]).to_result_with(partial(Fault.of, Reason.ABSENT, display, member=DisplayView.for_encoding.__name__)))
-
-    return formation.current(identity, scene).map(lambda found: found.map(lambda record: record.display_view)).bind(encoded)
+    return encoding(identity, scene, config).map(lambda found: found[1])
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -226,7 +219,7 @@ rows: Final = (
     response,
     Append(
         target=IMAGE_HT_header,
-        rows=(Layout(rows=(Property(target=Member(root=CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), shown=Some(image_type(("COMPOSITING",)))),),
+        rows=(Layout(rows=(Property(target=Member(root=CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), visible=Some(image_type(("COMPOSITING",)))),),
     ),
 )
 

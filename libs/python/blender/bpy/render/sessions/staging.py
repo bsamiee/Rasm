@@ -3,9 +3,8 @@
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
 from functools import cache, partial, reduce
-from itertools import starmap
 from pathlib import Path
-from typing import Final, TYPE_CHECKING
+from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Ok, Option, Some
@@ -29,14 +28,14 @@ from blender.bpy.nodes.desired import member_paths
 from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.render.compositor.colors import COLOR_INPUT
 from blender.bpy.render.compositor.effects import Entry, Prepared, Stage
-from blender.bpy.render.compositor.entries import EffectRows, Owned
+from blender.bpy.render.compositor.entries import EXECUTING
 from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, inputs_of, valued
-from blender.bpy.render.compositor.placement import EXECUTING
+from blender.bpy.render.compositor.offered import OfferedEffects, Owned
 from blender.bpy.render.compositor.viewers import capturing
 from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
 from blender.bpy.render.outputs.framing import Border, Framing
 from blender.bpy.render.outputs.paths import Pathed
-from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, PRODUCTIONS, saved
+from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, RENDER_ORIGINS, saved
 from blender.bpy.render.sessions.engines import Engine, Tile
 from blender.bpy.render.sessions.renders import engined, native, RenderCall, sourced
 from blender.bpy.render.view_layers.passes import used
@@ -55,12 +54,30 @@ if TYPE_CHECKING:
 
 type _Step[R: Case] = Callable[[Stage[R]], Outcome[Option[Prepared]]]
 type _Returned = frozenset[rna_enums.OperatorReturnItems]
-type _Authored = tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree | None, Snapshot]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _CAPTURE: Final[Key] = "capture_file"
-_REPLAY: Final[Key] = "staged_render"
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Authored(msgspec.Struct, frozen=True, kw_only=True):
+    """Compositor entry with its group and input snapshot, the state each frame and scope exit assign."""
+
+    entry: bpy.types.SceneCompositorEffect
+    group: bpy.types.NodeTree | None
+    inputs: Snapshot
+
+    @classmethod
+    def of(cls, entry: bpy.types.SceneCompositorEffect) -> Outcome[Self]:
+        """Reads an entry's group and inputs."""
+        return inputs_of(entry).bind(Snapshot.capture).map(lambda inputs: cls(entry=entry, group=entry.node_group, inputs=inputs))
+
+    def assigned(self) -> Outcome[None]:
+        """Points the entry at the group, then applies the input snapshot."""
+        return written(self.entry, ("node_group",), self.group).bind(lambda _: inputs_of(self.entry)).bind(lambda found: self.inputs.apply(found).outcome)
+
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -103,10 +120,10 @@ class _Job:
 
         def swapped(authored: _Authored, group: bpy.types.CompositorNodeTree) -> Outcome[None]:
             scope.callback(self.identity.reports.reported(self.restored), (authored,))
-            return _assigned(authored[0], group, authored[2])
+            return msgspec.structs.replace(authored, group=group).assigned()
 
         return accumulated(
-            paired(_authored(entry), copied(tree)).bind(lambda pair: swapped(*pair))
+            paired(_Authored.of(entry), copied(tree)).bind(lambda pair: swapped(*pair))
             for source in self.sources
             for entry in source.compositor_effects
             if entry.enable_for_render and isinstance(tree := entry.node_group, bpy.types.CompositorNodeTree)
@@ -142,12 +159,12 @@ class _Job:
 
     def output(self, name: str, spec: OpenImageIO.ImageSpec, *, demand: bool) -> tuple[Expr, ...]:
         """Builds capture roots writing the entering image at spec size, adding source Render Layers on `demand`."""
-        domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (spec.width, spec.height)),), socket="Image", shape=bpy.types.NodeSocketColor)
+        domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (spec.width, spec.height)),), socket="Image", socket_type=bpy.types.NodeSocketColor)
         raster = Expr(
             kind=bpy.types.ShaderNodeMixRGB,
             inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor))),
             socket="Color",
-            shape=bpy.types.NodeSocketColor,
+            socket_type=bpy.types.NodeSocketColor,
         )
         content = FileItems(items=(FileItem(name=name, socket_type="RGBA"),))
         capture = Expr(
@@ -155,9 +172,9 @@ class _Job:
             inputs=tuple((stored.name, raster) for stored in content.items),
             members={Pathed.directory.path: bpy.app.tempdir, Pathed.file_name.path: ""},
             content=Some(content),
-        ).named(_CAPTURE)
+        ).keyed(_CAPTURE)
         layers = (
-            Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(source), "layer": layer.name}, socket="Image", shape=bpy.types.NodeSocketColor)
+            Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(source), "layer": layer.name}, socket="Image", socket_type=bpy.types.NodeSocketColor)
             for source in (self.sources if demand else ())
             for layer in used(source)
         )
@@ -189,7 +206,7 @@ class _Job:
 
     def image(self, entry: bpy.types.SceneCompositorEffect, buffers: tuple[tuple[str, OpenImageIO.ImageBuf], ...]) -> Outcome[bpy.types.Image]:
         """Writes prepared pixels as one EXR part per view and loads them as one premultiplied data image, multiview across views."""
-        path = Path(bpy.app.tempdir, f"{self.scene.session_uid}_{entry.name}_prepared.exr")
+        path = Path(bpy.app.tempdir, f"{self.scene.session_uid}_{self.scene.frame_current}_{entry.name}_prepared.exr")
         views = tuple(name for name, _ in buffers)
         headed = len(views) > 1
         self.files.add(path)
@@ -266,19 +283,21 @@ class _Job:
 
         def placed(before: _Authored, tree: bpy.types.NodeTree | None) -> Outcome[_Authored]:
             return (
-                _assigned(entry, tree, before[2])
+                msgspec.structs
+                .replace(before, group=tree)
+                .assigned()
                 .bind(lambda _: Block.of_seq(measured).try_head().map(lambda values: entered(self.identity, entry, values)).default_value(Ok(False)))
-                .bind(lambda _: _authored(entry))
+                .bind(lambda _: _Authored.of(entry))
             )
 
-        return paired(_authored(entry), self.image(entry, images).bind(grouped) if images else Ok(entry.node_group)).bind(lambda pair: placed(*pair))
+        return paired(_Authored.of(entry), self.image(entry, images).bind(grouped) if images else Ok(entry.node_group)).bind(lambda pair: placed(*pair))
 
     # --- [LIFETIME]
 
     @staticmethod
     def restored(groups: tuple[_Authored, ...]) -> Outcome[None]:
         """Assigns entry groups and inputs."""
-        return accumulated(starmap(_assigned, groups)).map(lambda _: None)
+        return accumulated(held.assigned() for held in groups).map(lambda _: None)
 
     def selected(self, scene: bpy.types.Scene) -> Outcome[None]:
         """Assigns the current frame's prepared groups and inputs from `frame_change_pre`."""
@@ -332,7 +351,7 @@ class _Job:
         frames = tuple(range(call.frame_start.default_value(scene.frame_start), call.frame_end.default_value(scene.frame_end) + 1, scene.frame_step)) if call.animation else (scene.frame_current,)
         at, subframe = scene.frame_current, scene.frame_subframe
         sample = 0.0 if call.animation else subframe
-        original = accumulated(_authored(held.entry) for held, _ in staged)
+        original = accumulated(_Authored.of(held.entry) for held, _ in staged)
 
         def completed() -> Outcome[_Returned]:
             self.scope.enter_context(Handler(handlers=bpy.app.handlers.frame_change_pre, body=self.selected).held(self.identity))
@@ -341,7 +360,7 @@ class _Job:
 
         def prepared(authored: tuple[_Authored, ...]) -> Outcome[_Returned]:
             self.scope.callback(self.identity.reports.reported(self.restored), authored)
-            with Engine.replayed(self.identity, _REPLAY, lambda source, layer: self.replay.get((scene.frame_current, source.session_uid, layer.name), ())) as engine:
+            with Engine.replayed(self.identity, "staged_render", lambda source, layer: self.replay.get((scene.frame_current, source.session_uid, layer.name), ())) as engine:
                 return engine.bind(
                     lambda name: reduce(lambda done, frame: done.bind(lambda _: self.frame(frame, sample, name, authored, staged)), frames, Ok(None)).bind(
                         lambda _: engined(self.sources, name, completed)
@@ -349,7 +368,7 @@ class _Job:
                 )
 
         with self.scope:
-            executing = self.identity.held[EXECUTING]
+            executing = self.identity.resources[EXECUTING]
             for source in self.sources:
                 executing.add(source.session_uid)
                 self.scope.callback(executing.remove, source.session_uid)
@@ -359,18 +378,18 @@ class _Job:
 
 
 class StagedRender[R: Case](msgspec.Struct, frozen=True, kw_only=True):
-    """Renders through the CPU step of each render-enabled entry an effect of `rows` owns, each step over the image the entries before it render, natively while compositing is off or no entry stages, registered as a row beside the rows rendering through it.
+    """Renders through the CPU step of each render-enabled entry an effect of `rows` owns, each step over the image the entries before it render, natively while compositing is off or no entry stages.
 
     Each step's image enters its entry's group in place of the entry input, measured values enter its inputs, and `precision` bounds each estimate a step samples.
     """
 
-    rows: EffectRows[R]
+    rows: OfferedEffects[R]
     precision: Precision = Precision()
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Rows the render reads entries through, the scenes it hides from completed-image consumers, and the productions it records."""
-        return (self.rows, INTERMEDIATES, PRODUCTIONS)
+        return (self.rows, INTERMEDIATES, RENDER_ORIGINS)
 
     @staticmethod
     def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
@@ -381,19 +400,6 @@ class StagedRender[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         """Renders a scene through its staged entries, else natively."""
         staged = tuple((held, step) for held in self.rows.owned(identity, scene) if held.entry.enable_for_render for step in held.row.prepared.to_list()) if scene.render.use_compositing else ()
         return _Job(identity, scene, self.precision).rendered(call, staged) if staged else native(identity, scene, call)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _authored(entry: bpy.types.SceneCompositorEffect) -> Outcome[_Authored]:
-    """Returns an entry with its group and a snapshot of its inputs, the state `_assigned` puts back."""
-    return inputs_of(entry).bind(Snapshot.capture).map(lambda inputs: (entry, entry.node_group, inputs))
-
-
-def _assigned(entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree | None, inputs: Snapshot) -> Outcome[None]:
-    """Points an entry at a group, then applies its input snapshot."""
-    return written(entry, ("node_group",), group).bind(lambda _: inputs_of(entry)).bind(lambda found: inputs.apply(found).outcome)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

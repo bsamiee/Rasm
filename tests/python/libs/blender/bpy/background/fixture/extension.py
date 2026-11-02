@@ -1,4 +1,4 @@
-"""Extension rows: a witness of the registered identity and band order, panels and groups out of dependency order, translations, handlers, a startup row, a renewed resource, a timer, and a msgbus key, with probes reading them."""
+"""Extension rows: a recorder of the registered identity and band order, panels and groups out of dependency order, translations, handlers, a startup row, a renewed resource, a timer, and a msgbus key, with probes reading them."""
 
 from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager, ExitStack, nullcontext
@@ -15,7 +15,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.events import Change, Handler, located, runtime, Startup, Subscription, Timer, updated
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Band, Registration, Translations
+from blender.bpy.extension.registration import Acquisitions, Registration, Tier, Translations
 from blender.bpy.extension.reports import level
 from blender.records.faults import Fault, Outcome, Reason
 
@@ -117,7 +117,7 @@ class Steps(msgspec.Struct, frozen=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Witness:
+class Recorder:
     """Row keeping the identity its registration built, the order its banded scopes enter and leave, and what its handler bodies received."""
 
     __slots__ = ("events", "identity", "loads", "moves", "starts")
@@ -133,10 +133,10 @@ class Witness:
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Keeps identity, declaring scopes in bands out of band order."""
         self.identity = Some(identity)
-        return Ok(tuple((band, self.logged(band)) for band in (Band.TIMERS, Band.GROUPS, Band.INTERFACE)))
+        return Ok(tuple((band, self.logged(band)) for band in (Tier.TIMERS, Tier.GROUPS, Tier.INTERFACE)))
 
     @contextmanager
-    def logged(self, band: Band) -> Generator[None]:
+    def logged(self, band: Tier) -> Generator[None]:
         """Logs the band's scope entry and exit."""
         with ExitStack() as stack:
             self.events.append(f"enter {band.name}")
@@ -237,7 +237,7 @@ def foreign(identity: Identity) -> object:
 
 def ordered(_identity: Identity) -> dict[str, object]:
     """Reads the band scopes' entry order and the classes registered out of dependency order."""
-    return {"events": tuple(WITNESS.events), "registered": _registered(), "parent": definition(ChildPanel).identifier}
+    return {"events": tuple(RECORDER.events), "registered": _registered(), "parent": definition(ChildPanel).identifier}
 
 
 def texts(identity: Identity) -> dict[str, object]:
@@ -254,7 +254,7 @@ def texts(identity: Identity) -> dict[str, object]:
         "translated": translated,
         "patterns": tuple(pattern for prefix, patterns in mappings for pattern in patterns if prefix == identity.manifest.website),
         "preferences": identity.preferences(bpy.types.AddonPreferences).map(lambda held: type(held).__name__),
-        "tally": identity.held.get(TALLY),
+        "tally": identity.resources.get(TALLY),
     }
 
 
@@ -265,10 +265,10 @@ def depsgraph(_identity: Identity) -> tuple[tuple[str, str | None], ...]:
     layer: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     scene.collection.objects.link(obj)
     layer.update()
-    WITNESS.moves.clear()
+    RECORDER.moves.clear()
     obj.location.x += 1.0
     layer.update()
-    return tuple(WITNESS.moves)
+    return tuple(RECORDER.moves)
 
 
 def scened(identity: Identity) -> bool:
@@ -308,11 +308,17 @@ def deferred(identity: Identity) -> tuple[str, ...]:
 
 def reloaded(identity: Identity) -> dict[str, object]:
     """Holds a fault, loads the startup file, and answers the loads, startup runs, report types held after, and the resource value before and after its renewal."""
-    WITNESS.loads.clear()
+    RECORDER.loads.clear()
     identity.reports.hold(Fault.of(Reason.ABSENT, "before load"))
-    before = identity.held.get(TALLY)
+    before = identity.resources.get(TALLY)
     answer = bpy.ops.wm.read_homefile(use_empty=True)
-    return {"answer": answer, "loads": tuple(WITNESS.loads), "starts": WITNESS.starts, "entries": tuple(kind for kind, _ in identity.reports.entries), "tally": (before, identity.held.get(TALLY))}
+    return {
+        "answer": answer,
+        "loads": tuple(RECORDER.loads),
+        "starts": RECORDER.starts,
+        "entries": tuple(kind for kind, _ in identity.reports.entries),
+        "tally": (before, identity.resources.get(TALLY)),
+    }
 
 
 # --- [RELEASES]
@@ -320,16 +326,16 @@ def reloaded(identity: Identity) -> dict[str, object]:
 
 def order() -> dict[str, object]:
     """Reads the band scopes' entry and exit order and the classes the host still holds."""
-    return {"events": tuple(WITNESS.events), "registered": _registered(), "handlers": _handlers() == BASELINE}
+    return {"events": tuple(RECORDER.events), "registered": _registered(), "handlers": _handlers() == BASELINE}
 
 
 def withdrawn() -> dict[str, object]:
     """Reads the texts after release."""
-    return WITNESS.identity.map(texts).default_value({})
+    return RECORDER.identity.map(texts).default_value({})
 
 
 def refusing() -> dict[str, dict[str, object]]:
-    """Registers scopes whose panel the host refuses after their operator registered, one naming a parent no registration holds and one declaring no draw callback, answering the error type each registration raised and what its unwinding left."""
+    """Registers scopes with a panel the host refuses after their operator registered, one naming a parent no registration holds and one declaring no draw callback, answering the error type each registration raised and what its unwinding left."""
 
     def refused(panel: type[bpy.types.Panel]) -> dict[str, object]:
         raised = catch(Registration(PACKAGE, (orphaned, panel)).register, exception=Exception)().swap().map(lambda error: type(error).__name__).default_value("")
@@ -340,21 +346,21 @@ def refusing() -> dict[str, dict[str, object]]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-WITNESS: Final = Witness()
+RECORDER: Final = Recorder()
 TALLY: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
 
 rows: Final = (
-    WITNESS,
+    RECORDER,
     Translations(table={"fr_FR": {("*", GREETING): "Bonjour Fixture"}}),
     ChildPanel,
     ParentPanel,
     Outer,
     Inner,
-    (Band.INTERFACE, lambda: Ok((DEFERRED,))),
-    Handler(handlers=bpy.app.handlers.load_post, body=partial(located, WITNESS.loaded)),
+    (Tier.INTERFACE, lambda: Ok((DEFERRED,))),
+    Handler(handlers=bpy.app.handlers.load_post, body=partial(located, RECORDER.loaded)),
     Handler(handlers=bpy.app.handlers.load_post, body=required),
-    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Object,), WITNESS.moved, changes=Some(Change.TRANSFORM))),
-    Startup(body=WITNESS.started),
+    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Object,), RECORDER.moved, changes=Some(Change.TRANSFORM))),
+    Startup(body=RECORDER.started),
     TALLY,
     Timer(body=lambda: Ok(Nothing), first_interval=1.0),
     Subscription(owner=bpy.types.Scene, setting=bpy.types.Scene.bl_rna.properties["frame_current"], body=lambda: Ok(None)),
@@ -364,4 +370,4 @@ RELEASED: Final[tuple[Callable[[], object], ...]] = (order, withdrawn, refusing)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PROBES", "RELEASED", "WITNESS", "rows"]
+__all__ = ["PROBES", "RECORDER", "RELEASED", "rows"]

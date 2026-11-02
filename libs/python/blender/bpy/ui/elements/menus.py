@@ -1,8 +1,8 @@
-"""Menus of ordered rows, submenus, or pie slots, preset menus, editor headers, content appended to stock panels, menus, headers, and context menus, and asset shelves, each refusing the sections whose layout panels the host refuses there."""
+"""Menus of ordered rows, submenus, or pie slots, preset menus, editor headers, and content appended to stock panels, menus, headers, and context menus, each refusing the sections whose layout panels the host refuses there."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
-from functools import partial, wraps
+from functools import partial
 from itertools import dropwhile
 import operator
 from typing import TYPE_CHECKING
@@ -10,20 +10,18 @@ from typing import TYPE_CHECKING
 import _bpy_types
 from bl_ui import UI_MT_button_context_menu, UI_MT_list_item_context_menu
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.commands.calls import Called, Command, idname, Opened, Operation, Placement
-from blender.bpy.commands.operators import Answer, Call, Empty, Operator
-from blender.bpy.data.rna.conditions import admits, Condition, polled
+from blender.bpy.commands.calls import Command, idname, Operation, Placement, PopupKind, PopupTarget
+from blender.bpy.data.rna.conditions import Condition, polled, satisfied
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.files.assets import AssetMark
+from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, layout_method, Line, Opens, OperatorButton, Property, realized, Row, RowContent, RowDraw
-from blender.bpy.ui.layout.sections import reached
+from blender.bpy.ui.layout.rows import acquired, ConditionalRow, layout_method, LayoutOwner, Opens, OperatorButton, Property, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.sections import sections_in
 from blender.bpy.ui.layout.values import Captured, Listing, Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
@@ -33,10 +31,8 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Slot = OperatorButton | Opens | Property | RowDraw
-type _Extended = bpy.types.Panel | bpy.types.Menu | bpy.types.Header
 type _Pointed = Callable[[bpy.types.Context], bool]
 type _Built = Outcome[tuple[type, ...]]
-type _Use = Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -85,7 +81,7 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def popup(self) -> Placement:
         """Placement buttons and keymaps open the menu through, as a pie for a pie body."""
-        return Placement(Opened(self.key, Called.PIE if isinstance(self.body, Pie) else Called.MENU))
+        return Placement(PopupTarget(self.key, PopupKind.PIE if isinstance(self.body, Pie) else PopupKind.MENU))
 
     # --- [ACQUISITION]
 
@@ -106,14 +102,14 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
                     )
                     for group in dict.fromkeys(held for held, _ in entries)
                 )
-                rows = tuple(Opens(target=Opened(group.key, Called.MENU)) for group in submenus)
+                rows = tuple(Opens(target=PopupTarget(group.key, PopupKind.MENU)) for group in submenus)
                 drawing = partial(realized, rows, identity)
             case Pie():
                 slots, search, submenus = msgspec.structs.astuple(self.body), False, ()
                 rows = tuple(row for slot in slots for row in slot.to_list())
                 drawing = partial(_radial_drawing, identity, slots)
         title = self.title.default_with(lambda: bpy.path.display_name(self.key))
-        return Ok((*submenus, *acquired(rows), (Band.INTERFACE, partial(_menu, identity, self.key, title, self.description, rows, drawing, search=search, condition=self.condition))))
+        return Ok((*submenus, *acquired(rows), (Tier.INTERFACE, partial(_menu, identity, self.key, title, self.description, rows, drawing, search=search, condition=self.condition))))
 
 
 class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_only=True):
@@ -129,7 +125,7 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
                 return Ok((
                     store,
                     *acquired(self.entries),
-                    (Band.INTERFACE, lambda: store.listing(identity).bind(lambda found: found.map(partial(_preset_menu, identity, self.entries)).default_value(Ok(())))),
+                    (Tier.INTERFACE, lambda: store.listing(identity).bind(lambda found: found.map(partial(_preset_menu, identity, self.entries)).default_value(Ok(())))),
                 ))
             case Listing() as listing:
                 return _listed(identity, self.entries, listing)
@@ -155,10 +151,10 @@ class Header(msgspec.Struct, frozen=True, kw_only=True):
 
         def drawing(_name: str) -> Outcome[RowDraw]:
             menus = self.menus.map(lambda menu: identity.name(bpy.types.Menu, menu.key).map(Some)).default_value(Ok(Nothing))
-            return menus.bind(lambda named: realized(self.rows, identity).map(lambda paint: named.map(lambda menu: partial(_collapsed, menu, paint)).default_value(paint)))
+            return menus.bind(lambda named: realized(self.rows, identity).map(lambda draw: named.map(lambda menu: partial(_collapsed, menu, draw)).default_value(draw)))
 
         members = {"bl_space_type": self.space, "bl_region_type": self.region}
-        return Ok((*self.menus.to_list(), *acquired(self.rows), (Band.INTERFACE, partial(_classed, identity, bpy.types.Header, self.key, self.rows, members, self.condition, drawing))))
+        return Ok((*self.menus.to_list(), *acquired(self.rows), (Tier.INTERFACE, partial(_classed, identity, bpy.types.Header, self.key, self.rows, members, self.condition, drawing))))
 
 
 # --- [EXTENSIONS]
@@ -201,97 +197,7 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns what the content holds, then the draw function held on the target for the scope."""
-        return Ok((*acquired(self.rows), (Band.APPENDS, _extended(self, identity))))
-
-
-# --- [SHELVES]
-
-
-class Shelf(msgspec.Struct, frozen=True, kw_only=True):
-    """Asset shelf listing the assets an extension marked under the keys `assets` names, or the assets its predicate accepts, context menu rows drawing over the clicked asset.
-
-    `activate` and a `drag` body each register an internal operator over the context asset, described by the body's docstring.
-    """
-
-    key: Key
-    space: "rna_enums.SpaceTypeItems"
-    filters: frozenset[str]
-    assets: frozenset[Key] | Callable[[bpy.types.AssetRepresentation], bool]
-    activate: Option[_Use] = Nothing
-    drag: bool | _Use = True
-    active: Option[Callable[[bpy.types.Context], Option[bpy.types.AssetWeakReference]]] = Nothing
-    menu: tuple[Row | RowDraw, ...] = ()
-    preview: Option[int] = Nothing
-    visible: bool = False
-    catalogs_in_preferences: bool = True
-    condition: Option[Condition] = Nothing
-
-    @property
-    def popup(self) -> Placement:
-        """Placement buttons and keymaps open the shelf through as a popover."""
-        return Placement(Opened(self.key, Called.SHELF))
-
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Returns the action operators and menu rows, then the shelf class built when the interface band opens.
-
-        Args:
-            identity: Extension owning class names and asset marks.
-
-        Returns:
-            Acquisitions, the class build faulting per refused name, absent filter, and failed menu row.
-        """
-        dragging = Nothing if isinstance(self.drag, bool) else Some(self.drag)
-        actions = tuple(
-            (role, Operator(form=Empty, internal=True, run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
-            for role, offered in (("activate", self.activate), ("drag", dragging))
-            for use in offered.to_list()
-        )
-        return Ok((*(row for _, row in actions), *acquired(self.menu), (Band.INTERFACE, partial(self._classed, identity, actions))))
-
-    def _classed(self, identity: Identity, actions: tuple[tuple[str, Operator[Empty]], ...]) -> _Built:
-        """Builds the shelf class once its operator names, filters, and menu rows resolve."""
-        struct = bpy.types.AssetShelf.bl_rna
-        named = accumulated(identity.name(bpy.types.Operator, row.key).map(lambda name: (role, name)) for role, row in actions)
-        filtered = accumulated(
-            Option
-            .of_optional(struct.properties.get(key))
-            .filter(lambda prop: isinstance(prop, bpy.types.BoolProperty) and prop.is_registered_optional)
-            .map(lambda _: key)
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.types.AssetShelf), member=key))
-            for key in sorted(self.filters)
-        )
-
-        def admitted(_cls: type[bpy.types.AssetShelf], asset: bpy.types.AssetRepresentation) -> bool:
-            """Whether the shelf lists the asset: one the extension marked under a named key, or one the predicate accepts."""
-            match self.assets:
-                case frozenset(keys):
-                    return AssetMark.key_of(identity, asset).filter(keys.__contains__).is_some()
-                case accepts:
-                    return accepts(asset)
-
-        def built(parts: tuple[str, tuple[tuple[str, str], ...], tuple[str, ...], RowDraw]) -> tuple[type, ...]:
-            name, operators, filters, draw = parts
-            options = {
-                *(("STORE_ENABLED_CATALOGS_IN_PREFERENCES",) if self.catalogs_in_preferences else ()),
-                *(("DEFAULT_VISIBLE",) if self.visible else ()),
-                *(("NO_ASSET_DRAG",) if self.drag is False else ()),
-                *(("ACTIVATE_FOR_CONTEXT_MENU",) if self.activate.is_some() and self.menu else ()),
-            }
-            native = {
-                "bl_idname": name,
-                "bl_space_type": self.space,
-                "bl_options": options,
-                "asset_poll": classmethod(admitted),
-                **dict.fromkeys(filters, True),
-                **polled(self.condition),
-                **self.active.map(lambda active: {"get_active_asset": classmethod(lambda _cls: active(bpy.context).to_optional())}).default_value({}),
-                **({"draw_context_menu": classmethod(lambda _cls, context, asset, layout: draw(layout, asset, context))} if self.menu else {}),
-                **{f"bl_{role}_operator": name for role, name in operators},
-                **self.preview.map(lambda size: {"bl_default_preview_size": size}).default_value({}),
-            }
-            return (type(name, (bpy.types.AssetShelf,), native),)
-
-        return paired(identity.name(bpy.types.AssetShelf, self.key), named, filtered, realized(self.menu, identity)).map(built)
+        return Ok((*acquired(self.rows), (Tier.APPENDS, _extended(self, identity))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -310,7 +216,7 @@ def _classed(
 ) -> _Built:
     """Builds the menu or header class once its rows realize under the name its draw reads, refusing a section among the rows, whose layout panel the host refuses in menus, pies, and headers."""
     return (
-        Ok(reached(rows))
+        Ok(sections_in(rows))
         .filter_with(lambda found: not found, lambda found: Fault.of(Reason.OUTSIDE, key, ", ".join(section.key for section in found), member="rows without layout panels"))
         .bind(lambda _: identity.name(base, key))
         .bind(lambda name: drawing(name).map(lambda draw: (type(name, (base,), {"bl_idname": name, **members, "draw": layout_method(draw), **polled(condition)}),)))
@@ -340,7 +246,7 @@ def _preset_menu[S: msgspec.Struct](identity: Identity, entries: tuple[RowConten
 
 def _listed[S: msgspec.Struct](identity: Identity, entries: tuple[RowContent, ...], listing: Listing[S]) -> Outcome[Acquisitions]:
     """Returns the listing and trailing rows, then the preset menu over them."""
-    return Ok((*acquired((listing, *entries)), (Band.INTERFACE, partial(_preset_menu, identity, entries, listing))))
+    return Ok((*acquired((listing, *entries)), (Tier.INTERFACE, partial(_preset_menu, identity, entries, listing))))
 
 
 @contextmanager
@@ -348,7 +254,7 @@ def _extended(append: Append, identity: Identity) -> Generator[Outcome[None]]:
     """Adds the draw function to the target for the scope once the content and hovered test realize."""
     target = append.target.menu if isinstance(append.target, ContextMenu) else append.target
     pointed: Outcome[Option[_Pointed]] = append.target.pointing(identity).map(Some) if isinstance(append.target, ContextMenu) else Ok(Nothing)
-    drawn = pointed.bind(lambda test: realized(append.rows, identity).map(lambda paint: partial(_shown, append, paint, test)))
+    drawn = pointed.bind(lambda test: realized(append.rows, identity).map(lambda draw: partial(_shown, append, draw, test)))
     with ExitStack() as stack:
         for draw in drawn.to_option().to_list():
             (target.prepend if append.prepend else target.append)(draw)  # ty: ignore[invalid-argument-type]
@@ -379,19 +285,19 @@ def _headed(heading: Option[RowDraw], draw: RowDraw, layout: bpy.types.UILayout,
     draw(layout, holder, context)
 
 
-def _collapsed(menu: str, paint: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+def _collapsed(menu: str, draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the editor menus through the host's collapsible header form, then the rows."""
     if isinstance(kind := getattr(bpy.types, menu, None), type) and issubclass(kind, bpy.types.Menu):
         kind.draw_collapsible(context, layout)
-    paint(layout, holder, context)
+    draw(layout, holder, context)
 
 
 def _radial_drawing(identity: Identity, slots: tuple[Option[_Slot], ...]) -> Outcome[RowDraw]:
-    """Realizes each slot up to the last one holding an entry, a property slot holding a boolean or enum, into the pie draw, a button slot drawing as the pie's own item and a plain draw in a column taking one slot."""
+    """Realizes slots up to the last filled one into the pie draw, a property slot holding a boolean or enum."""
 
     def slot(row: _Slot) -> Outcome[tuple[RowDraw, bool]]:
         checked = row.target.realized(identity).bind(lambda held: held.accepts((bpy.types.BoolProperty, bpy.types.EnumProperty))).map(lambda _: None) if isinstance(row, Property) else Ok(None)
-        return checked.bind(lambda _: realized((row,), identity)).map(lambda draw: (draw, isinstance(row, Line)))
+        return checked.bind(lambda _: realized((row,), identity)).map(lambda draw: (draw, isinstance(row, ConditionalRow)))
 
     filled = reversed(tuple(dropwhile(Option.is_none, reversed(slots))))
     return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in filled).map(lambda draws: partial(_radial, draws))
@@ -404,20 +310,20 @@ def _radial(draws: tuple[Option[tuple[RowDraw, bool]], ...], layout: bpy.types.U
         drawn.map(lambda slot: slot[0](pie if slot[1] else pie.column(), holder, context)).default_with(pie.separator)
 
 
-def _shown(append: Append, paint: RowDraw, pointed: Option[_Pointed], surface: _Extended, context: bpy.types.Context) -> None:
-    """Paints the content while the condition holds and a context menu's hovered button passes its test."""
-    if not (pointed.map(lambda test: test(context)).default_value(True) and admits(append.condition, context)):
+def _shown(append: Append, draw: RowDraw, pointed: Option[_Pointed], extended: LayoutOwner, context: bpy.types.Context) -> None:
+    """Draws the content while the condition holds and a context menu's hovered button passes its test."""
+    if not (pointed.map(lambda test: test(context)).default_value(True) and satisfied(append.condition, context)):
         return
-    layout: bpy.types.UILayout = surface.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    match surface, append.prepend:
+    layout: bpy.types.UILayout = extended.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    match extended, append.prepend:
         case bpy.types.Menu(), False:
             layout.separator()
-            paint(layout, context, context)
+            draw(layout, context, context)
         case bpy.types.Menu(), True:
-            paint(layout, context, context)
+            draw(layout, context, context)
             layout.separator()
         case _:
-            paint(layout, context, context)
+            draw(layout, context, context)
 
 
 def _hovered(member: str, test: Callable[[Struct], bool], context: bpy.types.Context) -> bool:
@@ -425,11 +331,6 @@ def _hovered(member: str, test: Callable[[Struct], bool], context: bpy.types.Con
     return Option.of_optional(getattr(context, member, None)).filter(test).is_some()
 
 
-def _acted(use: _Use, call: Call[Empty]) -> Outcome[Answer]:
-    """Runs a shelf action over the context asset, absent fault without one."""
-    return Option.of_optional(call.context.asset).map(lambda asset: use(call, asset)).default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.context", member="asset")))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Append", "ContextMenu", "Dropdown", "Header", "Menu", "Pie", "PresetMenu", "Shelf", "Submenus"]
+__all__ = ["Append", "ContextMenu", "Dropdown", "Header", "Menu", "Pie", "PresetMenu", "Submenus"]

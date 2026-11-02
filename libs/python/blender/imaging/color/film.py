@@ -47,11 +47,11 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     rotations: tuple[_Rotation, _Rotation, _Rotation] = (math.radians(0.5), math.radians(2.0), math.radians(0.1))
     gains: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
     low: Finite = -10.0
-    span: Positive = 22.0 - -10.0
+    span: Positive = 22.0 - low
     toe_x: _Share = 0.44
     toe_y: _Share = 0.28
-    across: _Share = (0.591 - 0.44) / (1.0 - 0.44)
-    up: _Share = (0.779 - 0.28) / (1.0 - 0.28)
+    across: _Share = (0.591 - toe_x) / (1.0 - toe_x)
+    up: _Share = (0.779 - toe_y) / (1.0 - toe_y)
     negative: FilmStock = FilmStock()
     backlight: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
     positive: FilmStock = FilmStock(density=27.5)
@@ -145,7 +145,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     # --- [TABLE]
 
     def transform(self) -> Outcome[PyOpenColorIO.GroupTransform]:
-        """Builds native encoded tetrahedral formation table."""
+        """Builds the tetrahedral table of `developed` over the lattice."""
         return self.lattice.samples().bind(self.developed).map(self.lattice.transform)
 
 

@@ -1,7 +1,7 @@
 """Render set membership: the file's set form, member scenes or view layers with their sync locks, category settings per root, category sync across unlocked members, and the set steps over them."""
 
 from collections.abc import Iterable, Mapping
-from enum import StrEnum
+from enum import auto, Enum
 from functools import partial
 from itertools import chain
 from typing import Final
@@ -14,9 +14,9 @@ import msgspec
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import RnaPath, rooted
-from blender.bpy.data.rna.restoration import Endpoints
+from blender.bpy.data.rna.properties import enum_choices
+from blender.bpy.data.rna.restoration import BeforeAfter
 from blender.bpy.data.rna.snapshots import Applied, assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.render.view_layers.passes import layer_of, used
@@ -30,17 +30,16 @@ from blender.records.trees import Reparametrized, transfer
 type Owner = bpy.types.Scene | bpy.types.ViewLayer
 
 
-class Form(StrEnum):
-    """Render set form, valued by its persisted enum identifier."""
+class Form(Enum):
+    """Render set form."""
 
-    LAYERS = "Layers"
-    COPIES = "Copies"
+    LAYERS = auto()
+    COPIES = auto()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 KEY: Final[Key] = "render_sets"
-FORMS: Final = choices(((Form.LAYERS.value, Form.LAYERS.value, "View layers of one scene"), (Form.COPIES.value, Form.COPIES.value, "Scenes copied from the source scene")))
 OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Saved.ALWAYS, single=False)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -49,7 +48,7 @@ OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Saved
 class Sets(bpy.types.PropertyGroup):
     """File render set settings."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=FORMS, default=Form.LAYERS.value)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=enum_choices(Form), default=Form.LAYERS.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     across: bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -94,13 +93,13 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
     scenes: Attached[SceneMembership]
     layers: Attached[Membership]
     categories: Mapping[Category, tuple[Descriptor, ...]]
-    recovery: Recovery[Endpoints]
+    recovery: Recovery[BeforeAfter]
 
     # --- [MEMBERSHIP]
 
     def form(self, context: bpy.types.Context) -> Outcome[Form]:
         """Reads file render set form from window manager."""
-        return rooted(bpy.types.WindowManager, context).map(lambda manager: Form(self.sets.struct(manager).form))
+        return rooted(bpy.types.WindowManager, context).map(lambda manager: Form[self.sets.struct(manager).form])
 
     def source(self, context: bpy.types.Context) -> Outcome[bpy.types.Scene]:
         """Returns marked source of active scene, else active scene."""
@@ -118,6 +117,10 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Returns source, then its member scenes in data order."""
         return self.source(context).map(lambda source: (source, *OWNERSHIP.serving(self.identity, source)))
 
+    def member_scenes(self, context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
+        """Returns member scenes under copy form, else source scene."""
+        return self.form(context).bind(lambda form: self.copies(context) if form is Form.COPIES else self.source(context).map(lambda scene: (scene,)))
+
     def members(self, context: bpy.types.Context, *, unlocked: bool = False) -> Outcome[tuple[Owner, ...]]:
         """Returns members of file form in list order, unlocked ones alone when `unlocked` is set."""
         return self.form(context).bind(lambda form: MemberScope(members=self, owner_type=bpy.types.Scene if form is Form.COPIES else bpy.types.ViewLayer, unlocked=unlocked).owners(context))
@@ -126,7 +129,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the membership group of a member scene or view layer."""
         return self.scenes.struct(owner) if isinstance(owner, bpy.types.Scene) else self.layers.struct(owner)
 
-    def free[O: Owner](self, owners: Iterable[O]) -> tuple[O, ...]:
+    def unlocked[O: Owner](self, owners: Iterable[O]) -> tuple[O, ...]:
         """Returns unlocked owners in given order."""
         return tuple(owner for owner in owners if not self.membership(owner).locked)
 
@@ -173,15 +176,11 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
     def owners(self, context: bpy.types.Context) -> Outcome[tuple[Owner, ...]]:
         """Returns owners of the member scenes, unlocked ones alone when `unlocked` is set."""
         return (
-            self
-            .scenes(context)
+            self.members
+            .member_scenes(context)
             .map(lambda scenes: tuple(layer for scene in scenes for layer in scene.view_layers) if self.owner_type is bpy.types.ViewLayer else scenes)
-            .map(lambda owners: self.members.free(owners) if self.unlocked else owners)
+            .map(lambda owners: self.members.unlocked(owners) if self.unlocked else owners)
         )
-
-    def scenes(self, context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
-        """Returns member scenes under copy form, else source scene."""
-        return self.members.form(context).bind(lambda form: self.members.copies(context) if form is Form.COPIES else self.members.source(context).map(lambda scene: (scene,)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -346,7 +345,7 @@ def render_set_lock(members: Members, call: Call[Empty]) -> Outcome[Answer]:
     context = call.context
 
     def configured(owner: Owner) -> Outcome[None]:
-        def synced_first(held: Option[Endpoints]) -> Outcome[None]:
+        def synced_first(held: Option[BeforeAfter]) -> Outcome[None]:
             return (
                 accumulated(
                     written(members, category, context, targets)
@@ -382,7 +381,6 @@ def render_set_lock(members: Members, call: Call[Empty]) -> Outcome[Answer]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "FORMS",
     "KEY",
     "OWNERSHIP",
     "Category",

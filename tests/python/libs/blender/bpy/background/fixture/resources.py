@@ -1,4 +1,4 @@
-"""Resource rows: staged glyphs with a brand, the preview collection, and the texture cache, with probes over icons, previews, textures, theme colors, and metrics."""
+"""Resource rows: packaged icons with a brand, the preview collection, and the texture cache, with probes over icons, previews, textures, theme colors, and metrics."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -35,7 +35,7 @@ def _preferences() -> bpy.types.Preferences:
 
 def _opaque(identity: Identity) -> tuple[int, float]:
     """Counts the mark's opaque icon pixels and their largest distance from the widget text color."""
-    preview = identity.held[ICONS].collection[MARK.as_posix()]
+    preview = identity.resources[ICONS].collection[MARK.as_posix()]
     rgba = np.asarray(preview.icon_pixels_float, np.float32).reshape(-1, 4)
     opaque = rgba[rgba[:, 3] > _OPAQUE]
     text = np.asarray(color(_preferences().themes[0].user_interface.wcol_regular.text)[:3], np.float32)
@@ -45,13 +45,13 @@ def _opaque(identity: Identity) -> tuple[int, float]:
 # --- [PROBES]
 
 
-def glyphs(identity: Identity) -> dict[str, object]:
-    """Reads the brand icon and the values of a staged glyph, a built-in icon, a stub icon name the running build lacks, and a glyph the staged set lacks, a data-block icon left out since its preview render job crashes a background session."""
-    icons = identity.held[ICONS]
+def icon_values(identity: Identity) -> dict[str, object]:
+    """Reads the brand icon and the values of a packaged icon, a built-in icon, a stub icon name the running build lacks, and a glyph the staged set lacks, a data-block icon left out since its preview render job crashes a background session."""
+    icons = identity.resources[ICONS]
     stock = Option.of_optional(try_downcast(bpy.types.EnumProperty, definition(bpy.types.UILayout).functions["prop"].parameters["icon"])).map(lambda prop: prop.enum_items["ADD"].value)
     return {
         "brand": icons.brand.is_some(),
-        "staged": Icons.value(identity, MARK).map(lambda value: Some(value) == icons.brand),
+        "packaged": Icons.value(identity, MARK).map(lambda value: Some(value) == icons.brand),
         "built in": Icons.value(identity, "ADD").map(lambda value: Some(value) == stock),
         "unknown": Icons.value(identity, "BACKDROP_PAN"),
         "missing": Icons.value(identity, Path("missing.svg")),
@@ -61,7 +61,7 @@ def glyphs(identity: Identity) -> dict[str, object]:
 
 def tinted(identity: Identity) -> dict[str, object]:
     """Reads the mark's tint in the widget text color, retints it red twice, and restores the default tint."""
-    icons = identity.held[ICONS]
+    icons = identity.resources[ICONS]
     count, deviation = _opaque(identity)
     red = (icons.retinted(lambda _: Some((1.0, 0.0, 0.0, 1.0))), icons.retinted(lambda _: Some((1.0, 0.0, 0.0, 1.0))))
     restored = icons.retinted(Icons().tint)
@@ -70,7 +70,7 @@ def tinted(identity: Identity) -> dict[str, object]:
 
 def previewed(identity: Identity) -> dict[str, object]:
     """Writes a plane into a preview slot, reads it back, drops it with a pixelless request, and clears it."""
-    previews = identity.held[PREVIEWS]
+    previews = identity.resources[PREVIEWS]
     plane = np.ones((4, 8, 4), np.float32)
     written = previews.written("probe", "first", Some(plane))
     size: Sequence[int] = previews.collection["probe"].image_size  # type: ignore[assignment]
@@ -103,7 +103,7 @@ def checkered(_identity: Identity) -> dict[str, object]:
 
 def textured(identity: Identity) -> dict[str, object]:
     """Uploads a plane and stores three textures past a limit of two with the first kept."""
-    textures = identity.held[TEXTURES]
+    textures = identity.resources[TEXTURES]
     plane = np.ones((3, 5, 4), np.float32)
     single = uploaded(plane).map(lambda texture: (texture.width, texture.height, texture.format))
     stored = tuple(textures.stored(key, plane, 2, frozenset({"first"})).map(lambda _: tuple(textures.held)) for key in ("first", "second", "third"))
@@ -157,7 +157,7 @@ def colored(_identity: Identity) -> dict[str, object]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 rows: Final = (Icons(brand=Some(MARK)), TEXTURES)
-PROBES: Final = (glyphs, tinted, previewed, checkered, textured, themed, measured, colored)
+PROBES: Final = (icon_values, tinted, previewed, checkered, textured, themed, measured, colored)
 RELEASED: Final = ()
 
 # --- [EXPORTS] --------------------------------------------------------------------------

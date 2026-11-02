@@ -14,7 +14,7 @@ from blender.bpy.nodes.functions import Group, grouped
 from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
-from blender.bpy.render.compositor.inputs import Shell, Step
+from blender.bpy.render.compositor.inputs import GraphInputs, Step
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED
 from blender.bpy.render.compositor.shapes import Bounded, box, cross, ellipse, heart, Join, lattice, line, polygon, rotated, stroke, triangle, turned
 from blender.records.fields import Case
@@ -139,7 +139,7 @@ def gridded(read: Callable[[Socket], Expr], point: Expr) -> tuple[Expr, Expr, Ex
     return distance, cell, thickness
 
 
-def figured[R: Case](shell: Shell[R], frame: FrameSpace, *path: Step) -> Bounded:
+def figured[R: Case](shell: GraphInputs[R], frame: FrameSpace, *path: Step) -> Bounded:
     """Returns the field of the figure panel a path ends at, its primitive placed, turned, and measured against the greater or shorter frame side."""
 
     def read(*steps: Step) -> Expr:
@@ -175,18 +175,18 @@ def figured[R: Case](shell: Shell[R], frame: FrameSpace, *path: Step) -> Bounded
     return Bounded.of(shell.menu(*path, _PRIMITIVE, cases={item: case.packed for item, case in cases.items()}) * scale)
 
 
-def joined[R: Case](shell: Shell[R], frame: FrameSpace) -> Bounded:
+def joined[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
     """Returns the base and cutter figures joined under the boolean operation menu with a smooth seam."""
     base, cutter, seam = figured(shell, frame, BOOLEAN, _BASE), figured(shell, frame, BOOLEAN, _CUTTER), shell.input(BOOLEAN, _SMOOTHNESS)
     return Bounded.of(shell.menu(BOOLEAN, _OPERATION, cases={MenuItem.of(join): base.joined(cutter, seam, join).packed for join in Join}))
 
 
-def morphed[R: Case](shell: Shell[R], frame: FrameSpace) -> Bounded:
+def morphed[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
     """Returns the start figure's field blended toward the end figure's by progress."""
     return figured(shell, frame, MORPH, _START).morphed(figured(shell, frame, MORPH, _END), shell.input(MORPH, _PROGRESS))
 
 
-def windowed[R: Case](shell: Shell[R], frame: FrameSpace) -> Bounded:
+def windowed[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
     """Returns the centered aperture fitted to the frame at its aspect, the frame's own aspect while the aspect toggle is off."""
     extent = frame.extent
     aspect = switched(shell.input(WINDOW, _APERTURE), extent["X"] / extent["Y"], shell.input(WINDOW, _APERTURE, _ASPECT))
@@ -229,7 +229,7 @@ def _channel(depth: int) -> Group[[_Point, _Point, _Point, _Point, Scalar, Scala
     return grouped(kind=bpy.types.CompositorNodeTree, key=Some(item_key(LIGHTNING.key, "channel", depth)))(body)
 
 
-def bolt[R: Case](shell: Shell[R], frame: FrameSpace, *, depth: int, branches: int, family: int) -> Bounded:
+def bolt[R: Case](shell: GraphInputs[R], frame: FrameSpace, *, depth: int, branches: int, family: int) -> Bounded:
     """Returns the bolt's field: the main channel subdivided `depth` levels, then `branches` forks rooted at its first subdivision points.
 
     Args:

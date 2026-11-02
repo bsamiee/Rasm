@@ -1,7 +1,4 @@
-"""RNA path steps, the host text of a path, and the structs, definitions, subclasses, and context roots RNA reaches.
-
-Context roots sit here as one more RNA reach: `root_in` follows the `Context` RNA pointer members whose fixed type holds a root, as `struct_at` follows the steps of a path.
-"""
+"""RNA path steps, the host text of a path, and the structs, definitions, subclasses, and context roots RNA reaches."""
 
 import ast
 from collections.abc import Callable, Iterable, Iterator
@@ -31,7 +28,7 @@ _resolved: Final[Callable[[Struct, str, bool], Result[object, ValueError | Refer
 
 
 def rna(path: RnaPath) -> str:
-    """Returns the host path text of a path, the one text the host reads."""
+    """Returns host path text."""
 
     def token(step: _Step) -> str:
         match step:
@@ -46,9 +43,7 @@ def rna(path: RnaPath) -> str:
 
 
 def parsed(text: str) -> Outcome[RnaPath]:
-    """Reads host path text the host supplied, such as an override property's `rna_path` or a `path_from_id` answer, as a path.
-
-    The text is read alone: whether a root holds the path is the question `struct_at` and `Descriptor.resolve` answer.
+    """Reads host path text (an override property's `rna_path`, a `path_from_id` result) as a path.
 
     Args:
         text: Host path text.
@@ -67,7 +62,7 @@ def definition(struct: Native | type[Struct]) -> bpy.types.Struct:
 
 
 def defined(struct: Native) -> Option[bpy.types.Struct]:
-    """Returns the RNA definition a live struct or collection holds, Nothing for a collection declaring no members of its own (`Scene.objects`, where `RenderSlots` declares `active`)."""
+    """Returns the RNA definition a live struct or collection holds, Nothing for a collection declaring no members (`Scene.objects`)."""
     return catch(definition, exception=AttributeError)(struct).to_option()
 
 
@@ -94,7 +89,7 @@ def id_data[K: bpy.types.ID](kind: type[K], struct: Struct, /) -> Option[K]:
 
 
 def context_path(owner: Struct, name: str = "", /) -> Option[str]:
-    """Returns the context data path of an owner or its named member, through `blend_data` for ID data and the context for preferences, Nothing for data neither reaches or a path Blender derives only in part."""
+    """Returns the context data path of an owner or member, through `blend_data` or preferences, Nothing for other data or a partial host path."""
     return (
         catch(owner.path_from_module, exception=ValueError)(name)
         .to_option()
@@ -114,13 +109,13 @@ def struct_at[K](root: Native, path: RnaPath, kind: type[K]) -> Option[K]: ...
 def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Option[object]:
     """Returns the struct or collection at relative path, narrowed to kind when given, Nothing for a value, a removed struct, or another kind.
 
-    A collection root resolves through its holder and the collection member holding it.
+    Collection root resolves through its holder and the collection member holding it.
     """
     match root:
         case bpy.types.bpy_struct():
-            anchor: Option[tuple[Struct, RnaPath]] = Some((root, ()))
+            start: Option[tuple[Struct, RnaPath]] = Some((root, ()))
         case _:
-            anchor = Option.of_optional(root.data).bind(
+            start = Option.of_optional(root.data).bind(
                 lambda holder: (
                     Block
                     .of_seq(definition(holder).properties)
@@ -132,13 +127,13 @@ def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Optio
     found: Option[object] = (
         Some(root)
         if not path
-        else anchor.bind(lambda held: _resolved(held[0], rna((*held[1], *path)), False).to_option()).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
+        else start.bind(lambda held: _resolved(held[0], rna((*held[1], *path)), False).to_option()).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
     )
     return found.bind(lambda held: Option.of_optional(try_downcast(kind, held)))
 
 
 def definition_at(held: bpy.types.Struct, steps: RnaPath) -> Option[bpy.types.Struct]:
-    """Returns the definition a path reaches from a struct definition, walking pointers, collection elements, and a collection's own definition, Nothing past a value."""
+    """Returns the definition a path reaches through pointers, collection elements, and a collection's own definition, Nothing past a value."""
 
     def entered(prop: bpy.types.Property, rest: RnaPath) -> Option[bpy.types.Struct]:
         match prop, rest:
@@ -178,14 +173,14 @@ def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Optio
 
 
 def preferred[T](preferences: bpy.types.Preferences, package: str, write: Callable[[bpy.types.AddonPreferences], Outcome[T]]) -> Outcome[T]:
-    """Writes the package's add-on preferences, marking them dirty once the write succeeds since the host marks no Python write to add-on preferences, absent fault for a package holding none."""
+    """Writes the package's add-on preferences and marks them dirty on success, a mark the host skips, absent fault for a package holding none."""
     answer = addon_preferences(preferences, package).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(preferences), member=package)).bind(write)
     preferences.is_dirty = preferences.is_dirty or answer.is_ok()
     return answer
 
 
 def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
-    """Returns the root of type the context holds: the context itself, an add-on's preferences by `bl_idname`, else the first `Context` RNA pointer member whose fixed type holds the root type."""
+    """Returns the root of type the context holds: the context, add-on preferences by `bl_idname`, else the first `Context` pointer typed to hold it."""
     preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     candidates: Iterable[object]
     if root is bpy.types.Context:
