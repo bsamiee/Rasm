@@ -81,11 +81,11 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [07]-[HOST_PACKAGING]
 
-- Use `eng/python/fitout/` for host extension assembly and installation
+- Use `eng/python/blender/` for host extension assembly and installation
 - Each packaged member's wheel maps its folder onto its import root through hatch `sources`, `only-include` keeping its manifest out
-- Fitout bundles `uv export --project <extension> --no-editable` closure, workspace members as submodules with relative imports, the rest as wheels
+- Packing bundles `uv export --project <extension> --no-editable` closure, workspace members as submodules with relative imports, the rest as wheels
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
-- Fitout omits Blender-provided distributions from locked export
+- Packing omits Blender-provided distributions from locked export
 - `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into the staged manifest
 - `install` runs `extensions.package_install_files` in a GUI on the same executable and user profile, then saves changed preferences
 - `install` runs `extension install-file --repo user_default --enable` through `--command` when no such GUI runs

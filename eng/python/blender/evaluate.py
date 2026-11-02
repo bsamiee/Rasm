@@ -9,19 +9,16 @@ lazy import sys
 lazy from typing import Annotated
 
 lazy from cyclopts import Parameter
-lazy from cyclopts.types import ResolvedExistingFile
 lazy from expression import Result
 lazy from expression.extra.result import catch
 
-lazy from eng.python.fitout.assembly import reset, site
-lazy from eng.python.fitout.faults import Fault, Faults, Reason
+lazy from eng.python.blender.assembly import Blender, reset, site
+lazy from eng.python.blender.faults import Fault, Faults, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def run(
-    name: str, /, *arguments: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")], pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]
-) -> Result[int, Faults]:
+def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]) -> Result[int, Faults]:
     """Runs Blender with `--python-use-system-env` in a fresh user base, headless on `-b` or `--background` before any `--`, else as GUI.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.

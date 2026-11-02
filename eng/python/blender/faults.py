@@ -1,4 +1,4 @@
-"""Failure every fitout command returns, with reason, subject, and cause."""
+"""Failure every command returns, with reason, subject, and cause."""
 
 from enum import StrEnum
 
@@ -10,7 +10,7 @@ type Faults = tuple[Fault, ...]
 
 
 class Reason(StrEnum):
-    """Fitout refusals, each value the message template of its fault."""
+    """Command refusals, each value the message template of its fault."""
 
     PROCESS = "{subject} failed. {cause}"
     INVALID = "{subject} is invalid. {cause}"
@@ -23,7 +23,7 @@ class Reason(StrEnum):
 
 
 class Fault(msgspec.Struct, frozen=True, kw_only=True):
-    """Failure of a fitout step, its message formatted from its reason."""
+    """Failure of one step, its message formatted from its reason."""
 
     reason: Reason
     subject: str

@@ -8,7 +8,7 @@ import msgspec
 import pytest
 lazy from expression import Error, Nothing, Ok, Some
 
-lazy from eng.python.fitout.__main__ import app
+lazy from eng.python.blender.__main__ import app
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ def observing(cases: Iterable[tuple[Steps, object]], /) -> pytest.MarkDecorator:
 
 @pytest.fixture(scope="session")
 def observed(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Observations:
-    """Runs one headless factory-settings Blender over the session script through the fitout `run` command, decoding the observations of both phases."""
+    """Runs one headless factory-settings Blender over the session script through the `run` command, decoding the observations of both phases."""
     target = tmp_path_factory.mktemp("bpy") / "observed.json"
     script = Path(__file__).parent / "background" / "session.py"
     command, bound, _ = app.parse_args(["run", f"bpy-{worker_id}", "--", "-b", "--factory-startup", "--python-exit-code", "1", "--python", str(script), "--", str(target)])

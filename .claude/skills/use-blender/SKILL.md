@@ -74,7 +74,7 @@ result = {"closed": closed}
 ```
 
 Script-driven task GUIs run a runner script:
-- `python -m eng.python.fitout run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
+- `python -m eng.python.blender run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
@@ -126,7 +126,7 @@ Arguments apply left to right, `--python-exit-code` and the `.blend` before `--p
 ```
 
 Background runs follow host rules:
-- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `python -m eng.python.fitout run <name> --`
+- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `python -m eng.python.blender run <name> --`
 - Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
 - Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
@@ -142,7 +142,7 @@ Background renders use named files saved in place, untitled and scratch scenes r
 
 ## [06]-[MEMBERS]
 
-Member, signature, enum, and operator property facts come from the installed build, each printed by `python -m eng.python.fitout run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `"$BLENDER_PATH"` with the same arguments:
+Member, signature, enum, and operator property facts come from the installed build, each printed by `python -m eng.python.blender run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `"$BLENDER_PATH"` with the same arguments:
 - `<Type>.bl_rna.properties["<name>"]` reads `type`, `fixed_type`, `is_readonly`, `enum_items`, and `array_dimensions`
 - `<Type>.bl_rna.functions["<name>"].parameters` lists a method's parameters, `bpy.ops.<module>.<op>.get_rna_type().properties` an operator's
 - `<function>.__doc__` prints the signature of a Python-level function (`bpy.app.timers.register`, `bpy.utils.*`)
@@ -185,8 +185,8 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.fitout run` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` folder. That folder is `BLENDER_USER_RESOURCES` and `TMPDIR` and is created before Blender starts:
-- `python -m eng.python.fitout run <name> -- <arguments>` runs Blender with the arguments and prints its output
+Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.blender run` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` folder. That folder is `BLENDER_USER_RESOURCES` and `TMPDIR` and is created before Blender starts:
+- `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
 - macOS GUI runs start through `open` as their own launchd job, which Dock quit signals whole

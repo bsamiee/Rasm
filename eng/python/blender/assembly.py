@@ -33,10 +33,11 @@ lazy from picosvg.svg_types import SVGShape
 lazy import shapely
 lazy import tomlkit
 
-lazy from eng.python.fitout.faults import Fault, Faults, Reason
+lazy from eng.python.blender.faults import Fault, Faults, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Blender = Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 type _Point = tuple[float, float]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -150,9 +151,7 @@ def encoded(master: Path) -> bytes:
     return b"".join((b"VCO\x00", bytes((size, size, 0, 0)), *(corners.tobytes() for _, corners in paints), *(colors for colors, _ in paints)))
 
 
-def pack(
-    source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
-) -> Result[int, Faults]:
+def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Blender) -> Result[int, Faults]:
     """Builds host platform extension archive, first-party packages as submodules and the extension's locked dependency closure as wheels.
 
     Args:
@@ -166,7 +165,7 @@ def pack(
     Returns:
         Zero, or fault of every failed child process, icon master, and archive placement.
     """
-    first = frozenset(
+    workspace = frozenset(
         canonicalize_name(msgspec.toml.decode(Path(member, "pyproject.toml").read_bytes())["project"]["name"])
         for member in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["workspace"]["members"]
     )
@@ -179,11 +178,11 @@ def pack(
     def staged(stage: Path, interpreter: _Interpreter) -> None:
         wheels = stage / "wheels"
         roots: set[str] = set()
-        for first_party in [wheel for wheel in wheels.glob("*.whl") if parse_wheel_filename(wheel.name)[0] in first]:
-            with ZipFile(first_party) as wheel:
+        for member in [wheel for wheel in wheels.glob("*.whl") if parse_wheel_filename(wheel.name)[0] in workspace]:
+            with ZipFile(member) as wheel:
                 members = [name for name in wheel.namelist() if not PurePosixPath(name).parts[0].endswith(".dist-info")]
                 wheel.extractall(stage, members)
-            first_party.unlink()
+            member.unlink()
             roots.update(PurePosixPath(name).parts[0] for name in members)
         for module in stage.rglob("*.py"):
             syntax = ASTText(text := module.read_text(newline=""), filename=str(module))
@@ -250,7 +249,7 @@ def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Faults]:
     return catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True).bind(lambda _: catch(made, exception=OSError)(folder)).map_error(partial(Fault.of, Reason.UNWRITABLE, folder))
 
 
-def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, Faults]:
+def site(target: ResolvedPath, /, *, blender: Blender) -> Result[int, Faults]:
     """Syncs Blender import folder to distributions `pack` bundles, reinstalling only on version or tag change.
 
     Args:
@@ -271,4 +270,4 @@ def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Pa
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["encoded", "pack", "reset", "site"]
+__all__ = ["Blender", "encoded", "pack", "reset", "site"]

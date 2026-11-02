@@ -9,7 +9,7 @@ lazy from typing import Annotated
 import msgspec
 lazy import anyio
 lazy from cyclopts import Parameter
-lazy from cyclopts.types import ResolvedExistingDirectory, ResolvedExistingFile
+lazy from cyclopts.types import ResolvedExistingDirectory
 lazy from expression import Error, Ok, Result
 lazy from expression.extra.result import catch
 lazy import httpx2
@@ -18,7 +18,8 @@ lazy from mcp.types import TextContent
 lazy import psutil
 lazy from pydantic import ValidationError
 
-lazy from eng.python.fitout.faults import Fault, Faults, Reason
+lazy from eng.python.blender.assembly import Blender
+lazy from eng.python.blender.faults import Fault, Faults, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,9 +46,7 @@ def _forwarded(endpoint: str, answer: _Done | _Failed) -> Result[int, Faults]:
     return Error(Fault.of(Reason.REMOTE, endpoint, answer.message)) if isinstance(answer, _Failed) else Ok(0)
 
 
-async def install(
-    directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
-) -> Result[int, Faults]:
+async def install(directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Blender) -> Result[int, Faults]:
     """Installs archive `pack` built for host into user repository with extension enabled.
 
     GUI sessions with same profile load extension in place.

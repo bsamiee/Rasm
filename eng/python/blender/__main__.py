@@ -6,7 +6,7 @@ lazy import sys
 from cyclopts import App
 lazy from expression import Result
 
-lazy from eng.python.fitout.faults import Fault, Faults
+lazy from eng.python.blender.faults import Fault, Faults
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -29,10 +29,10 @@ def _reported(result: Result[int, Faults] | None) -> int:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 app = App(help=__doc__, result_action=(_reported, "sys_exit"))
-app.command("eng.python.fitout.assembly:pack")
-app.command("eng.python.fitout.install:install")
-app.command("eng.python.fitout.assembly:site")
-app.command("eng.python.fitout.evaluate:run")
+app.command("eng.python.blender.assembly:pack")
+app.command("eng.python.blender.install:install")
+app.command("eng.python.blender.assembly:site")
+app.command("eng.python.blender.evaluate:run")
 
 
 if __name__ == "__main__":
