@@ -6,7 +6,7 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 
 ### What a run produces
 
-- **Less surface:** the fewest exported and internal names, types, constants and helpers the row allows.
+- **Depth in little surface:** the full capability the domain needs under real, advanced use, in the fewest exported and internal names, types, constants and helpers.
 - **Value:** a change improves code only when its result does more with less than its base. Every declaration earns its place through an operation a caller performs, never through a rule, a row cell or the old code alone.
 - **Both ends:** a library and its consumers are rebuilt together and neither shapes the other. Each consumer calls the library directly with no adapter, wrapper or reshaping.
 - **Measured:** each run measures lines, declarations and exports per file at base and after (`git archive HEAD`, `loc`, `ast-grep outline`) and removes growth no capability requires before it ends.
@@ -69,7 +69,7 @@ Once every RUST.md [03] row has landed, each crate gets a depth run so no crate 
 ### Done
 
 - Zero findings from every compiler, checker and test the Check phase runs.
-- Rows over existing code end with fewer lines, files and public items than their base, and every file objectively better.
+- Rows over existing code end at or below their base in lines, files and public items, except growth for capability the base lacked or held shallowly, stated per item, and every file objectively better.
 
 ## [02]-[TYPESCRIPT_EXTENSION]
 
@@ -86,7 +86,7 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 - **Planning:** done. `docs/research/typescript-extension/` holds the map, six domain studies, ARCHITECTURE.md (nine rows, challenged twice in place) and WORKFLOWS.md (the one TYPESCRIPT.md edit, the `owned` keys, launch order and gates).
 - **Companion:** `.claude/workflows/typescript-tune.js` runs after each committed extension run, `args.key` its row and `args.commit` its commit, in the one TypeScript lane.
-- **Plugin studies:** the owner approved public sources, trials (Grid Calculator PE and ScribeDOOR stay on their demo and trial), one-time purchases on the owner's card with no subscription (Layout Grid Calculator, Fitbaseline, Manzar on Windows), and Kashida taken free as JSXBIN. Trials and demos come through vendor accounts. Each product folder under `docs/research/applications/adobe/extensions/` holds `acquired/`, `unpacked/`, `binaries/`, `ghidra/`, `recovered/` (every plugin function named and typed), `rebuilt/` (runnable TypeScript citing addresses) and `proof/` (the binary emulated and the host driven on the rebuild's vectors). The `plugin-decompile` run writes each study in `docs/research/typescript-extension/studies/` from the proven rebuild alone.
+- **Plugin studies:** the owner approved public sources, trials (Grid Calculator PE and ScribeDOOR stay on their demo and trial), one-time purchases on the owner's card with no subscription (Layout Grid Calculator bought; Fitbaseline and Manzar stopped at a CAPTCHA, for the owner to buy), InPage's Typesetting Tool and fonts (Manzar merged into InPage in 2025), every hasaninscripts.com script, and Kashida taken free as JSXBIN. Fonts land in `docs/research/typescript-extension/fonts/` and the owner's Paid Premium Fonts drive folder. Trials and demos come through vendor accounts. Each product folder under `docs/research/applications/adobe/extensions/` holds `acquired/`, `unpacked/`, `binaries/`, `ghidra/`, `recovered/` (every plugin function named and typed), `rebuilt/` (runnable TypeScript citing addresses) and `proof/` (the binary emulated and the host driven on the rebuild's vectors). The `plugin-decompile` run writes each study in `docs/research/typescript-extension/studies/` from the proven rebuild alone.
 - **Start:** once the last [01] TypeScript row lands, WORKFLOWS.md [02.1] and [03.1] land as one edit and `data/search` launches. Before it, InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]) and the purchased plugins go through Ghidra, and one integration pass rewrites ARCHITECTURE.md in place from every study, placing each recovered algorithm in a general package, in `@rasm/indesign` or in Atelier, under two adversarial architects.
 
 ### Scope
