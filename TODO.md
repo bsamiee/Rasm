@@ -109,7 +109,7 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 ### Scope
 
-- **InDesign:** the full interface, settings and preferences, derived from the host's own categories, never hand lists. Other Adobe apps follow later.
+- **InDesign interface:** the TypeScript libraries gain a full interface layer, as `libs/python/blender/bpy/ui` does for Blender and Rasm.UI with Rasm.Rhino.UI do for Rhino: panels, dialogs, preference pages and controls declared as data, bound to every setting and preference by the host's own categories, never hand lists. `indesign-internals` grounds it: the preferences, right-to-left and color modules show how InDesign lays out its panels, binds controls to settings, validates and applies them. It serves Atelier and Galley panels, the rebuilt plug-in capability (Grid Calculator, ScribeDOOR, InPage) as real panels, and agents reading and setting any preference by category. Other Adobe apps follow the same shape later.
 - **Typography:** shaping, metrics and typesetting logic, with Persian and Arabic right-to-left support through the packages that own it.
 - **Color:** its own package of color spaces (sRGB, CMYK, Lab, Adobe RGB and others), one conversion path between them, and palettes.
 - **Grids:** grid systems, grid types and their construction, rule lines, and margin and ruling logic, drawn from graphic design grid theory, usable in InDesign and coupled to no host.
