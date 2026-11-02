@@ -1,20 +1,20 @@
-use core::ptr;
-use std::{iter, sync::Arc};
+use core::{iter, ptr};
+use std::sync::Arc;
 
-use color::{AlphaColor, OpaqueColor, Srgb};
+use color::{OpaqueColor, Srgb};
 use indexmap::IndexMap;
 use nalgebra::{Affine3, Matrix4, Point3};
 use nonempty_collections::NEVec;
 use parry3d_f64::{
     math::Vector,
-    shape::{Polyline, TriMesh},
+    shape::{Polyline, TriMesh, TriMeshBuilderError, TriMeshFlags},
 };
 use serde::Deserialize;
 use serde_with::{base64::Base64, serde_as};
 use validated::Validated;
 
 use crate::{
-    Composed, IfcError, Model, Path,
+    Composed, Fault, IfcError, Model, Path,
     schemas::{Attribute, attribute},
 };
 
@@ -50,14 +50,18 @@ pub struct Instance {
     pub node: Path,
     pub world: Affine3<f64>,
     pub shape: Shape,
-    pub presentation: Option<AlphaColor<Srgb>>,
+    pub diffuse_color: Option<OpaqueColor<Srgb>>,
+    pub opacity: f32,
+    pub visible: bool,
 }
 
 struct Occurrence<'model> {
     path: Path,
     node: &'model Composed,
     world: Affine3<f64>,
-    presentation: Option<AlphaColor<Srgb>>,
+    diffuse_color: Option<OpaqueColor<Srgb>>,
+    opacity: f32,
+    visible: bool,
 }
 
 // --- [ATTRIBUTES]
@@ -139,87 +143,110 @@ impl Attribute for Opacity {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn instances(model: &Model) -> Result<Vec<Instance>, NEVec<IfcError>> {
-    fn walk<'model>(node: &'model Composed, path: &Path, parent: &Affine3<f64>, inherited: Option<AlphaColor<Srgb>>) -> Vec<Result<Occurrence<'model>, IfcError>> {
-        let placed = attribute::<Transform>(node).and_then(|record| {
-            record.map_or_else(
-                || Ok(Affine3::identity()),
-                |Transform { transform }| {
-                    nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Malformed { node: node.node.clone(), attribute: Transform::ID.into() })
-                },
-            )
-        });
-        let painted = attribute::<DiffuseColor>(node).and_then(|record| {
-            record.map(|DiffuseColor(components)| attribute::<Opacity>(node).map(|opacity| OpaqueColor::new(components).with_alpha(opacity.map_or(1.0, |Opacity(alpha)| alpha)))).transpose()
-        });
-        match Validated::from(placed).map3(Validated::from(attribute::<Visibility>(node)), Validated::from(painted), |local, visibility, own| (local, visibility, own)) {
-            Validated::Fail(failures) => failures.into_iter().map(Err).collect(),
-            Validated::Good((_, Some(Visibility { visibility: Shown::Invisible }), _)) => Vec::new(),
-            Validated::Good((local, Some(Visibility { visibility: Shown::Inherited }) | None, own)) => {
-                let world = parent * local;
-                let presentation = own.or(inherited);
-                iter::once(Ok(Occurrence { path: path.clone(), node, world, presentation }))
-                    .chain(node.children.iter().flat_map(|(name, child)| walk(child, &path.child(name.clone()), &world, presentation)))
-                    .collect()
-            }
-        }
-    }
-    let triples = |bytes: &[u8]| -> Option<Vec<[f32; 3]>> {
-        let (words, []) = bytes.as_chunks::<4>() else { return None };
-        let (vectors, []) = words.as_chunks::<3>() else { return None };
-        Some(vectors.iter().map(|vector| vector.map(f32::from_le_bytes)).collect())
-    };
-    let decode = |node: &Composed| -> Validated<Option<Shape>, IfcError> {
-        let malformed = |id: &str| IfcError::Malformed { node: node.node.clone(), attribute: id.into() };
-        let points = |id: &str, positions: Vec<[f64; 3]>, colors: Option<Vec<[f32; 3]>>| match colors {
-            None => Ok(Some(Shape::Points(Arc::new(Points::Plain(positions.into_iter().map(Point3::from).collect()))))),
-            Some(colors) if colors.len() == positions.len() =>
-                Ok(Some(Shape::Points(Arc::new(Points::Colored(positions.into_iter().map(Point3::from).zip(colors.into_iter().map(OpaqueColor::new)).collect()))))),
-            Some(_) => Err(malformed(id)),
+pub fn instances(model: &Model, flags: TriMeshFlags) -> Result<Vec<Instance>, NEVec<IfcError>> {
+    let fraction = |value: f32| (0.0..=1.0).contains(&value);
+    let malformed = |node: &Composed, id: &str| IfcError::Attribute { node: node.node.clone(), attribute: id.into(), reason: Fault::Malformed };
+    let shapes = |node: &Composed| -> Validated<Vec<Shape>, IfcError> {
+        let cloud = |id: &str, positions: Vec<Point3<f64>>, colors: Option<Vec<[f32; 3]>>| match colors {
+            None => Ok(Some(Shape::Points(Arc::new(Points::Plain(positions))))),
+            Some(colors) if colors.len() == positions.len() && colors.as_flattened().iter().copied().all(fraction) =>
+                Ok(Some(Shape::Points(Arc::new(Points::Colored(iter::zip(positions, colors.into_iter().map(OpaqueColor::new)).collect()))))),
+            Some(_) => Err(malformed(node, id)),
         };
-        let decoded = Validated::from(attribute::<Mesh>(node)).map4(
-            Validated::from(attribute::<Curves>(node)),
-            Validated::from(attribute::<PointArray>(node)),
-            Validated::from(attribute::<PointText>(node)),
-            |mesh, curves, array, text| (mesh, curves, array, text),
-        );
-        match decoded {
-            Validated::Fail(failures) => Validated::Fail(failures),
-            Validated::Good((Some(Mesh { points: vertices, face_vertex_indices }), _, _, _)) => {
-                let (triangles, remainder) = face_vertex_indices.as_chunks::<3>();
-                Validated::from(
-                    (remainder.is_empty() && face_vertex_indices.iter().all(|index| usize::try_from(*index).is_ok_and(|vertex| vertex < vertices.len()))).ok_or_else(|| malformed(Mesh::ID)).and_then(
-                        |()| {
-                            TriMesh::new(vertices.into_iter().map(Vector::from_array).collect(), triangles.to_vec())
-                                .map(|mesh| Some(Shape::Mesh(Arc::new(mesh))))
-                                .map_err(|source| IfcError::Mesh { node: node.node.clone(), source })
-                        },
-                    ),
-                )
+        let triples = |bytes: &[u8]| {
+            let (words, []) = bytes.as_chunks::<4>() else { return None };
+            let (vectors, []) = words.as_chunks::<3>() else { return None };
+            vectors.iter().map(|vector| Some(vector.map(f32::from_le_bytes)).filter(|triple| triple.iter().all(|component| component.is_finite()))).try_collect::<Vec<_>>()
+        };
+        let text = |PointText { positions, colors }: PointText| match (triples(&positions), colors.as_deref().map(triples)) {
+            (Some(positions), colors @ (None | Some(Some(_)))) => cloud(PointText::ID, positions.into_iter().map(|position| Point3::from(position.map(f64::from))).collect(), colors.flatten()),
+            (None, _) | (Some(_), Some(None)) => Err(malformed(node, PointText::ID)),
+        };
+        let surface = |Mesh { points, face_vertex_indices }: Mesh| {
+            if face_vertex_indices.is_empty() {
+                Ok(None)
+            } else if let (triangles, []) = face_vertex_indices.as_chunks::<3>()
+                && face_vertex_indices.iter().all(|index| usize::try_from(*index).is_ok_and(|vertex| vertex < points.len()))
+            {
+                TriMesh::new(points.into_iter().map(Vector::from_array).collect(), triangles.to_vec())
+                    .and_then(|mut mesh| mesh.set_flags(flags).map_err(TriMeshBuilderError::TopologyError).map(|()| Some(Shape::Mesh(Arc::new(mesh)))))
+                    .map_err(|source| IfcError::Mesh { node: node.node.clone(), source })
+            } else {
+                Err(malformed(node, Mesh::ID))
             }
-            Validated::Good((None, Some(Curves { points: vertices }), _, _)) =>
-                Validated::Good(Some(Shape::Curve(Arc::new(Polyline::new(vertices.into_iter().map(Vector::from_array).collect(), None))))),
-            Validated::Good((None, None, Some(PointArray { positions, colors }), _)) => Validated::from(points(PointArray::ID, positions, colors)),
-            Validated::Good((None, None, None, Some(PointText { positions, colors }))) => Validated::from(match (triples(&positions), colors.as_deref().map(triples)) {
-                (Some(positions), colors @ (None | Some(Some(_)))) => points(PointText::ID, positions.into_iter().map(|position| position.map(f64::from)).collect(), colors.flatten()),
-                (None, _) | (Some(_), Some(None)) => Err(malformed(PointText::ID)),
-            }),
-            Validated::Good((None, None, None, None)) => Validated::Good(None),
-        }
+        };
+        [
+            attribute::<Mesh>(node).and_then(|record| record.map_or(Ok(None), surface)),
+            attribute::<Curves>(node).map(|record| record.map(|Curves { points }| Shape::Curve(Arc::new(Polyline::new(points.into_iter().map(Vector::from_array).collect(), None))))),
+            attribute::<PointArray>(node)
+                .and_then(|record| record.map_or(Ok(None), |PointArray { positions, colors }| cloud(PointArray::ID, positions.into_iter().map(Point3::from).collect(), colors))),
+            attribute::<PointText>(node).and_then(|record| record.map_or(Ok(None), text)),
+        ]
+        .into_iter()
+        .collect::<Validated<Vec<_>, _>>()
+        .map(|shapes| shapes.into_iter().flatten().collect())
     };
-    let occurrences = model.roots().flat_map(|root| walk(root, &root.node, &Affine3::identity(), None)).collect::<Validated<Vec<_>, _>>().ok()?;
-    let shapes = occurrences
+    let own = |node: &Composed| {
+        let local = attribute::<Transform>(node).and_then(|record| {
+            record
+                .map_or(Ok(Affine3::identity()), |Transform { transform }| nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| malformed(node, Transform::ID)))
+        });
+        let diffuse_color = attribute::<DiffuseColor>(node).and_then(|record| {
+            record.map(|DiffuseColor(components)| components.into_iter().all(fraction).ok_or_else(|| malformed(node, DiffuseColor::ID)).map(|()| OpaqueColor::new(components))).transpose()
+        });
+        let opacity = attribute::<Opacity>(node).and_then(|record| record.map(|Opacity(alpha)| fraction(alpha).ok_or_else(|| malformed(node, Opacity::ID)).map(|()| alpha)).transpose());
+        let shown = attribute::<Visibility>(node).map(|record| record.is_none_or(|Visibility { visibility }| matches!(visibility, Shown::Inherited)));
+        Validated::from(local).map4(Validated::from(diffuse_color), Validated::from(opacity), Validated::from(shown), |local, diffuse_color, opacity, shown| (local, diffuse_color, opacity, shown))
+    };
+    let walked = model
+        .roots()
+        .flat_map(|root| {
+            let mut pending = Vec::from([Occurrence { path: root.node.clone(), node: root, world: Affine3::identity(), diffuse_color: None, opacity: 1.0, visible: true }]);
+            iter::from_fn(move || {
+                let inherited = pending.pop()?;
+                Some(match own(inherited.node) {
+                    Validated::Good((local, diffuse_color, opacity, shown)) => {
+                        let occurrence = Occurrence {
+                            world: Affine3::from_matrix_unchecked(inherited.world.matrix() * local.matrix()),
+                            diffuse_color: diffuse_color.or(inherited.diffuse_color),
+                            opacity: opacity.unwrap_or(inherited.opacity),
+                            visible: inherited.visible && shown,
+                            ..inherited
+                        };
+                        pending.extend(occurrence.node.children.iter().rev().map(|(name, child)| Occurrence { path: occurrence.path.child(name.clone()), node: child, ..occurrence }));
+                        Validated::Good(occurrence)
+                    }
+                    Validated::Fail(failures) => Validated::Fail(failures),
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    let decoded = walked
         .iter()
+        .flatten()
         .map(|occurrence| (ptr::from_ref(occurrence.node), occurrence.node))
         .collect::<IndexMap<_, _>>()
         .into_iter()
-        .map(|(definition, node)| decode(node).map(|shape| (definition, shape)))
-        .collect::<Validated<IndexMap<_, _>, _>>()
-        .ok()?;
-    Ok(occurrences
+        .map(|(definition, node)| shapes(node).map(|shapes| (definition, shapes)))
+        .collect::<Validated<IndexMap<_, _>, _>>();
+    walked
         .into_iter()
-        .filter_map(|Occurrence { path, node, world, presentation }| {
-            shapes.get(&ptr::from_ref(node)).cloned().flatten().map(|shape| Instance { path, node: node.node.clone(), world, shape, presentation })
+        .collect::<Validated<Vec<_>, _>>()
+        .map2(decoded, |occurrences, decoded| {
+            occurrences
+                .into_iter()
+                .flat_map(|Occurrence { path, node, world, diffuse_color, opacity, visible }| {
+                    decoded.get(&ptr::from_ref(node)).into_iter().flatten().map(move |shape| Instance {
+                        path: path.clone(),
+                        node: node.node.clone(),
+                        world,
+                        shape: shape.clone(),
+                        diffuse_color,
+                        opacity,
+                        visible,
+                    })
+                })
+                .collect()
         })
-        .collect())
+        .ok()
 }

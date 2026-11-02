@@ -1,15 +1,17 @@
-use core::num::NonZero;
+use core::{iter, num::NonZero};
 
 use indexmap::IndexMap;
 use nonempty_collections::{NESet, NEVec};
 use petgraph::graphmap::DiGraphMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::IntoDeserializer as _};
+use serde_with::{DisplayFromStr, de::DeserializeAsWrap};
 use strum::VariantArray as _;
 use uom::si::f64::{Angle, Length};
+use url::Url;
 use validated::Validated;
 
 use crate::{
-    Composed, IfcError, Model, Path,
+    Composed, IfcError, Model, Part, Path,
     schemas::{Attribute, attribute, record},
 };
 
@@ -38,7 +40,6 @@ pub enum Kind {
     MarineFacility,
     Railway,
     Road,
-    FacilityPart,
     FacilityPartCommon,
     BuildingStorey,
     BridgePart,
@@ -65,7 +66,7 @@ pub enum Link {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Class {
     pub code: Box<str>,
-    pub uri: Box<str>,
+    pub uri: Url,
 }
 
 impl Attribute for Class {
@@ -81,17 +82,18 @@ impl Attribute for Material {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Relation {
+pub enum Relation<'model> {
+    Aggregates,
     Contains,
-    Bounds,
+    Bounds { boundary: &'model Path },
     Link(Link),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields, expecting = "latitude and longitude or eastings and northings with an optional height, or a height alone")]
 pub enum Coordinates {
-    Geographic { latitude: Angle, longitude: Angle },
-    Projected { eastings: Length, northings: Length },
+    Geographic { latitude: Angle, longitude: Angle, height: Option<Length> },
+    Projected { eastings: Length, northings: Length, height: Option<Length> },
     Vertical { height: Length },
 }
 
@@ -118,24 +120,22 @@ impl Attribute for SpaceBoundary {
 // --- [CLASSIFICATION]
 
 pub fn kind(node: &Composed) -> Result<Option<Kind>, IfcError> {
-    attribute::<Class>(node).map(|class| class.and_then(|Class { code, uri: _ }| code.strip_prefix("Ifc").and_then(|name| name.parse().ok())))
+    attribute::<Class>(node).map(|class| class.and_then(|Class { code, uri: _ }| code.trim_end_matches(|letter: char| letter.is_ascii_uppercase() || letter == '_').strip_prefix("Ifc")?.parse().ok()))
 }
 
 // --- [RELATIONS]
 
-pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation>>, NEVec<IfcError>> {
-    let resolved = move |Target { reference }: Target| model.get(&reference).map(|target| &target.node).ok_or(IfcError::Unknown { path: reference });
-    model
+pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation<'_>>>, NEVec<IfcError>> {
+    let resolved = move |Target { reference }: Target| model.get(&reference).map(|target| &target.node).ok_or(IfcError::Missing { path: reference, part: Part::Node });
+    let classified = model.nodes().filter(|node| node.attributes.contains_key(Class::ID)).map(|node| kind(node).map(|spatial| (&node.node, (node, spatial)))).collect::<Validated<IndexMap<_, _>, _>>();
+    let stated = model
         .nodes()
         .flat_map(|node| {
-            let contained = kind(node).map(|spatial| {
-                node.children.values().filter(|child| spatial.is_some() && child.attributes.contains_key(Class::ID)).map(|child| (&node.node, &child.node, Relation::Contains)).collect::<Vec<_>>()
-            });
             let bounded = attribute::<SpaceBoundary>(node).map_or_else(Validated::fail, |boundary| {
                 boundary
                     .into_iter()
                     .map(|SpaceBoundary { related_element, relating_space }| {
-                        Validated::from(resolved(related_element)).map2(Validated::from(resolved(relating_space)), |element, space| (element, space, Relation::Bounds))
+                        Validated::from(resolved(related_element)).map2(Validated::from(resolved(relating_space)), |element, space| (element, space, Relation::Bounds { boundary: &node.node }))
                     })
                     .collect::<Validated<Vec<_>, _>>()
             });
@@ -144,12 +144,23 @@ pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation>>, NE
                     targets.into_iter().flatten().map(|target| resolved(target).map(|to| (&node.node, to, Relation::Link(link)))).collect::<Validated<Vec<_>, _>>()
                 })
             });
-            [Validated::from(contained), bounded].into_iter().chain(linked)
+            iter::once(bounded).chain(linked)
         })
-        .collect::<Validated<Vec<Vec<_>>, _>>()
-        .ok()
-        .map(|edges| {
-            edges.into_iter().flatten().fold(DiGraphMap::new(), |mut graph, (from, to, relation)| {
+        .collect::<Validated<Vec<Vec<_>>, _>>();
+    classified
+        .map2(stated, |classified, stated| {
+            let decomposed = classified.values().flat_map(|&(node, parent)| node.children.values().map(move |child| (node, parent, child))).filter_map(|(node, parent, child)| {
+                match (parent, classified.get(&child.node)) {
+                    (_, None) => None,
+                    (Some(_), Some(&(_, None))) => Some((&node.node, &child.node, Relation::Contains)),
+                    (None, Some(_)) | (Some(_), Some(&(_, Some(_)))) => Some((&node.node, &child.node, Relation::Aggregates)),
+                }
+            });
+            let placed = classified.keys().fold(DiGraphMap::<_, NESet<_>>::new(), |mut graph, &path| {
+                graph.add_node(path);
+                graph
+            });
+            decomposed.chain(stated.into_iter().flatten()).fold(placed, |mut graph, (from, to, relation)| {
                 if let Some(relations) = graph.edge_weight_mut(from, to) {
                     relations.insert(relation);
                 } else {
@@ -158,6 +169,7 @@ pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation>>, NE
                 graph
             })
         })
+        .ok()
 }
 
 // --- [GEOREFERENCE]
@@ -165,8 +177,15 @@ pub fn relations(model: &Model) -> Result<DiGraphMap<&Path, NESet<Relation>>, NE
 pub fn georeference(node: &Composed) -> Result<IndexMap<NonZero<u32>, Coordinates>, NEVec<IfcError>> {
     node.attributes
         .keys()
-        .filter_map(|id| id.strip_prefix("epsg").and_then(|code| code.parse::<NonZero<u32>>().ok()).map(|code| (code, id)))
-        .filter_map(|(code, id)| record::<Coordinates>(node, id).transpose().map(|decoded| decoded.map(|coordinates| (code, coordinates))))
+        .filter_map(|id| id.strip_prefix("epsg").map(|digits| (id, digits)))
+        .filter_map(|(id, digits)| {
+            record::<Coordinates>(node, id).transpose().map(|decoded| {
+                let epsg = serde_path_to_error::deserialize::<_, DeserializeAsWrap<NonZero<u32>, DisplayFromStr>>(digits.into_deserializer())
+                    .map(DeserializeAsWrap::into_inner)
+                    .map_err(|source| IfcError::Record { node: node.node.clone(), attribute: id.clone(), source });
+                Validated::from(epsg).map2(Validated::from(decoded), |code, coordinates| (code, coordinates))
+            })
+        })
         .collect::<Validated<IndexMap<_, _>, _>>()
         .ok()
 }

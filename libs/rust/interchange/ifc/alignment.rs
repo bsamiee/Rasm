@@ -8,7 +8,7 @@ use uom::si::{f64::Length, length::meter};
 use validated::Validated;
 
 use crate::{
-    Composed, IfcError, Model, Path,
+    Composed, Fault, IfcError, Model, Part, Path,
     schemas::{Attribute, attribute},
 };
 
@@ -32,7 +32,8 @@ enum Vertical {
 #[derive(Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 enum Cant {
-    ConstantCant,
+    #[serde(rename = "CONSTANTCANT")]
+    Constant,
     LinearTransition,
 }
 
@@ -40,31 +41,43 @@ enum Cant {
 
 // --- [STATIONS]
 
+#[nutype::nutype(validate(predicate = |span: &Length| span.is_normal() && span.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq))]
+pub struct PositiveLength(Length);
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Evaluation {
-    pub degree: NonZero<usize> = NonZero::new(16).unwrap(),
-    pub gauge: Option<Length> = None,
+    pub degree: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 15),
+    pub rail_head_distance: Option<PositiveLength> = None,
+    pub tolerance: Option<PositiveLength> = None,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Alignment {
     horizontal: NEVec<Segment<Curve>>,
-    vertical: Vec<Segment<Profile>>,
-    cant: Vec<Segment<Superelevation>>,
+    vertical: Option<NEVec<Segment<Profile>>>,
+    cant: Option<NEVec<Segment<Superelevation>>>,
     rule: GaussLegendre,
-    gauge: Option<Length>,
+    tolerance: Option<PositiveLength>,
 }
 
 impl Alignment {
     pub fn new(model: &Model, path: &Path, evaluation: &Evaluation) -> Result<Self, NEVec<IfcError>> {
-        fn decoded<T, U>(segments: &[&Composed], form: impl Fn(&Path, T) -> Result<U, IfcError>) -> Validated<Vec<U>, IfcError>
+        fn decoded<T, S, U>(segments: &[&Composed], state: S, mut form: impl FnMut(&mut S, T) -> Option<U>) -> Validated<Vec<U>, IfcError>
         where T: Attribute {
-            segments.iter().filter_map(|segment| attribute::<T>(segment).transpose().map(|decoded| decoded.and_then(|record| form(&segment.node, record)))).collect()
+            segments
+                .iter()
+                .filter_map(|segment| attribute::<T>(segment).transpose().map(|record| (&segment.node, record)))
+                .scan(state, |state, (node, record)| {
+                    Some(record.and_then(|record| form(state, record).ok_or_else(|| IfcError::Attribute { node: node.clone(), attribute: T::ID.into(), reason: Fault::Malformed })))
+                })
+                .collect()
         }
-        let malformed = |node: &Path, id: &str| IfcError::Malformed { node: node.clone(), attribute: id.into() };
         let per = |change: f64, length: f64| if length > 0.0 { change / length } else { 0.0 };
         let curvature = |radius: f64| if radius == 0.0 { 0.0 } else { radius.recip() };
-        let alignment = model.get(path).ok_or_else(|| NEVec::new(IfcError::Unknown { path: path.clone() }))?;
+        let ordered = |floor: &mut Option<f64>, start: f64, length: f64| length >= 0.0 && floor.replace(start).is_none_or(|floor| floor <= start);
+        let roll =
+            |left: f64, right: f64| evaluation.rail_head_distance.map_or(Some(0.0), |span| Some((left - right) / span.into_inner().get::<meter>()).filter(|ratio| ratio.abs() <= 1.0).map(f64::asin));
+        let alignment = model.get(path).ok_or_else(|| NEVec::new(IfcError::Missing { path: path.clone(), part: Part::Node }))?;
         let segments = alignment
             .children
             .values()
@@ -73,60 +86,61 @@ impl Alignment {
             .ok()?
             .into_iter()
             .flat_map(|Segments { segments }| segments)
-            .map(|Target { r#ref }| model.get(&r#ref).ok_or(IfcError::Unknown { path: r#ref }))
+            .map(|Target { r#ref }| model.get(&r#ref).ok_or(IfcError::Missing { path: r#ref, part: Part::Node }))
             .collect::<Validated<Vec<_>, _>>()
             .ok()?;
-        let horizontal = decoded(&segments, |node, HorizontalSegment { start_point, start_direction, start_radius_of_curvature, end_radius_of_curvature, segment_length, geometry_type }| {
+        let horizontal = decoded(&segments, 0.0, |reached, HorizontalSegment { start_point, start_direction, start_radius_of_curvature, end_radius_of_curvature, segment_length, geometry_type }| {
             let (entry, exit) = match geometry_type {
                 Horizontal::Line => (0.0, 0.0),
                 Horizontal::CircularArc => (curvature(start_radius_of_curvature), curvature(start_radius_of_curvature)),
                 Horizontal::Clothoid => (curvature(start_radius_of_curvature), curvature(end_radius_of_curvature)),
             };
+            let distance = *reached;
             match (start_point.as_slice(), segment_length >= 0.0) {
-                (&[x, y] | &[x, y, _], true) => Ok((segment_length, Curve { start: Point2::new(x, y), direction: start_direction, curvature: entry, rate: per(exit - entry, segment_length) })),
-                _ => Err(malformed(node, HorizontalSegment::ID)),
+                (&[x, y] | &[x, y, _], true) => {
+                    *reached = distance + segment_length;
+                    Some(Segment { distance, length: segment_length, form: Curve { start: Point2::new(x, y), direction: start_direction, curvature: entry, rate: per(exit - entry, segment_length) } })
+                }
+                _ => None,
             }
-        })
-        .map(|curves| {
-            curves
-                .into_iter()
-                .scan(0.0, |reached, (length, form)| {
-                    let distance = *reached;
-                    *reached += length;
-                    Some(Segment { distance, length, form })
-                })
-                .collect::<Vec<_>>()
         });
-        let vertical = decoded(&segments, |node, VerticalSegment { start_dist_along, horizontal_length, start_height, start_gradient, end_gradient, geometry_type }| {
+        let vertical = decoded(&segments, None, |floor, VerticalSegment { start_dist_along, horizontal_length, start_height, start_gradient, end_gradient, geometry_type }| {
             let inclination = start_gradient.atan();
             let exit = match geometry_type {
                 Vertical::ConstantGradient => inclination,
                 Vertical::CircularArc => end_gradient.atan(),
             };
-            (horizontal_length >= 0.0).ok_or_else(|| malformed(node, VerticalSegment::ID)).map(|()| Segment {
+            ordered(floor, start_dist_along, horizontal_length).then(|| Segment {
                 distance: start_dist_along,
                 length: horizontal_length,
                 form: Profile { height: start_height, inclination, curvature: per(exit.sin() - inclination.sin(), horizontal_length) },
             })
         });
-        let cant = decoded(&segments, |node, CantSegment { start_dist_along, horizontal_length, start_cant_left, start_cant_right, end_cant_left, end_cant_right, geometry_type }| {
-            let entry = start_cant_left - start_cant_right;
-            let exit = match geometry_type {
-                Cant::ConstantCant => entry,
-                Cant::LinearTransition => end_cant_left - end_cant_right,
+        let cant = decoded(&segments, None, |floor, CantSegment { start_dist_along, horizontal_length, start_cant_left, start_cant_right, end_cant_left, end_cant_right, geometry_type }| {
+            let (left, right) = match geometry_type {
+                Cant::Constant => (start_cant_left, start_cant_right),
+                Cant::LinearTransition => (end_cant_left, end_cant_right),
             };
-            (horizontal_length >= 0.0).ok_or_else(|| malformed(node, CantSegment::ID)).map(|()| Segment {
+            let (entry, exit) = (roll(start_cant_left, start_cant_right)?, roll(left, right)?);
+            let elevation = start_cant_left.midpoint(start_cant_right);
+            ordered(floor, start_dist_along, horizontal_length).then(|| Segment {
                 distance: start_dist_along,
                 length: horizontal_length,
-                form: Superelevation { cant: entry, rate: per(exit - entry, horizontal_length) },
+                form: Superelevation { elevation, slope: per(left.midpoint(right) - elevation, horizontal_length), roll: entry, twist: per(exit - entry, horizontal_length) },
             })
         });
         horizontal
             .map3(vertical, cant, |curves, profiles, superelevations| {
-                Some(Self { horizontal: NEVec::try_from_vec(curves)?, vertical: profiles, cant: superelevations, rule: GaussLegendre::new(evaluation.degree), gauge: evaluation.gauge })
+                NEVec::try_from_vec(curves).map(|curves| Self {
+                    horizontal: curves,
+                    vertical: NEVec::try_from_vec(profiles),
+                    cant: NEVec::try_from_vec(superelevations),
+                    rule: GaussLegendre::new(evaluation.degree),
+                    tolerance: evaluation.tolerance,
+                })
             })
             .ok()?
-            .ok_or_else(|| NEVec::new(IfcError::Layout { path: path.clone() }))
+            .ok_or_else(|| NEVec::new(IfcError::Missing { path: path.clone(), part: Part::HorizontalLayout }))
     }
 
     #[must_use]
@@ -137,27 +151,28 @@ impl Alignment {
 
     #[must_use]
     pub fn station(&self, distance: Length) -> Option<Isometry3<f64>> {
-        fn at<T>(layout: &[Segment<T>], along: f64) -> Option<(&T, f64)> {
-            let Segment { distance, length, form } = layout.get(layout.partition_point(|segment| segment.distance <= along).checked_sub(1)?)?;
-            let run = along - distance;
-            (run <= *length).then_some((form, run))
+        fn at<T>(layout: &NEVec<Segment<T>>, along: f64, reach: f64) -> Option<(&T, f64)> {
+            let layout = layout.iter().as_slice();
+            match layout.get(layout.partition_point(|segment| segment.distance <= along).saturating_sub(1)..)? {
+                [Segment { distance, length: _, form }, _, ..] => Some(along - distance).filter(|run| -reach <= *run).map(|run| (form, run)),
+                [Segment { distance, length, form }] => Some(along - distance).filter(|run| (-reach..=length + reach).contains(run)).map(|run| (form, run)),
+                [] => None,
+            }
         }
-        let along = distance.get::<meter>();
-        let (curve, arc) = at(self.horizontal.iter().as_slice(), along)?;
+        let (along, reach) = (distance.get::<meter>(), self.tolerance.map_or_default(|tolerance| tolerance.into_inner().get::<meter>()));
+        let (curve, arc) = at(&self.horizontal, along, reach)?;
         let heading = |run: f64| (0.5 * curve.rate).mul_add(run, curve.curvature).mul_add(run, curve.direction);
         let position = curve.start + Vector2::new(self.rule.integrate(0.0, arc, |run| heading(run).cos()), self.rule.integrate(0.0, arc, |run| heading(run).sin()));
-        let (height, inclination) = match self.vertical.as_slice() {
-            [] => Some((0.0, 0.0)),
-            layout => at(layout, along).map(|(&Profile { height, inclination, curvature }, run)| {
+        let (height, grade) = self.vertical.as_ref().map_or(Some((0.0, 0.0)), |layout| {
+            at(layout, along, reach).map(|(&Profile { height, inclination, curvature }, run)| {
                 let reached = curvature.mul_add(run, inclination.sin()).asin();
-                (run.mul_add(inclination.midpoint(reached).tan(), height), reached)
-            }),
-        }?;
-        let roll = match (self.gauge, self.cant.as_slice()) {
-            (Some(gauge), layout @ [_, ..]) => at(layout, along).map(|(&Superelevation { cant, rate }, run)| rate.mul_add(run, cant).atan2(gauge.get::<meter>()))?,
-            (None, _) | (Some(_), []) => 0.0,
-        };
-        Some(Isometry3::from_parts(Translation3::new(position.x, position.y, height), UnitQuaternion::from_euler_angles(roll, -inclination, heading(arc))))
+                (run.mul_add(inclination.midpoint(reached).tan(), height), reached.tan())
+            })
+        })?;
+        let (elevation, slope, roll) = self.cant.as_ref().map_or(Some((0.0, 0.0, 0.0)), |layout| {
+            at(layout, along, reach).map(|(&Superelevation { elevation, slope, roll, twist }, run)| (slope.mul_add(run, elevation), slope, twist.mul_add(run, roll)))
+        })?;
+        Some(Isometry3::from_parts(Translation3::new(position.x, position.y, height + elevation), UnitQuaternion::from_euler_angles(roll, -(grade + slope).atan(), heading(arc))))
     }
 }
 
@@ -185,8 +200,10 @@ struct Profile {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Superelevation {
-    cant: f64,
-    rate: f64,
+    elevation: f64,
+    slope: f64,
+    roll: f64,
+    twist: f64,
 }
 
 // --- [ATTRIBUTES]

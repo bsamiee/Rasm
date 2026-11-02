@@ -7147,7 +7147,6 @@ dependencies = [
  "thiserror 2.0.21",
  "uom",
  "url",
- "uuid",
  "validated",
  "xot",
  "zip",

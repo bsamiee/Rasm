@@ -5,13 +5,13 @@ use std::{io, sync::Arc};
 
 use indexmap::IndexMap;
 use jiff::fmt::temporal::Pieces;
-use nonempty_collections::NEVec;
+use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
 use parry3d_f64::shape::TriMeshBuilderError;
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{
         self, IntoDeserializer, Visitor,
-        value::{BorrowedStrDeserializer, MapDeserializer, SeqDeserializer},
+        value::{BorrowedStrDeserializer, F64Deserializer, MapAccessDeserializer, MapDeserializer, SeqDeserializer},
     },
 };
 use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDisplay, base64::Base64, serde_as};
@@ -27,7 +27,7 @@ use zip::result::ZipError;
 )]
 pub struct Name(String);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, SerializeDisplay, DeserializeFromStr)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::AsRef, SerializeDisplay, DeserializeFromStr)]
 pub struct Path(NEVec<Name>);
 
 impl Path {
@@ -43,19 +43,19 @@ impl Path {
 }
 
 impl fmt::Display for Path {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (head, names) = self.0.split_first();
-        write!(formatter, "{head}")?;
-        names.iter().try_for_each(|name| write!(formatter, "/{name}"))
+        write!(f, "{head}")?;
+        names.iter().try_for_each(|name| write!(f, "/{name}"))
     }
 }
 
 impl FromStr for Path {
     type Err = NameError;
 
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let (head, rest) = text.split_once('/').map_or((text, None), |(head, rest)| (head, Some(rest)));
-        Ok(Self(NEVec::from((Name::try_new(head)?, rest.into_iter().flat_map(|names| names.split('/')).map(Name::try_new).try_collect::<Vec<_>>()?))))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (head, names) = s.split_once('/').map_or((s, None), |(head, names)| (head, Some(names)));
+        iter::once(head).chain(names.into_iter().flat_map(|names| names.split('/'))).map(Name::try_new).collect::<Result<NEVec<_>, _>>().map(Self)
     }
 }
 
@@ -189,15 +189,21 @@ macro_rules! quantities {
             }
         }
 
-        fn stored(kind: QuantityKind, value: f64) -> Quantity {
-            match kind {
-                $(QuantityKind::$kind => Quantity::$kind(si::f64::$quantity::new::<si::$module::$unit>(value)),)+
+        impl<E> IntoDeserializer<'_, E> for Quantity
+        where E: de::Error {
+            type Deserializer = F64Deserializer<E>;
+
+            fn into_deserializer(self) -> Self::Deserializer {
+                match self {
+                    $(Self::$kind(value) => value.value,)+
+                }
+                .into_deserializer()
             }
         }
 
-        const fn base(quantity: Quantity) -> f64 {
-            match quantity {
-                $(Quantity::$kind(value) => value.value,)+
+        fn stored(kind: QuantityKind, value: f64) -> Quantity {
+            match kind {
+                $(QuantityKind::$kind => Quantity::$kind(si::f64::$quantity::new::<si::$module::$unit>(value)),)+
             }
         }
     };
@@ -246,7 +252,7 @@ impl<'de> Deserializer<'de> for &'de Value {
             Value::Boolean(value) => visitor.visit_bool(*value),
             Value::Integer(value) => visitor.visit_i64(*value),
             Value::Real(value) => visitor.visit_f64(*value),
-            Value::Quantity(quantity) => visitor.visit_f64(base(*quantity)),
+            Value::Quantity(quantity) => quantity.into_deserializer().deserialize_any(visitor),
             Value::String(text) | Value::Enum(text) => visitor.visit_borrowed_str(text),
             Value::DateTime(pieces) => visitor.visit_string(pieces.to_string()),
             Value::Reference(path) => visitor.visit_string(path.to_string()),
@@ -278,6 +284,8 @@ impl<'de> Deserializer<'de> for &'de Value {
     where V: Visitor<'de> {
         match self {
             Value::String(text) | Value::Enum(text) => visitor.visit_enum(BorrowedStrDeserializer::new(text)),
+            Value::Object(entries) if entries.len() == 1 =>
+                visitor.visit_enum(MapAccessDeserializer::new(MapDeserializer::new(entries.iter().map(|(key, value)| (BorrowedStrDeserializer::new(key), value))))),
             Value::Boolean(_) | Value::Integer(_) | Value::Real(_) | Value::Quantity(_) | Value::DateTime(_) | Value::Array(_) | Value::Object(_) | Value::Reference(_) | Value::Blob(_) =>
                 self.deserialize_any(visitor),
         }
@@ -334,6 +342,22 @@ pub enum Refusal {
     Integrity,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+pub enum Part {
+    Node,
+    #[display("horizontal layout")]
+    HorizontalLayout,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum Fault {
+    #[display("has no schema")]
+    Unschematized,
+    #[display("is malformed")]
+    Malformed,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum IfcError {
     #[error(transparent)]
@@ -350,20 +374,18 @@ pub enum IfcError {
     Refused { url: Url, reason: Refusal },
     #[error("{head} composes through itself")]
     Cycle { head: Name },
-    #[error("{path} names no node")]
-    Unknown { path: Path },
-    #[error("{node} holds {attribute} with no schema")]
-    Unschematized { node: Path, attribute: Box<str> },
+    #[error("no {part} at {path}")]
+    Missing { path: Path, part: Part },
+    #[error("{attribute} on {node} {reason}")]
+    Attribute { node: Path, attribute: Box<str>, reason: Fault },
     #[error("{node} holds {attribute} outside its schema")]
     Invalid { node: Path, attribute: Box<str>, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("{node} holds {attribute} unlike its record")]
     Record { node: Path, attribute: Box<str>, source: serde_path_to_error::Error<de::value::Error> },
-    #[error("{node} holds a malformed {attribute}")]
-    Malformed { node: Path, attribute: Box<str> },
     #[error("{node} holds no triangle mesh")]
     Mesh { node: Path, source: TriMeshBuilderError },
-    #[error("{path} holds no horizontal layout")]
-    Layout { path: Path },
+    #[error("{node} holds an unreadable PCD point cloud")]
+    Cloud { node: Path, source: pcd_rs::Error },
     #[error("BCF {found} is no BCF 3.0 archive")]
     Version { found: Box<str> },
     #[error("BCF entry {entry} is unreadable")]
@@ -374,6 +396,8 @@ pub enum IfcError {
     Xml { entry: Box<str>, source: xot::Error },
     #[error("BCF entry {entry} lacks a readable {element}")]
     Element { entry: Box<str>, element: &'static str },
+    #[error("BCF entry {entry} repeats {guid}")]
+    Duplicate { entry: Box<str>, guid: issues::Guid },
     #[error("BCF entry {entry} holds a malformed date in {element}")]
     Date { entry: Box<str>, element: &'static str, source: jiff::Error },
     #[error("BCF entry {entry} holds a malformed guid in {element}")]

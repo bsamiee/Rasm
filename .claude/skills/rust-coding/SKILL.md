@@ -121,7 +121,7 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 - Arms read what their own pattern binds, a nested match re-reading a value its outer arm narrowed lists variants that never reach it
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
-- `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
+- `if let` guards bind from a second refutable pattern inside an arm, deref patterns (`#![feature(deref_patterns)]` in the crate root) match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
 - Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test, and `<[T; 1]>::try_from(items)` takes an owned single item, `Err` returning the `Vec` whole
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
 
@@ -169,7 +169,7 @@ pub enum Delivery {
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
 - `derive_more` `#[as_ref]` exposes each field of a guarded record read-only, a result flag beside them included, never one `pub` field among guarded ones, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
-- `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context (a field default included) as `NonZero::new(<value>).unwrap()`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
+- `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context as `NonZero::new(<value>).unwrap()`, a default field value (where tree-sitter-rust parses no method call) as the by-path `NonZero::<T>::saturating_add(NonZero::<T>::MIN, <value - 1>)`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
@@ -230,7 +230,7 @@ Every fallible function returns its outcome as a value, and one type serves one 
 | :-----: | :--------------------------------- | :------------------------------------------------- |
 |  [01]   | `Option<T>`                        | Absence that holds no reason                       |
 |  [02]   | `Result<T, E>`                     | Expected failure, `?` stops at the first           |
-|  [03]   | `Validated<T, E>`                  | Independent checks, every failure in an `NEVec<E>` |
+|  [03]   | `Validated<T, E>`                  | Independent checks joining every refused subject   |
 |  [04]   | `ControlFlow<B, C>`                | Early exit from a fold with a value, not a failure |
 |  [05]   | `impl Stream<Item = Result<T, E>>` | Values over time, each failure one item            |
 
@@ -263,7 +263,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target, each refused element of one batch
-- Files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`
+- Files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`, and a `NonEmptyIterator` (`nonempty_collections::iter::once(head).chain(rest)`) collects `Result<NEVec<U>, E>` through `FromNonEmptyIterator`, `NEVec` holding no `FromIterator`
 - `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
@@ -298,7 +298,7 @@ pub enum LedgerError {
 - Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
-- Boundaries `map_err` a foreign error into a variant holding the operation or the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
+- Boundaries `map_err` a foreign error into its source's one variant, an operation field naming the operation and the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
@@ -439,7 +439,7 @@ Numeric facts come from the type or package that states them:
 - Tolerances on a measure in the caller's units are relative to it (a residual change against the previous residual)
 - Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
-- Quantities enter and leave through `uom` at a signature, a coordinate pair one validated type reading out each, the kernel between them on `f64`
+- Quantities enter and leave through `uom` at a signature, a coordinate pair one validated type reading out each, the kernel between them on `f64` with each unit conversion (a Celsius offset) read from `uom`, and a length compared with a coordinate stated in its frame
 - Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`
 - Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)

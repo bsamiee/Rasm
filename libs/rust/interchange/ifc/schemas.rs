@@ -1,7 +1,12 @@
-use core::{fmt, iter};
+use core::{
+    cell::{LazyCell, OnceCell},
+    cmp::Ordering,
+    fmt, iter,
+    num::TryFromIntError,
+};
 
 use data_encoding::BASE64;
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use jiff::fmt::temporal::Pieces;
 use petgraph::{
     graphmap::DiGraphMap,
@@ -9,7 +14,7 @@ use petgraph::{
 };
 use serde::de::{self, DeserializeOwned, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor};
 
-use crate::{Composed, DataType, IfcError, Path, QuantityKind, Schema, Value, ValueDescription, stored};
+use crate::{ArrayRestrictions, Composed, DataType, Fault, IfcError, ObjectRestrictions, Path, QuantityKind, Schema, Value, ValueDescription, stored};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,19 +26,25 @@ pub trait Attribute: DeserializeOwned {
 
 struct Descriptions<'schema> {
     described: Vec<&'schema ValueDescription>,
+    undefined: Option<&'schema str>,
     schemas: &'schema IndexMap<Box<str>, Schema>,
     inherited: &'schema DiGraphMap<&'schema str, ()>,
+    element: OnceCell<Box<Self>> = OnceCell::new(),
+    fields: OnceCell<IndexMap<&'schema str, Self>> = OnceCell::new(),
 }
 
 impl<'schema> Descriptions<'schema> {
-    fn new<E>(described: impl IntoIterator<Item = &'schema ValueDescription>, schemas: &'schema IndexMap<Box<str>, Schema>, inherited: &'schema DiGraphMap<&'schema str, ()>) -> Result<Self, E>
-    where E: de::Error {
-        let own = described.into_iter().collect::<Vec<_>>();
-        Dfs::from_parts(own.iter().flat_map(|description| &description.inherits).map(AsRef::as_ref).collect(), inherited.visit_map())
-            .iter(inherited)
-            .map(|id| schemas.get(id).map(|schema| &schema.value).ok_or_else(|| E::custom(format_args!("inherits {id}, which no schema defines"))))
-            .try_collect::<Vec<_>>()
-            .map(|ancestors| Self { described: [own, ancestors].concat(), schemas, inherited })
+    fn new<I>(own: I, schemas: &'schema IndexMap<Box<str>, Schema>, inherited: &'schema DiGraphMap<&'schema str, ()>) -> Self
+    where I: IntoIterator<Item = &'schema ValueDescription, IntoIter: Clone> {
+        let own = own.into_iter();
+        let ancestors = Dfs::from_parts(own.clone().flat_map(|description| &description.inherits).map(AsRef::as_ref).collect(), inherited.visit_map()).iter(inherited).collect::<Vec<_>>();
+        Self {
+            described: own.chain(ancestors.iter().filter_map(|id| schemas.get(*id)).map(|schema| &schema.value)).collect(),
+            undefined: ancestors.into_iter().find(|id| !schemas.contains_key(*id)),
+            schemas,
+            inherited,
+            ..
+        }
     }
 
     fn scalar<E>(&self, visited: Unexpected<'_>) -> Result<Value, E>
@@ -54,17 +65,49 @@ impl<'schema> Descriptions<'schema> {
                 restrictions.options.iter().any(|option| **option == *text).then(|| Value::Enum(text.into())).ok_or_else(|| E::invalid_value(visited, &self)),
             (Some(DataType::Reference), Unexpected::Str(text)) => text.parse().map(Value::Reference).map_err(E::custom),
             (Some(DataType::Blob), Unexpected::Str(text)) => BASE64.decode(text.as_bytes()).map(|bytes| Value::Blob(bytes.into_boxed_slice())).map_err(E::custom),
-            _ => Err(E::invalid_type(visited, &self)),
+            (
+                None
+                | Some(
+                    DataType::Real { quantity_kind: _ }
+                    | DataType::Boolean
+                    | DataType::Integer
+                    | DataType::String
+                    | DataType::DateTime
+                    | DataType::Enum { restrictions: _ }
+                    | DataType::Array { restrictions: _ }
+                    | DataType::Object { restrictions: _ }
+                    | DataType::Reference
+                    | DataType::Blob,
+                ),
+                _,
+            ) => Err(E::invalid_type(visited, &self)),
         };
-        match self.described.as_slice() {
-            [] => decoded(None),
-            [first, rest @ ..] => rest.iter().try_fold(decoded(Some(&first.data_type))?, |value, description| decoded(Some(&description.data_type)).map(|_| value)),
-        }
+        let refinement = |value: &Value| match value {
+            Value::Real(_) | Value::String(_) => 0_u8,
+            Value::Integer(_) => 1,
+            Value::Boolean(_) | Value::Quantity(_) | Value::DateTime(_) | Value::Enum(_) | Value::Array(_) | Value::Object(_) | Value::Reference(_) | Value::Blob(_) => 2,
+        };
+        self.described
+            .iter()
+            .try_fold(None, |kept: Option<Value>, description| {
+                let next = decoded(Some(&description.data_type))?;
+                match kept.map(|kept| (refinement(&kept).cmp(&refinement(&next)), kept)) {
+                    None | Some((Ordering::Less, _)) => Ok(Some(next)),
+                    Some((Ordering::Greater, kept)) => Ok(Some(kept)),
+                    Some((Ordering::Equal, kept)) => (kept == next).then_some(Some(kept)).ok_or_else(|| E::invalid_value(visited, &self)),
+                }
+            })?
+            .map_or_else(|| decoded(None), Ok)
     }
 
-    fn restricted<R, E>(&self, visited: Unexpected<'_>, project: impl Fn(&'schema DataType) -> Option<R>) -> Result<Vec<R>, E>
+    fn restricted<R, E>(&self, visited: Unexpected<'_>, project: impl Fn(&'schema DataType) -> Option<R> + Clone) -> Result<impl Iterator<Item = R> + Clone, E>
     where E: de::Error {
-        self.described.iter().map(|description| project(&description.data_type).ok_or_else(|| E::invalid_type(visited, &self))).try_collect::<Vec<_>>()
+        self.described
+            .iter()
+            .copied()
+            .all(|description| project(&description.data_type).is_some())
+            .ok_or_else(|| E::invalid_type(visited, &self))
+            .map(|()| self.described.iter().copied().filter_map(move |description| project(&description.data_type)))
     }
 }
 
@@ -73,7 +116,10 @@ impl<'de> DeserializeSeed<'de> for &Descriptions<'_> {
 
     fn deserialize<D>(self, deserializer: D) -> Result<Value, D::Error>
     where D: Deserializer<'de> {
-        deserializer.deserialize_any(self)
+        match self.undefined {
+            Some(id) => Err(de::Error::custom(format_args!("inherits {id}, which no schema defines"))),
+            None => deserializer.deserialize_any(self),
+        }
     }
 }
 
@@ -81,9 +127,9 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.described.as_slice() {
-            [] => formatter.write_str("an IFCX value"),
-            [first, rest @ ..] => iter::once(("", first)).chain(rest.iter().map(|description| (" and ", description))).try_for_each(|(separator, description)| {
+        match self.described.split_first() {
+            None => formatter.write_str("an IFCX value"),
+            Some((first, rest)) => iter::once(("", first)).chain(rest.iter().map(|description| (" and ", description))).try_for_each(|(separator, description)| {
                 formatter.write_str(separator)?;
                 match &description.data_type {
                     DataType::Real { quantity_kind: _ } => formatter.write_str("a real number"),
@@ -91,17 +137,13 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
                     DataType::Integer => formatter.write_str("an integer"),
                     DataType::String => formatter.write_str("a string"),
                     DataType::DateTime => formatter.write_str("an ISO 8601 date"),
-                    DataType::Enum { restrictions } => write!(formatter, "one of {:?}", restrictions.options),
-                    DataType::Array { restrictions } => {
-                        formatter.write_str("an array")?;
-                        if let Some(min) = restrictions.min {
-                            write!(formatter, ", at least {min} items")?;
-                        }
-                        if let Some(max) = restrictions.max {
-                            write!(formatter, ", at most {max} items")?;
-                        }
-                        Ok(())
-                    }
+                    DataType::Enum { restrictions } => write!(formatter, "one of {}", restrictions.options.join(", ")),
+                    DataType::Array { restrictions } => match (restrictions.min, restrictions.max) {
+                        (None, None) => formatter.write_str("an array"),
+                        (Some(min), None) => write!(formatter, "an array of at least {min} items"),
+                        (None, Some(max)) => write!(formatter, "an array of at most {max} items"),
+                        (Some(min), Some(max)) => write!(formatter, "an array of {min} to {max} items"),
+                    },
                     DataType::Object { restrictions: _ } => formatter.write_str("an object"),
                     DataType::Reference => formatter.write_str("a node path"),
                     DataType::Blob => formatter.write_str("base64 text"),
@@ -110,68 +152,92 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
         }
     }
 
-    fn visit_bool<E>(self, value: bool) -> Result<Value, E>
+    fn visit_bool<E>(self, v: bool) -> Result<Value, E>
     where E: de::Error {
-        self.scalar(Unexpected::Bool(value))
+        self.scalar(Unexpected::Bool(v))
     }
 
-    fn visit_i64<E>(self, value: i64) -> Result<Value, E>
+    fn visit_i64<E>(self, v: i64) -> Result<Value, E>
     where E: de::Error {
-        self.scalar(Unexpected::Signed(value))
+        self.scalar(Unexpected::Signed(v))
     }
 
-    fn visit_u64<E>(self, value: u64) -> Result<Value, E>
+    fn visit_u64<E>(self, v: u64) -> Result<Value, E>
     where E: de::Error {
-        self.scalar(i64::try_from(value).ok().map_or(Unexpected::Unsigned(value), Unexpected::Signed))
+        self.scalar(match i64::try_from(v) {
+            Ok(signed) => Unexpected::Signed(signed),
+            Err(TryFromIntError { .. }) => Unexpected::Unsigned(v),
+        })
     }
 
-    fn visit_f64<E>(self, value: f64) -> Result<Value, E>
+    fn visit_f64<E>(self, v: f64) -> Result<Value, E>
     where E: de::Error {
-        self.scalar(Unexpected::Float(value))
+        self.scalar(Unexpected::Float(v))
     }
 
-    fn visit_str<E>(self, text: &str) -> Result<Value, E>
+    fn visit_str<E>(self, v: &str) -> Result<Value, E>
     where E: de::Error {
-        self.scalar(Unexpected::Str(text))
+        self.scalar(Unexpected::Str(v))
     }
 
-    fn visit_seq<A>(self, mut items: A) -> Result<Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Value, A::Error>
     where A: SeqAccess<'de> {
-        let arrays = self.restricted::<_, A::Error>(Unexpected::Seq, |data_type| match data_type {
+        let arrays = self.restricted::<&ArrayRestrictions, A::Error>(Unexpected::Seq, |data_type| match data_type {
             DataType::Array { restrictions } => Some(restrictions.as_ref()),
-            _ => None,
+            DataType::Real { quantity_kind: _ }
+            | DataType::Boolean
+            | DataType::Integer
+            | DataType::String
+            | DataType::DateTime
+            | DataType::Enum { restrictions: _ }
+            | DataType::Object { restrictions: _ }
+            | DataType::Reference
+            | DataType::Blob => None,
         })?;
-        let element = Descriptions::new::<A::Error>(arrays.iter().map(|restrictions| &restrictions.value), self.schemas, self.inherited)?;
-        let values = iter::from_fn(|| items.next_element_seed(&element).transpose()).try_collect::<Vec<_>>()?;
+        let element = self.element.get_or_init(|| Box::new(Descriptions::new(arrays.clone().map(|restrictions| &restrictions.value), self.schemas, self.inherited)));
+        let values = iter::from_fn(|| seq.next_element_seed(&**element).transpose()).try_collect::<Vec<_>>()?;
         arrays
-            .iter()
+            .into_iter()
             .all(|restrictions| restrictions.min.is_none_or(|min| min <= values.len()) && restrictions.max.is_none_or(|max| values.len() <= max))
             .ok_or_else(|| de::Error::invalid_length(values.len(), &self))
             .map(|()| Value::Array(values))
     }
 
-    fn visit_map<A>(self, mut entries: A) -> Result<Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Value, A::Error>
     where A: MapAccess<'de> {
-        let objects = self.restricted::<_, A::Error>(Unexpected::Map, |data_type| match data_type {
-            DataType::Object { restrictions } => Some(restrictions.as_ref()),
-            _ => None,
-        })?;
-        let decoded = iter::from_fn(|| {
-            entries.next_key::<Box<str>>().transpose().map(|key| {
-                key.and_then(|key| {
-                    Descriptions::new::<A::Error>(objects.iter().flatten().filter_map(|restrictions| restrictions.values.get(&key)), self.schemas, self.inherited)
-                        .and_then(|seed| entries.next_value_seed(&seed))
-                        .map(|value| (key, value))
-                })
-            })
-        })
-        .try_collect::<IndexMap<_, _>>()?;
-        objects
-            .iter()
-            .flatten()
-            .flat_map(|restrictions| &restrictions.values)
-            .find(|(key, description)| !description.optional && !decoded.contains_key(*key))
-            .map_or(Ok(Value::Object(decoded)), |(key, _)| Err(de::Error::custom(format_args!("missing field `{key}`"))))
+        let objects = self
+            .restricted::<Option<&ObjectRestrictions>, A::Error>(Unexpected::Map, |data_type| match data_type {
+                DataType::Object { restrictions } => Some(restrictions.as_ref()),
+                DataType::Real { quantity_kind: _ }
+                | DataType::Boolean
+                | DataType::Integer
+                | DataType::String
+                | DataType::DateTime
+                | DataType::Enum { restrictions: _ }
+                | DataType::Array { restrictions: _ }
+                | DataType::Reference
+                | DataType::Blob => None,
+            })?
+            .flatten();
+        let fields = self.fields.get_or_init(|| {
+            objects
+                .clone()
+                .flat_map(|restrictions| restrictions.values.keys())
+                .map(AsRef::as_ref)
+                .collect::<IndexSet<&str>>()
+                .into_iter()
+                .map(|key| (key, Descriptions::new(objects.clone().filter_map(move |restrictions| restrictions.values.get(key)), self.schemas, self.inherited)))
+                .collect()
+        });
+        let untyped = LazyCell::new(|| Descriptions::new(iter::empty(), self.schemas, self.inherited));
+        let decoded = iter::from_fn(|| map.next_key::<Box<str>>().transpose().map(|key| key.and_then(|key| map.next_value_seed(fields.get(&*key).unwrap_or(&*untyped)).map(|value| (key, value)))))
+            .try_collect::<IndexMap<_, _>>()?;
+        let missing = fields
+            .keys()
+            .copied()
+            .filter(|key| !decoded.contains_key(*key) && objects.clone().filter_map(|restrictions| restrictions.values.get(*key)).any(|description| !description.optional))
+            .collect::<Vec<_>>();
+        missing.is_empty().ok_or_else(|| de::Error::custom(format_args!("missing `{}`", missing.join("`, `")))).map(|()| Value::Object(decoded))
     }
 }
 
@@ -197,9 +263,9 @@ pub(crate) fn inheritance(schemas: &IndexMap<Box<str>, Schema>) -> DiGraphMap<&s
 }
 
 pub(crate) fn decode(schemas: &IndexMap<Box<str>, Schema>, inherited: &DiGraphMap<&str, ()>, node: &Path, id: &str, value: &serde_json::Value) -> Result<Value, IfcError> {
-    let schema = schemas.get(id).ok_or_else(|| IfcError::Unschematized { node: node.clone(), attribute: id.into() })?;
+    let schema = schemas.get(id).ok_or_else(|| IfcError::Attribute { node: node.clone(), attribute: id.into(), reason: Fault::Unschematized })?;
     let mut track = serde_path_to_error::Track::new();
-    Descriptions::new(iter::once(&schema.value), schemas, inherited).and_then(|seed| seed.deserialize(serde_path_to_error::Deserializer::new(value, &mut track))).map_err(|inner| IfcError::Invalid {
+    Descriptions::new(iter::once(&schema.value), schemas, inherited).deserialize(serde_path_to_error::Deserializer::new(value, &mut track)).map_err(|inner| IfcError::Invalid {
         node: node.clone(),
         attribute: id.into(),
         source: serde_path_to_error::Error::new(track.path(), inner),

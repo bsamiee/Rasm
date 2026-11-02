@@ -1,12 +1,14 @@
+use indexmap::{IndexMap, IndexSet};
 use jiff::Timestamp;
 use validated::Validated;
 use xot::Node;
 
-use super::{Codec, CommentUuid, DocumentReferenceUuid, DocumentUuid, GUID, ImageFormat, NodeUuid, Reader, Simple, TopicUuid, ViewpointUuid, Writer, bind, visualization::Visualization};
+use super::{Codec, CommentUuid, DocumentReferenceUuid, DocumentUuid, GUID, Image, Keyed, NodeUuid, Reader, Single, TOPIC, Text, TopicUuid, ViewpointUuid, Writer, visualization::Visualization};
 use crate::IfcError;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const COMMENT: &str = "Comment";
 const DOCUMENT_GUID: &str = "DocumentGuid";
 const URL: &str = "Url";
 const VIEWPOINT: &str = "Viewpoint";
@@ -18,146 +20,143 @@ const VISUALIZATION_INFO: &str = "VisualizationInfo";
 #[derive(Debug, Clone, PartialEq)]
 pub struct Topic {
     pub files: Vec<File>,
-    pub guid: TopicUuid,
-    pub server_assigned_id: Option<Box<str>>,
-    pub kind: Box<str>,
-    pub status: Box<str>,
-    pub reference_links: Vec<Box<str>>,
-    pub title: Box<str>,
-    pub priority: Option<Box<str>>,
-    pub labels: Vec<Box<str>>,
+    pub server_assigned_id: Option<Text>,
+    pub kind: Text,
+    pub status: Text,
+    pub reference_links: Vec<Text>,
+    pub title: Text,
+    pub priority: Option<Text>,
+    pub labels: IndexSet<Text>,
     pub creation_date: Timestamp,
-    pub creation_author: Box<str>,
+    pub creation_author: Text,
     pub modified_date: Option<Timestamp>,
-    pub modified_author: Option<Box<str>>,
+    pub modified_author: Option<Text>,
     pub due_date: Option<Timestamp>,
-    pub assigned_to: Option<Box<str>>,
-    pub stage: Option<Box<str>>,
-    pub description: Option<Box<str>>,
+    pub assigned_to: Option<Text>,
+    pub stage: Option<Text>,
+    pub description: Option<Text>,
     pub bim_snippet: Option<BimSnippet>,
-    pub document_references: Vec<DocumentReference>,
-    pub related_topics: Vec<TopicUuid>,
-    pub comments: Vec<Comment>,
-    pub viewpoints: Vec<Viewpoint>,
+    pub document_references: IndexMap<DocumentReferenceUuid, DocumentReference>,
+    pub related_topics: IndexSet<TopicUuid>,
+    pub comments: IndexMap<CommentUuid, Comment>,
+    pub viewpoints: IndexMap<ViewpointUuid, Viewpoint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File {
     pub ifc_project: Option<NodeUuid>,
     pub ifc_spatial_structure_element: Option<NodeUuid>,
-    pub is_external: bool,
-    pub filename: Option<Box<str>>,
+    pub filename: Option<Text>,
     pub date: Option<Timestamp>,
-    pub reference: Option<Box<str>>,
+    pub reference: Option<Resource>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BimSnippet {
-    pub snippet_type: Box<str>,
-    pub is_external: bool,
-    pub reference: Box<str>,
-    pub reference_schema: Box<str>,
+    pub snippet_type: Text,
+    pub reference: Resource,
+    pub reference_schema: Text,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Resource {
+    External(Text),
+    Archived { reference: Text, content: Box<[u8]> },
+}
+
+impl Single for Resource {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentReference {
-    pub guid: DocumentReferenceUuid,
     pub target: Target,
-    pub description: Option<Box<str>>,
+    pub description: Option<Text>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
     Document(DocumentUuid),
-    Url(Box<str>),
+    Url(Text),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Comment {
-    pub guid: CommentUuid,
     pub date: Timestamp,
-    pub author: Box<str>,
-    pub text: Option<Box<str>>,
-    pub viewpoint: Option<ViewpointUuid>,
+    pub author: Text,
+    pub remark: Remark,
     pub modified_date: Option<Timestamp>,
-    pub modified_author: Option<Box<str>>,
+    pub modified_author: Option<Text>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Remark {
+    Text(Text),
+    Viewpoint(ViewpointUuid),
+    Both { text: Text, viewpoint: ViewpointUuid },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Viewpoint {
-    pub guid: ViewpointUuid,
     pub visualization: Option<Visualization>,
-    pub snapshot: Option<Snapshot>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Snapshot {
-    pub format: ImageFormat,
-    pub content: Box<[u8]>,
+    pub snapshot: Option<Image>,
 }
 
 codec! {
     Topic {
         element files(&["Header", "Files"], "File"),
-        attribute guid(&["Topic"], "Guid"),
-        attribute server_assigned_id(&["Topic"], "ServerAssignedId"),
-        attribute kind(&["Topic"], "TopicType"),
-        attribute status(&["Topic"], "TopicStatus"),
-        element reference_links(&["Topic", "ReferenceLinks"], "ReferenceLink"),
-        element title(&["Topic"], "Title"),
-        element priority(&["Topic"], "Priority"),
-        element labels(&["Topic", "Labels"], "Label"),
-        element creation_date(&["Topic"], "CreationDate"),
-        element creation_author(&["Topic"], "CreationAuthor"),
-        element modified_date(&["Topic"], "ModifiedDate"),
-        element modified_author(&["Topic"], "ModifiedAuthor"),
-        element due_date(&["Topic"], "DueDate"),
-        element assigned_to(&["Topic"], "AssignedTo"),
-        element stage(&["Topic"], "Stage"),
-        element description(&["Topic"], "Description"),
-        element bim_snippet(&["Topic"], "BimSnippet"),
-        element document_references(&["Topic", "DocumentReferences"], "DocumentReference"),
-        attribute related_topics(&["Topic", "RelatedTopics", "RelatedTopic"], "Guid"),
-        element comments(&["Topic", "Comments"], "Comment"),
-        element viewpoints(&["Topic", "Viewpoints"], "ViewPoint"),
+        attribute server_assigned_id(&[TOPIC], "ServerAssignedId"),
+        attribute kind(&[TOPIC], "TopicType"),
+        attribute status(&[TOPIC], "TopicStatus"),
+        element reference_links(&[TOPIC, "ReferenceLinks"], "ReferenceLink"),
+        element title(&[TOPIC], "Title"),
+        element priority(&[TOPIC], "Priority"),
+        element labels(&[TOPIC, "Labels"], "Label"),
+        element creation_date(&[TOPIC], "CreationDate"),
+        element creation_author(&[TOPIC], "CreationAuthor"),
+        element modified_date(&[TOPIC], "ModifiedDate"),
+        element modified_author(&[TOPIC], "ModifiedAuthor"),
+        element due_date(&[TOPIC], "DueDate"),
+        element assigned_to(&[TOPIC], "AssignedTo"),
+        element stage(&[TOPIC], "Stage"),
+        element description(&[TOPIC], "Description"),
+        element bim_snippet(&[TOPIC], "BimSnippet"),
+        keyed document_references(&[TOPIC, "DocumentReferences"], "DocumentReference", None),
+        attribute related_topics(&[TOPIC, "RelatedTopics", "RelatedTopic"], GUID),
+        keyed comments(&[TOPIC, "Comments"], COMMENT, None),
+        keyed viewpoints(&[TOPIC, "Viewpoints"], "ViewPoint", Some("Index")),
     }
     File {
         attribute ifc_project(&[], "IfcProject"),
         attribute ifc_spatial_structure_element(&[], "IfcSpatialStructureElement"),
-        attribute is_external(&[], "IsExternal") = true,
         element filename(&[], "Filename"),
         element date(&[], "Date"),
-        element reference(&[], "Reference"),
+        resource reference(true),
     }
     BimSnippet {
         attribute snippet_type(&[], "SnippetType"),
-        attribute is_external(&[], "IsExternal") = default,
-        element reference(&[], "Reference"),
+        resource reference(false),
         element reference_schema(&[], "ReferenceSchema"),
     }
     DocumentReference {
-        attribute guid(&[], "Guid"),
         inline target,
         element description(&[], "Description"),
     }
     Comment {
-        attribute guid(&[], "Guid"),
         element date(&[], "Date"),
         element author(&[], "Author"),
-        element text(&[], "Comment"),
-        attribute viewpoint(&["Viewpoint"], "Guid"),
+        inline remark,
         element modified_date(&[], "ModifiedDate"),
         element modified_author(&[], "ModifiedAuthor"),
     }
 }
 
 impl Codec for Target {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        bind(reader.element::<Option<DocumentUuid>>(node, &[], DOCUMENT_GUID).map2(reader.element::<Option<Box<str>>>(node, &[], URL), |guid, link| (guid, link)), |target| match target {
-            (Some(guid), _) => Validated::Good(Self::Document(guid)),
-            (None, Some(link)) => Validated::Good(Self::Url(link)),
-            (None, None) => Validated::fail(reader.lacks(DOCUMENT_GUID)),
-        })
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+        match reader.element::<Option<DocumentUuid>>(node, &[], DOCUMENT_GUID).map2(reader.element::<Option<Text>>(node, &[], URL), |guid, link| (guid, link)) {
+            Validated::Good((Some(guid), _)) => Validated::Good(Self::Document(guid)),
+            Validated::Good((None, Some(link))) => Validated::Good(Self::Url(link)),
+            Validated::Good((None, None)) => Validated::fail(reader.lacks(DOCUMENT_GUID)),
+            Validated::Fail(failures) => Validated::Fail(failures),
+        }
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
@@ -168,36 +167,48 @@ impl Codec for Target {
     }
 }
 
-impl Codec for Viewpoint {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        reader.attribute(node, &[], GUID).map3(
-            bind(reader.element::<Option<Box<str>>>(node, &[], VIEWPOINT), |file| file.map_or(Validated::Good(None), |name| reader.document(&name, VISUALIZATION_INFO).map(Some))),
-            bind(reader.element::<Option<Box<str>>>(node, &[], SNAPSHOT), |file| {
-                file.map_or(Validated::Good(None), |name| {
-                    Validated::from(name.rsplit_once('.').map_or_else(|| Err(reader.lacks(SNAPSHOT)), |(_, extension)| ImageFormat::decode(extension, reader.entry, SNAPSHOT)))
-                        .map2(Validated::from(reader.file(&name)), |format, content| Some(Snapshot { format, content }))
-                })
-            }),
-            |guid, visualization, snapshot| Self { guid, visualization, snapshot },
-        )
+impl Codec for Remark {
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+        match reader.element::<Option<Text>>(node, &[], COMMENT).map2(reader.attribute::<Option<ViewpointUuid>>(node, &[VIEWPOINT], GUID), |text, viewpoint| (text, viewpoint)) {
+            Validated::Good((Some(text), Some(viewpoint))) => Validated::Good(Self::Both { text, viewpoint }),
+            Validated::Good((Some(text), None)) => Validated::Good(Self::Text(text)),
+            Validated::Good((None, Some(viewpoint))) => Validated::Good(Self::Viewpoint(viewpoint)),
+            Validated::Good((None, None)) => Validated::fail(reader.lacks(COMMENT)),
+            Validated::Fail(failures) => Validated::Fail(failures),
+        }
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
-        let Self { guid, visualization, snapshot } = self;
-        writer.attribute(node, &[], GUID, guid)?;
+        match self {
+            Self::Text(text) => writer.element(node, &[], COMMENT, text),
+            Self::Viewpoint(viewpoint) => writer.attribute(node, &[VIEWPOINT], GUID, viewpoint),
+            Self::Both { text, viewpoint } => {
+                writer.element(node, &[], COMMENT, text)?;
+                writer.attribute(node, &[VIEWPOINT], GUID, viewpoint)
+            }
+        }
+    }
+}
+
+impl Keyed<ViewpointUuid> for Viewpoint {
+    fn read_keyed(reader: &Reader<'_>, node: Node, _: &'static str, _: ViewpointUuid) -> Validated<Self, IfcError> {
+        reader
+            .element::<Option<Text>>(node, &[], VIEWPOINT)
+            .ok()
+            .map_or_else(Validated::Fail, |file| file.map_or(Validated::Good(None), |name| reader.document(&name, VISUALIZATION_INFO).map(Some)))
+            .map2(reader.image(node, SNAPSHOT), |visualization, snapshot| Self { visualization, snapshot })
+    }
+
+    fn write_keyed(&self, key: ViewpointUuid, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
+        let Self { visualization, snapshot } = self;
         if let Some(shown) = visualization {
-            let name: Box<str> = format!("{guid}.bcfv").into();
-            writer.element(node, &[], VIEWPOINT, &name)?;
+            let name = format!("{key}.bcfv");
+            writer.text(node, VIEWPOINT, &name)?;
             writer.document(&name, VISUALIZATION_INFO, |nested, root| {
-                nested.attribute(root, &[], GUID, guid)?;
-                shown.write(nested, root)
+                shown.write(nested, root)?;
+                nested.attribute(root, &[], GUID, &key)
             })?;
         }
-        if let Some(Snapshot { format, content }) = snapshot {
-            let name: Box<str> = format!("{guid}.{}", format.encode()).into();
-            writer.element(node, &[], SNAPSHOT, &name)?;
-            writer.file(&name, content)?;
-        }
-        Ok(())
+        writer.image(node, SNAPSHOT, snapshot)
     }
 }

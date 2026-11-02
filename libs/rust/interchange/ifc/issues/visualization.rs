@@ -1,15 +1,18 @@
 use core::iter;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use color::{AlphaColor, Srgb};
-use nalgebra::{Point3, Vector3};
+use nalgebra::{Isometry3, Point3, Translation3, Unit, UnitQuaternion, Vector3};
 use nonempty_collections::NEVec;
 use strum::VariantArray as _;
-use uom::si::f64::{Angle, Length};
+use uom::si::{
+    angle::degree,
+    f64::{Angle, Length},
+};
 use validated::Validated;
 use xot::Node;
 
-use super::{Codec, ImageFormat, NodeUuid, Reader, Writer, bind};
+use super::{Codec, Image, ImageFormat, NodeUuid, REFERENCE, Reader, Simple, Text, Writer};
 use crate::IfcError;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -27,21 +30,17 @@ pub enum ViewSetupHint {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const AXES: [&str; 3] = ["X", "Y", "Z"];
+const CAMERA: [&str; 3] = ["CameraViewPoint", "CameraDirection", "CameraUpVector"];
+const BITMAP: [&str; 3] = ["Location", "Normal", "Up"];
 const ORTHOGONAL_CAMERA: &str = "OrthogonalCamera";
 const PERSPECTIVE_CAMERA: &str = "PerspectiveCamera";
-const CAMERA_VIEW_POINT: &str = "CameraViewPoint";
-const CAMERA_DIRECTION: &str = "CameraDirection";
-const CAMERA_UP_VECTOR: &str = "CameraUpVector";
 const VIEW_TO_WORLD_SCALE: &str = "ViewToWorldScale";
 const FIELD_OF_VIEW: &str = "FieldOfView";
 const ASPECT_RATIO: &str = "AspectRatio";
+const COMPONENT: &str = "Component";
+const COMPONENTS: &str = "Components";
 const IFC_GUID: &str = "IfcGuid";
 const AUTHORING_TOOL_ID: &str = "AuthoringToolId";
-const FORMAT: &str = "Format";
-const REFERENCE: &str = "Reference";
-const LOCATION: &str = "Location";
-const NORMAL: &str = "Normal";
-const UP: &str = "Up";
 const HEIGHT: &str = "Height";
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -57,18 +56,33 @@ pub struct Visualization {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Camera {
-    pub view_point: Point3<f64>,
-    pub direction: Vector3<f64>,
-    pub up_vector: Vector3<f64>,
-    pub aspect_ratio: f64,
+    pub placement: Isometry3<f64>,
     pub projection: Projection,
+    pub aspect_ratio: AspectRatio,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Projection {
-    Orthogonal { view_to_world_scale: Length },
-    Perspective { field_of_view: Angle },
+    Orthogonal(ViewToWorldScale),
+    Perspective(FieldOfView),
 }
+
+#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Display, AsRef, Deref, TryFrom, Into))]
+pub struct AspectRatio(f64);
+
+#[nutype::nutype(
+    validate(predicate = |scale| scale.value.is_finite() && scale.value > 0.0),
+    derive(Debug, Clone, Copy, PartialEq, PartialOrd, AsRef, Deref, TryFrom, Into)
+)]
+pub struct ViewToWorldScale(Length);
+
+#[nutype::nutype(
+    validate(predicate = |angle| {
+        angle.value > 0.0 && *angle < Angle::HALF_TURN
+    }),
+    derive(Debug, Clone, Copy, PartialEq, PartialOrd, AsRef, Deref, TryFrom, Into)
+)]
+pub struct FieldOfView(Angle);
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Components {
@@ -79,7 +93,7 @@ pub struct Components {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Visibility {
-    pub default_visible: bool,
+    pub default: bool,
     pub view_setup_hints: BTreeSet<ViewSetupHint>,
     pub exceptions: Vec<Component>,
 }
@@ -92,14 +106,14 @@ pub struct Coloring {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Component {
+    pub originating_system: Option<Text>,
     pub reference: Reference,
-    pub originating_system: Option<Box<str>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Reference {
-    Node { node: NodeUuid, authoring_tool_id: Option<Box<str>> },
-    Tool { authoring_tool_id: Box<str> },
+    Node { node: NodeUuid, authoring_tool_id: Option<Text> },
+    Tool { authoring_tool_id: Text },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,41 +125,43 @@ pub struct Line {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ClippingPlane {
     pub location: Point3<f64>,
-    pub direction: Vector3<f64>,
+    pub direction: Unit<Vector3<f64>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bitmap {
-    pub format: ImageFormat,
-    pub reference: Box<str>,
-    pub location: Point3<f64>,
-    pub normal: Vector3<f64>,
-    pub up: Vector3<f64>,
+    pub image: Image,
+    pub placement: Isometry3<f64>,
     pub height: Length,
-    pub content: Box<[u8]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Presentation {
+    pub selected: bool,
+    pub color: Option<AlphaColor<Srgb>>,
 }
 
 codec! {
     Visualization {
-        element components(&[], "Components") = default,
+        element components(&[], COMPONENTS) = default,
         inline camera,
         element lines(&["Lines"], "Line"),
         element clipping_planes(&["ClippingPlanes"], "ClippingPlane"),
         element bitmaps(&["Bitmaps"], "Bitmap"),
     }
     Components {
-        element selection(&["Selection"], "Component"),
+        element selection(&["Selection"], COMPONENT),
         element visibility(&[], "Visibility"),
         element coloring(&["Coloring"], "Color"),
     }
     Visibility {
-        attribute default_visible(&[], "DefaultVisibility") = default,
+        attribute default(&[], "DefaultVisibility") = default,
         element view_setup_hints(&[], "ViewSetupHints") = default,
-        element exceptions(&["Exceptions"], "Component"),
+        element exceptions(&["Exceptions"], COMPONENT),
     }
     Coloring {
         attribute color(&[], "Color"),
-        element components(&["Components"], "Component"),
+        element components(&[COMPONENTS], COMPONENT),
     }
     Component {
         element originating_system(&[], "OriginatingSystem"),
@@ -161,51 +177,65 @@ codec! {
     }
 }
 
+impl Simple for AspectRatio {
+    fn decode(text: &str, entry: &str, element: &'static str) -> Result<Self, IfcError> {
+        f64::decode(text, entry, element)
+            .and_then(|ratio| Self::try_new(ratio).map_err(|(AspectRatioError::FiniteViolated | AspectRatioError::GreaterViolated)| IfcError::Element { entry: entry.into(), element }))
+    }
+
+    fn encode(&self) -> String { self.into_inner().encode() }
+}
+
+impl Simple for ViewToWorldScale {
+    fn decode(text: &str, entry: &str, element: &'static str) -> Result<Self, IfcError> {
+        Length::decode(text, entry, element).and_then(|scale| Self::try_new(scale).map_err(|ViewToWorldScaleError::PredicateViolated| IfcError::Element { entry: entry.into(), element }))
+    }
+
+    fn encode(&self) -> String { self.into_inner().encode() }
+}
+
+impl Simple for FieldOfView {
+    fn decode(text: &str, entry: &str, element: &'static str) -> Result<Self, IfcError> {
+        f64::decode(text, entry, element)
+            .map(Angle::new::<degree>)
+            .and_then(|angle| Self::try_new(angle).map_err(|FieldOfViewError::PredicateViolated| IfcError::Element { entry: entry.into(), element }))
+    }
+
+    fn encode(&self) -> String { self.into_inner().get::<degree>().encode() }
+}
+
 impl Codec for Camera {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        let chosen = match (reader.named(node, ORTHOGONAL_CAMERA).next(), reader.named(node, PERSPECTIVE_CAMERA).next()) {
-            (Some(camera), _) => Some((camera, reader.element(camera, &[], VIEW_TO_WORLD_SCALE).map(|view_to_world_scale| Projection::Orthogonal { view_to_world_scale }))),
-            (None, Some(camera)) => Some((camera, reader.element(camera, &[], FIELD_OF_VIEW).map(|field_of_view| Projection::Perspective { field_of_view }))),
-            (None, None) => None,
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+        let projected = |camera: Node, projection: Validated<Projection, IfcError>| {
+            placement(reader, camera, CAMERA).map3(projection, reader.element(camera, &[], ASPECT_RATIO), |placement, projection, aspect_ratio| Self { placement, projection, aspect_ratio })
         };
-        chosen.map_or_else(
-            || Validated::fail(reader.lacks(ORTHOGONAL_CAMERA)),
-            |(camera, projected)| {
-                reader
-                    .element(camera, &[], CAMERA_VIEW_POINT)
-                    .map4(
-                        reader.element(camera, &[], CAMERA_DIRECTION),
-                        reader.element(camera, &[], CAMERA_UP_VECTOR),
-                        reader.element(camera, &[], ASPECT_RATIO),
-                        |view_point, direction, up_vector, aspect_ratio| (view_point, direction, up_vector, aspect_ratio),
-                    )
-                    .map2(projected, |(view_point, direction, up_vector, aspect_ratio), projection| Self { view_point, direction, up_vector, aspect_ratio, projection })
-            },
-        )
+        match (reader.named(node, ORTHOGONAL_CAMERA).next(), reader.named(node, PERSPECTIVE_CAMERA).next()) {
+            (Some(camera), _) => projected(camera, reader.element(camera, &[], VIEW_TO_WORLD_SCALE).map(Projection::Orthogonal)),
+            (None, Some(camera)) => projected(camera, reader.element(camera, &[], FIELD_OF_VIEW).map(Projection::Perspective)),
+            (None, None) => Validated::fail(reader.lacks(ORTHOGONAL_CAMERA)),
+        }
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
-        let Self { view_point, direction, up_vector, aspect_ratio, projection } = self;
-        let camera = writer.append(
-            node,
-            match projection {
-                Projection::Orthogonal { view_to_world_scale: _ } => ORTHOGONAL_CAMERA,
-                Projection::Perspective { field_of_view: _ } => PERSPECTIVE_CAMERA,
-            },
-        )?;
-        writer.element(camera, &[], CAMERA_VIEW_POINT, view_point)?;
-        writer.element(camera, &[], CAMERA_DIRECTION, direction)?;
-        writer.element(camera, &[], CAMERA_UP_VECTOR, up_vector)?;
-        match projection {
-            Projection::Orthogonal { view_to_world_scale } => writer.element(camera, &[], VIEW_TO_WORLD_SCALE, view_to_world_scale)?,
-            Projection::Perspective { field_of_view } => writer.element(camera, &[], FIELD_OF_VIEW, field_of_view)?,
-        }
+        let Self { placement, projection, aspect_ratio } = self;
+        let camera = match projection {
+            Projection::Orthogonal(scale) => {
+                let camera = writer.append(node, ORTHOGONAL_CAMERA)?;
+                place(writer, camera, CAMERA, placement)?;
+                writer.element(camera, &[], VIEW_TO_WORLD_SCALE, scale).map(|()| camera)
+            }
+            Projection::Perspective(angle) => {
+                let camera = writer.append(node, PERSPECTIVE_CAMERA)?;
+                place(writer, camera, CAMERA, placement)?;
+                writer.element(camera, &[], FIELD_OF_VIEW, angle).map(|()| camera)
+            }
+        }?;
         writer.element(camera, &[], ASPECT_RATIO, aspect_ratio)
     }
 }
 
 impl Codec for BTreeSet<ViewSetupHint> {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
         ViewSetupHint::VARIANTS
             .iter()
             .map(|&hint| reader.attribute::<Option<bool>>(node, &[], hint.into()).map(|shown| shown.unwrap_or_default().then_some(hint)))
@@ -213,18 +243,17 @@ impl Codec for BTreeSet<ViewSetupHint> {
             .map(|hints| hints.into_iter().flatten().collect())
     }
 
-    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> { ViewSetupHint::VARIANTS.iter().try_for_each(|hint| writer.attribute(node, &[], hint.into(), &self.contains(hint))) }
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> { self.iter().try_for_each(|&hint| writer.attribute(node, &[], hint.into(), &true)) }
 }
 
 impl Codec for Reference {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        bind(reader.attribute::<Option<NodeUuid>>(node, &[], IFC_GUID).map2(reader.element::<Option<Box<str>>>(node, &[], AUTHORING_TOOL_ID), |identity, tool| (identity, tool)), |reference| {
-            match reference {
-                (Some(identity), authoring_tool_id) => Validated::Good(Self::Node { node: identity, authoring_tool_id }),
-                (None, Some(authoring_tool_id)) => Validated::Good(Self::Tool { authoring_tool_id }),
-                (None, None) => Validated::fail(reader.lacks(IFC_GUID)),
-            }
-        })
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+        match reader.attribute::<Option<NodeUuid>>(node, &[], IFC_GUID).map2(reader.element::<Option<Text>>(node, &[], AUTHORING_TOOL_ID), |identity, tool| (identity, tool)) {
+            Validated::Good((Some(identity), authoring_tool_id)) => Validated::Good(Self::Node { node: identity, authoring_tool_id }),
+            Validated::Good((None, Some(authoring_tool_id))) => Validated::Good(Self::Tool { authoring_tool_id }),
+            Validated::Good((None, None)) => Validated::fail(reader.lacks(IFC_GUID)),
+            Validated::Fail(failures) => Validated::Fail(failures),
+        }
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
@@ -239,40 +268,21 @@ impl Codec for Reference {
 }
 
 impl Codec for Bitmap {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
-        reader
-            .element(node, &[], FORMAT)
-            .map4(
-                bind(reader.element::<Box<str>>(node, &[], REFERENCE), |reference| Validated::from(reader.file(&reference).map(|content| (reference, content)))),
-                reader.element(node, &[], LOCATION),
-                reader.element(node, &[], NORMAL),
-                |format, stored, location, normal| (format, stored, location, normal),
-            )
-            .map3(reader.element(node, &[], UP), reader.element(node, &[], HEIGHT), |(format, (reference, content), location, normal), up, height| Self {
-                format,
-                reference,
-                location,
-                normal,
-                up,
-                height,
-                content,
-            })
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+        reader.image(node, REFERENCE).map3(placement(reader, node, BITMAP), reader.element(node, &[], HEIGHT), |image, placement, height| Self { image, placement, height })
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
-        let Self { format, reference, location, normal, up, height, content } = self;
-        writer.element(node, &[], FORMAT, format)?;
-        writer.element(node, &[], REFERENCE, reference)?;
-        writer.element(node, &[], LOCATION, location)?;
-        writer.element(node, &[], NORMAL, normal)?;
-        writer.element(node, &[], UP, up)?;
-        writer.element(node, &[], HEIGHT, height)?;
-        writer.file(reference, content)
+        let Self { image, placement, height } = self;
+        writer.element(node, &[], "Format", AsRef::<ImageFormat>::as_ref(image))?;
+        writer.image(node, REFERENCE, image)?;
+        place(writer, node, BITMAP, placement)?;
+        writer.element(node, &[], HEIGHT, height)
     }
 }
 
 impl Codec for Vector3<f64> {
-    fn read(reader: &Reader<'_, '_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
+    fn read(reader: &Reader<'_>, node: Node, _: &'static str) -> Validated<Self, IfcError> {
         let [x, y, z] = AXES.map(|axis| reader.element(node, &[], axis));
         x.map3(y, z, Self::new)
     }
@@ -280,8 +290,72 @@ impl Codec for Vector3<f64> {
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> { iter::zip(AXES, self.iter()).try_for_each(|(axis, value)| writer.element(node, &[], axis, value)) }
 }
 
+impl Codec for Unit<Vector3<f64>> {
+    fn read(reader: &Reader<'_>, node: Node, element: &'static str) -> Validated<Self, IfcError> {
+        Vector3::read(reader, node, element).ok().map_or_else(Validated::Fail, |vector| Self::try_new(vector, 0.0).map_or_else(|| Validated::fail(reader.lacks(element)), Validated::Good))
+    }
+
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> { self.as_ref().write(writer, node) }
+}
+
 impl Codec for Point3<f64> {
-    fn read(reader: &Reader<'_, '_>, node: Node, element: &'static str) -> Validated<Self, IfcError> { Vector3::<f64>::read(reader, node, element).map(Self::from) }
+    fn read(reader: &Reader<'_>, node: Node, element: &'static str) -> Validated<Self, IfcError> { Vector3::read(reader, node, element).map(Self::from) }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> { self.coords.write(writer, node) }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [VISIBILITY]
+
+pub fn presentation(components: &Components) -> impl Fn(NodeUuid, Option<ViewSetupHint>) -> Option<Presentation> {
+    let node = |component: &Component| match component.reference {
+        Reference::Node { node, authoring_tool_id: _ } => Some(node),
+        Reference::Tool { authoring_tool_id: _ } => None,
+    };
+    let Components { selection, visibility, coloring } = components;
+    let selected = selection.iter().filter_map(node).collect::<HashSet<_>>();
+    let exceptions = visibility.as_ref().map(|shown| (shown, shown.exceptions.iter().filter_map(node).collect::<HashSet<_>>()));
+    let colors = coloring.iter().rev().flat_map(|Coloring { color, components: colored }| colored.iter().filter_map(node).map(|identity| (identity, *color))).collect::<HashMap<_, _>>();
+    move |identity, hint| {
+        exceptions
+            .as_ref()
+            .is_none_or(|(shown, listed)| hint.map_or(shown.default, |category| shown.view_setup_hints.contains(&category)) != listed.contains(&identity))
+            .then(|| Presentation { selected: selected.contains(&identity), color: colors.get(&identity).copied() })
+    }
+}
+
+#[must_use]
+pub fn visibility<V, H>(visible: V, hidden: H) -> Visibility
+where
+    V: IntoIterator<Item = (Component, Option<ViewSetupHint>)>,
+    H: IntoIterator<Item = (Component, Option<ViewSetupHint>)>,
+{
+    let visible = visible.into_iter().collect::<Vec<_>>();
+    let hidden = hidden.into_iter().collect::<Vec<_>>();
+    let default = hidden.len() < visible.len();
+    let view_setup_hints = if default { visible.iter().filter_map(|&(_, hint)| hint).collect() } else { BTreeSet::new() };
+    let shown = |hint: Option<ViewSetupHint>| hint.map_or(default, |category| view_setup_hints.contains(&category));
+    let exceptions = visible.into_iter().filter(|&(_, hint)| !shown(hint)).chain(hidden.into_iter().filter(|&(_, hint)| shown(hint))).map(|(component, _)| component).collect();
+    Visibility { default, view_setup_hints, exceptions }
+}
+
+// --- [PLACEMENT]
+
+fn placement(reader: &Reader<'_>, node: Node, [location, direction, up]: [&'static str; 3]) -> Validated<Isometry3<f64>, IfcError> {
+    reader
+        .element::<Point3<f64>>(node, &[], location)
+        .map3(reader.element::<Vector3<f64>>(node, &[], direction), reader.element::<Vector3<f64>>(node, &[], up), |origin, toward, upward| (origin, toward, upward))
+        .ok()
+        .map_or_else(Validated::Fail, |(origin, toward, upward)| {
+            (upward.cross(&toward) != Vector3::zeros())
+                .then(|| Isometry3::from_parts(Translation3::from(origin.coords), UnitQuaternion::face_towards(&toward, &upward)))
+                .map_or_else(|| Validated::fail(reader.lacks(up)), Validated::Good)
+        })
+}
+
+fn place(writer: &mut Writer<'_>, node: Node, [location, direction, up]: [&'static str; 3], placement: &Isometry3<f64>) -> Result<(), IfcError> {
+    writer.element(node, &[], location, &Point3::from(placement.translation.vector))?;
+    writer.element(node, &[], direction, &placement.rotation.transform_vector(&Vector3::z()))?;
+    writer.element(node, &[], up, &placement.rotation.transform_vector(&Vector3::y()))
 }
