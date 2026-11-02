@@ -13,14 +13,20 @@ private enum HostSetting {
 public struct Launch: ~Copyable, Sendable {
     public let instance: NSRunningApplication
     public let created: Bool
+    private var quits: Bool
+
+    init(instance: NSRunningApplication, created: Bool) {
+        self.instance = instance
+        self.created = created
+        quits = created
+    }
 
     deinit {
-        if created { _ = instance.terminate() }
+        if quits { _ = instance.terminate() }
     }
 
     public consuming func detached() -> NSRunningApplication {
-        let instance: NSRunningApplication = instance
-        discard self
+        quits = false
         return instance
     }
 }

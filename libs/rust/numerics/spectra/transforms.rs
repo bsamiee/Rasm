@@ -1,7 +1,7 @@
 use core::{convert::identity, f64::consts::PI, iter, num::NonZero};
 
 use nalgebra::convert;
-use ndarray::{Array, Array1, ArrayBase, Axis, CowArray, Data, Dimension};
+use ndarray::{Array, Array1, ArrayBase, ArrayViewMut1, Axis, CowArray, Data, Dimension};
 use ndrustfft::{DctHandler, FftHandler, Normalization, R2cFftHandler, nddct2_par, nddct3_par, ndfft_par, ndfft_r2c_par, ndifft_par, ndifft_r2c_par};
 use rustfft::{FftDirection, FftPlanner, num_complex::Complex};
 use uom::si::{f64::Frequency, frequency::hertz};
@@ -111,7 +111,7 @@ where D: Dimension {
 #[must_use]
 pub fn zoom(series: &Series, band: Band, bins: NonZero<usize>) -> Array1<Complex<f64>> {
     let [rate, start, last] = [series.rate.get::<hertz>(), band.start.get::<hertz>(), band.last.get::<hertz>()];
-    let step = NonZero::new(bins.get().strict_sub(1)).map_or(0.0, |intervals| (last - start) / convert::<usize, f64>(intervals.get()));
+    let step = NonZero::new(bins.get().strict_sub(1)).map_or_default(|intervals| (last - start) / convert::<usize, f64>(intervals.get()));
     let len = series.samples.len().strict_add(bins.get()).strict_sub(1);
     let chirp = |index: usize| Complex::cis(PI * step / rate * convert::<usize, f64>(index).powi(2));
     let mut planner = FftPlanner::new();

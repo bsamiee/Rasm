@@ -94,24 +94,39 @@ struct WatchApps: AsyncParsableCommand {
     static func run(_ work: @escaping @MainActor (AsyncStream<(key: String, line: Line)>.Continuation) async -> Void) async -> Never {
         let (lines, output): (AsyncStream<(key: String, line: Line)>, AsyncStream<(key: String, line: Line)>.Continuation) = AsyncStream.makeStream()
         let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
-        parent.setEventHandler { output.finish() }
-        parent.activate()
+        let signals: [any DispatchSourceSignal] = [SIGTERM, SIGINT, SIGHUP].map { number in
+            signal(number, SIG_IGN)
+            return DispatchSource.makeSignalSource(signal: number, queue: .main)
+        }
+        for source: any DispatchSourceProtocol in signals + [parent] {
+            source.setEventHandler { output.finish() }
+            source.activate()
+        }
         if getppid() == 1 { output.finish() }
         let encoder: JSONEncoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        async let _: Void = { @MainActor in
-            await work(output)
-            output.finish()
-        }()
-        do {
-            let written: (failed: Bool, printed: [String: Data]) = try await lines.reduce(into: (false, [:])) { @MainActor written, entry in
-                let data: Data = try encoder.encodeLine([entry.key: entry.line])
-                written.failed = written.failed || entry.line.is(\.fail)
-                if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
+        let written: Result<Bool, any Error> = await { @MainActor () async -> Result<Bool, any Error> in
+            async let _: Void = { @MainActor in
+                await work(output)
+                output.finish()
+            }()
+            do {
+                return .success(
+                    try await lines.reduce(into: (failed: false, printed: [String: Data]())) { @MainActor written, entry in
+                        let data: Data = try encoder.encodeLine([entry.key: entry.line])
+                        written.failed = written.failed || entry.line.is(\.fail)
+                        if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
+                    }.failed
+                )
+            } catch {
+                return .failure(error)
             }
-            exit(withError: written.failed ? ExitCode.failure : nil)
-        } catch {
-            exit(withError: error)
+        }()
+        withExtendedLifetime((parent, signals)) {
+            switch written {
+                case .success(let failed): exit(withError: failed ? ExitCode.failure : nil)
+                case .failure(let error): exit(withError: error)
+            }
         }
     }
 
@@ -266,33 +281,21 @@ struct Launch: AsyncParsableCommand {
 
     @MainActor
     func launch(_ id: String, among copies: [Installation], output: AsyncStream<(key: String, line: Line)>.Continuation) async {
-        let running: [NSRunningApplication] = NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }
-        let launched: Result<NSRunningApplication, ApplicationFailure> = await Result { () async throws(ApplicationFailure) in
-            let installation: Installation = try Installation.single(of: id, among: copies)
-            let kept: [NSRunningApplication] = new && installation.keepsOneInstance ? running.filter(installation.runs) : []
-            guard kept.isEmpty else {
-                throw ApplicationFailure(
-                    subject: installation.url.path(percentEncoded: false),
-                    reason: .absent(
-                        "second instance beside pid \(kept.map { instance in String(instance.processIdentifier) }.joined(separator: ", ")), open files there with --document or drive it through its scripting"
-                    ),
-                )
-            }
+        do throws(ApplicationFailure) {
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
             configuration.createsNewApplicationInstance = new
-            configuration.hides = hides
             configuration.arguments = arguments
             configuration.environment = Dictionary(environment) { _, last in last }
-            return try await NSWorkspace.shared.launch(installation, opening: document, configuration: configuration)
-        }
-        switch launched {
-            case .success(let instance):
-                for await state: InstanceState in instance.states(walking: \.requiresAnswer, notifications: notifications, polling: messagingTimeout) {
-                    output.yield((id, .states([instance: state])))
-                    guard case .running(.launching, _) = state else { break }
-                }
-                if hides, !document.isEmpty, !running.contains(instance) { instance.hide() }
-            case .failure(let failure): output.yield((id, .fail(failure.localizedDescription)))
+            let launch: Applications.Launch = try await NSWorkspace.shared.launch(Installation.single(of: id, among: copies), opening: document, configuration: configuration)
+            for await state: InstanceState in launch.instance.states(walking: \.requiresAnswer, notifications: notifications, polling: messagingTimeout) {
+                output.yield((id, .states([launch.instance: state])))
+                guard case .running(.launching, _) = state else { break }
+            }
+            if launch.created {
+                for await _: Result<ProcessExit, Errno> in termination(of: launch.instance.processIdentifier) {}
+            }
+        } catch {
+            output.yield((id, .fail(error.localizedDescription)))
         }
     }
 }
