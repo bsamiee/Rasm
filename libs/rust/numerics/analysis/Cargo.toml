@@ -1,0 +1,53 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-analysis"
+version.workspace    = true
+edition.workspace    = true
+description          = "Analysis of measured and simulated data: weighted total-degree polynomial regression, nonlinear model fits over named bounded parameters with Gauss-Newton covariance, cubic smoothing splines over curves and grids, natural-neighbor interpolation of scattered data, bracketed Brent and companion-matrix polynomial roots, adaptive Gauss-Legendre quadrature"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["regression", "interpolation", "splines", "roots", "quadrature"]
+categories           = ["mathematics", "science"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                              = { workspace = true }
+anyhow                             = { workspace = true }
+nonempty-collections               = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+itertools                          = { workspace = true }
+nutype                             = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+almost                             = { workspace = true }
+csaps                              = { workspace = true }
+faer                               = { workspace = true }
+gauss-quad                         = { workspace = true }
+nalgebra                           = { workspace = true }
+ndarray                            = { workspace = true }
+num-complex                        = { workspace = true }
+num-dual                           = { workspace = true }
+argmin                             = { workspace = true }
+nlopt                              = { workspace = true }
+spade                              = { workspace = true }
+rasm-stats                         = { workspace = true }
+rasm-optimize                      = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
