@@ -46,6 +46,19 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
   - Neither takes its shape from the current servers.
 - **TypeScript `web/ui`:** its plan justifies each component as general capability, never a port of one portfolio screen.
 
+### Review between runs
+
+- **Each finished run:** the diff against the run's base read file by file, lines, declarations and exports measured with the same commands, regressions sent back to an agent, then a commit of the run's own paths by `git commit -- <paths>`.
+- **Run phases:** a parallel survey brief, an author, an in-place challenger, landing packages, per file group an adversary then a ground-up rebuild, a check agent, and in rust.js and typescript.js a Mine phase that tunes the checks and the skill.
+- **Shared tree:** another session may edit beside these runs. Files are split by owner before either commits, and neither touches the other's files.
+
+### State on 2026-11-01
+
+- **Swift:** all three rows landed, with a close-out of the stopped Swift mine. A rerun of the Swift mine waits until the watch-apps session's Swift test wave lands.
+- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. Next are `creative-cloud/indesign`, then `data/database`, `web/hosting`, `web/media` and `web/ui`, once the SchemaTransformation pass lands.
+- **SchemaTransformation pass:** one workflow that mines every TypeScript root, adds an ast-grep rule tested against scratch snippets, fixes each finding with an adversary after it, and teaches the member once in the owning skill file.
+- **Rust:** `services/telemetry`, `cli/command` and `cli/output` landed. `cli/screen` and `services/daemon` are finished and commit with `geometry/mesh`, which runs beside them. 36 rows remain, launched in batches of three rows with no dependency between them, 20 minutes apart. `services/mcp` comes first, since it waits on `services/daemon`.
+
 ### Done
 
 - Zero findings from every compiler, checker and test the Check phase runs.
@@ -60,6 +73,13 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 - **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Their logic informs our own design and is never copied.
 - **Architecture:** one design of packages, folders and files, challenged by critics, recorded in TYPESCRIPT.md rows. Libraries hold general capability usable in any host. Adobe code holds what is specific to Adobe.
 - **Runs:** each row runs on typescript.js as it stands, with both adversarial passes and the Mine phase, adding external packages where a domain needs them.
+- **Companion:** a checks and skill workflow launches after each extension run, designed in `docs/research/typescript-extension/WORKFLOWS.md`.
+
+### Progress
+
+- **Planning:** the research and architecture workflow writes `docs/research/typescript-extension/` (map, six domain studies, ARCHITECTURE.md challenged twice in place, WORKFLOWS.md).
+- **Plugin studies:** the owner approved public sources, paid plugins (bought by the owner once their prices are reported) and Manzar on Windows. Trials and demos come through vendor accounts. Studies land in `docs/research/typescript-extension/studies/`, one binary decompiled at a time through Ghidra and Codex.
+- **Start:** the extension rows join TYPESCRIPT.md once the [01] TypeScript rows land and the architecture and studies are reviewed.
 
 ### Scope
 
