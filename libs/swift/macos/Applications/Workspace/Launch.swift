@@ -17,6 +17,9 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         guard !(installation.agent && configuration.hides) else { throw ApplicationFailure(subject: path, reason: .hiddenAgent) }
+        guard !(installation.multipleInstancesProhibited && configuration.createsNewApplicationInstance && runningApplications.contains(where: installation.runs)) else {
+            throw ApplicationFailure(subject: path, reason: .multipleInstancesProhibited)
+        }
         configuration.appleEvent =
             documents.isEmpty
             ? NSAppleEventDescriptor(

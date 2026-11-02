@@ -2,7 +2,6 @@ import CasePaths
 import Files
 public import Foundation
 import Results
-import Synchronization
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,13 +45,17 @@ public struct CrashReport: Codable, Hashable, Sendable {
 
 extension CrashReport {
     public static func reports(for identifier: String, in directory: URL = directory) -> (reports: [Self], failures: [ApplicationFailure]) {
-        let listed: (files: [URL], failures: [ApplicationFailure]) = listing(directory)
-        let reads: [Result<Self, ApplicationFailure>] = listed.files.compactMap(read)
-        return (reads.compactMap { read in read[case: \.success] }.filter { report in report.bundleIdentifier == identifier }, listed.failures + reads.compactMap { read in read[case: \.failure] })
+        let listed: (files: [URL], failures: [ApplicationFailure]) = listing(directory, since: .distantPast)
+        let reads: [Result<Self?, ApplicationFailure>] = listed.files.map(read)
+        return (
+            reads.compactMap { read in read[case: \.success].flatMap(\.self) }.filter { report in report.bundleIdentifier == identifier },
+            listed.failures + reads.compactMap { read in read[case: \.failure] },
+        )
     }
 
     public static func written(
         by process: pid_t,
+        since launch: Date,
         within limit: Duration,
         in directory: URL = directory,
         clock: some Clock<Duration> = ContinuousClock(),
@@ -63,43 +66,37 @@ extension CrashReport {
                 for await change: Result<[FileEvent], FileFailure> in FileEvent.events(of: directory) {
                     let files: [URL] =
                         switch change {
-                            case .success(let batch) where batch.isEmpty: listing(directory).files
+                            case .success(let batch) where batch.isEmpty: listing(directory, since: launch).files
                             case .success(let batch): batch.map(\.url).filter { url in url.pathExtension == "ips" }
                             case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
                         }
-                    if let report: Self = files.lazy.compactMap({ file in read(file)?[case: \.success] }).first(where: { report in report.pid == process }) { return report }
+                    if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }
                 }
                 throw ApplicationFailure(subject: "crash report of \(subject)", reason: .cancelled(CancellationError()))
             }
         }
     }
 
-    private static func listing(_ directory: URL) -> (files: [URL], failures: [ApplicationFailure]) {
-        let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
-        let unlisted: Mutex<[ApplicationFailure]> = Mutex([])
-        let entries: [URL] =
-            FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) { url, error in
-                if case .failure(let error) = Result(catching: { try ifPresent { () throws -> Void in throw error } }) {
-                    unlisted.withLock { failures in failures.append(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error))) }
-                }
-                return true
-            }?
-            .compactMap { entry in (entry as? URL).flatMap { url in url.pathExtension == "ips" ? url : nil } } ?? []
-        let read: [(url: URL, values: Result<URLResourceValues, any Error>)] = entries.map { url in (url: url, values: Result { try url.resourceValues(forKeys: keys) }) }
-        let files: [(url: URL, date: Date?)] = read.compactMap { entry in
-            entry.values[case: \.success].flatMap { values in values.isRegularFile == true ? (url: entry.url, date: values.contentModificationDate) : nil }
+    private static func listing(_ directory: URL, since earliest: Date) -> (files: [URL], failures: [ApplicationFailure]) {
+        let unread: (URL, any Error) -> ApplicationFailure = { url, error in ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error)) }
+        let entries: [URL]
+        do {
+            entries = try ifPresent { try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) } ?? []
+        } catch {
+            return ([], [unread(directory, error)])
         }
-        let failures: [ApplicationFailure] = read.compactMap { entry in
-            entry.values[case: \.failure].map { error in ApplicationFailure(subject: entry.url.path(percentEncoded: false), reason: .host(error)) }
+        let dated: [(url: URL, date: Result<Date?, any Error>)] = entries.filter { url in url.pathExtension == "ips" }.map { url in
+            (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate })
         }
-        return (files.sorted(using: KeyPathComparator(\.date, order: .reverse)).map(\.url), unlisted.withLock(\.self) + failures)
+        let files: [(url: URL, date: Date?)] = dated.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date) } }.filter { file in
+            file.date.map { date in date >= earliest } ?? true
+        }
+        let failures: [ApplicationFailure] = dated.compactMap { entry in entry.date[case: \.failure].map { error in unread(entry.url, error) } }
+        return (files.sorted(using: KeyPathComparator(\.date, order: .reverse)).map(\.url), failures)
     }
 
-    private static func read(_ file: URL) -> Result<Self, ApplicationFailure>? {
-        switch Result(catching: { try ifPresent { try Self(Data(contentsOf: file), at: file) }.flatMap(\.self) }) {
-            case .success(.some(let report)): .success(report)
-            case .success(.none): nil
-            case .failure(let error): .failure(ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error)))
-        }
+    private static func read(_ file: URL) -> Result<Self?, ApplicationFailure> {
+        Result { try ifPresent { try Self(Data(contentsOf: file), at: file) }.flatMap(\.self) }
+            .mapError { error in ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error)) }
     }
 }

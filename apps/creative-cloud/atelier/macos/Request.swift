@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let walked: @Sendable (Element) -> Bool = { element in element.requiresAnswer || element.role == kAXMenuRole }
+let walked: @Sendable (Element) -> Bool = \.requiresAnswer
 
 let notifications: Set<String> = [
     kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,

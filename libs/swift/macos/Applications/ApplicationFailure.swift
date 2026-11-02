@@ -19,6 +19,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case activating
         case refused(AXError)
         case hiddenAgent
+        case multipleInstancesProhibited
         case process(Errno)
         case host(any Error)
         case cancelled(CancellationError)
@@ -46,6 +47,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .activating: "\(subject) not sent. AXRaise brings window forward"
             case .refused(let error): "Application refused \(subject) with AXError \(error.rawValue)"
             case .hiddenAgent: "LSUIElement agent \(subject) cannot unhide, launch it without hiding"
+            case .multipleInstancesProhibited: "\(subject) declares LSMultipleInstancesProhibited and an instance runs, launch it without a new instance"
             case .process(let error): "Process \(subject): \(error.description)"
             case .host(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
@@ -61,19 +63,19 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .unanswered, .unreadable, .absent, .activating, .refused, .hiddenAgent, .cancelled: [:]
+            case .untrusted, .unanswered, .unreadable, .absent, .activating, .refused, .hiddenAgent, .multipleInstancesProhibited, .cancelled: [:]
         }
     }
 }
 
 extension ApplicationFailure {
-    init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: @autoclosure () -> Self) {
+    init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: () -> Self) {
+        let exited: pid_t? = process.flatMap { process in Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess) ? process : nil }
         self =
-            switch (error, process.map { process in Result { () throws(Errno) in try ProcessStatus(of: process) } }) {
+            switch (error, exited) {
                 case (.apiDisabled, _): Self(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
-                case (.cannotComplete, .some(.failure(.noSuchProcess))), (.invalidUIElement, .some(.failure(.noSuchProcess))):
-                    Self(subject: process.map(String.init) ?? subject, reason: .noProcess)
-                case (.cannotComplete, _): Self(subject: subject, reason: .unanswered(action))
+                case (.cannotComplete, .some(let process)), (.invalidUIElement, .some(let process)): Self(subject: String(process), reason: .noProcess)
+                case (.cannotComplete, .none): Self(subject: subject, reason: .unanswered(action))
                 case (_, _): otherwise()
             }
     }

@@ -21,15 +21,27 @@ private struct BundleInfo: Decodable {
         case version = "CFBundleShortVersionString"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
         case agent = "LSUIElement"
+        case multipleInstancesProhibited = "LSMultipleInstancesProhibited"
     }
 
     let identifier: String?
     let version: String?
     let scriptingDefinitionFile: String?
     let agent: InfoFlag?
+    let multipleInstancesProhibited: InfoFlag?
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
+    private enum CodingKeys: CodingKey {
+        case url
+        case identifier
+        case name
+        case version
+        case scriptable
+        case scriptingDefinitionFile
+        case agent
+    }
+
     public let url: URL
     public let identifier: String
     public let name: String
@@ -37,6 +49,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
     public let agent: Bool
+    public let multipleInstancesProhibited: Bool
 }
 
 extension Installation {
@@ -61,6 +74,7 @@ extension Installation {
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
             agent: info?.agent?.value == true,
+            multipleInstancesProhibited: info?.multipleInstancesProhibited?.value == true,
         )
     }
 

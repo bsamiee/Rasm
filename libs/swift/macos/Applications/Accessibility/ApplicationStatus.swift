@@ -4,7 +4,6 @@ import AsyncAlgorithms
 public import CasePaths
 public import Processes
 import Synchronization
-import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,14 +18,15 @@ public enum ApplicationStatus: Encodable, Equatable, Sendable {
 
 @MainActor
 final class Observer {
+    nonisolated let instance: NSRunningApplication
     nonisolated let ticks: AsyncStream<Void>.Continuation
-    nonisolated let observed: Mutex<(observer: AXObserver, element: AXUIElement, unregistered: [String])>
+    nonisolated let observed: Mutex<(observer: AXObserver, unregistered: [String], launch: NSKeyValueObservation)>
 
-    nonisolated init(_ process: pid_t, notifications: Set<String>, ticks: AsyncStream<Void>.Continuation) throws(ApplicationFailure) {
-        let element: AXUIElement = AXUIElementCreateApplication(process)
+    nonisolated init(_ instance: NSRunningApplication, notifications: Set<String>, ticks: AsyncStream<Void>.Continuation) throws(ApplicationFailure) {
+        let element: AXUIElement = AXUIElementCreateApplication(instance.processIdentifier)
         var created: AXObserver?
         let creation: AXError = unsafe AXObserverCreate(
-            process,
+            instance.processIdentifier,
             { _, _, _, refcon in
                 guard let refcon: UnsafeMutableRawPointer = unsafe refcon else { return }
                 unsafe Unmanaged<Observer>.fromOpaque(refcon).takeUnretainedValue().ticks.yield(())
@@ -35,22 +35,27 @@ final class Observer {
         )
         guard let observer: AXObserver = created else { throw element.failure(creation, reading: ["AXObserverCreate"]) }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        self.instance = instance
         self.ticks = ticks
-        observed = Mutex((observer, element, Array(notifications)))
+        observed = Mutex((observer, Array(notifications), instance.observe(\.isFinishedLaunching) { _, _ in ticks.yield(()) }))
     }
 
     nonisolated func register() throws(ApplicationFailure) {
+        let element: AXUIElement = AXUIElementCreateApplication(instance.processIdentifier)
         try observed.withLock { observed throws(ApplicationFailure) in
             while let notification: String = observed.unregistered.first {
-                let added: AXError = unsafe AXObserverAddNotification(observed.observer, observed.element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
-                guard ![.apiDisabled, .cannotComplete].contains(added) else { throw observed.element.failure(added, reading: [notification]) }
+                let added: AXError = unsafe AXObserverAddNotification(observed.observer, element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
+                guard ![.apiDisabled, .cannotComplete].contains(added) else { throw element.failure(added, reading: [notification]) }
                 observed.unregistered.removeFirst()
             }
         }
     }
 
     isolated deinit {
-        observed.withLock { observed in CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observed.observer), .defaultMode) }
+        observed.withLock { observed in
+            observed.launch.invalidate()
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observed.observer), .defaultMode)
+        }
     }
 }
 
@@ -61,33 +66,30 @@ extension NSRunningApplication {
         do { return try ProcessStatus(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
     }
 
-    func unanswered() -> Result<ApplicationStatus, ApplicationFailure> {
-        Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus()) : .launching }
-    }
-
     @concurrent
-    func status(walking walked: @Sendable (Element) -> Bool, observer: Observer? = nil) async -> Result<ApplicationStatus, ApplicationFailure> {
+    func status(
+        walking walked: @Sendable (Element) -> Bool,
+        observer: Result<Observer, ApplicationFailure>? = nil,
+        after last: Result<ApplicationStatus, ApplicationFailure>? = nil,
+    ) async -> Result<ApplicationStatus, ApplicationFailure> {
         await withTaskExecutorPreference(accessibility) {
             Result { () throws(ApplicationFailure) in
-                guard try processStatus() != .stopped else { return .unresponsive(process: .stopped) }
-                let elements: [Element] = try AXUIElementCreateApplication(processIdentifier).candidates()
-                    .map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
-                try observer?.register()
-                return isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? .responding(elements: elements) : .launching
+                let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
+                switch (try processStatus(), last) {
+                    case (.stopped, _): return .unresponsive(process: .stopped)
+                    case (_, .success(.responding(let elements))):
+                        _ = try application.values([kAXRoleAttribute])
+                        return .responding(elements: elements)
+                    case (_, _):
+                        let elements: [Element] = try application.candidates().map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
+                        try observer?.get().register()
+                        return isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? .responding(elements: elements) : .launching
+                }
             }
-            .flatMapError { failure in failure.reason.is(\.unanswered) ? unanswered() : .failure(failure) }
-        }
-    }
-
-    @concurrent
-    func heartbeat() async -> Result<ApplicationStatus?, ApplicationFailure> {
-        await withTaskExecutorPreference(accessibility) {
-            Result { () throws(ApplicationFailure) -> ApplicationStatus? in
-                guard try processStatus() != .stopped else { return .unresponsive(process: .stopped) }
-                _ = try AXUIElementCreateApplication(processIdentifier).values([kAXRoleAttribute])
-                return nil
+            .flatMapError { failure in
+                failure.reason.is(\.unanswered)
+                    ? Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus()) : .launching } : .failure(failure)
             }
-            .flatMapError { failure in failure.reason.is(\.unanswered) ? unanswered().map(Optional.some) : .failure(failure) }
         }
     }
 
@@ -97,22 +99,13 @@ extension NSRunningApplication {
         polling interval: Duration,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<Result<ApplicationStatus, ApplicationFailure>, Never> {
-        typealias Step = @Sendable (Result<ApplicationStatus, ApplicationFailure>?) async -> Result<ApplicationStatus, ApplicationFailure>
         let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(processIdentifier, notifications: notifications, ticks: tick) }
-        let reread: Step = { _ in await Result { () async throws(ApplicationFailure) in try await self.status(walking: walked, observer: observer.get()).get() } }
-        let beat: Step = { last in
-            switch (await self.heartbeat(), last) {
-                case (.success(.none), .some(let last)) where last.is(\.success.responding): last
-                case (.success(.none), _): await reread(last)
-                case (.success(.some(let status)), _): .success(status)
-                case (.failure(let failure), _): .failure(failure)
-            }
-        }
+        let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, notifications: notifications, ticks: tick) }
         let reason: @Sendable (ApplicationFailure) -> PartialCaseKeyPath<ApplicationFailure.Reason> = { failure in ApplicationFailure.Reason.allCasePaths[failure.reason] }
-        return merge(chain([()].async, ticks).map { _ in reread }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in beat })
-            .reductions(nil) { last, step in await step(last) }
-            .compactMap(\.self)
+        return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in true })
+            .reductions(Result<ApplicationStatus, ApplicationFailure>.success(.launching)) { last, beat in
+                await self.status(walking: walked, observer: observer, after: beat ? last : nil)
+            }
             .prefix { read in read[case: \.failure]?.reason.is(\.noProcess) != true }
             .removeDuplicates { last, next in
                 switch (last, next) {

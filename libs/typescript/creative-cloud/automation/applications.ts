@@ -98,7 +98,7 @@ const State = Schema.Union([
     Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
-    .annotate({ description: 'Windows, sheets, and menus while responding, the process status when unresponsive past Accessibility timeout, failed on status read' })
+    .annotate({ description: 'Windows and the dialogs requiring an answer while responding, the process status when unresponsive past Accessibility timeout, failed on status read' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(

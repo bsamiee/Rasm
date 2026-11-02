@@ -31,30 +31,16 @@ extension ElementAction {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open element \(element.base64EncodedString())"))
             guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
-            func written(_ value: String) throws(ApplicationFailure) -> AXError {
-                var settable: DarwinBoolean = false
-                let unsettable: ApplicationFailure = ApplicationFailure(subject: "element \(element.base64EncodedString())", reason: .absent("settable \(kAXValueAttribute)"))
-                guard try node.attributeNames().contains(kAXValueAttribute) else { throw unsettable }
-                return switch unsafe AXUIElementIsAttributeSettable(node, kAXValueAttribute as CFString, &settable) {
-                    case .success where settable.boolValue: AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString)
-                    case .success: throw unsettable
-                    case let error: error
-                }
-            }
             let outcome: AXError =
                 switch self {
                     case .perform(_, let action) where Self.activating.contains(action): throw ApplicationFailure(subject: description, reason: .activating)
                     case .perform(_, let action): AXUIElementPerformAction(node, action as CFString)
-                    case .set(_, let value): try written(value)
+                    case .set(_, let value): try node.write(value as CFString, to: kAXValueAttribute)
                 }
             guard outcome != .success else { return }
-            throw ApplicationFailure(
-                outcome,
-                subject: description,
-                process: node.process,
-                answering: self,
-                otherwise: outcome == .invalidUIElement ? absent : ApplicationFailure(subject: description, reason: .refused(outcome)),
-            )
+            throw ApplicationFailure(outcome, subject: description, process: node.process, answering: self) {
+                outcome == .invalidUIElement ? absent : ApplicationFailure(subject: description, reason: .refused(outcome))
+            }
         }
     }
 }

@@ -33,13 +33,6 @@ extension JSONValue {
     }
 }
 
-extension AXError {
-    init?(_ slot: CFTypeRef) {
-        guard let error: AXError = AXValue.unpacked(slot, .axError, Self.success) else { return nil }
-        self = error
-    }
-}
-
 extension AXValue {
     static func unpacked<Value: BitwiseCopyable>(_ slot: CFTypeRef?, _ type: AXValueType, _ empty: Value) -> Value? {
         guard let slot: CFTypeRef, CFGetTypeID(slot) == AXValueGetTypeID() else { return nil }
@@ -65,31 +58,31 @@ extension AXUIElement {
     }
 
     // --- [READS]
-    func failure(_ error: AXError, reading reads: [String], among read: [String: CFTypeRef] = [:]) -> ApplicationFailure {
+    private func copied(_ attributes: [String]) -> (answer: AXError, slots: [(attribute: String, slot: CFTypeRef)]) {
+        var values: CFArray?
+        let answer: AXError = unsafe AXUIElementCopyMultipleAttributeValues(self, attributes as CFArray, [], &values)
+        return (answer, Array(zip(attributes, values as? [CFTypeRef] ?? [])))
+    }
+
+    func failure(_ error: AXError, reading reads: [String]) -> ApplicationFailure {
         let subject: String = "element \(token.base64EncodedString())"
-        return ApplicationFailure(
-            error,
-            subject: subject,
-            process: process,
-            otherwise: ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error.rawValue))),
-        )
+        return ApplicationFailure(error, subject: subject, process: process) {
+            let read: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
+            return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error.rawValue)))
+        }
     }
 
     func values(_ attributes: [String]) throws(ApplicationFailure) -> [String: CFTypeRef] {
-        let named: [String] = attributes + ([kAXRoleAttribute] + labelAttributes).filter { attribute in !attributes.contains(attribute) }
-        var values: CFArray?
-        let answer: AXError = unsafe AXUIElementCopyMultipleAttributeValues(self, named as CFArray, [], &values)
-        let slots: Zip2Sequence<[String], [CFTypeRef]> = zip(named, values as? [CFTypeRef] ?? [])
-        let read: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: slots.filter { _, slot in AXError(slot) == nil && !(slot is NSNull) })
+        let (answer, slots): (AXError, [(attribute: String, slot: CFTypeRef)]) = copied(attributes)
         let refused: (attribute: String, error: AXError)? = slots.lazy.compactMap { attribute, slot in
-            AXError(slot).flatMap { error in
-                attributes.contains(attribute) && ![.noValue, .attributeUnsupported, .invalidUIElement].contains(error) ? (attribute: attribute, error: error) : nil
+            AXValue.unpacked(slot, .axError, AXError.success).flatMap { error in
+                [AXError.noValue, .attributeUnsupported, .invalidUIElement].contains(error) ? nil : (attribute: attribute, error: error)
             }
         }
         .first
         return switch (answer, refused) {
-            case (.success, .some(let refused)): throw failure(refused.error, reading: [refused.attribute], among: read)
-            case (.success, .none): read
+            case (.success, .some(let refused)): throw failure(refused.error, reading: [refused.attribute])
+            case (.success, .none): Dictionary(uniqueKeysWithValues: slots.filter { _, slot in AXValue.unpacked(slot, .axError, AXError.success) == nil && !(slot is NSNull) })
             case (.invalidUIElement, _): [:]
             case (let error, _): throw failure(error, reading: attributes)
         }
@@ -116,15 +109,6 @@ extension AXUIElement {
         }
     }
 
-    func attributeNames() throws(ApplicationFailure) -> [String] {
-        var names: CFArray?
-        return switch unsafe AXUIElementCopyAttributeNames(self, &names) {
-            case .success: names as? [String] ?? []
-            case .failure, .invalidUIElement: []
-            case let error: throw failure(error, reading: ["AXUIElementCopyAttributeNames"])
-        }
-    }
-
     func actionNames() throws(ApplicationFailure) -> [String] {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
@@ -145,9 +129,20 @@ extension AXUIElement {
     }
 
     func label(_ read: [String: CFTypeRef]) throws(ApplicationFailure) -> String? {
-        switch ownLabel(read) {
-            case .some(let label): label
-            case .none: try element(kAXTitleUIElementAttribute)?.value(kAXValueAttribute)
+        switch (ownLabel(read), read[kAXTitleUIElementAttribute].flatMap(Self.checked)) {
+            case (.some(let label), _): label
+            case (.none, .some(let title)): try title.value(kAXValueAttribute)
+            case (.none, .none): nil
+        }
+    }
+
+    // --- [WRITES]
+    func write(_ value: CFTypeRef, to attribute: String) throws(ApplicationFailure) -> AXError {
+        var settable: DarwinBoolean = false
+        return switch unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &settable) {
+            case .success where settable.boolValue: AXUIElementSetAttributeValue(self, attribute as CFString, value)
+            case .success, .noValue, .attributeUnsupported: throw ApplicationFailure(subject: "element \(token.base64EncodedString())", reason: .absent("settable \(attribute)"))
+            case let error: error
         }
     }
 }

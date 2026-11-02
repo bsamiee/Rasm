@@ -91,7 +91,7 @@ extension NSRunningApplication {
                 let status: Result<TerminationStatus, Errno> = exit.map(\.status)
                 continuation.yield(.exited(status, report: nil))
                 if case .success(let (status, detail)) = exit, detail.contains(.csError) || reportingSignals.contains(status) {
-                    continuation.yield(.exited(.success(status), report: await CrashReport.written(by: self.processIdentifier, within: limit, clock: clock)))
+                    continuation.yield(.exited(.success(status), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: limit, clock: clock)))
                 }
                 continuation.finish()
             }
@@ -116,7 +116,7 @@ extension NSWorkspace {
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
         let watched: @Sendable (NSRunningApplication) -> Bool = { instance in instance.activationPolicy != .prohibited && matching(instance) }
         let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
-        let initial: Set<NSRunningApplication> = Set(runningApplications.filter(watched))
+        let initial: Set<NSRunningApplication> = Set(instances(of: matching))
         let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial, .new]) { _, change in
             for instance: NSRunningApplication in change.newValue ?? [] where watched(instance) { insert.yield(instance) }
         }

@@ -27,11 +27,13 @@ watch-apps launch <app> [--new] [--hides] \
 ```
 
 - Names resolve by bundle id through Launch Services, then by Spotlight name or id ignoring case and diacritics, then to the one app containing them
-- Unmatched names print a `fail` line listing candidates, and every other name runs
+- Names matching no app or apps of more than one bundle id print a `fail` line listing candidates, every other name runs, and `watch` exits when none runs
 - `launch` prints the instance's state lines until it leaves `launching`, a running instance's unless `--new` opens another
 - `--document` opens each reachable file in the app, without one the app opens no document window
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
 - `--hides` launches a new instance hidden and hides it again once launched when `--document` shows its windows, a running instance stays as it is
+- `--new` on a running app setting `LSMultipleInstancesProhibited` prints a `fail` line and opens nothing
+- Apps holding one instance by their own check show an alert in the new instance, which reads `responding` with a `requiresAnswer` element, then `exited`
 - `--new` restores the first instance's documents unless `--arguments -ApplePersistenceIgnoreState --arguments YES` follows it
 - Apps can activate and unhide themselves once launched or once a press answers a dialog they show while launching
 - Apps with an argument that stops their activation take the argument through `--arguments`
@@ -82,12 +84,12 @@ watch-apps set <id> '<text>'
 Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance of the app, a field the app leaves unknown is absent:
 - States read `{"running": {"status": {"<status>": {<fields>}}, "usage": {<fields>}}}`, `{"failed": {<fields>}}`, or `{"exited": {<fields>}}`
 - `fail` lines read `{"<key>": {"fail": {"reason": <text>}}}`, keyed by name, bundle id, element id, or `watch-apps`
-- `capture` lines read `{"<bundle id>": {"<pid>": {"file": <path>, "windows": [<window>]}}}`
+- `capture` lines read `{"<bundle id>": {"<pid>": {"file": <path>, "windows": [<window>]}}}`, an instance with no on-screen window printing a `fail` line in place of its entry
 - `system` lines read `{"system": {"memory": "normal|warning|critical", "thermal": "nominal|fair|serious|critical"}}`, the kernel memory pressure level and thermal state
 - Lines print at start and when a state changes, each showing every running instance of that app
 - Exited instances show in the line of their exit and of their crash report, then leave
 
-`watch` adds a line keyed by `com.apple.UserNotificationCenter`, `com.apple.coreservices.uiagent`, or `com.apple.accessibility.universalAccessAuthWarn` once that process shows a dialog requiring an answer with a title or text naming a watched app, holding those dialogs alone, and a `{}` line once they close. Crash alerts, privacy prompts, downloaded-app warnings, and Accessibility warnings belong to these processes.
+`watch` adds a line keyed by `com.apple.UserNotificationCenter`, `com.apple.coreservices.uiagent`, or `com.apple.accessibility.universalAccessAuthWarn` once that process shows a dialog requiring an answer with a title or text holding a watched app's display name as a whole word, holding those dialogs alone, and a `{}` line once they close. Crash alerts, privacy prompts, downloaded-app warnings, and Accessibility warnings belong to these processes, and apps sharing a display name share their lines.
 
 `responding` lists elements in every watch, `launch`, and `read` line:
 - Watch and `launch` lines hold each window as an outline and give each element requiring an answer its `detail`
@@ -102,7 +104,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance
 
 `detail` holds what a walk reads:
 - `frame` reads `[[x, y], [width, height]]` in screen points, `main`, `focused`, and `minimized` the window's flags
-- `text` holds its static text
+- `text` holds its static text with visible characters, whitespace and private-use icon glyphs left out
 - `controls` hold each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item offering `AXPress` once
 - Walks descend into scroll areas, the visible rows of tables and outlines, and the visible children of lists, a text area's `value` holds its visible text
 - Controls hold `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, and `attribute`

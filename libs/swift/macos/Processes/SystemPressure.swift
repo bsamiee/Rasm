@@ -45,18 +45,13 @@ extension SystemPressure {
     }
 
     public static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> {
-        AsyncStream { continuation in
-            let read: @Sendable () -> Void = { continuation.yield(Result { () throws(Errno) in try current() }) }
-            let memory: any DispatchSourceMemoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
-            memory.setEventHandler(handler: read)
-            memory.activate()
-            let thermal: any NSObjectProtocol = NotificationCenter.default.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { _ in read() }
-            read()
-            continuation.onTermination = { _ in
-                memory.cancel()
-                NotificationCenter.default.removeObserver(thermal)
-            }
-        }
-        .removeDuplicates()
+        let (memory, signal): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let source: any DispatchSourceMemoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
+        source.setEventHandler { signal.yield(()) }
+        signal.onTermination = { _ in source.cancel() }
+        source.activate()
+        return merge(chain([()].async, memory), NotificationCenter.default.messages(of: ProcessInfo.processInfo, for: .thermalStateDidChange).map { _ in () })
+            .map { _ in Result { () throws(Errno) in try current() } }
+            .removeDuplicates()
     }
 }
