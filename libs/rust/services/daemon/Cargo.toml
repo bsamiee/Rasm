@@ -4,7 +4,7 @@
 name                 = "rasm-daemon"
 version.workspace    = true
 edition.workspace    = true
-description          = "Served process over rasm-command: listen and grace rows, bind then listen once started, axum serve over HTTP/1 and HTTP/2 with TCP_NODELAY and peer ConnectInfo under graceful shutdown, and a two-stage drain ending at the second signal or a grace deadline"
+description          = "Served process over rasm-command: repeatable listen authority rows bound on every address their host resolves to, an IPv6 wildcard IPv6-only beside an IPv4 address on its port, a grace row, sockets listening before start, axum serve once started over HTTP/1 and h2c with TCP_NODELAY and peer ConnectInfo until the drain ends, and a two-stage drain ending at the second signal or the grace deadline"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["daemon", "server", "axum", "graceful-shutdown", "signals"]
@@ -26,11 +26,13 @@ bench   = false
 futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-util                         = { workspace = true }
+socket2                            = { workspace = true }
 nonempty-collections               = { workspace = true }
 sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
+itertools                          = { workspace = true }
 jiff                               = { workspace = true }
 axum                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }

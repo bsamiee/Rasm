@@ -1,38 +1,63 @@
 #![feature(error_reporter, try_blocks_heterogeneous)]
 
-use core::{future::ready, iter, net::SocketAddr, pin::pin, time::Duration};
+use core::{error::Error, future::ready, iter, net::SocketAddr, pin::pin, time::Duration};
 use std::{error::Report, io, process::ExitCode, sync::Arc};
 
-use axum::{Router, serve::ListenerExt as _};
+use axum::{Router, http::uri::Authority, serve::ListenerExt as _};
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, StreamExt as _, future};
-use jiff::fmt::friendly::SpanParser;
-use nonempty_collections::NEVec;
+use itertools::Itertools as _;
+use jiff::fmt::friendly::{SpanParser, SpanPrinter};
+use nonempty_collections::{NEVec, NonEmptyIterator as _};
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, SERVER_ADDRESS, SERVER_PORT};
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::{Defaults, Failure, Handle, Layer};
-use tokio::{net::TcpSocket, time};
+use socket2::SockRef;
+use tokio::{
+    net::{self, TcpSocket},
+    time,
+};
 use tokio_util::sync::CancellationToken;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub trait Daemon {
+pub trait Lifetime {
     type Error: Failure;
 
-    fn router(self: Arc<Self>) -> Router;
+    fn lifetime(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
+}
 
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
+pub trait Daemon: Lifetime {
+    fn router(self: Arc<Self>) -> Router;
 
     fn drain(&self) -> impl Future<Output = Result<(), Self::Error>> + Send { ready(()).map(Ok) }
 }
 
-#[derive(Debug, derive_more::Display)]
-enum Abandonment {
-    #[display("second shutdown signal")]
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+enum Trigger {
     Signal,
-    #[display("grace deadline")]
-    Deadline,
+    Lifetime,
+    Server,
+}
+
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+enum Stage {
+    Drain,
+    Lifetime,
+    Server,
+}
+
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+enum Operation {
+    Bind,
+    #[display("read address")]
+    Address,
+    Listen,
+    Serve,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,8 +66,19 @@ enum Abandonment {
 #[group(skip)]
 #[command(next_help_heading = "Daemon")]
 struct Options {
-    #[arg(long, env, value_name = "ADDRESS", help = "Socket address serving HTTP, port 0 for one the system assigns")]
-    listen: SocketAddr,
+    #[arg(
+        long,
+        env,
+        required = true,
+        value_delimiter = ',',
+        value_name = "HOST:PORT",
+        value_parser = |text: &str| -> Result<Authority, Box<dyn Error + Send + Sync>> {
+            let authority = text.parse::<Authority>()?;
+            authority.port_u16().is_some().then_some(authority).ok_or_else(|| "port missing".into())
+        },
+        help = "Host and port serving HTTP on each address the host resolves to, port 0 for one the system assigns"
+    )]
+    listen: Vec<Authority>,
     #[arg(
         long,
         env,
@@ -53,16 +89,12 @@ struct Options {
     grace: Option<Duration>,
 }
 
-#[derive(Debug, derive_more::Display)]
-enum Operation {
-    #[display("bind {_0}")]
-    Bind(SocketAddr),
-    #[display("read bound address")]
-    Address,
-    #[display("listen on {_0}")]
-    Listen(SocketAddr),
-    #[display("serve HTTP")]
-    Serve,
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+enum Abandonment {
+    #[display("second shutdown signal")]
+    Signal,
+    #[display("grace deadline {}", SpanPrinter::new().unsigned_duration_to_string(_0))]
+    Deadline(Duration),
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -71,12 +103,14 @@ enum Operation {
 enum DaemonError<X> {
     #[error(transparent)]
     Command(#[from] CommandError),
-    #[error("cannot {operation}")]
-    Io { operation: Operation, source: io::Error },
+    #[error("cannot resolve {authority}")]
+    Resolve { authority: Authority, source: io::Error },
+    #[error("cannot {operation} {address}")]
+    Io { operation: Operation, address: SocketAddr, source: io::Error },
     #[error(transparent)]
     Daemon(X),
-    #[error("{reason} arrived before drain finished")]
-    Abandoned { reason: Abandonment },
+    #[error("{reason} abandoned shutdown with {} running", .pending.iter().format(", "))]
+    Abandoned { reason: Abandonment, pending: NEVec<Stage> },
 }
 
 impl<X> From<DaemonError<X>> for NEVec<DaemonError<X>> {
@@ -89,55 +123,93 @@ where X: Into<Self>
     fn from(value: DaemonError<X>) -> Self {
         match value {
             DaemonError::Command(source) => source.into(),
-            DaemonError::Io { operation: _, source } => source.into(),
+            DaemonError::Resolve { authority: _, source: _ } => Self::NoHost,
+            DaemonError::Io { operation: _, address: _, source } => source.into(),
             DaemonError::Daemon(source) => source.into(),
-            DaemonError::Abandoned { reason: _ } => Self::TempFail,
+            DaemonError::Abandoned { reason: _, pending: _ } => Self::TempFail,
         }
     }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, D>(defaults: Defaults, layer: L, start: impl AsyncFnOnce(A, SocketAddr, Handle, CancellationToken) -> Result<D, D::Error>) -> ExitCode
+pub fn run<A, L, D>(defaults: Defaults, layer: L, start: impl AsyncFnOnce(A, &[(Authority, NEVec<SocketAddr>)], Handle, CancellationToken) -> Result<D, D::Error>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
     L: Layer,
     D: Daemon,
 {
     rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter }| {
-        let failed = |operation: Operation| move |source: io::Error| DaemonError::<D::Error>::Io { operation, source };
-        let socket = try bikeshed io::Result<TcpSocket> {
-            let socket = if listen.is_ipv4() { TcpSocket::new_v4() } else { TcpSocket::new_v6() }?;
-            #[cfg(not(windows))]
-            socket.set_reuseaddr(true)?;
-            socket.bind(listen)?;
-            socket
-        }
-        .map_err(failed(Operation::Bind(listen)))?;
-        let address = socket.local_addr().map_err(failed(Operation::Address))?;
-        let listener = socket.listen(u32::MAX).map_err(failed(Operation::Listen(address)))?;
+        let failed = |operation: Operation, address: SocketAddr| move |source: io::Error| DaemonError::<D::Error>::Io { operation, address, source };
+        let resolved = future::join_all(listen.into_iter().map(async |authority| {
+            let found = net::lookup_host(authority.as_str())
+                .await
+                .and_then(|found| NEVec::try_from_vec(found.collect()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "could not resolve to any addresses")));
+            found.map_err(|source| DaemonError::<D::Error>::Resolve { authority: authority.clone(), source }).map(|found| (authority, found))
+        }))
+        .await
+        .into_iter()
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()?;
+        let bind = |requested: SocketAddr, port: u16| {
+            let mut address = requested;
+            address.set_port(port);
+            let paired = requested.is_ipv6() && requested.ip().is_unspecified() && resolved.iter().flat_map(|(_, found)| found).any(|other| other.is_ipv4() && other.port() == requested.port());
+            let socket = try bikeshed io::Result<TcpSocket> {
+                let socket = if address.is_ipv4() { TcpSocket::new_v4() } else { TcpSocket::new_v6() }?;
+                if paired {
+                    SockRef::from(&socket).set_only_v6(true)?;
+                }
+                #[cfg(not(windows))]
+                socket.set_reuseaddr(true)?;
+                socket.bind(address)?;
+                socket
+            }
+            .map_err(failed(Operation::Bind, address))?;
+            let bound = socket.local_addr().map_err(failed(Operation::Address, address))?;
+            socket.listen(u32::MAX).map(|listener| (bound, listener)).map_err(failed(Operation::Listen, bound))
+        };
+        let rows = resolved
+            .iter()
+            .map(|(_, found)| {
+                let (&first, rest) = found.split_first();
+                bind(first, first.port())
+                    .map(|head @ (shared, _)| rest.iter().map(|&requested| bind(requested, shared.port())).collect::<Validated<Vec<_>, _>>().map(|tail| NEVec::from((head, tail))))
+                    .unwrap_or_else(Validated::fail)
+            })
+            .collect::<Validated<Vec<_>, _>>()
+            .ok()?;
+        let addresses = iter::zip(resolved, &rows).map(|((authority, _), listeners)| (authority, listeners.nonempty_iter().map(|&(address, _)| address).collect::<NEVec<_>>())).collect::<Vec<_>>();
         let stopping = CancellationToken::new();
         let _stopped = stopping.drop_guard_ref();
-        let future::Either::Left((started, _)) = future::select(pin!(start(args, address, filter, stopping.child_token())), signals.next()).await else { return Ok(()) };
-        let daemon = Arc::new(started.map_err(DaemonError::Daemon)?);
-        tracing::info!({ SERVER_ADDRESS } = %address.ip(), { SERVER_PORT } = address.port(), "listening");
-        let accepted = listener.tap_io(|stream| stream.set_nodelay(true).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "TCP_NODELAY refused")));
-        let routed = Arc::clone(&daemon).router().into_make_service_with_connect_info::<SocketAddr>();
-        let mut http = pin!(future::maybe_done(axum::serve(accepted, routed).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future()));
-        let mut lifetime = pin!(future::maybe_done(daemon.serve(stopping.child_token())));
-        let skipped = tokio::select! {
-            _ = signals.next() => 0,
-            _ = future::select(lifetime.as_mut(), http.as_mut()) => 1,
+        let daemon = Arc::new(tokio::select! {
+            started = start(args, &addresses, filter, stopping.child_token()) => started.map_err(DaemonError::Daemon)?,
+            _ = signals.next() => return Ok(()),
+        });
+        let service = Arc::clone(&daemon).router().into_make_service_with_connect_info::<SocketAddr>();
+        let serving = future::join_all(rows.into_iter().flatten().map(|(address, listener)| {
+            tracing::info!({ SERVER_ADDRESS } = %address.ip(), { SERVER_PORT } = address.port(), "listening");
+            let accepted = listener.tap_io(|stream| stream.set_nodelay(true).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "TCP_NODELAY refused")));
+            axum::serve(accepted, service.clone()).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future().map(move |outcome| outcome.map_err(failed(Operation::Serve, address)))
+        }));
+        let mut server = pin!(future::maybe_done(serving));
+        let mut lifetime = pin!(future::maybe_done(daemon.lifetime(stopping.child_token())));
+        let trigger = tokio::select! {
+            _ = signals.next() => Trigger::Signal,
+            () = lifetime.as_mut() => Trigger::Lifetime,
+            () = server.as_mut() => Trigger::Server,
         };
-        tracing::info!("shutting down");
-        let finished = tokio::select! {
+        tracing::info!(%trigger, "shutting down");
+        let mut drain = pin!(future::maybe_done(daemon.drain().inspect(|_| stopping.cancel())));
+        let abandonment = tokio::select! {
             biased;
-            (drained, (), ()) = future::join3(daemon.drain().inspect(|_| stopping.cancel()), lifetime.as_mut(), http.as_mut()) => drained.map_err(DaemonError::Daemon),
-            _ = signals.skip(skipped).into_future() => Err(DaemonError::Abandoned { reason: Abandonment::Signal }),
-            Some(()) = future::OptionFuture::from(grace.map(time::sleep)) => Err(DaemonError::Abandoned { reason: Abandonment::Deadline }),
+            ((), (), ()) = future::join3(drain.as_mut(), lifetime.as_mut(), server.as_mut()) => None,
+            _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Lifetime | Trigger::Server => 1 }).into_future() => Some(Abandonment::Signal),
+            Some(()) = future::OptionFuture::from(grace.map(time::sleep)) => grace.map(Abandonment::Deadline),
         };
-        let ended = lifetime.as_mut().take_output().map(|ended| ended.map_err(DaemonError::Daemon));
-        let served = http.as_mut().take_output().map(|served| served.map_err(failed(Operation::Serve)));
-        iter::chain(ended, served).chain([finished]).collect::<Validated<(), _>>().ok()
+        let (drained, ended, closed) = (drain.as_mut().take_output(), lifetime.as_mut().take_output(), server.as_mut().take_output());
+        let pending = [drained.is_none().then_some(Stage::Drain), ended.is_none().then_some(Stage::Lifetime), closed.is_none().then_some(Stage::Server)].into_iter().flatten().collect::<Vec<_>>();
+        let abandoned = abandonment.zip(NEVec::try_from_vec(pending)).map(|(reason, pending)| DaemonError::Abandoned { reason, pending });
+        iter::chain(drained, ended).map(|outcome| outcome.map_err(DaemonError::Daemon)).chain(closed.into_iter().flatten()).chain(abandoned.map(Err)).collect::<Validated<(), _>>().ok()
     })
 }

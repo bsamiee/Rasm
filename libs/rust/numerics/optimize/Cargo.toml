@@ -4,7 +4,7 @@
 name                 = "rasm-optimize"
 version.workspace    = true
 edition.workspace    = true
-description          = "Optimization over named bounded spaces: bounded nonlinear solves with vector constraints and global search, conic programs assembled from typed cone blocks, allocation models, constrained Pareto ranking with crowding"
+description          = "Optimization over named bounded spaces: bounded nonlinear solves with vector constraints and global search, conic and semidefinite programs assembled from typed cone blocks with data-update sweeps, solved allocation models with capacity duals, constrained Pareto ranking with crowding"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["optimization", "nonlinear", "conic", "pareto", "allocation"]
@@ -28,12 +28,23 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
 bounded-integer      = { workspace = true }
+ordered-float        = { workspace = true }
 nalgebra             = { workspace = true }
-clarabel             = { workspace = true }
 good_lp              = { workspace = true }
 nlopt                = { workspace = true }
 rasm-stats           = { workspace = true }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+clarabel = { workspace = true, features = ["sdp-accelerate"] }
+
+[target."cfg(target_os = \"linux\")".dependencies]
+clarabel = { workspace = true, features = ["sdp-openblas"] }
+
+[target."cfg(windows)".dependencies]
+clarabel = { workspace = true, features = ["sdp-mkl"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

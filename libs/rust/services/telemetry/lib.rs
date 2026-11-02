@@ -6,14 +6,19 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     error::Report,
+    ffi::OsStr,
     io,
     panic::{self, PanicHookInfo},
-    process::{ExitCode, Termination},
+    process::{self, ExitCode, Termination},
     sync::Arc,
     thread,
 };
 
-use clap::{ArgAction, Args, Command, ValueEnum};
+use clap::{
+    Arg, Args, Command, Id, ValueEnum,
+    builder::{EnumValueParser, PossibleValue, PossibleValuesParser, TypedValueParser},
+};
+use itertools::Itertools as _;
 use json_subscriber::JsonLayer;
 use log::SetLoggerError;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
@@ -36,17 +41,18 @@ use opentelemetry_sdk::{
 };
 use opentelemetry_semantic_conventions::{
     SCHEMA_URL,
-    attribute::{CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME},
+    attribute::{CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, PROCESS_COMMAND_ARGS, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME},
 };
 use strum::VariantArray as _;
+use tokio::process::Command as TokioCommand;
 use tracing::{
-    Dispatch, Subscriber, dispatcher,
+    Subscriber,
     subscriber::{self, SetGlobalDefaultError},
 };
 use tracing_log::LogTracer;
 use tracing_subscriber::{
     EnvFilter, Registry,
-    filter::{Directive, LevelFilter, ParseError},
+    filter::{Directive, LevelFilter, ParseError, Targets},
     fmt::{self, time::SystemTime},
     layer::{self, Layered, SubscriberExt as _},
     registry::LookupSpan,
@@ -64,6 +70,25 @@ pub trait Failure = Error + Into<sysexits::ExitCode>;
 
 pub type Handle = reload::Handle<EnvFilter, Registry>;
 
+type Setting<V> = Result<Option<V>, Unrecognized>;
+
+pub trait Environment {
+    fn set(&mut self, key: String, value: String);
+    fn remove(&mut self, key: String);
+}
+
+impl Environment for process::Command {
+    fn set(&mut self, key: String, value: String) { self.env(key, value); }
+
+    fn remove(&mut self, key: String) { self.env_remove(key); }
+}
+
+impl Environment for TokioCommand {
+    fn set(&mut self, key: String, value: String) { self.env(key, value); }
+
+    fn remove(&mut self, key: String) { self.env_remove(key); }
+}
+
 #[derive(Clone, Copy, Debug, derive_more::Display, strum::VariantArray)]
 #[display(rename_all = "lowercase")]
 enum Signal {
@@ -75,20 +100,20 @@ enum Signal {
 #[derive(Clone, Copy, Debug, derive_more::Display)]
 #[display(rename_all = "lowercase")]
 enum Operation {
+    #[cfg(panic = "abort")]
     Flush,
     #[display("shut down")]
     Shutdown,
 }
 
-#[derive(Clone, Copy, Debug, Default, ValueEnum, derive_more::IsVariant)]
+#[derive(Clone, Copy, Debug, ValueEnum, derive_more::IsVariant)]
 enum Exporter {
-    #[default]
     None,
     #[value(help = "OTLP over HTTP/protobuf, settings from OTEL_EXPORTER_OTLP_* variables")]
     Otlp,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, ValueEnum)]
 #[value(rename_all = "lower")]
 enum Propagator {
     TraceContext,
@@ -104,25 +129,55 @@ pub struct Defaults {
     pub attributes: Vec<KeyValue> = Vec::new(),
 }
 
+#[derive(Clone, Debug)]
+struct Unrecognized {
+    setting: Id,
+    value: Box<str>,
+}
+
+#[derive(Clone)]
+struct SettingParser<P>(P)
+where P: TypedValueParser;
+
+impl<P> TypedValueParser for SettingParser<P>
+where P: TypedValueParser
+{
+    type Value = Setting<P::Value>;
+
+    fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, clap::Error> {
+        match (value.is_empty(), arg, value.to_str()) {
+            (true, _, _) => Ok(Ok(None)),
+            (false, Some(arg), Some(text)) => Ok(self.0.parse_ref(cmd, Some(arg), value).map(Some).map_err(|clap::Error { .. }| Unrecognized { setting: arg.get_id().clone(), value: text.into() })),
+            (false, None, _) | (false, Some(_), None) => self.0.parse_ref(cmd, arg, value).map(|parsed| Ok(Some(parsed))),
+        }
+    }
+
+    fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> { self.0.possible_values() }
+}
+
 #[derive(Args, Debug)]
 #[group(skip)]
 #[command(next_help_heading = "Telemetry")]
 pub struct Options {
-    #[arg(long, global = true, env = EnvFilter::DEFAULT_ENV, value_name = "DIRECTIVE", value_delimiter = ',', help = "Tracing filter directives over program defaults")]
-    log: Vec<Directive>,
+    #[arg(long, global = true, env = EnvFilter::DEFAULT_ENV, value_name = "DIRECTIVE", value_delimiter = ',', help = "Tracing filter directives over program defaults, an invalid one ignored")]
+    log: Vec<String>,
     #[arg(long, global = true, env = "OTEL_SERVICE_NAME", value_name = "NAME", help = "Service name over program defaults and OTEL_RESOURCE_ATTRIBUTES")]
     service_name: Option<String>,
-    #[arg(long, global = true, env = "OTEL_PROPAGATORS", value_name = "PROPAGATOR", value_enum, value_delimiter = ',', default_values_t = [Propagator::TraceContext, Propagator::Baggage])]
-    #[arg(help = "Propagators injecting and extracting context")]
-    propagators: Vec<Propagator>,
-    #[arg(long, global = true, env = "OTEL_TRACES_EXPORTER", value_name = "EXPORTER", value_enum, default_value_t, help = "Exporter receiving spans")]
-    traces_exporter: Exporter,
-    #[arg(long, global = true, env = "OTEL_METRICS_EXPORTER", value_name = "EXPORTER", value_enum, default_value_t, help = "Exporter receiving metrics")]
-    metrics_exporter: Exporter,
-    #[arg(long, global = true, env = "OTEL_LOGS_EXPORTER", value_name = "EXPORTER", value_enum, default_value_t, help = "Exporter receiving log records")]
-    logs_exporter: Exporter,
-    #[arg(long, global = true, env = "OTEL_SDK_DISABLED", value_name = "BOOL", action = ArgAction::Set, default_value_t, help = "Disable every signal's exporter")]
-    sdk_disabled: bool,
+    #[arg(long, global = true, env = "OTEL_PROPAGATORS", value_name = "PROPAGATOR", value_delimiter = ',', ignore_case = true, value_parser = SettingParser(EnumValueParser::<Propagator>::new()))]
+    #[arg(help = "Propagators injecting and extracting context, W3C trace context and baggage when unset")]
+    propagators: Vec<Setting<Propagator>>,
+    #[arg(long, global = true, env = "OTEL_TRACES_EXPORTER", value_name = "EXPORTER", ignore_case = true, default_value = "none", value_parser = SettingParser(EnumValueParser::<Exporter>::new()))]
+    #[arg(help = "Exporter receiving spans")]
+    traces_exporter: Setting<Exporter>,
+    #[arg(long, global = true, env = "OTEL_METRICS_EXPORTER", value_name = "EXPORTER", ignore_case = true, default_value = "none", value_parser = SettingParser(EnumValueParser::<Exporter>::new()))]
+    #[arg(help = "Exporter receiving metrics")]
+    metrics_exporter: Setting<Exporter>,
+    #[arg(long, global = true, env = "OTEL_LOGS_EXPORTER", value_name = "EXPORTER", ignore_case = true, default_value = "none", value_parser = SettingParser(EnumValueParser::<Exporter>::new()))]
+    #[arg(help = "Exporter receiving log records")]
+    logs_exporter: Setting<Exporter>,
+    #[arg(long, global = true, env = "OTEL_SDK_DISABLED", value_name = "BOOL", ignore_case = true, default_value = "false", help = "Disable every signal's exporter")]
+    #[arg(value_parser = SettingParser(PossibleValuesParser::new(["true", "false"]).map(|value| value.eq_ignore_ascii_case("true"))))]
+    sdk_disabled: Setting<bool>,
     #[arg(long, global = true, hide = true, env)]
     traceparent: Option<String>,
     #[arg(long, global = true, hide = true, env)]
@@ -139,6 +194,8 @@ impl Options {
         T: Termination,
         E: Failure,
     {
+        const INTERNAL_LOGS: &str = "opentelemetry=warn";
+        const TRANSPORT: [&str; 6] = ["h2", "hyper", "mio", "reqwest", "rustls", "want"];
         fn built<B>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<B, ExporterBuildError>) -> Validated<Option<B>, TelemetryError> {
             match exporter {
                 Exporter::None => Validated::Good(None),
@@ -175,22 +232,27 @@ impl Options {
         where F: Into<sysexits::ExitCode> {
             sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
         }
-        let settled = |operation: Operation, (traces, metrics, logs): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)| {
+        let settled = |operation: Operation, (tracer_provider, meter_provider, logger_provider): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)| {
             thread::scope(|scope| {
-                let spawned = match operation {
-                    Operation::Flush => [
-                        thread::Builder::new().spawn_scoped(scope, || traces.force_flush()),
-                        thread::Builder::new().spawn_scoped(scope, || metrics.force_flush()),
-                        thread::Builder::new().spawn_scoped(scope, || logs.force_flush()),
-                    ],
-                    Operation::Shutdown => [
-                        thread::Builder::new().spawn_scoped(scope, || traces.shutdown()),
-                        thread::Builder::new().spawn_scoped(scope, || metrics.shutdown()),
-                        thread::Builder::new().spawn_scoped(scope, || logs.shutdown()),
-                    ],
-                };
-                iter::zip(Signal::VARIANTS, spawned)
-                    .map(|(&signal, spawned)| {
+                Signal::VARIANTS
+                    .iter()
+                    .map(|&signal| {
+                        let spawned = thread::Builder::new().spawn_scoped(scope, move || match (signal, operation) {
+                            #[cfg(panic = "abort")]
+                            (Signal::Traces, Operation::Flush) => tracer_provider.force_flush(),
+                            (Signal::Traces, Operation::Shutdown) => tracer_provider.shutdown(),
+                            #[cfg(panic = "abort")]
+                            (Signal::Metrics, Operation::Flush) => meter_provider.force_flush(),
+                            (Signal::Metrics, Operation::Shutdown) => meter_provider.shutdown(),
+                            #[cfg(panic = "abort")]
+                            (Signal::Logs, Operation::Flush) => logger_provider.force_flush(),
+                            (Signal::Logs, Operation::Shutdown) => logger_provider.shutdown(),
+                        });
+                        (signal, spawned)
+                    })
+                    .collect_vec()
+                    .into_iter()
+                    .map(|(signal, spawned)| {
                         spawned
                             .map_err(|source| TelemetryError::Spawn { operation, signal, source })?
                             .join()
@@ -202,31 +264,48 @@ impl Options {
             })
         };
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter, sdk_disabled, traceparent, tracestate, baggage } = self;
-        let [traces_exporter, metrics_exporter, logs_exporter] = [traces_exporter, metrics_exporter, logs_exporter].map(|exporter| if sdk_disabled { Exporter::None } else { exporter });
         let Defaults { directives, attributes } = defaults;
+        let exporters = [&traces_exporter, &metrics_exporter, &logs_exporter].map(|exporter| match exporter {
+            Ok(Some(exporter)) if !matches!(sdk_disabled, Ok(Some(true))) => *exporter,
+            Ok(Some(_) | None) | Err(Unrecognized { setting: _, value: _ }) => Exporter::None,
+        });
+        let exported = exporters.iter().any(Exporter::is_otlp);
+        let [traces, metrics, logs] = exporters;
+        let (accepted, refused): (Vec<Directive>, Vec<_>) =
+            log.iter().filter(|directive| !directive.is_empty()).map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let detectors: [Box<dyn ResourceDetector>; _] =
-            [Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(ProcessResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)];
+            [Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)];
         let resource = Resource::builder_empty()
             .with_schema_url([], SCHEMA_URL)
             .with_service_name(command.get_name().to_owned())
             .with_attributes(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned())))
             .with_detector(Box::new(ServiceInstanceIdResourceDetector))
-            .with_detectors(if [traces_exporter, metrics_exporter, logs_exporter].iter().any(Exporter::is_otlp) { &detectors } else { &[] })
+            .with_detectors(if exported { &detectors } else { &[] })
+            .with_attributes(
+                exported
+                    .then(|| ProcessResourceDetector.detect())
+                    .iter()
+                    .flat_map(Resource::iter)
+                    .filter(|&(key, _)| key.as_str() != PROCESS_COMMAND_ARGS)
+                    .map(|(key, value)| KeyValue::new(key.clone(), value.clone())),
+            )
             .with_detector(Box::new(EnvResourceDetector::new()))
             .with_attributes(attributes)
-            .with_attributes(service_name.map(|name| KeyValue::new(SERVICE_NAME, name)))
+            .with_attributes(service_name.filter(|name| !name.is_empty()).map(|name| KeyValue::new(SERVICE_NAME, name)))
             .build();
-        let early = Dispatch::new(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN));
-        let started = dispatcher::with_default(&early, || {
+        let started = subscriber::with_default(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN), || {
             (try bikeshed Result<_, NEVec<TelemetryError>> {
-                let (filter, traces, metrics, logs) = Validated::from(EnvFilter::try_new(&directives).map_err(|source| TelemetryError::Filter { directives, source }))
+                let (filter, tracer_provider, meter_provider, logger_provider) = iter::chain([INTERNAL_LOGS], directives.split(','))
+                    .filter(|directive| !directive.is_empty())
+                    .map(|directive| directive.parse().map_err(|source| TelemetryError::Filter { directive: directive.into(), source }))
+                    .collect::<Validated<Vec<Directive>, _>>()
                     .map4(
-                        built(Signal::Traces, traces_exporter, || SpanExporter::builder().build()),
-                        built(Signal::Metrics, metrics_exporter, || MetricExporter::builder().build()),
-                        built(Signal::Logs, logs_exporter, || LogExporter::builder().build()),
-                        |filter, span_exporter, metric_exporter, log_exporter| {
+                        built(Signal::Traces, traces, || SpanExporter::builder().build()),
+                        built(Signal::Metrics, metrics, || MetricExporter::builder().build()),
+                        built(Signal::Logs, logs, || LogExporter::builder().build()),
+                        |directives, span_exporter, metric_exporter, log_exporter| {
                             (
-                                filter,
+                                iter::chain(directives, accepted).fold(EnvFilter::default(), EnvFilter::add_directive),
                                 span_exporter.into_iter().fold(SdkTracerProvider::builder().with_resource(resource.clone()), TracerProviderBuilder::with_batch_exporter).build(),
                                 metric_exporter.into_iter().fold(SdkMeterProvider::builder().with_resource(resource.clone()), MeterProviderBuilder::with_periodic_exporter).build(),
                                 log_exporter.into_iter().fold(SdkLoggerProvider::builder().with_resource(resource.clone()), LoggerProviderBuilder::with_batch_exporter).build(),
@@ -234,63 +313,74 @@ impl Options {
                         },
                     )
                     .ok()?;
-                let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build();
-                let (filter, handle) = reload::Layer::new(log.into_iter().fold(filter, EnvFilter::add_directive));
-                let dispatched = tracing_subscriber::registry()
-                    .with(filter)
-                    .with(layer)
-                    .with(json(&resource, writer))
-                    .with(tracing_opentelemetry::layer().with_tracer(traces.tracer_with_scope(scope)))
-                    .with(OpenTelemetryTracingBridge::builder(&logs).with_tracing_span_attributes(TracingSpanAttributes::all()).build());
+                let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).with_schema_url(SCHEMA_URL).build();
+                let (filter, handle) = reload::Layer::new(filter);
+                let dispatched = tracing_subscriber::registry().with(filter).with(layer).with(json(&resource, writer)).with(
+                    tracing_opentelemetry::layer()
+                        .with_tracer(tracer_provider.tracer_with_scope(scope))
+                        .and_then(logs.is_otlp().then(|| OpenTelemetryTracingBridge::builder(&logger_provider).with_tracing_span_attributes(TracingSpanAttributes::all()).build()))
+                        .with_filter(Targets::new().with_default(LevelFilter::TRACE).with_targets(TRANSPORT.map(|target| (target, LevelFilter::WARN)))),
+                );
                 Validated::from(subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| TelemetryError::Dispatch))
                     .map2(Validated::from(LogTracer::init().map_err(|SetLoggerError { .. }| TelemetryError::Forward)), |(), ()| ())
                     .ok()?;
-                (traces, metrics, logs, handle)
+                (tracer_provider, meter_provider, logger_provider, handle)
             })
             .inspect_err(reported)
         });
-        let (traces, metrics, logs, handle) = match started {
+        let (tracer_provider, meter_provider, logger_provider, handle) = match started {
             Ok(started) => started,
             Err(failures) => return status(failures),
         };
-        global::set_tracer_provider(traces.clone());
-        global::set_meter_provider(metrics.clone());
+        for (directive, source) in &refused {
+            tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(source), directive = directive.as_str(), "ignored filter directive");
+        }
+        for Unrecognized { setting, value } in iter::chain(
+            propagators.iter().filter_map(|propagator| propagator.as_ref().err()),
+            [traces_exporter.as_ref().err(), metrics_exporter.as_ref().err(), logs_exporter.as_ref().err(), sdk_disabled.as_ref().err()].into_iter().flatten(),
+        ) {
+            let row = command.get_arguments().find(|arg| arg.get_id() == setting);
+            tracing::warn!(flag = row.and_then(Arg::get_long), variable = row.and_then(Arg::get_env).and_then(OsStr::to_str), value = &**value, "ignored unrecognized value");
+        }
+        global::set_tracer_provider(tracer_provider.clone());
+        global::set_meter_provider(meter_provider.clone());
         global::set_text_map_propagator(TextMapCompositePropagator::new(
-            propagators
-                .into_iter()
-                .filter_map(|propagator| -> Option<Box<dyn TextMapPropagator + Send + Sync>> {
-                    match propagator {
-                        Propagator::TraceContext => Some(Box::new(TraceContextPropagator::new())),
-                        Propagator::Baggage => Some(Box::new(BaggagePropagator::new())),
-                        Propagator::None => None,
-                    }
-                })
-                .collect(),
+            iter::chain(
+                propagators.iter().all(|propagator| matches!(propagator, Ok(None))).then_some([Propagator::TraceContext, Propagator::Baggage]).into_iter().flatten(),
+                propagators.iter().filter_map(|propagator| propagator.as_ref().ok().copied().flatten()),
+            )
+            .unique()
+            .filter_map(|propagator| -> Option<Box<dyn TextMapPropagator + Send + Sync>> {
+                match propagator {
+                    Propagator::TraceContext => Some(Box::new(TraceContextPropagator::new())),
+                    Propagator::Baggage => Some(Box::new(BaggagePropagator::new())),
+                    Propagator::None => None,
+                }
+            })
+            .collect(),
         ));
         let carried = [(stringify!(traceparent), traceparent), (stringify!(tracestate), tracestate), (stringify!(baggage), baggage)]
             .into_iter()
             .filter_map(|(field, value)| Some((field.to_owned(), value?)))
             .collect::<HashMap<_, _>>();
         let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carried));
-        let restored = |hook: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync>| panic::set_hook(Box::new(move |info| hook(info)));
         let previous: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync> = panic::take_hook().into();
-        let (chained, hooked) = (Arc::clone(&previous), (traces.clone(), metrics.clone(), logs.clone()));
-        let stopping = DropGuard::new(((traces, metrics, logs), previous), move |(providers, hook)| {
-            restored(hook);
-            settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors));
-        });
+        let chained = Arc::clone(&previous);
+        #[cfg(panic = "abort")]
+        let hooked = (tracer_provider.clone(), meter_provider.clone(), logger_provider.clone());
         panic::set_hook(Box::new(move |info| {
             tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
+            #[cfg(panic = "abort")]
             settled(Operation::Flush, &hooked).unwrap_or_else(|errors| reported(&errors));
             chained(info);
         }));
+        let stopping = DropGuard::new((tracer_provider, meter_provider, logger_provider), |providers| settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
         let worked = {
             let _parent = parent.attach();
             work(handle).inspect_err(reported)
         };
-        let (providers, hook) = DropGuard::dismiss(stopping);
-        restored(hook);
-        let stopped = settled(Operation::Shutdown, &providers).inspect_err(reported);
+        panic::set_hook(Box::new(move |info| previous(info)));
+        let stopped = settled(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);
         match (worked, stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
             (Err(failures), _) => status(failures),
@@ -303,8 +393,8 @@ impl Options {
 
 #[derive(Debug, thiserror::Error)]
 enum TelemetryError {
-    #[error("cannot parse filter directives {directives}")]
-    Filter { directives: Cow<'static, str>, source: ParseError },
+    #[error("cannot parse filter directive {directive}")]
+    Filter { directive: Box<str>, source: ParseError },
     #[error("cannot build OTLP {signal} exporter")]
     Build { signal: Signal, source: ExporterBuildError },
     #[error("cannot install tracing subscriber, one is installed")]
@@ -320,11 +410,12 @@ enum TelemetryError {
 impl From<TelemetryError> for sysexits::ExitCode {
     fn from(value: TelemetryError) -> Self {
         match value {
-            TelemetryError::Filter { directives: _, source: _ }
+            TelemetryError::Filter { directive: _, source: _ }
+            | TelemetryError::Build { signal: _, source: ExporterBuildError::InternalFailure(_) }
             | TelemetryError::Dispatch
             | TelemetryError::Forward
             | TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::AlreadyShutdown } => Self::Software,
-            TelemetryError::Build { signal: _, source: _ } => Self::Config,
+            TelemetryError::Build { signal: _, source: ExporterBuildError::InvalidConfiguration(_) } => Self::Config,
             TelemetryError::Spawn { operation: _, signal: _, source } => source.into(),
             TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::Timeout(_) } => Self::TempFail,
             TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::InternalFailure(_) } => Self::Unavailable,
@@ -334,15 +425,18 @@ impl From<TelemetryError> for sysexits::ExitCode {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn environment(context: &Context) -> impl Iterator<Item = (String, String)> {
+pub fn inject<E>(context: &Context, environment: &mut E)
+where E: Environment {
     global::get_text_map_propagator(|propagator| {
         let mut carried = HashMap::new();
         propagator.inject_context(context, &mut carried);
-        carried
-    })
-    .into_iter()
-    .map(|(field, value)| {
-        let prefix = field.chars().next().is_none_or(|first| first.is_ascii_digit()).then_some('_');
-        (iter::chain(prefix, field.chars().map(|character| if character.is_ascii_alphanumeric() { character.to_ascii_uppercase() } else { '_' })).collect(), value)
-    })
+        propagator.fields().for_each(|field| {
+            let prefix = field.starts_with(|first: char| first.is_ascii_digit()).then_some('_');
+            let variable = iter::chain(prefix, field.chars().map(|character| if character.is_ascii_alphanumeric() { character.to_ascii_uppercase() } else { '_' })).collect::<String>();
+            match carried.remove(field) {
+                Some(value) => environment.set(variable, value),
+                None => environment.remove(variable),
+            }
+        });
+    });
 }
