@@ -5,7 +5,7 @@ description: "Use when calling an Effect module family, covering HTTP and HttpAp
 
 # [TYPESCRIPT_CODING_EFFECT]
 
-Covers Effect's module families, where one declaration of a contract derives its server, client, and test forms.
+Covers Effect's module families.
 
 [REFERENCES]:
 - [01]-[HTTP](references/http.md): HttpApi contracts, handlers, derived clients, and HTTP client policies
@@ -23,10 +23,9 @@ Each runtime supplies the platform services a program reads through published la
 |  [01]   | Node process  | `NodeServices.layer`, `NodeHttpServer.layerConfig`, `NodeHttpClient.layerUndici`, `NodeCrypto.layer`        |
 |  [02]   | Browser       | `FetchHttpClient.layer`, `BrowserCrypto.layer`, `BrowserKeyValueStore.layerLocalStorage`                    |
 |  [03]   | Fetch handler | `HttpServer.layerServices`, `FetchHttpClient.layer`, `SecureRandom.layerWebCrypto`, `Digest.layerWebCrypto` |
-|  [04]   | Test          | `NodeHttpServer.layerTest`, `HttpApiTest.groups`, `McpTest.makeClient`, `RpcTest.makeClient`, `Layer.mock`  |
 
 - `NodeServices.layer` provides `ChildProcessSpawner`, `FileSystem`, `Path`, `Stdio`, and `Terminal`, the environment a CLI command reads
-- Crypto services have no default, a root provides `NodeCrypto.layer`, `BrowserCrypto.layer`, or a family's `layerWebCrypto`
+- Crypto services have no default layer, the root provides its runtime's layer or a family's `layerWebCrypto`
 - `NodeHttpServer.layerConfig` supplies `HttpPlatform`, `Etag.Generator`, `FileSystem`, and `Path` beside the server, and `HttpServer.layerServices` stands in where no platform does, its `FileSystem` holding no files
 - `HttpRouter.serve` builds its routes in a fork of the memo map, and services sibling layers share are provided outside it
 

@@ -2,7 +2,7 @@
 
 ## [01]-[CONTRACT]
 
-One `HttpApi` declaration of groups and endpoints derives the server routes, the OpenAPI document, the typed client, the URL builder, and the in-memory test client. Contract modules hold the classes client and server both import:
+One `HttpApi` declaration of groups and endpoints derives server routes, OpenAPI document, typed client, URL builder, and in-memory test client. Contract modules hold the classes client and server both import:
 
 ```ts
 class Hold extends Schema.Class<Hold, { readonly brand: unique symbol }>('Hold')({ id: Schema.String.check(Schema.isUUID()).pipe(Schema.brand('HoldId')), account: Schema.String, amount: Schema.BigDecimal, placedAt: Schema.DateTimeUtc }) {}
@@ -24,7 +24,7 @@ class Api extends HttpApi.make('ledger').add(
 - `HttpApiSchema.WithHeaders(Success, headers)` types response headers, a handler returns `HttpApiSchema.withHeaders({ body, headers })`, and the client resolves `{ body, headers }`
 - `HttpApiSchema.asText`, `asUint8Array`, `asFormUrlEncoded`, `asMultipart(limits)`, and `asMultipartStream(limits)` select a body encoding
 - `.middleware(M)`, `.prefix(p)`, and `annotateEndpoints` reach the endpoints added before the call, and close a group or API
-- `HttpApi.ParseOptions` annotates the API for the server, the client, and the URL builder alike, with `ParamsParseOptions` through `ErrorParseOptions` per slot
+- `HttpApi.ParseOptions` annotates the API for server, client, and URL builder alike, with `ParamsParseOptions` through `ErrorParseOptions` per slot
 - `HttpApiGroup.make('g', { topLevel: true })` places a group's methods at the client root, and `.addHttpApi(other)` merges another API's groups
 
 ## [02]-[ERRORS]

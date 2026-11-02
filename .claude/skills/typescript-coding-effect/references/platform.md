@@ -31,11 +31,11 @@ Command.make(
 `Mode` is a `Schema.Literals` of formatter modes and `version` the package version. `--log-level` sets `References.MinimumLogLevel` for the handler:
 - `Command.withSubcommands([...])` composes commands, and a subcommand reads its parent's input through `yield* parent`
 - `Command.withSharedFlags({...})` makes flags readable by descendants on either side of the subcommand name
-- `Flag.Literals`, `Flag.Redacted`, `Flag.KeyValuePair`, `Flag.FileSchema(name, schema)`, and `Argument.Directory` are typed constructors, and `Flag.withSchema(codec)` decodes any value
+- `Flag.Redacted`, `Flag.KeyValuePair`, and `Flag.FileSchema(name, schema)` are typed constructors, and `Flag.withSchema(codec)` decodes any value
 - `Flag.withFallbackConfig(Config...)` reads a missing flag from configuration, `Flag.withFallbackPrompt(prompt)` asks for it, and `Flag.withDefault` closes the chain
 - `Command.provide(layer | (input) => layer)` provides services chosen from the parsed input
 - Handler errors with a `[CliError.userMessage]` getter render through the CLI formatter with their tag kept
-- `Prompt.Text`, `Select`, and `Confirm` are effects reading `Terminal`, and `Prompt.all` collects a struct of them
+- `Prompt` constructors are effects reading `Terminal`, and `Prompt.all` collects a struct of them
 
 ## [03]-[FILES]
 
@@ -47,8 +47,7 @@ Command.make(
 
 ## [04]-[CRYPTO]
 
-`effect/crypto` holds one service per primitive family over WebCrypto, each taking an algorithm value:
-- `Digest`, `Mac`, `Aead`, `Cipher`, `Kdf`, `Signature`, `KeyAgreement`, `KeyWrap`, and `SecureRandom` are the services, with algorithms (`Digest.sha256`, `Aead.aes256Gcm`)
+`effect/crypto` holds one service per primitive family over WebCrypto, each taking an algorithm value (`Digest.sha256`, `Aead.aes256Gcm`):
 - `digest.digestHex(Digest.sha256, bytes)` returns lowercase hex
 - `Mac.key`, `Aead.key`, and `Signature.privateKey` import keys typed by algorithm, and `KeyFormat.decodePublic` reads `pem`, `jwk`, `spki`, or `pkcs8`
 - `mac.verify(key, tag, data)` compares in constant time, and `Mac.timingSafeEqual` compares held bytes
@@ -57,7 +56,7 @@ Command.make(
 ## [05]-[ENCODING]
 
 `effect/encoding` holds byte and text codecs and streaming channels for line, event, and archive formats:
-- `Hex.decode`, `Base64.decode`, and `Base64Url.decode` return a `Result`, and schema boundaries use `Schema.Uint8ArrayFromHex` and the other `Uint8ArrayFrom*` schemas
+- `Hex.decode`, `Base64.decode`, and `Base64Url.decode` return a `Result`, and schema boundaries use `Schema.Uint8ArrayFrom*` schemas
 - `Ndjson.decodeSchema(S)()`, `Csv.decodeSchema(S)`, and `Sse.decodeDataSchema(S)` are channels `Stream.pipeThroughChannel` applies, with matching encoders
 - `Yaml.parse`, `Toml.parse`, `Ini.parse`, and `Xml.decodeString` read configuration formats for a schema to decode, and `Tar` and `Zip` stream archive entries
 - `NodeStream.fromReadable` enters a Node readable stream as a `Stream`

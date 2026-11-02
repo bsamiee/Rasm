@@ -39,7 +39,7 @@ const rebalance = SqlClient.SqlClient.use((sql) =>
 ```
 
 `rebalance` runs writes `release` and `claim` that move a shard lease between nodes in one serializable transaction, and reruns both after a conflict the database rolled back:
-- `SqlError.reason` is a tagged union (`UniqueViolation`, `ConstraintError`, `AuthorizationError`, `SerializationError`, `DeadlockError`, `LockTimeoutError`, `StatementTimeoutError`, `ConnectionError`, `UnknownError`), and `Effect.catchReason('SqlError', 'UniqueViolation', f)` recovers one
+- `SqlError.reason` is a tagged union, and `Effect.catchReason('SqlError', 'UniqueViolation', f)` recovers one
 - `D1Client` fails every statement with an `UnknownError` reason, where SQLite and PostgreSQL drivers classify each failure
 - `isRetryable` on a `SqlError` holds for connection, deadlock, serialization, lock, and statement timeouts, and a connection lost during `COMMIT` leaves its outcome unknown
 - Writes guarded by stored state hold the guard: `INSERT ... SELECT ... WHERE revision = ${expected}` for a revision, `DO UPDATE ... WHERE body IS DISTINCT FROM excluded.body` to skip an unchanged row

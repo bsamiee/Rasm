@@ -91,5 +91,5 @@ const Triage = Decision.make({
 ```
 
 `DecisionModel.decideSettled(Triage, { input })` answers with `team` as a `Result` over `'billing' | 'platform'` and `severity` over the rating literals, each derived from its criteria, and the root provides a model (`TypeSafeDecisionModel.model('jev-latest')`):
-- `DecisionModel.decide` fails unless every decision is answered, and `decideSettled` returns a `Result` per decision with an `Unanswered` reason
+- `DecisionModel.decide` fails unless every decision is answered, and `decideSettled` fails an unanswered decision with an `Unanswered` reason
 - `Decision.locate({ image })` targets a `Decision.Image` field on a model built with locate support
