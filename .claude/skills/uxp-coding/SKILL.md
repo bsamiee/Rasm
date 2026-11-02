@@ -129,6 +129,7 @@ Object model facts come from the owner that states them for the installed build:
 
 - Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
 - Native scripting dictionaries declare Apple event commands and parameter types, and a script command's parameters select its language and undo mode
+- InDesign `show`, `reveal in system`, and `reveal in Bridge`, Acrobat `bring to front`, and Premiere Pro `editoriginal` dictionary commands activate their host
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
 - Probes run as undoable units, return failures as data, and leave no host dialog, test plugin, registry row, or test document behind
@@ -212,46 +213,37 @@ Hosts show nothing for a rejected command, and Photoshop logs nothing for it. On
 import fs from 'adobe:fs';
 import { entrypoints } from 'adobe:uxp';
 
-const Setup = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
+const manifest = 'plugin:/manifest.json';
 const logged = flow(Cause.pretty, Console.error);
-const plugin = <R, E, F>(
-    layer: Layer.Layer<R, E, Uxp | Plugin>,
-    entries: {
-        readonly commands: Record.ReadonlyRecord<string, Effect.Effect<void, F, R | Uxp | Plugin>>;
-        readonly panels: Record.ReadonlyRecord<string, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
-    },
-): void => {
-    const manifest = 'plugin:/manifest.json';
-    const runtime = ManagedRuntime.make(
-        layer.pipe(
-            Layer.provideMerge(
-                Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(
-                    Effect.flatMap(Schema.decodeEffect(Manifest.json)),
-                    Layer.effect(Plugin),
-                    Layer.merge(hosted),
-                ),
-            ),
-            Layer.tapCause(logged),
-        ),
-    );
-    const run = (work: Effect.Effect<unknown, F, R | Uxp | Plugin>) => (): Promise<void> => runtime.runPromise(Effect.asVoid(work));
-    Schema.decodeEffect(Setup)(entrypoints).pipe(
-        Effect.flatMap(({ setup }) =>
-            Effect.sync(() =>
-                setup.call(entrypoints, {
-                    plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
-                    commands: Record.map(entries.commands, flow(Effect.tapCause(logged), run)),
-                    panels: Record.map(entries.panels, Record.map(flow(Effect.tapCause(logged), Effect.forkDetach, run))),
-                } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
+const runtime = ManagedRuntime.make(
+    MainLayer.pipe(
+        Layer.provideMerge(
+            Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(
+                Effect.flatMap(Schema.decodeEffect(Manifest.json)),
+                Layer.effect(Plugin),
+                Layer.merge(hosted),
             ),
         ),
-        Effect.tapCause(logged),
-        Effect.runFork,
-    );
-};
+        Layer.tapCause(logged),
+    ),
+);
+
+Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
+    Effect.flatMap(({ setup }) =>
+        Effect.sync(() =>
+            setup.call(entrypoints, {
+                plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
+                commands: Record.map({ relink, preflight }, (work) => () => runtime.runPromise(Effect.tapCause(work, logged))),
+                panels: { links: Record.map({ show: shown, hide: hidden }, (work) => () => runtime.runPromise(Effect.asVoid(Effect.forkDetach(Effect.tapCause(work, logged))))) },
+            } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
+        ),
+    ),
+    Effect.tapCause(logged),
+    Effect.runFork,
+);
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects with the squashed cause. Panels fork their work through `Effect.forkDetach` and return a promise resolved once the work is forked. `logged` is shared by `plugin` and `script`. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`MainLayer` is the plugin's layer reading `Uxp` and `Plugin`, `relink` and `preflight` the effects its manifest's commands name, and `shown` and `hidden` the work of panel `links`. `hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError`, the error Effect's `FileSystem.readFileString` raises. `Layer.provideMerge` keeps services in runtime context, where `Layer.provide` feeds the layer alone and `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members. Decoded `setup` runs through `call` with `entrypoints` as receiver, and its throw logs as a defect. `runFork` calls `setup` before `main` returns. `ManagedRuntime` builds its layer before any entry's work runs. `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed command to the UXP console before `runPromise` rejects with the squashed cause. Panels fork their work through `Effect.forkDetach` and return a promise resolved once the work is forked. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`

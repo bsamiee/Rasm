@@ -5,12 +5,12 @@
 Transitions take their input first and return a function from one state to the next, the one shape `pipe`, `Ref.update`, `Stream.scan`, and a fold apply. States one collection holds are the collection itself, with the value brand deciding what it holds:
 
 ```ts
-const adjusted = (sku: Sku, delta: number) => HashMap.modifyAt(sku, flow(Option.match({ onNone: Function.constant(delta), onSome: Number.sum(delta) }), Quantity.makeOption));
+const adjusted = (peer: Peer, delta: number) => HashMap.modifyAt(peer, flow(Option.match({ onNone: Function.constant(delta), onSome: Number.sum(delta) }), Quantity.makeOption));
 ```
 
-`Ref.update(reserved, adjusted(sku, 1))` applies one change to a warehouse's reservations, and a fold from `HashMap.empty()` replays a log of changes:
+`Ref.update(open, adjusted(peer, 1))` applies one change to a node's stream count per peer, and a fold from `HashMap.empty()` replays a log of changes:
 - `modifyAt` maps the held `Option` to the stored one, inserting, updating, and removing in one function
-- Skus with a count `Quantity.makeOption` rejects leave the map, and a zero reservation has no representation
+- Peers with a count `Quantity.makeOption` rejects leave the map, and a peer with no open stream has no representation
 - `Equal.equals` and `Hash.hash` compare plain objects, arrays, `Map`, and `Set` by contents and class instances by class and fields, a `_tag` separating kinds
 - `Hash.hash` caches per object and a hashed value stays unchanged, `Equal.byReference(handle)` compares a host handle by identity
 - `Schema.toDifferJsonPatch(X)` states a change as JSON Patch for a peer or store, with `patch` decoding the result through `X`
@@ -48,6 +48,7 @@ const byCell = Iterable.reduce(readings, HashMap.empty<Cell, Chunk.Chunk<Reading
 ```
 
 `readings` each hold a `{ row, column }` cell, and `HashMap.get(byCell, { row: 0, column: 0 })` reads one group:
+- Rows read by key more than once index once through `Record.fromIterableBy(rows, Struct.get('name'))` and read through `Record.get` in place of a `find` per read
 - `HashMap.mutate` applies a batch of updates to a transient copy no reader sees and returns one new map
 - `Trie` keys strings in key order, reading by prefix through `keysWithPrefix` and by longest prefix through `longestPrefixOf`
 - `Chunk` shares both sides of a concatenation, where a `readonly A[]` copies every element
@@ -79,6 +80,6 @@ const bySeverity = Order.mapInput(Number.Order, (severity: typeof Severity.Type)
 `Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(bySeverity), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
 - `Order.Struct` and `Order.Tuple` compare fields in key or position order until one differs, and `Order.mapInput(Order.Struct(...), f)` orders by a nested part
 - `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` builds one by key for a type lacking it (`URL` by `href`) as a static
-- `Array.containsWith`, `Array.dedupeWith`, `Array.unionWith`, and `Stream.changesWith` read an `Equivalence` in place of a hand `===` on a key
+- `Array.containsWith`, `Array.dedupeWith`, `Array.differenceWith`, `Array.unionWith`, and `Stream.changesWith` read an `Equivalence` in place of a hand `===` on a key
 - `Array.dedupe` and `HashSet` group through `Equal` and `Hash` in one pass, `Array.dedupeWith` compares each element with every kept one
 - `Struct.makeReducer` composes reducers (`Number.ReducerSum`, `Option.makeReducer(r)`, `Array.makeReducerConcat()`), `combineAll` folding states

@@ -1,5 +1,5 @@
 import { D1Client } from '@effect/sql-d1';
-import { Array, Data, type Duration, Effect, Function, Layer, Option, Schema, Struct } from 'effect';
+import { Array, Data, type Duration, Effect, Layer, Option, Schema, Struct } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
 import { Column } from '#/column';
 import { type Engine, engine } from '#/engine';
@@ -27,7 +27,7 @@ class Catalog extends Data.Class<{
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: atomic })),
-        Effect.tap(({ concurrent }) => Effect.forEach(concurrent, Function.identity, { discard: true })),
+        Effect.tap(({ concurrent }) => Effect.all(concurrent, { discard: true })),
         Effect.map(Struct.get('undeclared')),
     );
     static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, client: (options: typeof Column.transforms) => Layer.Layer<A | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) =>

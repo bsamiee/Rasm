@@ -250,7 +250,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${temporary(entry.declared.name)} (${copied}) SELECT ${copied} FROM live`,
             };
         };
-        const altered = tables.filter((entry) => !rebuilds.includes(entry)).map((entry) => ({ ...entry, search: searched(entry, false) }));
+        const altered = Array.difference(tables, rebuilds).map((entry) => ({ ...entry, search: searched(entry, false) }));
         const rebuilding = rebuilds.map(rebuilt);
         const removed = resolved.removed.map(({ name }) => name);
         const replaced = [...rebuilds.map(({ live: row }) => row.name), ...removed];

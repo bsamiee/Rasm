@@ -46,7 +46,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters with a dominant value take a default, callers state what varies
 - Declarations read once sit inline at their use, a value read twice or a number Biome's `noMagicNumbers` refuses is a `const` named for its fact
-- Schemas declare at module scope, the parser cache keys on each schema's AST, and a function built from them (`SqlSchema.findOne`) builds inside the `Effect.fn` body whose parameters type the trailing steps
+- Schemas declare at module scope, and each parser caches by its schema's AST
 
 ## [02]-[FUNCTIONS]
 
@@ -84,7 +84,7 @@ Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no
 
 ### [03.1]-[PATTERN_MATCHING]
 
-Pattern matching keeps recognition, extraction, guards, and results together. Unions own their fold: `Schema.TaggedUnion` through `match`, `Data.taggedEnum` through `$match`, and any other value through `Match`:
+Pattern matching keeps recognition, extraction, guards, and results together. Unions own their fold: `Schema.TaggedUnion` through `match`, `Data.taggedEnum` through `$match` and `Option.filter(<option>, <enum>.$is(<tag>))` for a field of one case, and any other value through `Match`:
 
 ```ts
 const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: true }, fromCache), Match.when({ method: 'GET' }, fromOrigin), Match.orElse(reject));
@@ -94,6 +94,7 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 - `Match.exhaustive` closes a decision over a closed union, `Match.orElse` closes an open one with a fallback outcome
 - `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
 - Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
+- `Match.valueTags(value, handlers)` folds a `_tag` union with one handler per tag
 - Host enums match with an arm per member once decoded
 - Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` or `type !==` branch restating it
 - Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
@@ -144,7 +145,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 ```
 
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
-- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, a decode of a value the program encoded dies through `Effect.orDie`, and every other failure (a file write, a query) stays typed
+- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, and a codec run over a value the program built or encoded dies through `Effect.orDie`
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]
@@ -182,16 +183,16 @@ Each valid state a consumer inspects is one case. Counting the values a type all
 - Absence and failure stay separate where a consumer responds differently
 
 ```ts
-const Delivery = Schema.TaggedUnion({
-    Pending: { warehouse: Schema.String },
-    Shipped: { carrier: Schema.String, tracking: Schema.String },
-    Delivered: { signedBy: Schema.String },
+const Issuance = Schema.TaggedUnion({
+    Pending: { challenge: Schema.Literals(['http-01', 'dns-01']), token: Schema.String },
+    Issued: { serial: Schema.String, notAfter: Schema.DateTimeUtc },
+    Revoked: { reason: Schema.Literals(['keyCompromise', 'superseded', 'cessationOfOperation']) },
 });
 
-const status = Delivery.match({
-    Pending: ({ warehouse }) => `awaiting pickup at ${warehouse}`,
-    Shipped: ({ carrier, tracking }) => `${carrier} ${tracking}`,
-    Delivered: ({ signedBy }) => `signed by ${signedBy}`,
+const status = Issuance.match({
+    Pending: ({ challenge, token }) => `awaiting ${challenge} ${token}`,
+    Issued: ({ serial, notAfter }) => `${serial} until ${DateTime.formatIso(notAfter)}`,
+    Revoked: ({ reason }) => `revoked: ${reason}`,
 });
 ```
 
@@ -237,11 +238,11 @@ Quantities with a unit are values of their module, a plain number holds a count 
 ## [08]-[MODULES]
 
 Modules hold one concept, and a class holds the concept's data with its operations as statics and getters:
-- Packages hold the capability they own, app values (names, paths, timeouts, prose) enter as arguments from the composition root
+- Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
 - Package types pass whole, and consumers read a returned host handle
 - Packages export the values consumers compose
 - Modules export named declarations, a default export stands where a host loads one
-- Types and `const` values naming one concept share one name under one `export { Engine }`, `erasableSyntaxOnly` refuses a `namespace`
+- Types and `const` values naming one concept share one name under one `export { X }`, `erasableSyntaxOnly` refuses a `namespace`
 - Package `exports` entries are the import paths consumers use
 - Modules load without side effects, a registry, cache, or connection builds in the layer that owns it
 - Use `typescript-coding-effect` for Effect module families, tests, and telemetry

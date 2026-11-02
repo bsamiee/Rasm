@@ -1,7 +1,7 @@
 import { Array, Effect, Equal, Function, Hash, Match, Option, Order, Result, Schema, String, Struct } from 'effect';
 import type { SqlClient, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
-import type { Column } from '#/column';
+import { Column } from '#/column';
 import type { Engine } from '#/engine';
 import { Finding, ReconcileError } from '#/finding';
 import type { Relation } from '#/relation';
@@ -90,7 +90,7 @@ const render = (
     const list = (columns: readonly string[]) => sql.csv(columns.map(quoted));
     const label = (parts: readonly string[]) => ({ name: identifier([owner, ...parts]), parts });
     const named = (name: string) => Array.findFirst(entries, (entry) => entry.name === name);
-    const path = (entry: Column) => Option.flatMap(entry.projection, (projected) => (projected._tag === 'Path' ? Option.some(engine.projection(sql, entry, projected.from, projected.path)) : Option.none()));
+    const path = (entry: Column) => Option.map(Option.filter(entry.projection, Column.Projection.$is('Path')), (projected) => engine.projection(sql, entry, projected.from, projected.path));
     const operand = (name: string) => Option.match(Option.flatMap(named(name), path), { onNone: () => quoted(name), onSome: (expression) => engine.projected(sql, expression, name) });
     const predicate = ({ column: name, predicate: rule }: Relation['indexes'][number]['where'][number]) => {
         const members = (values: readonly (string | number)[]) => spaced([operand(name), `IN (${values.flatMap((member) => Option.toArray(Option.map(named(name), (entry) => engine.constant(entry, member)))).join(', ')})`]);

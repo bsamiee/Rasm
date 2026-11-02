@@ -144,7 +144,7 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             yield* seeded(reconcile);
             assert.deepStrictEqual(yield* reconcile(declared([renamed, kids])), { tables: [], columns: [], indexes: [], references: [] });
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open' }]);
-            assert.deepStrictEqual((yield* rows('kids')).length, 2);
+            assert.lengthOf(yield* rows('kids'), 2);
             assert.deepStrictEqual(yield* tables, [{ name: 'kids' }, { name: 'parents' }]);
         }),
     );
@@ -158,7 +158,7 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
                 { id: 'p', label: 'Parent', state: 'open' },
                 { id: 'q', label: 'Second', state: 'closed' },
             ]);
-            assert.deepStrictEqual((yield* rows('children')).length, 2);
+            assert.lengthOf(yield* rows('children'), 2);
             yield* reconcile(declared([renamed, kids]));
             assert.deepStrictEqual(
                 (yield* rows('parents')).map(({ title }) => title),
@@ -240,7 +240,7 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             const [extension, rebuild] = yield* Effect.all([Effect.exit(Catalog.reconcile(declared([annotated, children]))), Effect.exit(Catalog.reconcile(declared([reopened, children])))], { concurrency: 'unbounded' });
             assert.isTrue(Exit.isSuccess(rebuild) || Exit.isSuccess(extension));
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', label: 'Parent', state: 'open', ...(Exit.isSuccess(extension) ? { note: null } : {}) }]);
-            assert.deepStrictEqual((yield* rows('children')).length, 2);
+            assert.lengthOf(yield* rows('children'), 2);
         }),
     );
     it.effect('refuses undeclared retypes, reserved and projected keys and required columns without default, filling existing rows from a declared default', ({ task }) =>
@@ -300,7 +300,7 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
                 (yield* Relation.latest(events, 'tenant', ['at'], tenants, newest)).map(Struct.get('id')),
                 tenants.flatMap((tenant) => Array.take(descending(Equal.equals(tenant)), newest)),
             );
-            assert.deepStrictEqual((yield* Relation.remove(events, 'tenant', [0])).length, volume / tenants.length);
+            assert.lengthOf(yield* Relation.remove(events, 'tenant', [0]), volume / tenants.length);
             assert.deepStrictEqual((yield* Relation.select(events, 'tenant', tenants, { descending: 'at' })).map(Struct.get('id')), descending(Predicate.not(Equal.equals(0))));
             assert.deepStrictEqual(yield* Relation.ensure(events, [head, { ...last, kind: 'buy' }]), [head, last]);
         }),

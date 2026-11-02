@@ -18,6 +18,7 @@ class Pricing extends Context.Service<Pricing>()('@app/pricing', {
 - Shapes derive from `make`, members close over the services `make` read, and each member requires nothing
 - Keys are package and module path, followed by the class name where it differs from its file name
 - `make` and its static layer take a parameter for each value the composition root or a `LayerMap` key supplies (a file path, a tenant)
+- Facts the composition fixes (a driver's dialect, a host version) resolve in `make`, and an unsupported one fails the layer build in place of each call
 - Programs bind a service through `yield*`, and a call reaching one member uses `Pricing.use`
 - Service members hold operations reading a resource, a service, or a host value, and computations over arguments stay functions
 - `Context.Reference` with `defaultValue` holds a value every fiber reads with a default (a locale, a flag)
@@ -60,7 +61,7 @@ Resources acquired in `make` belong to their layer. Layers remove `Scope` from t
 
 - Host handles implementing `Disposable` or `AsyncDisposable` enter through `Effect.acquireDisposable`, released by their own dispose
 - Handles without a dispose method enter through `Effect.acquireRelease`, its release receiving the `Exit`
-- Host clients with a package-published layer (`NodeHttpClient.layerUndici`, `PgClient.layerConfig`) enter through the published layer
+- Host clients with a package-published layer (`NodeHttpClient.layerUndici`) enter through the published layer
 - Values a scope owns are read inside it, and a value read after a call is acquired at a longer lifetime
 
 ## [04]-[LAYERS]

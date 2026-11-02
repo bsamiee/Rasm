@@ -49,7 +49,7 @@ class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol 
             onDefined: ({ lock, transaction }) => [sql`SET LOCAL lock_timeout = ${sql.literal(literal(`${Duration.toMillis(lock)}ms`))}`, sql`SET LOCAL transaction_timeout = ${sql.literal(literal(`${Duration.toMillis(transaction)}ms`))}`],
         });
     static readonly open = (sql: SqlClient.SqlClient, preamble: readonly Statement.Statement<object>[], required: readonly string[], filters: readonly string[], configurations: typeof Configurations.Type) =>
-        Effect.forEach(preamble, Function.identity, { discard: true }).pipe(
+        Effect.all(preamble, { discard: true }).pipe(
             Effect.andThen(
                 sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
                     (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)

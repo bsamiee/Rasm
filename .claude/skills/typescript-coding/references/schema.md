@@ -158,6 +158,7 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 |  [06]   | Tool, form, or API schema | `Schema.toJsonSchemaDocument(X)`                          |
 |  [07]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                            |
 
+- Writes encode through the codec their read decodes with, `Schema.encodeEffect(Schema.fromJsonString(X))` in place of `JSON.stringify`
 - `toCodecGoJson` decodes the `null` Go writes for a nil slice, map, or optional field as empty or absent
 - `Schema.toCodecArrayFromSingle` over an array field accepts the lone value a query string or form sends for a one-item list
 - `Schema.ArrayEnsure(S)` normalizes one value or an array of values into an array on decode, an `Array.ensure` over a decoded value restating it

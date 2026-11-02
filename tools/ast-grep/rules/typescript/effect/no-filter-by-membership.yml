@@ -2,6 +2,7 @@
 id: no-filter-by-membership
 language: tsx
 severity: error
+ignores: ['plugins/function-hooks/**']
 utils:
     collection:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|HashSet)$'}}}
@@ -14,6 +15,8 @@ utils:
                   has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bHashSet$'}}}}}
                 - pattern: $OWNER.contains($SEEN, $X)
                   has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}}}
+                - pattern: $OWNER.includes($X)
+                  has: {field: function, has: {field: object, pattern: $SEEN, not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '\w'}}}}]}}}
     predicate:
         kind: arrow_function
         all:

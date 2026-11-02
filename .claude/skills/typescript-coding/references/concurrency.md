@@ -26,7 +26,8 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 - `FiberMap.join` fails with a member's first failure where a caller awaits the set
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
 - `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
-- `Effect.forkChild`, `forkScoped`, `forkIn`, and `forkDetach` take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, starting the fiber uninterruptible
+- `Effect.forkChild`, `forkScoped`, `forkIn`, and `forkDetach` take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, and `{ startImmediately: true }` runs the fiber to its first suspension before the fork returns
+- `Exit.hasInterrupts(yield* Fiber.await(fiber))` holds when an interrupt reached the fiber, and a fiber that finished before `Fiber.interrupt` exits with success
 
 ## [02]-[STREAMS]
 
@@ -74,15 +75,15 @@ Shared state sits behind one handle the runtime keeps consistent, and what fiber
 |  [08]   | `PubSub`                            | Messages one producer publishes to every subscriber, `replay` kept for late ones  |
 
 ```ts
-const transfer = (from: TxRef.TxRef<number>, to: TxRef.TxRef<number>, amount: number) =>
+const lend = (from: TxRef.TxRef<number>, to: TxRef.TxRef<number>, permits: number) =>
     TxRef.get(from).pipe(
-        Effect.filterOrElse(Number.isGreaterThanOrEqualTo(amount), () => Effect.txRetry),
-        Effect.andThen(Effect.all([TxRef.update(from, Number.subtract(amount)), TxRef.update(to, Number.sum(amount))])),
+        Effect.filterOrElse(Number.isGreaterThanOrEqualTo(permits), () => Effect.txRetry),
+        Effect.andThen(Effect.all([TxRef.update(from, Number.subtract(permits)), TxRef.update(to, Number.sum(permits))])),
         Effect.tx,
     );
 ```
 
-`Effect.txRetry` suspends `transfer` until `from` changes, and both updates commit together once `from` holds `amount`. Keyed resources share one acquisition per key:
+`from` and `to` hold free permits of rate-limit partitions. `Effect.txRetry` suspends `lend` until `from` changes, and both updates commit together once `from` holds `permits`. Keyed resources share one acquisition per key:
 
 ```ts
 const clients = (idleTimeToLive: Duration.Input = Duration.minutes(1)) => RcMap.make({ lookup: (peer: Peer) => Effect.acquireRelease(connect(peer), close), idleTimeToLive });
@@ -91,10 +92,10 @@ const clients = (idleTimeToLive: Duration.Input = Duration.minutes(1)) => RcMap.
 `Peer` is the key type, `connect` and `close` are host calls. `RcMap.get(map, peer)` inside `Effect.scoped` lends every concurrent caller one connection per peer, closed `idleTimeToLive` after its last caller. Keyed reads share one query per batch:
 
 ```ts
-const lineOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlResolver.findById({ Id: Sku, Result: Line, ResultId: (line) => line.sku, execute: (skus) => sql`SELECT * FROM lines WHERE sku = any(${skus})` })));
+const nodeOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlResolver.findById({ Id: NodeId, Result: Node, ResultId: (node) => node.id, execute: (ids) => sql`SELECT * FROM nodes WHERE id = any(${ids})` })));
 ```
 
-`lineOf` yields `lookup`, and `Effect.forEach(skus, lookup, { concurrency: 'unbounded' })` sends one query for the skus its fibers request in the same tick, equal skus sharing one row and a sku with no row failing with `NoSuchElementError`:
+`Node` is a row schema with an `id` field of brand `NodeId`. `nodeOf` yields `lookup`, and `Effect.forEach(ids, lookup, { concurrency: 'unbounded' })` sends one query for the ids its fibers request in the same tick, equal ids sharing one row and an id with no row failing with `NoSuchElementError`:
 - Host batch APIs enter through `RequestResolver.make`, completing each entry through `Request.complete`, and a failed batch call fails every entry
 - `RequestResolver.batchN` caps a batch at the host's limit, `setDelay` widens the window a batch collects over
 - Batches merge callers with different services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)

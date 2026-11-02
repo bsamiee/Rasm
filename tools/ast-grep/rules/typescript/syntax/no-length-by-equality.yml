@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-length-by-equality
+language: tsx
+severity: error
+utils:
+    length:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^length$'}
+            - has: {field: object, any: [{kind: parenthesized_expression, has: {pattern: $LIST, not: {kind: sequence_expression}}}, {pattern: $LIST}]}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, pattern: $ASSERT, all: [{has: {field: object, regex: '^assert$'}}, {has: {field: property, regex: '^(deepStrictEqual|strictEqual|deepEqual|equal)$'}}]}
+        - has: {field: arguments, not: {has: {nthChild: 3}}}
+        - any:
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: length}}, {has: {nthChild: 2, pattern: $COUNT}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: number, pattern: $COUNT}}, {has: {nthChild: 2, matches: length}}]}
+        - inside: {kind: program, stopBy: end, has: {kind: import_statement, regex: '\bassert\b', has: {field: source, regex: '^[''"](@effect/vitest|vitest|chai)[''"]$'}}}
+fix: assert.lengthOf($LIST, $COUNT)
+message: '`$ASSERT` compares the length of `$LIST` as a number'
+note: 'Call `assert.lengthOf(<list>, <count>)` for a failure message that prints the list'

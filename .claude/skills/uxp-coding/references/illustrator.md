@@ -36,6 +36,7 @@ const Reply = Schema.Union([
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
+- ExtendScript `alert`, `confirm`, and `prompt` activate the host
 - In Photoshop ExtendScript, `new Function` of bad syntax answers `undefined` where `eval` throws, and an `undefined` last value answers as text
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`

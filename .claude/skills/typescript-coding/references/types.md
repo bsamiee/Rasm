@@ -26,20 +26,20 @@ Return types infer from the body, and every type a consumer names derives at its
 Ordered literals are one `Schema.Literals` in rank order, and every value a rank decides (a count, a cumulative set, a step) derives from a literal's index and a policy parameter callers fix first:
 
 ```ts
-const Plan = Schema.Literals(['basic', 'plus', 'pro']);
+const Durability = Schema.Literals(['zonal', 'regional', 'global']);
 
-const allowance =
-    <A>(channels: readonly A[], seatBase = 5) =>
-    (plan: typeof Plan.Type) => {
-        const rank = Plan.literals.indexOf(plan) + 1;
-        return { seats: seatBase ** rank, channels: Array.take(channels, rank) };
+const placement =
+    <A>(regions: readonly A[], replicaBase = 3) =>
+    (durability: typeof Durability.Type) => {
+        const rank = Durability.literals.indexOf(durability) + 1;
+        return { replicas: replicaBase * rank, regions: Array.take(regions, rank) };
     };
 ```
 
-`Channel` is a literal schema of contact channels, and `allowance(Channel.literals)` gives each plan a seat count from one base and every channel up to its rank. New plans are one literal at their rank:
-- `Plan.pick(['plus', 'pro'])` derives a subset schema with its own decoder and type
+`Region` is a literal schema of deployment regions, and `placement(Region.literals)` gives each durability level a replica count from one base and every region up to its rank. New levels are one literal at their rank:
+- `Durability.pick(['regional', 'global'])` derives a subset schema with its own decoder and type
 - Ordered literals holding data no rule decides are `as const` table rows, `Struct.keys(table)` returning cases in rank order
-- `Schema.TemplateLiteral([Plan, ':', Channel])` joins case axes into one encoded key typed as their cross product, with a decoder checking each part
+- `Schema.TemplateLiteral([Durability, ':', Region])` joins case axes into one encoded key typed as their cross product, with a decoder checking each part
 
 ## [03]-[BRANDS]
 
@@ -68,3 +68,18 @@ const Page = <S extends Schema.Constraint>(item: S) => Schema.Struct({ items: Sc
 - `Schema.Constraint` accepts any schema a body passes to a constructor or decoder, `Schema.Top` one a body calls methods on (`check`, `annotate`)
 - `Schema.ConstraintDecoder<A, R>` fixes the decoded type a body reads, and `R` adds the services decoding requires to the result
 - Functions passing an effect through keep `A`, `E`, and `R` as type parameters and add their own error and services to them
+
+Operations reading an option a constructor leaves optional bound the instance's option type, and a missing option fails to compile:
+
+```ts
+type Options = { readonly unit: string; readonly calibration?: { readonly gain: number; readonly offset: number } };
+
+class Channel<const O extends Options = Options> extends Data.Class<{ readonly name: string; readonly options: O }> {
+    static readonly make = <const O extends Options>(name: string, options: O) => new Channel<O>({ name, options });
+    static readonly calibrated = <O extends Options & { readonly calibration: NonNullable<Options['calibration']> }>(channel: Channel<O>, raw: number) => raw * channel.options.calibration.gain + channel.options.calibration.offset;
+}
+```
+
+`Channel.calibrated(Channel.make('strain', { unit: 'µε' }), raw)` fails to compile, where an `Option` field read through `Effect.fromOption` fails the call at run time:
+- `const` type parameters keep each literal option on the instance type, and a static's bound reads it
+- Statics taking the instance hold the operations, an `Object.assign` of functions onto a value restating the class
