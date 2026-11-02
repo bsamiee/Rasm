@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button, type Key } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { draft, portfolio, updateEntry } from '#/editor/state';
-import { destination, pendingUploads } from '#/editor/uploader';
+import { Destination, pendingUploads } from '#/editor/uploader';
 import { entryTitle, format } from '#/media/labels';
 import { Entry } from '#/model/portfolio';
 
@@ -16,7 +16,7 @@ import { Entry } from '#/model/portfolio';
 
 const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: string | undefined; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
     const setDraft = useAtomSet(draft);
-    const setTarget = useAtomSet(destination);
+    const setTarget = useAtomSet(Destination);
     const pending = useAtomValue(pendingUploads);
     const locked = (keys: ReadonlySet<Key>) => pending.some((target) => target.kind === 'entry' && keys.has(target.id));
     const remove = (keys: ReadonlySet<Key>) => {

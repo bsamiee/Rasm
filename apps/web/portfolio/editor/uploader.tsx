@@ -22,12 +22,12 @@ interface UploadMeta extends Meta {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const destination = Atom.make<Destination>({ kind: 'library' }).pipe(Atom.keepAlive);
+const Destination = Atom.make<Destination>({ kind: 'library' }).pipe(Atom.keepAlive);
 const uppy = Atom.make((get) => {
     const uploader: Uppy<UploadMeta, Body> = new Uppy<UploadMeta, Body>({
         restrictions: { maxFileSize: uploadLimit, allowedFileTypes: [...mediaTypes] },
         onBeforeFileAdded: (file, queued) => {
-            const target = get.registry.get(destination);
+            const target = get.registry.get(Destination);
             if (target.kind === 'hero' && Object.values(queued).some((item) => item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true)) {
                 uploader.info('Finish or remove queued hero file first', 'info');
                 return false;
@@ -86,4 +86,4 @@ const pendingUploads = Atom.make((get) => Object.values(get(queue)).flatMap((fil
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Destination, destination, pendingUploads, queue, uppy };
+export { Destination, pendingUploads, queue, uppy };

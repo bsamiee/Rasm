@@ -7,7 +7,7 @@ import { Predicate, Schema, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { type Destination, destination, pendingUploads, queue, uppy } from '#/editor/uploader';
+import { Destination, pendingUploads, queue, uppy } from '#/editor/uploader';
 import { entryTitle, format } from '#/media/labels';
 import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
 import type { Entry } from '#/model/portfolio';
@@ -21,7 +21,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const batches = useUppyState(uploader, Struct.get('currentUploads'));
     const notices = useUppyState(uploader, Struct.get('info'));
     const [selected, setSelected] = useState<string>();
-    const [target, setTarget] = useAtom(destination);
+    const [target, setTarget] = useAtom(Destination);
     const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
     const options = [{ target: { kind: 'library' } as const, label: 'Library' }, { target: { kind: 'hero' } as const, label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${String.capitalize(entry.kind)}` }))].map((option) => ({
         ...option,

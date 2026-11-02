@@ -17,7 +17,7 @@ import { RequestAlert } from '#/editor/request-alert';
 import { ReuseFile } from '#/editor/reuse-file';
 import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
 import { UploadRecovery } from '#/editor/upload-recovery';
-import { destination, pendingUploads } from '#/editor/uploader';
+import { Destination, pendingUploads } from '#/editor/uploader';
 import { entryTitle, format } from '#/media/labels';
 import { Entry, type Portfolio, type PortfolioData } from '#/model/portfolio';
 
@@ -51,7 +51,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     const publish = useRef<HTMLButtonElement>(null);
     const save = useRef<HTMLButtonElement>(null);
     const setDraft = useAtomSet(draft);
-    const setTarget = useAtomSet(destination);
+    const setTarget = useAtomSet(Destination);
     const pending = useAtomValue(pendingUploads);
     const deletion = useAtomValue(deleteRequest);
     const [operation, submit] = useAtom(saveRequest);
