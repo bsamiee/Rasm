@@ -1,13 +1,15 @@
-use cavalier_contours::polyline::{self, BooleanOp, BooleanResult, BooleanResultPline, PlineBooleanOptions, PlineSource as _};
+use cavalier_contours::{
+    polyline::{BooleanOp, BooleanResult, PlineBooleanOptions, PlineSource as _},
+    shape_algorithms::IndexedPolyline,
+};
 
-use crate::{Closure, Polyline, Region, oriented, spans};
+use crate::{Closure, PlanarError, Polyline, Region, Tolerance, resulting};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn boolean(left: &Polyline<{ Closure::Closed }>, right: &Polyline<{ Closure::Closed }>, operation: BooleanOp, options: &PlineBooleanOptions<'_, f64>) -> Region {
+pub fn boolean(left: &Polyline<{ Closure::Closed }>, right: &Polyline<{ Closure::Closed }>, operation: BooleanOp, tolerance: Tolerance) -> Result<Region, PlanarError> {
+    let IndexedPolyline { polyline: first, spatial_index } = left.as_ref();
     let BooleanResult { pos_plines: bodies, neg_plines: holes, result_info: _ } =
-        left.0.polyline.boolean_opt(&right.0.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(&left.0.spatial_index), ..*options });
-    let spanning = |outlines: Vec<BooleanResultPline<polyline::Polyline<f64>>>| outlines.into_iter().map(|outline| outline.pline).filter(|outline| spans(outline, options.pos_equal_eps));
-    oriented(spanning(bodies), spanning(holes))
+        first.boolean_opt(&right.outline.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(spatial_index), pos_equal_eps: tolerance.into_inner(), collapsed_area_eps: None });
+    resulting(bodies.iter().map(|body| body.pline.iter_vertexes()), holes.iter().map(|hole| hole.pline.iter_vertexes()), tolerance)
 }

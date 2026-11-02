@@ -4,7 +4,7 @@
 name                 = "rasm-planar"
 version.workspace    = true
 edition.workspace    = true
-description          = "Planar polylines and regions over cavalier_contours at nalgebra signatures: line and arc polylines open or closed refused when non-finite, collapsed within the tolerance or self-intersecting, regions of line and arc polygons whose holes lie inside their exterior, from and into geo_types polygons, arc flattening, winding numbers, intersections, parallel offsets of polylines and regions, polyline booleans, constrained Delaunay triangulation with refinement, and Voronoi cells clipped to a boundary"
+description          = "Planar polylines and regions over cavalier_contours at nalgebra signatures: line and arc polylines open or closed refused when non-finite, collapsed within the tolerance or self-intersecting, regions of line and arc polygons whose holes lie inside their exterior and whose rings overlap none, from and into geo_types polygons, similarity placement and mirroring, arc flattening, winding numbers and signed clearance, stations by length or nearest point with tangents, intersections, slices and region clipping of paths, parallel offsets of open polylines and regions, polyline booleans into regions, constrained Delaunay triangulation with refinement, and Voronoi cells clipped to a region"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["polyline", "offset", "boolean", "triangulation", "voronoi"]

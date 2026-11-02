@@ -1,13 +1,13 @@
 use core::{borrow::Borrow, iter};
-use std::collections::{HashMap, HashSet};
 
 use cavalier_contours::shape_algorithms::Shape;
 use itertools::Itertools as _;
 use nalgebra::Point2;
 use nonempty_collections::NEVec;
 use spade::{ConstrainedDelaunayTriangulation, RefinementParameters, RefinementResult, Triangulation as _, handles::FixedVertexHandle};
+use validated::Validated;
 
-use crate::{PlanarError, Region, Tolerance, flattened};
+use crate::{PlanarError, Region, Tolerance, flattened, position};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,36 +37,48 @@ impl Triangulation {
             })
             .flat_map(|ring| ring.circular_tuple_windows::<(_, _)>().map(<[usize; 2]>::from))
             .collect();
-        let position = |point: Point2<f64>| spade::mitigate_underflow(<[f64; 2]>::from(point).into());
         let point = |coordinates: spade::Point2<f64>| Point2::from(<[f64; 2]>::from(coordinates));
-        let sites = sites.into_iter().map(|site| position(*site.borrow())).collect::<Vec<_>>();
         let mut crossing = Vec::new();
-        let positions = loops.into_iter().flatten().map(position).chain(sites.iter().copied()).collect();
-        let loaded = ConstrainedDelaunayTriangulation::<spade::Point2<f64>>::try_bulk_load_cdt(positions, edges, |edge| crossing.push(edge))?;
+        let vertices = loops.into_iter().flatten().map(position).collect();
+        let loaded = ConstrainedDelaunayTriangulation::<spade::Point2<f64>>::try_bulk_load_cdt(vertices, edges, |edge| crossing.push(edge)).map_err(|source| PlanarError::Extent { source })?;
         let mut cdt = NEVec::try_from_vec(crossing.into_iter().map(|edge| edge.map(|index| point(loaded.vertex(FixedVertexHandle::from_index(index)).position()))).collect())
             .map_or(Ok(loaded), |segments| Err(PlanarError::Crossing { segments }))?;
+        let sites = sites
+            .into_iter()
+            .enumerate()
+            .map(|(site, location)| cdt.insert(position(*location.borrow())).map_err(|source| (site, source)))
+            .collect::<Validated<Vec<_>, _>>()
+            .ok()
+            .map_err(|sites| PlanarError::Insertion { sites })?;
         let unrefined = refinement.is_none();
         let RefinementResult { excluded_faces, refinement_complete } = cdt.refine(refinement.unwrap_or_else(|| RefinementParameters::new().with_max_additional_vertices(0)).exclude_outer_faces(true));
-        let excluded = excluded_faces.into_iter().collect::<HashSet<_>>();
-        let mut vertices = Vec::new();
-        let mut slots = HashMap::new();
-        let triangles = cdt
-            .inner_faces()
-            .filter(|face| !excluded.contains(&face.fix()))
-            .map(|face| {
-                face.vertices().map(|vertex| {
-                    *slots.entry(vertex.fix()).or_insert_with(|| {
-                        let slot = vertices.len();
-                        vertices.push(point(vertex.position()));
-                        slot
-                    })
-                })
+        let mut excluded = vec![false; cdt.num_all_faces()];
+        for face in excluded_faces {
+            if let Some(flag) = excluded.get_mut(face.index()) {
+                *flag = true;
+            }
+        }
+        let kept = cdt.inner_faces().filter(|face| excluded.get(face.fix().index()) != Some(&true)).map(|face| face.vertices().map(|vertex| vertex.fix().index())).collect_vec();
+        let mut used = vec![false; cdt.num_vertices()];
+        for vertex in kept.iter().flatten() {
+            if let Some(flag) = used.get_mut(*vertex) {
+                *flag = true;
+            }
+        }
+        let slots = used
+            .iter()
+            .scan(0_usize, |next, used| {
+                Some(used.then(|| {
+                    let slot = *next;
+                    *next = next.strict_add(1);
+                    slot
+                }))
             })
-            .collect::<Box<[_]>>();
+            .collect_vec();
         Ok(Self {
-            vertices: vertices.into_boxed_slice(),
-            triangles,
-            sites: sites.into_iter().map(|site| cdt.locate_vertex(site).and_then(|vertex| slots.get(&vertex.fix()).copied())).collect(),
+            vertices: cdt.vertices().filter(|vertex| used.get(vertex.fix().index()) == Some(&true)).map(|vertex| point(vertex.position())).collect(),
+            triangles: kept.into_iter().filter_map(|corners| corners.try_map(|vertex| slots.get(vertex).copied().flatten())).collect(),
+            sites: sites.into_iter().map(|vertex| slots.get(vertex.index()).copied().flatten()).collect(),
             refinement_complete: unrefined || refinement_complete,
         })
     }
