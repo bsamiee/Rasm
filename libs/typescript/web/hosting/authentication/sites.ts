@@ -1,5 +1,5 @@
-import { Option } from 'effect';
-import { Headers, type HttpServerRequest } from 'effect/http';
+import { Schema } from 'effect';
+import { type HttpServerRequest, UrlParams } from 'effect/http';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -9,10 +9,14 @@ const contract = {
     returnTo: 'return_to',
 } as const;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const User = Schema.Struct({ id: Schema.String, email: Schema.OptionFromOptionalKey(Schema.String) }).pipe(Schema.encodeKeys(contract.headers));
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sessionPath = (action: keyof typeof contract.paths, returnTo: string) => `${contract.paths[action]}?${new URLSearchParams({ [contract.returnTo]: returnTo })}`;
-const user = ({ headers }: HttpServerRequest.HttpServerRequest) => Option.map(Headers.get(headers, contract.headers.id), (id) => ({ id, email: Headers.get(headers, contract.headers.email) }));
+const sessionPath = (action: keyof typeof contract.paths, returnTo: string) => `${contract.paths[action]}?${UrlParams.toString({ [contract.returnTo]: returnTo })}`;
+const user = ({ headers }: HttpServerRequest.HttpServerRequest) => Schema.decodeUnknownOption(User)(headers);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

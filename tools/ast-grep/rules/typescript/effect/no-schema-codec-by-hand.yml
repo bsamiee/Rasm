@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-schema-codec-by-hand
+language: tsx
+severity: error
+utils:
+    schema-member:
+        kind: member_expression
+        has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+    transformation:
+        matches: {effect-module: {name: {regex: '\bSchemaTransformation$'}}}
+    decode-to:
+        kind: call_expression
+        has: {field: function, matches: schema-member, has: {field: property, regex: '^decodeTo$'}}
+    scalar:
+        matches: decode-to
+        pattern: $S.decodeTo($S.$TARGET, $ST.$T)
+        has:
+            field: arguments
+            all:
+                - has:
+                    nthChild: 1
+                    has: {field: property, regex: '^(URL|Number|Finite|BigInt|Date|BigDecimal|ByteSize|Uint8Array|String|TimeZoneNamed|TimeZone|DateTimeUtc|DateTimeZoned|Duration)$'}
+                - has:
+                    nthChild: 2
+                    all:
+                        - has: {field: object, matches: transformation}
+                        - has:
+                            field: property
+                            regex: |-
+                                (?x)^(
+                                    numberFromString | bigintFromString | bigDecimalFromString | urlFromString
+                                  | dateFromString | dateFromMillis | dateTimeUtcFromString | dateTimeZonedFromString
+                                  | durationFromString | durationFromNanos | durationFromMillis
+                                  | byteSizeFromString | byteSizeFromBigInt | byteSizeFromNumber
+                                  | uint8ArrayFromBase64String | stringFromBase64String | stringFromBase64UrlString | stringFromHexString | stringFromUriComponent
+                                  | timeZoneNamedFromString | timeZoneFromString
+                                )$
+    option:
+        kind: call_expression
+        pattern: $S.$WRAP($X).pipe($S.decodeTo($S.Option($_), $ST.$OPTION()))
+        all:
+            - has: {field: function, has: {field: object, has: {field: function, matches: schema-member, has: {field: property, regex: '^(NullOr|UndefinedOr|NullishOr|optionalKey|optional)$'}}}}
+            - has: {field: arguments, has: {matches: decode-to, has: {field: arguments, has: {nthChild: 2, has: {field: function, all: [{has: {field: object, matches: transformation}}, {has: {field: property, regex: '^optionFrom(NullOr|UndefinedOr|NullishOr|OptionalKey|Optional)$'}}]}}}}}
+rewriters:
+    - id: option-codec
+      rule: {matches: option}
+      transform:
+        WRAPPER: {convert: {source: $WRAP, toCase: pascalCase}}
+        CODEC: {replace: {source: $WRAPPER, replace: '^', by: OptionFrom}}
+      fix: $S.$CODEC($X)
+    - id: scalar-codec
+      rule: {matches: scalar}
+      transform:
+        SOURCE: {replace: {source: $T, replace: '^[a-z][A-Za-z0-9]*?(From[A-Za-z0-9]+?)(?:String)?$', by: '$1'}}
+      fix: $S.decodeTo($S.$TARGET$SOURCE)
+rule:
+    kind: call_expression
+    pattern: $HAND
+    any:
+        - matches: option
+        - matches: scalar
+transform:
+    CODEC: {rewrite: {source: $HAND, rewriters: [option-codec, scalar-codec]}}
+fix: $CODEC
+message: '`$HAND` restates `$CODEC`'
+note: 'Pass the `Schema` codec, a hand-built `decodeTo` lacks its encoded-side check'

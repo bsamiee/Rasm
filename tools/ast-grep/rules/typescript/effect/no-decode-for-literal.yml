@@ -3,17 +3,6 @@ id: no-decode-for-literal
 language: tsx
 severity: error
 utils:
-    literal-tree:
-        any:
-            - kind: 'object, array, string, number, true, false, null, undefined, template_string, unary_expression, regex'
-            - matches: typescript-expression-wrapper
-        not:
-            has:
-                stopBy: end
-                kind: |-
-                    identifier, shorthand_property_identifier, this, call_expression, new_expression, member_expression, subscript_expression,
-                    spread_element, template_substitution, arrow_function, function_expression, await_expression, yield_expression,
-                    assignment_expression, augmented_assignment_expression, update_expression
     codec:
         kind: call_expression
         has:
@@ -25,7 +14,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {field: arguments, has: {nthChild: 1, matches: literal-tree}}
+        - has: {field: arguments, has: {nthChild: 1, matches: typescript-literal-expression}}
         - any:
             - has: {field: function, matches: codec}
             - all:

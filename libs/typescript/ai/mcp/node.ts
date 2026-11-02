@@ -13,7 +13,7 @@ import { layerHttp } from '#/server';
 const main = <E>(manifest: Parameters<typeof layerHttp>[0], app: Layer.Layer<never, E, McpServer.McpServer | HttpRouter.HttpRouter | NodeServices.NodeServices>): void => {
     const name = manifest.name.slice(manifest.name.lastIndexOf('/') + 1);
     const settings = {
-        listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.mapTryCatch(NetAddress.inetAddressFromStringUnsafe, String), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),
+        listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.withSchema(Schema.InetAddressFromString), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),
         hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Accepted Host header beyond loopback and bound address')),
     };
     Command.make(

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-getter-function
+language: tsx
+utils:
+    getter-transform:
+        matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^transform$'}}}
+    transformation-transform:
+        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^transform$'}}}
+rule:
+    any:
+        - inside:
+            kind: arguments
+            inside: {kind: call_expression, has: {field: function, matches: getter-transform}}
+        - inside:
+            kind: pair
+            field: value
+            has: {field: key, regex: '^(decode|encode)$'}
+            inside:
+                kind: object
+                inside:
+                    kind: arguments
+                    inside: {kind: call_expression, has: {field: function, matches: transformation-transform}}

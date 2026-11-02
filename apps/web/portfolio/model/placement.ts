@@ -1,4 +1,4 @@
-import { Array, Effect, Match, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Array, Effect, Match, Schema, type SchemaAST, SchemaGetter, SchemaIssue } from 'effect';
 import { type Asset, Assets, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from '#/model/asset';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -21,11 +21,11 @@ const film = Schema.Struct({
     poster: Schema.optionalKey(
         Schema.Struct({ assetId: Id }).pipe(
             Schema.decodeTo(Schema.toType(ImageAsset), {
-                decode: SchemaGetter.transformEffect(({ assetId }) =>
+                decode: SchemaGetter.transformEffect((input, options) =>
                     Assets.use((assets) =>
-                        Match.value(assets[assetId]).pipe(
+                        Match.value(assets[input.assetId]).pipe(
                             Match.when({ mime: Match.is(...ImageAsset.fields.mime.literals) }, Effect.succeed<ImageAsset>),
-                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'Poster file is missing or not an image' }))),
+                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'Poster file is missing or not an image' }, input, options))),
                         ),
                     ),
                 ),
@@ -44,14 +44,15 @@ const ResolvedPlacement = Schema.Union([
 const Placement = StoredPlacement.pipe(
     Schema.decodeTo(ResolvedPlacement, {
         decode: SchemaGetter.transformEffect(
-            Effect.fnUntraced(function* ({ assetId, ...stored }: typeof StoredPlacement.Type) {
+            Effect.fnUntraced(function* (input: typeof StoredPlacement.Type, options: SchemaAST.ParseOptions) {
+                const { assetId, ...stored } = input;
                 return yield* Match.value({ placement: stored, asset: (yield* Assets)[assetId] }).pipe(
                     Match.when({ placement: { kind: 'pdf' }, asset: { mime: Match.is(...PdfAsset.fields.mime.literals) } }, ({ placement, asset }) =>
-                        Effect.mapBoth(Effect.fromNullishOr(sheets(asset)[placement.page - 1]), { onSuccess: (page) => ({ ...placement, asset, page }), onFailure: () => new SchemaIssue.InvalidValue({ message: `PDF has no sheet ${placement.page}` }) }),
+                        Effect.mapBoth(Effect.fromNullishOr(sheets(asset)[placement.page - 1]), { onSuccess: (page) => ({ ...placement, asset, page }), onFailure: () => new SchemaIssue.InvalidValue({ message: `PDF has no sheet ${placement.page}` }, input, options) }),
                     ),
                     Match.when({ placement: { kind: 'video' }, asset: { mime: Match.is(...VideoAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
                     Match.when({ placement: { kind: 'image' }, asset: { mime: Match.is(...ImageAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
-                    Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'File is missing or has another media type' }))),
+                    Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'File is missing or has another media type' }, input, options))),
                 );
             }),
         ),

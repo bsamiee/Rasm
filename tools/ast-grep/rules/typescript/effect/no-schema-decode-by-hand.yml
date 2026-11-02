@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-schema-decode-by-hand
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $SRC.pipe($S.decodeTo($TYPE, $T))
+    all:
+        - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}}}}
+        - any:
+            - pattern: $SRC.pipe($S.decodeTo($S.toType($SRC), $T))
+            - regex: |-
+                (?x)^\w+\.(?:
+                    URLFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.URL
+                  | NumberFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.Number
+                  | FiniteFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.Finite
+                  | BigIntFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.BigInt
+                  | BigDecimalFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.BigDecimal
+                  | DateFrom(?:String|Millis) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.Date
+                  | DateTimeUtcFrom(?:String|Date|Millis|HttpDate) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.DateTimeUtc
+                  | DateTimeZonedFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.DateTimeZoned
+                  | DurationFrom(?:String|Nanos|Millis|IsoString) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.Duration
+                  | ByteSizeFrom(?:String|BigInt|Number) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.ByteSize
+                  | Uint8ArrayFrom(?:Base64|Base64Url|Hex) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.Uint8Array
+                  | StringFrom(?:Base64|Base64Url|Hex|UriComponent) \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.String
+                  | TimeZoneFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.TimeZone
+                  | TimeZoneNamedFromString \.pipe\(\s*\w+\.decodeTo\(\s*\w+\.TimeZoneNamed
+                )\s*,
+fix: $SRC.pipe($S.decode($T))
+message: '`decodeTo($TYPE)` restates the decoded type of `$SRC`'
+note: 'Call `Schema.decode(<transformation>)` to target `Schema.toType(<source>)`'

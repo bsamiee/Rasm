@@ -1,6 +1,6 @@
-import { Array, Function, Match, Option, Struct } from 'effect';
+import { Array, Match, Option, Struct } from 'effect';
 import { type Column, dataTypes } from '#/column';
-import { document, ftsTable, type Relation, referentialActions } from '#/definition';
+import { document, ftsTable, type Relation } from '#/definition';
 import { identifier, literal, quote } from '#/lexical';
 import { tenantSetting } from '#/transaction';
 
@@ -31,7 +31,6 @@ const dialects = {
         projection: ({ kind }: Column, from: string, path: readonly string[]) => `${quote(from)} ${kind === 'json' ? '->' : '->>'} ${literal(`$${path.map((part) => `.${quote(part)}`).join('')}`)}`,
         generated: (expression: string) => `AS (${expression}) VIRTUAL`,
         constraint: (_: string, text: string) => text,
-        action: Function.identity<keyof typeof referentialActions>,
         casefold: (name: string) => `${quote(name)} COLLATE NOCASE`,
         opclass: () => Option.none(),
         projected: (_: string, name: string) => quote(name),
@@ -68,7 +67,6 @@ const dialects = {
         projection: ({ kind }: Column, from: string, path: readonly string[]) => `(${quote(from)} ${kind === 'json' ? '#>' : '#>>'} ARRAY[${path.map(literal).join(', ')}])${['json', 'text'].includes(kind) ? '' : `::${dataTypes.pg[kind]}`}`,
         generated: (expression: string) => `GENERATED ALWAYS AS (${expression}) VIRTUAL`,
         constraint: (name: string, text: string) => `CONSTRAINT ${quote(name)} ${text}`,
-        action: (rule: keyof typeof referentialActions) => referentialActions[rule],
         casefold: (name: string) => `casefold(${quote(name)} COLLATE pg_unicode_fast)`,
         opclass: (method: string, json: boolean) =>
             Match.value({ method, json }).pipe(
@@ -144,7 +142,7 @@ const ddl = (dialect: keyof typeof dialects, declared: Relation, target: (name: 
         const text = [subject, type, ...Option.toArray(projection(entry)).map(style.generated), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(fallback).map((value) => `DEFAULT ${value}`), ...Option.toArray(check).map((rule) => style.constraint(rule.name, rule.text))].join(' ');
         return { ...entry, type, check, fallback, text };
     });
-    const links = references.map(({ columns, table: { definition: parent }, onDelete }) => ({ ...label([...columns, 'fkey']), columns, target: parent.name, action: style.action(onDelete), text: `FOREIGN KEY (${list(columns)}) REFERENCES ${target(parent.name)} (${list(parent.key)}) ON DELETE ${onDelete}` }));
+    const links = references.map(({ columns, table: { definition: parent }, onDelete }) => ({ ...label([...columns, 'fkey']), columns, target: parent.name, onDelete, text: `FOREIGN KEY (${list(columns)}) REFERENCES ${target(parent.name)} (${list(parent.key)}) ON DELETE ${onDelete}` }));
     const built = indexes
         .filter(({ method }) => style.methods.includes(method))
         .map(({ keys, unique, include, where, method, parts }) => {

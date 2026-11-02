@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-schema-getter-by-hand
+language: tsx
+severity: error
+utils:
+    conversion:
+        regex: '^(String|Number|Boolean|BigInt|encodeURIComponent)$'
+    string-member:
+        regex: '^(trim|toLowerCase|toUpperCase|capitalize|uncapitalize|snakeToCamel|camelToSnake)$'
+    string-module:
+        matches: {effect-module: {name: {regex: '\bString$'}}}
+    identity:
+        any:
+            - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
+            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^identity$'}}}}
+rule:
+    kind: identifier, member_expression, arrow_function
+    pattern: $FN
+    all:
+        - matches: effect-getter-function
+        - any:
+            - {kind: identifier, pattern: $NAME, all: [{matches: conversion}, {matches: typescript-global-reference}]}
+            - {kind: member_expression, pattern: globalThis.$NAME, has: {field: property, matches: conversion}}
+            - kind: member_expression
+              pattern: $MODULE.$NAME
+              all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]
+            - {matches: identity, pattern: $IDENTITY}
+            - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, pattern: $IDENTITY}}}
+            - matches:
+                typescript-unary-function:
+                    parameter: {pattern: $P}
+                    result:
+                        any:
+                            - {kind: call_expression, pattern: $NAME($P), has: {field: function, kind: identifier, all: [{matches: conversion}, {matches: typescript-global-reference}]}}
+                            - {kind: call_expression, pattern: globalThis.$NAME($P), has: {field: function, has: {field: property, matches: conversion}}}
+                            - {kind: new_expression, pattern: new $NAME($P), has: {field: constructor, regex: '^Date$'}}
+                            - {kind: call_expression, pattern: $P.$NAME(), has: {field: function, has: {field: property, regex: '^(toString|trim|toLowerCase|toUpperCase)$'}}}
+                            - kind: call_expression
+                              pattern: $MODULE.$NAME($P)
+                              has: {field: function, all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]}
+            - matches: {typescript-constant-function: {result: {matches: typescript-literal-expression, pattern: $CONSTANT}}}
+transform:
+    STRING: {replace: {source: $NAME, replace: '^toString$', by: String}}
+    CONVERSION: {replace: {source: $STRING, replace: '^encodeURIComponent$', by: encodeUriComponent}}
+    PASSTHROUGH: {replace: {source: $IDENTITY, replace: '(?s)^.*$', by: passthrough}}
+    SUCCEED: {replace: {source: $CONSTANT, replace: '(?s)^.*$', by: succeed}}
+message: '`$FN` restates `SchemaGetter.$CONVERSION$PASSTHROUGH$SUCCEED`'
+note: 'Pass `SchemaGetter.<member>` in a `{ decode, encode }` pair in place of `SchemaTransformation.transform`, `succeed` fills an absent key'

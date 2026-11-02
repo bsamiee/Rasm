@@ -1,6 +1,6 @@
 import type { Document, PreflightProcess } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, String } from 'effect';
+import { Array, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, SchemaGetter, String } from 'effect';
 import { resolve } from '#/dom/location';
 import { Model } from '#/dom/model';
 import { Reference, Specifier } from '#/dom/reference';
@@ -22,7 +22,7 @@ const Row: Schema.Codec<Row> = Schema.Struct({
     details: Schema.Record(Schema.String, Schema.String),
     rows: Schema.Array(Schema.suspend((): Schema.Codec<Row> => Row)),
 }).annotate({ description: 'Category or rule with issue count, or issue object with problem and fix' });
-const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]))]);
+const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
 class PreflightProcessView extends Schema.TaggedClass<PreflightProcessView, { readonly brand: unique symbol }>()('PreflightProcess', {
     ...Reference.fields,
     targetObject: Reference,
@@ -71,18 +71,15 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const nested: (rows: (typeof Aggregated.Type)[2]) => readonly Row[] = Array.match({
+const nested: (rows: readonly (typeof Flat.Type)[]) => readonly Row[] = Array.match({
     onEmpty: Array.empty,
     onNonEmpty: ([[depth, label, page, , details], ...rest]) => {
         const [under, after] = Array.span(rest, ([below]) => below > depth);
         return [{ label, ...Record.getSomes({ page: Option.liftPredicate(page, String.isNonEmpty) }), details: Record.fromEntries(details), rows: nested(under) }, ...nested(after)];
     },
 });
-const aggregated = (process: PreflightProcess) =>
-    Result.try(() => process.aggregatedResults).pipe(
-        Result.flatMap(Schema.decodeUnknownResult(Aggregated)),
-        Result.map(([, , rows]) => nested(rows)),
-    );
+const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Schema.Array(Row), { decode: SchemaGetter.transform(([, , rows]) => nested(rows)), encode: SchemaGetter.forbiddenEncoding }));
+const aggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(Aggregated)));
 const checked = Effect.fn('checked')(function* (document: Document, named: Option.Option<string>) {
     const { app } = yield* Model;
     const { preflightOff, preflightWorkingProfile: working } = document.preflightOptions;

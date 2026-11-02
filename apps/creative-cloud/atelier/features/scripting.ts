@@ -17,7 +17,7 @@ import type { status } from '#/status';
 
 const Form = Schema.TaggedUnion({ Command: Execute.fields, Element: Perform.fields });
 const Dictionary = Schema.Struct({ application: McpSchema.param('application', Schema.String), kind: McpSchema.param('kind', Kind) });
-const Reply = Schema.Union([Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(ExecuteScript.Result, { decode: SchemaGetter.succeed({}), encode: SchemaGetter.succeed('') })), Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(ExecuteScript.Result)))]);
+const Reply = Schema.Union([Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(ExecuteScript.Result, { decode: SchemaGetter.succeed({}), encode: SchemaGetter.forbiddenEncoding })), Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(ExecuteScript.Result)))]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ const dictionaries = Effect.gen(function* () {
             ...completion,
             kind: () => Effect.succeed([...Kind.literals]),
             name: Effect.fnUntraced(function* (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) {
-                const chosen = yield* Schema.decodeUnknownEffect(Dictionary)(context?.arguments);
+                const chosen = yield* Schema.decodeEffect(Schema.toCodecStringTree(Dictionary))(context?.arguments);
                 return Array.map((yield* automation.terms(yield* described(chosen.application)))[chosen.kind], Struct.get('name'));
             }),
         },

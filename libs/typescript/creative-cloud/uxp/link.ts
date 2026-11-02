@@ -9,7 +9,7 @@ import { Plugin } from '#/runtime';
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')({
-    application: Schema.URLFromString.pipe(Schema.decodeTo(Schema.URL, { decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : new URL(`${url.href}/`))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Served application bundle URL with trailing slash' }),
+    application: Schema.URLFromString.pipe(Schema.decode({ decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : Url.setPathname(url, `${url.pathname}/`))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Served application bundle URL with trailing slash' }),
     extension: Schema.String.annotate({ description: 'Plugin manifest name' }),
 }) {
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(

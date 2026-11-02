@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forbidden-encoding-by-hand
+language: tsx
+severity: error
+utils:
+    getter:
+        kind: member_expression
+        pattern: $SG.$GETTER
+        matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^(forbidden|succeed)$'}}}
+    union:
+        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}
+    decode-to:
+        matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decodeTo$'}}}
+    transformation:
+        matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^Transformation$'}}}
+    encode-position:
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^encode$'}}
+            - inside: {kind: arguments, inside: {kind: new_expression, has: {field: constructor, matches: transformation}}}
+              nthChild: 2
+    union-member:
+        inside:
+            kind: pair
+            field: value
+            has: {field: key, regex: '^encode$'}
+            inside:
+                kind: object
+                inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        has: {field: function, matches: decode-to}
+                        inside:
+                            kind: arguments
+                            inside:
+                                kind: call_expression
+                                has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                                inside: {kind: array, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: union}}}}
+rule:
+    kind: call_expression
+    pattern: $HAND
+    all:
+        - has: {field: function, matches: getter}
+        - any:
+            - pattern: $FIXABLE
+              all:
+                - has: {field: function, has: {field: property, regex: '^forbidden$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: {typescript-constant-function: {result: {kind: 'string, template_string', not: {has: {kind: template_substitution}}}}}}}
+                - matches: encode-position
+            - pattern: $KEPT
+              all:
+                - has: {field: function, has: {field: property, regex: '^succeed$'}}
+                - matches: union-member
+rewriters:
+    - id: forbidden-encoding
+      rule: {kind: call_expression, pattern: $SG.forbidden($$$_)}
+      fix: $SG.forbiddenEncoding
+transform:
+    FIXED: {rewrite: {source: $FIXABLE, rewriters: [forbidden-encoding]}}
+fix: $FIXED$KEPT
+message: '`$HAND` encodes without reading the decoded value'
+note: 'Pass `SchemaGetter.forbiddenEncoding` as the encode getter of a decode-only link'

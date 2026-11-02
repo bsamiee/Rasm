@@ -1,4 +1,4 @@
-import { Effect, Schema, Struct } from 'effect';
+import { Effect, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -6,7 +6,7 @@ const Tables = Schema.Struct({
     directory: Schema.Struct({ tables: Schema.Record(Schema.String, Schema.Unknown) }),
     hhea: Schema.Struct(Struct.Record(['ascent', 'descent', 'lineGap'], Schema.Finite)),
     head: Schema.Struct(Struct.Record(['xMin', 'yMin', 'xMax', 'yMax'], Schema.Finite)),
-    post: Schema.Struct({ isFixedPitch: Schema.Finite, italicAngle: Schema.Finite }),
+    post: Schema.Struct({ isFixedPitch: Schema.Finite.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() })), italicAngle: Schema.Finite }),
     'OS/2': Schema.OptionFromOptional(
         Schema.Struct({
             usWeightClass: Schema.Int,

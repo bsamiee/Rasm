@@ -1,6 +1,6 @@
-import { Array, Effect, Equal, Function, Option, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, Function, Option, Record, Schema, Struct } from 'effect';
 import type { SqlClient } from 'effect/sql';
-import type { Catalog, Relation } from '#/definition';
+import { type Catalog, type Relation, referentialActions } from '#/definition';
 import { identifier, literal, quote } from '#/lexical';
 import { ddl } from '#/reconcile/ddl';
 import { catalogDdl, diff } from '#/reconcile/diff';
@@ -15,7 +15,7 @@ const PgRelation = Schema.Struct({
     grants: Schema.Array(Schema.Tuple([Schema.String, Schema.String])),
     columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, expression: Schema.NullOr(Schema.String), generated: Schema.Literals(['', 's', 'v']), required: Schema.Boolean, sources: Schema.Array(Schema.String) })),
     checks: Schema.Array(Schema.Struct({ name: Schema.String, definition: Schema.String, columns: Schema.Array(Schema.String) })),
-    references: Schema.Array(Schema.Struct({ name: Schema.String, columns: Schema.NonEmptyArray(Schema.String), target: Schema.String, onDelete: Schema.String })),
+    references: Schema.Array(Schema.Struct({ name: Schema.String, columns: Schema.NonEmptyArray(Schema.String), target: Schema.String, onDelete: Schema.Literals(Object.values(referentialActions)).transform(Record.keys(referentialActions)) })),
     invalid: Schema.Array(Schema.String),
     indexes: Schema.Array(
         Schema.Struct({
@@ -33,22 +33,25 @@ const PgRelation = Schema.Struct({
     ),
     policies: Schema.Array(Schema.Struct({ name: Schema.String, using: Schema.NullOr(Schema.String), check: Schema.NullOr(Schema.String), roles: Schema.Array(Schema.String) })),
 });
+const Configurations = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) })));
 class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol }>('PgPrelude')({
     migrator: Schema.String,
     absent: Schema.Array(Schema.String),
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 }) {
     static readonly preamble = ["SET LOCAL lock_timeout = '5s'", "SET LOCAL transaction_timeout = '2min'"];
-    static readonly open = (sql: SqlClient.SqlClient, required: readonly string[], filters: readonly string[], configurations: readonly Extract<Option.Option.Value<Relation['definition']['search']>['tokenizer'], object>[]) =>
+    static readonly open = (sql: SqlClient.SqlClient, required: readonly string[], filters: readonly string[], configurations: typeof Configurations.Type) =>
         Effect.forEach(PgPrelude.preamble, (text) => sql.unsafe(text), { discard: true }).pipe(
             Effect.andThen(
                 sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
                     (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)
                         AND (EXISTS (SELECT 1 FROM pg_extension e WHERE e.extnamespace = n.oid AND e.extname = ANY(${required}::text[])) OR EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictnamespace = n.oid AND d.dictname = ANY(${filters}::text[])))), 'pg_temp'), true) AS search_path`,
             ),
-            Effect.andThen(
-                sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
-                    declared AS (SELECT d.name, d.configuration::regconfig::oid AS base, (SELECT c.oid FROM pg_ts_config c WHERE c.cfgnamespace = current_schema()::regnamespace AND c.cfgname = d.name) AS live, array(SELECT quote_ident(f) FROM unnest(d.filters) f) AS filters FROM json_to_recordset(${JSON.stringify(configurations)}::json) d(name text, configuration text, filters text[])),
+            Effect.andThen(Schema.encodeEffect(Configurations)(configurations)),
+            Effect.flatMap(
+                (declared) =>
+                    sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
+                    declared AS (SELECT d.name, d.configuration::regconfig::oid AS base, (SELECT c.oid FROM pg_ts_config c WHERE c.cfgnamespace = current_schema()::regnamespace AND c.cfgname = d.name) AS live, array(SELECT quote_ident(f) FROM unnest(d.filters) f) AS filters FROM json_to_recordset(${declared}::json) d(name text, configuration text, filters text[])),
                     tokens AS (SELECT d.name, t.tokid, t.alias, CASE WHEN b.dictionaries IS NOT NULL THEN d.filters || b.dictionaries END AS wanted, l.dictionaries AS now
                         FROM declared d JOIN pg_ts_config c ON c.oid = d.base CROSS JOIN ts_token_type(c.cfgparser) t
                         LEFT JOIN maps b ON (b.mapcfg, b.maptokentype) = (d.base, t.tokid) LEFT JOIN maps l ON (l.mapcfg, l.maptokentype) = (coalesce(d.live, d.base), t.tokid))
@@ -135,7 +138,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 .map(({ name: target, parts }) => ({ from: prior(parts), to: target }));
             const relabeled = (constraint: string) => relabels.find(({ from }) => from === constraint)?.to ?? constraint;
             const links = entry.live.references.map((row) => ({ ...row, name: relabeled(row.name), columns: Array.map(row.columns, entry.renamed), target: resolved.referenced(row.target).name }));
-            const stale = entry.rendered.links.filter((link) => !links.some((row) => row.name === link.name && Equal.equals(row.columns, link.columns) && row.target === link.target && row.onDelete === link.action));
+            const stale = entry.rendered.links.filter((link) => !links.some((row) => row.name === link.name && Equal.equals(row.columns, link.columns) && row.target === link.target && row.onDelete === link.onDelete));
             const planned = (index: (typeof entry.rendered.indexes)[number]) => {
                 const target = Array.findFirst(desired.indexes, (row) => row.name === index.name);
                 const fits = (row: (typeof entry.live.indexes)[number]) => row.valid && Option.exists(target, (wanted) => Equal.equals(shape(row, entry.renamed), shape(wanted, Function.identity)));

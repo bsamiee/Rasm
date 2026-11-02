@@ -24,6 +24,7 @@ class ImageAsset extends Schema.Class<ImageAsset, { readonly brand: unique symbo
 class VideoAsset extends Schema.Class<VideoAsset, { readonly brand: unique symbol }>('VideoAsset')({ ...file, mime: Schema.Literals(['video/mp4', 'video/webm']), ...Dimensions.fields }) {}
 class PdfAsset extends Schema.Class<PdfAsset, { readonly brand: unique symbol }>('PdfAsset')({ ...file, mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Page) }) {}
 const Asset = Schema.Union([ImageAsset, VideoAsset, PdfAsset]);
+const AssetJson = Schema.fromJsonString(Asset);
 const AssetCollection = Schema.Record(Schema.String, Asset);
 const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals);
 
@@ -38,4 +39,4 @@ const mediaUrl = (asset: typeof Asset.Type, width?: number) => `/api/media/${ass
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetCollection, Assets, Id, ImageAsset, mediaPath, mediaTypes, mediaUrl, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };
+export { Asset, AssetCollection, AssetJson, Assets, Id, ImageAsset, mediaPath, mediaTypes, mediaUrl, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };

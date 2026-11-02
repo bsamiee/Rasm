@@ -1,5 +1,4 @@
-import { Array, Effect, Option, Record, Schema } from 'effect';
-import { Hex } from 'effect/encoding';
+import { Array, Effect, flow, Option, Record, Schema } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
 import { type Column, dataTypes, type Field, type Fields } from '#/column';
 import { definition, document, ftsTable, type Present, type TableOptions } from '#/definition';
@@ -31,7 +30,6 @@ const dialects = {
 };
 
 // --- [STATEMENTS]
-const encoded = <S extends Schema.Constraint>(schema: S) => Schema.encodeUnknownEffect(Schema.fromJsonString(schema, { replacer: (_, value) => (value instanceof Uint8Array ? Hex.encode(value) : value) }));
 const table = <const F extends Fields, const O extends TableOptions<F>>(
     name: string,
     fields: F,
@@ -70,8 +68,10 @@ const table = <const F extends Fields, const O extends TableOptions<F>>(
         };
         return { sql, dialect, owner, prefix, order, keys, reads, ignore, merge, inserting, updating, matching };
     });
-    const [writable, keyed] = [Schema.Array(Schema.Struct(Record.fromIterableWith(written, ({ field, schema }) => [field, schema]))), written.filter(({ name: part }) => relation.key.includes(part))];
-    const [rows, lists, bound] = [encoded(writable), Record.map(relation.columns, ({ schema }) => encoded(Schema.Array(schema))), Schema.encodeEffect(Schema.Natural)];
+    const encoded = flow(Schema.fromJsonString, Schema.encodeUnknownEffect);
+    const wire = ({ kind, schema }: Column) => (kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(schema) : schema);
+    const [writable, keyed] = [Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.field, wire(entry)]))), written.filter(({ name: part }) => relation.key.includes(part))];
+    const [rows, lists, bound] = [encoded(writable), Record.map(relation.columns, (entry) => encoded(Schema.Array(wire(entry)))), Schema.encodeEffect(Schema.Natural)];
     const distinct = encoded(writable.check(Schema.makeFilter((entries) => Array.dedupe(entries.map((row) => keyed.map(({ field }) => row[field]))).length === entries.length, { expected: 'rows with distinct keys' })));
     const [one, many, changed, found] = [
         Schema.decodeUnknownEffect(Schema.NonEmptyArray(struct)),

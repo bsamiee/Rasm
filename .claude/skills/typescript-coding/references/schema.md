@@ -55,27 +55,54 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 
 ## [03]-[TRANSFORMATIONS]
 
-Transformations state decode and encode in one schema from the encoded form to the domain type, and the conversion selects the form:
+Transformations pair a decode getter from encoded form to domain type with an encode getter back. Schemas declare one direction, `Schema.flip` derives the reverse, and each conversion selects its form:
 
-| [INDEX] | [CONVERSION]               | [FORM]                                                                              |
-| :-----: | :------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | Scalar written as text     | `BigDecimalFromString`, `DateTimeUtcFromString`, `DurationFromString`               |
-|  [02]   | Encoded literal to domain  | `Schema.Literals(wire).transform(domain)`                                           |
-|  [03]   | Delimited list             | `SchemaGetter.split()` decoding, `SchemaGetter.transform(Array.join(','))` encoding |
-|  [04]   | Key-value text             | `decodeTo(Schema.Record(K, V), SchemaTransformation.splitKeyValue({ separator }))`  |
-|  [05]   | Text grammar               | `Schema.TemplateLiteralParser` piped into `decodeTo`                                |
-|  [06]   | Total conversion           | `decodeTo(to, SchemaTransformation.transform({ decode, encode }))`                  |
-|  [07]   | Partial or service reading | `SchemaTransformation.transformEffect` failing with `SchemaIssue.InvalidValue`      |
-|  [08]   | Decode-only source         | `encode: SchemaGetter.forbidden(() => reason)`                                      |
+| [INDEX] | [CONVERSION]                 | [FORM]                                                                              |
+| :-----: | :--------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | Scalar written as text       | `BigDecimalFromString`, `DateTimeUtcFromString`, `DurationFromString`               |
+|  [02]   | Encoded literal to domain    | `Schema.Literals(wire).transform(domain)`                                           |
+|  [03]   | Coercion a getter names      | `{ decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() }`                 |
+|  [04]   | Delimited list               | `SchemaGetter.split()` decoding, `SchemaGetter.transform(Array.join(','))` encoding |
+|  [05]   | Key-value text               | `decodeTo(Schema.Record(K, V), SchemaTransformation.splitKeyValue({ separator }))`  |
+|  [06]   | Text grammar                 | `Schema.TemplateLiteralParser` piped into `decodeTo`                                |
+|  [07]   | Total conversion             | `decodeTo(to, SchemaTransformation.transform({ decode, encode }))`                  |
+|  [08]   | Change within one type       | `Schema.decode(t)`, `Schema.encode(t)` over encoded form                            |
+|  [09]   | Throwing or service parse    | `SchemaGetter.transformEffect` with `Effect.try` failing `SchemaIssue.InvalidValue` |
+|  [10]   | Constant per source case     | `decode: SchemaGetter.succeed(value)`, filling an absent key                        |
+|  [11]   | Decode-only source           | `encode: SchemaGetter.forbiddenEncoding`                                            |
+|  [12]   | Fallback over a failed parse | `Schema.catchDecoding(f)` around whole parse effect                                 |
 
 ```ts
-const LineFromText = Schema.TemplateLiteralParser([Schema.String, ' x', Schema.Finite, ' @ ', Schema.BigDecimalFromString]).pipe(
-    Schema.decodeTo(Line, SchemaTransformation.transform({ decode: ([sku, , quantity, , price]) => ({ sku, quantity, price }), encode: ({ sku, quantity, price }) => [sku, ' x', quantity, ' @ ', price] as const })),
+class Certificate extends Schema.Class<Certificate, { readonly brand: unique symbol }>('Certificate')({
+    subject: Schema.NonEmptyString,
+    fingerprint: Schema.String.check(Schema.isPattern(/^(?:[\dA-F]{2}:){31}[\dA-F]{2}$/)),
+    validFrom: Schema.DateTimeUtcFromDate,
+    validTo: Schema.DateTimeUtcFromDate,
+}) {}
+
+const CertificateFromPem = Schema.String.pipe(
+    Schema.decodeTo(Certificate, {
+        decode: SchemaGetter.transformEffect((pem, options) =>
+            Effect.try({ try: () => new X509Certificate(pem), catch: () => new SchemaIssue.InvalidValue({ expected: 'PEM certificate' }, pem, options) }).pipe(
+                Effect.map(({ subject, fingerprint256, validFromDate, validToDate }) => ({ subject, fingerprint: fingerprint256, validFrom: validFromDate, validTo: validToDate })),
+            ),
+        ),
+        encode: SchemaGetter.forbiddenEncoding,
+    }),
 );
 ```
 
-`LineFromText` reads `A-17 x3 @ 12.50` into a `Line`, the parts state the text grammar alone, and `Line` decodes them with its field checks once (`x0` fails at `quantity`):
-- `Schema.StringFromUriComponent` parts escape each URI path segment on encode
+`CertificateFromPem` replaces `new X509Certificate(pem)` inside `try` followed by `new Certificate(...)`. `X509Certificate` from `node:crypto` throws on malformed text, and the getter returns encoded fields for `Certificate` to decode its dates, check `fingerprint`, and construct itself:
+- Decode getters read their source's `Type` and target checks run on their output, `FiniteFromString` rejects `NaN` that `NumberFromString` returns
+- Getter throws die as defects, a `Result` parse fails through `Effect.fromResult` and an `Option` parse through `Option.match`
+- `transform` and `transformEffect` skip an absent key, `transformOptional` receives it as `Option.none()` and returns `Option.none()` to omit it
+- `Schema` codecs (`URLFromString`, `DateFromString`) hold a transformation with an encoded-side check, a `decodeTo` restating one lacks it
+- `Schema.Class` holds a transformation constructing its instance, `decodeUnknown(Struct)` followed by `new X(...)` restates it
+- `Schema.Class(id)` takes fields or a `Struct`, `X.pipe(Schema.encodeTo(Wire, t))` adds a whole-object transformation to a class
+- `encodeKeys`, `extendTo`, `withDecodingDefault*`, `tagDefaultOmit`, and `TemplateLiteralParser` hold their own transformation
+- `decodeTo(to)` without a transformation composes schemas, `Schema.decode(t)` targets `Schema.toType(source)` and keeps source checks on output
+- Transformations shared by more than one schema are one value, `composeTransformation` chains transformations in place of an intermediate schema
+- `Schema.StringFromUriComponent` as a `TemplateLiteralParser` part escapes each URI path segment on encode
 - Services a transformation reads join `DecodingServices` and `EncodingServices`, and the decode effect requires them
 
 ## [04]-[OPTIONALITY]

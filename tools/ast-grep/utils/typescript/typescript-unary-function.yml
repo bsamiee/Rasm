@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-unary-function
+language: tsx
+arguments: [parameter, result]
+rule:
+    kind: arrow_function
+    all:
+        - any:
+            - has: {field: parameter, kind: identifier, matches: parameter}
+            - has:
+                field: parameters
+                all:
+                    - has: {kind: required_parameter, has: {field: pattern, kind: identifier, matches: parameter}}
+                    - not: {has: {kind: 'required_parameter, optional_parameter', nthChild: 2}}
+        - has: {field: body, matches: result}

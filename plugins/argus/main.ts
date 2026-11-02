@@ -75,22 +75,22 @@ const INITIAL = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Timeout = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.durationFromMillis));
+const Timeout = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.decodeTo(Schema.DurationFromMillis));
 const Server = Schema.Struct({
     command: Schema.String,
     args: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
     extensionToLanguage: Schema.Record(Schema.String, Schema.String),
     initializationOptions: Schema.optionalKey(Schema.Json),
-    settings: Schema.optionalKey(Schema.Json),
+    settings: Schema.OptionFromOptionalKey(Schema.Json),
     workspaceFolder: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('.'))),
     startupTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.infinity))),
     shutdownTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.infinity))),
     requestTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.minutes(1)))),
 });
 const File = Schema.Struct({ file: Schema.String.annotate({ description: 'Absolute or project-relative path' }) });
-const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
-const Position = Schema.Struct({ ...File.fields, line: Coordinate.annotate({ description: '1-based line' }), column: Coordinate.annotate({ description: '1-based UTF-16 column' }) });
+const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)), SchemaTransformation.transform({ decode: (coordinate) => coordinate - 1, encode: (coordinate) => coordinate + 1 })));
+const Position = Schema.Struct({ ...File.fields, line: Coordinate.pipe(Schema.annotateEncoded({ description: '1-based line' })), character: Coordinate.pipe(Schema.annotateEncoded({ description: '1-based UTF-16 column' })) }).pipe(Schema.encodeKeys({ character: 'column' }));
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -129,8 +129,8 @@ const watch = (root: string, ignore: string[], snapshot: string) => {
     );
 };
 
-const listen = (connection: MessageConnection, settings: Schema.Json | undefined, listening: Deferred.Deferred<void>) => {
-    const setting = (section: string | undefined) => (section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, (owner) => Option.fromNullishOr(Predicate.hasProperty(owner, key) ? owner[key] : undefined)), Option.fromNullishOr(settings));
+const listen = (connection: MessageConnection, settings: Option.Option<Schema.Json>, listening: Deferred.Deferred<void>) => {
+    const setting = (section: string | undefined) => (section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, (owner) => Option.fromNullishOr(Predicate.hasProperty(owner, key) ? owner[key] : undefined)), settings);
     return Stream.callback<(current: typeof INITIAL) => typeof INITIAL>((queue) => {
         connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(flow(Struct.get('section'), setting, Option.getOrNull)));
         connection.onRequest(RegistrationRequest.type, ({ registrations }) => {
@@ -224,7 +224,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     }).flatMap(([method, registerOptions]) => (Predicate.isObject(registerOptions) ? [[method, { id: method, method, registerOptions }] as const] : []));
     yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, declared) }));
     yield* notify(InitializedNotification.type, {});
-    yield* config.settings === undefined ? Effect.void : notify(DidChangeConfigurationNotification.type, { settings: config.settings });
+    yield* Option.match(config.settings, { onNone: () => Effect.void, onSome: (settings) => notify(DidChangeConfigurationNotification.type, { settings }) });
     yield* Effect.addFinalizer(() =>
         Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))), Effect.andThen(child.exitCode), Effect.timeout(config.shutdownTimeout), Effect.ignore({ log: 'Warn', message: 'shutdown failed' })),
     );
@@ -297,7 +297,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     };
 });
 
-const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false);
+const query = <const Name extends string, P extends Schema.Constraint>(name: Name, description: string, parameters: P) => Tool.make(name, { description, parameters, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false);
 
 const initialize = Effect.fn('initialize')(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -345,7 +345,7 @@ const initialize = Effect.fn('initialize')(function* () {
     });
     const location = (uri: string, { start: { line, character } }: Range) => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
     const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: [targets ?? []].flat().map((target) => ('targetUri' in target ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
-    const point = (item: TextDocumentItem, { line, column }: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position: { line: line - 1, character: column - 1 } });
+    const point = (item: TextDocumentItem, { file, ...position }: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position });
     const flattened = (message: Diagnostic['message']) => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
     const severities = new Map(Object.entries(DiagnosticSeverity).map(([name, value]) => [value, name.toLowerCase()]));
     yield* Effect.all(

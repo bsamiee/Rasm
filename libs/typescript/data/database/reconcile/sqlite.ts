@@ -62,7 +62,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     entry.owned &&
                     (!entry.live.strict ||
                         entry.live.withoutRowid !== entry.declared.definition.withoutRowid ||
-                        entry.rendered.links.some((link) => !linked.some(({ target, columns, onDelete }) => target === link.target && onDelete === link.action && Equal.equals(columns, link.columns))) ||
+                        entry.rendered.links.some((link) => !linked.some(({ target, columns, onDelete }) => target === link.target && onDelete === link.onDelete && Equal.equals(columns, link.columns))) ||
                         linked.some(({ columns }) => columns.some((column) => dropping.includes(column))) ||
                         entry.fields.some(({ definition, found }) => definition.retype && Option.isSome(found) && !entry.live.sql.includes(`${definition.text}, `))),
                 dropped,

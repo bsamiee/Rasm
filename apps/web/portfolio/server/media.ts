@@ -4,7 +4,7 @@ import { SecureRandom } from 'effect/crypto';
 import { HttpRouter, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { Api } from '#/model/api';
-import { Asset, Id, mediaPath } from '#/model/asset';
+import { type Asset, AssetJson, Id, mediaPath } from '#/model/asset';
 import { authorize } from '#/server/session';
 import { attachUpload, beginUpload, completeUpload, finishRelease, Release, readAsset, readPendingUploads, releaseUploads } from '#/server/store/assets';
 
@@ -18,6 +18,10 @@ type Upload =
           readonly attemptId: string;
           readonly files: readonly { readonly key: string; readonly field: 'file' | 'renditions'; readonly name?: string; readonly size: number }[];
       };
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const MediaParams = Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.FiniteFromString) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -33,7 +37,7 @@ const releaseObjects = Effect.fnUntraced(function* (release: Release) {
 const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.Part }>().pipe(
     Match.when({ current: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part: field }) =>
         Effect.gen(function* () {
-            const asset = yield* Schema.decodeEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => HttpApiError.BadRequest.make()));
+            const asset = yield* Schema.decodeEffect(AssetJson)(field.value).pipe(Effect.mapError(() => HttpApiError.BadRequest.make()));
             const attemptId = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());
             const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [...('renditions' in asset ? (asset.renditions ?? []).map(({ width, size }) => ({ key: `${attemptId}/${width}`, field: 'renditions' as const, name: String(width), size })) : []), { key: attemptId, field: 'file', size: asset.size }];
             const existing = yield* Effect.acquireRelease(
@@ -61,7 +65,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
 );
 const readMedia = Effect.fn('readMedia')(
     function* (email: string) {
-        const asset = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.FiniteFromString) })).pipe(Effect.flatMap(readAsset));
+        const asset = yield* HttpRouter.schemaPathParams(MediaParams).pipe(Effect.flatMap(readAsset));
         if (!asset.published) {
             yield* authorize(email);
         }

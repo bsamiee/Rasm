@@ -1,9 +1,13 @@
-import { Cause, Context, Duration, Effect, identity, Layer, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Duration, Effect, identity, Layer, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import type { Execute } from '#/apple-events';
 import { Contract } from '#/contract';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const MessageJson = Schema.fromJsonString(Schema.Unknown);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -28,12 +32,11 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
             RpcClient.Protocol.make(
                 Effect.fnUntraced(function* (writeResponse) {
                     const { execute } = yield* Automation;
-                    const parser = RpcSerialization.json.makeUnsafe();
                     const sent = Effect.fnUntraced(
                         function* (clientId: number, request: RpcMessage.RequestEncoded) {
-                            const { reply } = yield* execute({ pid, ...event(yield* Schema.decodeUnknownEffect(Schema.String)(parser.encode(request))) });
+                            const { reply } = yield* execute({ pid, ...event(yield* Schema.encodeEffect(MessageJson)(request)) });
                             // biome-ignore lint/nursery/noUnsafeTypeAssertion: RpcClient decodes each part through codecFor
-                            const responses = parser.decode(yield* Schema.decodeUnknownEffect(Schema.String)(reply)) as readonly RpcMessage.FromServerEncoded[];
+                            const responses = Array.ensure(yield* Schema.decodeUnknownEffect(MessageJson)(reply)) as readonly RpcMessage.FromServerEncoded[];
                             yield* Effect.forEach(responses, (response) => writeResponse(clientId, response), { discard: true });
                         },
                         (effect, _, request) => Effect.mapError(effect, (cause) => RpcClientError.RpcClientError.make({ reason: RpcClientError.RpcClientDefect.make({ message: `${request.tag} request to process ${pid} failed`, cause }) })),

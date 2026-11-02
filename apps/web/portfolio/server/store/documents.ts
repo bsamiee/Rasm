@@ -12,15 +12,20 @@ import { bookkeeping, documents, references } from '#/server/store/catalog';
 
 const mimes = JSON.stringify(Record.fromIterableWith(Placement.to.members, ({ fields }) => [fields.kind.literal, fields.asset.schema.fields.mime.literals]));
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const BatchResult = Schema.TupleWithRest(Schema.Tuple([Schema.Array(Schema.Unknown), Schema.Tuple([Schema.Struct({ revision: documents.fields.revision, unchanged: Schema.BooleanFromBit })])]), [Schema.Unknown]);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const empty = Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({}));
 const readDocument = Effect.fn('readDocument')(
     (state: typeof documents.fields.state.Type) =>
         Effect.flatten(
             Effect.zipWith(
                 SqlClient.SqlClient,
-                Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({})),
-                (sql, empty) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${empty})), 'assets', (
+                empty,
+                (sql, body) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', (
                     SELECT json_group_object(a.id, json_set(json_remove(a.body, ${sql.literal(bookkeeping)}), '$.id', a.id)) FROM assets a
                     WHERE a.available AND (s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${references(sql, sql.literal('documents'))}) WHERE state = s.state))
                 )) AS data
@@ -47,10 +52,7 @@ const writeDocument = Effect.fn('writeDocument')(
         const published = sql`INSERT INTO documents (state, body, revision) SELECT 'published', body, revision FROM documents WHERE state = 'draft' AND body = ${body} AND revision IN (${revision}, ${revision + 1})
             ON CONFLICT (state) DO UPDATE SET body = excluded.body, revision = excluded.revision
             WHERE (documents.body, documents.revision) IS DISTINCT FROM (excluded.body, excluded.revision)`;
-        const [saved, [current]] = yield* Effect.flatMap(
-            atomic([save, state, ...(publish ? [published] : [])]),
-            Schema.decodeUnknownEffect(Schema.TupleWithRest(Schema.Tuple([Schema.Array(Schema.Unknown), Schema.Tuple([Schema.Struct({ revision: documents.fields.revision, unchanged: Schema.BooleanFromBit })])]), [Schema.Unknown])),
-        );
+        const [saved, [current]] = yield* Effect.flatMap(atomic([save, state, ...(publish ? [published] : [])]), Schema.decodeUnknownEffect(BatchResult));
         return yield* Match.value({ written: Array.isReadonlyArrayNonEmpty(saved), ...current }).pipe(
             Match.whenOr({ written: true }, { revision, unchanged: true }, ({ revision: stored }) => Effect.succeed(stored)),
             Match.when({ revision }, () => Effect.fail(HttpApiError.Conflict.make())),

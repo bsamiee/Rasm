@@ -6,7 +6,7 @@ import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const PendingUpload = Schema.Struct({ id: Id, name: Schema.NonEmptyString, status: Schema.Literals(['incomplete', 'cleanup', 'removing']) });
-const Revision = Schema.TemplateLiteralParser(['"', Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)), '"']).pipe(Schema.decodeTo(Schema.Int, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
+const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

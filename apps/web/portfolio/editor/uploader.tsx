@@ -7,7 +7,7 @@ import { HttpApiClient } from 'effect/http-api';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { assets, draft, hero, pendingRequest, updateEntry } from '#/editor/state';
 import { Api } from '#/model/api';
-import { Asset, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
+import { type Asset, AssetJson, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
 import { Composition, placementsFor } from '#/model/placement';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ const uppy = Atom.make((get) => {
             const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: (cause) => new Cause.UnknownError(cause, 'File reader failed to load. Retry file') });
             const { asset, renditions } = yield* inspectFile({ data, id: SecureRandom.uuidV7Unsafe(), name, mime: type });
             const compositions = Array.map(target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [], (placement) => Composition.make({ id: SecureRandom.uuidV7Unsafe(), items: [placement] }));
-            return { asset: yield* Schema.encodeEffect(Schema.fromJsonString(Asset))(asset), prepared: { asset, compositions }, renditions };
+            return { asset: yield* Schema.encodeEffect(AssetJson)(asset), prepared: { asset, compositions }, renditions };
         }),
         { concurrency: 2, message: 'Reading file' },
     );

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-search-params-by-hand
+language: tsx
+severity: error
+utils:
+    search-params:
+        kind: new_expression
+        has: {field: constructor, regex: '^(globalThis\.)?URLSearchParams$', matches: typescript-global-reference}
+    held-params:
+        any:
+            - kind: member_expression
+              has: {field: property, regex: '^searchParams$'}
+            - matches: search-params
+            - kind: identifier
+              pattern: $PARAMS
+              inside:
+                kind: statement_block, program
+                stopBy: end
+                has: {kind: lexical_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $PARAMS}}, {has: {field: value, matches: search-params}}]}}
+rule:
+    pattern: $HAND
+    any:
+        - kind: new_expression
+          all:
+            - has: {field: arguments, has: {nthChild: 1, kind: object}}
+            - matches: search-params
+        - kind: call_expression
+          has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(get|getAll)$'}
+                - has: {field: object, matches: held-params}
+message: '`$HAND` reads or builds search parameters by hand'
+note: 'Declare `Schema.fromURLSearchParams(<struct>)` at module scope, decode with `Schema.decodeOption` and encode with `Schema.encodeOption`'

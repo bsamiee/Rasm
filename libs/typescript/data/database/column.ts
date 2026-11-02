@@ -1,4 +1,4 @@
-import { Array, Equal, Filter, Function, flow, Match, Option, Schema, SchemaAST, SchemaRepresentation, SchemaTransformation, Struct } from 'effect';
+import { Array, Equal, Filter, flow, Match, Option, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
 import { transforms } from '#/lexical';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -19,6 +19,7 @@ type Column = ReturnType<typeof column>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const uuidVersion = 7;
+const byteMaximum = 255;
 const dataTypes = {
     sqlite: { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', int64: 'INTEGER', decimal: 'TEXT', real: 'REAL', number: 'REAL', boolean: 'INTEGER', blob: 'BLOB' },
     pg: { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', int64: 'bigint', decimal: 'numeric', real: 'double precision', number: 'double precision', boolean: 'boolean', blob: 'bytea' },
@@ -26,7 +27,7 @@ const dataTypes = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int)]).pipe(Schema.decodeTo(Schema.Uint8Array, SchemaTransformation.transform<Uint8Array, Uint8Array | readonly number[]>({ decode: (bytes) => new Uint8Array(bytes), encode: Function.identity })));
+const Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: byteMaximum })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
 const Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

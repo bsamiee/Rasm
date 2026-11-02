@@ -33,7 +33,7 @@ interface Catalog {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const referentialActions = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' };
+const referentialActions = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
