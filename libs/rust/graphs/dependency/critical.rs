@@ -51,9 +51,9 @@ pub struct Schedule<T> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn schedule<N, E, T>(graph: &Evaluation<N, E>, duration: impl Fn(&N) -> T, precedence: impl Fn(&E) -> Precedence<T>, Horizon { start, finish }: Horizon<T>) -> Schedule<T>
+pub fn schedule<N, E, T>(evaluation: &Evaluation<N, E>, duration: impl Fn(&N) -> T, precedence: impl Fn(&E) -> Precedence<T>, Horizon { start, finish }: Horizon<T>) -> Schedule<T>
 where T: Measure + Copy + Ord + Sub<Output = T> + Neg<Output = T> {
-    let sequence = graph.nodes_iter().collect::<Vec<_>>();
+    let (sequence, graph) = (evaluation.order().nodes_iter().collect::<Vec<_>>(), evaluation.graph());
     let date = |event: Event, opened: T, closed: T| match event {
         Event::Start => opened,
         Event::Finish => closed,

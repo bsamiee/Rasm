@@ -23,14 +23,14 @@ where K: Ord {
 }
 
 #[must_use]
-pub fn layers<N, E>(graph: &Evaluation<N, E>, direction: Direction) -> Vec<Vec<NodeIndex>> {
-    let sequence = graph.nodes_iter().collect::<Vec<_>>();
+pub fn layers<N, E>(evaluation: &Evaluation<N, E>, direction: Direction) -> Vec<Vec<NodeIndex>> {
+    let sequence = evaluation.order().nodes_iter().collect::<Vec<_>>();
     let ordered = match direction {
         Direction::Outgoing => Either::Left(sequence.into_iter()),
         Direction::Incoming => Either::Right(sequence.into_iter().rev()),
     };
     let (_, layered) = ordered.fold((HashMap::new(), Vec::<Vec<NodeIndex>>::new()), |(mut depth, mut layered), node| {
-        let level = graph.neighbors_directed(node, direction.opposite()).filter_map(|neighbor| depth.get(&neighbor).copied()).max().map_or_default(|level: usize| level.strict_add(1));
+        let level = evaluation.graph().neighbors_directed(node, direction.opposite()).filter_map(|neighbor| depth.get(&neighbor).copied()).max().map_or_default(|level: usize| level.strict_add(1));
         depth.insert(node, level);
         match layered.get_mut(level) {
             Some(layer) => layer.push(node),
@@ -42,15 +42,15 @@ pub fn layers<N, E>(graph: &Evaluation<N, E>, direction: Direction) -> Vec<Vec<N
 }
 
 #[must_use]
-pub fn redundant<N, E>(graph: &Evaluation<N, E>) -> Vec<EdgeIndex> {
-    let compact = DiGraph::from(graph.map(|node, _| node, |edge, _| edge));
-    let mut compacted = vec![None; graph.node_bound()];
+pub fn redundant<N, E>(evaluation: &Evaluation<N, E>) -> Vec<EdgeIndex> {
+    let compact = DiGraph::from(evaluation.graph().map(|node, _| node, |edge, _| edge));
+    let mut compacted = vec![None; evaluation.graph().node_bound()];
     compact.node_indices().zip(compact.node_weights()).for_each(|(node, stable)| {
         if let Some(slot) = compacted.get_mut(stable.index()) {
             *slot = Some(node);
         }
     });
-    let sequence = graph.nodes_iter().filter_map(|stable| compacted.get(stable.index()).copied().flatten()).collect::<Vec<_>>();
+    let sequence = evaluation.order().nodes_iter().filter_map(|stable| compacted.get(stable.index()).copied().flatten()).collect::<Vec<_>>();
     let (ordered, ranks) = dag_to_toposorted_adjacency_list::<_, DefaultIx>(&compact, &sequence);
     let (reduction, _) = dag_transitive_reduction_closure(&ordered);
     compact

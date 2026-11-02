@@ -89,7 +89,7 @@ pub fn propagate<'graph, N, E, R>(
     dirty: impl IntoIterator<Item = NodeIndex>,
     run: impl for<'id> FnOnce(Propagation<'graph, 'id, N, E>, Vec<Due<'id>>) -> R,
 ) -> Result<R, DependencyError> {
-    let graph = evaluation.inner();
+    let graph = evaluation.graph();
     let dirty = dirty.into_iter().collect::<BTreeSet<_>>();
     let discovered = walk(graph, dirty.iter().copied(), Direction::Outgoing)?;
     let pending = discovered

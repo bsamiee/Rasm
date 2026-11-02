@@ -21,7 +21,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let Some(getter) = [sym::get, Symbol::intern("get_index")].into_iter().find_map(|name| {
                 get_adt_inherent_method(cx, held, name).filter(|method| {
                     let signature = cx.tcx.fn_sig(method.def_id).skip_binder().skip_binder();
-                    matches!(signature.output().kind(), ty::Adt(option, _) if option.is_diag_item(cx, sym::Option)) && signature.inputs().get(1).is_some_and(|parameter| parameter.is_ref() == key_borrowed)
+                    matches!(signature.output().kind(), ty::Adt(option, _) if option.is_diag_item(cx, sym::Option))
+                        && signature.inputs().get(1).is_some_and(|parameter| parameter.is_ref() == key_borrowed)
                 })
             })
         {

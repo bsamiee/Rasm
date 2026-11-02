@@ -7,13 +7,13 @@ use nonempty_collections::NEBTreeSet;
 use petgraph::{
     Direction,
     acyclic::{Acyclic, AcyclicEdgeError},
+    algo::Cycle,
+    data::Build as _,
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     visit::EdgeRef as _,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-pub type Evaluation<N, E> = Acyclic<StableDiGraph<N, E>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Inputs {
@@ -22,6 +22,30 @@ pub enum Inputs {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct Evaluation<N, E> {
+    order: Acyclic<StableDiGraph<(), ()>>,
+    graph: StableDiGraph<N, E>,
+}
+
+impl<N, E> Evaluation<N, E> {
+    #[must_use]
+    pub const fn order(&self) -> &Acyclic<StableDiGraph<(), ()>> { &self.order }
+
+    #[must_use]
+    pub const fn graph(&self) -> &StableDiGraph<N, E> { &self.graph }
+
+    pub fn add_node(&mut self, weight: N) -> NodeIndex {
+        self.order.add_node(());
+        self.graph.add_node(weight)
+    }
+
+    pub fn remove_node(&mut self, node: NodeIndex) -> Option<N> {
+        self.order.remove_node(node)?;
+        self.graph.remove_node(node)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rewiring<E> {
@@ -42,43 +66,43 @@ pub enum DependencyError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn evaluation<N, E>(graph: StableDiGraph<N, E>) -> Result<Evaluation<N, E>, DependencyError> {
-    let paths = cycles::closings(&graph);
-    paths.is_empty().ok_or(DependencyError::Cycle { paths })?;
-    Evaluation::try_from(graph).map_err(|refused| DependencyError::Cycle { paths: vec![vec![refused.node_id()]] })
+    Acyclic::try_from(graph.map(|_, _| (), |_, _| ())).map_err(|Cycle { .. }| DependencyError::Cycle { paths: cycles::closings(&graph) }).map(|order| Evaluation { order, graph })
 }
 
-pub fn connect<N, E>(graph: &mut Evaluation<N, E>, target: NodeIndex, sources: impl IntoIterator<Item = (NodeIndex, E)>, inputs: Inputs) -> Result<Rewiring<E>, DependencyError>
-where
-    N: 'static,
-    E: 'static,
-{
+pub fn connect<N, E>(evaluation: &mut Evaluation<N, E>, target: NodeIndex, sources: impl IntoIterator<Item = (NodeIndex, E)>, inputs: Inputs) -> Result<Rewiring<E>, DependencyError> {
     let sources = sources.into_iter().collect::<Vec<_>>();
-    present(graph, iter::once(target).chain(sources.iter().map(|&(source, _)| source)))?;
-    let closing = |evaluation: &Evaluation<N, E>, source: NodeIndex| {
-        let window = evaluation.get_position(target)..=evaluation.get_position(source);
-        cycles::closing(evaluation.inner(), |node| window.contains(&evaluation.get_position(node)), target, source)
-    };
-    let paths = sources.iter().filter(|&&(source, _)| !graph.is_valid_edge(source, target)).map(|&(source, _)| closing(graph, source)).collect::<Vec<_>>();
-    paths.is_empty().ok_or(DependencyError::Cycle { paths })?;
-    let replaced = match inputs {
-        Inputs::Extend => Vec::new(),
-        Inputs::Replace => graph
-            .edges_directed(target, Direction::Incoming)
-            .map(|edge| (edge.id(), edge.source()))
-            .collect::<Vec<_>>()
+    present(&evaluation.graph, iter::once(target).chain(sources.iter().map(|&(source, _)| source)))?;
+    let mut order = evaluation.order.clone();
+    let refused = sources
+        .iter()
+        .filter_map(|&(source, _)| order.try_add_edge(source, target, ()).map_err(|(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge)| source).err())
+        .collect::<Vec<_>>();
+    if refused.is_empty() {
+        let incoming = match inputs {
+            Inputs::Extend => Vec::new(),
+            Inputs::Replace => evaluation.graph.edges_directed(target, Direction::Incoming).map(|edge| (edge.id(), edge.source())).collect(),
+        };
+        let added = sources.into_iter().map(|(source, weight)| evaluation.graph.add_edge(source, target, weight)).collect();
+        let replaced = incoming
             .into_iter()
-            .filter_map(|(edge, source)| graph.remove_edge(edge).map(|weight| (source, weight)))
-            .collect(),
-    };
-    sources
-        .into_iter()
-        .map(|(source, weight)| {
-            graph
-                .try_add_edge(source, target, weight)
-                .map_err(|(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge)| DependencyError::Cycle { paths: vec![closing(graph, source)] })
+            .filter_map(|(edge, source)| {
+                order.remove_edge(edge)?;
+                evaluation.graph.remove_edge(edge).map(|weight| (source, weight))
+            })
+            .collect();
+        evaluation.order = order;
+        Ok(Rewiring { added, replaced })
+    } else {
+        Err(DependencyError::Cycle {
+            paths: refused
+                .into_iter()
+                .map(|source| {
+                    let window = evaluation.order.get_position(target)..=evaluation.order.get_position(source);
+                    cycles::closing(evaluation.order.inner(), |node| window.contains(&evaluation.order.get_position(node)), target, source)
+                })
+                .collect(),
         })
-        .collect::<Result<Vec<_>, _>>()
-        .map(|added| Rewiring { added, replaced })
+    }
 }
 
 fn present<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>) -> Result<(), DependencyError> {
