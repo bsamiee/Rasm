@@ -16,7 +16,7 @@ Covers MCP-driven GUI sessions, background runs, extension installs, logs, and e
 
 ## [01]-[TOOL_INDEX]
 
-Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876. Table lists every tool a session calls:
+Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876:
 
 | [INDEX] | [TOOL]                                                    | [USE_WHEN]                                                    |
 | :-----: | :-------------------------------------------------------- | :------------------------------------------------------------ |
@@ -60,9 +60,9 @@ Sessions open in order:
 4. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
 5. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
 
-- Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file, untitled files with no save
+- Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
 
-Quitting saves preferences, the last GUI to quit overwriting what others saved, and preferences a task GUI changed take their prior values first. One `mcp__blender__execute_blender_code` call quits a task GUI with no save prompt by reloading the startup file before closing its last window:
+Quitting saves preferences, the last GUI to quit overwriting what others saved, and preferences a task GUI changed take their prior values first. One `mcp__blender__execute_blender_code` call quits a task GUI with no save prompt:
 
 ```python
 import bpy
@@ -106,8 +106,7 @@ Configured startup files open with:
 ## [04]-[MODAL_STATE]
 
 Window reads name what Blender shows before a call that depends on it:
-- `mcp__blender__get_screenshot_of_window_as_json` describes the main window's areas, mode, and selection, popups excluded
-- `mcp__blender__get_screenshot_of_window_as_image` shows popups, prompts, and splash screen over the main window
+- `mcp__blender__get_screenshot_of_window_as_json` excludes popups
 - `bpy.context.window_manager.windows` lists each window's areas and `modal_operators`
 
 | [INDEX] | [STATE]         | [READS_AS]                                        | [RESOLUTION]                                       |
@@ -137,7 +136,7 @@ Background runs follow host rules:
 - `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
 
 Background renders use named files saved in place, untitled and scratch scenes render in GUI without saving:
-1. `bpy.ops.wm.save_mainfile()` in the GUI saves named work before rendering
+1. `bpy.ops.wm.save_mainfile()` in the GUI
 2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true` logs `Saved: '<path>'`
 
 ## [06]-[MEMBERS]
@@ -185,9 +184,9 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.blender run` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` folder. That folder is `BLENDER_USER_RESOURCES` and `TMPDIR` and is created before Blender starts:
+Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.blender run` runs from the repository root, creating a fresh `.artifacts/blender/evaluate/<name>/` folder as `BLENDER_USER_RESOURCES` and `TMPDIR` before starting Blender with factory settings:
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
-- macOS GUI runs start through `open` as their own launchd job, which Dock quit signals whole
+- `open` starts macOS GUI runs as their own launchd job, which Dock quit signals whole
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

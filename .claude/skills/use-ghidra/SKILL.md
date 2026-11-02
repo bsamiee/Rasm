@@ -56,8 +56,6 @@ Numbered steps consume the step before. Bulleted cases are alternatives, one per
 
 ## [01]-[READ]
 
-Import, analyze, name stubs, and catalog the program in one run, then decompile seeds with their callers and callees into one file.
-
 Projects saved under `$GHIDRA_PROJECT_DIR`, a binary without one takes an import:
 
 ```!
@@ -224,4 +222,4 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 ## [06]-[EXTEND]
 
-Each new postscript is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts pass `nx run rasm:typecheck:javac` against the install's jars and hold zero Java checker findings.
+Each new postscript is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts pass `nx run rasm:typecheck:javac` against the install's jars.

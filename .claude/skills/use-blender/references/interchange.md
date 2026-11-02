@@ -35,7 +35,7 @@ foreach (var obj in doc.Objects.GetObjectList(all).Where(o => o.Geometry is Rhin
     doc.Objects.Replace(obj.Id, ((Rhino.Geometry.Curve)obj.Geometry).ToNurbsCurve());
 ```
 
-Blender imports in Object Mode, layers as collections:
+Blender imports in Object Mode:
 
 ```python
 import bpy
@@ -56,7 +56,7 @@ bpy.ops.import_3dm.some_data(filepath="<file>.3dm", import_layers_as_empties=Fal
 
 ## [03]-[STEP_IN]
 
-STEP Importer converts the file through `cascadio` and imports the result into the active collection, tessellation reading the extension's preferences:
+STEP Importer converts the file through `cascadio` and imports the result into the active collection:
 
 ```python
 import bpy

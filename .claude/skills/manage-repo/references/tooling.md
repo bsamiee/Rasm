@@ -37,12 +37,12 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - Fixed `port` rows export `<NAME>_PORT` to every mise process, `[env]` URL rows read it as `{{ env.<NAME>_PORT }}`
 - Daemon names fold into exported variable names, a name another program reads as its own variable (`BLENDER_PORT`) takes a longer name
 - `retry = true` restarts a failed process on the supervisor interval, a process exiting 0 stays stopped
-- `boot_start = true` rows start when the supervisor starts in boot mode, and restart selection reads the flag
+- `boot_start = true` rows start when supervisor starts in boot mode, and restart selection reads the flag
 - `COLIMA_HOME` and `DOCKER_CONFIG` sit outside `.cache`, the VM disk and CLI plugin links outlive `rasm:clean`
-- Readiness checks without `timeout` wait while the process lives, `docker` row's timeout fails a start when the VM boots with its engine down
+- Readiness checks without `timeout` wait while the process runs, `docker` row's timeout fails a start when VM boots with its engine down
 - `docker` readiness runs `colima status` on macOS, a stop after `docker version` passes and before Colima persists its runtime orphans the VM
 - `docker` row takes no `boot_start`, and nothing stops the engine on idle
-- `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names the socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
+- `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - Container images name `latest` with an always-pull policy, each run starts the newest image
 - Harness rows hold service URLs and read no `[env]` value into MCP config
 - Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT -- <command>`
@@ -50,7 +50,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - Pitchfork keeps daemon output in its log store, `mise daemons logs <name>` reads one daemon's output
 
 Pitchfork has no login start, one `[bootstrap.macos.launchd.agents]` row runs its supervisor at login:
-- Supervisor rows name no `stdout_path` or `stderr_path`, pitchfork writes its own file log and keeps output in its log store
+- Supervisor rows name no `stdout_path` or `stderr_path`, pitchfork writes its own file log
 - `PITCHFORK_SUPERVISOR_AUTO_START` is false on macOS, a client waits for the launchd supervisor and fails without one
 - `mise bootstrap macos launchd-agents apply` writes and loads `dev.mise.pitchfork.plist`, an unchanged plist keeps its process
 - `launchctl kickstart -k gui/$UID/dev.mise.pitchfork` sends SIGTERM, the supervisor stops its daemons and launchd starts it with its boot daemons
@@ -67,7 +67,7 @@ Daemon operations:
 - Root `upgrade` runs its prerequisites, then fails on each package a resolver moved below the version Git's index records for its lock
 - `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
 - Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
-- Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for the next run
+- Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for next run
 - `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
 
 ## [05]-[TOML]

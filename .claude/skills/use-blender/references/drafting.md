@@ -127,7 +127,7 @@ with bpy.context.temp_override(window=None, selected_objects=meshes, active_obje
     bpy.ops.object.cleanup_selected_meshes()
 ```
 
-- `window=None` runs cleanup inside the call, a window in context making it a timer-driven modal that background runs never advance
+- `window=None` runs cleanup inside the call, a window in context making it a timer-driven modal
 - Merging is off by default, and `cad_cleanup_merge_distance` sets the weld distance
 - Hierarchy flattening runs in exec form on the selection through `object.flatten_hierarchy` and `object.flatten_and_join_hierarchy`
 - Hierarchy deletes run in exec form on the selection through `object.delete_child_empties_without_children` and `object.delete_and_reparent_children`
@@ -322,7 +322,7 @@ Batch Render Cameras queues the same renders as one GUI job:
 
 ## [11]-[MEASUREIT_ARCH]
 
-MeasureIt_ARCH loads in a GUI alone and serves sheets with labels as font text or DXF output. Dimensions write through its generators, each dimension with its wrapper row:
+MeasureIt_ARCH loads in a GUI alone. Dimensions write through its generators, each dimension with its wrapper row:
 
 ```python
 import bpy

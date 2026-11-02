@@ -40,13 +40,13 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - App icons are an `AppIcon.icon` document `actool` renders at build, no rendered image is checked in
 - `packages` holds the root package as `{ "kind": "local", "path": "<parents to root>" }`, product rows name it `..`
 - `xcprojformatter` drops `name` and `id` keys from a `packages` row
-- `package-product-members` holds one row per module the app imports, Nx draws the app's module edges from those rows
+- `package-product-members` holds one row per module the app imports, Nx draws app module edges from those rows
 - `pkg link` takes a package the project lists, a product of a package only root libraries list joins through `pkg add`
 - Requirement changes run `pkg remove`, `pkg add`, and `pkg link` per linked product, in `packages` order
 - `pkg link` and `pkg remove` find no `..` package while the synchronized folder holds a subdirectory, edit a copy holding the project alone
 - Synchronized folders outside the project join through `group add --filesystem-path`, which writes a group-relative path
 - Info.plist keys with no `INFOPLIST_KEY_*` setting sit in AddInfoPlist's `Info.plist`, named by `INFOPLIST_FILE` and excluded by `group exclude`
-- AddInfoPlist on a `.` folder writes `<Target>-Info.plist` into the resources phase and copies root `INFOPLIST_KEY_*` rows onto the target
+- AddInfoPlist on a `.` folder writes `<Target>-Info.plist` into the resources phase and copies root `INFOPLIST_KEY_*` rows onto target
 - Asset catalog and `.icon` JSON keep Apple's serializer form, `plutil -convert json -r` writes it, Biome excludes both
 - Schemes have no command-line writer, Xcode's scheme editor alone writes one
 - New apps join as `<Name>.xcodeproj`, Nx infers each from its `project.xcproj`
@@ -74,11 +74,11 @@ Project and target settings override root `Xcode.xcconfig`:
 ## [05]-[COMPILER]
 
 Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the manifest `settings`:
-- `SWIFT_VERSION` holds the highest mode Xcode lists and the compiler accepts
+- `SWIFT_VERSION` holds the highest mode Xcode lists and compiler accepts
 - Upcoming features `xcrun swiftc -print-supported-features` lists above the language mode are on by name
 - Mode moves delete each feature row the new mode implies
 - Features without a `SWIFT_UPCOMING_FEATURE_*` setting join `OTHER_SWIFT_FLAGS` as `-enable-upcoming-feature <Name>`
-- `OTHER_SWIFT_FLAGS` and `OTHER_LDFLAGS` take no `$(inherited)`, the root file is the lowest configurable level
+- `OTHER_SWIFT_FLAGS` and `OTHER_LDFLAGS` take no `$(inherited)`, root file is the lowest configurable level
 - Warnings as errors covers on-by-default groups, `StrictLanguageFeatures` joins them to fail a misspelled feature the compiler accepts silently
 - `PerformanceHints` groups are off, `UntypedThrows` fails in `@Observable` expansions and `ExistentialType` on a `Codable` witness's `any Decoder`
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form

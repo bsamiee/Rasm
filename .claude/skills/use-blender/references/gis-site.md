@@ -19,7 +19,7 @@ Site models sit at world origin in local meters with site ground at z 0, and sce
 |  [09]   | Shapefile                       | `importgis.shapefile` in its CRS, on the terrain                        |
 |  [10]   | Sun at a moment, study, diagram | Sun Position fields, keyed `time`, diagram operators                    |
 
-Background runs and GUI sessions run every routed operator, BlenderGIS query operators reading the window a background run holds. BlenderGIS and Blosm download with no `bpy.app.online_access` read.
+Background runs and GUI sessions run every routed operator, a background run holding the window BlenderGIS query operators read. BlenderGIS and Blosm download with no `bpy.app.online_access` read.
 
 ## [02]-[SITE_READ]
 
@@ -89,7 +89,6 @@ sun.year, sun.month, sun.day, sun.time = moment.year, moment.month, moment.day, 
 ```
 
 - `geo.lon` and `geo.lat` writes leave projected origin and CRS on the old site with no error
-- Site writes run `delOrigin`, then `geo.crs`, then `setOriginGeo`
 - `geo.updOriginGeo(lon, lat)` moves an existing site and shifts every root object by projected delta, keeping placed data on the map
 - `sun.north_offset` takes grid north in radians, a UTM scene's sun sitting off by meridian convergence until the write
 - `sun.UTC_zone` takes standard offset, `use_daylight_savings` holding the daylight hour
@@ -196,7 +195,7 @@ result = {"status": sorted(status), "collections": {c.name: len(c.objects) for c
 - `separate` links one object per feature into a child collection per tag under `OSM`, tags as custom properties
 - Building height reads `height`, else `building:levels` times `levelHeight`, else `defaultHeight`, with flat roofs
 - OSM data stays inside terrain extent, features off the terrain sitting at its object z
-- Overpass answers 406 to curl's default and browser user agents, and the file route keeps one download for every import
+- Overpass answers 406 to curl's default and browser user agents
 
 ## [08]-[BLOSM]
 

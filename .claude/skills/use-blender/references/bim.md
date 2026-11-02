@@ -102,7 +102,7 @@ bpy.ops.bim.edit_object_placement(obj=wall.name)
 - Wall pairs, the second active, take `bim.join_walls_intersection()` for an L corner, the join held in `ConnectedTo` and `ConnectedFrom`
 - Closed loops of joined walls take `bim.draw_slab_from_wall()` with `model.relating_type_id` set to the slab type id string
 - `bim.draw_slab_from_wall()` runs under an override holding `window`, `area`, `region`, and `space_data` of a `VIEW_3D` area
-- With `bim.assign_type` of a layered type replacing a custom body with the type's extrusion, custom slab outlines go through the profile editor
+- `bim.assign_type` of a layered type replaces a custom body with the type's extrusion
 
 Slab outlines change through the profile editor in object space:
 
@@ -123,7 +123,7 @@ bpy.ops.bim.edit_extrusion_profile()
 
 ## [05]-[OPENINGS_AND_FILLS]
 
-Doors and windows come from a type with representation maps and fill a wall that is the only selected object:
+Doors and windows come from a type with representation maps:
 
 ```python
 from pathlib import Path
@@ -192,7 +192,6 @@ ifcopenshell.api.classification.add_reference(f, products=[<element>], identific
 - `bim.edit_pset(obj=, obj_type="Object", pset_id=, properties=<json>)` writes the same values as one Bonsai undo step
 - `bim.perform_quantity_take_off()` writes `IFC4QtoBaseQuantities` sets for the selected objects
 - `bim.edit_attributes`, `bim.add_classification`, `bim.assign_material`, and `bim.export_ifccsv` read panel properties in place of arguments
-- Scripts write attributes, classifications, materials, and CSV exports through the API and bundled libraries
 
 ## [09]-[QUERIES]
 

@@ -17,7 +17,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Files pair the date with `profile = "minimal"`, a rolling `nightly` or an omitted profile resolves per machine and day
 - `[env]` `RUSTUP_TOOLCHAIN = false` stops mise's idiomatic export and leaves selection to the file, builds outside the tree take rustup's default
 - Nightly-only manifest, config, and source forms join in the change that sets the toolchain file, stable Cargo and rustc refuse them
-- Members take the newest stable edition, the `future` edition has no behavior of its own and each change in it needs a `#![feature]` opt-in
+- Members take the newest stable edition, `future` edition has no behavior of its own and each change in it needs a `#![feature]` opt-in
 - Crate `#![feature]` gates name a form the crate uses, `unused_features` fails an idle gate
 - Gates stay per crate, `-Zcrate-attr` in `build.rustflags` reaches every unit and `unused_features` fails each member writing no gated form
 - Incomplete features stay out, `incomplete_features` fails under `build.warnings`
@@ -25,9 +25,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [03]-[CATALOG]
 
-- Catalog rows take the crate's default features and add each non-default feature the crate's role needs, a row adding none is a version string
+- Catalog rows take crate default features and add each non-default feature the crate's role needs, a row adding none is a version string
 - `default-features = false` sits only where a default fails a build or run, harms all members, or duplicates a TLS, crypto, runtime, or clock crate
-- Restricted rows add back only the defaults their role needs that no dependency already turns on, their comment stating the fact that excludes the rest
+- Restricted rows add back only defaults their role needs that no dependency turns on, their comment stating the fact that excludes others
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
 - Members reach a member through its catalog row pairing `path` with the workspace `version`, Cargo packages no unversioned path dependency
 - Native libraries a `links` key names take one owner row, a second binding crate of the same library fails resolution
@@ -40,9 +40,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Lints no reason excuses take `forbid`, no `#[expect]` lifts a forbidden lint
 - Clippy restriction lints take `warn`, clap derives emit `#[allow(clippy::restriction)]` and a `forbid` fails it with E0453
 - Lint groups take a priority below single lints, Clippy's `lint_groups_priority` fails a group and a lint sharing one
-- Restriction lints join one row at a time with the repository rule each enforces, `blanket_clippy_restriction_lints` flags the whole group
+- Restriction lints join one row at a time with repository rule each enforces, `blanket_clippy_restriction_lints` flags the whole group
 - Lints demanding docs take `allow`, names and types state each contract
-- Lints take `allow` where their fix writes worse code than the flagged form, the row comment naming that form
+- Lints take `allow` where their fix writes worse code than the flagged form, row comment naming that form
 - `clippy.toml` API bans name their replacement
 - `clippy.toml` bans hold paths no dependency macro or derive writes, Clippy reports inside proc-macro output (`#[tokio::test]` writes `tokio::pin!`)
 - Bans on a path proc-macro output writes sit in ast-grep or a Dylint lint behind `expanded_externally`
@@ -84,7 +84,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `cargo.extraEnv` points `CARGO_BUILD_TARGET_DIR` and `CARGO_BUILD_BUILD_DIR` at `rust-analyzer` folders no Nx target shares
 - Both clients read `.cargo/rustc-source/Cargo.toml` through an ignored symlink to mise's matching official compiler source archive
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
-- `rustfmt.toml` holds the keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
+- `rustfmt.toml` holds keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
 - `rustfmt.toml` fails the check on each line it cannot fit in `max_width`
 - Comment wrapping keys stay unset, they split section dividers
@@ -95,8 +95,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `cargo upgrade` from cargo-edit moves each catalog row to its newest release, breaking releases included, Cargo itself moves no requirement
 - `channel` and `clippy_utils.rev` move by hand, Dylint's driver reads `sym.rs` at the first rust-clippy `Rustup` merge holding the channel
 - `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change, a later one fails `lints` UI tests
-- `cargo dylint upgrade` reads a `rust-toolchain` file in the library package and moves to the first commit of a `clippy_utils` version
-- `mise upgrade` installs the declared channel with its profile and components through rustup, and the matching `http:rustc-source`
+- `cargo dylint upgrade` reads a `rust-toolchain` file in library package and moves to the first commit of a `clippy_utils` version
+- `mise upgrade` installs the declared channel with its profile and components through rustup, and matching `http:rustc-source`
 - `RUSTUP_AUTO_INSTALL = "0"` leaves installs to mise, a rustup proxy call on a new channel otherwise installs it beside `mise upgrade`
 - Prereleases join by hand through a catalog row naming one, `cargo upgrade` then moves that row to newer releases and prereleases
 

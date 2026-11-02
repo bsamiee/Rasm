@@ -22,8 +22,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - `dotnet build`, `dotnet restore`, and `dotnet format` take one entry file per call, a second file hands every argument to MSBuild
 - `ArtifactsPath` defaults `IncludeProjectNameInArtifactsPaths` to true, placing output under `bin/<file>.cs/` and `obj/<file>.cs/`
 - Solution files hold no entry file, `dotnet sln add` rejects one and `dotnet build` restores its virtual project itself
-- Roslyn virtual projects (`dotnet format`, C# language server) set `IncludeProjectNameInArtifactsPaths` false before `Directory.Build.props`
-- Roslyn virtual projects set the SDK's bundled framework after `Directory.Build.props`
+- Roslyn virtual projects (`dotnet format`, C# language server) set `IncludeProjectNameInArtifactsPaths` false before `Directory.Build.props` and the SDK's bundled framework after it
 - `#:property` directives follow the bundled framework, `#:property TargetFramework=$(RepoTargetFramework)` sets every tool's framework
 - `dotnet msbuild` rejects a `.cs` file with `MSB4025`
 - `dotnet format` missing `project.assets.json` prints `Required references did not load`, skips analysis, and exits 0

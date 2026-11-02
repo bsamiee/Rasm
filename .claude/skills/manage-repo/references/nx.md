@@ -1,7 +1,5 @@
 # [NX]
 
-Nx infers projects through plugins, orders targets through `dependsOn`, caches outputs by inputs, and selects projects by changed files.
-
 ## [01]-[PROJECTS]
 
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
@@ -34,7 +32,7 @@ Use JSON discovery from workspace root:
 - Matching entries inside one `targetDefaults` key merge in order, later values win, a key with no matching entry falls through to the next
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
 - `filter.plugin` matches the plugin that set a target's `executor` or `command`, an empty inferred target matches by tag or name glob
-- Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces the target
+- Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces target
 - `targetDefaults` configures existing targets alone, project configuration overrides a default
 - `"...": true` in objects and `"..."` in arrays preserve lower-layer values at their position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
@@ -86,7 +84,7 @@ Products version by Conventional Commits into tags alone, `nx.json` `release` an
 - Untagged commits pack the next patch prerelease with height
 - `pack` caches where every input it reads hashes, Blender's through a runtime input over `HEAD` and its group's tags
 - Xcode and Rhino `pack` read host state no input hashes and run uncached
-- `publish` uploads `pack` output to the release `--tag` names, then pushes it to the host's channel
+- `publish` uploads `pack` output to the release `--tag` names, then pushes it to host's channel
 - Products on a channel with no publish API hold no `publish`, `rasm:release` tags and releases them alone
 - Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
 - First releases start from an unsigned lightweight `<group>-<project>-v0.0.0` tag and `rasm:release -- --specifier <version>`, the tag then goes

@@ -22,7 +22,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- Package `exports` entries name concept files directly (`"./unmatched": "./unmatched.ts"`), a file importing one runtime's modules stays out of every other entry's import graph (`"./vite": "./pdf/vite.ts"`), no `index.ts` or barrel re-exports a package's modules, and importers name the concept entry
+- Importers name package `exports` entries mapping each concept to its file (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules joins no other entry's import graph
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one

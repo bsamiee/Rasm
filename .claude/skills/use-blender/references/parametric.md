@@ -18,7 +18,7 @@ Covers parametric design and analysis through the installed extensions.
 
 ## [02]-[SVERCHOK]
 
-Sverchok queues one task per tree on each node addition, link, and property write. With the queue-draining `bpy.app.timers` callback never firing in a background run and firing in a GUI session only after the call returns, a call that reads results drains the queue itself:
+Sverchok queues one task per tree on each node addition, link, and property write. With the queue-draining `bpy.app.timers` callback firing only after the call returns, a call that reads results drains the queue itself:
 
 ```python
 import bpy
@@ -202,7 +202,7 @@ Problem setup holds for background runs and GUI sessions:
 5. Set `max_iterations`, `penalty`, `filter_radius_voxels`, and `density_threshold` on `scene.topopt`
 6. `bpy.ops.topopt.voxelize_preview()` applies tagged mesh rotation and scale, builds `TopOpt_Preview`, and writes `scene.topopt.grid_domain_voxels`
 
-GUI solves run `bpy.ops.topopt.solve_3d()`, a modal stepping on a window timer, and later calls read `scene.topopt.is_solving` and `solve_status`, then run `bpy.ops.topopt.generate_mesh()` once solving reads False. With the modal never stepping in a background run, background solves run the solver generator in a Bash call with `run_in_background: true`:
+GUI solves run `bpy.ops.topopt.solve_3d()`, a modal stepping on a window timer, and later calls read `scene.topopt.is_solving` and `solve_status`, then run `bpy.ops.topopt.generate_mesh()` once solving reads False. Background solves run the solver generator in a Bash call with `run_in_background: true`:
 
 ```python
 from collections import deque

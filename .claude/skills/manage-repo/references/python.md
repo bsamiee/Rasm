@@ -7,7 +7,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
 - Host `pyproject.toml` files are virtual uv members (`[tool.uv] package = false`) with `name`, static `version`, floor, dependencies, Ruff `extend`
-- `blender` is a packaged workspace member, its hatchling wheel mapping its folder onto the `blender` import root
+- `blender` is a packaged workspace member
 - `blender` `[project] dependencies` name every package its modules import
 - Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`
 - Extension and host test members name `blender` and each import, ty `missing-direct-dependency` reports omissions
@@ -30,8 +30,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `uv.lock` resolves project requirements at root `requires-python` and groups at their own declared floors
 - Native build settings stay at root under their package
 - Pixi environments hold no Python, `pixi run --environment <name>` supplies their build variables
-- Packages building their libraries from their own recipes take the setting that forces it, linking none from the machine
-- Machine libraries stay where no package-scoped variable reaches the build, beside the reason in the package row
+- Packages building their libraries from their own recipes take the setting that forces it, linking no machine library
+- Machine libraries stay where no package-scoped variable reaches the build, beside the reason in package row
 - Source-built wheel cache keys hold package settings, extra build dependencies, and build variables, a machine library change reuses the wheel
 - Pixi rows a source build links name a soname series, `pixi update` moves within it and leaves built consumers valid
 - Soname series moves update Pixi constraints and each consuming package's build-variable series together
@@ -52,7 +52,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Ruff prefers a nested `requires-python` over an extended `target-version` and runs once, ty and mypy take one version per run
 - Inferred ty, mypy, and refurb targets run as `:root` over root code at the configured version and as `:<version>` per nested `requires-python`
-- Editors and bare ty and mypy runs check host folders at the root version
+- Editors and ty and mypy runs outside inferred targets check host folders at root version
 - Python ast-grep rules for a form below or from one release set `metadata` `python-below` or `python-from` as `'<major>.<minor>'`
 - Root scans select version rules from resolved mise metadata and each host's `requires-python`
 - Host-supplied modules with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
@@ -62,7 +62,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `refurb`'s own entry runs mypy in fine-grained mode with no cache, each run analyzing every imported package cold
 - `python -m tools.refurb` takes refurb's arguments and type-checks each `.py` source from its text under `preserve_asts`
 - Stock `refurb` suppresses a visitor `RecursionError` and passes an incomplete traversal, the driver raises it
-- `lint:refurb` takes the arguments `typecheck:mypy` takes per runtime split, each run reading the cache mypy wrote at its version
+- `lint:refurb` takes arguments `typecheck:mypy` takes per runtime split, each run reading the cache mypy wrote at its version
 - Cache-affecting mypy options (`allow_redefinition` among them) match between both runs, a differing value invalidates every cached module
 - `[tool.refurb] enable_all` loads every check a release adds
 - `[tool.refurb] load` imports every `tools/refurb/` module, `__main__` guards its run
@@ -86,7 +86,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Packing bundles `uv export --project <extension> --no-editable` closure, workspace members as submodules with relative imports, the rest as wheels
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
 - Packing omits Blender-provided distributions from locked export
-- `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into the staged manifest
+- `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into staged manifest
 - `install` runs `extensions.package_install_files` in a GUI on the same executable and user profile, then saves changed preferences
 - `install` runs `extension install-file --repo user_default --enable` through `--command` when no such GUI runs
 

@@ -9,13 +9,13 @@ Rules for adding a project, tool, plugin, or harness row.
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
-- [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, daemons, TOML files
+- [02]-[TOOLING](references/tooling.md): Mise tool rows, environment, daemons, maintenance, TOML files
 - [03]-[TYPESCRIPT](references/typescript.md): Catalog, compiler projects, execution, Vite and Workers, Storybook, Biome, UXP packaging
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
-- [06]-[SWIFT](references/swift.md): Package, SwiftPM, project files, settings, compiler, locks, swift-format, SwiftLint, Periphery, language server
+- [06]-[SWIFT](references/swift.md): SwiftPM and Xcode projects, build settings, compiler, locks, checkers, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
-- [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries, modules
+- [08]-[RUST](references/rust.md): Workspace members, toolchain, catalog, lints, builds, checkers, upgrades, module layout
 
 [SCRIPTS]:
 - [01]-[MAINTAIN](scripts/maintain.sh): Upgrade tools, packages, daemons, and editor environment
@@ -51,9 +51,9 @@ Rules for adding a project, tool, plugin, or harness row.
 - Projects with their own check hold one `check` target with no per-language name, dry-run variant, or script, a root-checked project holds none
 - `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
 - Checkers, writers, and type checkers run as `lint:<tool>`, `format:<tool>`, and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
-- `<tool>` names the program implementing the command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
+- `<tool>` names the program implementing command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
 - Checker subcommands, languages, and runtimes run as `<kind>:<tool>:<part>`, a `dependsOn`-only `<kind>:<tool>` forwards arguments to them
-- Checker command lists hold dependent steps alone, a list stops at its first failure or terminates its siblings and hides their findings
+- Checker command lists hold dependent steps alone, a failing step hides findings of the rest
 - Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
 - Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)
@@ -65,7 +65,7 @@ Rules for adding a project, tool, plugin, or harness row.
 - Checker configuration holds levels, options, thresholds, and bans for rules a checker includes
 - Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules, with fixes and reach across languages
 - Compiler extensions hold rules that resolved names, types, expansions, or other files decide
-- `tools/` checker folders take the name of the tool or compiler they extend
+- `tools/` checker folders take the tool or compiler name they extend
 - Forms code cannot write or no checker can see take no check
 - Sites more than one rule, parse, or checker reports take one owner by proven correctness and coverage, others exclude them by one shared predicate
 - Checker rules contradicting a required form or another checker stay off with their reason

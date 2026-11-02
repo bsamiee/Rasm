@@ -9,7 +9,7 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint, jd
 
 ## [02]-[CHECKS]
 
-- `typecheck:javac`, PMD, and the editor's `java.project.referencedLibraries` read the `Ghidra/**/lib/*.jar` set a script loads
+- `typecheck:javac`, PMD, and editor `java.project.referencedLibraries` read the `Ghidra/**/lib/*.jar` set a script loads
 - `-Xlint:-path` drops warnings for `Class-Path` entries Ghidra's JAR manifests name and its release omits
 - `pmd check` runs on the mise `java` row's JDK and takes files or directories
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
@@ -19,10 +19,10 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint, jd
 ## [03]-[LANGUAGE_SERVER]
 
 jdtls type-checks scripts a tool loads against that tool's jars on each edit:
-- `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before the jars attach
-- Nix `jdtls` runs on its own JDK, the default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance
-- `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server the `mise.toml` values
+- `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before jars attach
+- Nix `jdtls` runs on its own JDK, default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance
+- `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server `mise.toml` values
 - Nix launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on the folder basename and OSGi configuration under `~/.eclipse`
-- `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside the scripts folder keep resolving
-- VS Code jdtls imports every Eclipse `.project` under the root, `java.import.exclusions` skips the agent server's under `.cache`
+- `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside scripts folder keep resolving
+- VS Code jdtls imports every Eclipse `.project` under root, `java.import.exclusions` skips the agent server's under `.cache`
 - Maven and Gradle importers stay off, they find vendored builds alone (poms under `.cargo/rustc-source`)
