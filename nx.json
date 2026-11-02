@@ -235,7 +235,7 @@
         ],
         "lint:periphery": [
             { "filter": { "projects": [ "tag:build:xcode" ] }, "options": { "args": [ "--index-store-path", "\"$XCODE_DERIVED_DATA_PATH/Index.noindex/DataStore\"" ] }, "inputs": [ "xcode" ] },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "options": { "args": [ "--index-store-path", "\"$SWIFTPM_BUILD_DIR/out\"", "--retain-public" ] } },
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "options": { "args": [ "...", "--index-store-path", "\"$SWIFTPM_BUILD_DIR/out\"", "--retain-public" ] } },
             {
                 "filter": { "projects": [ "tag:language:swift" ] },
                 "command": "periphery scan --config .config/periphery.yml --report-include '{projectRoot}/**'",
@@ -263,7 +263,11 @@
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift test --disable-automatic-resolution", "inputs": [ "default", "^default", "swift" ], "parallelism": false }
         ],
-        "test:integration": [ { "dependsOn": [ { "projects": [ "rasm" ], "target": "docker" } ], "parallelism": false }, { "filter": { "projects": [ "tag:language:typescript" ] }, "command": "vitest run", "options": { "cwd": "{projectRoot}" } } ],
+        "test:integration": [
+            { "filter": { "projects": [ "tag:language:typescript", "tag:language:rust" ] }, "dependsOn": [ { "projects": [ "rasm" ], "target": "docker" } ], "parallelism": false },
+            { "filter": { "projects": [ "tag:language:typescript" ] }, "command": "vitest run", "options": { "cwd": "{projectRoot}" } },
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift test --disable-automatic-resolution", "cache": false, "parallelism": false }
+        ],
         "e2e": [ { "filter": { "plugin": "@nx/playwright/plugin" }, "configurations": { "ci": { "args": [ "--forbid-only", "--add-reporter=github" ] } }, "cache": false, "parallelism": true } ],
         "coverage": {
             "command": "cargo llvm-cov nextest --locked --package {projectName} --branch --html --output-dir .artifacts/rust/coverage/{projectName}",

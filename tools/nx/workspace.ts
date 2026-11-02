@@ -21,6 +21,7 @@ const SWIFT_MANIFEST = 'Package.swift';
 const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
+const TESTS = 'tests';
 const DEPLOYMENT_ROWS = {
     'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
     '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
@@ -93,7 +94,7 @@ const Metadata = Schema.fromJsonString(
 );
 const SwiftPackage = Schema.fromJsonString(
     Schema.Struct({
-        targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ locals: 'target_dependencies' }))),
+        targets: Schema.Array(Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.String, path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ locals: 'target_dependencies' }))),
         products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
         platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
     }),
@@ -191,12 +192,13 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyprojec
           }
         : {};
 });
-const suiteInput = (suite: string) => ({ namedInputs: { default: ['{projectRoot}/**/*', `{workspaceRoot}/${suite}/**/*`] } });
+const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map((suite) => `{workspaceRoot}/${suite}/**/*`)] } });
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
     const path = yield* Path.Path;
-    const suite = path.join('tests', language, ...dir.split(path.sep).filter((segment) => segment !== language));
+    const suite = path.join(TESTS, language, ...dir.split(path.sep).filter((segment) => segment !== language));
     return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
 });
+const attachedSuites = <Suite extends { readonly name: string }>(suites: readonly Suite[], module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Array.findFirst(suites, ({ name }) => name === `${module}${suffix}`)));
 const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
     targets: { check: {}, ...Record.fromIterableWith(['build', 'lint:periphery', ...targets], (target) => [target, {}]) },
@@ -421,19 +423,20 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
         Filter.fromPredicate(({ type }) => type === 'test'),
     );
     const platformed = platforms.map(Struct.get('name'));
+    const excluded = Array.match(suites, { onEmpty: () => ({}), onNonEmpty: (all) => ({ options: { args: ['--exclude-targets', ...all.map(Struct.get('c99name'))] } }) });
     const modules = sources.map((target) => {
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
-        const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
+        const segments = target.path.split('/');
+        const installed = target.type === 'executable' && segments[0] !== TESTS;
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, segments), folders).map((host) => `host:${host}`)], installed ? ['install', 'upgrade:swiftpm'] : []);
+        const attached = attachedSuites(suites, target.name);
         return [
             target.path,
             {
                 ...project,
+                ...Array.match(Object.values(attached), { onEmpty: () => ({}), onNonEmpty: (held) => suiteInput(...held.map(Struct.get('path'))) }),
                 root: target.path,
                 name: target.name,
-                ...Option.match(suite, {
-                    onNone: () => ({}),
-                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { args: ['--filter', `'^${name}\\.'`] } } } }),
-                }),
+                targets: { ...project.targets, 'lint:periphery': excluded, ...Record.map(attached, ({ c99name }) => ({ options: { args: ['--filter', `'^${c99name}\\.'`] } })) },
             },
         ] as const;
     });
@@ -475,13 +478,20 @@ const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceR
         { concurrency: 'unbounded' },
     );
     const owners = Object.fromEntries(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.map(({ file }) => [file, owner] as const)));
-    const modules: RawProjectGraphDependency[] = targets.filter(({ type }) => type !== 'test').flatMap((target) => target.locals.map((name) => ({ source: target.name, target: name, type: DependencyType.implicit })));
+    const [suites, modules] = Array.partition(
+        targets,
+        Filter.fromPredicate(({ type }) => type === 'test'),
+    );
+    const swift: RawProjectGraphDependency[] = [
+        ...modules.flatMap((target) => target.locals.map((name) => [target.name, name] as const)),
+        ...modules.flatMap(({ name: owner }) => Array.difference(Object.values(attachedSuites(suites, owner)).flatMap(Struct.get('locals')), [owner]).map((name) => [owner, name] as const)),
+    ].map(([source, target]) => ({ source, target, type: DependencyType.implicit }));
     const linked: RawProjectGraphDependency[] = xcode.flatMap(([file, names]) => Array.cartesianWith(Option.toArray(Record.get(owners, file)), products.filter(({ name }) => names.includes(name)).flatMap(Struct.get('targets')), (source, target) => ({ source, target, sourceFile: file, type: DependencyType.static })));
     return [
         ...[...sources, ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), CARGO_MANIFEST)] as const))].flatMap(([sourceFile, file]) =>
             Option.toArray(Option.filter(Option.all([Record.get(owners, sourceFile), Record.get(owners, file)]), ([source, target]) => source !== target)).map(([source, target]) => ({ source, target, sourceFile, type: DependencyType.static })),
         ),
-        ...modules,
+        ...swift,
         ...linked,
     ];
 }, Effect.scoped);

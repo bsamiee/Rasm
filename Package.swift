@@ -65,6 +65,37 @@ let executables: [Target] = [
         path: "tools/watch-apps",
     )
 ]
+let support: [Target] = [
+    .target(
+        name: "TestSupport",
+        dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
+        path: "tests/swift/support",
+    ),
+    .executableTarget(
+        name: "AppKitFixture",
+        dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
+        path: "tests/swift/fixtures/appkit",
+    ),
+]
+let suites: [Target] = [
+    // --- [CORE]
+    .testTarget(
+        name: "EncodingTests",
+        dependencies: [
+            "Encoding", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"),
+            .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+        ],
+        path: "tests/swift/libs/core/Encoding",
+    ),
+    // --- [MACOS]
+    .testTarget(
+        name: "ApplicationsIntegrationTests",
+        dependencies: [
+            "Applications", "TestSupport", "AppKitFixture", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
+        ],
+        path: "tests/swift/libs/macos/Applications/Integration",
+    ),
+]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -80,8 +111,12 @@ let package: Package = Package(
         // --- [SYSTEM]
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
+        // --- [TESTING]
+        .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
+        .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
+        .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + executables,
+    targets: modules + executables + support + suites,
 )
 
 for target: Target in package.targets {

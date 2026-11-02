@@ -96,7 +96,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
 - `nx run rasm:format` runs `dotnet format` over the solution and file-based apps, then every other writer
 - `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
-- `nx run <project>:test:integration` starts `rasm:docker`, then runs container cases `test` leaves out (Rust `#[ignore]`, a Vitest project)
+- `nx run <project>:test:integration` runs cases `test` leaves out: Vitest and Rust `#[ignore]` after `rasm:docker`, Swift `<Module>IntegrationTests`
 - `nx run <project>:install` builds or packs a product and installs it into its host
 - `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
 - `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
@@ -163,6 +163,7 @@ Products reach a person through separate levels:
 
 - Libraries group under `libs/<language>/<group>/`
 - Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
+- Shared Swift test support and fixtures import no Rasm library, a suite passes library steps to them as function values
 - Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module also for each `Package.swift` platform naming an `apps/` folder
 - .NET build takes Rhino hosts from the `rhino/` path folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none

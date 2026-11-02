@@ -8,8 +8,10 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Target paths hold Swift sources alone, a `Package.swift` inside one compiles as a source and any other file warns as unhandled
 - Target paths are disjoint, SwiftPM fails a folder inside another target's path on overlapping sources
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
-- Products list library modules alone, SwiftPM synthesizes each executable's product
-- Test targets take `<Module>Tests` and depend on their module, Nx attaches each to that module's `test` target
+- Products list library modules alone, SwiftPM synthesizes each executable's product, the `tests/swift/support` library and each `tests/swift/fixtures/<name>` executable sit in `support`
+- Modules take their suites' dependencies as Nx edges, a Rasm import in `support` or a fixture cycles with each module whose suite uses it
+- Test targets take `<Module>Tests`, cases needing a GUI session or TCC grant `<Module>IntegrationTests`, Nx attaches each to its module's `test` or `test:integration` and filters on the C99 module name
+- Test targets using swift-custom-dump link `IssueReportingTestSupport`, mise `OMIT_DYNAMIC_TEST_SUPPORT` builds it static where the dynamic form prints linker version warnings
 - Remote packages take `.package(url:from:)` and an `up-to-next-major-version` row in each app linking their products, `upgrade:swift` moves both
 - Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
@@ -21,7 +23,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
 - `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
-- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, an installed name needs `rm` first
+- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, an installed name needs `rm` first
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
@@ -78,6 +80,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - Warnings as errors covers on-by-default groups, `StrictLanguageFeatures` joins them to fail a misspelled feature the compiler accepts silently
 - `PerformanceHints` groups are off, `UntypedThrows` fails in `@Observable` expansions and `ExistentialType` on a `Codable` witness's `any Decoder`
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form
+- `-warn-long-expression-type-checking-scopes 200` fails `#expect` over `==`, tests compare through `expectNoDifference` or a typed `Bool` binding
 
 ## [06]-[LOCKS]
 
@@ -116,6 +119,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 ## [09]-[PERIPHERY]
 
 - `.config/periphery.yml` names a generic config, `--project` needs a `.pbxproj` no app holds, SwiftPM mode runs `swift package describe` per scan
+- SwiftPM scans pass each test target's C99 name to `--exclude-targets`, since `swift test` writes test units into the index store `build` writes
 - Bodyless `@_silgen_name` declarations name parameters `_:`, Periphery reports each named one unused
 
 ## [10]-[LANGUAGE_SERVER]

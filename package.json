@@ -364,7 +364,7 @@
             },
             "typecheck": { "dependsOn": [ "typecheck:*" ] },
             "typecheck:tsc": { "command": "tsc --pretty false", "inputs": [ "^default", "typescript", "{workspaceRoot}/**/*.{ts,json}" ] },
-            "typecheck:swift": { "command": "swift build --disable-automatic-resolution", "parallelism": false },
+            "typecheck:swift": { "command": "swift build --build-tests --disable-automatic-resolution", "parallelism": false },
             "typecheck:javac": {
                 "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -proc:none -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"",
                 "inputs": [ "javaFiles", { "externalDependencies": [] }, { "env": "JAVA_HOME" }, { "env": "GHIDRA_INSTALL_DIR" } ],
