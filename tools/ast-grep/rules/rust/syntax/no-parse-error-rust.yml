@@ -116,4 +116,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method in a default field value by path (`Option::unwrap(NonZero::new(1024))`)'
+note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method on an associated const in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)`)'

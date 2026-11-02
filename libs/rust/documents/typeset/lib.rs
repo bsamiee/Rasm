@@ -244,10 +244,8 @@ pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Result<Warned<
 where T: Output {
     let Warned { output, warnings } = typst::compile::<T>(world);
     comemo::evict(max_age);
-    match output {
-        Ok(output) => Ok(Warned { output, warnings }),
-        Err(errors) => Err(located(world, iter::chain(errors, warnings).collect())),
-    }
+    let output = output.map_err(|errors| located(world, iter::chain(errors, warnings.iter().cloned()).collect()))?;
+    Ok(Warned { output, warnings })
 }
 
 fn located(world: &dyn DiagnosticWorld, diagnostics: EcoVec<SourceDiagnostic>) -> TypesetError {

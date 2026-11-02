@@ -35,9 +35,7 @@ pub struct Reverberation {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn curve(response: &Series) -> Result<Series, SpectraError> {
-    integral(response).and_then(Samples::try_new).map(|samples| Series { rate: response.rate, samples })
-}
+pub fn curve(response: &Series) -> Result<Series, SpectraError> { integral(response).and_then(Samples::try_new).map(|samples| Series { rate: response.rate, samples }) }
 
 pub fn reverberation(response: &Series, evaluation: Evaluation) -> Result<Option<Reverberation>, SpectraError> {
     let [upper, lower] = match evaluation {
@@ -46,10 +44,11 @@ pub fn reverberation(response: &Series, evaluation: Evaluation) -> Result<Option
         Evaluation::T30 => [-5.0, -35.0],
     };
     let levels = integral(response)?.mapv_into(level);
-    Ok(levels.last().filter(|end| **end <= lower - HEADROOM).and_then(|_| decline(levels.view(), [upper, lower])).map(|(_, [_, slope], unexplained)| Reverberation {
-        time: Time::new::<second>(-60.0 / (slope * response.rate.get::<hertz>())),
-        nonlinearity: Ratio::new::<ratio>(unexplained),
-    }))
+    Ok(levels
+        .last()
+        .filter(|end| **end <= lower - HEADROOM)
+        .and_then(|_| decline(levels.view(), [upper, lower]))
+        .map(|(_, [_, slope], unexplained)| Reverberation { time: Time::new::<second>(-60.0 / (slope * response.rate.get::<hertz>())), nonlinearity: Ratio::new::<ratio>(unexplained) }))
 }
 
 pub fn clarity(response: &Series, early: Time) -> Result<f64, SpectraError> {
@@ -65,10 +64,8 @@ pub fn definition(response: &Series, early: Time) -> Result<Ratio, SpectraError>
 
 pub fn centre(response: &Series) -> Result<Time, SpectraError> {
     energy(response).map(|(energy, [remainder, attenuation])| {
-        let moment = remainder.mul_add(
-            convert::<usize, f64>(energy.len()) + attenuation / (1.0 - attenuation),
-            energy.iter().enumerate().map(|(index, power)| convert::<usize, f64>(index) * power).sum::<f64>(),
-        );
+        let moment = remainder
+            .mul_add(convert::<usize, f64>(energy.len()) + attenuation / (1.0 - attenuation), energy.iter().enumerate().map(|(index, power)| convert::<usize, f64>(index) * power).sum::<f64>());
         Time::new::<second>(moment / (energy.sum() + remainder) / response.rate.get::<hertz>())
     })
 }

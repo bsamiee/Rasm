@@ -231,8 +231,8 @@
         "install": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
-                "command": "rm -rf \"/Applications/{projectName}.app\" && version=$(dotnet dnx minver-cli --prerelease -y -- -v e) && xcodebuild install -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution -skipMacroValidation DSTROOT=/Applications INSTALL_PATH=/ LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
-                "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
+                "command": "rm -rf \"/Applications/{projectName}.app\" && ditto -x -k .artifacts/xcode/{projectRoot}/{projectName}.zip /Applications",
+                "dependsOn": [ "...", "pack" ],
                 "parallelism": false
             },
             {
@@ -265,8 +265,8 @@
             },
             {
                 "filter": { "projects": [ "tag:output:appcast" ] },
-                "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN,SPARKLE_ED_PRIVATE_KEY --no-fallback --attempts 1 --command 'gh release upload {args.tag} .artifacts/xcode/{projectRoot}/{projectName}.zip --clobber && printf %s \"$SPARKLE_ED_PRIVATE_KEY\" | generate_appcast --ed-key-file - .artifacts/xcode/{projectRoot} && gh release upload {projectName}-updates .artifacts/xcode/{projectRoot}/{projectName}.zip --clobber && gh release upload {projectName}-updates .artifacts/xcode/{projectRoot}/appcast.xml --clobber'",
-                "dependsOn": [ "pack" ]
+                "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN,SPARKLE_ED_PRIVATE_KEY --no-fallback --attempts 1 --command 'gh release upload {args.tag} .artifacts/xcode/{projectRoot}/{projectName}.zip $(fd --no-ignore --extension ccx --extension zxp . .artifacts/$(dirname {projectRoot})) --clobber && printf %s \"$SPARKLE_ED_PRIVATE_KEY\" | generate_appcast --ed-key-file - .artifacts/xcode/{projectRoot} && gh release upload {projectName}-updates .artifacts/xcode/{projectRoot}/{projectName}.zip --clobber && gh release upload {projectName}-updates .artifacts/xcode/{projectRoot}/appcast.xml --clobber'",
+                "dependsOn": [ "...", "pack" ]
             },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },

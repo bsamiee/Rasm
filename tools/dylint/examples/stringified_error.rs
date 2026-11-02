@@ -185,5 +185,5 @@ fn main() {
     let boundaries = error.as_ref().map(rejected).is_some_and(|refused| refused.attempts > 0) && error.as_ref().map(handed).is_some();
     black_box(&(ports, checks, boundaries, texts, refused(String::new()).attempts, fast(Mode::Fast), labeled(Mode::Fast, true), Failure::new(" ").message));
     black_box(&(futures::executor::block_on(confirmed(format!("Delete {text}?"))), checked(format!("Delete {text}?"), false)));
-    black_box(&(encoded(denied), decoded(text).is_ok(), relayed::<serde_json::Error>(text).is_ok()));
+    black_box(&(encoded(denied), decoded(text), relayed::<serde_json::Error>(text)));
 }

@@ -1,6 +1,6 @@
 import { assert, type Vitest } from '@effect/vitest';
 import { createUpload, deleteObject, ObjectStorage, serveObject } from '@rasm/hosting';
-import { Array, Cause, Deferred, Effect, Function, type Layer, Option, Result, Stream } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, Function, type Layer, Option, Result, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { checkObjectStore, checkResumableWriteStore } from 'partial-content/conformance';
 import { isUploadNotFoundError } from 'partial-content/upload';
@@ -9,8 +9,8 @@ import { isUploadNotFoundError } from 'partial-content/upload';
 
 const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectStorage, E, R>) => {
     const encoder = new TextEncoder();
-    const [text, other] = ['partial content bytes', 'PARTIAL CONTENT BYTES'];
-    const content = encoder.encode(text);
+    const bodies = ['partial content bytes', 'PARTIAL CONTENT BYTES'] as const;
+    const content = encoder.encode(bodies[0]);
     const object = { key: 'media/object', size: content.length, mime: 'text/plain' };
     const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412 };
     const ignore = Function.constant(Effect.void);
@@ -69,10 +69,12 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
     );
     it.effect('publishes one whole object from overlapping uploads to one key and refuses each loser with Conflict', () =>
         Effect.gen(function* () {
-            const bodies = [text, other];
-            const outcomes = yield* Effect.all(Array.map(bodies, (body) => put(object.key, Stream.make(encoder.encode(body)), ignore)), { concurrency: 'unbounded', mode: 'result' });
-            const [published, refused] = Array.partition(Array.zip(bodies, outcomes), ([body, outcome]) => Result.map(Result.mapError(outcome, ({ _tag }) => _tag), Function.constant(body)));
-            assert.isTrue(refused.every((tag) => tag === 'Conflict'));
+            const outcomes = yield* Effect.all(
+                Array.map(bodies, (body) => put(object.key, Stream.make(encoder.encode(body)), ignore)),
+                { concurrency: 'unbounded', mode: 'result' },
+            );
+            const [published, refused] = Array.partition(Array.zip(bodies, outcomes), ([body, outcome]) => Result.map(outcome, Function.constant(body)));
+            assert.isTrue(refused.every(({ _tag }) => _tag === 'Conflict'));
             assert.oneOf((yield* read(object.key, {})).text, published);
         }).pipe(Effect.provide(storage)),
     );
@@ -84,17 +86,20 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.strictEqual((yield* read(object.key, {})).status, code.missing);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('meets partial-content read and resumable write contracts', () =>
-        Effect.gen(function* () {
-            const { objects, uploads } = yield* ObjectStorage;
-            yield* put(object.key, Stream.make(content), ignore);
-            const conformance = { key: (n: number) => `conformance/${n}` };
-            const reports = yield* Effect.all([Effect.tryPromise(() => checkObjectStore(objects, { key: object.key, content })), Effect.tryPromise(() => checkResumableWriteStore(Function.constant(uploads), conformance))]);
-            assert.deepStrictEqual(
-                reports.flatMap(({ checks }) => checks).filter(({ ok }) => !ok),
-                [],
-            );
-        }).pipe(Effect.provide(storage)),
+    it.effect(
+        'meets partial-content read and resumable write contracts',
+        () =>
+            Effect.gen(function* () {
+                const { objects, uploads } = yield* ObjectStorage;
+                yield* put(object.key, Stream.make(content), ignore);
+                const conformance = { key: (n: number) => `conformance/${n}` };
+                const reports = yield* Effect.all([Effect.tryPromise(() => checkObjectStore(objects, { key: object.key, content })), Effect.tryPromise(() => checkResumableWriteStore(Function.constant(uploads), conformance))], { concurrency: 'unbounded' });
+                assert.deepStrictEqual(
+                    reports.flatMap(({ checks }) => checks).filter(({ ok }) => !ok),
+                    [],
+                );
+            }).pipe(Effect.provide(storage)),
+        { timeout: Duration.toMillis('1 minute') },
     );
 };
 

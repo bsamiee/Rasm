@@ -565,7 +565,7 @@ const components = Effect.fnUntraced(function* (root: string, inferred: CreateNo
                 Effect.map(decode(Package, root, path.join(at, 'package.json')), ({ name }) => ({ at, name, steps: Array.intersection(['build', 'pack', 'install'], declared(at)) })),
             );
             const holding = (step: string) => members.filter(({ steps }) => steps.includes(step)).map(Struct.get('name'));
-            const after = (step: string, needed: string) => (declared(app).includes(step) ? { [step]: { dependsOn: ['pack', { projects: holding(needed), target: needed }] } } : {});
+            const after = (step: string, needed: string) => Array.match(holding(needed), { onEmpty: () => ({}), onNonEmpty: (projects) => (declared(app).includes(step) ? { [step]: { dependsOn: [{ projects, target: needed }] } } : {}) });
             return [
                 file,
                 {

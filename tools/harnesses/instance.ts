@@ -42,7 +42,7 @@ const Ips = Schema.fromJsonString(
 
 const settled = (state: typeof State.Type): state is Exited =>
     State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !(['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).some((name) => constants.signals[name] === state.signal)));
-const listed =(line: typeof Instances.Type): Effect.Effect<readonly Row[]> => Effect.succeed(Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat());
+const listed = (line: typeof Instances.Type): Effect.Effect<readonly Row[]> => Effect.succeed(Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat());
 const decoded = (text: string): Effect.Effect<readonly Row[], HarnessError | Schema.SchemaError> =>
     Effect.flatMap(Schema.decodeEffect(Line)(text), (line) =>
         Match.value(line).pipe(

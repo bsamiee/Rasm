@@ -28,13 +28,11 @@ where L: FileLoader + Send + Sync {
     let options = stamped(&project.now, options);
     let selected = |number: &NonZero<usize>| options.pdf.page_ranges.as_ref().is_none_or(|ranges| ranges.includes_page(*number));
     let pages = document.pages().par_iter().enumerate().map(|(index, page)| (NonZero::<usize>::MIN.saturating_add(index), page)).filter(|(number, _)| selected(number));
-    match format {
-        PagedFormat::Pdf => match (1..=document.pages().len()).filter_map(NonZero::new).find(selected) {
-            None => Validated::Good(Vec::new()),
-            Some(first) => typst_pdf::pdf(document, &options.pdf).map(|bytes| vec![(first, Bytes::new(bytes))]).map_err(|diagnostics| located(project, diagnostics)).into(),
-        },
-        PagedFormat::Svg => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
-        PagedFormat::Png => {
+    match (format, (1..=document.pages().len()).filter_map(NonZero::new).find(selected)) {
+        (PagedFormat::Pdf, None) => Validated::Good(Vec::new()),
+        (PagedFormat::Pdf, Some(first)) => typst_pdf::pdf(document, &options.pdf).map(|bytes| vec![(first, Bytes::new(bytes))]).map_err(|diagnostics| located(project, diagnostics)).into(),
+        (PagedFormat::Svg, _) => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
+        (PagedFormat::Png, _) => {
             let density = NonZero::new((options.png.pixel_per_pt.get() * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).map(|ppu| PixelDimensions {
                 xppu: ppu.get(),
                 yppu: ppu.get(),
