@@ -24,7 +24,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(fold|try_fold)$'}}
-            - has: {field: arguments, has: {nthChild: 1, matches: rust-default-value}}
+            - has: {field: arguments, has: {nthChild: 1, any: [{matches: rust-default-value, not: {kind: 'scoped_identifier, closure_expression'}}, {kind: call_expression, regex: '^(\w+::)*[A-Z]\w*(::<.*>)?::with_capacity\('}]}}
             - has:
                 field: arguments
                 has:
@@ -32,7 +32,7 @@ utils:
                     kind: closure_expression
                     all:
                         - has: {field: parameters, has: {nthChild: 1, regex: '^mut\s+\w+(\s*:[\s\S]*)?$', has: {kind: identifier, pattern: $STATE}}}
-                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, any: [{matches: element-write}, {matches: guarded-write}, {matches: last-element-match}]}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}, {not: {has: {matches: state-reading-step}}}]}
+                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, any: [{matches: element-write}, {matches: guarded-write}, {matches: last-element-match}]}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: 'Ok::<$_, $_>($STATE)'}, {pattern: Some($STATE)}]}}, {not: {has: {matches: state-reading-step}}}]}
     state-reading-step:
         any:
             - kind: let_declaration
@@ -41,15 +41,18 @@ utils:
               has: {nthChild: 1, matches: element-write, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $STATE}}}
     guarded-write:
         kind: if_expression
-        all:
-            - has: {field: condition, has: {stopBy: end, kind: identifier, pattern: $STATE}}
-            - has: {field: consequence, has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}
+        has: {field: consequence, has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}
     last-element-match:
         kind: match_expression
         has: {field: value, pattern: $STATE.last_mut()}
     element-write:
         kind: call_expression
-        has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $STATE}}, {has: {field: field, regex: '^(push|push_back|push_front|insert)$'}}]}
+        has:
+            field: function
+            kind: field_expression
+            all:
+                - has: {field: value, kind: identifier, pattern: $STATE}
+                - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
 rule:
     pattern: $LOOP
     any:

@@ -2,6 +2,8 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.script.GhidraState;
 import ghidra.framework.model.DomainFile;
 import ghidra.program.model.listing.Program;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.exception.VersionException;
 
 import rasm.Arguments;
 import rasm.Report;
@@ -43,7 +45,7 @@ public class Serve extends GhidraScript {
             Program opened = (Program) file.getDomainObject(this, true, false, monitor);
             programs.put(path, opened);
             return new Report.Success<>(opened);
-        } catch (Exception exception) {
+        } catch (VersionException | IOException | CancelledException exception) {
             return new Report.Failure<>("Program `%s` did not open. %s".formatted(path, exception));
         }
     }
@@ -56,7 +58,8 @@ public class Serve extends GhidraScript {
             runScript(
                     tokens.get(2),
                     arguments,
-                    new GhidraState(state.getTool(), state.getProject(), program, null, null, null));
+                    new GhidraState(
+                            state.getTool(), state.getProject(), program, null, null, null));
             if (!program.isChanged()) {
                 return new Report.Success<>("");
             }

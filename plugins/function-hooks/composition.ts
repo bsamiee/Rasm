@@ -10,6 +10,7 @@ type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: '
 
 const none: Option<never> = { kind: 'none' };
 const some = <A>(value: A): Option<A> => ({ kind: 'some', value });
+const given = <A>(value: A | null | undefined): Option<A> => (value === null || value === undefined ? none : some(value));
 const toArray = <A>(option: Option<A>): readonly A[] => (option.kind === 'some' ? [option.value] : []);
 const ok = <T>(value: T): Result<T> => ({ kind: 'ok', value });
 const fault = (...faults: readonly [Fault, ...Fault[]]): Result<never> => ({ kind: 'fault', faults });
@@ -25,4 +26,4 @@ const all = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { all, bind, type Fault, fault, map, none, type Option, ok, type Result, some, toArray };
+export { all, bind, type Fault, fault, given, map, none, type Option, ok, type Result, some, toArray };

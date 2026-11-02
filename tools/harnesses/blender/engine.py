@@ -983,8 +983,6 @@ def arranged(case: Case, instance: Instance, folder: Path, stack: ExitStack, /) 
         case _:
             script = None
     product = enabled(script, instance.repository, stack) if script is not None else None
-    if not bpy.app.background:
-        stack.callback(concealed)
     stack.callback(closed)
     yield from loaded(precondition, folder, made)
     override = overridden(precondition.get("area"))

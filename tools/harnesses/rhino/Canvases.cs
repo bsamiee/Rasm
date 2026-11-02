@@ -21,21 +21,21 @@ public sealed class Canvases : ICanvases {
     public Grasshopper Start() {
         _ = Grasshopper2.UI.Editor.Instance is null ? PluginServer.LoadAllScopedPlugins() : default;
         _ = Grasshopper2.UI.Editor.Instance ?? Grasshopper2.UI.Editor.ShowEditor(createVisible: false);
-        density = density.IsSome ? density : Some(Grasshopper2.Diagnostics.Logger.Density);
-        Grasshopper2.Diagnostics.Logger.Density = Density.Verbose;
+        density = density.IsSome ? density : Some(Logger.Density);
+        Logger.Density = Density.Verbose;
         Plugins state = PluginServer.State;
-        return new Grasshopper(typeof(Grasshopper2.UI.Editor).Assembly.GetName().Version?.ToString() ?? "",
+        return new Grasshopper(typeof(Editor).Assembly.GetName().Version?.ToString() ?? "",
             [.. state.LoadedPlugins.Select(static plugin => $"{plugin.Name} {plugin.Version}")],
             [.. state.Failures.Select(static failure => $"{failure.location}: {failure.info.Kind} {failure.info.Reason}")],
             PluginServer.IsFullyLoaded(out string incomplete) ? null : incomplete);
     }
 
-    public void Stop() => _ = density.Iter(static held => Grasshopper2.Diagnostics.Logger.Density = held);
+    public void Stop() => _ = density.Iter(static held => Logger.Density = held);
 
-    public int Logged() => Grasshopper2.Diagnostics.Logger.Count;
+    public int Logged() => Logger.Count;
 
     public ImmutableArray<Diagnosed> Diagnostics(int since) =>
-        [.. Grasshopper2.Diagnostics.Logger.Diagnostics().Skip(since).Select(static entry => new Diagnosed(entry.TimeStamp, entry.Kind.ToString(), entry.Message))];
+        [.. Logger.Diagnostics().Skip(since).Select(static entry => new Diagnosed(entry.TimeStamp, entry.Kind.ToString(), entry.Message))];
 
     // --- [DOCUMENTS]
     public (object Document, object? Prior) Open(string? source) {

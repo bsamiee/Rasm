@@ -24,7 +24,7 @@ pub fn units<'fleet>(fleet: &'fleet Fleet, schedule: &Schedule) -> Validated<Vec
 }
 ```
 
-Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`.
+Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`. Refusals an iterator yields collect into `Validated` in place of `partition_map` and an `NEVec::try_from_vec` test of the refused side, which wraps a failure list a package returns built.
 
 ## [03]-[BINDING]
 
@@ -51,4 +51,4 @@ pub fn first_over_budget(costs: &[Decimal], budget: Decimal) -> ControlFlow<usiz
 }
 ```
 
-`Break` holds the first index whose running total overflows or passes `budget`, and `Continue` holds a total within it. `?` on a `ControlFlow` returns its `Break`, and a recursive walk or an outer `try_fold` stops at the first `Break` a child or an inner fold returns. `break_ok` and `continue_ok` turn the outcome into a `Result`, `into_value` under `control_flow_into_value` reads values of one type, after `map_continue` or `map_break` wraps one side's value (`map_continue(Ok)`), and a fold editing its state in place is `try_for_each` over `&mut` state with `ControlFlow<()>`.
+`Break` holds the first index whose running total overflows or passes `budget`, and `Continue` holds a total within it. `?` on a `ControlFlow` returns its `Break`, and a recursive walk or an outer `try_fold` stops at the first `Break` a child or an inner fold returns. `break_ok` and `continue_ok` turn the outcome into a `Result`, `into_value` under `control_flow_into_value` reads values of one type, after `map_continue` or `map_break` wraps one side's value (`map_continue(Ok)`), and a fold editing its state in place is `try_for_each` over `&mut` state with `ControlFlow<()>`. `by_ref()` before `try_fold` leaves the unconsumed items readable after a `Break`.

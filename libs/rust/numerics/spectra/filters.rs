@@ -1,12 +1,28 @@
-use core::{borrow::Borrow, convert::identity, f64::consts::PI, iter, num::NonZero, range::RangeInclusive};
+use core::{
+    borrow::Borrow,
+    convert::identity,
+    f64::consts::{PI, TAU},
+    iter,
+    num::NonZero,
+    range::RangeInclusive,
+};
 
 use biquad::{Biquad as _, Coefficients, DirectForm2Transposed, Errors, Hertz, Type};
-use nalgebra::convert;
-use ndarray::Array1;
+use nalgebra::{convert, convert_unchecked};
+use ndarray::{Array1, Axis, Slice};
 use rustfft::num_complex::Complex;
 use uom::si::{f64::Frequency, frequency::hertz};
 
-use crate::{Band, BandError, Samples, Series, SpectraError};
+use crate::{Band, Rate, Samples, Series, SpectraError};
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Forward,
+    Reverse,
+    ZeroPhase,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,23 +41,107 @@ pub enum Stage {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn filter<I>(series: &Series, stages: I) -> Result<Series, SpectraError>
+pub fn filter<I>(series: &Series, stages: I, direction: Direction) -> Result<Series, SpectraError>
 where I: IntoIterator<Item: Borrow<Stage>> {
-    let rate = series.rate.get::<hertz>();
-    let sampling = Hertz::<f64>::from_hz(rate);
-    let bilinear = 2.0 * rate;
+    fn run(sections: &[Coefficients<f64>], level: fn(f64) -> f64, samples: impl Iterator<Item = f64>) -> impl Iterator<Item = f64> {
+        samples.scan(None, move |chain: &mut Option<Vec<DirectForm2Transposed<f64>>>, sample| {
+            let chain = chain.get_or_insert_with(|| {
+                sections
+                    .iter()
+                    .scan(level(sample), |input, &coefficients @ Coefficients { a1, a2, b0, b1, b2 }| {
+                        let output = *input * (b0 + b1 + b2) / (1.0 + a1 + a2);
+                        let mut section = DirectForm2Transposed::<f64>::new(coefficients);
+                        (section.s1, section.s2) = (b0.mul_add(-*input, output), b2.mul_add(*input, -a2 * output));
+                        *input = output;
+                        Some(section)
+                    })
+                    .collect()
+            });
+            Some(chain.iter_mut().fold(sample, |signal, section| section.run(signal)))
+        })
+    }
+    let sections = cascade(series.rate, stages)?;
+    let signal = &*series.samples;
+    let length = signal.len();
+    let filtered = match direction {
+        Direction::Forward => run(&sections, |_| 0.0, signal.iter().copied()).collect::<Array1<f64>>(),
+        Direction::Reverse => run(&sections, |_| 0.0, signal.iter().rev().copied()).collect::<Array1<f64>>().slice_axis_move(Axis(0), Slice::from(..).step_by(-1)),
+        Direction::ZeroPhase => {
+            let radius = |&Coefficients { a1, a2, b0: _, b1: _, b2: _ }: &Coefficients<f64>| match a1.mul_add(a1, -4.0 * a2) {
+                discriminant if discriminant < 0.0 => a2.sqrt(),
+                discriminant => a1.abs().midpoint(discriminant.sqrt()),
+            };
+            let decay = match sections.iter().map(radius).max_by(f64::total_cmp) {
+                Some(radius) if radius < 1.0 => f64::EPSILON.log(radius).ceil(),
+                Some(_) => f64::INFINITY,
+                None => 0.0,
+            };
+            let pad = convert_unchecked::<f64, usize>((decay + convert::<usize, f64>(sections.len().strict_mul(2))).min(convert::<usize, f64>(length.strict_sub(1))));
+            let extended = signal
+                .first()
+                .into_iter()
+                .flat_map(|&first| signal.iter().skip(1).take(pad).rev().map(move |sample| 2.0_f64.mul_add(first, -sample)))
+                .chain(signal.iter().copied())
+                .chain(signal.last().into_iter().flat_map(|&last| signal.iter().rev().skip(1).take(pad).map(move |sample| 2.0_f64.mul_add(last, -sample))));
+            let forward = run(&sections, identity, extended).collect::<Array1<f64>>();
+            run(&sections, identity, forward.iter().rev().copied()).collect::<Array1<f64>>().slice_axis_move(Axis(0), Slice::from(pad..pad.strict_add(length)).step_by(-1))
+        }
+    };
+    Samples::try_new(filtered).map(|samples| Series { rate: series.rate, samples })
+}
+
+pub fn response<F, I>(rate: Rate, frequencies: F, stages: I, direction: Direction) -> Result<Array1<Complex<f64>>, SpectraError>
+where
+    F: IntoIterator<Item: Borrow<Frequency>>,
+    I: IntoIterator<Item: Borrow<Stage>>,
+{
+    let sections = cascade(rate, stages)?;
+    Ok(frequencies
+        .into_iter()
+        .map(|frequency| {
+            let delay = Complex::cis(-TAU * frequency.borrow().get::<hertz>() / rate.get::<hertz>());
+            let gain = sections.iter().map(|&Coefficients { a1, a2, b0, b1, b2 }| (delay * (delay * b2 + b1) + b0) / (delay * (delay * a2 + a1) + 1.0)).product::<Complex<f64>>();
+            match direction {
+                Direction::Forward => gain,
+                Direction::Reverse => gain.conj(),
+                Direction::ZeroPhase => Complex::from(gain.norm_sqr()),
+            }
+        })
+        .collect())
+}
+
+#[must_use]
+pub fn bands(fraction: NonZero<u8>, span: Band) -> Vec<Band> {
+    let reference = 1000.0;
+    let octave = 10.0_f64.powf(0.3);
+    let count = convert::<u8, f64>(fraction.get());
+    let offset = if fraction.get().is_multiple_of(2) { 0.5 } else { 0.0 };
+    let edge = octave.powf(0.5 / count);
+    let [lowest, highest] = [span.start, span.last].map(|frequency| count.mul_add((frequency.get::<hertz>().max(f64::MIN_POSITIVE) / reference).log(octave), -offset).round());
+    iter::successors(Some(lowest), |index| Some(index + 1.0))
+        .take_while(|index| *index <= highest)
+        .map(|index| reference * octave.powf((index + offset) / count))
+        .map_while(|midband| Band::try_new(RangeInclusive { start: Frequency::new::<hertz>(midband / edge), last: Frequency::new::<hertz>(midband * edge) }).ok())
+        .collect()
+}
+
+fn cascade<I>(rate: Rate, stages: I) -> Result<Vec<Coefficients<f64>>, SpectraError>
+where I: IntoIterator<Item: Borrow<Stage>> {
+    let fs = rate.get::<hertz>();
+    let sampling = Hertz::<f64>::from_hz(fs);
+    let bilinear = 2.0 * fs;
     let poles = |order: NonZero<u8>| {
         let degree = convert::<u8, f64>(order.get());
         (0..order.get() / 2).map(move |index| Complex::cis(PI * convert::<u8, f64>(index).mul_add(2.0, degree + 1.0) / (2.0 * degree)))
     };
-    let mut cascade = stages
+    stages
         .into_iter()
         .enumerate()
         .map(|(stage, element)| -> Result<Vec<Coefficients<f64>>, SpectraError> {
-            let refused = |f0: f64| move |refusal: Errors| SpectraError::Filter { stage, f0: Frequency::new::<hertz>(f0), rate: series.rate, refusal };
+            let refused = |f0: f64| move |refusal: Errors| SpectraError::Filter { stage, f0: Frequency::new::<hertz>(f0), rate, refusal };
             let designed = |filter: Type<f64>, f0: f64, q_value: f64, gain: f64| {
                 sampling
-                    .and_then(|fs| Coefficients::from_params(filter, fs, Hertz::from_hz(f0)?, q_value))
+                    .and_then(|sampling| Coefficients::from_params(filter, sampling, Hertz::from_hz(f0)?, q_value))
                     .map_err(refused(f0))
                     .map(|Coefficients { a1, a2, b0, b1, b2 }| Coefficients { a1, a2, b0: b0 * gain, b1: b1 * gain, b2: b2 * gain })
                     .and_then(|coefficients @ Coefficients { a1, a2, b0, b1, b2 }| {
@@ -62,8 +162,8 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                 Stage::Butterworth { pass: Pass::Band(band), order } => {
                     let [low, high] = match [band.start, band.last].map(|edge| edge.get::<hertz>()) {
                         [start, _] if start <= 0.0 => Err(refused(start)(Errors::NegativeFrequency)),
-                        [_, last] if last >= rate / 2.0 => Err(refused(last)(Errors::OutsideNyquist)),
-                        edges => Ok(edges.map(|edge| bilinear * (PI * edge / rate).tan())),
+                        [_, last] if last >= fs / 2.0 => Err(refused(last)(Errors::OutsideNyquist)),
+                        edges => Ok(edges.map(|edge| bilinear * (PI * edge / fs).tan())),
                     }?;
                     let (width, centre) = (high - low, (low * high).sqrt());
                     poles(order)
@@ -73,33 +173,11 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                             [shift + offset, shift - offset].map(|root| (root.norm(), -0.5 * root.norm() / root.re))
                         })
                         .chain((!order.get().is_multiple_of(2)).then_some((centre, centre / width)))
-                        .map(|(omega, q_value)| designed(Type::BandPass, rate / PI * (omega / bilinear).atan(), q_value, width / omega))
+                        .map(|(omega, q_value)| designed(Type::BandPass, fs / PI * (omega / bilinear).atan(), q_value, width / omega))
                         .collect()
                 }
             }
         })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .flatten()
-        .map(DirectForm2Transposed::<f64>::new)
-        .collect::<Vec<_>>();
-    Samples::try_new(series.samples.iter().map(|sample| cascade.iter_mut().fold(*sample, |signal, section| section.run(signal))).collect::<Array1<f64>>())
-        .map(|samples| Series { rate: series.rate, samples })
-}
-
-#[must_use]
-pub fn bands(fraction: NonZero<u8>, span: Band) -> Vec<Band> {
-    let reference = 1000.0;
-    let octave = 10.0_f64.powf(0.3);
-    let count = convert::<u8, f64>(fraction.get());
-    let offset = if fraction.get().is_multiple_of(2) { 0.5 } else { 0.0 };
-    let edge = octave.powf(0.5 / count);
-    let last = span.last.get::<hertz>();
-    iter::successors(Some(count.mul_add((span.start.get::<hertz>().max(f64::MIN_POSITIVE) / reference).log(octave), -offset).ceil()), |index| Some(index + 1.0))
-        .map(|index| reference * octave.powf((index + offset) / count))
-        .map_while(|midband| match Band::try_new(RangeInclusive { start: Frequency::new::<hertz>(midband / edge), last: Frequency::new::<hertz>(midband * edge) }) {
-            Ok(band) if midband <= last => Some(band),
-            Ok(_) | Err(BandError::PredicateViolated) => None,
-        })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()
+        .map(|cascade| cascade.concat())
 }

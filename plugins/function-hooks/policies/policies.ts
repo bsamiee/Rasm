@@ -1,13 +1,10 @@
-import { none, type Option, some, toArray } from '../composition.ts';
+import { given, none, type Option, some, toArray } from '../composition.ts';
 import { type Command, parse, printed, type Script, spliced, type Word } from './command.ts';
 import { declared, firstOperand, type Invocation, informational, invocations, operands, option, optional, placed, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Decision =
-    | { readonly kind: 'deny'; readonly reason: string }
-    | { readonly kind: 'allow' }
-    | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string>; readonly timeout: Option<number>; readonly background: boolean };
+type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow' } | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string>; readonly timeout: Option<number>; readonly background: boolean };
 
 interface System {
     readonly run: (argv: Invocation, init: { readonly cwd: string; readonly stdin: string }) => Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }>;
@@ -58,7 +55,7 @@ const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
 const NAMED = /[\p{L}\p{N}]/u;
 const SAFE = /^[\w@%+=:,./-]+$/u;
-const DURATION = /^(?<amount>\d+(?:\.\d+)?)(?<unit>[smhd]?)$/u;
+const DURATION = /^(?<value>\d+(?:\.\d+)?)(?<unit>[smh]?)$/u;
 const BUNDLE = /^(?<bundle>\/Applications\/.+?\.app)\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
 const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<verb>\w+))?$/u;
 const VERB = /^(?:activate|launch|run|reopen)$/u;
@@ -275,7 +272,6 @@ const detached = ({ script: { commands, background } }: Call): readonly string[]
 
 const stdin = ({ script: { commands } }: Call): readonly string[] => commands.flatMap(({ fed, words, invocations: chain }) => (!fed && chain.some(waits) ? [`${words.map(({ text }) => text).join(' ')} waits on unfed standard input. Pass file or pipe input`] : []));
 
-
 // --- [INLINE]
 
 const inline = ({ system: { home }, script: { commands } }: Call): readonly string[] =>
@@ -287,19 +283,24 @@ const inline = ({ system: { home }, script: { commands } }: Call): readonly stri
             const { code, shell } = declared(program);
             const { options, inputs } = operands(invocation);
             const inlined = code !== undefined && (options.some((name) => code.includes(name)) || (fed && waits(invocation)));
-            return inlined || ((code ?? shell) !== undefined && inputs.some(ran)) ? [`${program} runs inline program. Edit with Edit or sd, run installed tools by name`] : [];
+            return inlined || ((code ?? shell) !== undefined && inputs.slice(0, 1).some(ran)) ? [`${program} runs inline program. Edit with Edit or sd, run installed tools by name`] : [];
         });
     });
 
 // --- [POLL]
 
-const polls = ({ request, script: { commands } }: Call): readonly string[] =>
+const polls = ({ request, script: { commands, background } }: Call): readonly string[] =>
     toArray(request)
-        .flatMap(({ background }) => (background ? [] : commands))
-        .flatMap(({ looped, invocations: chain }) => [
-            ...(looped && chain.some(([program]) => program === 'sleep') ? ['Loop polls with sleep. Run until-loop in Monitor'] : []),
-            ...chain.slice(-1).flatMap((last) => (last[0] === 'caffeinate' && operands(last).options.includes('-t') ? ['caffeinate -t holds call open. Wait in Monitor or on task notification'] : [])),
-        ]);
+        .flatMap((settings) => (settings.background ? [] : commands))
+        .flatMap(({ looped, invocations: chain }) =>
+            chain.flatMap((invocation, at) => {
+                const [program] = invocation;
+                const { options, inputs } = operands(invocation);
+                const holding = (program === 'caffeinate' && at === chain.length - 1) || (program === 'wait' && inputs.length > 0 && !background);
+                const probing = looped && (program === 'sleep' || (program === 'kill' && options.includes('-0')) || (program === 'lsof' && options.includes('-p')));
+                return [...(holding ? [`${program} holds call open. Wait on task notification or in Monitor until-loop`] : []), ...(probing ? [`Loop polls with ${program}. Run until-loop in Monitor, or run_in_background for own work`] : [])];
+            }),
+        );
 
 // --- [LAUNCH]
 
@@ -310,15 +311,15 @@ const opened = (head: Word, args: readonly Word[]): Option<Launch> => {
     const loose = listed.flatMap(({ names, words: [word] }) => (names.length === 0 && word !== undefined ? [word] : []));
     const [app] = [...valued('-a'), ...valued('-b'), ...loose.filter(({ text }) => text.endsWith('.app'))];
     const documents = loose.filter((word) => word !== app);
-    const names = listed.flatMap((item) => item.names);
+    const switches = listed.flatMap((item) => item.names);
     return app === undefined || documents.some(({ text }) => URL.canParse(text))
         ? none
         : some({
               program: 'open',
               start: head,
               app: app.raw,
-              foreign: names.filter((name) => !['-a', '-b', '-n', '-g', '-j', '-F', '--env'].includes(name)),
-              flags: [...(names.includes('-n') ? ['--new'] : []), ...documents.map(({ raw }) => `--document ${raw}`), ...valued('--env').map(({ raw }) => `--environment=${raw}`), ...args.slice(cut < 0 ? args.length : cut + 1).map(({ raw }) => `--arguments=${raw}`)],
+              foreign: switches.filter((name) => !['-a', '-b', '-n', '-g', '-j', '-F', '--env'].includes(name)),
+              flags: [...(switches.includes('-n') ? ['--new'] : []), ...documents.map(({ raw }) => `--document ${raw}`), ...valued('--env').map(({ raw }) => `--environment=${raw}`), ...args.slice(cut < 0 ? args.length : cut + 1).map(({ raw }) => `--arguments=${raw}`)],
           });
 };
 
@@ -356,29 +357,24 @@ const launching = async ({ system }: Call, { invocations: chain, parts }: Comman
         case 'osascript':
             return told(head, last);
         default:
-            return bundled(system, last, part);
+            return await bundled(system, last, part);
     }
 };
 
 const launches = async (call: Call): Promise<readonly string[]> =>
-    (
-        await Promise.all(
-            call.script.commands.map(async (command) =>
-                toArray(await launching(call, command)).flatMap(({ program, app, foreign }) => (command.nested || foreign.length > 0 ? [`${[program, ...foreign].join(' ')} launches ${app} outside watch-apps. Run watch-apps launch ${app} --hides`] : [])),
-            ),
-        )
-    ).flat();
+    (await Promise.all(call.script.commands.map(async (command) => toArray(await launching(call, command)).flatMap(({ program, app, foreign }) => (command.nested || foreign.length > 0 ? [`${[program, ...foreign].join(' ')} launches ${app} outside watch-apps. Run watch-apps launch ${app} --hides`] : []))))).flat();
 
 // --- [REWRITE]
 
-const milliseconds = (amount: string): Option<number> => {
-    const groups = DURATION.exec(amount)?.groups;
-    const value = Number(groups?.value) * 1000 * 60 ** 'smh'.indexOf(String(groups?.unit));
-    return value > 0 ? some(value) : none;
-};
-
 const timed = ({ request }: Call, { invocations: chain, parts }: Command): readonly Change[] => {
+    const second = 1000;
+    const base = 60;
     const applied = toArray(request).some(({ background, timeout }) => !background && timeout.kind === 'none');
+    const milliseconds = (amount: string): Option<number> => {
+        const groups = DURATION.exec(amount)?.groups;
+        const value = Number(groups?.value) * second * base ** 'smh'.indexOf(String(groups?.unit));
+        return value > 0 ? some(value) : none;
+    };
     return chain.flatMap((invocation, at) => {
         const [from] = parts[at]?.words ?? [];
         const [to] = [...(parts[at + 1]?.assigned ?? []), ...(parts[at + 1]?.words ?? [])];
@@ -403,23 +399,28 @@ const respelled = (program: string, words: readonly Word[], table: Readonly<Reco
         return [edit(head.span.start, head.span.end, text, some(`${program} took ${text} for ${head.text}`))];
     });
 
-const dashed = (words: readonly Word[]): readonly Change[] => {
-    const [word] = items('sd', words).flatMap(({ names, words: [first] }) => (names.length === 0 && first?.text.startsWith('-') === true ? [first] : []));
-    return word === undefined || words.some(({ text }) => text === '--') ? [] : [edit(word.span.start, word.span.start, '-- ', some(`sd took -- before ${word.raw}`))];
+const replaced = (invocation: Invocation, [head, ...rest]: readonly Word[]): readonly Change[] => {
+    const { options, leading } = operands(invocation);
+    const [find] = leading;
+    const [word] = items('sd', rest).flatMap(({ names, words: [first] }) => (names.length === 0 && first?.text.startsWith('-') === true ? [first] : []));
+    const breaks = find !== undefined && (find.includes('\n') || (!options.some((name) => name === '-F' || name === '--fixed-strings') && BREAK.test(find)));
+    return [
+        ...(head === undefined || !breaks || options.some((name) => name === '-A' || name === '--across') ? [] : [edit(head.span.end, head.span.end, ' -A')]),
+        ...(word === undefined || rest.some(({ text }) => text === '--') ? [] : [edit(word.span.start, word.span.start, '-- ', some(`sd took -- before ${word.raw}`))]),
+    ];
 };
 
 const uncached = (invocation: Invocation, words: readonly Word[]): readonly Change[] => {
     const { inputs, values } = operands(invocation);
     const listed = values.flatMap(([name, value]) => (['-t', '--targets', '--target'].includes(name) ? value.split(',') : []));
-    const targets = inputs[0] === 'run' ? inputs.slice(1, 2).filter((word) => word.includes(':')).map((word) => word.slice(word.indexOf(':') + 1)) : [...listed, ...inputs.slice(0, listed.length === 0 ? 1 : 0)];
-    return targets.length > 0 && targets.every((target) => CACHED.test(target))
-        ? respelled(
-              'nx',
-              words,
-              Object.fromEntries(['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'].map((name) => [name, ''])),
-              `, ${targets.join(' ')} inputs hash every source`,
-          )
-        : [];
+    const targets =
+        inputs[0] === 'run'
+            ? inputs
+                  .slice(1, 2)
+                  .filter((word) => word.includes(':'))
+                  .map((word) => word.slice(word.indexOf(':') + 1))
+            : [...listed, ...inputs.slice(0, listed.length === 0 ? 1 : 0)];
+    return targets.length > 0 && targets.every((target) => CACHED.test(target)) ? respelled('nx', words, Object.fromEntries(['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'].map((name) => [name, ''])), `, ${targets.join(' ')} inputs hash every source`) : [];
 };
 
 const logged = (root: string, words: readonly Word[]): readonly Change[] =>
@@ -442,21 +443,18 @@ const logged = (root: string, words: readonly Word[]): readonly Change[] =>
 const finals = ({ system: { root } }: Call, invocation: Invocation, words: readonly Word[]): readonly Change[] => {
     const [program] = invocation;
     const [head, ...rest] = words;
-    const { options, leading } = operands(invocation);
-    const given = (names: readonly string[]): boolean => informational(program, options) || names.some((name) => options.includes(name));
+    const { options } = operands(invocation);
+    const stated = (names: readonly string[]): boolean => informational(program, options) || names.some((name) => options.includes(name));
     if (head === undefined) {
         return [];
     }
     switch (program) {
         case 'fd':
-            return given(['-H', '--hidden', '--no-hidden', '-u', '--unrestricted']) ? [] : [edit(head.span.end, head.span.end, ' --hidden')];
+            return stated(['-H', '--hidden', '--no-hidden', '-u', '--unrestricted']) ? [] : [edit(head.span.end, head.span.end, ' --hidden')];
         case 'rg':
-            return given(['-.', '--hidden', '--no-hidden', '-u', '--unrestricted', '--no-config']) ? [] : [edit(head.span.end, head.span.end, ' --hidden')];
-        case 'sd': {
-            const [find] = leading;
-            const breaks = find !== undefined && (find.includes('\n') || (!given(['-F', '--fixed-strings']) && BREAK.test(find)));
-            return [...(breaks && !given(['-A', '--across']) ? [edit(head.span.end, head.span.end, ' -A')] : []), ...dashed(rest)];
-        }
+            return stated(['-.', '--hidden', '--no-hidden', '-u', '--unrestricted', '--no-config']) ? [] : [edit(head.span.end, head.span.end, ' --hidden')];
+        case 'sd':
+            return informational(program, options) ? [] : replaced(invocation, words);
         case 'tree':
             return respelled(program, rest, { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' });
         case 'refurb': {
@@ -485,11 +483,8 @@ const keyed = (invocation: Invocation): ReadonlySet<string> => {
 
 const grouped = (graph: Readonly<Record<string, Target>>, target: string): string => {
     const parent = target.split(':').slice(0, 2).join(':');
-    const forwards = (entry: string | { readonly target: string }): boolean => {
-        const named = typeof entry === 'string' ? entry : entry.target;
-        return named === target || (named.endsWith('*') && target.startsWith(named.slice(0, -1)));
-    };
-    return graph[parent]?.dependsOn?.some(forwards) === true ? parent : target;
+    const named = (graph[parent]?.dependsOn ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.target));
+    return named.some((name) => name === target || (name.endsWith('*') && target.startsWith(name.slice(0, -1)))) ? parent : target;
 };
 
 const rebased = (word: Word, cwd: string, root: string, home: Option<string>): Option<string> => {
@@ -498,18 +493,21 @@ const rebased = (word: Word, cwd: string, root: string, home: Option<string>): O
 };
 
 const owner = async ({ system, project }: Call, selectors: readonly string[], invocation: Invocation, cwd: string, root: string): Promise<Option<string>> => {
-    const [value, ...more] = operands(invocation).values.flatMap(([name, given]) => (selectors.includes(name) ? [given] : []));
+    const [value, ...more] = operands(invocation).values.flatMap(([flag, argument]) => (selectors.includes(flag) ? [argument] : []));
     const [place] = toArray(placed(value ?? '.', some(cwd), system.home)).filter((path) => within(path, root));
-    const leaf = place?.slice(place.lastIndexOf('/') + 1);
+    const located = (path: string): Option<string> => {
+        const leaf = path.slice(path.lastIndexOf('/') + 1);
+        const folder = leaf === 'tsconfig.json' ? path.slice(0, path.lastIndexOf('/')) : path;
+        return folder === path && leaf.lastIndexOf('.') > 0 ? none : some(folder.slice(root.length + 1) || '.');
+    };
     if (selectors.length === 0) {
         return some(project);
     }
-    if (more.length > 0 || (value === undefined && place === undefined)) {
+    if (more.length > 0) {
         return none;
     }
-    const present = place !== undefined && (await system.exists(place));
-    const pattern = present ? (leaf === 'tsconfig.json' ? place.slice(0, place.lastIndexOf('/')) : place).slice(root.length + 1) || '.' : value;
-    const found = pattern === undefined || (present && leaf !== 'tsconfig.json' && (leaf?.lastIndexOf('.') ?? 0) > 0) ? undefined : await printed<readonly string[]>(system, ['mise', 'exec', '--', 'nx', 'show', 'projects', '--json', '-p', pattern], root);
+    const pattern = place !== undefined && (await system.exists(place)) ? located(place) : given(value);
+    const found = pattern.kind === 'none' ? undefined : await printed<readonly string[]>(system, ['mise', 'exec', '--', 'nx', 'show', 'projects', '--json', '-p', pattern.value], root);
     const [name, ...others] = found?.kind === 'ok' ? found.value : [];
     return name === undefined || others.length > 0 ? none : some(name);
 };
@@ -521,7 +519,27 @@ const runs = async ({ system }: Call, graph: Readonly<Record<string, Target>>, p
         return tool === program || tool === subcommand ? texts.flatMap((text) => (text === undefined ? [] : [{ target, text }])) : [];
     });
     const parsed = await Promise.all(listed.map(async ({ target, text }) => ({ target, script: await parse(system, text) })));
-    return parsed.flatMap(({ target, script }) => (script.kind === 'ok' ? script.value.commands.flatMap(({ invocations: chain }) => chain.slice(-1)).filter((ran) => ran[0] === program && operands(ran).inputs[0] === subcommand).map((ran) => ({ target, keys: keyed(ran) })) : []));
+    return parsed.flatMap(({ target, script }) =>
+        script.kind === 'ok'
+            ? script.value.commands
+                  .flatMap(({ invocations: chain }) => chain.slice(-1))
+                  .filter((ran) => ran[0] === program && operands(ran).inputs[0] === subcommand)
+                  .map((ran) => ({ target, keys: keyed(ran) }))
+            : [],
+    );
+};
+
+const chosen = (graph: Readonly<Record<string, Target>>, found: readonly { readonly target: string; readonly keys: ReadonlySet<string> }[], wanted: readonly string[]): Option<{ readonly target: string; readonly aggregate: boolean }> => {
+    const fitting = found.filter(({ keys }) => wanted.every((key) => keys.has(key)));
+    const fewest = Math.min(...fitting.map(({ keys }) => keys.size));
+    const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => grouped(graph, ran.target)))];
+    return target === undefined || others.length > 0 ? none : some({ target, aggregate: !found.some((ran) => ran.target === target) });
+};
+
+const forwarded = (program: string, words: readonly Word[], dropped: ReadonlySet<string>, subcommand: boolean) => {
+    const listed = items(program, words);
+    const first = listed.findIndex(({ names }) => names.length === 0);
+    return listed.filter(({ names }, at) => (names.length === 0 ? !subcommand || at !== first : !names.every((name) => dropped.has(name))));
 };
 
 const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation, words: readonly Word[]): Promise<Option<{ readonly run: string; readonly passed: readonly string[] }>> => {
@@ -539,21 +557,22 @@ const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation
     }
     const [subcommand] = inputs;
     const found = await runs(call, project.value.targets, program, subcommand);
-    const known = new Set(found.flatMap(({ keys }) => [...keys]).map((key) => key.split('=')[0]));
-    const wanted = [...keyed(invocation)].filter((key) => known.has(key.split('=')[0]));
-    const fitting = found.filter(({ keys }) => wanted.every((key) => keys.has(key)));
-    const fewest = Math.min(...fitting.map(({ keys }) => keys.size));
-    const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => grouped(project.value.targets, ran.target)))];
-    const listed = items(program, words.slice(1));
-    const first = listed.findIndex(({ names }) => names.length === 0);
-    const kept = listed.filter(({ names }, at) => (names.length === 0 ? subcommand === undefined || at !== first : !names.every((given) => known.has(given) || selectors.includes(given))));
+    const known = new Set(found.flatMap(({ keys }) => [...keys].flatMap((key) => key.split('=').slice(0, 1))));
+    const wanted = [...keyed(invocation)].filter((key) =>
+        key
+            .split('=')
+            .slice(0, 1)
+            .some((flag) => known.has(flag)),
+    );
+    const target = chosen(project.value.targets, found, wanted);
+    const kept = forwarded(program, words.slice(1), new Set([...known, ...selectors]), subcommand !== undefined);
+    const switched = kept.some(({ names }) => names.length > 0);
     const moved = selectors.length === 0 && cwd.value !== root.value;
-    const flagged = kept.some(({ names }) => names.length > 0);
     const passed = kept.flatMap((item) => item.words).map((word) => (moved ? rebased(word, cwd.value, root.value, home) : some(word.raw)));
-    if (target === undefined || others.length > 0 || (!found.some((ran) => ran.target === target) && (wanted.length > 0 || flagged)) || (moved && flagged) || passed.some(({ kind }) => kind === 'none')) {
+    if (target.kind === 'none' || (target.value.aggregate && (wanted.length > 0 || switched)) || (moved && switched) || passed.some(({ kind }) => kind === 'none')) {
         return none;
     }
-    return some({ run: `${name.value}:${target}`, passed: [...passed.flatMap(toArray), ...(moved && passed.length === 0 ? [quote(cwd.value.slice(root.value.length + 1))] : [])] });
+    return some({ run: `${name.value}:${target.value.target}`, passed: [...passed.flatMap(toArray), ...(moved && passed.length === 0 ? [quote(cwd.value.slice(root.value.length + 1))] : [])] });
 };
 
 // --- [DECISION]
@@ -593,8 +612,7 @@ const commandDecision = async (system: System, command: string, project: string,
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }
     const changes = (await Promise.all(parsed.value.commands.map((each) => rewrites(call, each)))).flat();
-    const background =
-        toArray(request).some((given) => !given.background) && parsed.value.commands.some(({ nested, invocations: chain }) => !nested && chain.some((invocation) => invocation[0] === 'analyzeHeadless' && !informational(invocation[0], operands(invocation).options)));
+    const background = toArray(request).some((settings) => !settings.background) && parsed.value.commands.some(({ nested, invocations: chain }) => !nested && chain.some((invocation) => invocation[0] === 'analyzeHeadless' && !informational(invocation[0], operands(invocation).options)));
     const notices = [...new Set([...changes.flatMap(({ notice }) => toArray(notice)), ...(background ? ['analyzeHeadless runs in background, completion notice follows'] : [])])];
     const timeouts = changes.flatMap(({ timeout }) => toArray(timeout));
     return changes.length === 0 && !background

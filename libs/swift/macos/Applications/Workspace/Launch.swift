@@ -42,10 +42,7 @@ private let hostSettings: KeyValuePairs<String, [HostSetting]> = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func nested(_ value: Int, at path: ArraySlice<String>, in dictionary: [String: Any]) -> Any {
-    guard let key: String = path.first else { return value }
-    var updated: [String: Any] = dictionary
-    updated[key] = nested(value, at: path.dropFirst(), in: dictionary[key] as? [String: Any] ?? [:])
-    return updated
+    path.first.map { key in dictionary.merging([key: nested(value, at: path.dropFirst(), in: dictionary[key] as? [String: Any] ?? [:])]) { _, written in written } } ?? value
 }
 
 extension NSWorkspace {

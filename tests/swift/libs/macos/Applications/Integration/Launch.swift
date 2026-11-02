@@ -10,14 +10,6 @@ import Testing
 
 @testable import AppKitFixture
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func ended(_ installation: Installation, new: Bool) async throws -> (pid: pid_t, created: Bool) {
-    let launch: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true), new: new))
-    try await launch.instance.finishedLaunching()
-    return (launch.instance.processIdentifier, launch.created)
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 extension Integration {
@@ -48,10 +40,15 @@ extension Integration {
         func createdInstanceQuitsWhenItsLaunchEndsAndReusedOneStays() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
+            func ended(new: Bool) async throws -> (pid: pid_t, created: Bool) {
+                let launch: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true), new: new))
+                try await launch.instance.finishedLaunching()
+                return (launch.instance.processIdentifier, launch.created)
+            }
             let kept: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true))).detached()
             try await kept.finishedLaunching()
-            let reused: (pid: pid_t, created: Bool) = try await ended(installation, new: false)
-            let fresh: (pid: pid_t, created: Bool) = try await ended(installation, new: true)
+            let reused: (pid: pid_t, created: Bool) = try await ended(new: false)
+            let fresh: (pid: pid_t, created: Bool) = try await ended(new: true)
             expectNoDifference([reused.created, fresh.created], [false, true])
             let exit: Result<ProcessExit, Errno>? = await termination(of: fresh.pid).first { _ in true }
             let gone: Bool = exit.map { exit in exit[case: \.success] != nil || exit == .failure(.noSuchProcess) } ?? false

@@ -1,4 +1,5 @@
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 
 import ghidra.app.script.GhidraScript;
 import ghidra.pcode.emu.PcodeEmulationCallbacks;
@@ -21,17 +22,17 @@ import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.lang.CompilerSpec;
-import ghidra.program.model.lang.Language;
 import ghidra.program.model.lang.PrototypeModel;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.pcode.PcodeOp;
-import ghidra.program.model.pcode.Varnode;
+import ghidra.program.model.symbol.Reference;
 import ghidra.util.NumericUtilities;
 
 import rasm.Arguments;
@@ -52,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -114,7 +116,8 @@ public class Emu extends GhidraScript {
                             ? model.getStackshift()
                             : model.getExtrapop();
             Register result =
-                    model.getStorageLocations(
+                    model
+                            .getStorageLocations(
                                     program,
                                     new DataType[] {
                                         new PointerDataType(program.getDataTypeManager())
@@ -125,48 +128,43 @@ public class Emu extends GhidraScript {
             return CollectionUtils.asStream(program.getListing().getInstructions(true))
                     .filter(instruction -> instruction.getFlowType().isCall())
                     .map(instruction -> List.of(instruction.getPcode()))
-                    .flatMap(
-                            ops ->
-                                    IntStream.range(1, ops.size())
-                                            .filter(index -> ops.get(index).getOpcode() == PcodeOp.CALL)
-                                            .mapToObj(index -> ops.get(index - 1))
-                                            .filter(
-                                                    op ->
-                                                            op.getOpcode() == PcodeOp.STORE
-                                                                    || op.getOutput() != null
-                                                                            && op.getOutput().isRegister()))
+                    .flatMap(ops ->
+                            IntStream.range(1, ops.size())
+                                    .filter(index -> ops.get(index).getOpcode() == PcodeOp.CALL)
+                                    .mapToObj(index -> ops.get(index - 1))
+                                    .filter(op ->
+                                            op.getOpcode() == PcodeOp.STORE
+                                                    || op.getOutput() != null
+                                                            && op.getOutput().isRegister()))
                     .findFirst()
-                    .<Report.Result<Convention>>map(
-                            op -> {
-                                boolean register = op.getOpcode() != PcodeOp.STORE;
-                                int size = register ? op.getOutput().getSize() : op.getInput(2).getSize();
-                                return new Report.Success<>(
-                                        register
-                                                ? new Convention(
-                                                        program.getRegister(op.getOutput()).getName(),
-                                                        true,
-                                                        size,
-                                                        stack,
-                                                        pop,
-                                                        result)
-                                                : new Convention(
-                                                        "*[%s]:%d %s"
-                                                                .formatted(
-                                                                        spec.getStackBaseSpace()
-                                                                                .getName(),
-                                                                        size,
-                                                                        stack),
-                                                        false,
-                                                        size,
-                                                        stack,
-                                                        pop,
-                                                        result));
-                            })
-                    .orElseGet(
-                            () ->
-                                    new Report.Failure<>(
-                                            "Program `%s` holds no call storing its return address"
-                                                    .formatted(program.getName())));
+                    .<Report.Result<Convention>>map(op -> {
+                        boolean register = op.getOpcode() != PcodeOp.STORE;
+                        int size = register ? op.getOutput().getSize() : op.getInput(2).getSize();
+                        return new Report.Success<>(
+                                register
+                                        ? new Convention(
+                                                program.getRegister(op.getOutput()).getName(),
+                                                true,
+                                                size,
+                                                stack,
+                                                pop,
+                                                result)
+                                        : new Convention(
+                                                "*[%s]:%d %s"
+                                                        .formatted(
+                                                                spec.getStackBaseSpace().getName(),
+                                                                size,
+                                                                stack),
+                                                false,
+                                                size,
+                                                stack,
+                                                pop,
+                                                result));
+                    })
+                    .orElseGet(() ->
+                            new Report.Failure<>(
+                                    "Program `%s` holds no call storing its return address"
+                                            .formatted(program.getName())));
         }
 
         String stub(String effect) {
@@ -216,7 +214,9 @@ public class Emu extends GhidraScript {
                             address,
                             name,
                             effects.containsKey(name) ? "requested" : "fallback",
-                            slots.stream().map(slot -> " slot=" + slot).collect(Collectors.joining()));
+                            slots.stream()
+                                    .map(slot -> " slot=" + slot)
+                                    .collect(Collectors.joining()));
         }
     }
 
@@ -225,42 +225,36 @@ public class Emu extends GhidraScript {
                 Functions.internal(program)
                         .filter(Function::isThunk)
                         .filter(thunk -> thunk.getThunkedFunction(true).isExternal())
-                        .map(
-                                thunk ->
-                                        new Stub(
-                                                thunk.getEntryPoint(),
-                                                thunk.getThunkedFunction(true).getName(),
-                                                List.of()));
+                        .map(thunk ->
+                                new Stub(
+                                        thunk.getEntryPoint(),
+                                        thunk.getThunkedFunction(true).getName(),
+                                        List.of()));
         List<Map.Entry<Function, List<Address>>> pointed =
                 CollectionUtils.asStream(program.getFunctionManager().getExternalFunctions())
-                        .map(
-                                external ->
-                                        Map.entry(
-                                                external,
-                                                CollectionUtils.asStream(
-                                                                program.getReferenceManager()
-                                                                        .getReferencesTo(
-                                                                                external
-                                                                                        .getEntryPoint()))
-                                                        .map(reference -> reference.getFromAddress())
-                                                        .filter(
-                                                                from ->
-                                                                        program.getListing()
-                                                                                        .getDataAt(from)
-                                                                                instanceof Data data
-                                                                                && data.isPointer())
-                                                        .toList()))
+                        .map(external ->
+                                Map.entry(
+                                        external,
+                                        CollectionUtils.asStream(
+                                                        program.getReferenceManager()
+                                                                .getReferencesTo(
+                                                                        external.getEntryPoint()))
+                                                .map(Reference::getFromAddress)
+                                                .filter(from ->
+                                                        program.getListing().getDataAt(from)
+                                                                        instanceof Data data
+                                                                && data.isPointer())
+                                                .toList()))
                         .filter(entry -> !entry.getValue().isEmpty())
                         .toList();
         return Stream.concat(
                 thunks,
                 IntStream.range(0, pointed.size())
-                        .mapToObj(
-                                index ->
-                                        new Stub(
-                                                layout.traps().add((long) index * TRAP),
-                                                pointed.get(index).getKey().getName(),
-                                                pointed.get(index).getValue())));
+                        .mapToObj(index ->
+                                new Stub(
+                                        layout.traps().add((long) index * TRAP),
+                                        pointed.get(index).getKey().getName(),
+                                        pointed.get(index).getValue())));
     }
 
     // --- [TRACE]
@@ -294,8 +288,9 @@ public class Emu extends GhidraScript {
         private final Map<Address, Stub> stubs;
         private final Convention convention;
         private final List<String> calls = new ArrayList<>();
+        private final AddressSet executed = new AddressSet();
         private final AddressSet uninitialized = new AddressSet();
-        private final Map<String, Integer> userops = new TreeMap<>();
+        private final SortedMap<String, Integer> userops = new TreeMap<>();
         private long step;
 
         Recorder(Program program, Map<Address, Stub> stubs, Convention convention) {
@@ -307,6 +302,7 @@ public class Emu extends GhidraScript {
 
         void begin() {
             calls.clear();
+            executed.clear();
             uninitialized.clear();
             userops.clear();
             step = 0;
@@ -340,31 +336,38 @@ public class Emu extends GhidraScript {
                 throw new IllegalStateException(exception);
             }
             piece.setVarInternal(
-                    range.getAddressSpace(), range.getMinAddress().getOffset(), buffer.length, buffer);
+                    range.getAddressSpace(),
+                    range.getMinAddress().getOffset(),
+                    buffer.length,
+                    buffer);
         }
 
         @Override
         public void beforeExecuteInject(
                 PcodeThread<byte[]> thread, Address address, PcodeProgram program) {
             Optional.ofNullable(stubs.get(address))
-                    .ifPresent(
-                            stub -> {
-                                byte[] value =
-                                        SleighProgramCompiler.compileExpression(
-                                                        thread.getLanguage(), convention.target())
-                                                .evaluate(thread.getExecutor());
-                                calls.add(
-                                        "%d %s from %s"
-                                                .formatted(
-                                                        step,
-                                                        stub.name(),
-                                                        address.getNewAddress(
-                                                                Utils.bytesToLong(
-                                                                        value,
-                                                                        value.length,
-                                                                        thread.getLanguage()
-                                                                                .isBigEndian()))));
-                            });
+                    .ifPresent(stub -> {
+                        byte[] value =
+                                SleighProgramCompiler.compileExpression(
+                                                thread.getLanguage(), convention.target())
+                                        .evaluate(thread.getExecutor());
+                        calls.add(
+                                "%d %s from %s"
+                                        .formatted(
+                                                step,
+                                                stub.name(),
+                                                address.getNewAddress(
+                                                        Utils.bytesToLong(
+                                                                value,
+                                                                value.length,
+                                                                thread.getLanguage()
+                                                                        .isBigEndian()))));
+                    });
+        }
+
+        @Override
+        public void afterExecuteInstruction(PcodeThread<byte[]> thread, Instruction instruction) {
+            executed.add(instruction.getMinAddress(), instruction.getMaxAddress());
         }
 
         @Override
@@ -430,8 +433,10 @@ public class Emu extends GhidraScript {
                             new Report.Success<>(found.getFirst().getEntryPoint());
                     case Report.Success<List<Function>>(List<Function> found) ->
                             new Report.Failure<>(
-                                    "Entry `%s` matches %d functions".formatted(text, found.size()));
-                    case Report.Failure<List<Function>>(String cause) -> new Report.Failure<>(cause);
+                                    "Entry `%s` matches %d functions"
+                                            .formatted(text, found.size()));
+                    case Report.Failure<List<Function>>(String cause) ->
+                            new Report.Failure<>(cause);
                 };
     }
 
@@ -441,20 +446,19 @@ public class Emu extends GhidraScript {
         Report.Result<Map<Register, byte[]>> registers =
                 Emu.<Register, BigInteger, String>entries(
                                 run.registers(), this::register, Emu::number)
-                        .map(
-                                values ->
-                                        values.entrySet().stream()
-                                                .collect(
-                                                        Collectors.toMap(
-                                                                Map.Entry::getKey,
-                                                                each ->
-                                                                        Utils.bigIntegerToBytes(
-                                                                                each.getValue(),
-                                                                                each.getKey()
-                                                                                        .getMinimumByteSize(),
-                                                                                bigEndian),
-                                                                (first, _) -> first,
-                                                                LinkedHashMap::new)));
+                        .map(values ->
+                                values.entrySet().stream()
+                                        .collect(
+                                                Collectors.toMap(
+                                                        Map.Entry::getKey,
+                                                        each ->
+                                                                Utils.bigIntegerToBytes(
+                                                                        each.getValue(),
+                                                                        each.getKey()
+                                                                                .getMinimumByteSize(),
+                                                                        bigEndian),
+                                                        (first, _) -> first,
+                                                        LinkedHashMap::new)));
         Report.Result<Map<Address, byte[]>> memory =
                 entries(run.memory(), this::address, Emu::bytes);
         Report.Result<Map<Address, Integer>> reads =
@@ -471,8 +475,7 @@ public class Emu extends GhidraScript {
                         (run.results().isEmpty()
                                         ? List.of(convention.result().getName())
                                         : run.results())
-                                .stream()
-                                .map(this::register));
+                                .stream().map(this::register));
         String failures =
                 Stream.of(entry, registers, memory, reads, results)
                         .flatMap(Report.Result::failures)
@@ -509,37 +512,35 @@ public class Emu extends GhidraScript {
 
     record Machine(PcodeEmulator emulator, Recorder recorder) {}
 
-    private Machine machine(Map<Address, Stub> stubs, Map<String, String> effects, Convention convention) {
+    private Machine machine(
+            Map<Address, Stub> stubs, Map<String, String> effects, Convention convention) {
         Recorder recorder = new Recorder(currentProgram, stubs, convention);
         PcodeEmulator emulator = new PcodeEmulator(currentProgram.getLanguage(), recorder);
         stubs.values()
-                .forEach(
-                        stub -> {
-                            emulator.inject(
-                                    stub.address(),
-                                    convention.stub(
-                                            effects.getOrDefault(stub.name(), convention.fallback())));
-                            stub.slots()
-                                    .forEach(
-                                            slot ->
-                                                    emulator.getSharedState()
-                                                            .setVar(
-                                                                    slot,
-                                                                    currentProgram
-                                                                            .getDefaultPointerSize(),
-                                                                    true,
-                                                                    Utils.longToBytes(
-                                                                            stub.address().getOffset(),
-                                                                            currentProgram
-                                                                                    .getDefaultPointerSize(),
-                                                                            currentProgram
-                                                                                    .getLanguage()
-                                                                                    .isBigEndian())));
-                        });
+                .forEach(stub -> {
+                    emulator.inject(
+                            stub.address(),
+                            convention.stub(
+                                    effects.getOrDefault(stub.name(), convention.fallback())));
+                    stub.slots()
+                            .forEach(slot ->
+                                    emulator.getSharedState()
+                                            .setVar(
+                                                    slot,
+                                                    currentProgram.getDefaultPointerSize(),
+                                                    true,
+                                                    Utils.longToBytes(
+                                                            stub.address().getOffset(),
+                                                            currentProgram.getDefaultPointerSize(),
+                                                            currentProgram
+                                                                    .getLanguage()
+                                                                    .isBigEndian())));
+                });
         return new Machine(emulator, recorder);
     }
 
-    private Outcome execute(PcodeThread<byte[]> thread, Recorder recorder, Address sentinel, long budget) {
+    private Outcome execute(
+            PcodeThread<byte[]> thread, Recorder recorder, Address sentinel, long budget) {
         long steps = 0;
         try {
             for (; steps < budget && !thread.getCounter().equals(sentinel); steps++) {
@@ -561,7 +562,19 @@ public class Emu extends GhidraScript {
         Arguments.Usage usage = new Arguments.Usage(getScriptName(), "<out> <plan>");
         String[] args = getScriptArgs();
         Path out = usage.out(args);
-        Plan plan = usage.values(Stream.of(read(usage.operands(args)))).getFirst();
+        List<String> operands = usage.operands(args);
+        Plan plan =
+                usage.values(
+                                Stream.concat(
+                                        operands.size() == 1
+                                                ? Stream.empty()
+                                                : Stream.<Report.Result<Plan>>of(
+                                                        new Report.Failure<>(
+                                                                "Arguments name %d plans"
+                                                                        .formatted(
+                                                                                operands.size()))),
+                                        operands.stream().limit(1).map(Emu::read)))
+                        .getFirst();
         Layout layout = Layout.of(currentProgram);
         Convention convention = usage.values(Stream.of(Convention.of(currentProgram))).getFirst();
         List<Stub> stubs = stubs(currentProgram, layout).toList();
@@ -571,12 +584,12 @@ public class Emu extends GhidraScript {
                         Stream.concat(
                                 plan.stubs().keySet().stream()
                                         .filter(name -> !names.contains(name))
-                                        .map(
-                                                name ->
-                                                        new Report.Failure<Prepared>(
-                                                                "Stub `%s` names no external function"
-                                                                        .formatted(name))),
-                                plan.runs().stream().map(run -> prepare(run, plan.steps(), convention))));
+                                        .map(name ->
+                                                new Report.Failure<Prepared>(
+                                                        "Stub `%s` names no external function"
+                                                                .formatted(name))),
+                                plan.runs().stream()
+                                        .map(run -> prepare(run, plan.steps(), convention))));
         SequencedMap<Address, Stub> byAddress =
                 stubs.stream()
                         .collect(
@@ -589,99 +602,108 @@ public class Emu extends GhidraScript {
         List<String> outcomes = new ArrayList<>();
         List<String> calls = new ArrayList<>();
         List<String> reads = new ArrayList<>();
+        List<String> executed = new ArrayList<>();
         List<String> uninitialized = new ArrayList<>();
         List<String> userops = new ArrayList<>();
         for (Prepared prepared : runs) {
             monitor.checkCancelled();
-            machine = prepared.run().keep() ? machine : machine(byAddress, plan.stubs(), convention);
+            machine =
+                    prepared.run().keep() ? machine : machine(byAddress, plan.stubs(), convention);
             String id = prepared.run().id();
             PcodeEmulator emulator = machine.emulator();
             PcodeThread<byte[]> thread = emulator.newThread(id);
             thread.getExecutor()
                     .execute(
-                            emulator.compileSleigh(
-                                    "enter",
-                                    convention.enter(layout)),
+                            emulator.compileSleigh("enter", convention.enter(layout)),
                             thread.getUseropLibrary());
             prepared.registers().forEach(thread.getState()::setVar);
             prepared.memory()
-                    .forEach(
-                            (address, data) ->
-                                    emulator.getSharedState().setVar(address, data.length, true, data));
+                    .forEach((address, data) ->
+                            emulator.getSharedState().setVar(address, data.length, true, data));
             thread.overrideCounter(prepared.entry());
             Optional.ofNullable(
-                            currentProgram.getProgramContext().getDisassemblyContext(prepared.entry()))
+                            currentProgram
+                                    .getProgramContext()
+                                    .getDisassemblyContext(prepared.entry()))
                     .ifPresentOrElse(thread::overrideContext, thread::overrideContextWithDefault);
             machine.recorder().begin();
-            Outcome outcome = execute(thread, machine.recorder(), layout.sentinel(), prepared.steps());
+            Outcome outcome =
+                    execute(thread, machine.recorder(), layout.sentinel(), prepared.steps());
             outcomes.add(
                     "%s %s%s"
                             .formatted(
                                     id,
                                     outcome.text(),
                                     prepared.results().stream()
-                                            .map(
-                                                    result ->
-                                                            " %s=0x%s"
-                                                                    .formatted(
-                                                                            result.getName(),
-                                                                            Utils.bytesToBigInteger(
-                                                                                            thread.getState()
-                                                                                                    .getVar(
-                                                                                                            result,
-                                                                                                            Reason
-                                                                                                                    .INSPECT),
-                                                                                            result
-                                                                                                    .getMinimumByteSize(),
-                                                                                            currentProgram
-                                                                                                    .getLanguage()
-                                                                                                    .isBigEndian(),
-                                                                                            false)
-                                                                                    .toString(16)))
+                                            .map(result ->
+                                                    " %s=0x%s"
+                                                            .formatted(
+                                                                    result.getName(),
+                                                                    Utils.bytesToBigInteger(
+                                                                                    thread.getState()
+                                                                                            .getVar(
+                                                                                                    result,
+                                                                                                    Reason
+                                                                                                            .INSPECT),
+                                                                                    result
+                                                                                            .getMinimumByteSize(),
+                                                                                    currentProgram
+                                                                                            .getLanguage()
+                                                                                            .isBigEndian(),
+                                                                                    false)
+                                                                            .toString(16)))
                                             .collect(Collectors.joining())));
             machine.recorder().calls.stream().map(call -> id + " " + call).forEach(calls::add);
             prepared.reads()
-                    .forEach(
-                            (address, length) ->
-                                    reads.add(
-                                            "%s %s %s"
-                                                    .formatted(
-                                                            id,
-                                                            address,
-                                                            NumericUtilities.convertBytesToString(
-                                                                    emulator.getSharedState()
-                                                                            .getVar(
-                                                                                    address,
-                                                                                    length,
-                                                                                    true,
-                                                                                    Reason.INSPECT)))));
+                    .forEach((address, length) ->
+                            reads.add(
+                                    "%s %s %s"
+                                            .formatted(
+                                                    id,
+                                                    address,
+                                                    NumericUtilities.convertBytesToString(
+                                                            emulator.getSharedState()
+                                                                    .getVar(
+                                                                            address,
+                                                                            length,
+                                                                            true,
+                                                                            Reason.INSPECT)))));
+            machine.recorder().executed.forEach(range -> executed.add(id + " " + range));
             machine.recorder().uninitialized.forEach(range -> uninitialized.add(id + " " + range));
-            machine.recorder().userops.forEach((name, count) -> userops.add("%s %s count=%d".formatted(id, name, count)));
+            machine.recorder()
+                    .userops
+                    .forEach((name, count) ->
+                            userops.add("%s %s count=%d".formatted(id, name, count)));
         }
         List<Report.Section> sections =
                 List.of(
                         Report.Section.rows("LAYOUT", layout.rows()),
                         Report.Section.rows(
-                                "STUBS", stubs.stream().map(stub -> stub.row(plan.stubs())).toList()),
+                                "STUBS",
+                                stubs.stream().map(stub -> stub.row(plan.stubs())).toList()),
                         Report.Section.rows("RUNS", outcomes),
                         Report.Section.rows("CALLS", calls),
                         Report.Section.rows("READS", reads),
+                        Report.Section.rows("EXECUTED", executed),
                         Report.Section.rows("UNINITIALIZED", uninitialized),
                         Report.Section.rows("USEROPS", userops));
-        println(Report.write(out, currentProgram, sections, String.join(" ", usage.operands(args))));
+        println(
+                Report.write(
+                        out, currentProgram, sections, String.join(" ", usage.operands(args))));
     }
 
-    private static Report.Result<Plan> read(List<String> operands) {
-        if (operands.size() != 1) {
-            return new Report.Failure<>("Arguments name %d plans".formatted(operands.size()));
-        }
+    private static Report.Result<Plan> read(String file) {
         try {
-            return Optional.ofNullable(new Gson().fromJson(Files.readString(Path.of(operands.getFirst())), Plan.class))
+            return Optional.ofNullable(
+                            new Gson().fromJson(Files.readString(Path.of(file)), Plan.class))
                     .filter(plan -> plan.steps() > 0)
                     .<Report.Result<Plan>>map(Report.Success::new)
-                    .orElseGet(() -> new Report.Failure<>("Plan `%s` sets no positive steps".formatted(operands.getFirst())));
-        } catch (IOException | RuntimeException exception) {
-            return new Report.Failure<>("Plan `%s` is unreadable. %s".formatted(operands.getFirst(), exception.getMessage()));
+                    .orElseGet(() ->
+                            new Report.Failure<>(
+                                    "Plan `%s` sets no positive steps".formatted(file)));
+        } catch (IOException | JsonParseException exception) {
+            return new Report.Failure<>(
+                    "Plan `%s` is unreadable. %s".formatted(file, exception.getMessage()));
         }
     }
 }

@@ -46,6 +46,7 @@
                     "runtimes": [ { "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true } ]
                 },
                 "project": {
+                    "sourcePaths": [ "." ],
                     "referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ]
                 },
                 "diagnostic": { "filter": [ "**/.cache/**" ] }

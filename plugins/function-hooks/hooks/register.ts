@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code';
-import { none, some } from '../composition.ts';
+import { given, some } from '../composition.ts';
 import { commandDecision, unrun, WORKTREE } from '../policies/policies.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -18,23 +18,22 @@ const register: Register = (on, options) => {
             return next(e);
         }
         const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
-        const request = e.tool === 'Bash' ? { background: e.run_in_background === true, timeout: e.timeout === undefined ? none : some(e.timeout) } : { background: true, timeout: some(e.timeout_ms) };
-        const decision = await commandDecision({ run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: repo === null ? none : some(repo.root), cwd, home: home === undefined ? none : some(home) }, e.command, project, some(request));
-        switch (decision.kind) {
-            case 'deny':
-                return { deny: decision.reason };
-            case 'allow':
-                return next(e);
-            default: {
-                const { command, notice, timeout, background } = decision;
-                const answer = await next(e.tool === 'Bash' ? { ...e, command, ...(timeout.kind === 'some' && { timeout: Math.min(timeout.value, 600_000) }), ...(background && { run_in_background: true }) } : { ...e, command });
-                if (notice.kind === 'none' || answer.deny !== undefined) {
-                    return answer;
-                }
-                $.ui.toast(notice.value);
-                return { ...answer, context: [...(answer.context ?? []), notice.value] };
-            }
+        const decision = await commandDecision(
+            { run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: given(repo?.root), cwd, home: given(home) },
+            e.command,
+            project,
+            some(e.tool === 'Bash' ? { background: e.run_in_background === true, timeout: given(e.timeout) } : { background: true, timeout: some(e.timeout_ms) }),
+        );
+        if (decision.kind === 'deny') {
+            return { deny: decision.reason };
         }
+        if (decision.kind === 'allow') {
+            return next(e);
+        }
+        const { command, notice, timeout, background } = decision;
+        const limit = 600_000;
+        const answer = await next({ ...e, command, ...(timeout.kind === 'some' && { timeout: Math.min(timeout.value, limit) }), ...(background && { run_in_background: true }) });
+        return notice.kind === 'none' || answer.deny !== undefined ? answer : { ...answer, context: [...(answer.context ?? []), notice.value] };
     }).catch((_$, e, next) => (next.called ? next(e) : { deny: unrun(next.error.message ?? next.error.kind) }));
 };
 

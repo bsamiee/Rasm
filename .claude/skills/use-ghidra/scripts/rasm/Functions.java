@@ -34,7 +34,8 @@ import java.util.stream.Stream;
 public final class Functions {
     // --- [GRAPH]
 
-    public static final Comparator<Function> BY_ENTRY = Comparator.comparing(Function::getEntryPoint);
+    public static final Comparator<Function> BY_ENTRY =
+            Comparator.comparing(Function::getEntryPoint);
 
     private Functions() {}
 
@@ -82,11 +83,10 @@ public final class Functions {
         return Stream.concat(Stream.of(function), thunks(function))
                 .filter(seen::add)
                 .flatMap(each -> each.getCallingFunctions(monitor).stream())
-                .flatMap(
-                        caller ->
-                                caller.isThunk() || isStub(caller)
-                                        ? callers(caller, monitor, seen)
-                                        : Stream.of(caller))
+                .flatMap(caller ->
+                        caller.isThunk() || isStub(caller)
+                                ? callers(caller, monitor, seen)
+                                : Stream.of(caller))
                 .distinct();
     }
 

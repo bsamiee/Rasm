@@ -53,7 +53,7 @@ fn accumulated(
 }
 
 fn cosines(assembly: &Assembly, offset: Distance, sensors: &[(Point3<f64>, Unit<Vector3<f64>>)], direction: Unit<Vector3<f64>>) -> Result<Array1<f64>, ProximityError> {
-    let (facing, empty) = ((Bound::Unbounded, Bound::Unbounded), (Bound::Excluded(offset), Bound::Excluded(offset)));
+    let (facing, empty) = ((Bound::Unbounded, Bound::Unbounded), (Bound::Included(offset), Bound::Excluded(offset)));
     let cosines = sensors.iter().map(|(_, normal)| normal.dot(&direction)).collect::<Vec<_>>();
     occluded(assembly, sensors.par_iter().zip(&cosines).map(|(&(point, normal), &cosine)| (point + normal.into_inner() * offset.into_inner(), direction, if cosine > 0.0 { facing } else { empty })))
         .map(|shaded| iter::zip(cosines, shaded).map(|(cosine, shaded)| if shaded { 0.0 } else { cosine.max(0.0) }).collect::<Array1<_>>())

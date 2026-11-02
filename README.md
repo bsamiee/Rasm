@@ -33,7 +33,7 @@ Rasm/
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
 ├── nx.json                   # Task graph
-├── package.json              # Catalog rows except tool plugins, root Nx targets
+├── package.json              # Catalog rows except tool plugins, Nx executor manifest
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -128,7 +128,7 @@ Products reach a person through separate levels:
 |  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
 |  [05]   | .NET tool package              | `dotnet dnx <id>` on the command                                                                     |
-|  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                                  |
+|  [06]   | Task graph                     | `nx.json`, inference in `tools/nx`                                                                   |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
 |  [08]   | Secret                         | Doppler `agent-runtime/dev`, named in the consuming target's `doppler run` prefix                    |
 |  [09]   | Resource or repository setting | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |

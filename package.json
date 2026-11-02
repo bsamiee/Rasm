@@ -1,7 +1,7 @@
 {
     "name": "rasm",
     "private": true,
-    "description": "Repository task graph and shared dependency catalog",
+    "description": "Shared dependency catalog",
     "type": "module",
     "imports": { "#/*": "./*.ts", "#/libs/typescript/web/ui/*": "./libs/typescript/web/ui/*.tsx", "#/package.json": "./package.json" },
     "scripts": { "postinstall": "effect-tsgo patch" },

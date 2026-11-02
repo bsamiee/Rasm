@@ -49,11 +49,17 @@
     <!-- [ERROR_PRONE] -->
     <rule ref="category/java/errorprone.xml">
         <exclude name="AvoidAccessibilityAlteration" />
+        <exclude name="AvoidCatchingGenericException" />
         <exclude name="EmptyCatchBlock" />
     </rule>
     <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration">
         <properties>
             <property name="violationSuppressXPath" value="./ancestor::MethodDeclaration[@Name = 'run'][ancestor::ClassDeclaration[@SimpleName = 'Headers']]" />
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidCatchingGenericException">
+        <properties>
+            <property name="violationSuppressXPath" value="./ancestor::TryStatement[1]/Block//MethodCall[pmd-java:matchesSig('ghidra.app.script.GhidraScript#runScript(java.lang.String,java.lang.String[],ghidra.app.script.GhidraState)')]" />
         </properties>
     </rule>
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">

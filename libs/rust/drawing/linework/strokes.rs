@@ -1,4 +1,5 @@
-use std::{borrow::Cow, iter, mem};
+use core::{iter, mem};
+use std::borrow::Cow;
 
 use itertools::Itertools as _;
 use kurbo::{BezPath, PathEl, PathSeg, Shape as _, Stroke, StrokeOpts, Vec2, segments, stroke};

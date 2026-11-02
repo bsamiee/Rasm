@@ -19,10 +19,13 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint, jd
 ## [03]-[LANGUAGE_SERVER]
 
 jdtls type-checks scripts a tool loads against that tool's jars on each edit:
+- Mise `http:jdtls` row lists versions from the milestones folder, its `url` reads the build-stamped archive name from `<version>/latest.txt` at install alone
 - `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before jars attach
-- Nix `jdtls` runs on its own JDK, default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance
+- `java.project.sourcePaths` names the scripts directory as the one source root, an inferred root takes `rasm/` and fails each `rasm` import
+- `jdtls` launcher runs on `$JAVA_HOME/bin/java`, VS Code runs its bundled server on the extension's own JRE
+- Default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance in both clients
 - `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server `mise.toml` values
-- Nix launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on the folder basename and OSGi configuration under `~/.eclipse`
+- `jdtls` launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on the folder basename and OSGi configuration under `~/.eclipse`
 - `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside scripts folder keep resolving
 - VS Code jdtls imports every Eclipse `.project` under root, `java.import.exclusions` skips the agent server's under `.cache`
 - Maven and Gradle importers stay off, they find vendored builds alone (poms under `.cargo/rustc-source`)

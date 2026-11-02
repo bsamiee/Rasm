@@ -1,23 +1,28 @@
 ---
 name: use-ghidra
-description: "Use when reading or annotating a binary through Ghidra, covering headless analysis scripts and ghidra-cli edits"
+description: "Use when reading, annotating, or emulating a binary through Ghidra, covering headless scripts and the Serve process"
 ---
 
 # [GHIDRA]
 
-`analyzeHeadless` imports and analyzes each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, program named after its file. Later reads run scripts on the saved program, one file per script. ghidra-cli bridges serve edits of names, comments, and functions alone.
+`analyzeHeadless` imports each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, holding that binary's architecture slices and earlier releases as programs named after their files. Later runs execute bundle scripts on saved programs, and `Serve.java` keeps one process on a project for repeated reads and edits.
 
 [SCRIPTS]:
-- [01]-[ANALYZERS](scripts/Analyzers.java): Prescript skipping named analyzers during an import
-- [02]-[STUBS](scripts/Stubs.java): Postscript naming and typing Objective-C message-send stubs
-- [03]-[CATALOG](scripts/Catalog.java): Postscript writing the program index seeds come from
-- [04]-[DECOMPILE](scripts/Decompile.java): Postscript decompiling seeds and their call neighborhood into one file
-- [05]-[CALLSITES](scripts/CallSites.java): Postscript listing seed call sites with resolved arguments
-- [06]-[HEADERS](scripts/Headers.java): Postscript applying C header types and prototypes
-- [07]-[ARGUMENTS](scripts/Arguments.java): Argument parsing every postscript shares
-- [08]-[FUNCTIONS](scripts/Functions.java): Call graph and decompile operations every postscript shares
-- [09]-[REPORT](scripts/Report.java): Result type and file writer every postscript shares
-- [10]-[BRIDGES](scripts/bridges.py): Session hook stopping ghidra-cli bridges of ended sessions
+- [01]-[SERVE](scripts/Serve.java): Postscript running bundle scripts on request against programs of its project
+- [02]-[ANALYZERS](scripts/Analyzers.java): Prescript skipping named analyzers during an import
+- [03]-[STUBS](scripts/Stubs.java): Postscript naming and typing Objective-C message-send stubs
+- [04]-[CATALOG](scripts/Catalog.java): Postscript writing the program index seeds come from
+- [05]-[GRAPH](scripts/Graph.java): Postscript writing every call edge and non-call reference to a function
+- [06]-[DECOMPILE](scripts/Decompile.java): Postscript decompiling seeds and their call neighborhood into one file
+- [07]-[CALLSITES](scripts/CallSites.java): Postscript listing seed call sites with resolved arguments
+- [08]-[RTTI](scripts/Rtti.java): Postscript listing Itanium C++ typeinfo, vtables, slots, and vtable users
+- [09]-[EMU](scripts/Emu.java): Postscript emulating a plan of runs with external calls stubbed
+- [10]-[APPLY](scripts/Apply.java): Postscript applying names, labels, comments, prototypes, and locals from row files
+- [11]-[HEADERS](scripts/Headers.java): Postscript applying C header types and prototypes
+- [12]-[DROP](scripts/Drop.java): Postscript removing data types by path
+- [13]-[ARGUMENTS](scripts/rasm/Arguments.java): Usage text, seeds, and settings every postscript shares
+- [14]-[FUNCTIONS](scripts/rasm/Functions.java): Call graph and decompile operations every postscript shares
+- [15]-[REPORT](scripts/rasm/Report.java): Result type, sections, and file writer every postscript shares
 
 [FACTS]:
 - Run: Postscripts take the output path as their first argument after the script name
@@ -25,32 +30,34 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Run: Decompilers that cannot open the program fail `Decompile.java` and `CallSites.java` with their message, one function's failure stays a row
 - Install: Releases include no macOS arm64 decompiler, the `mise.toml` Ghidra row's `postinstall` builds it and creates `$GHIDRA_PROJECT_DIR`
 - Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
-- Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.html` lists every headless flag, `ghidra <group> --help` every ghidra-cli flag
+- Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.html` lists every headless flag
 - Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
+- Project: `<name>/<folder>` as the project argument places an import under `/<folder>`, one folder per slice or release
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
-- Program: Repeated imports into a project add `<file>.<n>`, `-process <file>` keeps reading the first
+- Program: Repeated imports into one folder add `<file>.<n>`, `-process <file>` keeps reading the first
 - Lock: One process opens a project, a second run aborts with `LockException` until the first exits, `-readOnly` included
-- Lock: Bridges hold their project until `ghidra stop --project <name>`, runs on another project start in parallel
-- Writes: Runs save every script change at exit, `-readOnly` discards them, bridges save at `ghidra stop`
+- Lock: Work on one project goes through its `Serve.java` process, runs on other projects start in parallel
+- Writes: Runs save every script change at exit, `-readOnly` discards them, `Serve.java` saves after each request that changed a program
 - Keys: Targets are a name, `0x<hex>`, or `FUN_<hex>`, rows print hex with no `0x`
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
-- Memory: Every run and bridge caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
+- Analysis: `Apply Data Archives` applies `mac_osx.gdt` to a Mach-O at import, libc and CoreFoundation prototypes need no header
+- Analysis: `Objective-C Message Analyzer` recurses with no cancellation check past `-analysisTimeoutPerFile`, imports skip it for `Stubs.java`
+- Memory: Every process caps its heap at `GHIDRA_HEADLESS_MAXMEM`, the quarter of RAM `mise.toml` sets, and holds it until exit
 - Memory: Decompiles spawn up to min(cores + 1, 10) native `decompile` processes outside the heap, `-max-cpu <n>` caps one run at n + 1
-- Time: Imports, analysis, and script runs take Bash `run_in_background: true`
-- Bundle: `-scriptPath` compiles the scripts directory as one bundle at the JDK `JAVA_HOME` names with no release flag
-- Bundle: Subdirectories become packages, unnamed variables need JDK 22 or later
+- Time: Imports, analysis, script runs, and `Serve.java` take Bash `run_in_background: true`
+- Bundle: `-scriptPath` compiles each listed directory as one bundle at the JDK `JAVA_HOME` names, subdirectories become packages
 - Bundle: Compile failures drop the failing file and every file referencing it
-- Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
+- Bundle: Scripts in another directory import `rasm` through a `//@importpackage rasm` line with both directories on `-scriptPath`
+- Bundle: A bundle importing `rasm` without the skill directory on `-scriptPath` fails whole, scripts that import nothing included
+- Parallel: Processes share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
-- Parallel: Each process pays a JVM start, bundle load and project open, a worker runs one process over its whole share of inputs
+- Parallel: Each process pays a JVM start, bundle load, and project open, a worker runs one process over its whole share of inputs
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
-- Files: `<macros>` goes under `<main>/.artifacts/ghidra/<name>/`
+- Files: `<macros>`, `<plan>`, `<rows>`, and FIFOs go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the repository root
-- Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
-- Logs: `ghidra.log` appends each run's messages and its scripts' printed lines, `ghidra-script.log` the printed lines alone
-- Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
+- Files: Scripts and `-log` create their file's folder, `lipo`, `mkfifo`, and redirects need `mkdir -p`
+- Logs: `<main>/.artifacts/logs/ghidra.log` appends each run's messages and printed lines, `ghidra-script.log` the printed lines alone
 - Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
-- Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
 - Use `Skill(search-code)` for a Ghidra API signature
 
 Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.
@@ -63,11 +70,10 @@ Projects saved under `$GHIDRA_PROJECT_DIR`, a binary without one takes an import
 find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
 ```
 
-`<headless>` opens project `<name>` with the scripts bundle and logs:
+`<headless>` opens project `<name>` with the scripts bundle:
 
 ```bash
-"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -scriptPath ${CLAUDE_SKILL_DIR}/scripts \
-    -log <main>/.artifacts/logs/ghidra.log -scriptlog <main>/.artifacts/logs/ghidra-script.log
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -scriptPath ${CLAUDE_SKILL_DIR}/scripts
 ```
 
 Imports:
@@ -95,16 +101,20 @@ After import:
 ```bash
 <run> -readOnly -postScript Decompile.java <out> 'str:<needle>' 0x<hex> callees=1 callers=1
 rg -n '^// --- \[' <out>
-rg -n '^// failed:' <out>
+sed -n '/^\/\/ --- \[FAILED\]/,/^\/\/ --- \[GLOBALS\]/p' <out>
 ```
 
 Alternative runs:
 - Whole program as the seed
 - Call sites of the seeds
+- Every call edge and non-call reference
+- C++ classes from typeinfo and vtables
 
 ```bash
 <run> -readOnly -postScript Decompile.java <out> 're:.'
 <run> -readOnly -postScript CallSites.java <out> <seed>...
+<run> -readOnly -postScript Graph.java <out>
+<run> -readOnly -postScript Rtti.java <out>
 ```
 
 Seeds come from the catalog:
@@ -115,8 +125,7 @@ Seeds come from the catalog:
 - Stub seeds of `CallSites.java` list one selector's sends, seed `_objc_msgSend` lists every send per selector
 
 Seeds and settings of `Decompile.java` and `CallSites.java`:
-- Seed: `0x<hex>` names the function containing the address
-- Seed: Addresses in no function take `ghidra function create <address> --project <name> --program <file>`, then `ghidra stop --project <name>`
+- Seed: `0x<hex>` names the function containing the address, an `Apply.java` row creates a function where none starts
 - Seed: `<name>` or `<namespace>::<name>` names functions by plain or qualified name, `re:<regex>` those with a matching plain or qualified name
 - Seed: `str:<needle>` names functions referencing a defined string holding the needle case-insensitively, through a `__cfstring` struct included
 - Seed: `tag:<tag>` names functions with the tag, `re:.` every non-external function
@@ -127,7 +136,25 @@ Seeds and settings of `Decompile.java` and `CallSites.java`:
 - Neighbors: Thunks and stubs among callers stand for their own callers, among callees for the function each reaches
 - Targets: `CallSites.java` reads a thunk seed as the function it reaches
 
-## [02]-[LOCATE]
+## [02]-[SERVE]
+
+Repeated reads and edits on one project run through one `Serve.java` process:
+1. Request FIFO, then the process in the background on any program of the project
+2. One reply FIFO per caller, one request per line, the reply printing `ok <seconds>s[ saved <program>]` or `failed <seconds>s <cause>`
+3. Stop, after which the headless run saves and releases the project
+
+```bash
+mkfifo <requests>
+<headless> -process <file> -noanalysis -postScript Serve.java <requests>
+mkfifo <reply> && echo '<reply> <program> <script> <argument>...' > <requests> && cat <reply>
+echo stop > <requests>
+```
+
+- Requests: `<program>` is a project path (`<file>` or `/<folder>/<file>`), `<script>` any script on `-scriptPath`, arguments split on whitespace
+- Requests: Requests run one at a time in arrival order, a script edited between requests rebuilds before its next run
+- Writes: `Serve.java` saves each program a request changed, `-readOnly` has no effect on those saves
+
+## [03]-[LOCATE]
 
 Seeds below the catalog's top rows:
 - Defined strings holding a needle case-insensitively
@@ -138,26 +165,31 @@ rg -n -i '<needle>' <catalog>
 rg -n '<regex>' <catalog>
 ```
 
-## [03]-[ANNOTATE]
+## [04]-[ANNOTATE]
 
-Types and prototypes from C headers:
+Edits from row files, one row per line with tabs between cells:
+1. Rows applied, names first, then prototypes, local removals, and renames over one decompile
+2. Catalog again when rows renamed its entries
+
+```bash
+<run> -postScript Apply.java <report> <rows>...
+<run> -readOnly -postScript Catalog.java <catalog>
+```
+
+`Apply.java` rows:
+- Cells: `<address> <namespace> <name> <prototype> <comment> <locals> <kind>`, `-` or an empty cell for none, `#` lines skipped
+- Kind: `function` (default) names, comments, and creates a function where none starts, `label` places a primary label and plate comment
+- Namespace: `<a>::<b>` creates the hierarchy and turns its innermost namespace into a class
+- Prototype: C declaration parsed against the program's types, its function name ignored, a missing type rejects the row
+- Locals: `<local>=<name>[:<type>]` renames and retypes a decompiled local or parameter, `<local>=` or `re:<regex>=` removes stored locals
+
+Types and prototypes absent from `mac_osx.gdt`, from C headers:
 1. Predefined macros of the target from clang without blocks, one file of `#define` lines
-2. Headers parsed under the macros
+2. Headers parsed under the macros, a header of `typedef struct <name> <name>;` lines declares types a prototype names
 
 ```bash
 clang -dM -E -x c /dev/null -target <triple> -fno-blocks -o <macros>
 <run> -postScript Headers.java <report> <header>... -I<dir>... -imacros <macros>
-```
-
-Edits through a bridge:
-1. Subcommands from a file in one connection, one per line without `ghidra` and `#` comments, split on whitespace with no quoting
-2. Bridge stopped
-3. Catalog again when edits renamed its rows
-
-```bash
-ghidra batch <commands> --project <name> --program <file>
-ghidra stop --project <name>
-<run> -readOnly -postScript Catalog.java <catalog>
 ```
 
 `Headers.java`:
@@ -165,20 +197,67 @@ ghidra stop --project <name>
 - Defines: CParser rejects the `^` block pointers `__BLOCKS__` enables, `-fno-blocks` keeps the macro out of `<macros>`
 - Arguments: Every `-I<dir>` names a directory and every header a file
 - Include: CoreFoundation and C library headers parse under `-I` framework `Headers`, `usr/include`, and clang's `include`
-- Report: `[HEADERS]` rows parsed or failed per header, `[PREPROCESSOR]` and `[PARSER]` messages, then `[APPLIED]` rows per function
 - Prototypes: Definitions apply to functions named with and without a leading underscore and follow a thunk to the thunked function
 
-## [04]-[FORMAT]
+Types removed by path:
+
+```bash
+<run> -postScript Drop.java <report> /<category>/<name>...
+```
+
+Names, comments, and prototypes carry from an analyzed earlier release in the same project:
+
+```bash
+<headless> -process <file> -noanalysis -postScript AutoVersionTrackingScript.java /<sessions> <session> /<folder>/<file>
+```
+
+## [05]-[EMULATE]
+
+`Emu.java` runs a JSON plan of runs on fresh p-code machines over the program image, one process per worker over its whole share:
+
+```json
+{
+    "steps": 2000000,
+    "stubs": { "<external>": "<sleigh>" },
+    "runs": [
+        {
+            "id": "<id>",
+            "entry": "<seed> | 0x<hex>",
+            "keep": false,
+            "steps": 2000000,
+            "registers": { "<register>": "0x<hex>" },
+            "memory": { "0x<hex>": "<hex bytes>" },
+            "reads": { "0x<hex>": 16 },
+            "results": [ "<register>" ]
+        }
+    ]
+}
+```
+
+```bash
+<run> -readOnly -postScript Emu.java <out> <plan>
+```
+
+- Entry: A seed matching one function or an address, `keep` runs on the memory the previous run left
+- Stubs: Thunks and pointer slots of an external function run the plan's Sleigh for its name or zero the return register, then return
+- Stubs: Sleigh writes registers and memory (`x0 = *[ram]:8 0x<hex>:8;`), a heap is a cell the stub advances
+- Layout: Sentinel return address, stub traps, and stack sit above the program's last block, inputs go outside both
+- Stops: `returned` at the sentinel, `exhausted` at the step budget, `faulted` with the p-code fault
+- Results: Default to the default convention's return register
+- Userops: Language operations with no definition run as no-ops and count per name
+
+## [06]-[FORMAT]
 
 Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, sections with `// --- [NAME]` padded to column 90:
 - Index: `args=<arguments>` closes the counts of a script that takes arguments after `<out>`
 - Catalog: `[STRINGS]` rows `<address> <text> functions=<count> <name>...`, `[IMPORTS]` rows `<library> <prototype> callers=<count> <name>...`
-- Catalog: `[FUNCTIONS]` rows `<address> <name> size=<bytes> callers=<count> callees=<count>`
+- Catalog: `[FUNCTIONS]` rows `<address> <name> size=<bytes> callers=<count> callees=<count> source=<source>`
 - Catalog: `[STRINGS]` and `[IMPORTS]` rows rank by count and `[FUNCTIONS]` rows by size, names sort by entry address
 - Catalog: Callers of a thunk or stub count for the function it reaches, thunks and stubs hold no `[FUNCTIONS]` row
+- Graph: `[CALLS]` rows `<address> <name> -> <address> <name>`, `[REFERENCES]` rows `<address> <name> <- <from> <address> <name>`
 - Decompile: Blocks `// --- [<name>]` over `// <address> size=<bytes> <role> callers=<count>[: <names>]`
 - Decompile: `<role>` is `seed`, `caller:<depth>`, or `callee:<depth>`, `<names>` the callers with a block in the file by entry address
-- Decompile: Failed blocks hold `// failed: <cause>` under their header, thunk and stub seeds hold `// <address> thunk -> <name>` or `stub -> <name>`
+- Decompile: `[FAILED]` rows `// <address> <name> <role>: <cause>`, thunk and stub seeds hold `// <address> thunk -> <name>` or `stub -> <name>`
 - Decompile: Decompiler prints `$` and `:` of a stub name as `_`, `_objc_msgSend$length` appears as `_objc_msgSend_length` in a block
 - Decompile: `[GLOBALS]` holds one row `// <address> <type> <name>[ = <value>]` per global the blocks reference
 - Decompile: `[TYPES]` holds Ghidra's built-in typedefs, then every composite, enum, and typedef the blocks name
@@ -186,41 +265,20 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 - CallSites: Rows `<address> <caller>: [$<selector> ]<arguments>` sorted by caller entry then address
 - CallSites: Stub call arguments open with the receiver, `$?` marks a stub with no selector string resolved
 - CallSites: `[FAILED]` lists each caller the decompiler failed on and each call holding no argument list, with the cause
-- Stubs: `[STUBS]` rows `<address> <old> -> <new>` per rename, `unchanged`, `unresolved`, or `rejected: <message>` after the name otherwise
+- Rtti: `[TYPEINFO]` rows `<address> class|si|vmi <type> [<base>@<offset>/<flags>...]`, types in Itanium encoding `c++filt _ZTS<type>` reads
+- Rtti: `[VTABLES]` rows `<vtable> <typeinfo> <type> offset=<offset-to-top> slots=<count>`
+- Rtti: `[SLOTS]` rows `<vtable> <slot> <target> function|import|code <name>`, `[USERS]` rows `<vtable> <from> <function>`
+- Emu: `[LAYOUT]` rows `sentinel|traps|stack <address>`, `[STUBS]` rows `<address> <name> requested|fallback[ slot=<address>...]`
+- Emu: `[RUNS]` rows `<id> <stop> steps=<count> pc=<address> <register>=0x<hex>...`, `[CALLS]` rows `<id> <step> <name> from <address>`
+- Emu: `[READS]` rows `<id> <address> <hex>`, `[USEROPS]` rows `<id> <name> count=<count>`
+- Emu: `[EXECUTED]` and `[UNINITIALIZED]` rows `<id> [<first>, <last>]` per range executed or read outside the image and the run's writes
+- Apply: `[NAMED]`, `[LABELED]`, `[TYPED]`, `[REMOVED]`, and `[RENAMED]` rows `<address> <result>`, `[REJECTED]` rows `<address> <step>: <cause>`
+- Headers: `[PARSED]` and `[FAILED]` per header, `[PREPROCESSOR]` and `[PARSER]` messages, `[APPLIED]` and `[REJECTED]` per function
+- Stubs: `[RENAMED]` rows `<address> <old> -> <new>`, `[UNCHANGED]`, `[UNRESOLVED]`, and `[REJECTED]` rows `<address> <name>[: <message>]`
+- Drop: `[REMOVED]` and `[ABSENT]` rows per path
 
-## [05]-[API]
+## [07]-[EXTEND]
 
-Behaviors of the Ghidra API that decide how a script reads or writes a program:
-- Stubs: `Objective-C Message Analyzer` names and types stubs only with `ID` and `SEL` under `/_objc2_`, without them analysis leaves `FUN_<hex>`
-- Stubs: `__objc_msgSend_stub`, the calling convention Mach-O import installs, passes receiver and message arguments without `x1`
-- Stubs: Selector is the string the stub's load references
-- Types: `DataTypeWriter` writes the built-in typedefs from the constructor and skips a `FunctionDefinition` on write
-- Strings: `DefinedDataIterator.byDataInstance` with `StringDataInstance::isString` walks defined strings, a `__cfstring` struct references the text
-- Functions: `getFunctions(true)` skips externals, `getCallingFunctions` keeps call references to the entry alone
-- Thunks: `getFunctionThunkAddresses` returns null with no thunks, `getThunkedFunction(true)` follows a chain to the end
-- Addresses: `AddressFactory.getAddress` parses hex with or without `0x` and returns null for text holding no address
-- Decompile: `ParallelDecompiler.decompileFunctions` returns results in completion order, null for a cancelled item, and rethrows a callback exception
-- Decompile: `DecompilerCallback.setTimeout` sets the timeout passed per function, `DecompileOptions.setDefaultTimeout` changes nothing under it
-- Decompile: `DecompilerCallback` drops a failed `openProgram` and returns results with no message, the configurer opens the program
-- Analysis: `Objective-C Message Analyzer` recurses through every p-code input to depth 10 with no cancellation check, past `-analysisTimeoutPerFile`
-- Analysis: `Objective-C Message Analyzer` registers no option on a Mach-O without Objective-C, `setAnalysisOptions` logs an unregistered name
-- Globals: `getGlobalSymbolMap` holds a fraction of the globals a body names, the C markup tokens hold every one
-- Preprocessor: `PreProcessor` takes a `DefineTable` through package-private field `defs` alone, `Headers.java` sets it by reflection
-- Preprocessor: `-D` takes no macro arguments, a prelude through `ReInit` and `Input()` defines a function-like macro
-- Preprocessor: `Define()` ignores a redefinition
-- Preprocessor: `#if <name>` evaluates true for a definition that is no number, an undefined name compares as text and `<name> == 0` evaluates false
-- Preprocessor: `DefineTable.subParams` cuts a `...` argument at its first `)` at depth 0, a parenthesized group in it leaves the body unexpanded
-- Preprocessor: `DefineTable.getParams` toggles quote and apostrophe states apart, a `'` inside a string literal hides the closing `)`
-- Preprocessor: `PreProcessor` defines no compiler built-in (`__has_include`, `__has_feature`, `__builtin_va_list`) and cannot lex `::`
-- Preprocessor: Lexer reads a `__has_include` `<file>` argument at parenthesis depth 0 alone
-- Preprocessor: `#include` lookup per directory matches `CParserUtils.getFile`, a path miss falls back to the file name in that directory
-- Parser: `CParser` reads `__const` and `__restrict` as qualifiers, and `restrict` as an identifier
-- Parser: `CParser` knows no fixed enum, `__int128_t`, `__uint128_t`, or `_Float16`, Ghidra's `int16`, `uint16`, and `float2` name the types
-- Parser: `CParser` float literals end in `f`, `F`, `d`, or `D` alone, integer literals take `u`, `l`, and `ll`
-- Parser: `CParser` rejects an unnamed pointer parameter with an array suffix, `char * []`, and reads the named form and `int []`
-- Parser: `CParserUtils.parseHeaderFiles` swaps `System.out` and stops at the first failed header, a script drives each header itself
+Each new postscript is one `GhidraScript` file in the bundle, arguments through `Arguments.Usage` or `Arguments.parse`, lines through `Report.write`:
+- Checks: `nx run rasm:typecheck:javac`, `rasm:lint:pmd`, and `rasm:lint:google-java-format` pass on every script
 - Source: `lib/<module>-src.zip` beside each module jar under `$GHIDRA_INSTALL_DIR/Ghidra` holds the installed source
-
-## [06]-[EXTEND]
-
-Each new postscript is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts pass `nx run rasm:typecheck:javac` against the install's jars.

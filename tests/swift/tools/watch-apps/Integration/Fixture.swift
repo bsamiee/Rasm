@@ -181,6 +181,7 @@ func launch(
         Configuration(
             executable: .product(named: "watch-apps"),
             arguments: Arguments(["launch", name ?? fixture.identifier] + flags + settings.arguments.flatMap { argument in ["--arguments", argument] }),
+            platformOptions: session(),
         ),
         input: .none,
         output: .sequence,
@@ -191,7 +192,7 @@ func launch(
             seen.append(try decoder.decode(WatchAppsLine.self, from: Data(text.utf8)))
             if seen.last?.entry.instances?.values.contains(where: { instance in instance.phase != .launching }) == true { break }
         }
-        if phases(in: seen).contains(.launching) { try execution.send(signal: .kill) }
+        if phases(in: seen).contains(.launching) { try execution.send(signal: .kill, toProcessGroup: true) }
         return seen
     }
     let lines: [WatchAppsLine] = launched.closureResult

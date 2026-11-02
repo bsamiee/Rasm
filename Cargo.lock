@@ -5045,6 +5045,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adc43a60c217b0c6ff46e47f26911015ad8d2e5a8be1af668c67e370d99a4346"
 dependencies = [
  "approx",
+ "bytemuck",
  "glam 0.30.10",
  "glam 0.31.1",
  "glam 0.32.1",
@@ -5770,6 +5771,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "ordered-float",
+ "rayon",
  "rstar 0.13.1",
  "simba",
  "slab",
@@ -6602,6 +6604,7 @@ dependencies = [
 name = "rasm-dependency"
 version = "1.0.0"
 dependencies = [
+ "itertools 0.15.0",
  "nonempty-collections",
  "petgraph",
  "rustworkx-core",
@@ -6774,6 +6777,7 @@ dependencies = [
 name = "rasm-proximity"
 version = "1.0.0"
 dependencies = [
+ "bytemuck",
  "derive_more",
  "faer",
  "glamx",
@@ -6824,6 +6828,7 @@ dependencies = [
  "derive_more",
  "geo",
  "geo-types",
+ "itertools 0.15.0",
  "jiff",
  "nalgebra",
  "nutype",
@@ -6863,6 +6868,7 @@ dependencies = [
  "ndarray",
  "ndarray-conv",
  "ndrustfft",
+ "num-complex",
  "nutype",
  "rustfft",
  "thiserror 2.0.21",

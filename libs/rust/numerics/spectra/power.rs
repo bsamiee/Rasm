@@ -4,7 +4,7 @@ use apodize::{blackman_iter, cosine_iter, hamming_iter, hanning_iter, nuttall_it
 use nalgebra::convert;
 use ndarray::{Array1, Array2, Axis, Slice, Zip};
 use ndrustfft::{R2cFftHandler, ndfft_r2c};
-use rustfft::num_complex::Complex;
+use num_complex::Complex;
 use uom::si::frequency::hertz;
 
 use crate::{Series, SpectraError};

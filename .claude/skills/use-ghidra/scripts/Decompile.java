@@ -84,28 +84,25 @@ public class Decompile extends GhidraScript {
                             Stream.ofNullable(token.getPcodeOp())
                                     .filter(op -> op.getOpcode() == PcodeOp.PTRSUB)
                                     .filter(_ -> !(token.getHighVariable() instanceof HighLocal))
-                                    .map(
-                                            op ->
-                                                    HighFunctionDBUtil.getSpacebaseReferenceAddress(
-                                                            program.getAddressFactory(), op)))
+                                    .map(op ->
+                                            HighFunctionDBUtil.getSpacebaseReferenceAddress(
+                                                    program.getAddressFactory(), op)))
                     .filter(Objects::nonNull)
                     .filter(Address::isMemoryAddress)
                     .findFirst()
-                    .map(
-                            address ->
-                                    new Global(
-                                            address,
-                                            token.getText(),
-                                            Optional.ofNullable(token.getHighSymbol(highFunction))
-                                                    .map(HighSymbol::getDataType)
-                                                    .or(
-                                                            () ->
-                                                                    Optional.ofNullable(
-                                                                                    program.getListing()
-                                                                                            .getDefinedDataAt(
-                                                                                                    address))
-                                                                            .map(Data::getDataType))
-                                                    .orElse(DataType.DEFAULT)));
+                    .map(address ->
+                            new Global(
+                                    address,
+                                    token.getText(),
+                                    Optional.ofNullable(token.getHighSymbol(highFunction))
+                                            .map(HighSymbol::getDataType)
+                                            .or(() ->
+                                                    Optional.ofNullable(
+                                                                    program.getListing()
+                                                                            .getDefinedDataAt(
+                                                                                    address))
+                                                            .map(Data::getDataType))
+                                            .orElse(DataType.DEFAULT)));
         }
 
         String row(Listing listing) {
@@ -168,11 +165,10 @@ public class Decompile extends GhidraScript {
                             .map(ClangTypeToken.class::cast)
                             .map(ClangTypeToken::getDataType)
                             .map(DataTypeUtilities::getBaseDataType)
-                            .filter(
-                                    type ->
-                                            type instanceof Composite
-                                                    || type instanceof Enum
-                                                    || type instanceof TypeDef)
+                            .filter(type ->
+                                    type instanceof Composite
+                                            || type instanceof Enum
+                                            || type instanceof TypeDef)
                             .distinct()
                             .toList(),
                     CollectionUtils.asStream(results.getCCodeMarkup().tokenIterator(true))
@@ -211,8 +207,7 @@ public class Decompile extends GhidraScript {
     // --- [SELECTION]
 
     private List<Function> callersOf(Function function) {
-        return callers.computeIfAbsent(
-                function, each -> Functions.callers(each, monitor).toList());
+        return callers.computeIfAbsent(function, each -> Functions.callers(each, monitor).toList());
     }
 
     private static SequencedMap<Function, Role> expand(
@@ -282,14 +277,13 @@ public class Decompile extends GhidraScript {
                         monitor);
         List<Block> blocks =
                 selection.entrySet().stream()
-                        .map(
-                                entry ->
-                                        isDecompilable(entry.getKey())
-                                                ? Block.of(
-                                                        entry.getKey(),
-                                                        entry.getValue(),
-                                                        results.get(entry.getKey()))
-                                                : new Stub(entry.getKey()))
+                        .map(entry ->
+                                isDecompilable(entry.getKey())
+                                        ? Block.of(
+                                                entry.getKey(),
+                                                entry.getValue(),
+                                                results.get(entry.getKey()))
+                                        : new Stub(entry.getKey()))
                         .toList();
         Set<Function> members =
                 blocks.stream()
@@ -305,19 +299,15 @@ public class Decompile extends GhidraScript {
                 decompiled.stream()
                         .flatMap(block -> block.globals().stream())
                         .collect(
-                                Collectors.toCollection(
-                                        () ->
-                                                new TreeSet<>(
-                                                        Comparator.comparing(Global::address))));
+                                Collectors.toCollection(() ->
+                                        new TreeSet<>(Comparator.comparing(Global::address))));
         SortedSet<DataType> types =
                 decompiled.stream()
                         .flatMap(block -> block.types().stream())
                         .collect(
-                                Collectors.toCollection(
-                                        () ->
-                                                new TreeSet<>(
-                                                        Comparator.comparing(
-                                                                DataType::getPathName))));
+                                Collectors.toCollection(() ->
+                                        new TreeSet<>(
+                                                Comparator.comparing(DataType::getPathName))));
         StringWriter declarations = new StringWriter();
         new DataTypeWriter(currentProgram.getDataTypeManager(), declarations, false)
                 .write(List.copyOf(types), monitor);
@@ -327,18 +317,12 @@ public class Decompile extends GhidraScript {
                                 "FUNCTIONS",
                                 members.size(),
                                 blocks.stream()
-                                        .flatMap(
-                                                block ->
-                                                        block.lines(
-                                                                function ->
-                                                                        callersOf(function).stream()
-                                                                                .filter(
-                                                                                        members
-                                                                                                ::contains)
-                                                                                .sorted(
-                                                                                        Functions
-                                                                                                .BY_ENTRY)
-                                                                                .toList()))
+                                        .flatMap(block ->
+                                                block.lines(function ->
+                                                        callersOf(function).stream()
+                                                                .filter(members::contains)
+                                                                .sorted(Functions.BY_ENTRY)
+                                                                .toList()))
                                         .toList()),
                         Report.Section.rows(
                                 "FAILED",

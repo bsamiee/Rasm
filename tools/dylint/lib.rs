@@ -1,4 +1,4 @@
-#![feature(default_field_values, deref_patterns, rustc_private, try_blocks)]
+#![feature(default_field_values, deref_patterns, iterator_try_collect, rustc_private, try_blocks)]
 
 extern crate rustc_abi;
 extern crate rustc_ast;

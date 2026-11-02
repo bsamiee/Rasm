@@ -2,6 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use geo::BoundingRect;
 use geo_types::{Coord, MultiPolygon, Point, Polygon, Rect, coord};
+use itertools::Itertools as _;
 use nalgebra::Vector2;
 use proj::{Area, Proj, ProjBuilder, ProjError, Transform};
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
@@ -280,10 +281,9 @@ impl Transformation {
             .into()
             .iter()
             .filter_map(BoundingRect::bounding_rect)
-            .try_fold(Vec::new(), |mut polygons, rect| {
-                polygons.extend(extent(self.proj.transform_bounds(rect.min().x, rect.min().y, rect.max().x, rect.max().y, 21)?));
-                Ok::<_, ProjError>(polygons)
-            })
+            .map(|rect| self.proj.transform_bounds(rect.min().x, rect.min().y, rect.max().x, rect.max().y, 21).map(extent))
+            .flatten_ok()
+            .collect::<Result<Vec<_>, _>>()
             .map(MultiPolygon::new)
             .map_err(|source| self.failed(source))
     }

@@ -4,7 +4,7 @@
 name                 = "rasm-spectra"
 version.workspace    = true
 edition.workspace    = true
-description          = "Spectra of uniform series and planes: Fourier, real and cosine transforms along array axes, chirp-z zoom over a band, FFT convolution and correlation, Welch power estimates under periodic tapers, Butterworth and RBJ biquad cascades over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves, reverberation times, clarity, definition and centre time"
+description          = "Spectra of uniform series and planes: Fourier, real, cosine and chirp-z zoom transforms along array axes, FFT convolution and correlation under any boundary, Welch power estimates under periodic tapers with mean or median averaging, Butterworth and RBJ biquad cascades run causal or zero-phase with their frequency responses over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves under noise truncation, reverberation times, clarity, definition and centre time"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["signal-processing", "fft", "spectrum", "filters", "acoustics"]
@@ -28,6 +28,7 @@ nutype       = { workspace = true }
 faer         = { workspace = true }
 nalgebra     = { workspace = true }
 ndarray      = { workspace = true }
+num-complex  = { workspace = true }
 uom          = { workspace = true }
 apodize      = { workspace = true }
 biquad       = { workspace = true }

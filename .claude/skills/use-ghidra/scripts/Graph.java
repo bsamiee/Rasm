@@ -24,7 +24,8 @@ public class Graph extends GhidraScript {
     }
 
     private static String referrer(Function function, Address from) {
-        return Optional.ofNullable(function.getProgram().getFunctionManager().getFunctionContaining(from))
+        return Optional.ofNullable(
+                        function.getProgram().getFunctionManager().getFunctionContaining(from))
                 .map(Graph::node)
                 .orElse("-");
     }
@@ -44,43 +45,37 @@ public class Graph extends GhidraScript {
                         Report.Section.rows(
                                 "CALLS",
                                 functions.stream()
-                                        .flatMap(
-                                                caller ->
-                                                        Functions.callees(caller, monitor)
-                                                                .sorted(Functions.BY_ENTRY)
-                                                                .map(
-                                                                        callee ->
-                                                                                node(caller)
-                                                                                        + " -> "
-                                                                                        + node(
-                                                                                                callee)))
+                                        .flatMap(caller ->
+                                                Functions.callees(caller, monitor)
+                                                        .sorted(Functions.BY_ENTRY)
+                                                        .map(callee ->
+                                                                node(caller)
+                                                                        + " -> "
+                                                                        + node(callee)))
                                         .toList()),
                         Report.Section.rows(
                                 "REFERENCES",
                                 functions.stream()
-                                        .flatMap(
-                                                function ->
-                                                        CollectionUtils.asStream(
-                                                                        currentProgram
-                                                                                .getReferenceManager()
-                                                                                .getReferencesTo(
-                                                                                        function
-                                                                                                .getEntryPoint()))
-                                                                .filter(
-                                                                        reference ->
-                                                                                !reference.getReferenceType()
-                                                                                        .isCall())
-                                                                .map(Reference::getFromAddress)
-                                                                .map(
-                                                                        from ->
-                                                                                "%s <- %s %s"
-                                                                                        .formatted(
-                                                                                                node(
-                                                                                                        function),
-                                                                                                from,
-                                                                                                referrer(
-                                                                                                        function,
-                                                                                                        from))))
+                                        .flatMap(function ->
+                                                CollectionUtils.asStream(
+                                                                currentProgram
+                                                                        .getReferenceManager()
+                                                                        .getReferencesTo(
+                                                                                function
+                                                                                        .getEntryPoint()))
+                                                        .filter(reference ->
+                                                                !reference
+                                                                        .getReferenceType()
+                                                                        .isCall())
+                                                        .map(Reference::getFromAddress)
+                                                        .map(from ->
+                                                                "%s <- %s %s"
+                                                                        .formatted(
+                                                                                node(function),
+                                                                                from,
+                                                                                referrer(
+                                                                                        function,
+                                                                                        from))))
                                         .toList()));
         println(Report.write(out, currentProgram, sections, ""));
     }

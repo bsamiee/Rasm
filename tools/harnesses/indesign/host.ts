@@ -21,7 +21,7 @@ type Element = Extract<typeof State.Type, { readonly _tag: 'Responding' }>['elem
 type Control = NonNullable<Element['detail']>['controls'][number];
 type Row = (typeof Batch.Type.cases)[number];
 type Note = readonly [Option.Option<number>, typeof Answered.Type];
-type Verdict = Data.TaggedEnum<{ Exited: { readonly exit: Exited }; Hung: { readonly index: Option.Option<number>; readonly hang: typeof Hang.Type }; Lost: { readonly because: string } }>;
+type Verdict = Data.TaggedEnum<{ Exited: { readonly exit: Exited }; Hung: { readonly index: Option.Option<number>; readonly hang: typeof Hang.Type }; Lost: { readonly error: HarnessError | Schema.SchemaError | PlatformError.PlatformError } }>;
 interface Mapped {
     readonly file: string;
     readonly line: number;
@@ -304,7 +304,7 @@ const described = (state: typeof State.Type) =>
         Failed: ({ reason }) => `status failed: ${reason}`,
         Exited: ({ signal, status, report, reportFailure }) => `exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report.url.href}`}${reportFailure === undefined ? '' : `, ${reportFailure}`}`,
     });
-const verdictText = Verdict.$match({ Exited: ({ exit }) => described(exit), Hung: ({ hang }) => `hung ${hang.cpu}, ${hang.sample}`, Lost: ({ because }) => because });
+const verdictText = Verdict.$match({ Exited: ({ exit }) => described(exit), Hung: ({ hang }) => `hung ${hang.cpu}, ${hang.sample}`, Lost: ({ error }) => error.message });
 const finishedIn = (rest: readonly Prepared[], ran: Effect.Success<ReturnType<typeof batchIn>>) => {
     const on = (index: number) => ran.notes.filter(([at]) => Option.contains(at, index)).map(([, note]) => note);
     const finished = (index: number) => Option.fromUndefinedOr(ran.finished.get(index));
@@ -322,7 +322,7 @@ const fault = (limit: Duration.Duration, message: string, verdict: Option.Option
         onSome: Verdict.$match({
             Exited: ({ exit }) => Effect.map(crashed(exit), (crash) => ({ completion: { _tag: 'Failed' as const, reason: described(exit) }, crashed: crash })),
             Hung: ({ hang }) => Effect.succeed({ completion: { _tag: 'Failed' as const, reason: `hung ${hang.cpu} past ${Duration.format(limit)}` }, hung: hang }),
-            Lost: ({ because }) => Effect.succeed({ completion: { _tag: 'Failed' as const, reason: because } }),
+            Lost: ({ error }) => Effect.succeed({ completion: { _tag: 'Failed' as const, reason: error.message } }),
         }),
     });
 const pressable = (element: Element, label: Option.Option<string>, system: boolean): Option.Option<Control> => {
@@ -420,8 +420,12 @@ const acquired = Effect.fn('acquired')(function* (chosen: Installation) {
         usage: yield* Ref.make<typeof State.Type>({ _tag: 'Launching' }),
         log: Array.findFirst(listed, (line) => LOG.test(line)).pipe(Option.flatMap((line) => Option.fromNullishOr(LOG.exec(line)?.groups?.file))),
     };
-    const lost = (because: string) => Deferred.succeed(session.verdict, Verdict.Lost({ because }));
-    yield* Effect.forkScoped(Stream.runForEach(watch([chosen.identifier, REPORTER], instance.pid), watcher(chosen, session)).pipe(Effect.matchEffect({ onFailure: (error) => lost(error.message), onSuccess: () => lost('watch-apps watch ended') })));
+    yield* Effect.forkScoped(
+        Stream.runForEach(watch([chosen.identifier, REPORTER], instance.pid), watcher(chosen, session)).pipe(
+            Effect.andThen(HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${instance.pid}` })),
+            Effect.catch((error) => Deferred.succeed(session.verdict, Verdict.Lost({ error }))),
+        ),
+    );
     return session;
 });
 const batchIn = (session: Session, engine: typeof Engine.Type, batch: Omit<typeof Encoded.Type, 'records'>, presses: readonly (readonly string[])[], folders: readonly string[], limit: Duration.Duration) =>

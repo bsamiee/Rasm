@@ -1,4 +1,4 @@
-use std::{cmp, iter};
+use core::{cmp, iter};
 
 use geo::{BooleanOps as _, BoundingRect as _, MapCoords as _};
 use geo_types::{LineString, MultiLineString};

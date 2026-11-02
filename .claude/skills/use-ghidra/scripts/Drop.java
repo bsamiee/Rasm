@@ -23,19 +23,20 @@ public class Drop extends GhidraScript {
         DataTypeManager types = currentProgram.getDataTypeManager();
         List<Report.Result<String>> results =
                 paths.stream()
-                        .map(
-                                path ->
-                                        Optional.ofNullable(types.getDataType(path))
-                                                .filter(types::remove)
-                                                .<Report.Result<String>>map(_ -> new Report.Success<>(path))
-                                                .orElseGet(() -> new Report.Failure<>(path)))
+                        .map(path ->
+                                Optional.ofNullable(types.getDataType(path))
+                                        .filter(types::remove)
+                                        .<Report.Result<String>>map(_ -> new Report.Success<>(path))
+                                        .orElseGet(() -> new Report.Failure<>(path)))
                         .toList();
         List<Report.Section> sections =
                 List.of(
                         Report.Section.rows(
-                                "REMOVED", results.stream().flatMap(Report.Result::values).toList()),
+                                "REMOVED",
+                                results.stream().flatMap(Report.Result::values).toList()),
                         Report.Section.rows(
-                                "ABSENT", results.stream().flatMap(Report.Result::failures).toList()));
+                                "ABSENT",
+                                results.stream().flatMap(Report.Result::failures).toList()));
         println(Report.write(out, currentProgram, sections, String.join(" ", paths)));
     }
 }

@@ -1,4 +1,8 @@
-use core::{iter, ops::ControlFlow};
+use core::{
+    fmt::{self, Write as _},
+    iter,
+    ops::ControlFlow,
+};
 use std::io::{self, IsTerminal as _, Write as _};
 
 use anstream::{AutoStream, ColorChoice};
@@ -85,16 +89,6 @@ where
             csv::ErrorKind::Io(failure) => OutputError::Write { source: io::Error::new(failure.kind(), source) },
             _ => OutputError::Encode { row, source: serde_json::Error::custom(source) },
         }
-    };
-    let escaped = |text: &str| {
-        text.chars().fold(String::with_capacity(text.len()), |mut escaped, character| {
-            if character.is_control() && character != '\n' {
-                escaped.extend(character.escape_default());
-            } else {
-                escaped.push(character);
-            }
-            escaped
-        })
     };
     let celled = |Field { text, numeric }: &Field| Cell::new(escaped(text)).set_alignment(if *numeric { CellAlignment::Right } else { CellAlignment::Left });
     let titled = |name: &str, style: Style| {
@@ -236,4 +230,10 @@ where
     let (failures, ended) = flow.map_continue(|(sink, failures)| (failures, finished(sink, stopped))).into_value();
     let closed = |error: &OutputError| matches!(error, OutputError::Write { source } if source.kind() == io::ErrorKind::BrokenPipe);
     NEVec::try_from_vec(iter::chain(failures, ended.err().filter(|error| !closed(error)).map(E::from)).collect()).map_or(Ok(if stopped { ExitCode::TempFail } else { ExitCode::Ok }), Err)
+}
+
+fn escaped(text: &str) -> impl fmt::Display {
+    fmt::from_fn(move |formatter| {
+        text.chars().try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
+    })
 }

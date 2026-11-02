@@ -3,7 +3,8 @@ use core::{f64::consts::TAU, iter, num::NonZero};
 use nalgebra::convert;
 use ndarray::{Array, Array1, ArrayBase, ArrayViewMut1, Axis, CowArray, Data, Dimension, Zip};
 use ndrustfft::{DctHandler, FftHandler, Normalization, R2cFftHandler, nddct2_par, nddct3_par, ndfft_par, ndfft_r2c_par, ndifft_par, ndifft_r2c_par};
-use rustfft::{FftDirection, FftPlanner, num_complex::Complex};
+use num_complex::Complex;
+use rustfft::{FftDirection, FftPlanner};
 use uom::si::{f64::Frequency, frequency::hertz};
 
 use crate::{Band, Rate, SpectraError};

@@ -23,9 +23,7 @@ const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const TESTS = 'tests';
-const ENTRY = 'main.ts';
 const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
-const POSTGRES_CLIENT = '@effect/sql-pg';
 const DEPLOYMENT_ROWS = {
     'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
     '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
@@ -218,8 +216,11 @@ const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, 
     return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
 });
 const containerTests = Effect.fnUntraced(function* (dir: string, root: string) {
-    const tests = yield* glob(root, [`${suitePath(yield* Path.Path, 'typescript', dir)}/**/*.test.{ts,tsx}`]);
-    return yield* Effect.filter(tests, (test) => Effect.map(decode(Schema.String, root, test), (text) => parseSync(test, text).module.staticImports.some(({ moduleRequest }) => CONTAINERS.test(moduleRequest.value))), { concurrency: 'unbounded' });
+    const path = yield* Path.Path;
+    const importsContainers = (file: string, text: string) => parseSync(file, text).module.staticImports.some(({ moduleRequest }) => CONTAINERS.test(moduleRequest.value));
+    const suite = suitePath(path, 'typescript', dir);
+    const tests = yield* Effect.filter(yield* glob(root, [`${suite}/**/*.test.{ts,tsx}`]), (test) => Effect.map(decode(Schema.String, root, test), (text) => importsContainers(test, text)), { concurrency: 'unbounded' });
+    return tests.map((test) => path.relative(suite, test));
 });
 const attachedSuites = <Suite extends { readonly name: string }>(suites: readonly Suite[], module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Array.findFirst(suites, ({ name }) => name === `${module}${suffix}`)));
 const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
@@ -339,7 +340,7 @@ const markers = {
             Effect.fromOption,
         );
         const [suite, configs, { compilerOptions }, manifest, containers, entries] = yield* Effect.all(
-            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), decode(Package, root, path.join(owner, 'package.json')), containerTests(dir, root), glob(root, [`${dir}/*/${ENTRY}`])],
+            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), decode(Package, root, path.join(owner, 'package.json')), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])],
             { concurrency: 'unbounded' },
         );
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
@@ -348,7 +349,7 @@ const markers = {
             const nested = configFiles.filter((config) => config.startsWith(`${folder}${path.sep}`));
             return nested.some((config) => path.dirname(config) === folder) ? [] : [[path.basename(folder), { command: `node ${entry}`, ...(nested.length > 0 ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {}) }] as const];
         });
-        const split = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
+        const integration = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
         return {
             ...suite,
             ...named,
@@ -357,8 +358,8 @@ const markers = {
                 'typecheck:tsc': { inputs: [...configs.map((config) => `{workspaceRoot}/${config}`), ...compilerOptions.typeRoots.map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.join(dir, typeRoot)}/**/*.d.ts`, includeIgnored: true }))] },
                 check: {},
                 ...Object.fromEntries(runs),
-                ...split,
-                ...(owner === dir && Record.has(manifest.dependencies, POSTGRES_CLIENT) ? { 'lint:squawk': {} } : {}),
+                ...integration,
+                ...(owner === dir && Record.has(manifest.dependencies, '@effect/sql-pg') ? { 'lint:squawk': {} } : {}),
             },
         };
     }),

@@ -120,7 +120,7 @@ extension Executable {
     public static func product(named name: String) throws(TestFailure) -> Self { .path(FilePath(try builtProduct(named: name).path(percentEncoded: false))) }
 }
 
-func session() -> PlatformOptions {
+public func session() -> PlatformOptions {
     var options: PlatformOptions = PlatformOptions()
     options.createSession = true
     options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]

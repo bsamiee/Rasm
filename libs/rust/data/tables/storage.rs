@@ -1,4 +1,5 @@
-use std::{borrow::Borrow, collections::HashSet, future::ready, sync::Arc};
+use core::{borrow::Borrow, future::ready};
+use std::{collections::HashSet, sync::Arc};
 
 use arrow::{
     array::{AsArray as _, BooleanArray},

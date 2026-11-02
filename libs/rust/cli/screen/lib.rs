@@ -8,7 +8,9 @@ use std::{
     time::Instant,
 };
 #[cfg(not(panic = "abort"))]
-use std::{mem::DropGuard, thread};
+use core::mem::DropGuard;
+#[cfg(not(panic = "abort"))]
+use std::thread;
 
 use anstream::{AutoStream, ColorChoice};
 use clap::{CommandFactory, FromArgMatches, builder::Styles};

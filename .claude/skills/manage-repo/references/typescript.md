@@ -42,7 +42,11 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from `.ts` files with no loader (`process.features.typescript` reads `strip`), `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
 - Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
-- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts` root `vitest.config.ts` provides
+- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts/typescript/vitest/<package>` folder `test` outputs
+- Suites importing `testcontainers` run in `test:integration`, `test` excludes them
+- Packages depending on `@effect/sql-pg` take `lint:squawk` over the SQL their suites write
+- Bundle configs take `main.ts` beside them as entry, a project's `<folder>/main.ts` outside a nested project runs as target `<folder>`
+- `typeRoots` folders hash ignored declarations, a `hooks/hooks.json` with `modules` tags its plugin `host:claude`
 
 ## [04]-[WEB]
 

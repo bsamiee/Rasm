@@ -10,7 +10,6 @@ rule:
     pattern: $COMPUTED
     all:
         - has: {field: arguments, has: {kind: integer_literal}}
-        - not: {inside: {kind: field_declaration, stopBy: {kind: 'block, field_declaration'}}}
         - any:
             - all:
                 - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::num::)?NonZero(::<\w+>)?::saturating_add$'}
@@ -19,4 +18,4 @@ rule:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^saturating_add$'}}, {has: {field: value, matches: minimum}}]}
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: integer_literal}}, {not: {has: {nthChild: 2}}}]}
 message: '`$COMPUTED` computes a `NonZero` constant from `NonZero::MIN`'
-note: 'Write a `NonZero` constant as `const { NonZero::new(<value>).unwrap() }`, Clippy permits `unwrap` in a `const` block'
+note: 'Write a `NonZero` constant as `NonZero::new(<value>).unwrap()` in a const context (a field default included) and inside `const { .. }` in a runtime body, Clippy permits `unwrap` in both'

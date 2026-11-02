@@ -8,7 +8,8 @@
 - Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their path from it (`rasm/infra`)
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
-- `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
+- Package manifests hold no Nx field, the workspace plugin infers each target and tag from a project's files and `targetDefaults` configure them
+- Root `package.json` joins the graph through an `nx` field alone, the workspace plugin's `root` option holds root targets and names the project
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 
 ## [02]-[DISCOVERY]
@@ -34,7 +35,7 @@ Use JSON discovery from workspace root:
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
 - `filter.plugin` matches the plugin that set a target's `executor` or `command`, an empty inferred target matches by tag or name glob
 - Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces target
-- `targetDefaults` configures existing targets alone, project configuration overrides a default
+- `targetDefaults` configures existing targets alone, over plugin-inferred values and under project configuration
 - `"...": true` in objects and `"..."` in arrays preserve lower-layer values at their position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
 - Command lists run in order under `parallel: false`, the `true` default terminates running commands when one fails unless `readyWhen` is set

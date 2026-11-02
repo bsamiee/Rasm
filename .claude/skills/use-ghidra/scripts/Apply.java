@@ -120,15 +120,15 @@ public class Apply extends GhidraScript {
         String[] cells = line.split("\t", -1);
         String at = "%s:%d".formatted(file, number);
         Optional<Address> address =
-                Optional.ofNullable(currentProgram.getAddressFactory().getAddress(cells[0].strip()));
+                Optional.ofNullable(
+                        currentProgram.getAddressFactory().getAddress(cells[0].strip()));
         Optional<Kind> kind =
                 Arrays.stream(Kind.values())
-                        .filter(
-                                each ->
-                                        each.name()
-                                                .equalsIgnoreCase(
-                                                        cell(cells, COLUMNS - 1)
-                                                                .orElse(Kind.FUNCTION.name())))
+                        .filter(each ->
+                                each.name()
+                                        .equalsIgnoreCase(
+                                                cell(cells, COLUMNS - 1)
+                                                        .orElse(Kind.FUNCTION.name())))
                         .findFirst();
         List<Local> locals =
                 cell(cells, 5).stream()
@@ -140,20 +140,20 @@ public class Apply extends GhidraScript {
                 locals.stream()
                         .map(Local::name)
                         .filter(name -> name.startsWith("re:"))
-                        .flatMap(
-                                name -> {
-                                    try {
-                                        Pattern.compile(name.substring(3));
-                                        return Stream.empty();
-                                    } catch (PatternSyntaxException exception) {
-                                        return Stream.of(exception.getDescription());
-                                    }
-                                })
+                        .flatMap(name -> {
+                            try {
+                                Pattern.compile(name.substring(3));
+                                return Stream.empty();
+                            } catch (PatternSyntaxException exception) {
+                                return Stream.of(exception.getDescription());
+                            }
+                        })
                         .findFirst();
         return address.isEmpty()
                 ? new Report.Failure<>("%s `%s` names no address".formatted(at, cells[0]))
                 : kind.isEmpty()
-                        ? new Report.Failure<>("%s kind `%s` is no row kind".formatted(at, cells[6]))
+                        ? new Report.Failure<>(
+                                "%s kind `%s` is no row kind".formatted(at, cells[6]))
                         : invalid.isPresent()
                                 ? new Report.Failure<>(
                                         "%s locals regex did not parse (%s)"
@@ -161,8 +161,14 @@ public class Apply extends GhidraScript {
                                 : new Report.Success<>(
                                         new Row(
                                                 address.get(),
-                                                cell(cells, 1).map(text -> SymbolUtilities.replaceInvalidChars(text, true)),
-                                                cell(cells, 2).map(text -> SymbolUtilities.replaceInvalidChars(text, true)),
+                                                cell(cells, 1)
+                                                        .map(text ->
+                                                                SymbolUtilities.replaceInvalidChars(
+                                                                        text, true)),
+                                                cell(cells, 2)
+                                                        .map(text ->
+                                                                SymbolUtilities.replaceInvalidChars(
+                                                                        text, true)),
                                                 cell(cells, 3),
                                                 cell(cells, 4),
                                                 locals,
@@ -179,7 +185,8 @@ public class Apply extends GhidraScript {
                     .mapToObj(index -> row(path, index + 1, lines.get(index)));
         } catch (IOException exception) {
             return Stream.of(
-                    new Report.Failure<>("Rows file `%s` is unreadable. %s".formatted(file, exception)));
+                    new Report.Failure<>(
+                            "Rows file `%s` is unreadable. %s".formatted(file, exception)));
         }
     }
 
@@ -210,22 +217,25 @@ public class Apply extends GhidraScript {
                                     .createLabel(
                                             row.address(),
                                             row.name()
-                                                    .orElseThrow(
-                                                            () ->
-                                                                    new InvalidInputException(
-                                                                            "Label row names no label")),
+                                                    .orElseThrow(() ->
+                                                            new InvalidInputException(
+                                                                    "Label row names no label")),
                                             namespace,
                                             SourceType.USER_DEFINED);
                     label.setPrimary();
                     row.comment().ifPresent(text -> setPlateComment(row.address(), text));
-                    yield new Outcome(step, row.address(), new Report.Success<>(label.getName(true)));
+                    yield new Outcome(
+                            step, row.address(), new Report.Success<>(label.getName(true)));
                 }
                 case FUNCTION -> {
                     Function function =
                             Optional.ofNullable(getFunctionAt(row.address()))
-                                    .or(() -> Optional.ofNullable(createFunction(row.address(), null)))
-                                    .orElseThrow(
-                                            () -> new InvalidInputException("No function starts or disassembles here"));
+                                    .or(() ->
+                                            Optional.ofNullable(
+                                                    createFunction(row.address(), null)))
+                                    .orElseThrow(() ->
+                                            new InvalidInputException(
+                                                    "No function starts or disassembles here"));
                     if (row.namespace().isPresent() || row.name().isPresent()) {
                         function.setParentNamespace(namespace);
                     }
@@ -233,7 +243,8 @@ public class Apply extends GhidraScript {
                         function.setName(row.name().get(), SourceType.USER_DEFINED);
                     }
                     row.comment().ifPresent(function::setComment);
-                    yield new Outcome(step, row.address(), new Report.Success<>(function.getName(true)));
+                    yield new Outcome(
+                            step, row.address(), new Report.Success<>(function.getName(true)));
                 }
             };
         } catch (InvalidInputException
@@ -280,7 +291,11 @@ public class Apply extends GhidraScript {
                             "`%s` did not parse. %s"
                                     .formatted(
                                             prototype,
-                                            exception.getMessage().lines().findFirst().orElse(""))));
+                                            exception
+                                                    .getMessage()
+                                                    .lines()
+                                                    .findFirst()
+                                                    .orElse(""))));
         }
     }
 
@@ -290,30 +305,28 @@ public class Apply extends GhidraScript {
         Function function = getFunctionAt(row.address());
         return row.locals().stream()
                 .filter(Local::removes)
-                .flatMap(
-                        local -> {
-                            List<Variable> matched =
-                                    Arrays.stream(function.getLocalVariables())
-                                            .filter(variable -> local.matcher().test(variable.getName()))
-                                            .toList();
-                            List<String> names = matched.stream().map(Variable::getName).toList();
-                            matched.forEach(function::removeVariable);
-                            return names.isEmpty()
-                                    ? Stream.of(
+                .flatMap(local -> {
+                    List<Variable> matched =
+                            Arrays.stream(function.getLocalVariables())
+                                    .filter(variable -> local.matcher().test(variable.getName()))
+                                    .toList();
+                    List<String> names = matched.stream().map(Variable::getName).toList();
+                    matched.forEach(function::removeVariable);
+                    return names.isEmpty()
+                            ? Stream.of(
+                                    new Outcome(
+                                            Step.REMOVED,
+                                            row.address(),
+                                            new Report.Failure<>(
+                                                    "Local `%s` matches no stored local"
+                                                            .formatted(local.name()))))
+                            : names.stream()
+                                    .map(name ->
                                             new Outcome(
                                                     Step.REMOVED,
                                                     row.address(),
-                                                    new Report.Failure<>(
-                                                            "Local `%s` matches no stored local"
-                                                                    .formatted(local.name()))))
-                                    : names.stream()
-                                            .map(
-                                                    name ->
-                                                            new Outcome(
-                                                                    Step.REMOVED,
-                                                                    row.address(),
-                                                                    new Report.Success<>(name)));
-                        });
+                                                    new Report.Success<>(name)));
+                });
     }
 
     private Outcome rename(Address address, Local local, Map<String, HighSymbol> symbols) {
@@ -321,17 +334,17 @@ public class Apply extends GhidraScript {
         try {
             HighSymbol symbol =
                     Optional.ofNullable(symbols.get(local.name()))
-                            .orElseThrow(
-                                    () ->
-                                            new InvalidInputException(
-                                                    "Local `%s` matches no decompiled local"
-                                                            .formatted(local.name())));
+                            .orElseThrow(() ->
+                                    new InvalidInputException(
+                                            "Local `%s` matches no decompiled local"
+                                                    .formatted(local.name())));
             DataType type =
                     local.type().isPresent()
                             ? new DataTypeParser(types, types, null, AllowedDataTypes.ALL)
                                     .parse(local.type().get())
                             : null;
-            HighFunctionDBUtil.updateDBVariable(symbol, local.replacement(), type, SourceType.USER_DEFINED);
+            HighFunctionDBUtil.updateDBVariable(
+                    symbol, local.replacement(), type, SourceType.USER_DEFINED);
             return new Outcome(
                     Step.RENAMED,
                     address,
@@ -354,14 +367,21 @@ public class Apply extends GhidraScript {
         return switch (result) {
             case Report.Success<DecompileResults>(DecompileResults decompiled) -> {
                 Map<String, HighSymbol> symbols =
-                        CollectionUtils.asStream(decompiled.getHighFunction().getLocalSymbolMap().getSymbols())
+                        CollectionUtils.asStream(
+                                        decompiled
+                                                .getHighFunction()
+                                                .getLocalSymbolMap()
+                                                .getSymbols())
                                 .collect(
                                         java.util.stream.Collectors.toMap(
-                                                HighSymbol::getName, symbol -> symbol, (first, _) -> first));
+                                                HighSymbol::getName,
+                                                symbol -> symbol,
+                                                (first, _) -> first));
                 yield renames.stream().map(local -> rename(row.address(), local, symbols));
             }
             case Report.Failure<DecompileResults>(String cause) ->
-                    Stream.of(new Outcome(Step.RENAMED, row.address(), new Report.Failure<>(cause)));
+                    Stream.of(
+                            new Outcome(Step.RENAMED, row.address(), new Report.Failure<>(cause)));
         };
     }
 
@@ -372,7 +392,11 @@ public class Apply extends GhidraScript {
         Arguments.Usage usage =
                 new Arguments.Usage(
                         getScriptName(),
-                        "<out> <rows>...\nrow: <address> <namespace> <name> <prototype> <comment> <locals> <kind> by tab\nlocal: <local>=<name>[:<type>] | <local>= | re:<regex>=\nkind: function | label");
+                        "<out> <rows>...\n"
+                                + "row: <address> <namespace> <name> <prototype> <comment> <locals>"
+                                + " <kind> by tab\n"
+                                + "local: <local>=<name>[:<type>] | <local>= | re:<regex>=\n"
+                                + "kind: function | label");
         String[] args = getScriptArgs();
         Path out = usage.out(args);
         List<String> files = usage.operands(args);
@@ -389,17 +413,22 @@ public class Apply extends GhidraScript {
                         .toList();
         List<Outcome> typed =
                 functions.stream()
-                        .flatMap(row -> row.prototype().map(prototype -> type(row, prototype)).stream())
+                        .flatMap(row ->
+                                row.prototype().map(prototype -> type(row, prototype)).stream())
                         .toList();
         List<Outcome> removed = functions.stream().flatMap(this::remove).toList();
         List<Row> renaming =
                 functions.stream()
-                        .filter(row -> row.locals().stream().anyMatch(Predicate.not(Local::removes)))
+                        .filter(row ->
+                                row.locals().stream().anyMatch(Predicate.not(Local::removes)))
                         .toList();
         SequencedMap<Function, Report.Result<DecompileResults>> decompiled =
                 Functions.decompile(
                         currentProgram,
-                        renaming.stream().map(row -> getFunctionAt(row.address())).distinct().toList(),
+                        renaming.stream()
+                                .map(row -> getFunctionAt(row.address()))
+                                .distinct()
+                                .toList(),
                         Arguments.Setting.defaults(),
                         monitor);
         List<Outcome> renamed =
@@ -411,27 +440,27 @@ public class Apply extends GhidraScript {
         List<Report.Section> sections =
                 Stream.concat(
                                 Arrays.stream(Step.values())
-                                        .map(
-                                                step ->
-                                                        Report.Section.rows(
-                                                                step.name(),
-                                                                outcomes.stream()
-                                                                        .filter(outcome -> outcome.step() == step)
-                                                                        .filter(
-                                                                                outcome ->
-                                                                                        outcome.result()
-                                                                                                instanceof
-                                                                                                Report.Success<String>)
-                                                                        .map(Outcome::row)
-                                                                        .toList())),
+                                        .map(step ->
+                                                Report.Section.rows(
+                                                        step.name(),
+                                                        outcomes.stream()
+                                                                .filter(outcome ->
+                                                                        outcome.step() == step)
+                                                                .filter(outcome ->
+                                                                        outcome.result()
+                                                                                instanceof
+                                                                                Report.Success<
+                                                                                        String>)
+                                                                .map(Outcome::row)
+                                                                .toList())),
                                 Stream.of(
                                         Report.Section.rows(
                                                 "REJECTED",
                                                 outcomes.stream()
-                                                        .filter(
-                                                                outcome ->
-                                                                        outcome.result()
-                                                                                instanceof Report.Failure<String>)
+                                                        .filter(outcome ->
+                                                                outcome.result()
+                                                                        instanceof
+                                                                        Report.Failure<String>)
                                                         .map(Outcome::row)
                                                         .toList())))
                         .toList();

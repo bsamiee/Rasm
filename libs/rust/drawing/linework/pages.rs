@@ -1,4 +1,5 @@
-use std::{collections::BTreeMap, num::NonZero, sync::Arc};
+use core::num::NonZero;
+use std::{collections::BTreeMap, sync::Arc};
 
 use kurbo::{Affine, Rect, Size};
 use nonempty_collections::{NEVec, nev};

@@ -13,11 +13,11 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 
-import util.CollectionUtils;
-
 import rasm.Arguments;
 import rasm.Functions;
 import rasm.Report;
+
+import util.CollectionUtils;
 
 import utilities.util.FileUtilities;
 
@@ -71,11 +71,10 @@ public class Headers extends GhidraScript {
                                 .filter(Files::isDirectory)
                                 .<Report.Result<Argument>>map(
                                         path -> new Report.Success<>(new Include(path)))
-                                .orElseGet(
-                                        () ->
-                                                new Report.Failure<>(
-                                                        "Include `%s` names no directory"
-                                                                .formatted(include)));
+                                .orElseGet(() ->
+                                        new Report.Failure<>(
+                                                "Include `%s` names no directory"
+                                                        .formatted(include)));
                 case String define when DEFINE.matcher(define).matches() ->
                         new Report.Success<>(new Define(define));
                 case String header when !header.startsWith("-") ->
@@ -83,11 +82,9 @@ public class Headers extends GhidraScript {
                                 .filter(Files::isRegularFile)
                                 .<Report.Result<Argument>>map(
                                         path -> new Report.Success<>(new Header(path)))
-                                .orElseGet(
-                                        () ->
-                                                new Report.Failure<>(
-                                                        "Header `%s` names no file"
-                                                                .formatted(header)));
+                                .orElseGet(() ->
+                                        new Report.Failure<>(
+                                                "Header `%s` names no file".formatted(header)));
                 default ->
                         new Report.Failure<>(
                                 "Argument `%s` matches no usage form".formatted(token));
@@ -159,21 +156,16 @@ public class Headers extends GhidraScript {
             String checked =
                     HAS_INCLUDE
                             .matcher(text)
-                            .replaceAll(
-                                    check -> {
-                                        String name = check.group(2);
-                                        List<Path> searched =
-                                                check.group(1) == null ? current : later;
-                                        boolean found =
-                                                searched.stream()
-                                                        .map(Path::toString)
-                                                        .anyMatch(
-                                                                path ->
-                                                                        CParserUtils.getFile(
-                                                                                        path, name)
-                                                                                != null);
-                                        return found ? "1" : "0";
-                                    });
+                            .replaceAll(check -> {
+                                String name = check.group(2);
+                                List<Path> searched = check.group(1) == null ? current : later;
+                                boolean found =
+                                        searched.stream()
+                                                .map(Path::toString)
+                                                .anyMatch(path ->
+                                                        CParserUtils.getFile(path, name) != null);
+                                return found ? "1" : "0";
+                            });
             return SCOPED_CONDITION.matcher(checked).replaceAll("$1 0");
         }
     }
@@ -226,30 +218,27 @@ public class Headers extends GhidraScript {
             List<MatchResult> tokens = TOKEN.matcher(text).results().toList();
             List<Integer> depths =
                     tokens.stream()
-                            .map(
-                                    token ->
-                                            switch (token.group()) {
-                                                case "(" -> 1;
-                                                case ")" -> -1;
-                                                default -> 0;
-                                            })
+                            .map(token ->
+                                    switch (token.group()) {
+                                        case "(" -> 1;
+                                        case ")" -> -1;
+                                        default -> 0;
+                                    })
                             .gather(Gatherers.scan(() -> 0, Integer::sum))
                             .toList();
             return IntStream.range(0, tokens.size())
-                    .mapToObj(
-                            index -> {
-                                MatchResult token = tokens.get(index);
-                                int depth = depths.get(index);
-                                boolean close = ")".equals(token.group());
-                                return close && depth < 0
-                                                || depth == 0
-                                                        && token.group()
-                                                                .equals(String.valueOf(endChar))
-                                        ? Optional.of(token.start())
-                                        : close && depth == 0 && endChar == 0
-                                                ? Optional.of(token.end())
-                                                : Optional.<Integer>empty();
-                            })
+                    .mapToObj(index -> {
+                        MatchResult token = tokens.get(index);
+                        int depth = depths.get(index);
+                        boolean close = ")".equals(token.group());
+                        return close && depth < 0
+                                        || depth == 0
+                                                && token.group().equals(String.valueOf(endChar))
+                                ? Optional.of(token.start())
+                                : close && depth == 0 && endChar == 0
+                                        ? Optional.of(token.end())
+                                        : Optional.<Integer>empty();
+                    })
                     .flatMap(Optional::stream)
                     .findFirst()
                     .map(end -> text.substring(0, end))
@@ -269,22 +258,19 @@ public class Headers extends GhidraScript {
                 .map(Functions::target)
                 .distinct()
                 .sorted(Functions.BY_ENTRY)
-                .map(
-                        function ->
-                                definition.isEquivalentSignature(function.getSignature(true))
-                                        ? new Report.Success<>(
-                                                "%s %s"
-                                                        .formatted(
-                                                                function.getEntryPoint(),
-                                                                function.getPrototypeString(
-                                                                        true, false)))
-                                        : new Report.Failure<>(
-                                                "%s %s keeps %s"
-                                                        .formatted(
-                                                                function.getEntryPoint(),
-                                                                definition.getPrototypeString(),
-                                                                function.getPrototypeString(
-                                                                        true, false))));
+                .map(function ->
+                        definition.isEquivalentSignature(function.getSignature(true))
+                                ? new Report.Success<>(
+                                        "%s %s"
+                                                .formatted(
+                                                        function.getEntryPoint(),
+                                                        function.getPrototypeString(true, false)))
+                                : new Report.Failure<>(
+                                        "%s %s keeps %s"
+                                                .formatted(
+                                                        function.getEntryPoint(),
+                                                        definition.getPrototypeString(),
+                                                        function.getPrototypeString(true, false))));
     }
 
     // --- [RUN]
@@ -294,7 +280,8 @@ public class Headers extends GhidraScript {
         Arguments.Usage usage =
                 new Arguments.Usage(
                         getScriptName(),
-                        "<report> <header>... [-I<dir>]... [-D<name>[=<value>]]... [-imacros <file>]...");
+                        "<report> <header>... [-I<dir>]... [-D<name>[=<value>]]... [-imacros"
+                                + " <file>]...");
         String[] args = getScriptArgs();
         Path out = usage.out(args);
         List<String> tokens = usage.operands(args);
@@ -358,24 +345,19 @@ public class Headers extends GhidraScript {
             parser.setMonitor(monitor);
             List<Report.Result<String>> parsed =
                     select(arguments, Header.class)
-                            .map(
-                                    header ->
-                                            header.parse(
-                                                    IntStream.range(0, includes.size())
-                                                            .mapToObj(
-                                                                    index ->
-                                                                            includes.get(index)
-                                                                                    .source(
-                                                                                            overlays
-                                                                                                    .get(
-                                                                                                            index),
-                                                                                            header
-                                                                                                    .file()))
-                                                            .flatMap(Optional::stream)
-                                                            .findFirst()
-                                                            .orElse(header.file()),
-                                                    cpp,
-                                                    parser))
+                            .map(header ->
+                                    header.parse(
+                                            IntStream.range(0, includes.size())
+                                                    .mapToObj(index ->
+                                                            includes.get(index)
+                                                                    .source(
+                                                                            overlays.get(index),
+                                                                            header.file()))
+                                                    .flatMap(Optional::stream)
+                                                    .findFirst()
+                                                    .orElse(header.file()),
+                                            cpp,
+                                            parser))
                             .toList();
             cpp.getDefinitions().populateDefineEquates(null, currentProgram.getDataTypeManager());
             List<FunctionDefinition> definitions =
@@ -388,21 +370,17 @@ public class Headers extends GhidraScript {
                     .map(DataType::getCategoryPath)
                     .distinct()
                     .map(currentProgram.getDataTypeManager()::getCategory)
-                    .forEach(
-                            category ->
-                                    runCommand(
-                                            new ApplyFunctionDataTypesCmd(
-                                                    category,
-                                                    null,
-                                                    SourceType.USER_DEFINED,
-                                                    true,
-                                                    false)));
+                    .forEach(category ->
+                            runCommand(
+                                    new ApplyFunctionDataTypesCmd(
+                                            category, null, SourceType.USER_DEFINED, true, false)));
             List<Report.Result<String>> applied =
                     definitions.stream().flatMap(this::applied).toList();
             List<Report.Section> sections =
                     List.of(
                             Report.Section.rows(
-                                    "PARSED", parsed.stream().flatMap(Report.Result::values).toList()),
+                                    "PARSED",
+                                    parsed.stream().flatMap(Report.Result::values).toList()),
                             Report.Section.comments(
                                     "FAILED",
                                     parsed.stream().flatMap(Report.Result::failures).toList()),

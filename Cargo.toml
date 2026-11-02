@@ -385,6 +385,7 @@ zarrs_object_store = "0.6.2"                                                    
 
 # --- [MATHEMATICS]
 average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                  # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
+bytemuck       = "1.25.2"                                                                                       # nalgebra point slices read in place as the coordinate arrays k-d tree batches take
 csaps          = "0.5.0"                                                                                        # Cubic smoothing splines over samples and grids
 dashu          = "0.6.2"                                                                                        # Arbitrary-precision integers, rationals, and floats
 faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] } # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
@@ -393,9 +394,10 @@ glam           = { version = "0.34.2", features = ["serde"] }                   
 glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                 # parry poses converted to and from nalgebra isometries
 inari          = "2.0.0"                                                                                        # Interval arithmetic with verified enclosures
 iso_currency   = { version = "0.7.1", features = ["with-serde"] }                                               # ISO 4217 currency codes and minor units
-nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033"] }                      # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values, dynamic matrices of sampled designs, draws and dependence, and `convert` for counts entering float arithmetic
+nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033", "convert-bytemuck"] }  # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values, dynamic matrices of sampled designs, draws and dependence, and `convert` for counts entering float arithmetic
 ndarray        = { version = "0.17.2", features = ["rayon", "serde"] }                                          # N-dimensional arrays holding grids, matrices, and analysis data
 ndarray-interp = "0.6.0"                                                                                        # Bilinear and cubic interpolation over ndarray grids at sample points
+num-complex    = "0.4.6"                                                                                        # Complex values of spectra, transfer functions, and FFT bins
 num-dual       = "0.15.1"                                                                                       # Forward-mode automatic differentiation
 rand           = { version = "0.10.3", features = ["chacha"] }                                                  # Seeded generators passed into domain functions
 rand_distr     = "0.6.0"                                                                                        # Sampling distributions over passed-in generators
@@ -406,7 +408,7 @@ twofloat       = "0.8.4"                                                        
 uom            = { version = "0.38.0", features = ["use_serde"] }                                               # Quantities with dimensions checked at compile time
 
 # --- [SIGNALS]
-apodize      = "1.0.0"                                     # Symmetric Hann, Hamming, four-term Blackman–Harris, Nuttall and triangular windows
+apodize      = "1.0.0"                                     # Symmetric Hann, Hamming, four-term Blackman–Harris, Nuttall, triangular and generalized cosine windows
 biquad       = "0.6.0"                                     # Second-order IIR sections in transposed direct form
 ndarray-conv = { version = "0.6.1", features = ["rayon"] } # FFT convolution over ndarray planes
 ndrustfft    = "0.6.2"                                     # FFT, real FFT, and DCT along ndarray axes
@@ -441,7 +443,7 @@ k                 = "0.32.0"                                                    
 kiddo             = { version = "6.3.0", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest and radius queries in parallel batches, default `fixed` adds fixed-point coordinates
 manifold-rust     = { version = "0.19.2", features = ["parallel"] }                                       # Manifold solids with booleans, extrusion, revolution, slicing, and decomposition
 meshopt           = "0.7.0"                                                                               # Mesh simplification, vertex cache optimization, and EXT_meshopt_compression buffers
-parry3d-f64       = "0.31.1"                                                                              # 3D contacts, ray casts, point projections, bounding volume hierarchies, mesh splits, convex decomposition, voxelization and mass properties over f64 shapes
+parry3d-f64       = { version = "0.31.1", features = ["parallel"] }                                       # 3D contacts, shape casts, parallel hierarchy refits, ray casts, point projections, bounding volume hierarchies, mesh splits, convex decomposition, voxelization and mass properties over f64 shapes
 rapier3d-f64      = { version = "0.36.1", features = ["parallel"] }                                       # Rigid-body dynamics
 spade             = "2.15.1"                                                                              # Constrained Delaunay triangulation and Voronoi duals
 urdf-rs           = "0.10.0"                                                                              # URDF robot descriptions
@@ -521,6 +523,7 @@ parlance                   = "0.1.1"                                            
 parley                     = { version = "0.12.0", default-features = false, features = ["std"] } # Rich text layout with bidi, line breaking, and fallback over caller fonts, default `system` scans system fonts
 skrifa                     = "0.49.0"                                                             # Font metrics, outlines, axes, and charmaps
 subsetter                  = "0.2.6"                                                              # Font subsetting with variable instancing
+ttf-parser                 = "0.25.1"                                                             # Font collection headers read for their face count, at the release typst links
 write-fonts                = { version = "0.55.0", features = ["read"] }                          # Font table compilation
 
 # --- [GRAPHICS]
@@ -619,17 +622,17 @@ rasm-screen     = { path = "libs/rust/cli/screen", version = "1.0.0" }         #
 rasm-daemon     = { path = "libs/rust/services/daemon", version = "1.0.0" }    # Served process every Rasm daemon runs: listen row, bind and bound address, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain on the command's signals
 rasm-mcp        = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP host on `rasm-daemon`: endpoint sessions with telemetry and drain, routed app servers with tasks, elicitation and a cancelled-call ledger, and the upstream proxy `rasm-mcp-bridge` serves
 rasm-mesh       = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      # Solids every Rasm geometry consumer composes: mesh import at a tolerance with winding repair, face and original provenance, extrusion, revolution, hulls of points and solids, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, meshopt and kernel reduction of meshes and colored point clouds, refinement, parallel body decomposition, voxels and measures
-rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } # Proximity every Rasm geometry consumer composes: placed-shape assemblies, clashes under a clearance, signed deviations, first-hit and any-hit ray batches, containment, k-d tree neighbours, rigid fits and ICP registration
+rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } # Proximity every Rasm geometry consumer composes: incremental placed-shape assemblies, clashes and separations under a pair rule, signed deviations, ray and swept-shape batches, containment, k-d tree neighbors and normals, weighted rigid fits and robust ICP registration
 rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
 rasm-solar      = { path = "libs/rust/geospatial/solar", version = "1.0.0" }   # Sun every Rasm site consumer composes: SPA positions beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval and the windows above an apparent elevation, Tregenza and Reinhart sky patches and the patch a direction falls in, incidence, sun hours and sky view through placed obstacles, solar rights and collection envelopes
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming every closing path, whole input rewiring, keyed order, layers, invalidation reach, dependency-driven propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, deadline-bounded critical path schedules
 rasm-optimize   = { path = "libs/rust/numerics/optimize", version = "1.0.0" }  # Optimization every Rasm numerics consumer composes: bounded nonlinear solves over a named space with vector constraints and global search, conic programs from typed cone blocks, allocation models, constrained Pareto ranking with crowding
-rasm-spectra    = { path = "libs/rust/numerics/spectra", version = "1.0.0" }   # Spectra every Rasm numerics consumer composes: Fourier, real and cosine transforms of planes along any axis, chirp-z zoom over a band, series convolution and correlation, Welch power estimates under periodic tapers, Butterworth and biquad cascades over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves and room-acoustic parameters
+rasm-spectra    = { path = "libs/rust/numerics/spectra", version = "1.0.0" }   # Spectra every Rasm numerics consumer composes: Fourier, real, cosine and chirp-z zoom transforms of planes along any axis, series convolution and correlation under any boundary, Welch power estimates under periodic tapers, causal and zero-phase Butterworth and biquad cascades with their responses over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves under noise truncation and room-acoustic parameters
 rasm-tables     = { path = "libs/rust/data/tables", version = "1.0.0" }        # Typed tables every Rasm data consumer composes: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink and source
 rasm-network    = { path = "libs/rust/graphs/network", version = "1.0.0" }     # Network analysis every Rasm consumer of a street, circulation or utility network composes: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities
-rasm-typeset    = { path = "libs/rust/documents/typeset", version = "1.0.0" }  # Typst documents every Rasm consumer composes: a world over in-memory and on-disk sources with caller fonts beside embedded ones with each buffer refused when none of its faces parses, typed sys.inputs, optional Universe packages over a blocking HTTP client, compiles with bounded caches, PDF, SVG and PNG pages, and Mermaid diagrams measured with the document's fonts
+rasm-typeset    = { path = "libs/rust/documents/typeset", version = "1.0.0" }  # Typst documents compiled in process to PDF, SVG, PNG, HTML and bundles, with Universe packages and Mermaid diagrams
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
@@ -744,6 +747,7 @@ pub_without_shorthand = "warn" # `pub(in super)` visibility paths, `pub(super)` 
 # --- [MODULES]
 absolute_paths           = "warn" # Crate-rooted paths past two segments, preamble imports name each item
 alloc_instead_of_core    = "warn" # Paths through `alloc` to items `core` owns, `core` names owner
+std_instead_of_core      = "warn" # Paths through `std` to items `core` owns, `core` names owner
 inline_modules           = "warn" # Inline `mod` blocks outside tests, each module takes its own file
 mod_module_files         = "warn" # `mod.rs` files, each module file takes its module's name
 unnecessary_self_imports = "warn" # `use m::{self}` imports, code keeps the direct form

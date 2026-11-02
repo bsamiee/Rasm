@@ -59,6 +59,6 @@ where Ty: EdgeType {
 
 #[must_use]
 pub fn matching<N, E>(graph: &StableUnGraph<N, E>, weight: impl Fn(&E) -> i128, cardinality: Cardinality) -> BTreeSet<EdgeIndex> {
-    let Ok(pairs) = max_weight_matching(graph, cardinality == Cardinality::Maximum, |edge| Ok::<_, !>(weight(edge.weight())), false);
+    let pairs = max_weight_matching(graph, cardinality == Cardinality::Maximum, |edge| Ok::<_, !>(weight(edge.weight())), false).into_ok();
     pairs.into_iter().filter_map(|(left, right)| graph.edges_connecting(graph.from_index(left), graph.from_index(right)).max_by_key(|edge| weight(edge.weight())).map(|edge| edge.id())).collect()
 }

@@ -3,7 +3,7 @@ id: no-infallible-unwrap
 language: rust
 severity: error
 rule:
-    kind: 'call_expression, match_expression'
+    kind: 'call_expression, match_expression, let_declaration'
     all:
         - any:
             - all: [{pattern: '$R.unwrap_or_else(|$E| match $E {})'}, {pattern: $OK}]
@@ -11,9 +11,14 @@ rule:
             - all: [{pattern: 'match $R { Err($E) => match $E {}, Ok($V) => $V }'}, {pattern: $OK}]
             - all: [{pattern: 'match $R { Ok($V) => match $V {}, Err($E) => $E }'}, {pattern: $ERR}]
             - all: [{pattern: 'match $R { Err($E) => $E, Ok($V) => match $V {} }'}, {pattern: $ERR}]
+            - all: [{pattern: 'let Ok($$BOUND) = $R;'}, {not: {has: {field: alternative, kind: block}}}, {pattern: $OK}]
+            - all: [{pattern: 'let Err($$BOUND) = $R;'}, {not: {has: {field: alternative, kind: block}}}, {pattern: $ERR}]
 transform:
     OK_NAME: {replace: {source: $OK, replace: '^[\s\S]+$', by: 'into_ok'}}
     ERR_NAME: {replace: {source: $ERR, replace: '^[\s\S]+$', by: 'into_err'}}
-fix: $R.$OK_NAME$ERR_NAME()
-message: '`$R` unwraps an uninhabited case through an empty `match`'
+    BINDING: {replace: {source: $BOUND, replace: '^([\s\S]+)$', by: 'let $1 = '}}
+    OPEN: {replace: {source: $BINDING, replace: '^let (?:_|\(\s*\)) = $', by: ''}}
+    CLOSE: {replace: {source: $BOUND, replace: '^[\s\S]+$', by: ';'}}
+fix: $OPEN$R.$OK_NAME$ERR_NAME()$CLOSE
+message: '`$R` unwraps an uninhabited case through an empty `match` or an irrefutable `let`'
 note: 'Call `<result>.into_ok()` for an `Err` type of `!` and `<result>.into_err()` for an `Ok` type of `!`'

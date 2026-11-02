@@ -1,12 +1,14 @@
 use nalgebra::Point3;
+use nonempty_collections::NEVec;
 use parry3d_f64::{
     math::Vector,
     query::{PointProjection, PointQuery as _},
     shape::SubShapeId,
 };
-use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use validated::Validated;
 
-use crate::{Assembly, ProximityError};
+use crate::{Assembly, Distance, Placed, ProximityError};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,32 +22,35 @@ pub struct Projection {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: f64) -> Result<Vec<Option<Projection>>, ProximityError> {
-    crate::finite(points.iter().map(|&point| Vector::from(point).is_finite()))?;
-    Ok(points
+pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option<Distance>) -> Result<Vec<Option<Projection>>, NEVec<ProximityError>> {
+    crate::bounded(points).map_err(NEVec::new)?;
+    let nearest = |target: Vector, max_cost: f64| {
+        assembly.bvh.find_best(
+            max_cost,
+            |node, _| node.aabb().distance_to_local_point(target, true),
+            |leaf, best| {
+                let element @ (_, pose, shape, _) = assembly.element(leaf)?;
+                shape.project_point_with_max_dist(pose, target, false, best).map(|projection| (projection.point.distance(target), (element, projection)))
+            },
+        )
+    };
+    points
         .par_iter()
-        .copied()
-        .map(Vector::from)
-        .map(|point| {
-            assembly
-                .bvh
-                .find_best(
-                    max_distance.next_up(),
-                    |node, _| node.aabb().distance_to_local_point(point, true),
-                    |leaf, best| {
-                        assembly
-                            .elements
-                            .get(leaf as usize)
-                            .and_then(|(pose, shape)| shape.project_point_with_max_dist(pose, point, false, best))
-                            .map(|projection| (projection.point.distance(point), projection))
-                    },
-                )
-                .map(|(leaf, (_, projection))| signed(leaf as usize, point, projection, projection.is_inside))
+        .enumerate()
+        .map(|(index, &point)| {
+            let target = Vector::from(point);
+            max_distance
+                .map_or_else(|| nearest(target, f64::INFINITY), |bound| nearest(target, bound.into_inner().next_up()))
+                .map(|(_, (distance, (element, projection)))| signed(index, element, target, distance, projection))
+                .transpose()
         })
-        .collect())
+        .collect::<Validated<Vec<_>, ProximityError>>()
+        .ok()
 }
 
-pub(crate) fn signed(element: usize, target: Vector, projection: PointProjection, inside: bool) -> Projection {
-    let distance = projection.point.distance(target);
-    Projection { element, subshape: projection.subshape, point: Point3::from(projection.point), distance: if inside { -distance } else { distance } }
+pub(crate) fn signed(point: usize, (element, pose, shape, _): Placed<'_>, target: Vector, distance: f64, projection: PointProjection) -> Result<Projection, ProximityError> {
+    match shape.as_compound() {
+        Some(compound) if compound.contains_point(pose, target) => Err(ProximityError::Compound { point, element }),
+        Some(_) | None => Ok(Projection { element, subshape: projection.subshape, point: Point3::from(projection.point), distance: if projection.is_inside { -distance } else { distance } }),
+    }
 }

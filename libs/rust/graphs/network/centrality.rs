@@ -1,7 +1,5 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    iter,
-};
+use core::iter;
+use std::collections::{BTreeMap, HashMap};
 
 use petgraph::{
     EdgeType,
@@ -84,7 +82,7 @@ where
 pub fn eigenvector<N, E, Ty>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(&E) -> Weight, convergence: Convergence) -> Result<BTreeMap<NodeIndex, f64>, NetworkError>
 where Ty: EdgeType {
     let network = compact(graph, |edge| weight(edge).into_inner());
-    let Ok(scores) = eigenvector_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), convergence.max_iter, convergence.tol);
+    let scores = eigenvector_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), convergence.max_iter, convergence.tol).into_ok();
     match (network.node_count(), scores) {
         (0, _) => Ok(BTreeMap::new()),
         (_, None) => Err(NetworkError::Unconverged),

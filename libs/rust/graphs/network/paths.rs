@@ -45,7 +45,7 @@ where Ty: EdgeType {
         let tied = |left: f64, right: f64| (left - right).abs() <= tolerance.map_or_default(Weight::into_inner);
         let mut settled = IndexMap::<NodeIndex, Reached>::new();
         let mut frontier = HashMap::from([(source, Reached { distance: 0.0, paths: 1.0, predecessors: Vec::new() })]);
-        let Ok(_) = dijkstra_search(
+        dijkstra_search(
             graph,
             [source],
             |edge| Ok::<f64, !>(cost(edge.weight()).into_inner()),
@@ -72,7 +72,8 @@ where Ty: EdgeType {
                     },
                 DijkstraEvent::EdgeRelaxed(..) | DijkstraEvent::EdgeNotRelaxed(..) | DijkstraEvent::ExamineEdge(..) | DijkstraEvent::Finish(_) => Control::Continue,
             },
-        );
+        )
+        .into_ok();
         settled
     }
     match catchment.direction {

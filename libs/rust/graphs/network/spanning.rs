@@ -27,7 +27,7 @@ where W: Ord + Clone {
 pub fn steiner<N, E>(graph: &StableUnGraph<N, E>, terminals: impl IntoIterator<Item: Borrow<NodeIndex>>, cost: impl Fn(&E) -> Weight) -> Result<Option<BTreeSet<EdgeIndex>>, NetworkError> {
     let network = compact(graph, &cost);
     let located = terminals.into_iter().map(|node| locate(&network, *node.borrow())).try_collect::<BTreeSet<_>>()?;
-    let Ok(tree) = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().into_inner()));
+    let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().into_inner())).into_ok();
     Ok(tree.map(|SteinerTreeResult { used_node_indices: _, used_edge_endpoints }| {
         used_edge_endpoints
             .into_iter()

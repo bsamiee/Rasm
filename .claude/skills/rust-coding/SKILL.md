@@ -36,26 +36,28 @@ Function signatures are contracts, parameter types state every value a function 
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
-- Defaults sit on one options struct whose `default_field_values` state each, an optional input defaulting to `None` among them in place of a positional `Option` parameter, and a caller writes the fields it changes before `..`
+- Defaults sit on one options struct whose `default_field_values` state each, an optional input defaulting to `None` among them in place of a positional `Option` parameter unless `None` would equal the type's default, and a caller writes the fields it changes before `..`
 - Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it, and a value an input already holds (a mesh's cached `local_aabb`) is read from it, never recomputed
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds a generic of its own, a `const fn`, or recursion no closure reaches, a closure calling its enclosing function recursing through it
+- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds a generic of its own, a `const fn`, a return borrowing from its parameter, or recursion no closure reaches, a closure calling its enclosing function recursing through it
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
-Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or widening the output:
+Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or to a bound excluding the values it fails on (`Neg` beside `Sub` refusing an unsigned measure), or by widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
 - Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type excluding only what the callee rejects, a value it gives a meaning (a `0.0` tolerance as the subject's own, a `0.0` epsilon as an exact test) staying reachable as `None`, and a clamp stays where the domain defines it
+- Inputs a dependency asserts on (a cone's dimension, a raster past its size) are refused at construction or before the call, naming their subject
+- Associated constants a dependency panics on (a zero period) take `const { assert!(..) }` in the generic body, failing at monomorphization
 
 ### [01.2]-[PURITY]
 
-Mutation of a local that never escapes is no side effect. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
+Mutation of a local that never escapes is no side effect, and a refusal leaves a `&mut` subject unchanged, every input tested before the first write. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
 
 ```rust
 #[must_use]
@@ -83,13 +85,16 @@ pub fn profile(readings: &[Reading]) -> Profile {
 }
 ```
 
-- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), and `fold` holds a reduction no member names
-- Adjacent pairs (`array_windows`, `map_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
+- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), a kept order (`Acyclic::nodes_iter`) read in place of a sort, and `fold` holds a reduction no member names
+- Adjacent pairs (`array_windows`, `map_windows`, `circular_tuple_windows` closing a ring) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
 - Arms and closures of a combinator choosing a value (`map_or`, `map_or_else`, `unwrap_or_else`, `Some(x).filter(p).unwrap_or_else(f)`) nest no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
+- Irrefutable `let`s inside a let chain name a value later conditions and the arm read
+- Side effects on an `Option` run inside `if let` in place of `into_iter().for_each` or a `filter` ignoring its item
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Builder steps over an `Option` or iterator fold its items into the builder with the method path as the step (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`
+- `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` rows, a method taking `IntoIterator` receiving the `Option` whole
 - `LazyCell` locals defer a value only some inputs read, and a value built lazily per element is a `OnceLock` in that element's tuple or record, never a parallel collection matched by index
 
 ### [02.1]-[PATTERN_MATCHING]
@@ -128,7 +133,7 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`), and a removed alias leaves its target written at each use, never a package alias of another instantiation in its place.
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`), a package alias (`UnitVector3<f64>`) standing for each instantiation it names, and a removed alias leaves its target written at each use, never a package alias of another instantiation in its place.
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 
@@ -147,8 +152,9 @@ pub enum Delivery {
 
 - Kinds derive from the enum: `discriminant()` returns a fieldless `Stage` ranked in declaration order, `EnumMap<Stage, V>` one value per stage
 - Data every variant shares sits in a struct beside a field holding the enum, variants sharing fields are one variant over an enum of the rest
-- Variants differing only by a tag are one struct keyed by a fieldless enum
-- Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it
+- Variants differing only by a tag are one struct keyed by a fieldless enum, and fields named per key (`early_start`, `late_start`) one `EnumMap`
+- Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it, and `Option` fields read only together (`address.zip(port)`) one `Option` of a record
+- Shapes a package sum states take it (`EitherOrBoth` for one side or both, `Either` for a plain choice), `Result` holding failure alone
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
 - Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1, an empty name) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
@@ -166,6 +172,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - Public fields hold values no rule constrains
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
 - Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry or a guard emptying the result
+- Tokens a value issues carry an invariant `'id` brand its scoped constructor binds, so another issuer's token fails to compile
 
 ### [03.3]-[OWNERSHIP]
 
@@ -173,6 +180,7 @@ Ownership states who decides a value's lifetime:
 - Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
 - Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`, or the shared handle a dependency states for the concept (linebender_resource_handle `FontData` over font bytes and collection index)
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
+- Steps only some inputs take return `Cow<'_, T>`, the untouched path borrowing its input
 - Interior mutability belongs to boundary types that own shared state, domain types hold none
 
 ### [03.4]-[IMMUTABILITY]
@@ -193,16 +201,16 @@ impl Account {
 
 Select collections by their most frequent operation:
 
-| [INDEX] | [OPERATION]                          | [COLLECTION]                     |
-| :-----: | :----------------------------------- | :------------------------------- |
-|  [01]   | Ordered reads of an owned sequence   | `Vec<T>`, `Box<[T]>` once frozen |
-|  [02]   | Snapshots shared or versioned        | `imbl::Vector`, `imbl::OrdMap`   |
-|  [03]   | Keyed lookups with output order read | `IndexMap`, `IndexSet`           |
-|  [04]   | Keyed lookups in key order           | `BTreeMap`, `BTreeSet`           |
-|  [05]   | Keyed lookups with no order read     | `HashMap`, `HashSet`             |
-|  [06]   | One value per enum variant           | `EnumMap`                        |
-|  [07]   | At least one element                 | `NEVec`, `NESet`                 |
-|  [08]   | Graph nodes referring to each other  | `SlotMap` with typed keys        |
+| [INDEX] | [OPERATION]                          | [COLLECTION]                                   |
+| :-----: | :----------------------------------- | :--------------------------------------------- |
+|  [01]   | Ordered reads of an owned sequence   | `Vec<T>`, `Box<[T]>` once frozen               |
+|  [02]   | Snapshots shared or versioned        | `imbl::Vector`, `imbl::OrdMap`                 |
+|  [03]   | Keyed lookups with output order read | `IndexMap`, `IndexSet`                         |
+|  [04]   | Keyed lookups in key order           | `BTreeMap`, `BTreeSet`                         |
+|  [05]   | Keyed lookups with no order read     | `HashMap`, `HashSet`, `Vec` over a dense index |
+|  [06]   | One value per enum variant           | `EnumMap`                                      |
+|  [07]   | At least one element                 | `NEVec`, `NESet`                               |
+|  [08]   | Graph nodes referring to each other  | `SlotMap` with typed keys                      |
 
 ### [03.5]-[TYPESTATE]
 
@@ -248,13 +256,14 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 }
 ```
 
-- Failures of independent chains all reach the caller: a missing source beside an overflowing target
+- Failures of independent chains all reach the caller: a missing source beside an overflowing target, each refused element of one batch
 - Files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`
 - `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key, a check over a matrix naming its column and row (`Start { chain, dimension }`), and each check runs where the input enters, before the step that would turn a bad value non-finite
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
+- Fallible callbacks a foreign API takes receive `Ok::<_, !>(..)`, its `Result<T, !>` read through `into_ok()` in the chain
 
 ### [04.2]-[ERRORS]
 
@@ -279,8 +288,8 @@ pub enum LedgerError {
 ```
 
 - Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
-- Messages branching on a field render through `#[error("{}", fmt::from_fn(..))]`
-- Fields named `source` hold the foreign error a variant wraps
+- Messages branching on a field or listing a variant's `NEVec` (one `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
+- Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` over `custom` text
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
 - Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
@@ -325,7 +334,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 - Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, implementors write `async fn` for a body that awaits and return `ready(..)` under the trait's signature for one that awaits nothing
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
-- Bounds repeated across signatures or crates are one trait alias over the traits each body reads, a crate-private trait with one implementor is that type's inherent `impl`
+- Bounds repeated across signatures or crates are one trait alias over the traits each body reads or its totality needs, members restated across traits (an error type, a default `serve`) one supertrait each extends, a crate-private trait with one implementor is that type's inherent `impl`
 - Foreign trait implementations write required methods and each default their type or a forwarded inner type answers differently, other defaults stand
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl
@@ -353,7 +362,7 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [02]   | Text name and parse of an enum          | `derive_more` `Display`, `FromStr`, `strum` `IntoStaticStr`, `EnumString` |
 |  [03]   | Variant list, count, and discriminants  | `strum` `VariantArray`, `EnumCount`, `EnumDiscriminants`, `FromRepr`      |
 |  [04]   | Variant tests                           | `derive_more` `IsVariant`                                                 |
-|  [05]   | One value per variant                   | `enum_map::Enum`                                                          |
+|  [05]   | One value per variant or combination    | `enum_map::Enum`                                                          |
 |  [06]   | Checked newtype and its error           | `nutype`                                                                  |
 |  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                     |
 |  [08]   | Traits adding no bound on a generic     | `derive_where`, `skip` or `skip_inner` for fields lacking the trait       |
@@ -370,7 +379,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - `tokio::select!` races futures, each branch producing its value, `biased;` ranking branches ready together, `OptionFuture` disabling an absent future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do
-- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits
+- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws)
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
 - Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
@@ -417,13 +426,16 @@ Libraries return their own error, and the application composes each failure poli
 Numeric facts come from the type or package that states them:
 - Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules, and a dependency bound stated as `< 2^n` is the full `u<n>` range of indices, never a `u<n>` count, which reaches one short
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
-- Tolerances and bounds are values a caller passes and floats compare within, a zero, default, or absent bound the callee defines reachable as `None`
-- Absent bounds stay `None` at each read, never a stand-in (`pending()` for no deadline)
+- Tolerances and bounds are values a caller passes and floats compare within, a bound the callee derives (a makespan) reachable as `None`
+- Absent bounds stay `None` at each read, never a stand-in (`f64::INFINITY` for no limit, `pending()` for no deadline)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`
+- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` and refuses overflow, an `Add::add` call hiding the unchecked operator from the lint
 - Operators state float, dual, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair
+- Floats narrow through `cast::<f32>()` and saturate to integers by `to_int_saturating`, `convert_unchecked` and integer `convert` casting by `as`
+- Formulas a member names take it (`Point::lerp`, `f64::midpoint`, `Vector2::perp`, `Unit::try_new_and_get`), `mul_add` fusing a step none names
 
 Roots, quadrature, factorizations, derivatives, quantiles, and optimization are package members:
 

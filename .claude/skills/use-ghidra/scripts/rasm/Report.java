@@ -104,8 +104,7 @@ public final class Report {
                         "// %s %s %s"
                                 .formatted(program.getName(), program.getLanguageID(), counts));
         Files.createDirectories(out.toAbsolutePath().getParent());
-        Files.write(
-                out, Stream.concat(index, sections.stream().flatMap(Section::text)).toList());
+        Files.write(out, Stream.concat(index, sections.stream().flatMap(Section::text)).toList());
         return "Wrote %s %s".formatted(out, counts);
     }
 }

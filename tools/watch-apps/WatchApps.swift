@@ -110,16 +110,12 @@ struct WatchApps: AsyncParsableCommand {
                 await work(output)
                 output.finish()
             }()
-            do {
-                return .success(
-                    try await lines.reduce(into: (failed: false, printed: [String: Data]())) { @MainActor written, entry in
-                        let data: Data = try encoder.encodeLine([entry.key: entry.line])
-                        written.failed = written.failed || entry.line.is(\.fail)
-                        if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
-                    }.failed
-                )
-            } catch {
-                return .failure(error)
+            return await Result { () async throws -> Bool in
+                try await lines.reduce(into: (failed: false, printed: [String: Data]())) { @MainActor written, entry in
+                    let data: Data = try encoder.encodeLine([entry.key: entry.line])
+                    written.failed = written.failed || entry.line.is(\.fail)
+                    if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
+                }.failed
             }
         }()
         withExtendedLifetime((parent, signals)) {

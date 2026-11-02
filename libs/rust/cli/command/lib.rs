@@ -1,11 +1,10 @@
 #![feature(error_reporter, iterator_try_collect, try_blocks_heterogeneous)]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
-use core::num::NonZero;
+use core::{mem::DropGuard, num::NonZero};
 use std::{
     error::Report,
     io,
-    mem::DropGuard,
     process::{ExitCode, Termination},
 };
 #[cfg(panic = "abort")]

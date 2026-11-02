@@ -1,12 +1,18 @@
 #![feature(error_reporter, float_conversions, try_with_capacity)]
 
-use core::{any::Any, fmt, iter};
-use std::{collections::HashMap, error::Report, io, path::PathBuf, sync::Arc};
+use core::{any::Any, error::Error as _, fmt, iter, num::NonZero};
+use std::{
+    collections::HashMap,
+    error::Report,
+    io::{self, Read as _},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use jiff::{SignedDuration, Zoned, civil::Date, tz::TimeZone};
-use merman::RenderError;
+use merman::{RenderError, svg::export::NativeFontError};
 use nonempty_collections::NEVec;
-use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, URL_FULL};
+use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, URL_FULL};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
 use reqwest::{
     Method, StatusCode,
@@ -14,21 +20,21 @@ use reqwest::{
 };
 use serde::Serialize;
 use serde_json::value::Serializer;
-use tracing::field::Empty;
+use tracing::field::{self, Empty};
 use typst::{
     Features, Library, LibraryExt as _, World, comemo,
     diag::{FileError, FileResult, PackageError, SourceDiagnostic, Warned},
     ecow::EcoVec,
     foundations::{Bytes, Datetime, Dict, Duration, Output},
-    syntax::{FileId, Source, VirtualPath, VirtualRoot},
-    text::{Font, FontBook},
+    syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot},
+    text::{Font, FontBook, FontInfo},
     utils::LazyHash,
 };
 use typst_kit::{
-    diagnostics::DiagnosticWorld,
+    diagnostics::{DiagnosticFormat, DiagnosticWorld, emit, termcolor::NoColor},
     downloader::Downloader,
     files::{FileLoader, FileStore, FsRoot},
-    fonts::{FontStore, embedded},
+    fonts::FontStore,
     packages::SystemPackages,
 };
 use validated::Validated;
@@ -39,16 +45,18 @@ use validated::Validated;
 pub enum TypesetError {
     #[error("sys.inputs record refused")]
     Inputs { source: serde_path_to_error::Error<serde_json::Error> },
-    #[error("font buffer {index} holds no face")]
+    #[error("font buffer {index} holds no face or claims more faces than it holds")]
     Font { index: usize },
-    #[error("typst diagnostics{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|diagnostic| write!(formatter, "\n{}", diagnostic.message))))]
-    Typst(EcoVec<SourceDiagnostic>),
-    #[error("page {page} rasterizes to {width} by {height} pixels past the pixmap bounds")]
-    Raster { page: usize, width: u32, height: u32 },
+    #[error("{report}")]
+    Typst { diagnostics: EcoVec<SourceDiagnostic>, report: String },
+    #[error("{} page {page} rasterizes to {width} by {height} pixels past the {budget} pixel budget or the pixmap bounds", path.get_without_slash())]
+    Raster { path: VirtualPath, page: NonZero<usize>, width: u32, height: u32, budget: NonZero<u64> },
     #[error("page {page} PNG encoding failed")]
-    Encode { page: usize, source: png::EncodingError },
+    Encode { page: NonZero<usize>, source: png::EncodingError },
     #[error(transparent)]
-    Diagram(#[from] RenderError),
+    NativeFont(NativeFontError),
+    #[error("diagram {} refused", path.get_without_slash())]
+    Diagram { path: VirtualPath, source: RenderError },
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -57,60 +65,85 @@ pub enum TypesetError {
 pub struct HttpDownloader(pub Client);
 
 impl Downloader for HttpDownloader {
-    fn stream(&self, _key: &dyn Any, url: &str) -> io::Result<(Option<usize>, Box<dyn io::Read>)> {
+    fn stream(&self, key: &dyn Any, url: &str) -> io::Result<(Option<usize>, Box<dyn io::Read>)> {
+        self.download(key, url).map(|body| (Some(body.len()), Box::new(io::Cursor::new(body)) as Box<dyn io::Read>))
+    }
+
+    fn download(&self, _key: &dyn Any, url: &str) -> io::Result<Vec<u8>> {
         let request = tracing::info_span!(
             "request",
             otel.name = Method::GET.as_str(),
             otel.kind = "client",
+            otel.status_code = Empty,
             { HTTP_REQUEST_METHOD } = Method::GET.as_str(),
             { URL_FULL } = url,
-            { HTTP_RESPONSE_STATUS_CODE } = Empty
+            { HTTP_RESPONSE_STATUS_CODE } = Empty,
+            { ERROR_TYPE } = Empty
         )
         .entered();
-        let response = self
+        let failed = |error: io::Error, kind: &dyn fmt::Debug| {
+            request.record(ERROR_TYPE, field::debug(kind)).record("otel.status_code", "error");
+            error
+        };
+        let mut response = self
             .0
-            .request(Method::GET, url)
+            .get(url)
             .send()
             .inspect(|response| {
                 request.record(HTTP_RESPONSE_STATUS_CODE, response.status().as_u16());
             })
             .and_then(Response::error_for_status)
             .map_err(|error| match error.status() {
-                Some(StatusCode::NOT_FOUND) => io::Error::new(io::ErrorKind::NotFound, error),
-                Some(_) | None => io::Error::other(error),
+                Some(status @ StatusCode::NOT_FOUND) => failed(io::Error::new(io::ErrorKind::NotFound, error), &status),
+                Some(status) => failed(io::Error::other(error), &status),
+                None => {
+                    let kind = iter::successors(error.source(), |cause| cause.source()).find_map(|cause| cause.downcast_ref::<io::Error>()).map_or(io::ErrorKind::Other, io::Error::kind);
+                    failed(io::Error::new(kind, error), &kind)
+                }
             })?;
-        let size = response.content_length().map(usize::try_from).transpose().map_err(|error| io::Error::new(io::ErrorKind::FileTooLarge, error))?;
-        Ok((size, Box::new(response)))
-    }
-
-    fn download(&self, key: &dyn Any, url: &str) -> io::Result<Vec<u8>> {
-        let (size, mut reader) = self.stream(key, url)?;
-        let mut body = size.map_or_else(|| Ok(Vec::new()), Vec::try_with_capacity).map_err(|error| io::Error::new(io::ErrorKind::OutOfMemory, error))?;
-        reader.read_to_end(&mut body).map(|_| body)
+        response
+            .content_length()
+            .map(usize::try_from)
+            .transpose()
+            .map_err(|error| io::Error::new(io::ErrorKind::FileTooLarge, error))
+            .and_then(|size| size.map_or_else(|| Ok(Vec::new()), Vec::try_with_capacity).map_err(|error| io::Error::new(io::ErrorKind::OutOfMemory, error)))
+            .and_then(|mut body| response.read_to_end(&mut body).map(|_| body))
+            .map_err(|error| {
+                let kind = error.kind();
+                failed(error, &kind)
+            })
     }
 }
 
-#[derive(Debug)]
-pub struct Sources {
+#[derive(Debug, Default)]
+pub struct Files {
     pub root: Option<FsRoot>,
-    pub overlay: HashMap<VirtualPath, Bytes>,
+    pub overlay: HashMap<FileId, Bytes>,
     pub packages: Option<SystemPackages>,
 }
 
-impl FileLoader for Sources {
+impl FileLoader for Files {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
-        match (id.root(), self.overlay.get(id.vpath()), &self.root, &self.packages) {
-            (VirtualRoot::Project, Some(bytes), _, _) => Ok(bytes.clone()),
-            (VirtualRoot::Project, None, Some(root), _) => root.load(id.vpath()),
-            (VirtualRoot::Project, None, None, _) => Err(FileError::NotFound(PathBuf::from(id.vpath().get_without_slash()))),
-            (VirtualRoot::Package(spec), _, _, Some(packages)) => packages.obtain(spec)?.load(id.vpath()),
-            (VirtualRoot::Package(spec), _, _, None) => Err(FileError::Package(PackageError::NotFound(spec.clone()))),
+        let confined = |root: &FsRoot| {
+            let path = root.resolve(id.vpath())?;
+            let refused = |path: &Path| move |error| FileError::from_io(error, path);
+            let real = fs_err::canonicalize(&path).map_err(refused(&path))?;
+            real.starts_with(fs_err::canonicalize(root.path()).map_err(refused(root.path()))?).ok_or(FileError::AccessDenied)?;
+            (!fs_err::metadata(&real).map_err(refused(&path))?.is_dir()).ok_or(FileError::IsDirectory)?;
+            fs_err::read(&real).map(Bytes::new).map_err(refused(&path))
+        };
+        match (self.overlay.get(&id), id.root(), &self.root, &self.packages) {
+            (Some(bytes), _, _, _) => Ok(bytes.clone()),
+            (None, VirtualRoot::Project, Some(root), _) => confined(root),
+            (None, VirtualRoot::Project, None, _) => Err(FileError::NotFound(PathBuf::from(id.vpath().get_without_slash()))),
+            (None, VirtualRoot::Package(spec), _, Some(packages)) => confined(&packages.obtain(spec)?),
+            (None, VirtualRoot::Package(spec), _, None) => Err(FileError::Package(PackageError::NotFound(spec.clone()))),
         }
     }
 }
 
 #[derive(derive_more::Debug)]
-pub struct Project<L = Sources> {
+pub struct Project<L = Files> {
     pub library: LazyHash<Library>,
     #[debug(skip)]
     pub fonts: Arc<FontStore>,
@@ -118,6 +151,24 @@ pub struct Project<L = Sources> {
     pub files: FileStore<L>,
     pub main: FileId,
     pub now: Zoned,
+}
+
+impl<L> Project<L>
+where L: FileLoader
+{
+    pub fn new<I>(inputs: &I, features: Features, fonts: Arc<FontStore>, files: L, main: VirtualPath, now: Zoned) -> Result<Self, TypesetError>
+    where I: Serialize + ?Sized {
+        serde_path_to_error::serialize(inputs, Serializer)
+            .and_then(serde_path_to_error::deserialize::<_, Dict>)
+            .map(|dict| Self {
+                library: LazyHash::new(Library::builder().with_inputs(dict).with_features(features).build()),
+                fonts,
+                files: FileStore::new(files),
+                main: RootedPath::new(VirtualRoot::Project, main).intern(),
+                now,
+            })
+            .map_err(|source| TypesetError::Inputs { source })
+    }
 }
 
 impl<L> World for Project<L>
@@ -161,39 +212,47 @@ where L: FileLoader + Send + Sync
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn library<I>(inputs: &I, features: Features) -> Result<LazyHash<Library>, TypesetError>
-where I: Serialize + ?Sized {
-    serde_path_to_error::serialize(inputs, Serializer)
-        .and_then(serde_path_to_error::deserialize::<_, Dict>)
-        .map(|dict| LazyHash::new(Library::builder().with_inputs(dict).with_features(features).build()))
-        .map_err(|source| TypesetError::Inputs { source })
-}
-
 #[must_use]
-pub fn fonts<B>(buffers: B) -> Validated<FontStore, TypesetError>
+pub fn fonts<B, E>(buffers: B, embedded: E) -> Validated<FontStore, TypesetError>
 where
     B: IntoParallelIterator<Item = Bytes>,
     B::Iter: IndexedParallelIterator,
+    E: IntoIterator<Item = (Font, FontInfo)>,
 {
     buffers
         .into_par_iter()
         .enumerate()
-        .map(|(index, data)| NEVec::try_from_vec(Font::iter(data).collect()).ok_or(TypesetError::Font { index }))
-        .collect::<Vec<_>>()
-        .into_iter()
+        .map(|(index, data)| {
+            let room = data.len().saturating_sub(size_of::<[u32; 3]>()) / size_of::<u32>();
+            ttf_parser::fonts_in_collection(&data)
+                .map_or(Some(1), |count| usize::try_from(count).is_ok_and(|faces| faces <= room).then_some(count))
+                .and_then(|count| NEVec::try_from_vec((0..count).filter_map(|face| Font::new(data.clone(), face)).collect()))
+                .ok_or(TypesetError::Font { index })
+        })
         .collect::<Validated<Vec<_>, _>>()
         .map(|buffers| {
             let mut store = FontStore::new();
-            store.extend(buffers.into_iter().flatten().map(|font| (font.clone(), font.info().clone())).chain(embedded()));
+            store.extend(buffers.into_iter().flatten().map(|font| (font.clone(), font.info().clone())).chain(embedded));
             store
         })
 }
 
-pub fn compile<T>(world: &dyn World, max_age: usize) -> Result<Warned<T>, TypesetError>
+pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Result<Warned<T>, TypesetError>
 where T: Output {
     let Warned { output, warnings } = typst::compile::<T>(world);
     comemo::evict(max_age);
-    output.map_err(|errors| TypesetError::Typst(iter::chain(errors, warnings.iter().cloned()).collect())).map(|output| Warned { output, warnings })
+    match output {
+        Ok(output) => Ok(Warned { output, warnings }),
+        Err(errors) => Err(located(world, iter::chain(errors, warnings).collect())),
+    }
+}
+
+fn located(world: &dyn DiagnosticWorld, diagnostics: EcoVec<SourceDiagnostic>) -> TypesetError {
+    let mut report = NoColor::new(Vec::new());
+    if let Err(error) = emit(&mut report, world, &diagnostics, DiagnosticFormat::Human) {
+        tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "diagnostic location refused");
+    }
+    TypesetError::Typst { report: String::from_utf8_lossy(&report.into_inner()).into_owned(), diagnostics }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

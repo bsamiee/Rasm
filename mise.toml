@@ -106,6 +106,7 @@ imagemagick                      = "latest"
 "pypi:mcp-for-blender"           = "latest"
 blender-mcp                      = "v1"
 "github:pmd/pmd"                 = { version = "latest", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
+"http:jdtls"                     = { version = "latest", url = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}', version_list_url = "https://download.eclipse.org/jdtls/milestones/", version_regex = 'milestones/(\d+\.\d+\.\d+)', version_order = "semver" }
 "http:xcode-build-server"        = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
 
 [tools."http:rustc-source"]

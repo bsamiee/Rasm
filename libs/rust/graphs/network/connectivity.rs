@@ -1,7 +1,5 @@
-use std::{
-    cmp,
-    collections::{BTreeMap, BTreeSet},
-};
+use core::cmp;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ordered_float::OrderedFloat;
 use petgraph::{
@@ -72,6 +70,6 @@ where Ty: EdgeType {
 pub fn min_cut<N, E, Ty>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(&E) -> Weight) -> Option<Cut>
 where Ty: EdgeType {
     let network = compact(graph, |edge| OrderedFloat(weight(edge).into_inner())).into_edge_type::<Undirected>();
-    let Ok(cut) = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(*edge.weight()));
+    let cut = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(*edge.weight())).into_ok();
     cut.map(|(OrderedFloat(value), side)| Cut { value, side: side.into_iter().filter_map(|node| network.node_weight(node).copied()).collect() })
 }

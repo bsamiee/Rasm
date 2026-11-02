@@ -1,6 +1,7 @@
 #![feature(error_reporter)]
 
-use std::{convert, error::Report, fmt, sync::Arc, time::Duration};
+use core::{convert, time::Duration};
+use std::{error::Report, fmt, sync::Arc};
 
 use arrow::{
     array::new_null_array,

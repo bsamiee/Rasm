@@ -1,12 +1,14 @@
+use std::collections::BTreeMap;
+
 use petgraph::{
-    algo::{condensation, greedy_feedback_arc_set},
+    algo::{astar, condensation, greedy_feedback_arc_set, kosaraju_scc},
     graph::DiGraph,
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableDiGraph},
-    visit::{EdgeFiltered, EdgeRef as _},
+    visit::{EdgeFiltered, EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
 
-use crate::blocks;
+use crate::DependencyError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -44,4 +46,32 @@ pub fn tear<N, E>(mut graph: StableDiGraph<N, E>) -> Torn<N, E> {
         .filter_map(|edge| graph.remove_edge(edge.id()).map(|weight| (edge.source(), edge.target(), weight)))
         .collect();
     Torn { graph, edges }
+}
+
+pub(crate) fn refusal<N, E>(graph: &StableDiGraph<N, E>) -> DependencyError {
+    let block = blocks(graph);
+    let within = |node: NodeIndex| block.get(node.index()).copied().flatten();
+    DependencyError::Cycle {
+        paths: graph
+            .edge_references()
+            .filter_map(|edge| within(edge.source()).filter(|&rank| within(edge.target()) == Some(rank)).map(|rank| (rank, (edge.source(), edge.target()))))
+            .collect::<BTreeMap<_, _>>()
+            .into_iter()
+            .map(|(rank, (source, target))| closing(graph, |node| within(node) == Some(rank), target, source))
+            .collect(),
+    }
+}
+
+fn blocks<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Option<usize>> {
+    let mut block = vec![None; graph.node_bound()];
+    for (node, rank) in kosaraju_scc(graph).into_iter().enumerate().flat_map(|(rank, members)| members.into_iter().map(move |node| (node, rank))) {
+        if let Some(slot) = block.get_mut(node.index()) {
+            *slot = Some(rank);
+        }
+    }
+    block
+}
+
+pub(crate) fn closing<N, E>(graph: &StableDiGraph<N, E>, members: impl Fn(NodeIndex) -> bool, start: NodeIndex, goal: NodeIndex) -> Vec<NodeIndex> {
+    astar(&NodeFiltered::from_fn(graph, members), start, |node| node == goal, |_| 1_usize, |_| 0_usize).map_or_default(|(_, path)| path)
 }

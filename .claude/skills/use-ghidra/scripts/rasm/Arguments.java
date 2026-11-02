@@ -53,10 +53,8 @@ public final class Arguments {
                             Stream.concat(
                                     Arrays.stream(args)
                                             .limit(1)
-                                            .<Report.Result<Path>>map(
-                                                    argument ->
-                                                            new Report.Success<>(
-                                                                    Path.of(argument))),
+                                            .<Report.Result<Path>>map(argument ->
+                                                    new Report.Success<>(Path.of(argument))),
                                     require(args.length > 0, form.split(" ", 2)[0])))
                     .getFirst();
         }
@@ -66,11 +64,10 @@ public final class Arguments {
             values(
                     Arrays.stream(args)
                             .skip(1)
-                            .<Report.Result<Path>>map(
-                                    argument ->
-                                            new Report.Failure<>(
-                                                    "Argument `%s` follows the output path"
-                                                            .formatted(argument))));
+                            .<Report.Result<Path>>map(argument ->
+                                    new Report.Failure<>(
+                                            "Argument `%s` follows the output path"
+                                                    .formatted(argument))));
             return out;
         }
 
@@ -135,11 +132,10 @@ public final class Arguments {
                             .filter(count -> count >= minimum)
                             .<Report.Result<Operand>>map(
                                     count -> new Report.Success<>(new SettingValue(this, count)))
-                            .orElseGet(
-                                    () ->
-                                            new Report.Failure<>(
-                                                    "Setting `%s` takes integer %d or more"
-                                                            .formatted(argument, minimum)))
+                            .orElseGet(() ->
+                                    new Report.Failure<>(
+                                            "Setting `%s` takes integer %d or more"
+                                                    .formatted(argument, minimum)))
                     : new Report.Failure<>(
                             "Script `%s` takes no setting `%s`".formatted(script, label()));
         }
@@ -150,14 +146,12 @@ public final class Arguments {
             @Override
             Report.Result<List<Function>> find(String hex, Program program) {
                 return Optional.ofNullable(program.getAddressFactory().getAddress(hex))
-                        .<Report.Result<List<Function>>>map(
-                                address ->
-                                        new Report.Success<>(
-                                                Stream.ofNullable(
-                                                                program.getFunctionManager()
-                                                                        .getFunctionContaining(
-                                                                                address))
-                                                        .toList()))
+                        .<Report.Result<List<Function>>>map(address ->
+                                new Report.Success<>(
+                                        Stream.ofNullable(
+                                                        program.getFunctionManager()
+                                                                .getFunctionContaining(address))
+                                                .toList()))
                         .orElseGet(() -> new Report.Failure<>("names no address"));
             }
         },
@@ -225,10 +219,8 @@ public final class Arguments {
 
         private static List<Function> named(Predicate<String> test, Program program) {
             return Functions.internal(program)
-                    .filter(
-                            function ->
-                                    test.test(function.getName(true))
-                                            || test.test(function.getName()))
+                    .filter(function ->
+                            test.test(function.getName(true)) || test.test(function.getName()))
                     .toList();
         }
     }
@@ -294,23 +286,14 @@ public final class Arguments {
                 usage.values(
                         Stream.concat(
                                 arguments.stream()
-                                        .map(
-                                                argument ->
-                                                        Setting.of(argument)
-                                                                .map(
-                                                                        setting ->
-                                                                                setting.assign(
-                                                                                        argument,
-                                                                                        script,
-                                                                                        accepted))
-                                                                .orElseGet(
-                                                                        () ->
-                                                                                functions(
-                                                                                                argument,
-                                                                                                program)
-                                                                                        .map(
-                                                                                                SeedMatch
-                                                                                                        ::new))),
+                                        .map(argument ->
+                                                Setting.of(argument)
+                                                        .map(setting ->
+                                                                setting.assign(
+                                                                        argument, script, accepted))
+                                                        .orElseGet(() ->
+                                                                functions(argument, program)
+                                                                        .map(SeedMatch::new))),
                                 usage.require(
                                         arguments.stream()
                                                 .map(Setting::of)
@@ -320,10 +303,8 @@ public final class Arguments {
                 Stream.concat(
                                 Setting.defaults().entrySet().stream()
                                         .filter(entry -> accepted.contains(entry.getKey()))
-                                        .map(
-                                                entry ->
-                                                        new SettingValue(
-                                                                entry.getKey(), entry.getValue())),
+                                        .map(entry ->
+                                                new SettingValue(entry.getKey(), entry.getValue())),
                                 operands.stream().flatMap(Operand::assignments))
                         .collect(
                                 Collectors.toMap(

@@ -1,7 +1,7 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, impl_trait_in_assoc_type)]
 
-use core::range::Range;
-use std::{f64::consts::PI, iter, sync::Arc};
+use core::{f64::consts::PI, iter, range::Range};
+use std::sync::Arc;
 
 use color::{OpaqueColor, Srgb};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};

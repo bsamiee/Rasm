@@ -1,4 +1,5 @@
-use std::{borrow::Cow, cell::Cell, cmp, collections::BTreeMap, iter, ops::RangeInclusive};
+use core::{cell::Cell, cmp, iter, ops::RangeInclusive};
+use std::{borrow::Cow, collections::BTreeMap};
 
 use geo::{BallTree, BooleanOps as _, Distance as _, Euclidean, InterpolatableLine as _, Intersections, Length as _, LineLocatePoint as _, PointWithData, sweep::Cross};
 use geo_types::{Coord, Line, LineString, MultiLineString, Point};

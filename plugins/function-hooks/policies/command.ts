@@ -90,10 +90,22 @@ const resolver = (hits: readonly Hit[], source: Uint8Array): ((capture: Capture)
         const [bound, ...more] = bindings.filter((binding) => binding.name === name && inside(binding.scope, hit));
         return bound?.value.kind === 'some' && more.length === 0 && bound.end <= hit.range.byteOffset.start ? [{ ...hit.range.byteOffset, text: bound.value.value }] : [];
     });
-    return ({ range: { byteOffset } }) => unquoted(spliced(source.subarray(byteOffset.start, byteOffset.end), byteOffset.start, references.filter(({ start, end }) => start >= byteOffset.start && end <= byteOffset.end)));
+    return ({ range: { byteOffset } }) =>
+        unquoted(
+            spliced(
+                source.subarray(byteOffset.start, byteOffset.end),
+                byteOffset.start,
+                references.filter(({ start, end }) => start >= byteOffset.start && end <= byteOffset.end),
+            ),
+        );
 };
 
 const parse = async (system: System, command: string): Promise<Result<Script>> => {
+    const destination = (chain: readonly Invocation[]): readonly (string | undefined)[] =>
+        chain
+            .filter(([program]) => declared(program).chdir !== undefined)
+            .slice(0, 1)
+            .map((mover) => [...operands(mover).inputs, ...(declared(mover[0]).chdir ?? [])][0]);
     const scripted = async (scan: Invocation, source: string, context: Pick<Command, 'cwd' | 'fed' | 'looped' | 'nested'>): Promise<Result<Script>> =>
         bind(
             bind(await exited(system, scan, { cwd: system.plugin, stdin: source }), (output) => decoded<readonly Hit[]>(scan[0], output)),
@@ -112,18 +124,17 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                             .filter(({ text }) => WORD.test(text))
                             .map((capture) => ({ text: resolved(capture), raw: capture.text, span: capture.range.byteOffset, unbounded: unbounded.has(capture.range.byteOffset.start) }));
                         const chain = invocations(words.map(({ text }) => text));
-                        const [given] = own.filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring').slice(-1);
                         return [
                             {
                                 hit,
                                 words,
                                 invocations: chain,
                                 parts: staged(words, chain),
-                                stdin: given === undefined ? [] : [given.ruleId === 'herestring' ? resolved(given) : given.text],
-                                targets: chain
-                                    .filter(([program]) => declared(program).chdir !== undefined)
-                                    .slice(0, 1)
-                                    .map((mover) => [...operands(mover).inputs, ...(declared(mover[0]).chdir ?? [])][0]),
+                                stdin: own
+                                    .filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring')
+                                    .slice(-1)
+                                    .map((given) => (given.ruleId === 'herestring' ? resolved(given) : given.text)),
+                                targets: destination(chain),
                                 fed: context.fed || own.some((other) => other.ruleId === 'fed'),
                                 looped: context.looped || own.some((other) => other.ruleId === 'looped'),
                                 nested: context.nested,
@@ -170,10 +181,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
         scope: { kind: 'program, subshell, command_substitution, process_substitution, pipeline' },
         scoped: { any: [{ inside: { stopBy: { matches: 'scope' }, kind: 'program' } }, { inside: { stopBy: { matches: 'scope' }, matches: 'scope', not: { kind: 'program' }, pattern: '$SCOPE' } }] },
         guarded: {
-            any: [
-                { inside: { stopBy: { matches: 'scope' }, kind: 'if_statement, case_statement, while_statement, for_statement, c_style_for_statement, function_definition' } },
-                { nthChild: { position: 1, reverse: true }, inside: { kind: 'list' } },
-            ],
+            any: [{ inside: { stopBy: { matches: 'scope' }, kind: 'if_statement, case_statement, while_statement, for_statement, c_style_for_statement, function_definition' } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list' } }],
         },
     };
     const scanner = [
@@ -214,11 +222,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                     input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
                     tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list, pipeline, negated_command', matches: 'tail' } }] },
                     piped: {
-                        any: [
-                            { inside: { kind: 'pipeline' }, not: { nthChild: 1 } },
-                            { nthChild: 1, inside: { kind: 'list, pipeline, negated_command', matches: 'piped' } },
-                            { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } },
-                        ],
+                        any: [{ inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { nthChild: 1, inside: { kind: 'list, pipeline, negated_command', matches: 'piped' } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }],
                     },
                     stage: { any: [{ matches: 'tail' }, { matches: 'piped' }] },
                 },

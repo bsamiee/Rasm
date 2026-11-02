@@ -1,7 +1,7 @@
 import { constants } from 'node:os';
 import process from 'node:process';
 import { State } from '@rasm/automation/applications';
-import { Array, Data, Duration, Effect, Equal, Fiber, FileSystem, Filter, identity, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Schema, type Scope, Stream, String, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Data, Duration, Effect, Equal, Fiber, FileSystem, Filter, flow, identity, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Result, Schema, type Scope, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { Batch, Engine, Entry, HostCase, Outcome, type Results, Session } from '#/blender/contract';
 import { Vector } from '#/cases';
@@ -54,7 +54,6 @@ const BUNDLE = 'org.blenderfoundation.blender';
 const VERSION = /^Blender (?<release>\S+) ?(?<cycle>.*)$[\s\S]*?build hash: (?<hash>\w+)/mu;
 const VERSIONS = new Intl.Collator('en', { numeric: true });
 const DISMISS = 'Ignore';
-const SIGNAL = /signal: '(?<name>\w+)'/u;
 const RUNNING = 'R';
 const SIGNALS: Record.ReadonlyRecord<string, number> = constants.signals;
 
@@ -64,6 +63,7 @@ const End = Data.taggedEnum<End>();
 const Bundle = Schema.fromJsonString(Schema.Struct({ CFBundleName: Schema.String, CFBundleIdentifier: Schema.String, CFBundleExecutable: Schema.String }));
 const Encoded = Schema.fromJsonString(Session);
 const Line = Schema.fromJsonString(Entry);
+const Interrupted = Schema.Struct({ message: Schema.TemplateLiteralParser(["Process interrupted due to receipt of signal: '", Schema.String, "'"]) });
 const newest = Order.mapInput(
     Order.make((left: string, right: string) => Number.sign(VERSIONS.compare(left, right))),
     ({ version }: Install) => version,
@@ -185,20 +185,24 @@ const answering = (install: Install, hosted: readonly Hosted[], results: string,
             { discard: true },
         );
     });
-const signalled = (error: PlatformError.PlatformError) =>
-    Effect.succeed<Exited>({
-        _tag: 'Exited',
-        ...Option.match(
-            Option.flatMap(Option.fromNullishOr(SIGNAL.exec(error.message)?.groups?.name), (name) => Record.get(SIGNALS, name)),
-            { onNone: () => ({}), onSome: (signal) => ({ signal }) },
-        ),
-    });
 const background = Effect.fnUntraced(function* (install: Install, args: readonly string[], environment: Record.ReadonlyRecord<string, string>) {
     const handle = yield* ChildProcess.make(install.executable, ['--background', ...args], { stdin: 'ignore', env: environment, extendEnv: true });
     const early = yield* Effect.forkScoped(Stream.mkString(Stream.decodeText(handle.all)));
     return {
         pid: handle.pid,
-        exited: Effect.matchEffect(handle.exitCode, { onSuccess: (status) => Effect.succeed<Exited>({ _tag: 'Exited', status }), onFailure: signalled }),
+        exited: Effect.map(
+            Effect.result(handle.exitCode),
+            Result.match({
+                onSuccess: (status): Exited => ({ _tag: 'Exited', status }),
+                onFailure: ({ reason }): Exited => ({
+                    _tag: 'Exited',
+                    ...Option.match(
+                        Option.flatMap(Schema.decodeUnknownOption(Interrupted)(reason.cause), ({ message: [, name] }) => Record.get(SIGNALS, name)),
+                        { onNone: () => ({}), onSome: (signal) => ({ signal }) },
+                    ),
+                }),
+            }),
+        ),
         early: Fiber.join(early),
         halted: Effect.asVoid(handle.kill({ killSignal: 'SIGKILL' })),
     } satisfies Started;
@@ -217,27 +221,6 @@ const launched = Effect.fnUntraced(function* (install: Install, args: readonly s
         halted: Effect.void,
     } satisfies Started;
 });
-const unresponsive = ({ pid, states, limit }: Watched) =>
-    SubscriptionRef.changes(states).pipe(
-        Stream.filterMap(Filter.fromPredicateOption(identity)),
-        Stream.changesWith((left, right) => left._tag === right._tag && (!(State.guards.Unresponsive(left) && State.guards.Unresponsive(right)) || left.process === right.process)),
-        Stream.switchMap((state) => (State.guards.Unresponsive(state) ? Stream.fromEffect(Effect.as(Effect.sleep(limit), state)) : Stream.empty)),
-        Stream.filter(State.guards.Unresponsive),
-        Stream.runHead,
-        Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${pid}` }))),
-        Effect.map(({ process: run }) => (run === 'running' ? 'busy' : 'blocked')),
-    );
-const quiet = ({ pid, limit, results }: Watched) =>
-    Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        yield* fs.watch(results).pipe(
-            Stream.map(() => undefined),
-            Stream.prepend([undefined]),
-            Stream.switchMap(() => Stream.fromEffect(Effect.sleep(limit))),
-            Stream.runHead,
-        );
-        return (yield* output('ps', ['-o', 'stat=', '-p', `${pid}`])).startsWith(RUNNING) ? 'busy' : 'blocked';
-    });
 const hang = Effect.fn('hang')(function* (started: Started, stderr: string, captures: string, stalled: Effect.Effect<'busy' | 'blocked', HarnessError | PlatformError.PlatformError, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const cpu = yield* stalled;
@@ -250,8 +233,32 @@ const hang = Effect.fn('hang')(function* (started: Started, stderr: string, capt
     return End.Hung({ cpu, sample, python });
 });
 const Modes = {
-    headless: { started: background, stalled: quiet },
-    windowed: { started: launched, stalled: unresponsive },
+    headless: {
+        started: background,
+        stalled: Effect.fnUntraced(function* ({ pid, limit, results }: Watched) {
+            const fs = yield* FileSystem.FileSystem;
+            yield* fs.watch(results).pipe(
+                Stream.map(() => undefined),
+                Stream.prepend([undefined]),
+                Stream.switchMap(() => Stream.fromEffect(Effect.sleep(limit))),
+                Stream.runHead,
+            );
+            return (yield* output('ps', ['-o', 'stat=', '-p', `${pid}`])).startsWith(RUNNING) ? 'busy' : 'blocked';
+        }),
+    },
+    windowed: {
+        started: launched,
+        stalled: ({ pid, states, limit }: Watched) =>
+            SubscriptionRef.changes(states).pipe(
+                Stream.filterMap(Filter.fromPredicateOption(identity)),
+                Stream.changesWith((left, right) => left._tag === right._tag && (!(State.guards.Unresponsive(left) && State.guards.Unresponsive(right)) || left.process === right.process)),
+                Stream.switchMap((state) => (State.guards.Unresponsive(state) ? Stream.fromEffect(Effect.as(Effect.sleep(limit), state)) : Stream.empty)),
+                Stream.filter(State.guards.Unresponsive),
+                Stream.runHead,
+                Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${pid}` }))),
+                Effect.map(({ process: run }) => (run === 'running' ? 'busy' : 'blocked')),
+            ),
+    },
 } as const satisfies Record.ReadonlyRecord<string, Mode>;
 const windowed = ({ precondition, confirms, files }: typeof HostCase.Type) => precondition.window !== undefined || precondition.area !== undefined || confirms.length > 0 || files.length > 0;
 
@@ -317,7 +324,6 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
         rest: hosted.filter(({ host: held }) => !reached.has(held.name)),
     };
 }, Effect.scoped);
-const paged = <P extends { readonly rest: readonly Hosted[] }>(page: P) => [[page], Option.map(Option.liftPredicate(page.rest, Array.isReadonlyArrayNonEmpty), (rest): Paging => ({ remaining: rest, asked: Option.none() }))] as const;
 const execute = Effect.fn('execute')(function* (install: Install, hosted: readonly Hosted[], limit: Duration.Duration, captures: string, dictionary: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const folder = yield* fs.makeTempDirectoryScoped({ prefix: 'blender-harness-' });
@@ -335,7 +341,16 @@ const execute = Effect.fn('execute')(function* (install: Install, hosted: readon
     );
     const pages = (yield* Effect.forEach(groups, ({ mode, items }, index) => {
         const start: Paging = { remaining: items, asked: index === 0 ? dictionary : Option.none() };
-        return Stream.runCollect(Stream.paginate(start, ({ remaining, asked }) => Effect.map(session(install, mode, folder, remaining, asked, limit, captures, crashes), paged)));
+        return Stream.runCollect(
+            Stream.paginate(
+                start,
+                Effect.fnUntraced(function* ({ remaining, asked }: Paging) {
+                    const page = yield* session(install, mode, folder, remaining, asked, limit, captures, crashes);
+                    const next: Paging = { remaining: page.rest, asked: Option.none() };
+                    return [[page], Option.liftPredicate(next, flow(Struct.get('remaining'), Array.isReadonlyArrayNonEmpty))] as const;
+                }),
+            ),
+        );
     })).flat();
     return {
         application: install.name,

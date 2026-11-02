@@ -27,13 +27,12 @@ public class Analyzers extends GhidraScript {
                         Stream.concat(
                                 Arrays.stream(args)
                                         .distinct()
-                                        .<Report.Result<String>>map(
-                                                name ->
-                                                        analyzers.contains(name)
-                                                                ? new Report.Success<>(name)
-                                                                : new Report.Failure<>(
-                                                                        "Argument `%s` names no analyzer"
-                                                                                .formatted(name))),
+                                        .<Report.Result<String>>map(name ->
+                                                analyzers.contains(name)
+                                                        ? new Report.Success<>(name)
+                                                        : new Report.Failure<>(
+                                                                "Argument `%s` names no analyzer"
+                                                                        .formatted(name))),
                                 usage.require(args.length > 0, "analyzer")));
         Set<String> registered = getCurrentAnalysisOptionsAndValues(currentProgram).keySet();
         setAnalysisOptions(
@@ -41,15 +40,14 @@ public class Analyzers extends GhidraScript {
                 names.stream()
                         .filter(registered::contains)
                         .collect(Collectors.toMap(name -> name, _ -> "false")));
-        names.forEach(
-                name ->
-                        println(
-                                "%s %s"
-                                        .formatted(
-                                                name,
-                                                registered.contains(name)
-                                                        ? "disabled"
-                                                        : "registers no option on "
-                                                                + currentProgram.getName())));
+        names.forEach(name ->
+                println(
+                        "%s %s"
+                                .formatted(
+                                        name,
+                                        registered.contains(name)
+                                                ? "disabled"
+                                                : "registers no option on "
+                                                        + currentProgram.getName())));
     }
 }

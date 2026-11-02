@@ -56,19 +56,13 @@ public class CallSites extends GhidraScript {
                             .findFirst();
             List<ClangToken> tokens =
                     open.stream()
-                            .flatMap(
-                                    paren ->
-                                            CollectionUtils.asStream(paren.iterator(true))
-                                                    .skip(1)
-                                                    .takeWhile(
-                                                            token ->
-                                                                    !(token
-                                                                                    instanceof
-                                                                                    ClangSyntaxToken
-                                                                                            close
-                                                                            && close.getClose()
-                                                                                    == paren
-                                                                                            .getOpen())))
+                            .flatMap(paren ->
+                                    CollectionUtils.asStream(paren.iterator(true))
+                                            .skip(1)
+                                            .takeWhile(token ->
+                                                    !(token instanceof ClangSyntaxToken close
+                                                            && close.getClose()
+                                                                    == paren.getOpen())))
                             .toList();
             List<String> texts =
                     tokens.stream()
@@ -84,25 +78,22 @@ public class CallSites extends GhidraScript {
                                     IntStream.concat(commas, IntStream.of(tokens.size())))
                             .boxed()
                             .gather(Gatherers.windowSliding(2))
-                            .map(
-                                    cut ->
-                                            String.join(
-                                                            "",
-                                                            texts.subList(
-                                                                    cut.getFirst() + 1,
-                                                                    cut.getLast()))
-                                                    .strip())
+                            .map(cut ->
+                                    String.join(
+                                                    "",
+                                                    texts.subList(
+                                                            cut.getFirst() + 1, cut.getLast()))
+                                            .strip())
                             .toList();
             return open.<Report.Result<Call>>map(
                             _ -> new Report.Success<>(new Call(callee, caller, address, arguments)))
-                    .orElseGet(
-                            () ->
-                                    new Report.Failure<>(
-                                            "%s at %s: call to `%s` holds no argument list"
-                                                    .formatted(
-                                                            caller.getName(true),
-                                                            address,
-                                                            callee.function().getName(true))));
+                    .orElseGet(() ->
+                            new Report.Failure<>(
+                                    "%s at %s: call to `%s` holds no argument list"
+                                            .formatted(
+                                                    caller.getName(true),
+                                                    address,
+                                                    callee.function().getName(true))));
         }
 
         static Stream<Report.Result<Call>> read(
@@ -111,14 +102,12 @@ public class CallSites extends GhidraScript {
                     .filter(ClangFuncNameToken.class::isInstance)
                     .map(ClangFuncNameToken.class::cast)
                     .filter(name -> name.getPcodeOp() != null)
-                    .flatMap(
-                            name ->
-                                    callees
-                                            .getOrDefault(
-                                                    name.getPcodeOp().getInput(0).getAddress(),
-                                                    List.of())
-                                            .stream()
-                                            .map(callee -> of(callee, caller, name)));
+                    .flatMap(name ->
+                            callees
+                                    .getOrDefault(
+                                            name.getPcodeOp().getInput(0).getAddress(), List.of())
+                                    .stream()
+                                    .map(callee -> of(callee, caller, name)));
         }
 
         String row() {
@@ -147,33 +136,23 @@ public class CallSites extends GhidraScript {
                 request.seeds().stream()
                         .map(Functions::thunked)
                         .distinct()
-                        .flatMap(
-                                target -> {
-                                    List<Function> direct =
-                                            Stream.concat(
-                                                            Stream.of(target),
-                                                            Functions.thunks(target))
-                                                    .toList();
-                                    return Stream.<Callee>concat(
-                                            direct.stream()
-                                                    .map(function -> new Direct(function, target)),
-                                            direct.stream()
-                                                    .flatMap(
-                                                            function ->
-                                                                    function
-                                                                            .getCallingFunctions(
-                                                                                    monitor)
-                                                                            .stream())
-                                                    .filter(Functions::isStub)
-                                                    .distinct()
-                                                    .map(
-                                                            stub ->
-                                                                    new Stub(
-                                                                            stub,
-                                                                            target,
-                                                                            Functions.selector(
-                                                                                    stub))));
-                                })
+                        .flatMap(target -> {
+                            List<Function> direct =
+                                    Stream.concat(Stream.of(target), Functions.thunks(target))
+                                            .toList();
+                            return Stream.<Callee>concat(
+                                    direct.stream().map(function -> new Direct(function, target)),
+                                    direct.stream()
+                                            .flatMap(function ->
+                                                    function.getCallingFunctions(monitor).stream())
+                                            .filter(Functions::isStub)
+                                            .distinct()
+                                            .map(stub ->
+                                                    new Stub(
+                                                            stub,
+                                                            target,
+                                                            Functions.selector(stub))));
+                        })
                         .toList();
         Map<Address, List<Callee>> callees =
                 reached.stream()
@@ -192,24 +171,22 @@ public class CallSites extends GhidraScript {
                 Functions.decompile(currentProgram, callers, request.settings(), monitor)
                         .entrySet()
                         .stream()
-                        .<Report.Result<Call>>flatMap(
-                                entry ->
-                                        switch (entry.getValue()) {
-                                            case Report.Success<DecompileResults>(
-                                                            DecompileResults decompiled) ->
-                                                    Call.read(callees, entry.getKey(), decompiled);
-                                            case Report.Failure<DecompileResults>(String cause) ->
-                                                    Stream.of(
-                                                            new Report.Failure<>(
-                                                                    "%s at %s: %s"
-                                                                            .formatted(
-                                                                                    entry.getKey()
-                                                                                            .getName(
-                                                                                                    true),
-                                                                                    entry.getKey()
-                                                                                            .getEntryPoint(),
-                                                                                    cause)));
-                                        })
+                        .<Report.Result<Call>>flatMap(entry ->
+                                switch (entry.getValue()) {
+                                    case Report.Success<DecompileResults>(
+                                                    DecompileResults decompiled) ->
+                                            Call.read(callees, entry.getKey(), decompiled);
+                                    case Report.Failure<DecompileResults>(String cause) ->
+                                            Stream.of(
+                                                    new Report.Failure<>(
+                                                            "%s at %s: %s"
+                                                                    .formatted(
+                                                                            entry.getKey()
+                                                                                    .getName(true),
+                                                                            entry.getKey()
+                                                                                    .getEntryPoint(),
+                                                                            cause)));
+                                })
                         .toList();
         List<Call> sorted =
                 results.stream()
@@ -226,27 +203,21 @@ public class CallSites extends GhidraScript {
                                 "CALLS",
                                 sorted.size(),
                                 callersByTarget.entrySet().stream()
-                                        .flatMap(
-                                                entry -> {
-                                                    Function target = entry.getKey();
-                                                    List<Call> targetCalls =
-                                                            calls.getOrDefault(target, List.of());
-                                                    return Stream.concat(
-                                                            Stream.of(
-                                                                    Report.subdivider(
-                                                                            target.getName(true)),
-                                                                    "// %s @ %s callers=%d calls=%d"
-                                                                            .formatted(
-                                                                                    target.getName(
-                                                                                            true),
-                                                                                    target
-                                                                                            .getEntryPoint(),
-                                                                                    entry.getValue()
-                                                                                            .size(),
-                                                                                    targetCalls
-                                                                                            .size())),
-                                                            targetCalls.stream().map(Call::row));
-                                                })
+                                        .flatMap(entry -> {
+                                            Function target = entry.getKey();
+                                            List<Call> targetCalls =
+                                                    calls.getOrDefault(target, List.of());
+                                            return Stream.concat(
+                                                    Stream.of(
+                                                            Report.subdivider(target.getName(true)),
+                                                            "// %s @ %s callers=%d calls=%d"
+                                                                    .formatted(
+                                                                            target.getName(true),
+                                                                            target.getEntryPoint(),
+                                                                            entry.getValue().size(),
+                                                                            targetCalls.size())),
+                                                    targetCalls.stream().map(Call::row));
+                                        })
                                         .toList()),
                         Report.Section.comments(
                                 "FAILED",

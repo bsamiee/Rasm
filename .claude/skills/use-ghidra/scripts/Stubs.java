@@ -1,5 +1,4 @@
 import ghidra.app.script.GhidraScript;
-
 import ghidra.app.util.bin.format.objc.objc1.Objc1Constants;
 import ghidra.app.util.sourcelanguage.ObjcSourceLanguageSpecExtension;
 import ghidra.program.model.data.PointerDataType;
@@ -32,13 +31,12 @@ public class Stubs extends GhidraScript {
         static Rename of(Function stub) {
             return Functions.selector(stub)
                     .map(selector -> Objc1Constants.OBJC_MSG_SEND + "$" + selector)
-                    .map(
-                            name ->
-                                    name.equals(stub.getName())
-                                                    && ObjcSourceLanguageSpecExtension.OBJC_MSGSEND_STUBS.equals(
-                                                            stub.getCallingConventionName())
-                                            ? new Unchanged(stub)
-                                            : apply(stub, name))
+                    .map(name ->
+                            name.equals(stub.getName())
+                                            && ObjcSourceLanguageSpecExtension.OBJC_MSGSEND_STUBS
+                                                    .equals(stub.getCallingConventionName())
+                                    ? new Unchanged(stub)
+                                    : apply(stub, name))
                     .orElseGet(() -> new Unresolved(stub));
         }
 
@@ -96,14 +94,13 @@ public class Stubs extends GhidraScript {
                         .toList();
         List<Report.Section> sections =
                 Stream.of(Renamed.class, Unchanged.class, Unresolved.class, Rejected.class)
-                        .map(
-                                outcome ->
-                                        Report.Section.rows(
-                                                outcome.getSimpleName().toUpperCase(Locale.ROOT),
-                                                renames.stream()
-                                                        .filter(outcome::isInstance)
-                                                        .map(Rename::row)
-                                                        .toList()))
+                        .map(outcome ->
+                                Report.Section.rows(
+                                        outcome.getSimpleName().toUpperCase(Locale.ROOT),
+                                        renames.stream()
+                                                .filter(outcome::isInstance)
+                                                .map(Rename::row)
+                                                .toList()))
                         .toList();
         println(Report.write(out, currentProgram, sections, ""));
     }
