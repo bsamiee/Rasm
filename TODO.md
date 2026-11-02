@@ -37,7 +37,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 ### Order and watch points
 
 - **TypeScript:** `data/search` first, then rows that need it alone, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
-- **Rust:** `services/telemetry`, `cli/command`, `services/daemon`, `services/mcp`, with `cli/output` and `cli/screen` after `cli/command`.
+- **Rust:** nine rows landed: `services/telemetry`, `cli/command`, `cli/output`, `cli/screen`, `services/daemon`, `services/mcp`, `geometry/mesh`, `drawing/linework`, `numerics/stats`. `geometry/proximity`, `geospatial/site` and `graphs/dependency` are running, and 30 rows have not started. Depth runs start with `services/telemetry`, `drawing/linework` and `numerics/stats`, once `rust-tune` on 16b941624 is committed.
 - **Later Rust rows:** each starts once its `[AFTER]` rows have landed.
 - **Rust `services/telemetry`:** owns all of `libs/rust` for the move into categories. Read its plan before its Land phase goes far.
 - **MCP:** Rust `services/mcp` and TypeScript `ai/mcp` are the capability every agent-facing app builds on.
@@ -59,10 +59,10 @@ Depth runs follow behind the rows, so no crate stays surface level: each committ
 - **Passes:** three adversaries in sequence, each rewriting the crate and its consumers in place. The first adds the capability its domain and its dependencies' full member sets state that the crate lacks or exposes shallowly. The second replaces hand logic, wrappers, forwarders and restated types with dependency members and derives each value from its owner. The third rebuilds the whole crate from the ground up in its strongest form.
 - **Growth:** an export enters only for an operation a consumer could not perform before, stated per item in `surface.md`. No re-export, alias, convenience overload or variant a parameter already serves.
 
-### State on 2026-11-01
+### State on 2026-11-02
 
-- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. `creative-cloud/indesign` is running; it gets a Check-only rerun under the depth adversaries before its commit, then `typescript-tune`. Next are `data/database`, `web/hosting`, `web/media` and `web/ui`, one at a time as the lane opens.
-- **SchemaTransformation pass:** landed. The same mining runs over the other Effect 4 members the TypeScript code restates by hand, where a member states the form.
+- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography`, `creative-cloud/automation` and `creative-cloud/indesign` landed. `data/database` is running, then `web/hosting`, `web/media` and `web/ui`, one at a time, each committed and then tuned. Atelier is rebuilt onto the new `@rasm/indesign` but the installed app predates it: it is reinstalled and checked live in InDesign.
+- **Effect 4 mining pass:** the SchemaTransformation pass landed. One more pass mines the other Effect 4 members the TypeScript code restates by hand, where a member states the form, once the lane opens.
 - **Quality bar for every language:** thread safety and performance hold as firmly as surface and depth; a gap a review finds (a lowered lint, a dropped `Send`, a starved future) is fixed at its root and the rule or skill line that let it through is corrected.
 - **Rust:** `services/telemetry`, `cli/command` and `cli/output` landed. `cli/screen`, `services/daemon` and `geometry/mesh` landed under the old second pass and get Check-only reruns under the depth adversaries, then one commit and `rust-tune`. Then the 36 remaining rows launch, each disjoint row 20 minutes after the last, `services/mcp` first, since it waits on `services/daemon`.
 
@@ -95,7 +95,9 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 ### State
 
-- **Planning:** the first plan (map, six domain studies, ARCHITECTURE.md with nine rows, WORKFLOWS.md) is the base phase 5 rewrites.
+- **Decompile:** `plugin-decompile` holds Grid Calculator (named and typed, rebuilt, proving against the binary) and ScribeDOOR (typing rounds). The InPage plugin 2.1.3 and InDesign's own bundles have their own runs. `script-decompile` proves its six domains one at a time through a headless harness, and a second script run holds the seven paid hasaninscripts, V-Justify and Kashida, whose proofs follow the first run's. The ScribeDOOR trial is seven days from 2026-11-01. InPage plugin 2.2 joins when InPage replies.
+- **Fonts:** `font-rebuild` researches InPage's spacing and marks and rebuilds the set from `original/` for Persian and Arabic, with visual review, replacing the earlier repair in research and the drive.
+- **Planning:** the first plan (map, six domain studies, ARCHITECTURE.md with nine rows, WORKFLOWS.md) is the base phase 6 rewrites.
 - **Owner's choices:** InPage's InDesign plugin ships only inside Windows desktop bundles ($225, $325 with Kasheeda, $650 with the full InPage Naskh) and its Mac build is not on sale; the Quranic Publishing System 4.1 + Plugin is bought and unpacked (plugin 2.1.3 for InDesign 2025, its fonts placed in docs/research and the owner's drive); InPage was asked by email on 2026-11-01 for the plugin 2.2 build for InDesign 2026, which joins the decompile when it arrives. manzar.in is dropped as unsupported after the merger. The owner bought the seven paid hasaninscripts scripts; they join the script decompile after its first run.
 
 ### Scope
