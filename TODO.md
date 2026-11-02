@@ -30,7 +30,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 - **Scripts:** `.claude/workflows/{rust,typescript}.js`, with rules and target rows in the sibling `RUST.md` and `TYPESCRIPT.md`.
 - **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
 - **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
-- **Concurrency:** one TypeScript run at a time. Up to three Rust row runs and three `depth` runs overlap, on folders that share no logic, started at least 20 minutes apart, and overlapping runs commit together.
+- **Concurrency:** TypeScript rows on folders that share no files overlap, started at least 20 minutes apart, and commit together. Up to three Rust row runs and three `depth` runs overlap, on folders that share no logic, started at least 20 minutes apart, and overlapping runs commit together.
 - **Base:** `HEAD` when a run starts. A line citation in the rules applies to its code wherever that code now sits.
 - **Watching:** follow a run in `/workflows`, read `.artifacts/workflows/<language>/<key>/PLAN.md` once the Plan phase writes it, and read the diff.
 
@@ -62,7 +62,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 
 ### State on 2026-11-02
 
-- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography`, `creative-cloud/automation` and `creative-cloud/indesign` landed. `data/database` is running, then `web/hosting`, `web/media` and `web/ui`, one at a time, each committed and then tuned. Atelier is rebuilt onto the new `@rasm/indesign` but the installed app predates it: it is reinstalled and checked live in InDesign.
+- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography`, `creative-cloud/automation` and `creative-cloud/indesign` and `data/database` landed and were tuned, and a type and const naming one concept now share one name. `web/media` and `web/ui` run together, 20 minutes apart, since they import neither each other nor a shared portfolio file; they commit together and each is tuned. `web/hosting` follows alone, since it shares `vite.config.ts` with media and two portfolio files with ui. The `atelier` workflow rebuilds Atelier, its Swift host and the Creative Cloud libraries (one scripting path and one capture concept for InDesign, Illustrator, Photoshop and Acrobat), then reinstalls Atelier and checks it live.
 - **Effect 4 mining pass:** the SchemaTransformation pass landed. One more pass mines the other Effect 4 members the TypeScript code restates by hand, where a member states the form, once the lane opens.
 - **Quality bar for every language:** thread safety and performance hold as firmly as surface and depth; a gap a review finds (a lowered lint, a dropped `Send`, a starved future) is fixed at its root and the rule or skill line that let it through is corrected.
 - **Rust:** `services/telemetry`, `cli/command`, `cli/output`, `cli/screen`, `services/daemon`, `geometry/mesh`, `drawing/linework`, `numerics/stats` and `services/mcp` landed. `geometry/proximity`, `geospatial/site` and `graphs/dependency` are running. The other 30 rows launch as slots free, each disjoint row 20 minutes after the last, honoring [AFTER]. Depth runs follow on committed crates, up to three at once.
