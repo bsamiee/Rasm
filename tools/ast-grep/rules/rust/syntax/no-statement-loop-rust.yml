@@ -32,7 +32,13 @@ utils:
                     kind: closure_expression
                     all:
                         - has: {field: parameters, has: {nthChild: 1, regex: '^mut\s+\w+(\s*:[\s\S]*)?$', has: {kind: identifier, pattern: $STATE}}}
-                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, any: [{matches: element-write}, {matches: guarded-write}, {matches: last-element-match}]}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}]}
+                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, any: [{matches: element-write}, {matches: guarded-write}, {matches: last-element-match}]}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}, {not: {has: {matches: state-reading-step}}}]}
+    state-reading-step:
+        any:
+            - kind: let_declaration
+              has: {stopBy: end, kind: identifier, pattern: $STATE}
+            - kind: expression_statement
+              has: {nthChild: 1, matches: element-write, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $STATE}}}
     guarded-write:
         kind: if_expression
         all:
@@ -67,4 +73,4 @@ labels:
     STATE: {style: secondary, message: 'Written each pass'}
     FOUND: {style: secondary, message: 'Returned from inside the loop'}
 message: '`$HEAD` computes its result statement by statement'
-note: 'Build the value through one iterator chain, with a named adapter or reduction (`collect`, `Itertools::unique_by`, `Itertools::coalesce`) in place of a `fold`, and collect a fallible traversal over independent elements into `validated::Validated`'
+note: 'Build the value through one iterator chain, with a named adapter or reduction (`collect`, `Itertools::unique_by`, `Itertools::coalesce`) in place of a `fold`, a `fold` holding a reduction whose each step reads the state it builds, and collect a fallible traversal over independent elements into `validated::Validated`'

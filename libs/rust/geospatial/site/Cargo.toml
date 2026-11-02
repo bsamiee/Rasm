@@ -23,16 +23,19 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-thiserror   = { workspace = true }
-derive_more = { workspace = true }
-nutype      = { workspace = true }
-jiff        = { workspace = true }
-nalgebra    = { workspace = true }
-uom         = { workspace = true }
-geo         = { workspace = true }
-geo-types   = { workspace = true }
-proj        = { workspace = true }
-tzf-rs      = { workspace = true }
+thiserror           = { workspace = true }
+derive_more         = { workspace = true }
+serde               = { workspace = true }
+serde_json          = { workspace = true }
+serde_path_to_error = { workspace = true }
+nutype              = { workspace = true }
+jiff                = { workspace = true }
+nalgebra            = { workspace = true }
+uom                 = { workspace = true }
+geo                 = { workspace = true }
+geo-types           = { workspace = true }
+proj                = { workspace = true }
+tzf-rs              = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

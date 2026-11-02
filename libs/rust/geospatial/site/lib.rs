@@ -1,6 +1,6 @@
 #![feature(deref_patterns)]
 
-use geo::{Area as _, CoordsIter as _, Geodesic, GeodesicArea as _, Length as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
+use geo::{CoordsIter as _, Geodesic, GeodesicArea as _, Length as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
 use geo_types::{MultiPolygon, Point};
 use jiff::tz::{self, TimeZone};
 use nalgebra::Point3;
@@ -32,10 +32,7 @@ pub struct Place {
     pub zone: TimeZone,
 }
 
-#[nutype::nutype(
-    validate(with = enclosure, error = SiteError),
-    derive(Debug, Clone, PartialEq, Deref)
-)]
+#[nutype::nutype(validate(with = enclosure, error = SiteError), derive(Debug, Clone, PartialEq, Deref))]
 pub struct Boundary(MultiPolygon<f64>);
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -50,13 +47,15 @@ pub enum SiteError {
     Geometry { source: InvalidMultiPolygon },
     #[error("boundary holds no polygon")]
     Empty,
-    #[error("boundary polygon {polygon} encloses no area")]
+    #[error("boundary polygon {polygon} encloses no geodesic area")]
     Area { polygon: usize },
     #[error("PROJ refused {definition}")]
     Creation { definition: Box<str>, source: ProjCreateError },
     #[error("PROJ failed on {definition}")]
     Projection { definition: Box<str>, source: ProjError },
-    #[error("anchor {anchor} is not finite, off its coordinate reference system, or scaled to nothing")]
+    #[error("PROJJSON of {definition} holds no projected coordinate reference system")]
+    Decode { definition: Box<str>, source: serde_path_to_error::Error<serde_json::Error> },
+    #[error("anchor {anchor}, its rotation or its scale is not finite, or the scale is not positive")]
     Anchor { anchor: Point3<f64>, rotation: Angle, scale: Ratio },
 }
 
@@ -90,7 +89,7 @@ fn enclosure(polygons: &MultiPolygon<f64>) -> Result<(), SiteError> {
     polygons.check_validation().map_err(|source| SiteError::Geometry { source })?;
     match &polygons.0 {
         [] => Err(SiteError::Empty),
-        members => members.iter().position(|polygon| polygon.unsigned_area() == 0.0).map_or(Ok(()), |polygon| Err(SiteError::Area { polygon })),
+        members => members.iter().position(|polygon| polygon.geodesic_area_signed() == 0.0).map_or(Ok(()), |polygon| Err(SiteError::Area { polygon })),
     }
 }
 

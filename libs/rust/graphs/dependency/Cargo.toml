@@ -4,7 +4,7 @@
 name                 = "rasm-dependency"
 version.workspace    = true
 edition.workspace    = true
-description          = "Evaluation graphs: cycle refusal naming the closing path, keyed topological order, layers, invalidation reach, transitive reduction, condensation, simple cycles, tearing, and critical path schedules"
+description          = "Evaluation graphs: cycle refusal naming the closing path, keyed topological order, layers, invalidation reach, change propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, and critical path schedules"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["dependency-graph", "topological-sort", "invalidation", "critical-path", "scheduling"]

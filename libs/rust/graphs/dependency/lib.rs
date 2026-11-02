@@ -1,18 +1,21 @@
-#![feature(deref_patterns, gen_blocks, iterator_try_collect)]
+#![feature(deref_patterns, gen_blocks, iterator_try_collect, trait_alias)]
 
 use core::{fmt, iter};
 
 use petgraph::{
+    Directed,
     acyclic::{Acyclic, AcyclicEdgeError},
     algo::{astar, toposort},
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
-    visit::NodeFiltered,
+    visit::{EdgeCount, GraphBase, GraphProp, IntoEdgesDirected, IntoNodeIdentifiers, NodeCount, NodeFiltered, Visitable},
 };
 use rustworkx_core::connectivity::find_cycle;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub type Evaluation<N, E> = Acyclic<StableDiGraph<N, E>>;
+
+pub trait Dependencies = IntoNodeIdentifiers + IntoEdgesDirected + NodeCount + EdgeCount + Visitable + GraphBase<NodeId = NodeIndex> + GraphProp<EdgeType = Directed>;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -49,7 +52,10 @@ where
     })
 }
 
-fn cycle<N, E>(graph: &StableDiGraph<N, E>, start: Option<NodeIndex>) -> DependencyError { DependencyError::Cycle { path: find_cycle(graph, start).into_iter().map(|(source, _)| source).collect() } }
+fn cycle<G>(graph: G, start: Option<NodeIndex>) -> DependencyError
+where G: Dependencies {
+    DependencyError::Cycle { path: find_cycle(graph, start).into_iter().map(|(source, _)| source).collect() }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

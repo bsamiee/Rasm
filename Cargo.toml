@@ -617,7 +617,7 @@ rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } #
 rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
-rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming the closing path, keyed order, layers, invalidation reach, transitive reduction, condensation, simple cycles, tearing, critical path schedules
+rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming the closing path, keyed order, layers, invalidation reach, change propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, critical path schedules
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

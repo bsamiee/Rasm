@@ -285,7 +285,7 @@ pub enum LedgerError {
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts through `?`
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
-- Discards match each error variant they drop and a plain `Err` value by its type (`Err(<Type> { .. })`), or record the failure as an event, and an `if let` on a success variant (`Ok`, `Validated::Good`) discards the failure it skips alike
+- Discards match each error variant they drop (`Err(LatitudeError::PredicateViolated)`) or record the failure as an event, an error type reaching a fallback, `None`, or an idle arm through `Err(_)` or `Err(<Type> { .. })` drops every variant unnamed, `Err(<Type> { .. })` stays for a returned value that is no error (`Err(Vec { .. })`), and an `if let` on a success variant (`Ok`, `Validated::Good`) discards the failure it skips alike
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]

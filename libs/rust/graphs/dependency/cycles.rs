@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use petgraph::{
     algo::{condensation, greedy_feedback_arc_set, kosaraju_scc},
@@ -41,7 +41,10 @@ pub fn tear<N, E>(mut graph: StableDiGraph<N, E>) -> Torn<N, E> {
     let skeleton = graph.map(|_, _| (), |_, _| ());
     let block = kosaraju_scc(&skeleton).into_iter().enumerate().flat_map(|(rank, members)| members.into_iter().map(move |node| (node, rank))).collect::<HashMap<_, _>>();
     let edges = greedy_feedback_arc_set(&EdgeFiltered::from_fn(&skeleton, |edge: EdgeReference<'_, ()>| block.get(&edge.source()) == block.get(&edge.target())))
-        .filter_map(|edge| graph.remove_edge(edge.id()).map(|weight| (edge.source(), edge.target(), weight)))
+        .map(|edge| (edge.id(), edge.source(), edge.target()))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter_map(|(edge, source, target)| graph.remove_edge(edge).map(|weight| (source, target, weight)))
         .collect();
     Torn { graph, edges }
 }
