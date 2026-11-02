@@ -4,16 +4,40 @@ import { Contract } from '@rasm/indesign/host';
 import { registerResource } from '@rasm/mcp/resource';
 import { registerRoutedTool } from '@rasm/mcp/tool';
 import { Face } from '@rasm/typography/face';
+import { Justification } from '@rasm/typography/justification';
+import { Settings } from '@rasm/typography/settings';
 import { Shaped } from '@rasm/typography/shaped';
 import type { Source } from '@rasm/typography/source';
-import { Array, Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const specimen = Schema.Struct({ face: Face, shaped: Shaped.annotate({ description: 'Em positions, not application composition or document coordinates' }) });
+const specimen = Schema.Struct({
+    face: Face,
+    shaped: Shaped.annotate({ description: 'Em positions, not application composition or document coordinates' }),
+    justified: Schema.OptionFromOptionalKey(
+        Schema.Struct({
+            text: Schema.String.annotate({ description: 'Shaped text with inserted tatweels, glyph clusters index it' }),
+            slack: Schema.Finite.annotate({ description: 'Width left in em, negative when overfull' }),
+            mechanisms: Schema.Array(Schema.Struct({ kind: Schema.String, amount: Schema.Finite.annotate({ description: 'Width added in em' }) })),
+        }).annotate({ description: 'Absent without width' }),
+    ),
+});
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: typeof Shaped.Run.Type, width: Option.Option<number>, settings: Settings) {
+    const face = yield* Face.open(source, instance);
+    const justified = yield* Effect.transposeOption(Option.map(width, (line) => Justification.justify(face, run, line, settings)));
+    return {
+        face,
+        shaped: Option.match(justified, { onNone: () => Shaped.of(face, run), onSome: Struct.get('shaped') }).offsetMarks(settings.marks),
+        justified: Option.map(justified, ({ run: { text }, slack, mechanisms }) => ({ text, slack, mechanisms })),
+    };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -29,13 +53,15 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
                 ...Shaped.Run.fields,
                 text: Shaped.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
                 name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or application font name or specifier` }),
+                width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
+                settings: Settings.mapFields(Struct.map(Schema.optionalKey)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
         success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...successSchema.fields.view.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),
     }).annotate(Tool.Readonly, true);
-    const typeset = Effect.fnUntraced(function* ({ name, variations, size, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) {
-        const shaped = (source: typeof Source.Type) => Effect.map(Face.open(source, { variations, size }), (face) => ({ face, shaped: Shaped.of(face, run) }));
-        const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.flatMap(files.readFile(file), (data) => shaped({ data, postscriptName }));
+    const typeset = Effect.fnUntraced(function* ({ name, variations, size, width, settings: given, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) {
+        const settings = Settings.make(given);
+        const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.flatMap(files.readFile(file), (data) => composed({ data, postscriptName }, { variations, size }, run, width, settings));
         const native = Effect.fnUntraced(function* ({ client }: Effect.Success<ReturnType<typeof route.resolve>>) {
             const { view, source } = yield* client('font', { name, text: run.text, file: path.join(yield* files.makeTempDirectoryScoped(), 'subset.otf') });
             return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, read)) };

@@ -27,12 +27,9 @@ rule:
             inside:
                 stopBy: end
                 kind: argument
-                nthChild: 1
                 inside:
-                    kind: argument_list
-                    all:
-                        - inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^DisposalOps$'}, member: {regex: '^Within$'}}}}
-                        - has: {kind: argument, nthChild: 3, has: {stopBy: end, kind: assignment_expression, all: [{has: {field: operator, regex: '^-=$'}}, {has: {field: left, matches: event}}]}}
+                    kind: 'argument_list, tuple_expression'
+                    has: {kind: argument, has: {stopBy: end, kind: assignment_expression, all: [{has: {field: operator, regex: '^-=$'}}, {has: {field: left, matches: event}}]}}
         - not:
             has:
                 field: right
@@ -49,16 +46,15 @@ rule:
                             - kind: conditional_access_expression
                             - kind: prefix_unary_expression
                             - kind: postfix_unary_expression
-        - any:
-            - inside:
+        - inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
                 stopBy: end
-                kind: compilation_unit
-                has:
-                    stopBy: end
-                    kind: assignment_expression
-                    all:
-                        - has: {field: operator, regex: '^-=$'}
-                        - has: {field: left, matches: event}
-                        - not: {matches: action}
+                kind: assignment_expression
+                all:
+                    - has: {field: operator, regex: '^-=$'}
+                    - has: {field: left, matches: event}
+                    - not: {matches: action}
 message: '`+=` attaches a handler to `$EVENT` and a separate `-=` detaches it'
-note: 'Reach the event through `Subscriptions.On<TArgs>(h => <source>.<event> += h, h => <source>.<event> -= h).Attach(<args> => <effect>)`'
+note: 'Pair `() => <source>.<event> += <handler>` with `() => <source>.<event> -= <handler>` in one row, through `Subscriptions.On<TArgs>` where the project references Rasm.Rhino'

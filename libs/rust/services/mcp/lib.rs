@@ -10,11 +10,12 @@ use core::{
 };
 use std::{borrow::Cow, error::Report, ffi::OsString, io};
 
-use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::{ValidationError, paths::Location};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use opentelemetry::propagation::{Extractor, Injector};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
+use rasm_daemon::Lifetime;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
@@ -29,18 +30,13 @@ use serde::{Serialize, de::value};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::WatchStream;
-use tokio_util::sync::CancellationToken;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait Failure = rasm_telemetry::Failure + Send + Sync + 'static;
 
-pub trait Endpoint: ServerHandler {
-    type Error: Failure;
-
+pub trait Endpoint: ServerHandler + Lifetime<Error: Failure> {
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> { Err::<Ready<()>, _>(McpError::ResourceNotFound { uri: uri.to_owned() }) }
-
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }
 
 trait Response: Sized {

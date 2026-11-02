@@ -17,6 +17,10 @@ public enum InstanceState: Sendable {
     case running(ApplicationStatus, usage: ResourceUsage?)
     case failed(ApplicationFailure)
     case exited(Result<TerminationStatus, Errno>, report: Result<CrashReport, ApplicationFailure>?)
+
+    public var isLaunching: Bool {
+        self[case: \.running]?.0.is(\.launching) == true
+    }
 }
 
 extension InstanceState: Encodable {
@@ -76,10 +80,12 @@ extension NSRunningApplication {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> {
         AsyncStream { continuation in
+            let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+            let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, notifications: notifications, ticks: tick) }
             let following: Task<Void, Never> = Task {
                 let exit: Result<ProcessExit, Errno>? = await withDiscardingTaskGroup { lifetime in
                     lifetime.addTask {
-                        for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, notifications: notifications, polling: interval, clock: clock)
+                        for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, observer: observer, ticks: ticks, polling: interval, clock: clock)
                         where !Task.isCancelled {
                             continuation.yield(self.state(of: change, sampling: false))
                         }
@@ -97,7 +103,10 @@ extension NSRunningApplication {
                 }
                 continuation.finish()
             }
-            continuation.onTermination = { _ in following.cancel() }
+            continuation.onTermination = { _ in
+                following.cancel()
+                observer[case: \.success]?.stop()
+            }
         }
     }
 }

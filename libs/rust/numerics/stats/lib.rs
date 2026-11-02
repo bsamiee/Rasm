@@ -39,6 +39,9 @@ pub enum Sample {
 )]
 pub struct Bounds(RangeInclusive<f64>);
 
+#[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct Tolerance(f64);
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error, derive_more::IsVariant)]

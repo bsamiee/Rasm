@@ -1,0 +1,46 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-views"
+version.workspace    = true
+edition.workspace    = true
+description          = "Hidden-line views of Rasm solids and surfaces under parallel, oblique and perspective projections: crease, silhouette, boundary and cut edges split where they pass behind a contour and classified visible or hidden by ray, cut regions at the near plane, visible face regions and sun shadows on them, lowered to linework strokes"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["drawing", "hidden-line", "projection", "section", "shadow"]
+categories           = ["graphics", "rendering"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+enum-map             = { workspace = true }
+itertools            = { workspace = true }
+nalgebra             = { workspace = true }
+manifold-rust        = { workspace = true }
+parry3d-f64          = { workspace = true }
+spade                = { workspace = true }
+kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
+rasm-mesh            = { workspace = true }
+rasm-proximity       = { workspace = true }
+rasm-linework        = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

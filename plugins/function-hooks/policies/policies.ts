@@ -59,6 +59,7 @@ const DURATION = /^(?<value>\d+(?:\.\d+)?)(?<unit>[smh]?)$/u;
 const BUNDLE = /^(?<bundle>\/Applications\/.+?\.app)\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
 const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<verb>\w+))?$/u;
 const VERB = /^(?:activate|launch|run|reopen)$/u;
+const EVENTS = 'System Events';
 const CHECKER = /^(?:lint|format|typecheck):(?<tool>[^:]+)/u;
 const CACHED = /^(?:check|typecheck(?::.+)?)$/u;
 
@@ -323,14 +324,44 @@ const opened = (head: Word, args: readonly Word[]): Option<Launch> => {
           });
 };
 
-const told = (head: Word, invocation: Invocation): Option<Launch> => {
+const spoken = (invocation: Invocation): { readonly apps: readonly string[]; readonly plain: boolean; readonly launching: boolean; readonly files: readonly string[] } => {
     const { values, inputs } = operands(invocation);
     const lines = values.flatMap(([name, value]) => (name === '-e' ? value.split('\n') : [])).map((line) => line.trim());
     const groups = lines.map((line) => TELL.exec(line)?.groups);
     const apps = [...new Set(groups.flatMap((group) => (group?.app === undefined ? [] : [group.app])))];
     const plain = lines.every((line, at) => (groups[at] === undefined ? line === '' || line === 'end tell' || VERB.test(line) : groups[at]?.verb === undefined || VERB.test(groups[at]?.verb ?? '')));
-    return inputs.length > 0 || apps.length === 0 || !plain || !lines.some((line, at) => VERB.test(groups[at]?.verb ?? line)) ? none : some({ program: 'osascript', start: head, app: apps.map(quote).join(' '), flags: [], foreign: [] });
+    return { apps, plain, launching: lines.some((line, at) => VERB.test(groups[at]?.verb ?? line)), files: inputs };
 };
+
+const told = (head: Word, invocation: Invocation): Option<Launch> => {
+    const { apps, plain, launching, files } = spoken(invocation);
+    return files.length > 0 || apps.length === 0 || !plain || !launching ? none : some({ program: 'osascript', start: head, app: apps.map(quote).join(' '), flags: [], foreign: [] });
+};
+
+// --- [DRIVE]
+
+const drives = ({ script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ invocations: chain }) =>
+        chain.flatMap((invocation) => {
+            const [program] = invocation;
+            switch (program) {
+                case 'osascript': {
+                    const { apps, plain, files } = spoken(invocation);
+                    const driven = apps.filter((app) => app !== EVENTS);
+                    return [
+                        ...files.map((file) => `osascript runs ${file} the hook cannot judge. Pass -e lines or run a harness case`),
+                        ...(apps.includes(EVENTS) ? [`${EVENTS} posts to the frontmost app. Run watch-apps perform on the element`] : []),
+                        ...(driven.length > 0 && !plain ? [`osascript drives ${driven.map(quote).join(' ')} outside watch-apps. Run a harness case, an atelier tool, or watch-apps perform`] : []),
+                    ];
+                }
+                case 'killall':
+                case 'pkill':
+                    return [`${program} ends every ${operands(invocation).inputs.join(' ')} process. Read the pid from a watch line and kill that one`];
+                default:
+                    return [];
+            }
+        }),
+    );
 
 const bundled = async (system: System, invocation: Invocation, { assigned, words: [head, ...args] }: Command['parts'][number]): Promise<Option<Launch>> => {
     const [program] = invocation;
@@ -603,7 +634,7 @@ const commandDecision = async (system: System, command: string, project: string,
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project, request };
-    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, launches, detached].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, launches, drives, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }

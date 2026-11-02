@@ -2,9 +2,9 @@ use core::{borrow::Borrow, num::NonZero, ops::ControlFlow, range::RangeInclusive
 
 use gauss_quad::GaussLegendre;
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
-use rasm_stats::{Bounds, BoundsError};
+use rasm_stats::{Bounds, BoundsError, Tolerance};
 
-use crate::{AnalysisError, Tolerance};
+use crate::AnalysisError;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

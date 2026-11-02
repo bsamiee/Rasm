@@ -20,13 +20,18 @@ extension NSRunningApplication {
             candidate.owningApplication?.processID == processIdentifier && window.map { id in id == candidate.windowID } ?? true
         }
         guard !owned.isEmpty else { throw ApplicationFailure(subject: process, reason: .absent(window.map { id in "on-screen window \(id)" } ?? "on-screen window")) }
+        let displayed: [SCWindow] = owned.filter { candidate in !candidate.frame.isEmpty && content.displays.contains { display in display.frame.intersects(candidate.frame) } }
+        guard !displayed.isEmpty else {
+            let placed: String = owned.map { candidate in "\(candidate.windowID) at \(candidate.frame)" }.joined(separator: ", ")
+            throw ApplicationFailure(subject: process, reason: .absent("display showing window \(placed)"))
+        }
         let covered: (SCDisplay) -> CGFloat = { display in
-            owned.map(\.frame).map(display.frame.intersection).reduce(0) { (area: CGFloat, overlap: CGRect) in area + overlap.width * overlap.height }
+            displayed.map(\.frame).map(display.frame.intersection).reduce(0) { (area: CGFloat, overlap: CGRect) in area + overlap.width * overlap.height }
         }
-        guard let display: SCDisplay = content.displays.filter({ display in covered(display) > 0 }).max(by: { left, right in covered(left) < covered(right) }) else {
-            throw ApplicationFailure(subject: process, reason: .absent("display showing its windows"))
+        guard let display: SCDisplay = content.displays.max(by: { left, right in covered(left) < covered(right) }) else {
+            throw ApplicationFailure(subject: process, reason: .absent("display"))
         }
-        let captured: [SCWindow] = owned.filter { candidate in display.frame.intersects(candidate.frame) }
+        let captured: [SCWindow] = displayed.filter { candidate in display.frame.intersects(candidate.frame) }
         let filter: SCContentFilter = SCContentFilter(display: display, including: captured)
         configuration.sourceRect = captured.map(\.frame).reduce(CGRect.null) { union, frame in union.union(frame) }.intersection(filter.contentRect).offsetBy(
             dx: -filter.contentRect.minX,

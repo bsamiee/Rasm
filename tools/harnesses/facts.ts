@@ -17,6 +17,7 @@ const facts = <E extends Schema.Top>(engine: E) => {
         engine,
         host: Schema.optionalKey(Schema.Json.annotate({ description: 'Host state beside the version that decides answers, locale and feature set among them' })),
         expression: Schema.NonEmptyString,
+        args: Schema.optionalKey(Schema.Array(Schema.Json)),
         precondition: Schema.optionalKey(Schema.Json),
         answer: Answer,
         asked: Schema.String.annotate({ description: 'ISO 8601 instant of the host call' }),
@@ -28,6 +29,7 @@ const facts = <E extends Schema.Top>(engine: E) => {
         readonly engine: E['Type'];
         readonly host?: Schema.Json;
         readonly expression?: string;
+        readonly args?: readonly Schema.Json[];
         readonly precondition?: Schema.Json;
     }
     type Row = Key & { readonly answer: typeof Answer.Type };
@@ -37,7 +39,7 @@ const facts = <E extends Schema.Top>(engine: E) => {
         const fs = yield* FileSystem.FileSystem;
         return (yield* fs.exists(file)) ? (yield* Schema.decodeEffect(Index)(yield* fs.readFileString(file))).facts : [];
     });
-    const matches = (row: Key, key: Key) => row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && (['host', 'expression', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
+    const matches = (row: Key, key: Key) => row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && (['host', 'expression', 'args', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
     const known = <F extends Row>(rows: readonly F[], key: Key) => Array.findFirst(rows, (row) => matches(row, key));
     const faulted = <F extends Row>(rows: readonly F[], key: Omit<Key, 'question'>) => Array.findFirst(rows, (row) => 'thrown' in row.answer && Schema.is(Interrupted)(row.answer.thrown) && matches(row, { ...key, question: row.question }));
     const record = Effect.fn('record')(function* (file: string, made: readonly (typeof Fact.Type & Key)[]) {

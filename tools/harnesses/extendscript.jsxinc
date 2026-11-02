@@ -1,0 +1,214 @@
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+var shared = (function () {
+    var RealFile = File;
+    var RealFolder = Folder;
+    var realGlobal = $.global;
+    var BUILTINS = [Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Date.prototype, RegExp.prototype, Error.prototype];
+
+    // --- [FILES]
+    function read(path) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("r")) { throw new Error("cannot read " + path); }
+        var text = file.read();
+        file.close();
+        return text;
+    }
+    function write(path, text) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("w")) { throw new Error("cannot write " + path); }
+        file.write(text);
+        file.close();
+    }
+    function append(path, text) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("a")) { throw new Error("cannot append " + path); }
+        file.write(text);
+        file.close();
+    }
+
+    // --- [CODEC]
+    function exponent(value) {
+        var mantissa = Math.abs(value);
+        var power = 0;
+        while (mantissa >= 9007199254740992) { mantissa /= 2; power += 1; }
+        while (mantissa !== Math.floor(mantissa)) { mantissa *= 2; power -= 1; }
+        return (value < 0 ? "-" : "") + String(mantissa) + "p" + power;
+    }
+    function quote(text) {
+        var out = '"';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            var ch = text.charAt(i);
+            if (ch === '"' || ch === "\\") { out += "\\" + ch; } else if (code < 32 || code > 126) { out += "\\u" + ("000" + code.toString(16)).slice(-4); } else { out += ch; }
+        }
+        return out + '"';
+    }
+    function tag(text) { return '{"$":' + quote(text) + "}"; }
+    function number(value) {
+        if (isNaN(value)) { return tag("NaN"); }
+        if (!isFinite(value)) { return tag(value > 0 ? "Infinity" : "-Infinity"); }
+        if (value === 0 && 1 / value < 0) { return tag("-0"); }
+        return Number(String(value)) === value ? String(value) : tag(exponent(value));
+    }
+    function iso(date) {
+        function padded(number, width) { return ("000" + number).slice(-width); }
+        return isNaN(date.getTime()) ? "NaN" : padded(date.getUTCFullYear(), 4) + "-" + padded(date.getUTCMonth() + 1, 2) + "-" + padded(date.getUTCDate(), 2) + "T" + padded(date.getUTCHours(), 2) + ":" + padded(date.getUTCMinutes(), 2) + ":" + padded(date.getUTCSeconds(), 2) + "." + padded(date.getUTCMilliseconds(), 3) + "Z";
+    }
+    function parsed(text) {
+        var parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d{1,3}))?Z$/.exec(text);
+        return parts ? new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6]), Number(parts[7] || 0))) : new Date(NaN);
+    }
+    function tagged(value) {
+        var count = 0;
+        for (var key in value) { if (value.hasOwnProperty(key)) { count += 1; } }
+        return count === 1 && typeof value.$ === "string";
+    }
+    function literal(text) {
+        var numbers = { "undefined": undefined, "NaN": NaN, "Infinity": Infinity, "-Infinity": -Infinity, "-0": -0 };
+        var scaled = /^(-?\d+)p(-?\d+)$/.exec(text);
+        var dated = /^date:(.+)$/.exec(text);
+        if (numbers.hasOwnProperty(text)) { return { value: numbers[text] }; }
+        if (scaled) { return { value: Number(scaled[1]) * Math.pow(2, Math.ceil(Number(scaled[2]) / 2)) * Math.pow(2, Math.floor(Number(scaled[2]) / 2)) }; }
+        if (dated) { return { value: parsed(dated[1]) }; }
+        return null;
+    }
+
+    // --- [SCRIPTUI]
+    function run(handler, target) {
+        if (typeof handler === "function") { return handler.call(target); }
+    }
+    function descendants(root) {
+        var rows = [];
+        function walk(control) {
+            var children = control.children || [];
+            for (var i = 0; i < children.length; i++) { rows.push(children[i]); walk(children[i]); }
+        }
+        walk(root);
+        return rows;
+    }
+    function nameOf(control) { return control.properties && control.properties.name !== undefined ? String(control.properties.name) : ""; }
+    function listing(control) { return control.items !== undefined && typeof control.find === "function"; }
+    function match(root, key) {
+        var parts = /^(\w+)#(\d+)$/.exec(key);
+        var rows = descendants(root);
+        var counter = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (parts ? rows[i].type === parts[1] && counter++ === Number(parts[2]) : nameOf(rows[i]) === key || rows[i].text === key || rows[i].title === key) { return rows[i]; }
+        }
+        throw new Error("no control " + key + " in " + root.text);
+    }
+    function fill(root, fields) {
+        for (var key in fields) {
+            if (!fields.hasOwnProperty(key)) { continue; }
+            var control = match(root, key);
+            var value = fields[key];
+            if (listing(control)) {
+                control.selection = typeof value === "number" ? value : control.find(value);
+            } else if (typeof control.value === "boolean") {
+                control.value = value;
+                run(control.onClick, control);
+            } else {
+                if (typeof control.value === "number") { control.value = value; } else { control.text = String(value); }
+                run(control.onChanging, control);
+                run(control.onChange, control);
+            }
+        }
+    }
+    function tree(root) {
+        var rows = [];
+        var controls = descendants(root);
+        for (var i = 0; i < controls.length; i++) {
+            var control = controls[i];
+            var row = { type: control.type, text: control.text, name: nameOf(control), bounds: control.bounds ? [control.bounds[0], control.bounds[1], control.bounds[2], control.bounds[3]] : null };
+            if (listing(control)) {
+                row.items = [];
+                for (var j = 0; j < control.items.length; j++) { row.items.push(control.items[j].text); }
+                row.selection = control.selection ? control.selection.index : null;
+            } else if (typeof control.value === "boolean" || typeof control.value === "number") {
+                row.value = control.value;
+            }
+            rows.push(row);
+        }
+        return rows;
+    }
+    function next(queue, fallback) { return queue && queue.length ? queue.shift() : fallback; }
+    function alerted(session) {
+        return function (message, title) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); };
+    }
+    function confirmed(session) {
+        return function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
+    }
+    function prompted(session) {
+        return function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); };
+    }
+
+    // --- [PICKERS]
+    function picked(session, kind, Kind, many) {
+        session.record.files.push(kind);
+        var answer = next(session.files, null);
+        if (answer === null) { return null; }
+        var made = new Kind(answer);
+        return many ? [made] : made;
+    }
+    function patched(session) {
+        function executed() { session.record.activations.push("execute " + this.fsName); return true; }
+        var rows = [
+            [RealFile, "openDialog", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
+            [RealFile, "saveDialog", function () { return picked(session, "save", RealFile, false); }],
+            [RealFolder, "selectDialog", function () { return picked(session, "folder", RealFolder, false); }],
+            [RealFile.prototype, "openDlg", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
+            [RealFile.prototype, "saveDlg", function () { return picked(session, "save", RealFile, false); }],
+            [RealFolder.prototype, "selectDlg", function () { return picked(session, "folder", RealFolder, false); }],
+            [RealFile.prototype, "execute", executed],
+            [RealFolder.prototype, "execute", executed]
+        ];
+        var held = [];
+        for (var i = 0; i < rows.length; i++) {
+            held.push(rows[i][0][rows[i][1]]);
+            rows[i][0][rows[i][1]] = rows[i][2];
+        }
+        return function () { for (var j = 0; j < rows.length; j++) { rows[j][0][rows[j][1]] = held[j]; } };
+    }
+
+    // --- [GLOBALS]
+    function globals() {
+        var owners = [realGlobal].concat(BUILTINS);
+        var held = [];
+        for (var i = 0; i < owners.length; i++) {
+            var keys = {};
+            for (var key in owners[i]) { keys[key] = { value: owners[i][key] }; }
+            held.push({ owner: owners[i], keys: keys });
+        }
+        return held;
+    }
+    function released(held) {
+        var leaked = [];
+        for (var i = 0; i < held.length; i++) {
+            var owner = held[i].owner;
+            var keys = held[i].keys;
+            for (var key in owner) {
+                try {
+                    if (!keys.hasOwnProperty(key)) { delete owner[key]; } else if (owner[key] !== keys[key].value) { owner[key] = keys[key].value; }
+                } catch (error) { leaked.push("global " + key + ": " + error.message); }
+            }
+        }
+        return leaked;
+    }
+
+    // --- [RUN]
+    function thrown(error) {
+        if (error === null || typeof error !== "object") { return { _tag: "Thrown", message: String(error) }; }
+        var completion = { _tag: "Thrown", message: (error.name ? error.name + ": " : "") + String(error.message) };
+        if (typeof error.number === "number") { completion.number = error.number; }
+        if (typeof error.line === "number") { completion.line = error.line; }
+        return completion;
+    }
+    function attempt(leaked, label, work) {
+        try { work(); } catch (error) { leaked.push(label + ": " + String(error.message)); }
+    }
+    return { BUILTINS: BUILTINS, read: read, write: write, append: append, exponent: exponent, quote: quote, tag: tag, number: number, iso: iso, parsed: parsed, tagged: tagged, literal: literal, run: run, descendants: descendants, nameOf: nameOf, listing: listing, match: match, fill: fill, tree: tree, next: next, alerted: alerted, confirmed: confirmed, prompted: prompted, picked: picked, patched: patched, globals: globals, released: released, thrown: thrown, attempt: attempt };
+})();

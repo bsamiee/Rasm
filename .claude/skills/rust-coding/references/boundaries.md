@@ -114,7 +114,7 @@ pub struct Frame {
 
 ## [05]-[CONFIGURATION]
 
-Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment, settings files the rest:
+Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment into the type each consumer reads, a `value_parser` refusing what its `FromStr` admits and the consumer refuses (an authority without a port), settings files the rest:
 
 ```rust
 #[derive(Debug, Parser)]

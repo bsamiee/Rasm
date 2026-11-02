@@ -1,17 +1,15 @@
 import { Record, Schema, Struct } from 'effect';
 import { answers, Expression, Name, Reads } from '#/cases';
-import { outcome, recorded } from '#/results';
+import { common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PASTEBOARD = ['copy', 'cut'] as const;
-const PREFERENCE = { Boolean: Schema.Boolean, Integer: Schema.Int, Real: Schema.Finite, String: Schema.String } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Engine = Schema.Literal('extendscript');
-const Enumerated = Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String, '.', Schema.String]) }).annotate({ description: 'Enumerator the surveyed enumerations declare' });
 const Assignment = Schema.Tuple([Expression, Schema.Json]);
 const Created = Schema.Struct({
     preset: Schema.String.annotate({ description: 'app.startupPresetsList entry whose settings documents.addDocument starts from' }),
@@ -24,7 +22,9 @@ const Opened = Schema.Struct({
     colorSpace: Schema.optionalKey(Enumerated.annotate({ description: 'DocumentColorSpace app.open converts the document to' })),
     options: JsonObject.annotate({ description: 'OpenOptions members written over a new OpenOptions' }),
 });
-const Preference = Schema.Union(Record.collect(PREFERENCE, (kind, value) => Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(kind), value }))).annotate({ description: 'app.preferences key and the value its set<kind>Preference writes' });
+const Preference = Schema.Union(Record.collect({ Boolean: Schema.Boolean, Integer: Schema.Int, Real: Schema.Finite, String: Schema.String } as const, (kind, value) => Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(kind), value }))).annotate({
+    description: 'app.preferences key and the value its set<kind>Preference writes',
+});
 const Placed = Schema.Struct({
     documents: Schema.Array(Schema.Union([Created, Opened])).annotate({ description: 'Case documents opened with a window in order, the first one active, none for an application case' }),
     coordinates: Enumerated.annotate({ description: 'CoordinateSystem every position and bounds read and write takes, the earlier value restored after the case' }),
@@ -48,47 +48,27 @@ const Placed = Schema.Struct({
     select: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Items the first document selects, a text range through its select member' })),
     set: Schema.optionalKey(Schema.Array(Assignment).annotate({ description: 'Member path and value written in order, [*] spreading over a collection' })),
     steps: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Statements run in order after set and add' })),
-    events: Schema.optionalKey(
-        Schema.Array(
-            Schema.Struct({
-                type: Schema.NonEmptyString,
-                data: Schema.optionalKey(Schema.String),
-                scope: Schema.optionalKey(Schema.Literals(['APPLICATION', 'GLOBAL'])),
-                appId: Schema.optionalKey(Schema.NonEmptyString),
-                extensionId: Schema.optionalKey(Schema.NonEmptyString),
-            }),
-        ).annotate({ description: 'CSXSEvent dispatches ending the call after the steps, the case resuming in the next call once the instance answers nothing' }),
-    ),
 });
-const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path, the $.fileName the case answers' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
-const shared = {
+const HostCase = hostCase({
     name: Name,
     precondition: Placed,
     read: Reads,
     folder: Schema.String.annotate({ description: 'Case folder holding document copies and every file the case writes' }),
-    ...Struct.omit(answers, ['presses', 'dialogs', 'files']),
-    files: Schema.optionalKey(Schema.Array(Schema.NullOr(Schema.String)).annotate({ description: 'Absolute path each file or folder picker returns in order' })),
-};
-const HostCase = Schema.TaggedUnion({
-    Run: { ...shared, source: Source, args: Schema.Array(Schema.Json) },
-    Call: { ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
-    Probe: { ...shared, evaluate: Expression },
+    ...Struct.omit(answers, ['presses', 'dialogs']),
 });
-const label = Schema.String.annotate({ description: 'Title prefix of every created case document, a document holding it being one the engine closes' });
-const Cases = {
-    records: Schema.String.annotate({ description: 'Folder the engine writes <index>.started into before each case and <index>.json after it' }),
-    label,
-    colorSettings: Schema.String.annotate({ description: 'Copy of the instance color settings taken before the batch, loaded back after a case loads its own' }),
-    from: Schema.Int.annotate({ description: 'Index of the first case the call runs, records numbered from the batch start' }),
-    cases: Schema.Array(HostCase),
-};
-const Batch = Schema.TaggedUnion({
-    Survey: { types: Schema.Array(Schema.String).annotate({ description: 'DocumentPresetType members the engine resolves to startup presets' }) },
-    Cases,
-    Resumed: { ...Cases, cases: Cases.cases.annotate({ description: 'Cases from the one whose events ended the previous call, it continuing from its held file' }) },
-    Closed: { label, folders: Schema.Array(Schema.String).annotate({ description: 'Case folders whose opened copies the engine closes unsaved' }) },
+const Enumerations = Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Enumeration members of the scripting dictionary the embedded UXP DOM maps' });
+const Sent = Schema.TaggedUnion({
+    Survey: { enumerations: Enumerations.annotate({ description: 'Enumerations whose DocumentPresetType members the engine resolves to startup presets' }) },
+    Cases: {
+        records: Schema.String.annotate({ description: 'Records file the engine appends a Started line to before each case and a Finished line after it' }),
+        label: Schema.String.annotate({ description: 'Title prefix of every created case document, a document holding it at batch start being a recovered one the engine closes' }),
+        colorSettings: Schema.String.annotate({ description: 'Copy of the instance color settings taken before the batch, loaded back after a case loads its own' }),
+        logs: Schema.Array(Schema.String.annotate({ description: 'Log file the instance alone holds open for writing, its lines written during a case recorded as the case logs' })),
+        cases: Schema.Array(HostCase),
+    },
+    Closed: { folders: Schema.Array(Schema.String.annotate({ description: 'Folders whose open documents the engine closes unsaved before the quit' })) },
 });
-const Host = Schema.Struct({
+const Install = Schema.Struct({
     build: Schema.String.annotate({ description: 'Info.plist AdobeBuildNumber' }),
     locale: Schema.String.annotate({ description: 'Settings folder locale the instance holds open' }),
     features: JsonObject.annotate({ description: 'Server feature flags the settings folder .runConfig caches for the version' }),
@@ -104,44 +84,27 @@ const Surveyed = {
     methods: Schema.Array(Schema.String).annotate({ description: 'Application methods app.reflect lists' }),
     options: JsonObject.annotate({ description: 'new OpenOptions read whole' }),
 };
-const Survey = Schema.Struct({
-    enumerations: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Enumeration members of the scripting dictionary the embedded UXP DOM maps' }),
-    ...Surveyed,
-    host: Host,
-}).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
-const Header = Schema.Struct({
-    application: Schema.String,
-    version: Schema.String,
-    state: Schema.Struct({
-        documents: Schema.Int.annotate({ description: 'Documents open at batch start' }),
-        application: JsonObject.annotate({ description: 'Writable application and preference option members read whole at batch start, userInteractionLevel included' }),
-        unread: Schema.Array(Schema.String).annotate({ description: 'Application members the snapshot and restore could not cover, each with its error' }),
-    }),
-    survey: Schema.optionalKey(Schema.Struct(Surveyed)),
-    held: Schema.optionalKey(Schema.Int.annotate({ description: 'Case whose events ended the call, its documents left open' })),
-});
-const Reply = Schema.fromJsonString(Schema.Union([Header, Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) })])).annotate({ description: 'Engine answer to one call, case outcomes sitting in the records folder' });
+const Survey = Schema.Struct({ enumerations: Enumerations, ...Surveyed, host: Install }).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
+const State = Schema.Struct({
+    documents: Schema.Int.annotate({ description: 'Documents open at batch start' }),
+    application: JsonObject.annotate({ description: 'Writable application and preference option members read whole at batch start, userInteractionLevel included' }),
+    unread: Schema.Array(Schema.String).annotate({ description: 'Application members the snapshot and restore could not cover, each with its error' }),
+}).annotate({ description: 'Instance state at batch start' });
+const Header = Schema.Struct({ application: Schema.String, version: Schema.String, state: State, survey: Schema.optionalKey(Schema.Struct(Surveyed)) });
+const Reply = reply(Header);
 const Write = Schema.TaggedUnion({
     Application: { member: Schema.String.annotate({ description: 'Member path under app' }), before: Schema.optionalKey(Schema.Json), after: Schema.Json },
     Preference: { key: Schema.String, before: Schema.optionalKey(Schema.Json), after: Schema.Json },
     Pasteboard: { member: Schema.Literals(PASTEBOARD) },
 }).annotate({ description: 'Application member, preference key, or pasteboard the original changed, restored after the case' });
 const fields = {
-    alerts: recorded(Schema.Struct({ text: Schema.String, title: Schema.optionalKey(Schema.String) })),
-    confirms: recorded(Schema.String),
-    prompts: recorded(Schema.String),
-    windows: recorded(Schema.Json.annotate({ description: 'ScriptUI window tree shown and filled' })),
-    files: recorded(Schema.Literals(['open', 'save', 'folder']).annotate({ description: 'Picker kind each file or folder picker the original opened' })),
-    activations: recorded(Schema.String.annotate({ description: 'Application method the case left out of sends, or a member reaching another app or the host lifecycle, recorded and never sent' })),
-    console: recorded(Schema.String.annotate({ description: 'Line the original printed' })),
-    logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to a log file no other instance holds open' })),
+    ...common,
+    logs: recorded(Schema.Struct({ file: Schema.String, line: Schema.String }).annotate({ description: 'Line written while the case ran to a log file no other process holds open' })),
     writes: recorded(Write),
-    opened: recorded(JsonObject.annotate({ description: 'Case document starting state, every reflected member read whole' })),
-    written: recorded(Schema.Struct({ file: Schema.String, size: Schema.Int, sha256: Schema.String }).annotate({ description: 'File the case wrote into its folder, digested without the per-save identifiers and dates' })),
 };
 const Outcome = outcome(fields);
-const Recorded = Schema.fromJsonString(Outcome);
+const Recorded = record(Outcome);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Batch, Engine, Enumerated, fields, Header, HostCase, Outcome, PASTEBOARD, Placed, Recorded, Reply, Survey };
+export { Engine, fields, Header, HostCase, Install, Outcome, PASTEBOARD, Placed, Recorded, Reply, Sent, Survey };

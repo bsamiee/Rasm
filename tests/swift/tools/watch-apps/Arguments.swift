@@ -7,9 +7,10 @@ import WatchAppsWire
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let helps: [(arguments: [String], names: [String])] = [
-    (["--help"], ["watch", "launch", "read", "capture", "perform", "set"]),
+    (["--help"], ["watch", "launch", "show", "read", "capture", "perform", "set"]),
     (["watch", "--help"], ["<names>"]),
     (["launch", "--help"], ["<names>", "--new", "--document", "--arguments", "--environment"]),
+    (["show", "--help"], ["<names>", "--pid"]),
     (["read", "--help"], ["<names>", "--pid"]),
     (["capture", "--help"], ["<names>", "--pid", "--window", "--longest-side"]),
     (["perform", "--help"], ["<id>", "<action>"]),
@@ -18,12 +19,12 @@ private let helps: [(arguments: [String], names: [String])] = [
 
 private let malformed: [[String]] = { (absent: String) -> [[String]] in
     [
-        ["undeclared"], ["watch"], ["launch"], ["read"], ["capture"], ["perform"], ["set"], ["perform", "AXPress"], ["read", absent, "--pid"], ["read", absent, "--pid", "1.5"],
-        ["read", absent, "\(absent).second", "--pid", "1"], ["capture", absent, "\(absent).second", "--pid", "1"], ["capture", absent, "--longest-side", "0"],
-        ["watch", absent, "--pid", "1"], ["read", absent, "--new"], ["launch", absent, "--document"], ["launch", absent, "--environment", "NAME"],
-        ["perform", "element", "AXPress", "extra"], ["set", "element", "text", "extra"], ["watch", absent, "--undeclared"], ["launch", absent, "--undeclared"],
-        ["read", absent, "--undeclared"], ["capture", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["capture", absent, "--pid", "text"], ["capture", absent, "--window", "text"],
-        ["capture", absent, "--longest-side", "text"],
+        ["undeclared"], ["watch"], ["launch"], ["show"], ["read"], ["capture"], ["perform"], ["set"], ["perform", "AXPress"], ["read", absent, "--pid"], ["read", absent, "--pid", "1.5"],
+        ["show", absent, "--pid"], ["read", absent, "\(absent).second", "--pid", "1"], ["show", absent, "\(absent).second", "--pid", "1"], ["capture", absent, "\(absent).second", "--pid", "1"],
+        ["capture", absent, "--longest-side", "0"], ["watch", absent, "--pid", "1"], ["read", absent, "--new"], ["launch", absent, "--document"], ["launch", absent, "--environment", "NAME"],
+        ["perform", "element", "AXPress", "extra"], ["set", "element", "text", "extra"], ["watch", absent, "--undeclared"], ["launch", absent, "--undeclared"], ["show", absent, "--undeclared"],
+        ["read", absent, "--undeclared"], ["capture", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["show", absent, "--pid", "text"], ["capture", absent, "--pid", "text"],
+        ["capture", absent, "--window", "text"], ["capture", absent, "--longest-side", "text"],
     ]
 }("dev.rasm.absent")
 

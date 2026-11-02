@@ -25,7 +25,7 @@ use opentelemetry_semantic_conventions::{
     attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, NETWORK_PEER_ADDRESS, NETWORK_PEER_PORT, NETWORK_PROTOCOL_NAME, NETWORK_TRANSPORT, RPC_RESPONSE_STATUS_CODE},
 };
 use rasm_command::Augmented;
-use rasm_daemon::Daemon;
+use rasm_daemon::{Daemon, Lifetime};
 use rasm_telemetry::{Defaults, Handle, Layer};
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
@@ -81,7 +81,7 @@ pub struct Host {
 #[group(skip)]
 #[command(next_help_heading = "MCP")]
 struct Options {
-    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback and bound address")]
+    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback, listen host names and bound addresses")]
     allowed_host: Vec<Authority>,
     #[arg(long, env = "MCP_ALLOWED_ORIGINS", value_name = "ORIGIN", value_delimiter = ',', help = "Origin header accepted from a browser client, `:*` matching any port")]
     allowed_origin: Vec<String>,
@@ -134,11 +134,17 @@ where E: Endpoint
     }
 }
 
-impl<E> Daemon for Hosted<E>
+impl<E> Lifetime for Hosted<E>
 where E: Endpoint
 {
     type Error = E::Error;
 
+    fn lifetime(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), E::Error>> + Send { self.endpoint.lifetime(stopping) }
+}
+
+impl<E> Daemon for Hosted<E>
+where E: Endpoint
+{
     fn router(self: Arc<Self>) -> axum::Router {
         let config = self.config.clone();
         axum::Router::new().route_service(
@@ -150,8 +156,6 @@ where E: Endpoint
             ),
         )
     }
-
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), E::Error>> + Send { self.endpoint.serve(stopping) }
 
     async fn drain(&self) -> Result<(), E::Error> {
         self.requests.close();
@@ -455,7 +459,7 @@ where
     rasm_daemon::run(
         Defaults { directives: format!("rmcp=warn,rmcp::service=error,{}", defaults.directives).into(), ..defaults },
         layer,
-        async |Augmented { options: Options { allowed_host, allowed_origin, max_request_body }, args }, address, filter, stopping| {
+        async |Augmented { options: Options { allowed_host, allowed_origin, max_request_body }, args }, addresses, filter, stopping| {
             let notifier = Notifier(broadcast::Sender::new(CAPACITY));
             let endpoint = build(args, Host { identity, filter, notifier: notifier.clone() }).await?;
             let mut config = max_request_body
@@ -466,7 +470,11 @@ where
                 .with_allowed_origins(allowed_origin)
                 .enforce_origin_validation()
                 .with_cancellation_token(stopping.child_token());
-            config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
+            let listened = addresses.iter().flat_map(|(authority, bound)| {
+                let name = authority.as_str().parse::<SocketAddr>().is_err().then(|| authority.host().to_owned());
+                name.into_iter().chain(bound.iter().map(SocketAddr::ip).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string()))
+            });
+            config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(listened));
             let capabilities = endpoint.get_info().capabilities;
             Ok(Hosted { endpoint, capabilities, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), watchers: Mutex::default(), config })
         },

@@ -56,11 +56,17 @@ func configuration(_ settings: Settings, new: Bool = false) -> NSWorkspace.OpenC
     return configuration
 }
 
+func launched(_ instance: NSRunningApplication, fileID: StaticString = #fileID, filePath: StaticString = #filePath, line: UInt = #line, column: UInt = #column) async {
+    var last: InstanceState?
+    for await state: InstanceState in instance.launchStates(notifications: notifications, polling: heartbeat) { last = state }
+    expectNoDifference(last?.phase, .responding, fileID: fileID, filePath: filePath, line: line, column: column)
+}
+
 func launched() async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
     let instance: NSRunningApplication = try #require(TestApplication.instance)
-    try await instance.finishedLaunching()
+    await launched(instance)
     expectNoDifference(instance.activationPolicy, .accessory)
     return (installation, instance)
 }
@@ -68,15 +74,21 @@ func launched() async throws -> (installation: Installation, instance: NSRunning
 func launched(_ settings: Settings) async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
-    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(settings)).detached()
-    try await instance.finishedLaunching()
+    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(settings)).instance
+    await launched(instance)
     expectNoDifference(instance.activationPolicy, .accessory)
     return (installation, instance)
 }
 
 func read(_ instance: NSRunningApplication) async throws -> [Element] {
     let state: InstanceState = await instance.state { _ in true }
-    return try #require(state[case: \.running]?.0[case: \.responding], "read \(state.phase)")
+    let responding: [Element]? = state[case: \.running]?.0[case: \.responding]?.elements
+    return try #require(responding, "read \(state.phase)")
+}
+
+func numbered(_ title: String, in instance: NSRunningApplication) async throws -> CGWindowID {
+    let window: CGWindowID? = try await read(instance).first { element in element.title == title }?.window
+    return try #require(window, "window \(title)")
 }
 
 func menu(_ title: String, in elements: [Element]) throws -> [Control] {
@@ -144,7 +156,14 @@ func observe(
 }
 
 extension InstanceState {
-    var elements: [Element] { self[case: \.running]?.0[case: \.responding] ?? [] }
+    var elements: [Element] { self[case: \.running]?.0[case: \.responding]?.elements ?? [] }
+
+    var windows: [Window]? {
+        switch self {
+            case .running(.responding(_, let windows), _), .running(.unresponsive(_, let windows), _): windows
+            case .running(.launching, _), .failed, .exited: nil
+        }
+    }
 
     var usage: ResourceUsage? { self[case: \.running]?.usage }
 
@@ -154,7 +173,7 @@ extension InstanceState {
         switch self {
             case .running(.launching, _): .launching
             case .running(.responding, _): .responding
-            case .running(.unresponsive(let process), _): .unresponsive(process)
+            case .running(.unresponsive(let process, _), _): .unresponsive(process)
             case .failed: .failed
             case .exited(.failure, _): .unread
             case .exited(.success(let status), .none): .exited(status)

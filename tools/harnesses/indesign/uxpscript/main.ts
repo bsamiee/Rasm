@@ -13,7 +13,6 @@ interface Node {
 type Item = typeof HostCase.Type;
 type Batch = typeof Encoded.Type;
 type Records = { -readonly [K in keyof typeof fields]: (typeof fields)[K]['Type'][number][] };
-type Spread = readonly (readonly [string, () => unknown])[];
 interface Codec {
     readonly encoded: (value: unknown) => Schema.Json;
     readonly record: (value: Record.ReadonlyRecord<string, unknown>) => typeof JsonObject.Type;
@@ -36,7 +35,6 @@ interface Session {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STACK_LINE = /<anonymous>:(?<line>\d+):\d+/gu;
-const MEMBERS = /^(?:\.[A-Za-z_$][\w$]*)+$/u;
 const ACTIVATING = ['show', 'revealInSystem', 'revealInBridge'] as const;
 const SCHEDULING = ['queueMicrotask', 'setTimeout', 'setInterval', 'setImmediate', 'requestAnimationFrame'] as const;
 const LIVE = ['activeDocument', 'activeWindow', 'layoutWindows', 'windows', 'selection'] as const;
@@ -469,29 +467,6 @@ const given = (fake: unknown, expression: string, doc: unknown, made: Node, stat
     const { keys, values } = scope({ app: fake, doc, made });
     return compiled(keys, statement ? expression : `return (${expression});`)(...values);
 };
-const spread = (evaluate: (expression: string) => unknown, key: string, expression: string): Spread => {
-    const at = expression.indexOf('[*]');
-    if (at < 0) {
-        return [[key, () => evaluate(expression)]];
-    }
-    const head = expression.slice(0, at);
-    const tail = expression.slice(at + '[*]'.length);
-    const count = Number(field(evaluate(head), 'length'));
-    const each = Array.from({ length: count }, (_, index) => expression.replaceAll('[*]', `[${index}]`));
-    const bulk = (() => {
-        try {
-            return Option.liftPredicate(MEMBERS.test(tail) ? evaluate(`${head}.everyItem()${tail}`) : undefined, (value): value is unknown[] => Array.isArray(value) && value.length === count);
-        } catch {
-            return Option.none<unknown[]>();
-        }
-    })();
-    const one = (index: number) => () =>
-        Option.getOrElse(
-            Option.flatMap(bulk, (values) => Option.some(values[index])),
-            () => evaluate(each[index] ?? expression),
-        );
-    return key.includes('[*]') ? each.map((_, index) => [key.replaceAll('[*]', `[${index}]`), one(index)] as const) : [[key, () => Option.getOrElse(bulk, () => each.map((inner) => evaluate(inner)))]];
-};
 const assign = (fake: unknown, target: string, value: unknown, doc: unknown, made: Node) => {
     const at = target.indexOf('[*]');
     const count = at < 0 ? 1 : Number(field(given(fake, target.slice(0, at), doc, made), 'length'));
@@ -562,17 +537,11 @@ const reads = (session: Session, fake: unknown, docs: readonly unknown[], made: 
     });
     try {
         const evaluate = (expression: string) => given(fake, expression, doc, made);
-        const rows = Object.entries(session.item.read).flatMap(([key, expression]) => {
+        const rows = Object.entries(session.item.read).map(([key, expression]) => {
             try {
-                return spread(evaluate, key, expression).map(([name, value]) => {
-                    try {
-                        return { state: { [name]: value() }, failed: {} };
-                    } catch (error) {
-                        return { state: {}, failed: { [name]: message(error) } };
-                    }
-                });
+                return { state: { [key]: evaluate(expression) }, failed: {} };
             } catch (error) {
-                return [{ state: {}, failed: { [key]: message(error) } }];
+                return { state: {}, failed: { [key]: message(error) } };
             }
         });
         return { state: session.codec.record(Object.assign({}, ...rows.map((row) => row.state))), failed: Record.map(Object.assign({}, ...rows.map((row) => row.failed)), String) };
@@ -606,11 +575,18 @@ const thrown = (error: unknown) => {
 const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Node) => {
     const { item } = session;
     try {
-        const value = Match.valueTags(item, {
-            Probe: ({ evaluate: expression }) => given(fake, expression, docs[0], made),
-            Call: ({ source, call, args }) => evaluate(`${source?.code ?? ''}\n;return (${call}).apply(null, arguments);`, args.map(session.codec.revived)),
-            Run: ({ source, args }) => evaluate(source.code, args.map(session.codec.revived)),
-        });
+        app.scriptPreferences.userInteractionLevel = item.interact ? indesign.UserInteractionLevels.INTERACT_WITH_ALL : indesign.UserInteractionLevels.NEVER_INTERACT;
+        const value = (() => {
+            try {
+                return Match.valueTags(item, {
+                    Probe: ({ evaluate: expression }) => given(fake, expression, docs[0], made),
+                    Call: ({ source, call, args }) => evaluate(`${source?.code ?? ''}\n;return (${call}).apply(null, arguments);`, args.map(session.codec.revived)),
+                    Run: ({ source, args }) => evaluate(source.code, args.map(session.codec.revived)),
+                });
+            } finally {
+                app.scriptPreferences.userInteractionLevel = indesign.UserInteractionLevels.NEVER_INTERACT;
+            }
+        })();
         if (Predicate.isPromiseLike(value)) {
             return { completion: { _tag: 'Failed' as const, reason: 'original answered a thenable that settles after the answer, its rejection in logs' } };
         }
@@ -636,12 +612,11 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
         prompts: [...(item.prompts ?? [])],
         files: [...(item.files ?? [])],
         actions: [],
-        record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], logs: [], writes: [], undo: [], opened: [], written: [] },
+        record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], writes: [], undo: [], opened: [] },
         dialogs: [...(item.dialogs ?? [])],
         value: Option.none(),
     };
     const unit = app.scriptPreferences.measurementUnit;
-    const redraw = app.scriptPreferences.enableRedraw;
     const active = Option.getOrUndefined(Result.getSuccess(Result.try(() => field(app.activeDocument, 'id'))));
     const held = snapshot(found, codec);
     const unglobal = globals();
@@ -657,7 +632,6 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
     const shadows = installed(session);
     const result = ((): Omit<typeof Outcome.Type, 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
         try {
-            Option.map(Option.fromUndefinedOr(item.precondition.redraw), (value) => Object.assign(app.scriptPreferences, { enableRedraw: value }));
             const docs = opened(session);
             session.record.opened = docs.map((doc) => state(codec, doc));
             prepare(shadows.fake, docs[0], session, made);
@@ -694,7 +668,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
     attempt('shadows', shadows.release);
     session.documents.forEach((doc) => attempt('close', () => (field(doc, 'isValid') === true ? invoked(doc, 'close', field(doc, 'constructorName') === 'Library' ? [] : [indesign.SaveOptions.NO]) : undefined)));
     leaked.push(...session.documents.filter((doc) => field(doc, 'isValid') === true).map((doc) => `document ${String(field(doc, 'name'))} stays open after close`));
-    attempt('scriptPreferences', () => Object.assign(app.scriptPreferences, { measurementUnit: unit, enableRedraw: redraw }));
+    attempt('scriptPreferences', () => Object.assign(app.scriptPreferences, { measurementUnit: unit }));
     attempt('restore', () => leaked.push(...restore(held, codec)));
     attempt('globals', () => leaked.push(...unglobal()));
     attempt('activeDocument', () => (active !== undefined && app.documents.length > 0 && field(app.activeDocument, 'id') !== active ? Object.assign(app, { activeDocument: invoked(app.documents, 'itemByID', [active]) }) : undefined));
@@ -718,9 +692,10 @@ const respond = ({ script: host }: typeof Host.Type) => {
                 state: { modal: app.modalState, cmyk: settings.workingSpaceCMYK, rgb: settings.workingSpaceRGB, defaults: coder.record(Object.fromEntries(found.preferences.map((name) => [name, field(field(app, name), 'properties')]))), unread: found.unread },
                 ...(batch.survey ? { survey: survey() } : {}),
             };
+            const appended = (line: string) => fs.writeFileSync(batch.records, `${String(fs.readFileSync(batch.records, { encoding: 'utf-8' }))}${line}\n`);
             batch.cases.forEach((item, index) => {
-                fs.writeFileSync(`${batch.records}/${index}.started`, '');
-                fs.writeFileSync(`${batch.records}/${index}.json`, Result.getOrThrow(Result.orElse(written(outcomeOf(item, batch, found, coder)), ({ message: reason }) => written(Outcome.make({ name: item.name, completion: { _tag: 'Failed', reason } })))));
+                appended(Result.getOrThrow(written({ _tag: 'Started', index })));
+                appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: Outcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
             });
             return header;
         } catch (error) {

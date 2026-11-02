@@ -59,7 +59,7 @@ extension Integration {
             )
             let instances: [Int32: WatchAppsLine.Instance] = try #require(read.lines.first?.entry.instances)
             _ = try #require(instances[pid]?.running?.usage, "read lines hold usage")
-            let elements: [WatchAppsLine.Element] = try #require(instances[pid]?.running?.status.responding)
+            let elements: [WatchAppsLine.Element] = try #require(instances[pid]?.running?.status.responding?.elements)
             let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
             let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: windowSize), styleMask: style).size
             let windows: [WatchAppsLine.Element] = elements.filter { element in element.role == "AXWindow" }
@@ -122,6 +122,31 @@ extension Integration {
             let open: WatchAppsLine.Control? = opened.titled("Fixture 0")?.detail?.controls?.first { control in control.id == popUp.id }
             expectNoDifference(open?.items?.compactMap(\.label), ["One", "Two", "Three"])
             try await perform(try #require(open?.items?.first), "AXCancel")
+        }
+
+        @MainActor
+        @Test(.application(FixtureApplication.self, launches: false))
+        func windowAccessibilityOmitsPrintsUnderWindowsOnHeartbeatAndRead() async throws {
+            let fixture: Fixture = try Fixture()
+            try #require(CGPreflightScreenCaptureAccess(), "window titles need Screen Recording grant")
+            let pid: Int32 = try await launch(fixture).pid
+            let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
+            let shown: WatchAppsLine = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                try await press(.undescribed, in: fixture, pid: pid)
+                return try await lines.next { line in line.windows(of: pid)?.contains { window in window.title == "Undescribed" } == true }.line
+            }
+            .outcome
+            let status: WatchAppsLine.Status = try await status(of: fixture, pid: pid)
+            let listed: [WatchAppsLine.Window] = try #require(status.windows)
+            let undescribed: WatchAppsLine.Window = try #require(listed.first { window in window.title == "Undescribed" })
+            let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: undescribedSize), styleMask: [.titled]).size
+            expectNoDifference(shown.windows(of: pid)?.map(\.number).contains(described), false)
+            expectNoDifference(shown.elements(of: pid)?.compactMap(\.title).contains("Undescribed"), false)
+            expectNoDifference(status.responding?.elements.compactMap(\.title).contains("Undescribed"), false)
+            expectNoDifference(listed.map(\.number).contains(described), false)
+            expectNoDifference([undescribed.frame.width, undescribed.frame.height], [size.width, size.height])
+            expectNoDifference([undescribed.layer, undescribed.onScreen ? 1 : 0], [0, 1])
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

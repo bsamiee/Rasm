@@ -410,7 +410,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                     return recorded(session, `${kind}.${member}`);
                 }
                 const outside = (value: unknown): readonly string[] =>
-                    typeof value === 'string' ? (value.indexOf('/') === 0 && posix(value).indexOf(`${session.item.folder}/`) !== 0 ? [value] : []) : isMembers(value) && kindOf(value) === 'Object' ? Object.keys(value).reduce<readonly string[]>((found, key) => found.concat(outside(value[key])), []) : [];
+                    typeof value === 'string' ? (value.indexOf('/') === 0 && posix(value).indexOf(`${session.item.precondition.sandbox}/`) !== 0 ? [value] : []) : isMembers(value) && kindOf(value) === 'Object' ? Object.keys(value).reduce<readonly string[]>((found, key) => found.concat(outside(value[key])), []) : [];
                 const stray = pathed ? outside({ ...args }) : [];
                 if (stray.length > 0) {
                     refuse(session, `${kind}.${member} reaches ${stray.join(', ')} outside the case folder`);
@@ -497,12 +497,16 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         };
     };
     const opened = (session: Session) => {
-        const { precondition, folder } = session.item;
+        const { precondition } = session.item;
+        const held = (doc: Doc) => {
+            session.docs.push(doc);
+            return doc;
+        };
         const docs = precondition.documents.map((document) => {
             if ('open' in document) {
-                return (app.openDoc as Callable)(document.open) as Doc;
+                return held((app.openDoc as Callable)(document.open) as Doc);
             }
-            const doc = (app.newDoc as Callable)(document.width, document.height) as Doc;
+            const doc = held((app.newDoc as Callable)(document.width, document.height) as Doc);
             counted(document.pages - 1, (page) => doc.newPage(page + 1, document.width, document.height));
             if (document.rotation !== undefined) {
                 doc.setPageRotations(0, doc.numPages - 1, document.rotation);
@@ -510,7 +514,6 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             Object.keys(document.boxes ?? {}).forEach((box) => doc.setPageBoxes(box, 0, doc.numPages - 1, document.boxes?.[box as keyof typeof document.boxes] ?? []));
             return doc;
         });
-        docs.forEach((doc) => session.docs.push(doc));
         const [first] = docs;
         if (first !== undefined) {
             (precondition.fields ?? []).forEach(({ name, type, page, rect, properties = {} }) => {
@@ -527,7 +530,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 first.metadata = precondition.metadata;
             }
         }
-        const made = precondition.documents.map((document, index) => ('open' in document ? '' : `${folder}/${index}.pdf`));
+        const made = precondition.documents.map((document, index) => ('open' in document ? '' : `${precondition.sandbox}/${index}.pdf`));
         docs.forEach((doc, index) => {
             if (made[index] !== '') {
                 doc.saveAs(made[index] ?? '');
@@ -567,7 +570,13 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     };
     const restored = (session: Session, globals: Members) => {
         const { records } = session;
-        session.timers.forEach(([clear, timer]) => (app[clear] as Callable)(timer));
+        session.timers.forEach(([clear, timer]) => {
+            try {
+                (app[clear] as Callable)(timer);
+            } catch (error) {
+                records.leaked.push(`App.${clear}: ${thrown(error, base).message}`);
+            }
+        });
         const writes = session.writes.map(({ target, key, member, before }) => {
             const after = encoded(target[key]);
             try {
@@ -600,8 +609,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
             });
         return writes;
     };
-    const run = (signatures: Record<string, Signature>) => (item: Item) => {
-        const start = now();
+    const run = (signatures: Record<string, Signature>, item: Item) => {
         const session: Session = {
             item,
             records: { alerts: [], confirms: [], prompts: [], files: [], windows: [], console: [], activations: [], events: [], opened: [], leaked: [] },
@@ -663,7 +671,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 writes,
                 ...session.records,
             },
-            span: { start, end: now(), kept: held.made.filter((file) => session.saved.indexOf(file) < 0) },
+            kept: held.made.filter((file) => session.saved.indexOf(file) < 0),
         };
     };
     const viewer = () => ({
@@ -684,11 +692,9 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         }
     };
     try {
-        const model = request._tag === 'Survey' ? surveyed() : undefined;
-        const ran = request.cases.map(run(model?.signatures ?? (request._tag === 'Cases' ? request.signatures : {})));
-        return encodeURIComponent(JSON.stringify({ _tag: request._tag, viewer: viewer(), outcomes: ran.map(({ outcome }) => outcome), spans: ran.map(({ span }) => span), ...(model === undefined ? {} : { model }) }));
+        return encodeURIComponent(JSON.stringify({ _tag: 'Success', success: request._tag === 'Survey' ? { viewer: viewer(), model: surveyed() } : run(request.signatures, request.case) }));
     } catch (error) {
-        return encodeURIComponent(JSON.stringify({ _tag: 'Failed', reason: thrown(error, base).message }));
+        return encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: thrown(error, base).message } }));
     }
 };
 

@@ -192,6 +192,9 @@ const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Succ
             call: { description: 'Calls object or collection method in one undo step, object_model lists parameters' },
             find_change: { description: 'Finds or changes matches in one undo step and restores search preferences, values take change forms' },
             invoke: { description: 'Invokes menu action in one undo step, menu lists actions by id, name, and area' },
+            adjust: { description: 'Adds kerning, tracking, baseline shift or mark offsets to selected text' },
+            kerns: { description: 'Writes pair kerns at insertion indexes or restores metrics kerning' },
+            typeset: { description: 'Reads or sets direction, digits, kashida, mark offsets, features and spacing of selected text' },
         },
         resources: {
             object_model: {

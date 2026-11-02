@@ -557,42 +557,50 @@ fn primitive_domain_binding(found: &str) {
        |
        = help: declare `angle_degrees` as `uom::si::f64::Angle` and build it with `Angle::new::<uom::si::angle::degree>`
 
-    warning: `declared_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:92:9
+    warning: `scan_dpi` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:87:9
        |
-    92 |     let declared_ms: u64 = base;
+    87 |     let scan_dpi = angle_degrees * 300.0;
+       |         ^^^^^^^^
+       |
+       = help: declare `scan_dpi` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>`
+
+    warning: `declared_ms` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:93:9
+       |
+    93 |     let declared_ms: u64 = base;
        |         ^^^^^^^^^^^
        |
        = help: declare `declared_ms` as `core::time::Duration` and build it with `Duration::from_millis`
 
     warning: `total_bytes` holds a byte size as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:103:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:104:9
         |
-    103 |     let total_bytes = base.saturating_mul(2);
+    104 |     let total_bytes = base.saturating_mul(2);
         |         ^^^^^^^^^^^
         |
         = help: declare `total_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
 
     warning: `load_percent` holds a physical quantity as `f64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:109:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:110:9
         |
-    109 |     let load_percent = base / 2.0;
+    110 |     let load_percent = base / 2.0;
         |         ^^^^^^^^^^^^
         |
         = help: declare `load_percent` as `uom::si::f64::Ratio` and build it with `Ratio::new::<uom::si::ratio::percent>`
 
     warning: `retry_delay` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:114:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:115:9
         |
-    114 |     let retry_delay: u64 = 500;
+    115 |     let retry_delay: u64 = 500;
         |         ^^^^^^^^^^^
         |
         = help: declare `retry_delay` as `core::time::Duration`
 
     warning: `timeout_ms` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:133:23
+       --> tools/dylint/examples/primitive_domain_binding.rs:134:23
         |
-    133 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
+    134 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
         |                       ^^^^^^^^^^
         |
         = help: declare `timeout_ms` as `core::time::Duration` and build it with `Duration::from_millis`
@@ -680,17 +688,17 @@ fn primitive_domain_binding(found: &str) {
        = help: declare `payload_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
 
     warning: `retry_secs` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:118:25
+       --> tools/dylint/examples/primitive_domain_binding.rs:119:25
         |
-    118 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+    119 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
         |                         ^^^^^^^^^^
         |
         = help: declare `retry_secs` as `core::time::Duration` and build it with `Duration::from_secs`
 
     warning: `cache_file` holds a path as `&str`
-       --> tools/dylint/examples/primitive_domain_binding.rs:118:42
+       --> tools/dylint/examples/primitive_domain_binding.rs:119:42
         |
-    118 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+    119 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
         |                                          ^^^^^^^^^^
         |
         = help: declare `cache_file` as `&std::path::Path`

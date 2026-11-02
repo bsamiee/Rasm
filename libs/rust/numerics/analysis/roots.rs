@@ -11,14 +11,14 @@ use nalgebra::{DMatrix, convert, linalg::balancing::balance_parlett_reinsch};
 use nonempty_collections::NEVec;
 use num_complex::Complex;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_stats::Bounds;
+use rasm_stats::{Bounds, Tolerance};
 use rayon::{
     iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _, once},
     slice::ParallelSlice as _,
 };
 use validated::Validated;
 
-use crate::{AnalysisError, Tolerance};
+use crate::AnalysisError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

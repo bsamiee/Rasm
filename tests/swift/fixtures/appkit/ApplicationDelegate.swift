@@ -7,6 +7,7 @@ import os
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let windowSize: NSSize = NSSize(width: 400, height: 300)
+let undescribedSize: NSSize = NSSize(width: 200, height: 100)
 let rowHeight: CGFloat = 20
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -109,6 +110,23 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             panel.orderFront(nil)
             return panel
         }
+        func undescribed() -> NSWindow {
+            let window: NSWindow = NSWindow(contentRect: NSRect(origin: NSPoint(x: 500, y: 500), size: undescribedSize), styleMask: [.titled], backing: .buffered, defer: false)
+            window.title = "Undescribed"
+            window.isRestorable = false
+            window.isReleasedWhenClosed = false
+            window.setAccessibilityElement(false)
+            window.orderFront(nil)
+            return window
+        }
+        func collapsed() -> NSWindow {
+            let window: NSWindow = NSWindow(contentRect: NSRect(origin: NSPoint(x: 600, y: 600), size: .zero), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.title = "Collapsed"
+            window.isRestorable = false
+            window.isReleasedWhenClosed = false
+            window.orderFront(nil)
+            return window
+        }
         func swatch() -> NSWindow {
             let window: NSWindow = NSWindow(contentRect: NSRect(origin: .zero, size: Swatch.size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Swatch"
@@ -169,6 +187,8 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
                 logger.notice("Instance refused with response \(alert("Another instance is running").runModal().rawValue, privacy: .public)")
                 exit(settings.status)
             case .window: windows.append(window(windows.count))
+            case .undescribed: windows.append(undescribed())
+            case .collapsed: windows.append(collapsed())
             case .swatch: windows.append(swatch())
             case .table: windows.append(table())
             case .sheet: windows.first.map { window in alert("Sheet alert").beginSheetModal(for: window, completionHandler: nil) }

@@ -21,11 +21,11 @@ extension NSWorkspace {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>), Never> & Sendable {
         let prompting: @Sendable (InstanceState) -> InstanceState? = { state in
-            guard case .running(.responding(let elements), let usage) = state else { return nil }
+            guard case .running(.responding(let elements, let windows), let usage) = state else { return nil }
             let asking: [Element] = elements.filter { element in
                 element.requiresAnswer && ([element.title].compactMap(\.self) + (element.detail?.text ?? [])).contains { text in names.contains(where: text.holds(wholeWords:)) }
             }
-            return asking.isEmpty ? nil : .running(.responding(elements: asking), usage: usage)
+            return asking.isEmpty ? nil : .running(.responding(elements: asking, windows: windows), usage: usage)
         }
         func prompts(of host: String) -> some AsyncSequence<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>), Never> & Sendable {
             instanceStates(of: { instance in instance.bundleIdentifier == host }, walking: \.requiresAnswer, notifications: notifications, polling: interval, clock: clock)

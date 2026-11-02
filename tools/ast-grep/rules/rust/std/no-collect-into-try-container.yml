@@ -10,6 +10,8 @@ rule:
             - pattern: $R.collect::<Option<$C>>()
         - not: {has: {field: function, has: {stopBy: end, kind: field_identifier, regex: '^(into_)?par_|^par_bridge$'}}}
         - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
+constraints:
+    C: {not: {regex: '^(\w+::)*NE[A-Z]\w*<'}}
 fix: $R.try_collect::<$C>()
 message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
-note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, or `Itertools::process_results` where adapters over the `Ok` values precede the collect'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, or `Itertools::process_results` where adapters over the `Ok` values precede the collect, a nonempty-collections container lacking `FromIterator` collecting a `NonEmptyIterator` through `FromNonEmptyIterator`'

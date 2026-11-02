@@ -139,7 +139,7 @@ where
     L: Layer,
     D: Daemon,
 {
-    rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter }| {
+    rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter, level: _ }| {
         let failed = |operation: Operation, address: SocketAddr| move |source: io::Error| DaemonError::<D::Error>::Io { operation, address, source };
         let resolved = future::join_all(listen.into_iter().map(async |authority| {
             let found = net::lookup_host(authority.as_str())

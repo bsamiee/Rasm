@@ -40,7 +40,7 @@ where P: Program {
     let [body, lower, bottom] =
         Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(u16::try_from(footer.height()).unwrap_or(u16::MAX))])
             .areas(frame.area());
-    program.view(frame, body);
+    program.view(frame, body, styles);
     match pane {
         Some(shown @ Pane::Logs) => frame.render_widget(
             TuiLoggerWidget::default()

@@ -4,10 +4,13 @@
     "description": "Atelier InDesign",
     "type": "module",
     "imports": {
+        "#/*": "./*.ts",
         "#/package.json": "./package.json"
     },
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",
+        "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:"
     },

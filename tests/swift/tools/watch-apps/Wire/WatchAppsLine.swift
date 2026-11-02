@@ -148,12 +148,20 @@ extension WatchAppsLine {
         public let threads: Int
     }
 
+    public struct Window: Decodable, Equatable, Sendable {
+        public let number: Int
+        public let title: String?
+        public let frame: CGRect
+        public let layer: Int
+        public let onScreen: Bool
+    }
+
     @CasePathable
     @dynamicMemberLookup
     public enum Status: Decodable, Equatable, Sendable {
         case launching
-        case responding(elements: [Element])
-        case unresponsive(process: ProcessStatus)
+        case responding(elements: [Element], windows: [Window])
+        case unresponsive(process: ProcessStatus, windows: [Window])
 
         private enum CodingKeys: String, CodingKey {
             case launching
@@ -161,6 +169,7 @@ extension WatchAppsLine {
             case unresponsive
             case elements
             case process
+            case windows
         }
 
         public init(from decoder: any Decoder) throws {
@@ -169,11 +178,24 @@ extension WatchAppsLine {
                 switch container.allKeys {
                     case [.launching]: .launching
                     case [.responding]:
-                        .responding(elements: try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .responding).decode([Element].self, forKey: .elements))
+                        try {
+                            let fields: KeyedDecodingContainer<CodingKeys> = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .responding)
+                            return .responding(elements: try fields.decode([Element].self, forKey: .elements), windows: try fields.decode([Window].self, forKey: .windows))
+                        }()
                     case [.unresponsive]:
-                        .unresponsive(process: try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .unresponsive).decode(ProcessStatus.self, forKey: .process))
+                        try {
+                            let fields: KeyedDecodingContainer<CodingKeys> = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .unresponsive)
+                            return .unresponsive(process: try fields.decode(ProcessStatus.self, forKey: .process), windows: try fields.decode([Window].self, forKey: .windows))
+                        }()
                     default: throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "\(container.allKeys) name no status"))
                 }
+        }
+
+        public var windows: [Window]? {
+            switch self {
+                case .launching: nil
+                case .responding(_, let windows), .unresponsive(_, let windows): windows
+            }
         }
     }
 

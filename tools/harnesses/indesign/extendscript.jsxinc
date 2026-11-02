@@ -5,49 +5,12 @@ var harness = (function () {
     var RealFile = File;
     var RealFolder = Folder;
     var realDollar = $;
-    var BUILTINS = [Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Date.prototype, RegExp.prototype, Error.prototype];
-
-    // --- [FILES]
-    function read(path) {
-        var file = new RealFile(path);
-        file.encoding = "UTF-8";
-        if (!file.open("r")) { throw new Error("cannot read " + path); }
-        var text = file.read();
-        file.close();
-        return text;
-    }
-    function write(path, text) {
-        var file = new RealFile(path);
-        file.encoding = "UTF-8";
-        if (!file.open("w")) { throw new Error("cannot write " + path); }
-        file.write(text);
-        file.close();
-    }
+    var RealWindow = Window;
+    var read = shared.read, append = shared.append, quote = shared.quote, tag = shared.tag, number = shared.number, iso = shared.iso, literal = shared.literal, tagged = shared.tagged;
+    var run = shared.run, descendants = shared.descendants, nameOf = shared.nameOf, listing = shared.listing, match = shared.match, fill = shared.fill, tree = shared.tree, next = shared.next;
+    var patched = shared.patched, globals = shared.globals, released = shared.released, thrown = shared.thrown, attempt = shared.attempt;
 
     // --- [CODEC]
-    function exponent(value) {
-        var mantissa = Math.abs(value);
-        var power = 0;
-        while (mantissa >= 9007199254740992) { mantissa /= 2; power += 1; }
-        while (mantissa !== Math.floor(mantissa)) { mantissa *= 2; power -= 1; }
-        return (value < 0 ? "-" : "") + String(mantissa) + "p" + power;
-    }
-    function quote(text) {
-        var out = '"';
-        for (var i = 0; i < text.length; i++) {
-            var code = text.charCodeAt(i);
-            var ch = text.charAt(i);
-            if (ch === '"' || ch === "\\") { out += "\\" + ch; } else if (code < 32 || code > 126) { out += "\\u" + ("000" + code.toString(16)).slice(-4); } else { out += ch; }
-        }
-        return out + '"';
-    }
-    function tag(text) { return '{"$":' + quote(text) + "}"; }
-    function number(value) {
-        if (isNaN(value)) { return tag("NaN"); }
-        if (!isFinite(value)) { return tag(value > 0 ? "Infinity" : "-Infinity"); }
-        if (value === 0 && 1 / value < 0) { return tag("-0"); }
-        return Number(String(value)) === value ? String(value) : tag(exponent(value));
-    }
     var owners = {};
     function enumerated(enumerations) {
         owners = {};
@@ -78,14 +41,6 @@ var harness = (function () {
         if (!found.length || found[0][1] === undefined) { throw new Error("enum:" + path + " names no enumerator"); }
         for (var i = 1; i < found.length; i++) { if (Number(found[i][1]) !== Number(found[0][1])) { throw new Error("enum:" + path + " names enumerators of " + (owners[path] || []).join(", ") + " with different codes"); } }
         return found[0][1];
-    }
-    function iso(date) {
-        function padded(number, width) { return ("000" + number).slice(-width); }
-        return isNaN(date.getTime()) ? "NaN" : padded(date.getUTCFullYear(), 4) + "-" + padded(date.getUTCMonth() + 1, 2) + "-" + padded(date.getUTCDate(), 2) + "T" + padded(date.getUTCHours(), 2) + ":" + padded(date.getUTCMinutes(), 2) + ":" + padded(date.getUTCSeconds(), 2) + "." + padded(date.getUTCMilliseconds(), 3) + "Z";
-    }
-    function parsed(text) {
-        var parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d{1,3}))?Z$/.exec(text);
-        return parts ? new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6]), Number(parts[7] || 0))) : new Date(NaN);
     }
     function reflected(value) {
         if (!(value instanceof ReflectionInfo)) {
@@ -159,12 +114,8 @@ var harness = (function () {
         for (var probe in value) { if (value.hasOwnProperty(probe)) { count += 1; } }
         if (count === 1 && value.hasOwnProperty("$")) {
             var text = String(value.$);
-            var numbers = { "undefined": undefined, "NaN": NaN, "Infinity": Infinity, "-Infinity": -Infinity, "-0": -0 };
-            var scaled = /^(-?\d+)p(-?\d+)$/.exec(text);
-            if (numbers.hasOwnProperty(text)) { return numbers[text]; }
-            if (scaled) { return Number(scaled[1]) * Math.pow(2, Math.ceil(Number(scaled[2]) / 2)) * Math.pow(2, Math.floor(Number(scaled[2]) / 2)); }
-            var dated = /^date:(.+)$/.exec(text);
-            if (dated) { return parsed(dated[1]); }
+            var found = literal(text);
+            if (found !== null) { return found.value; }
             if (text.indexOf("enum:") === 0) { return resolved(text.slice(5)); }
             if (text.indexOf("object:") === 0) { return resolve(text.slice(7)); }
             return text;
@@ -175,68 +126,10 @@ var harness = (function () {
     }
 
     // --- [SCRIPTUI]
-    var RealWindow = Window;
-    function run(handler, target) {
-        if (typeof handler === "function") { return handler.call(target); }
-    }
-    function descendants(root) {
-        var rows = [];
-        function walk(control) {
-            var children = control.children || [];
-            for (var i = 0; i < children.length; i++) { rows.push(children[i]); walk(children[i]); }
-        }
-        walk(root);
-        return rows;
-    }
-    function nameOf(control) { return control.properties && control.properties.name !== undefined ? String(control.properties.name) : ""; }
-    function listing(control) { return control.items !== undefined && typeof control.find === "function"; }
-    function match(root, key) {
-        var parts = /^(\w+)#(\d+)$/.exec(key);
-        var rows = descendants(root);
-        var counter = 0;
-        for (var i = 0; i < rows.length; i++) {
-            if (parts ? rows[i].type === parts[1] && counter++ === Number(parts[2]) : nameOf(rows[i]) === key || rows[i].text === key || rows[i].title === key) { return rows[i]; }
-        }
-        throw new Error("no control " + key + " in " + root.text);
-    }
-    function fill(root, fields) {
-        for (var key in fields) {
-            if (!fields.hasOwnProperty(key)) { continue; }
-            var control = match(root, key);
-            var value = fields[key];
-            if (listing(control)) {
-                control.selection = typeof value === "number" ? value : control.find(value);
-            } else if (typeof control.value === "boolean") {
-                control.value = value;
-                run(control.onClick, control);
-            } else {
-                if (typeof control.value === "number") { control.value = value; } else { control.text = String(value); }
-                run(control.onChanging, control);
-                run(control.onChange, control);
-            }
-        }
-    }
     function press(root, key) {
         var control = match(root, key);
         run(control.onClick, control);
         return nameOf(control) === "cancel" || control.text === "Cancel" ? 2 : 1;
-    }
-    function tree(root) {
-        var rows = [];
-        var controls = descendants(root);
-        for (var i = 0; i < controls.length; i++) {
-            var control = controls[i];
-            var row = { type: control.type, text: control.text, name: nameOf(control), bounds: control.bounds ? [control.bounds[0], control.bounds[1], control.bounds[2], control.bounds[3]] : null };
-            if (listing(control)) {
-                row.items = [];
-                for (var j = 0; j < control.items.length; j++) { row.items.push(control.items[j].text); }
-                row.selection = control.selection ? control.selection.index : null;
-            } else if (typeof control.value === "boolean" || typeof control.value === "number") {
-                row.value = control.value;
-            }
-            rows.push(row);
-        }
-        return rows;
     }
     function shown(session, root) {
         var answer = session.windowAnswers[session.windowShown] || {};
@@ -261,22 +154,21 @@ var harness = (function () {
     }
     function windows(session) {
         function Window(type, title, bounds, properties) {
-            var made = arguments.length === 1 ? new RealWindow(type) : arguments.length === 2 ? new RealWindow(type, title) : arguments.length === 3 ? new RealWindow(type, title, bounds) : new RealWindow(type, title, bounds, properties);
+            var made = arguments.length === 1 ? new RealWindow(type) : (arguments.length === 2 ? new RealWindow(type, title) : (arguments.length === 3 ? new RealWindow(type, title, bounds) : new RealWindow(type, title, bounds, properties)));
             session.created.push(made);
             made.show = function () { return shown(session, made); };
             return made;
         }
         Window.prototype = RealWindow.prototype;
-        Window.alert = function (message, title) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); };
-        Window.confirm = function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
-        Window.prompt = function (message, value) { session.record.prompts.push(String(message)); return next(session.prompts, value); };
+        Window.alert = shared.alerted(session);
+        Window.confirm = shared.confirmed(session);
+        Window.prompt = shared.prompted(session);
         Window.find = function () { return RealWindow.find.apply(RealWindow, arguments); };
         Window.update = function () { return RealWindow.update.apply(RealWindow, arguments); };
         Window.frameworkName = RealWindow.frameworkName;
         Window.version = RealWindow.version;
         return Window;
     }
-    function next(queue, fallback) { return queue && queue.length ? queue.shift() : fallback; }
 
     // --- [DIALOGS]
     var valueMember = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
@@ -466,29 +358,6 @@ var harness = (function () {
         for (var j = 0; j < left.length; j++) { leaked.push(left[j].member); }
         return leaked;
     }
-    function globals() {
-        var owners = [$.global].concat(BUILTINS);
-        var held = [];
-        for (var i = 0; i < owners.length; i++) {
-            var keys = {};
-            for (var key in owners[i]) { keys[key] = { value: owners[i][key] }; }
-            held.push({ owner: owners[i], keys: keys });
-        }
-        return held;
-    }
-    function released(held) {
-        var leaked = [];
-        for (var i = 0; i < held.length; i++) {
-            var owner = held[i].owner;
-            var keys = held[i].keys;
-            for (var key in owner) {
-                try {
-                    if (!keys.hasOwnProperty(key)) { delete owner[key]; } else if (owner[key] !== keys[key].value) { owner[key] = keys[key].value; }
-                } catch (error) { leaked.push("global " + key + ": " + error.message); }
-            }
-        }
-        return leaked;
-    }
     function docIds() {
         var ids = {};
         var found = realApp.documents.everyItem().id;
@@ -529,35 +398,9 @@ var harness = (function () {
         for (var key in own) { if (own.hasOwnProperty(key)) { fake[key] = own[key]; } }
         return fake;
     }
-    function picked(session, kind, Kind, many) {
-        session.record.files.push(kind);
-        var answer = next(session.files, null);
-        if (answer === null) { return null; }
-        var made = new Kind(session.product + "/" + answer);
-        return many ? [made] : made;
-    }
     function fakeDollar(session, item) {
         function printed(text) { session.record.console.push(String(text)); }
         return statics({}, realDollar, { write: printed, writeln: printed, fileName: item.source === undefined ? "" : item.source.script, evalFile: function (file) { return session.evaluate(read(file instanceof RealFile ? file.fsName : String(file)), []); } });
-    }
-    function patched(session) {
-        function executed() { session.record.activations.push("execute " + this.fsName); return true; }
-        var rows = [
-            [RealFile, "openDialog", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
-            [RealFile, "saveDialog", function () { return picked(session, "save", RealFile, false); }],
-            [RealFolder, "selectDialog", function () { return picked(session, "folder", RealFolder, false); }],
-            [RealFile.prototype, "openDlg", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
-            [RealFile.prototype, "saveDlg", function () { return picked(session, "save", RealFile, false); }],
-            [RealFolder.prototype, "selectDlg", function () { return picked(session, "folder", RealFolder, false); }],
-            [RealFile.prototype, "execute", executed],
-            [RealFolder.prototype, "execute", executed]
-        ];
-        var held = [];
-        for (var i = 0; i < rows.length; i++) {
-            held.push(rows[i][0][rows[i][1]]);
-            rows[i][0][rows[i][1]] = rows[i][2];
-        }
-        return function () { for (var j = 0; j < rows.length; j++) { rows[j][0][rows[j][1]] = held[j]; } };
     }
     function fakeDocuments(session) {
         var list = [];
@@ -733,36 +576,7 @@ var harness = (function () {
     }
 
     // --- [PRECONDITION]
-    var MEMBERS = /^(?:\.[A-Za-z_$][\w$]*)+$/;
     function evaluated(session, expression, doc, made, statement) { return new Function("doc", "app", "made", statement ? expression : "return (" + expression + ");")(doc, session.app, made); }
-    function spread(session, key, expression, doc, made) {
-        var at = expression.indexOf("[*]");
-        if (at < 0) { return [[key, function () { return evaluated(session, expression, doc, made); }]]; }
-        var head = expression.slice(0, at);
-        var count = evaluated(session, head, doc, made).length;
-        var each = [];
-        var i;
-        for (i = 0; i < count; i++) { each.push(expression.split("[*]").join("[" + i + "]")); }
-        var bulk = null;
-        if (MEMBERS.test(expression.slice(at + 3))) {
-            try {
-                var values = evaluated(session, head + ".everyItem()" + expression.slice(at + 3), doc, made);
-                if (values instanceof Array && values.length === count) { bulk = values; }
-            } catch (refused) {}
-        }
-        function one(index) { return function () { return bulk === null ? evaluated(session, each[index], doc, made) : bulk[index]; }; }
-        if (key.indexOf("[*]") < 0) {
-            return [[key, function () {
-                if (bulk !== null) { return bulk; }
-                var list = [];
-                for (var j = 0; j < count; j++) { list.push(evaluated(session, each[j], doc, made)); }
-                return list;
-            }]];
-        }
-        var rows = [];
-        for (i = 0; i < count; i++) { rows.push([key.split("[*]").join("[" + i + "]"), one(i)]); }
-        return rows;
-    }
     function assign(session, target, value, doc, made) {
         var at = target.indexOf("[*]");
         var count = at < 0 ? 1 : evaluated(session, target.slice(0, at), doc, made).length;
@@ -771,11 +585,6 @@ var harness = (function () {
             var dot = path.lastIndexOf(".");
             evaluated(session, path.slice(0, dot), doc, made)[path.slice(dot + 1)] = revive(value);
         }
-    }
-    function tagged(value) {
-        var count = 0;
-        for (var key in value) { if (value.hasOwnProperty(key)) { count += 1; } }
-        return count === 1 && typeof value.$ === "string";
     }
     function differing(target, wanted, path) {
         if (wanted !== null && typeof wanted === "object" && !(wanted instanceof Array) && !tagged(wanted)) {
@@ -866,12 +675,7 @@ var harness = (function () {
         try {
             for (var key in wanted) {
                 if (!wanted.hasOwnProperty(key)) { continue; }
-                try {
-                    var rows = spread(session, key, wanted[key], docs[0], made);
-                    for (var r = 0; r < rows.length; r++) {
-                        try { values[rows[r][0]] = rows[r][1](); } catch (inner) { failed[rows[r][0]] = String(inner.message); }
-                    }
-                } catch (error) { failed[key] = String(error.message); }
+                try { values[key] = evaluated(session, wanted[key], docs[0], made); } catch (error) { failed[key] = String(error.message); }
             }
         } finally {
             for (i = 0; i < frames.length; i++) {
@@ -895,25 +699,20 @@ var harness = (function () {
     }
     function body(item) {
         if (item._tag === "Probe") { return "(function (doc, made) { return (" + item.evaluate + "); }).apply(undefined, arguments);"; }
-        if (item._tag === "Call") { return (item.source === undefined ? "" : item.source.code.indexOf("@JSXBIN@") === 0 ? "eval(" + quote(item.source.code) + ");" : item.source.code) + "\n;(" + item.call + ").apply(undefined, arguments);"; }
+        if (item._tag === "Call") { return (item.source === undefined ? "" : (item.source.code.indexOf("@JSXBIN@") === 0 ? "eval(" + quote(item.source.code) + ");" : item.source.code)) +"\n;(" + item.call + ").apply(undefined, arguments);"; }
         return item.source.code;
     }
-    function thrown(error) {
-        if (error === null || typeof error !== "object") { return { _tag: "Thrown", message: String(error) }; }
-        var completion = { _tag: "Thrown", message: (error.name ? error.name + ": " : "") + String(error.message) };
-        if (typeof error.number === "number") { completion.number = error.number; }
-        if (typeof error.line === "number") { completion.line = error.line; }
-        return completion;
+    function sessionFor(item) {
+        return { palettes: [], created: [], actions: [], documents: [], windowShown: 0, dialogShown: 0, exited: false, menus: item.precondition.menus === true, windowAnswers: item.windows || [], dialogAnswers: item.dialogs || [], confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], logs: [], writes: [], undo: [], opened: [] } };
     }
-    function sessionFor(item, product) {
-        return { palettes: [], created: [], actions: [], documents: [], windowShown: 0, dialogShown: 0, product: product, exited: false, menus: item.precondition.menus === true, windowAnswers: item.windows || [], dialogAnswers: item.dialogs || [], confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], logs: [], writes: [], undo: [], opened: [] } };
-    }
-    function attempt(leaked, label, work) {
-        try { work(); } catch (error) { leaked.push(label + ": " + String(error.message)); }
+    function interacting(item, work) {
+        if (item.interact !== true) { return work(); }
+        realApp.scriptPreferences.userInteractionLevel = UserInteractionLevels.INTERACT_WITH_ALL;
+        try { return work(); } finally { realApp.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT; }
     }
     function ran(session, item, extra, result) {
         try {
-            var value = session.evaluate(body(item), extra);
+            var value = interacting(item, function () { return session.evaluate(body(item), extra); });
             for (var p = 0; p < session.palettes.length; p++) { answered(session, session.palettes[p].window, session.palettes[p].answer); }
             for (var a = 0; a < session.actions.length; a++) {
                 var handler = session.actions[a].listeners.onInvoke;
@@ -927,11 +726,10 @@ var harness = (function () {
         }
     }
     function outcome(item, batch, found) {
-        var session = sessionFor(item, batch.product);
+        var session = sessionFor(item);
         var result = { name: item.name, completion: { _tag: "Failed", reason: "case did not finish" } };
         var leaked = [];
         var unit = realApp.scriptPreferences.measurementUnit;
-        var redraw = realApp.scriptPreferences.enableRedraw;
         var active = activeId();
         var known = docIds();
         var held = null;
@@ -943,8 +741,8 @@ var harness = (function () {
             var shadows = [
                 windows(session),
                 function (message, title) { if (!session.exited) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); } },
-                function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); },
-                function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); },
+                shared.confirmed(session),
+                shared.prompted(session),
                 fakeApp(session, item),
                 RealFile,
                 RealFolder,
@@ -954,7 +752,6 @@ var harness = (function () {
             session.app = shadows[4];
             session.evaluate = function (code, extra) { return scoped.apply(undefined, shadows.concat([session.app.activeDocument, code, extra])); };
             release = patched(session);
-            if (item.precondition.redraw !== undefined) { realApp.scriptPreferences.enableRedraw = item.precondition.redraw; }
             var docs = opened(session, item, batch);
             for (var s = 0; s < docs.length; s++) { session.record.opened.push(state(docs[s])); }
             prepare(session, docs[0], item.precondition, made);
@@ -1003,7 +800,7 @@ var harness = (function () {
         });
         attempt(leaked, "restore", function () { if (held !== null) { leaked = leaked.concat(restore(held)); } });
         attempt(leaked, "globals", function () { leaked = leaked.concat(released(global)); });
-        attempt(leaked, "scriptPreferences", function () { realApp.scriptPreferences.measurementUnit = unit; realApp.scriptPreferences.enableRedraw = redraw; });
+        attempt(leaked, "scriptPreferences", function () { realApp.scriptPreferences.measurementUnit = unit; });
         attempt(leaked, "activeDocument", function () { if (active !== null && activeId() !== active) { realApp.activeDocument = realApp.documents.itemByID(active); } });
         var record = session.record;
         result.alerts = record.alerts; result.confirms = record.confirms; result.prompts = record.prompts; result.windows = record.windows; result.dialogs = record.dialogs; result.files = record.files; result.menus = record.menus;
@@ -1031,8 +828,8 @@ var harness = (function () {
             var found = members();
             var answer = header(found);
             for (var i = 0; i < batch.cases.length; i++) {
-                write(batch.records + "/" + i + ".started", "");
-                write(batch.records + "/" + i + ".json", json(outcome(batch.cases[i], batch, found)));
+                append(batch.records, json({ _tag: "Started", index: i }) + "\n");
+                append(batch.records, json({ _tag: "Finished", outcome: outcome(batch.cases[i], batch, found) }) + "\n");
             }
             return json(answer);
         } catch (error) {

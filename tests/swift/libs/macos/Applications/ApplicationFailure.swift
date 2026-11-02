@@ -15,6 +15,7 @@ private let phrasings: [(reason: ApplicationFailure.Reason, phrases: [String])] 
     (.absent("on-screen window"), [subject, "on-screen window"]),
     (.unanswered(.perform(element: Data([1, 2, 3]), action: kAXPressAction)), [subject, "can have run"]),
     (.untrusted, ["Accessibility"]),
+    (.hidden, [subject, "hidden"]),
 ]
 private let causes: [(reason: ApplicationFailure.Reason, cause: any Error)] = [
     (.process(.permissionDenied), Errno.permissionDenied),

@@ -39,6 +39,7 @@ anstream             = { workspace = true }
 anstyle              = { workspace = true }
 clap                 = { workspace = true }
 comfy-table          = { workspace = true }
+crossterm            = { workspace = true }
 inquire              = { workspace = true }
 minus                = { workspace = true }
 tracing-indicatif    = { workspace = true }

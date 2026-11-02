@@ -72,6 +72,8 @@ impl Domain {
             ("hz", true, "Frequency", "frequency", "hertz"),
             ("khz", true, "Frequency", "frequency", "kilohertz"),
             ("mhz", true, "Frequency", "frequency", "megahertz"),
+            ("dpi", true, "LinearNumberDensity", "linear_number_density", "per_inch"),
+            ("ppi", true, "LinearNumberDensity", "linear_number_density", "per_inch"),
             ("pct", true, "Ratio", "ratio", "percent"),
             ("percent", false, "Ratio", "ratio", "percent"),
             ("millimeters", false, "Length", "length", "millimeter"),

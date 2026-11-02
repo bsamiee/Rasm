@@ -136,12 +136,41 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
-        func hiddenInstancePrintsFailInPlaceOfEntry() async throws {
+        func hiddenInstancePrintsFailInPlaceOfEntryUntilShown() async throws {
             let fixture: Fixture = try Fixture()
+            let frontmost: Int32? = NSWorkspace.shared.frontmostApplication?.processIdentifier
             let pid: Int32 = try await launch(fixture).pid
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
+            let window: Int = try #require(elements.titled("Fixture 0")?.window)
             expectNoDifference(elements.titled("Fixture 0")?.minimized, false)
             try await expectRefusal(["capture", fixture.identifier], keyedBy: fixture.identifier)
+            try await expectRefusal(["show", fixture.identifier, "--pid", "1"], keyedBy: fixture.identifier)
+            try await show(fixture, pid: pid)
+            try await show(fixture, pid: pid)
+            let shown: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid)
+            let instance: NSRunningApplication? = NSRunningApplication(processIdentifier: pid)
+            expectNoDifference(shown.capture.windows, [window])
+            expectNoDifference([instance?.isHidden, instance?.isActive], [false, false])
+            expectNoDifference(NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmost)
+            try FileManager.default.removeItem(at: shown.file)
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
+        func zeroSizeWindowPrintsFailAndLeavesInstanceCapture() async throws {
+            let fixture: Fixture = try Fixture()
+            let pid: Int32 = try await launch(fixture).pid
+            let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
+            let collapsed: WatchAppsLine.Window = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                try await press(.collapsed, in: fixture, pid: pid)
+                let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.windows(of: pid)?.contains { window in window.frame.isEmpty } == true }
+                return try #require(shown.line.windows(of: pid)?.first { window in window.frame.isEmpty })
+            }
+            .outcome
+            try await expectRefusal(["capture", fixture.identifier, "--pid", String(pid), "--window", String(collapsed.number)], keyedBy: fixture.identifier)
+            let all: (capture: WatchAppsLine.Capture, image: CGImage, file: URL) = try await capture(fixture, pid: pid)
+            expectNoDifference(all.capture.windows, [described])
+            try FileManager.default.removeItem(at: all.file)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

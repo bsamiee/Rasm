@@ -367,15 +367,22 @@ const markers = {
     }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root, configFiles }) {
         const path = yield* Path.Path;
-        const [suite, configs, { compilerOptions }, { owner, manifest }, containers, entries] = yield* Effect.all([suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), owning(root, dir), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])], {
-            concurrency: 'unbounded',
-        });
+        const [suite, configs, { compilerOptions }, { owner, manifest }, containers, entries, hosts] = yield* Effect.all(
+            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), owning(root, dir), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`]), glob(root, [`${dir}/*/host.ts`])],
+            {
+                concurrency: 'unbounded',
+            },
+        );
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
-        const runs = entries.flatMap((entry) => {
-            const folder = path.dirname(entry);
-            const nested = configFiles.filter((config) => config.startsWith(`${folder}${path.sep}`));
-            return nested.some((config) => path.dirname(config) === folder) ? [] : [[path.basename(folder), { command: `node ${entry}`, ...(nested.length > 0 ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {}) }] as const];
-        });
+        const below = (folder: string) => configFiles.filter((config) => config.startsWith(`${folder}${path.sep}`) && path.dirname(config) !== folder);
+        const building = (folder: string) => (below(folder).length > 0 ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {});
+        const runs = [
+            ...entries.flatMap((entry) => {
+                const folder = path.dirname(entry);
+                return configFiles.some((config) => path.dirname(config) === folder) ? [] : [[path.basename(folder), { command: `node ${entry}`, ...building(folder) }] as const];
+            }),
+            ...hosts.map((entry) => [path.basename(path.dirname(entry)), { command: `node ${path.join(dir, 'main.ts')} ${path.basename(path.dirname(entry))}`, ...building(path.dirname(entry)) }] as const),
+        ];
         const integration = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
         return {
             ...suite,

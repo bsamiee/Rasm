@@ -11,6 +11,7 @@ use futures::{
     future::{self, BoxFuture},
 };
 use itertools::{Either, Itertools as _};
+use rasm_daemon::Lifetime;
 use rasm_telemetry::Handle;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
@@ -288,16 +289,20 @@ where A: App
 impl<A> Endpoint for Server<A>
 where A: App
 {
-    type Error = A::Error;
-
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> {
         let resources = self.registry.resources.load_full().ok_or_else(|| McpError::ResourceNotFound { uri: uri.to_owned() })?;
         let watching = resources.routed(uri).and_then(|(route, variables)| (route.watch)(self.app.clone(), uri.to_owned(), variables))?;
         let (registry, uri) = (self.registry.clone(), uri.to_owned());
         Ok(watching.map(move |()| registry.resource_updated(&uri)).collect())
     }
+}
 
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send {
+impl<A> Lifetime for Server<A>
+where A: App
+{
+    type Error = A::Error;
+
+    fn lifetime(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send {
         let (tracker, halted, parked) = (self.tracker.clone(), self.halted.clone(), Arc::clone(&self.parked));
         let served = self.app.clone().serve(self.registry.clone(), stopping.clone());
         let drained = async move {

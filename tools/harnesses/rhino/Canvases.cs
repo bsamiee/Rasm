@@ -35,7 +35,7 @@ public sealed class Canvases : ICanvases {
     public int Logged() => Logger.Count;
 
     public ImmutableArray<Diagnosed> Diagnostics(int since) =>
-        [.. Logger.Diagnostics().Skip(since).Select(static entry => new Diagnosed(entry.TimeStamp, entry.Kind.ToString(), entry.Message))];
+        [.. Logger.Diagnostics().Skip(since).Select(static entry => new Diagnosed("Grasshopper2", entry.Kind.ToString(), entry.Message))];
 
     // --- [DOCUMENTS]
     public (object Document, object? Prior) Open(string? source) {

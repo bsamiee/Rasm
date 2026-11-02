@@ -188,5 +188,5 @@ Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, 
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
-- `watch-apps launch --new` starts macOS GUI runs, quitting Blender when `run` ends
+- `watch-apps launch --new` starts macOS GUI runs hidden, and `run` returns once the runner's quit call ends that instance
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

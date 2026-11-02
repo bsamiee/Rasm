@@ -84,7 +84,8 @@ fn dated(day: u8) -> String {
 fn measured(base: f64) -> f64 {
     let length_mm = base * 2.0;
     let angle_degrees = length_mm / 3.0;
-    angle_degrees
+    let scan_dpi = angle_degrees * 300.0;
+    scan_dpi
 }
 
 fn typed(base: u64) -> Duration {

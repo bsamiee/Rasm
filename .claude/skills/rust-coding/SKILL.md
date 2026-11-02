@@ -41,12 +41,12 @@ Function signatures are contracts, parameter types state every value a function 
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
 - Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
-- Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed
+- Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed, and the value read is the one the step names, never a summary beside it (a filter's root level, not its most verbose directive)
 - Values describing an output (a resampled rate) derive from the output produced, never from the request it rounds
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from its owner (a type, a member, a clap `Arg`)
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion, and a rule several functions read is one private `fn` each calls, never an inline copy per function
+- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion, and a rule several functions read is one private `fn` each calls, never an inline copy per function, and a type with operations of its own (a session, a sink) is a module item with those operations as private functions beside it, never a local item of one body
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -182,7 +182,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 ### [03.3]-[OWNERSHIP]
 
 Ownership states who decides a value's lifetime:
-- Functions storing an argument or moving it into a by-value callee take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` over the element the body reads (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
+- Functions storing an argument or moving it into a by-value callee take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` over the element the body reads (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call, and a buffer kept across calls (a held log tail, a batch) is bounded by the depth or batch its reader takes
 - Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`, or the shared handle a dependency states for the concept (linebender_resource_handle `FontData` over font bytes and collection index)
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Steps only some inputs take return `Cow<'_, T>`, the untouched path borrowing its input
@@ -262,7 +262,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 }
 ```
 
-- Failures of independent chains all reach the caller: a missing source beside an overflowing target, each refused element of one batch
+- Failures of independent chains all reach the caller (a missing source beside an overflowing target, each refused element of one batch) from the one pass building each value, never a pass parsing for failures and another for the value
 - `try_collect` takes `#![feature(iterator_try_collect)]` in the crate root, and files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`, and a `NonEmptyIterator` (`nonempty_collections::iter::once(head).chain(rest)`) collects `Result<NEVec<U>, E>` through `FromNonEmptyIterator`, `NEVec` holding no `FromIterator`
 - `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
@@ -293,7 +293,7 @@ pub enum LedgerError {
 }
 ```
 
-- Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
+- Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes whole (`source.path()`), a field holding more than the source prints (an indexed key path) printing in the message, `Report::new(&error)` renders the chain
 - Absent message fields render as what absence means (a package default)
 - Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
@@ -302,7 +302,7 @@ pub enum LedgerError {
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
-- Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts through `?`
+- Functions generic over a consumer error only to call `E::from` return the crate error, and each caller converts through `?` or `map(E::from)`, one function holding a step two callers share (a release a panic hook logs and an exit returns)
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
 - Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
 - `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
@@ -385,13 +385,13 @@ Records holding field defaults under `default_field_values` derive `Debug` throu
 ## [06]-[EFFECTS]
 
 Pure functions hold the domain, async functions hold I/O, and the binary's `main` starts the runtime and runs the composed effect once:
-- Libraries return futures and streams, start no runtime, and every task they spawn has an owner that joins it
+- Libraries return futures and streams, start no runtime, and every task they spawn has an owner that joins it, a blocking call inside a future raced against cancellation (a prompt) running as an awaited `spawn_blocking` task whose held state (raw mode) the cancelling owner restores
 - Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, and `timeout` bounds one future
 - `tokio::select!` races futures, each branch producing its value, `biased;` ranking branches ready together, `OptionFuture` disabling an absent future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do
-- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, a release whose failure the outcome reads running on the dismissed value, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws)
+- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, a release whose failure the outcome reads running on the dismissed value, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws), and a release another path already runs on each exit it covers (a panic hook releasing under unwind) takes no guard beside it
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
 - Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields

@@ -1,0 +1,44 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-dynamics"
+version.workspace    = true
+edition.workspace    = true
+description          = "Dynamic simulation over time grids: ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities, adjoint gradients of integral and pointwise objectives and parallel sweeps over parameter designs, lumped thermal RC networks with steady states and parameter sensitivities, FMI 2 and 3 co-simulation units with real, integer and Boolean ports, real ports in SI units, and a cancellable non-iterative Gauss-Seidel master over a torn coupling order with type- and unit-checked connections"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["ode", "simulation", "co-simulation", "fmi", "thermal-network"]
+categories           = ["science", "simulation", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+faer                 = { workspace = true }
+nalgebra             = { workspace = true }
+uom                  = { workspace = true }
+diffsol              = { workspace = true }
+fmi                  = { workspace = true }
+petgraph             = { workspace = true }
+rasm-dependency      = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

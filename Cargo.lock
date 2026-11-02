@@ -9445,6 +9445,7 @@ dependencies = [
  "anstyle",
  "clap",
  "comfy-table",
+ "crossterm",
  "csv",
  "futures",
  "indexmap 2.14.2",

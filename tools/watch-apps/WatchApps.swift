@@ -74,7 +74,7 @@ extension NSWorkspace {
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         abstract: "Observes and drives installed applications in background. Commands exit 1 after a fail line",
-        subcommands: [Watch.self, Launch.self, Read.self, Capture.self, Perform.self, Set.self],
+        subcommands: [Watch.self, Launch.self, Show.self, Read.self, Capture.self, Perform.self, Set.self],
     )
 
     static func main() async {
@@ -162,7 +162,7 @@ struct Instance: ParsableArguments {
         of applications: some Collection<String>,
         output: AsyncStream<(key: String, line: Line)>.Continuation,
         _ read: @escaping @Sendable (_ id: String, _ instance: NSRunningApplication) async -> Result<Value, ApplicationFailure>,
-        as line: (OrderedDictionary<NSRunningApplication, Value>) -> Line,
+        as line: (OrderedDictionary<NSRunningApplication, Value>) -> Line?,
     ) async {
         for id: String in applications {
             let running: [NSRunningApplication] = NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }
@@ -183,7 +183,7 @@ struct Instance: ParsableArguments {
                         uniqueKeysWithValues: reads.compactMap { instance, read in read[case: \.success].map { value in (instance, value) } }
                     )
                     for failure: ApplicationFailure in reads.compactMap({ _, read in read[case: \.failure] }) { output.yield((id, .fail(failure.localizedDescription))) }
-                    if !values.isEmpty || reads.isEmpty { output.yield((id, line(values))) }
+                    if let line: Line = line(values), !values.isEmpty || reads.isEmpty { output.yield((id, line)) }
                 case .failure(let miss): output.yield((id, .fail(miss.localizedDescription)))
             }
         }
@@ -234,8 +234,7 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract:
-            "Opens each application hidden without activation and prints its state until it leaves launching, then holds an instance it created until the starting process exits or a signal ends it, then saves its documents with a file, closes untitled ones unsaved, and quits it"
+        abstract: "Opens each application hidden without activation and prints its state until it leaves launching or an element requires an answer, then exits leaving the instance running"
     )
 
     @OptionGroup var installed: Installed
@@ -282,16 +281,24 @@ struct Launch: AsyncParsableCommand {
             configuration.createsNewApplicationInstance = new
             configuration.arguments = arguments
             configuration.environment = Dictionary(environment) { _, last in last }
-            let launch: Applications.Launch = try await NSWorkspace.shared.launch(Installation.single(of: id, among: copies), opening: document, configuration: configuration)
-            for await state: InstanceState in launch.instance.states(walking: \.requiresAnswer, notifications: notifications, polling: messagingTimeout) {
-                output.yield((id, .states([launch.instance: state])))
-                guard case .running(.launching, _) = state else { break }
-            }
-            if launch.created {
-                for await _: Result<ProcessExit, Errno> in termination(of: launch.instance.processIdentifier) {}
-            }
+            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(Installation.single(of: id, among: copies), opening: document, configuration: configuration).instance
+            for await state: InstanceState in instance.launchStates(notifications: notifications, polling: messagingTimeout) { output.yield((id, .states([instance: state]))) }
         } catch {
             output.yield((id, .fail(error.localizedDescription)))
+        }
+    }
+}
+
+struct Show: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = CommandConfiguration(
+        abstract: "Unhides each running instance without activation so capture reaches its windows, silent unless an instance stays hidden"
+    )
+
+    @OptionGroup var instance: Instance
+
+    func run() async throws {
+        await WatchApps.run(instance.installed.names) { applications, output in
+            await instance.each(of: applications.keys, output: output, { _, running in Result { () throws(ApplicationFailure) in try running.show() } }, as: { _ in nil })
         }
     }
 }

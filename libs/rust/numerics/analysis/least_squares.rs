@@ -2,7 +2,7 @@ use core::num::NonZero;
 
 use nalgebra::{DMatrixView, DVector, DVectorView};
 use nlopt::{SuccessState, Target};
-use nonempty_collections::NEVec;
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use num_dual::{DualDVec64, gradient, jacobian};
 use rasm_optimize::{
     Solution,
@@ -16,10 +16,10 @@ use crate::{AnalysisError, Estimate, Observations, Prediction, decompose, estima
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn fit<K, F>(model: F, observations: &Observations, space: &Space<K>, start: DVector<f64>, settings: Settings<'_>) -> Result<(Estimate, SuccessState), AnalysisError>
+pub fn fit<K, F>(model: F, observations: &Observations, space: &Space<K>, start: DVector<f64>, settings: &Settings<'_>) -> Result<(Estimate, SuccessState), NEVec<AnalysisError>>
 where F: Fn(DVectorView<'_, f64>, &DVector<DualDVec64>) -> DualDVec64 + Sync {
     let (points, parameters) = (observations.sites.ncols(), space.len().get());
-    let freedom = points.checked_sub(parameters).and_then(NonZero::new).ok_or_else(|| AnalysisError::Observations { found: points, needed: parameters.strict_add(1) })?;
+    let freedom = points.checked_sub(parameters).and_then(NonZero::new).ok_or_else(|| NEVec::new(AnalysisError::Observations { found: points, needed: parameters.strict_add(1) }))?;
     let root = observations.weights.map(f64::sqrt);
     let residuals = |point: DVector<DualDVec64>| {
         DVector::from_vec(
@@ -30,6 +30,7 @@ where F: Fn(DVectorView<'_, f64>, &DVector<DualDVec64>) -> DualDVec64 + Sync {
     let Solution { point, objective: _, status } = optimize(
         space,
         start,
+        Target::Minimize,
         |point: &[f64], slot: Option<&mut [f64]>, (): &mut ()| {
             let point = DVector::from_column_slice(point);
             match slot {
@@ -41,11 +42,12 @@ where F: Fn(DVectorView<'_, f64>, &DVector<DualDVec64>) -> DualDVec64 + Sync {
                 None => squares(point.map(DualDVec64::from_re)).re,
             }
         },
-        &Settings { target: Target::Minimize, ..settings },
-    )?;
+        settings,
+    )
+    .map_err(|errors| errors.into_nonempty_iter().map(AnalysisError::from).collect::<NEVec<_>>())?;
     let (weighted, design) = jacobian(residuals, &point);
-    weighted.iter().position(|residual| !residual.is_finite()).map_or(Ok(()), |index| Err(AnalysisError::Value { index }))?;
-    decompose(&design).map(|svd| (estimate(&svd, point, weighted.norm_squared(), freedom), status))
+    weighted.iter().position(|residual| !residual.is_finite()).map_or(Ok(()), |index| Err(NEVec::new(AnalysisError::Value { index })))?;
+    decompose(&design).map(|svd| (estimate(&svd, point, weighted.norm_squared(), freedom), status)).map_err(NEVec::new)
 }
 
 pub fn predict<F>(model: F, estimate: &Estimate, sites: DMatrixView<'_, f64>) -> Result<Prediction<f64>, NEVec<AnalysisError>>

@@ -14,6 +14,7 @@ use process_wrap::tokio::JobObject;
 #[cfg(unix)]
 use process_wrap::tokio::ProcessGroup;
 use process_wrap::tokio::{CommandWrap, KillOnDrop};
+use rasm_daemon::Lifetime;
 use rmcp::{
     ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, ServerHandler, Service, ServiceError,
     handler::client::progress::ProgressDispatcher,
@@ -80,7 +81,7 @@ pub struct Proxy {
 impl Proxy {
     pub async fn spawn(mut command: Command, host: Host) -> Result<Self, McpError> {
         let program = command.as_std().get_program().to_owned();
-        command.envs(rasm_telemetry::environment(&Context::current()));
+        rasm_telemetry::inject(&Context::current(), &mut command);
         let Host { identity, filter: _, notifier } = host;
         let mut wrapped = CommandWrap::from(command);
         wrapped.wrap(KillOnDrop).wrap(cfg_select! {
@@ -221,13 +222,15 @@ impl ServerHandler for Proxy {
 }
 
 impl Endpoint for Proxy {
-    type Error = McpError;
-
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> {
         Ok(follow(self.peer.clone(), self.notifier.clone(), SubscriptionFilter::builder().resource_subscription(uri).build()))
     }
+}
 
-    async fn serve(&self, stopping: CancellationToken) -> Result<(), McpError> {
+impl Lifetime for Proxy {
+    type Error = McpError;
+
+    async fn lifetime(&self, stopping: CancellationToken) -> Result<(), McpError> {
         async fn refresh(peer: Peer<RoleClient>, tools: Arc<Tools>, notifications: BroadcastStream<ServerNotification>) {
             let changed = notifications.filter(|received| ready(matches!(received, Ok(ServerNotification::ToolListChangedNotification(_)) | Err(BroadcastStreamRecvError::Lagged(_)))));
             stream::once(ready(()))

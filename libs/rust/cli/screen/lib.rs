@@ -1,66 +1,64 @@
-#![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks_heterogeneous)]
+#![feature(control_flow_into_value, error_reporter, lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison, try_blocks_heterogeneous)]
 
-#[cfg(not(panic = "abort"))]
-use core::mem::DropGuard;
-use core::{fmt, future, iter, ops::ControlFlow, pin::pin, time::Duration};
+use core::{fmt, future, iter, num::NonZero, ops::ControlFlow, pin::pin, time::Duration};
 #[cfg(not(panic = "abort"))]
 use std::thread;
 use std::{
     error::Report,
-    io::{self, IsTerminal as _, Write as _},
+    io::{self, IsTerminal as _},
     panic, process,
+    sync::Arc,
     time::Instant,
 };
 
 use anstream::{AutoStream, ColorChoice};
 use clap::{CommandFactory, FromArgMatches, builder::Styles};
-#[cfg(unix)]
-use crossterm::event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::{
-    cursor::Show,
-    event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, EventStream, KeyEvent},
-    execute, queue,
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::event::{Event, EventStream};
 use futures::{
-    Stream, StreamExt as _, executor,
+    Stream, StreamExt as _,
+    channel::mpsc::{self, UnboundedSender},
+    executor,
     future::{Either, select},
-    stream,
+    stream::{self, LocalBoxStream},
 };
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_command::{CommandError, Process};
-use rasm_telemetry::{Defaults, Failure};
-use ratatui::{DefaultTerminal, Frame, Terminal, backend::CrosstermBackend, layout::Rect};
-#[cfg(unix)]
-use rustix::process::{Signal, kill_current_process_group};
+use rasm_telemetry::{Defaults, Failure, Handle, Layer};
+use ratatui::{Frame, Terminal, backend::CrosstermBackend, layout::Rect};
 use sysexits::ExitCode;
 use tokio::{
     task,
     time::{self, MissedTickBehavior},
 };
 use tokio_stream::wrappers::IntervalStream;
+use tracing_log::AsLog as _;
 use tracing_subscriber::fmt::writer::MakeWriterExt as _;
-use tui_logger::{LevelFilter, TuiTracingSubscriberLayer, TuiWidgetEvent, TuiWidgetState};
-use validated::Validated;
+use tui_logger::{TuiTracingSubscriberLayer, TuiWidgetState};
 
-use crate::keymap::{Action, Binding, Pane};
+use crate::{
+    keymap::Binding,
+    session::{Held, Session},
+};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+pub type Effects<P> = UnboundedSender<LocalBoxStream<'static, Result<<P as Program>::Item, <P as Program>::Error>>>;
+
 pub trait Program {
     type Action: Clone + fmt::Display;
-    type Item;
-    type Error;
+    type Item: 'static;
+    type Error: Failure + From<CommandError> + From<ScreenError> + Send + 'static;
 
     const REFRESH: Duration = Duration::from_millis(100);
+    const HISTORY: NonZero<usize> = NonZero::new(10_000).unwrap();
     const MODES: &'static [Mode] = &[];
 
     fn keys(&self) -> &[Binding<Self::Action>] { &[] }
 
-    fn update(&mut self, input: Input<Self::Action, Self::Item>) -> ControlFlow<Result<(), Self::Error>>;
+    fn update(&mut self, input: Input<Self::Action, Self::Item>, effects: &Effects<Self>) -> ControlFlow<Result<(), Self::Error>>;
 
-    fn view(&mut self, frame: &mut Frame<'_>, area: Rect);
+    fn view(&mut self, frame: &mut Frame<'_>, area: Rect, styles: &Styles);
 }
 
 #[derive(Clone, Copy, Debug, derive_more::Display)]
@@ -113,141 +111,30 @@ impl From<ScreenError> for ExitCode {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, P, E, S>(defaults: Defaults, start: impl AsyncFnOnce(A) -> Result<(P, S), NEVec<E>> + Send + 'static) -> process::ExitCode
+pub fn run<A, L, P, S>(defaults: Defaults, layer: L, start: impl AsyncFnOnce(A, Handle) -> Result<(P, S), NEVec<P::Error>> + Send + 'static) -> process::ExitCode
 where
     A: CommandFactory + FromArgMatches + Send + 'static,
+    L: Layer,
     P: Program,
-    E: Failure + From<CommandError> + From<ScreenError> + From<P::Error> + Send + 'static,
-    S: Stream<Item = Result<P::Item, E>>,
+    S: Stream<Item = Result<P::Item, P::Error>>,
 {
     const BATCH: usize = 256;
-    enum Arrival<I, E> {
-        Event(io::Result<Event>),
-        Item(Result<I, E>),
-        End,
-        Tick(Instant),
-    }
-    struct Session<P, E> {
-        terminal: DefaultTerminal,
-        program: P,
-        pane: Option<Pane>,
-        level: LevelFilter,
-        logs: TuiWidgetState,
-        failures: Vec<E>,
-    }
-    let raw = || terminal::is_raw_mode_enabled().is_ok_and(|enabled| enabled);
-    let entered = || {
-        terminal::enable_raw_mode()?;
-        let mut out = io::stdout();
-        queue!(out, EnterAlternateScreen, EnableBracketedPaste)?;
-        #[cfg(unix)]
-        queue!(out, PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS))?;
-        P::MODES.iter().try_for_each(|mode| match mode {
-            Mode::Mouse => queue!(out, EnableMouseCapture),
-            Mode::Focus => queue!(out, EnableFocusChange),
-        })?;
-        out.flush()
+    let held = Held { lines: Arc::default(), depth: P::HISTORY };
+    let writer = {
+        let held = held.clone();
+        move || held.clone()
     };
-    let released = || {
-        let cooked = terminal::disable_raw_mode();
-        let mut out = io::stdout();
-        let escaped = try bikeshed io::Result<()> {
-            #[cfg(unix)]
-            queue!(out, PopKeyboardEnhancementFlags)?;
-            P::MODES.iter().try_for_each(|mode| match mode {
-                Mode::Mouse => queue!(out, DisableMouseCapture),
-                Mode::Focus => queue!(out, DisableFocusChange),
-            })?;
-            execute!(out, DisableBracketedPaste, Show, LeaveAlternateScreen)?
-        };
-        Validated::from(cooked).map2(Validated::from(escaped), |(), ()| ()).ok()
-    };
-    let failed = |operation: Operation| move |source: io::Error| ScreenError::Terminal { operation, source };
-    let leaving = move || {
-        if raw()
-            && let Err(sources) = released()
-        {
-            sources.into_iter().map(failed(Operation::Leave)).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
-        }
-    };
-    let checked = move |mut session: Session<P, E>, operation: Operation, outcome: Result<(), NEVec<io::Error>>| match outcome {
-        Ok(()) => ControlFlow::Continue(session),
-        Err(sources) => {
-            session.failures.extend(sources.into_iter().map(failed(operation)).map(E::from));
-            ControlFlow::Break(session)
-        }
-    };
-    let updated = |mut session: Session<P, E>, input: Input<P::Action, P::Item>| match session.program.update(input) {
-        ControlFlow::Continue(()) => ControlFlow::Continue(session),
-        ControlFlow::Break(ended) => {
-            session.failures.extend(ended.err().map(E::from));
-            ControlFlow::Break(session)
-        }
-    };
-    #[cfg(unix)]
-    let suspended = move |mut session: Session<P, E>| {
-        let resumed = released().and_then(|()| {
-            (try bikeshed io::Result<()> {
-                kill_current_process_group(Signal::TSTP)?;
-                entered()?;
-                session.terminal.clear()?
-            })
-            .map_err(NEVec::new)
-        });
-        checked(session, Operation::Suspend, resumed)
-    };
-    let keyed = move |session: Session<P, E>, event: Event| {
-        let toggled = |current: Session<P, E>, pane: Pane| ControlFlow::Continue(Session { pane: (current.pane != Some(pane)).then_some(pane), ..current });
-        let paged = |current: Session<P, E>, page: TuiWidgetEvent| {
-            current.logs.transition(page);
-            ControlFlow::Continue(current)
-        };
-        let leveled = |current: Session<P, E>, step: fn(&LevelFilter) -> LevelFilter| {
-            let level = step(&current.level);
-            ControlFlow::Continue(Session { level, logs: current.logs.set_default_display_level(level), ..current })
-        };
-        let bound = event.as_key_event().and_then(|key| {
-            let pressed = keymap::normalized(key);
-            keymap::resolved(session.program.keys())
-                .find(|row| keymap::active(&row.action, session.pane) && KeyEvent::from(&**row) == pressed)
-                .map(|row| (!key.is_release()).then(|| row.into_owned().action))
-        });
-        match bound {
-            Some(None) => ControlFlow::Continue(session),
-            Some(Some(Action::Quit)) => ControlFlow::Break(session),
-            #[cfg(unix)]
-            Some(Some(Action::Suspend)) => suspended(session),
-            Some(Some(Action::Toggle(pane))) => toggled(session, pane),
-            Some(Some(Action::Older)) => paged(session, TuiWidgetEvent::PrevPageKey),
-            Some(Some(Action::Newer)) => paged(session, TuiWidgetEvent::NextPageKey),
-            Some(Some(Action::Newest)) => paged(session, TuiWidgetEvent::EscapeKey),
-            Some(Some(Action::Verbose)) => leveled(session, LevelFilter::increment_severity),
-            Some(Some(Action::Quiet)) => leveled(session, LevelFilter::decrement_severity),
-            Some(Some(Action::Program(action))) => updated(session, Input::Action(action)),
-            None => updated(session, Input::Event(event)),
-        }
-    };
-    let arrived = move |mut session: Session<P, E>, arrival: Arrival<P::Item, E>| match arrival {
-        Arrival::Event(Ok(event)) => keyed(session, event),
-        Arrival::Event(Err(source)) => checked(session, Operation::Read, Err(NEVec::new(source))),
-        Arrival::Item(Ok(item)) => updated(session, Input::Item(item)),
-        Arrival::Item(Err(failure)) => {
-            session.failures.push(failure);
-            ControlFlow::Continue(session)
-        }
-        Arrival::End => updated(session, Input::End),
-        Arrival::Tick(instant) => updated(session, Input::Tick(instant)),
-    };
-    rasm_command::run(defaults, io::stderr.with_filter(move |_| !raw()), TuiTracingSubscriberLayer, async move |Process { args, styles, mut signals, filter: _ }| {
+    rasm_command::run(defaults, writer.with_filter(|_| session::raw()).or_else(io::stderr), TuiTracingSubscriberLayer.and_then(layer), async move |Process { args, styles, mut signals, filter, level }| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
             ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
         };
-        let level = LevelFilter::Trace;
-        tui_logger::set_default_level(level);
+        let level = level.as_log();
+        tui_logger::set_default_level(tui_logger::LevelFilter::Trace);
+        tui_logger::set_buffer_depth(P::HISTORY.get());
         task::spawn_blocking(move || {
-            io::stdout().is_terminal().ok_or_else(|| NEVec::new(E::from(ScreenError::Detached)))?;
-            let Either::Left((started, _)) = executor::block_on(select(pin!(start(args)), signals.next())) else {
+            io::stdout().is_terminal().ok_or_else(|| NEVec::new(P::Error::from(ScreenError::Detached)))?;
+            let Either::Left((started, _)) = executor::block_on(select(pin!(start(args, filter.clone())), signals.next())) else {
                 return Ok(ExitCode::TempFail);
             };
             let (program, items) = started?;
@@ -260,46 +147,47 @@ where
             ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
             #[cfg(not(panic = "abort"))]
             let owner = thread::current().id();
+            let hooked = held.clone();
             panic::update_hook(move |hook, info| {
                 if cfg_select! {
                     panic = "abort" => true,
                     _ => thread::current().id() == owner,
                 } {
-                    leaving();
+                    session::left::<P>(&hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
                 }
                 hook(info);
             });
-            let batched = |session: Session<P, E>, chunk: Vec<Arrival<P::Item, E>>| {
-                let mut folded = chunk.into_iter().try_fold(session, arrived)?;
-                tui_logger::move_events();
-                let shown = folded.terminal.draw(|frame| view::drawn(frame, &mut folded.program, folded.pane, &folded.logs, &styles)).map(|_frame| ()).map_err(NEVec::new);
-                checked(folded, Operation::Draw, shown)
-            };
-            #[cfg(not(panic = "abort"))]
-            let unwinding = DropGuard::new((), |()| leaving());
-            let entering = entered().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
-            let mut arrivals = pin!(
+            let entering = session::entered::<P>().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
+            let (effects, requested) = mpsc::unbounded();
+            let delivered = |item: Result<P::Item, P::Error>| item.map(Input::Item).map_err(Either::Right);
+            let mut inputs = pin!(
                 stream::select(
-                    EventStream::new().map(Arrival::Event),
-                    stream::select(items.map(Arrival::Item).chain(stream::once(future::ready(Arrival::End))), IntervalStream::new(ticks).map(|instant| Arrival::Tick(instant.into_std())))
+                    EventStream::new().map(|event| event.map(Input::Event).map_err(Either::Left)),
+                    stream::select(
+                        stream::select(items.map(delivered).chain(stream::once(future::ready(Ok(Input::End)))), requested.flatten_unordered(None).map(delivered)),
+                        IntervalStream::new(ticks).map(|instant| Ok(Input::Tick(instant.into_std()))),
+                    ),
                 )
                 .take_until(signals.next())
                 .ready_chunks(BATCH)
             );
             let failures = entering.map_or_else(
-                |source| vec![E::from(failed(Operation::Enter)(source))],
+                |source| vec![P::Error::from(session::failed(Operation::Enter)(source))],
                 |terminal| {
-                    executor::block_on_stream(arrivals.as_mut())
-                        .try_fold(Session { terminal, program, pane: None, level, logs: TuiWidgetState::new(), failures: Vec::new() }, batched)
-                        .into_value()
-                        .failures
+                    let Session { terminal: _, program: _, pane: _, level: stepped, logs: _, filter, effects: _, held: _, failures } = executor::block_on_stream(inputs.as_mut())
+                        .try_fold(
+                            Session { terminal, program, pane: None, level, logs: TuiWidgetState::new().set_default_display_level(level), filter, effects, held: held.clone(), failures: Vec::new() },
+                            |session, batch| session::batched(session, batch, &styles),
+                        )
+                        .into_value();
+                    if stepped != level {
+                        session::reloaded(&filter, level);
+                    }
+                    failures
                 },
             );
-            let status = if arrivals.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
-            #[cfg(not(panic = "abort"))]
-            DropGuard::dismiss(unwinding);
-            let left = released().err().into_iter().flatten().map(failed(Operation::Leave)).map(E::from);
-            NEVec::try_from_vec(iter::chain(failures, left).collect()).map_or(Ok(status), Err)
+            let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
+            NEVec::try_from_vec(iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).collect()).map_or(Ok(status), Err)
         })
         .await
         .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))
@@ -307,4 +195,5 @@ where
 }
 
 pub mod keymap;
+mod session;
 mod view;

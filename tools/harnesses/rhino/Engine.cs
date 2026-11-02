@@ -9,7 +9,6 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -17,13 +16,11 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Xml.Linq;
-using AppKit;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Commands;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -79,26 +76,34 @@ public sealed record LayerRow(string Path, string? Color = null, bool? Locked = 
 public sealed record Added(string As, string? Layer = null);
 public sealed record Canvas(string? Open = null);
 
-public sealed record Case(string Name, DocumentSource Source) {
-    public ImmutableArray<string> Reads { get; init; } = [];
-    public ImmutableArray<string> Macros { get; init; } = [];
-    public ImmutableArray<JsonElement> Args { get; init; } = [];
-    public string? Language { get; init; }
+public sealed record Placed(DocumentSource Source) {
     public View? View { get; init; }
     public Page? Layout { get; init; }
     public ImmutableArray<LayerRow> Layers { get; init; } = [];
     public ImmutableArray<Added> Add { get; init; } = [];
     public ImmutableArray<string> Select { get; init; } = [];
     public Canvas? Canvas { get; init; }
-    public string? Script { get; init; }
     public bool Batch { get; init; }
 }
 
-public sealed record Expressions(Action<Scope> Steps, Func<Scope, object?>? Body, ImmutableArray<Func<Scope, object?>> Reads, ImmutableArray<Func<Scope, GeometryBase>> Geometry);
+public sealed record Case(string Name, string Folder, Placed Precondition) {
+    public ImmutableArray<string> Reads { get; init; } = [];
+    public ImmutableArray<string> Macros { get; init; } = [];
+    public ImmutableArray<JsonElement> Args { get; init; } = [];
+    public string? Script { get; init; }
+}
 
-public sealed record Rows(ImmutableArray<JsonElement> Cases, string? Plugin = null);
+[Union]
+public abstract partial record Expressions {
+    private Expressions() { }
 
-public sealed class Scope(Option<RhinoDoc> doc, Option<(ICanvases Canvases, object Document)> canvas, ImmutableArray<JsonElement> args, string captures, int index) {
+    public sealed record Compiled(Action<Scope> Steps, Func<Scope, object?>? Body, ImmutableArray<Func<Scope, object?>> Reads, ImmutableArray<Func<Scope, GeometryBase>> Geometry) : Expressions;
+    public sealed record Uncompiled(string Reason) : Expressions;
+}
+
+public sealed record Batch(ImmutableArray<JsonElement> Cases, string? Plugin = null);
+
+public sealed class Scope(Option<RhinoDoc> doc, Option<(ICanvases Canvases, object Document)> canvas, ImmutableArray<JsonElement> args, string folder) {
     private int shots;
 
     public RhinoDoc Doc => doc.IfNone(static () => throw new InvalidOperationException("application case opens no document"));
@@ -110,7 +115,7 @@ public sealed class Scope(Option<RhinoDoc> doc, Option<(ICanvases Canvases, obje
 
     public JsonObject Capture(int width, int height) {
         RhinoView view = View ?? throw new InvalidOperationException("document holds no active view");
-        string file = Path.Combine(captures, string.Create(CultureInfo.InvariantCulture, $"{index}-{++shots}.png"));
+        string file = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{++shots}.png"));
         using Bitmap bitmap = new ViewCapture { Width = width, Height = height, ScaleScreenItems = false }.CaptureToBitmap(view)
             ?? throw new InvalidOperationException($"view {view.ActiveViewport.Name} captured no bitmap");
         bitmap.Save(file, ImageFormat.Png);
@@ -137,9 +142,7 @@ internal abstract record Completion {
 internal sealed record Macro(string Text, bool Completed);
 internal sealed record Executed(string Name, string? Plugin, Result Result, uint Document);
 internal sealed record Prompt(string Text, string Default, ImmutableArray<string> Options);
-internal sealed record Streams(string Stdout, string Stderr);
-public sealed record Diagnosed(DateTime Time, string Kind, string Message);
-internal sealed record Write(string Kind, string Subject, string? Made = null, JsonNode? Archive = null);
+public sealed record Diagnosed(string Source, string Kind, string Message);
 internal sealed record Units(UnitSystem Model, UnitSystem Page);
 internal sealed record Saved(string Before, string After);
 internal sealed record Viewed(string Name, string Display, bool Parallel);
@@ -148,50 +151,33 @@ internal sealed record DocumentState(uint Serial, string? Path, string? Template
 internal sealed record Outcome(string Name, Completion Completion) {
     public JsonNode? Value { get; init; }
     public JsonObject? Before { get; init; }
-    public JsonObject? BeforeFailed { get; init; }
     public JsonObject? Read { get; init; }
     public JsonObject? ReadFailed { get; init; }
     public ImmutableArray<string> Leaked { get; init; } = [];
+    public ImmutableArray<string>? Console { get; init; }
     public DocumentState? Document { get; init; }
     public Saved? Saved { get; init; }
     public ImmutableArray<Macro>? Macros { get; init; }
     public ImmutableArray<Executed>? Commands { get; init; }
     public ImmutableArray<Prompt>? Prompts { get; init; }
-    public ImmutableArray<string>? Printed { get; init; }
-    public Streams? Console { get; init; }
-    public ImmutableArray<string>? Reported { get; init; }
-    public ImmutableArray<string>? Logged { get; init; }
-    public ImmutableArray<Write>? Writes { get; init; }
     public ImmutableArray<Diagnosed>? Diagnostics { get; init; }
 }
 
 internal sealed record PlugInLoad(string File, Guid Id, LoadPlugInResult Result, bool Current);
 internal sealed record Loaded(string Name, string Version);
 public sealed record Grasshopper(string Version, ImmutableArray<string> Loaded, ImmutableArray<string> Failed, string? Incomplete);
+internal sealed record Reply(ImmutableArray<Loaded> Plugins, PlugInLoad? PlugIn = null, Grasshopper? Grasshopper = null, string? Failed = null);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "_tag")]
-[JsonDerivedType(typeof(Session), nameof(Session))]
 [JsonDerivedType(typeof(Started), nameof(Started))]
-[JsonDerivedType(typeof(Began), nameof(Began))]
-[JsonDerivedType(typeof(Ended), nameof(Ended))]
-[JsonDerivedType(typeof(Prompted), nameof(Prompted))]
-[JsonDerivedType(typeof(Reported), nameof(Reported))]
-[JsonDerivedType(typeof(Unhandled), nameof(Unhandled))]
 [JsonDerivedType(typeof(Finished), nameof(Finished))]
-[JsonDerivedType(typeof(Closed), nameof(Closed))]
 internal abstract record JournalEntry;
-internal sealed record Session(int Language, string Culture, string Version, string Runtime, string System, string Logs, PlugInLoad? PlugIn) : JournalEntry;
-internal sealed record Started(string Name) : JournalEntry;
-internal sealed record Began(string Name) : JournalEntry;
-internal sealed record Ended(string Name) : JournalEntry;
-internal sealed record Prompted(string Text, string Default, ImmutableArray<string> Options) : JournalEntry;
-internal sealed record Reported(string Source, string Exception) : JournalEntry;
-internal sealed record Unhandled(string Exception) : JournalEntry;
-internal sealed record Finished(Outcome Outcome, Grasshopper? Grasshopper) : JournalEntry;
-internal sealed record Closed(ImmutableArray<Loaded> Plugins) : JournalEntry;
+internal sealed record Started(int Index) : JournalEntry;
+internal sealed record Finished(Outcome Outcome) : JournalEntry;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, UseStringEnumConverter = true, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(JournalEntry))]
+[JsonSerializable(typeof(Reply))]
 internal sealed partial class Wire : JsonSerializerContext;
 
 internal sealed class Special<T> : JsonConverter<T> where T : struct, IBinaryFloatingPointIeee754<T> {
@@ -274,121 +260,70 @@ internal sealed class Journal(string path) : IDisposable {
     public void Dispose() => writer.Dispose();
 }
 
-internal sealed class Recorder(Journal journal) {
+internal sealed class Recorder(string folder) {
     private readonly List<Executed> commands = [];
     private readonly List<Prompt> prompts = [];
-    private readonly List<string> reports = [];
-    private readonly List<string> logged = [];
-    private readonly List<Write> writes = [];
-    private Option<Scope> observed;
+    private readonly List<Diagnosed> diagnostics = [];
+    private Option<string> running;
 
     // --- [LIFECYCLE]
     public void Attach() {
         AppDomain.CurrentDomain.UnhandledException += Unhandled;
         HostUtils.OnExceptionReport += Reporting;
-        Command.BeginCommand += Beginning;
         Command.EndCommand += Ending;
         RhinoApp.CommandPromptChanged += Prompting;
         RhinoCode.Logger.MessageLogged += Logging;
-        RhinoDoc.AddRhinoObject += Adding;
-        RhinoDoc.DeleteRhinoObject += Deleting;
-        RhinoDoc.ReplaceRhinoObject += Replacing;
-        RhinoDoc.ModifyObjectAttributes += Modifying;
-        RhinoDoc.LayerTableEvent += Layering;
-        RhinoDoc.MaterialTableEvent += Materials;
     }
 
     public void Detach() {
-        RhinoDoc.MaterialTableEvent -= Materials;
-        RhinoDoc.LayerTableEvent -= Layering;
-        RhinoDoc.ModifyObjectAttributes -= Modifying;
-        RhinoDoc.ReplaceRhinoObject -= Replacing;
-        RhinoDoc.DeleteRhinoObject -= Deleting;
-        RhinoDoc.AddRhinoObject -= Adding;
         RhinoCode.Logger.MessageLogged -= Logging;
         RhinoApp.CommandPromptChanged -= Prompting;
         Command.EndCommand -= Ending;
-        Command.BeginCommand -= Beginning;
         HostUtils.OnExceptionReport -= Reporting;
         AppDomain.CurrentDomain.UnhandledException -= Unhandled;
     }
 
-    public void Begin() {
+    public void Begin(string caseFolder) {
+        running = Some(caseFolder);
         _ = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
         commands.Clear();
         prompts.Clear();
-        reports.Clear();
-        logged.Clear();
-        writes.Clear();
+        diagnostics.Clear();
         RhinoApp.CommandWindowCaptureEnabled = true;
     }
 
-    public A Observing<A>(Scope scope, Func<A> work) {
-        observed = Some(scope);
-        try {
-            return work();
-        } finally {
-            observed = None;
-        }
-    }
-
-    public Outcome End(Outcome outcome) {
+    public Outcome End(Outcome outcome, string stdout, string stderr, ImmutableArray<Diagnosed> canvas) {
         string[] printed = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
         RhinoApp.CommandWindowCaptureEnabled = false;
+        running = None;
+        ImmutableArray<string> console = [.. printed, .. Lines(stdout), .. Lines(stderr)];
+        ImmutableArray<Diagnosed> logged = [.. diagnostics, .. canvas];
         return outcome with {
+            Console = console.IsEmpty ? null : console,
             Commands = commands is [] ? null : [.. commands],
             Prompts = prompts is [] ? null : [.. prompts],
-            Printed = printed is [] ? null : [.. printed],
-            Reported = reports is [] ? null : [.. reports],
-            Logged = logged is [] ? null : [.. logged],
-            Writes = writes is [] ? null : [.. writes],
+            Diagnostics = logged.IsEmpty ? null : logged,
         };
     }
 
     // --- [HANDLERS]
-    private void Beginning(object? sender, CommandEventArgs args) => journal.Write(new Began(args.CommandEnglishName));
+    private static string[] Lines(string text) => text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    private void Ending(object? sender, CommandEventArgs args) {
-        commands.Add(new Executed(args.CommandEnglishName, args.CommandPluginName, args.CommandResult, args.DocumentRuntimeSerialNumber));
-        journal.Write(new Ended(args.CommandEnglishName));
-    }
+    private void Ending(object? sender, CommandEventArgs args) => commands.Add(new Executed(args.CommandEnglishName, args.CommandPluginName, args.CommandResult, args.DocumentRuntimeSerialNumber));
 
     private void Prompting(object? sender, CommandPromptChangedEventArgs args) {
         if (string.IsNullOrEmpty(args.Prompt)) return;
-        Prompt prompt = new(args.Prompt, args.PromptDefault ?? "", args.Options is { } options ? [.. options.Select(static option => option.EnglishName)] : []);
-        prompts.Add(prompt);
-        journal.Write(new Prompted(prompt.Text, prompt.Default, prompt.Options));
+        prompts.Add(new Prompt(args.Prompt, args.PromptDefault ?? "", args.Options is { } options ? [.. options.Select(static option => option.EnglishName)] : []));
     }
 
-    private void Reporting(string source, Exception exception) {
-        reports.Add($"{source}: {Engine.Text(exception)}");
-        journal.Write(new Reported(source, Engine.Text(exception)));
+    private void Reporting(string source, Exception exception) => diagnostics.Add(new Diagnosed("HostUtils", source, Engine.Text(exception)));
+
+    private void Logging(ILogger logger, LoggerWriteEventArgs args) {
+        if (args.Level >= LogLevel.Warn) diagnostics.Add(new Diagnosed("RhinoCode", args.Level.ToString(), args.Message));
     }
 
     private void Unhandled(object? sender, UnhandledExceptionEventArgs args) =>
-        journal.Write(new Unhandled(args.ExceptionObject is Exception exception ? exception.ToString() : args.ExceptionObject.GetType().FullName ?? ""));
-
-    private void Logging(ILogger logger, LoggerWriteEventArgs args) {
-        if (args.Level >= LogLevel.Warn) logged.Add($"{args.Level}: {args.Message}");
-    }
-
-    private void Adding(object? sender, RhinoObjectEventArgs args) => Wrote("add", args.ObjectId, args.TheObject.Geometry);
-
-    private void Deleting(object? sender, RhinoObjectEventArgs args) => Wrote("delete", args.ObjectId, geometry: null);
-
-    private void Replacing(object? sender, RhinoReplaceObjectEventArgs args) => Wrote("replace", args.ObjectId, args.NewRhinoObject.Geometry);
-
-    private void Modifying(object? sender, RhinoModifyObjectAttributesEventArgs args) => Wrote("attributes", args.RhinoObject.Id, geometry: null);
-
-    private void Layering(object? sender, LayerTableEventArgs args) =>
-        observed.Iter(_ => writes.Add(new Write($"layer {args.EventType}", args.NewState?.FullPath ?? args.OldState?.FullPath ?? args.LayerIndex.ToString(CultureInfo.InvariantCulture))));
-
-    private void Materials(object? sender, MaterialTableEventArgs args) =>
-        observed.Iter(_ => writes.Add(new Write($"material {args.EventType}", args.Index.ToString(CultureInfo.InvariantCulture))));
-
-    private void Wrote(string kind, Guid id, GeometryBase? geometry) =>
-        observed.Iter(scope => writes.Add(new Write(kind, id.ToString(), scope.Made.FirstOrDefault(pair => pair.Value is Guid made && made == id).Key,
-            geometry is null ? null : JsonNode.Parse(geometry.ToJSON(new SerializationOptions())))));
+        File.WriteAllText(Path.Combine(running.IfNone(folder), "unhandled.txt"), args.ExceptionObject is Exception exception ? exception.ToString() : args.ExceptionObject.GetType().FullName ?? "");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -466,34 +401,43 @@ public static class Engine {
 
     // --- [BATCH]
     public static void Run(string[] args, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) {
-        (string stream, string captures, Rows batch) = (args[0], Directory.CreateDirectory(args[1]).FullName, JsonSerializer.Deserialize<Rows>(File.ReadAllText(args[2]), Data) ?? throw new JsonException($"{args[2]} holds no batch"));
-        using Journal journal = new(stream);
-        using FileSystemWatcher cancels = new(Path.GetDirectoryName(Path.GetFullPath(stream)) ?? Directory.GetCurrentDirectory(), $"{Path.GetFileName(stream)}.cancel") { EnableRaisingEvents = true };
-        cancels.Created += Cancelled;
-        cancels.Changed += Cancelled;
-        Recorder recorder = new(journal);
+        (string file, string records) = (args[0], args[1]);
+        string folder = Path.GetDirectoryName(records) ?? throw new ArgumentException($"{records} sits in no folder", nameof(args));
+        using Journal journal = new(records);
+        Recorder recorder = new(folder);
         Lazy<Fin<ICanvases>> surface = new(() => Surface(canvases));
         recorder.Attach();
+        Fin<(PlugInLoad? PlugIn, Grasshopper? Grasshopper)> ran;
         try {
-            journal.Write(new Session(Localization.CurrentLanguageId, CultureInfo.GetCultureInfo(Localization.CurrentLanguageId).Name, RhinoApp.Version.ToString(), RuntimeInformation.FrameworkDescription,
-                RuntimeInformation.OSDescription, RhinoCode.LogsDirectory, batch.Plugin is null ? null : Load(batch.Plugin)));
-            _ = toSeq(args[3..]).Map(static index => int.Parse(index, CultureInfo.InvariantCulture)).Fold((Editing: false, Previous: ImmutableArray<uint>.Empty), (held, index) => {
-                Fin<Case> decoded = Lift(() => batch.Cases[index].Deserialize<Case>(Data) ?? throw new JsonException(string.Create(CultureInfo.InvariantCulture, $"case {index} is null")));
-                journal.Write(new Started(decoded.Match(Succ: static row => row.Name, Fail: _ => index.ToString(CultureInfo.InvariantCulture))));
-                Fin<Grasshopper?> started = decoded.Bind(row => row.Canvas is not null && !held.Editing ? surface.Value.Bind(static made => Lift<Grasshopper?>(made.Start)) : Fin.Succ<Grasshopper?>(value: null));
-                (Outcome outcome, ImmutableArray<uint> opened) = decoded.Bind(row => started.Map(_ => row)).Match(
-                    Succ: row => Execute(row, codes[index], index, captures, recorder, held.Previous, row.Canvas is null ? None : surface.Value.ToOption()),
-                    Fail: error => (new Outcome(decoded.Match(Succ: static row => row.Name, Fail: _ => index.ToString(CultureInfo.InvariantCulture)), new Completion.Failed(Message(error))), held.Previous));
-                journal.Write(new Finished(outcome, started.IfFail(static _ => null)));
-                return (held.Editing || started.Exists(static loaded => loaded is not null), opened);
+            ran = Lift(() => JsonSerializer.Deserialize<Batch>(File.ReadAllText(file), Data) ?? throw new JsonException($"{file} holds no batch")).Map(batch => {
+                PlugInLoad? plugIn = batch.Plugin is null ? null : Load(batch.Plugin);
+                (Grasshopper? grasshopper, _) = toSeq(Enumerable.Range(0, batch.Cases.Length)).Fold((Grasshopper: (Grasshopper?)null, Previous: ImmutableArray<uint>.Empty), (held, index) => {
+                    journal.Write(new Started(index));
+                    Fin<Case> decoded = Lift(() => batch.Cases[index].Deserialize<Case>(Data) ?? throw new JsonException(string.Create(CultureInfo.InvariantCulture, $"case {index} is null")));
+                    string name = decoded.Match(Succ: static row => row.Name, Fail: _ => index.ToString(CultureInfo.InvariantCulture));
+                    Fin<Grasshopper?> started = decoded.Bind<Grasshopper?>(row => row.Precondition.Canvas is not null && held.Grasshopper is null ? surface.Value.Bind(static made => Lift<Grasshopper?>(made.Start)) : held.Grasshopper);
+                    (Outcome outcome, ImmutableArray<uint> opened) = (
+                        from row in decoded
+                        from code in Compiled(codes[index])
+                        from _ in started
+                        select (Row: row, Code: code)).Match(
+                        Succ: pair => Execute(pair.Row, pair.Code, recorder, held.Previous, pair.Row.Precondition.Canvas is null ? None : surface.Value.ToOption()),
+                        Fail: error => (new Outcome(name, new Completion.Failed(Message(error))), held.Previous));
+                    journal.Write(new Finished(outcome));
+                    return (started.IfFail(_ => held.Grasshopper), opened);
+                });
+                return (plugIn, grasshopper);
             });
         } finally {
             _ = surface.IsValueCreated ? surface.Value.Iter(static held => held.Stop()) : unit;
             recorder.Detach();
-            journal.Write(new Closed([
-                .. PlugIn.GetInstalledPlugIns().Keys.Select(PlugIn.GetPlugInInfo).Where(static info => info is { IsLoaded: true }).Select(static info => new Loaded(info.Name, info.Version)).OrderBy(static held => held.Name, StringComparer.Ordinal),
-            ]));
         }
+        Reply reply = ran.Match(
+            Succ: static held => new Reply(Plugins(), held.PlugIn, held.Grasshopper),
+            Fail: static error => new Reply(Plugins(), Failed: Message(error)));
+        string draft = Path.Combine(folder, "reply.tmp");
+        File.WriteAllText(draft, JsonSerializer.Serialize(reply, Wire.Default.Reply));
+        File.Move(draft, Path.Combine(folder, "reply.json"), overwrite: true);
     }
 
     public static object? Call(Delegate function, ImmutableArray<JsonElement> args) =>
@@ -516,17 +460,19 @@ public static class Engine {
 
     public static string Message(Error error) => error.Exception.Match(Some: Text, None: () => error.Message);
 
-    private static void Cancelled(object sender, FileSystemEventArgs args) {
-        (double time, nint window, short subtype, nint data, NSEventModifierMask flags) = (0, 0, 0, 0, default);
-        RhinoApp.PostCancelEvent(Foremost());
-        NSApplication.SharedApplication.PostEvent(NSEvent.OtherEvent(NSEventType.ApplicationDefined, CoreGraphics.CGPoint.Empty, flags, time, window, context: null, subtype, data, data), atStart: true);
-    }
-
     private static Fin<ICanvases> Surface(Func<ICanvases> canvases) =>
         PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")) ? Lift(canvases) : Error.New("Grasshopper2 plug-in did not load");
 
+    private static Fin<Expressions.Compiled> Compiled(Expressions code) =>
+        code.Switch<Fin<Expressions.Compiled>>(
+            compiled: static held => held,
+            uncompiled: static held => Error.New(held.Reason));
+
+    private static ImmutableArray<Loaded> Plugins() =>
+        [.. PlugIn.GetInstalledPlugIns().Keys.Select(PlugIn.GetPlugInInfo).Where(static info => info is { IsLoaded: true }).Select(static info => new Loaded(info.Name, info.Version)).OrderBy(static held => held.Name, StringComparer.Ordinal)];
+
     // --- [CASES]
-    private static (Outcome Outcome, ImmutableArray<uint> Opened) Execute(Case @case, Expressions code, int index, string captures, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases) {
+    private static (Outcome Outcome, ImmutableArray<uint> Opened) Execute(Case @case, Expressions.Compiled code, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases) {
         uint[] open = [.. RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber)];
         FrozenDictionary<string, string> settings = Settings.Snapshot();
         Option<RhinoDoc> held = None;
@@ -536,59 +482,54 @@ public static class Engine {
         using StringWriter stderr = new(CultureInfo.InvariantCulture);
         Console.SetOut(stdout);
         Console.SetError(stderr);
-        bool batch = @case.Batch && !RhinoApp.IsRunningBatchMode && RhinoApp.RunScript("_BatchMode _On", echo: false);
+        bool batch = @case.Precondition.Batch && !RhinoApp.IsRunningBatchMode && RhinoApp.RunScript("_BatchMode _On", echo: false);
         Outcome recorded = new(@case.Name, new Completion.Failed("case did not finish"));
         try {
             Fin<Scope> prepared =
-                from language in Spoken(@case.Language)
-                from doc in Document(@case, Path.Combine(captures, string.Create(CultureInfo.InvariantCulture, $"{index}.3dm")), previous, made => held = made)
+                from folder in Lift(() => Directory.CreateDirectory(@case.Folder).FullName)
+                from doc in Document(@case, Path.Combine(folder, "before.3dm"), previous, made => held = made)
                 from active in Active(doc, @case)
-                from opened in Lift(() => Optional(@case.Canvas).Bind(source => canvases.Map(held => Shown(held, source.Open))))
+                from opened in Lift(() => Optional(@case.Precondition.Canvas).Bind(source => canvases.Map(made => Shown(made, source.Open))))
                 from scope in Lift(() => {
                     canvas = opened;
-                    Scope made = new(doc, opened.Map(static held => (held.Canvases, held.Document)), @case.Args, captures, index);
-                    _ = toSeq(@case.Add.Zip(code.Geometry)).Iter(pair => made.Made[pair.First.As] = Add(made, pair.First, pair.Second));
+                    Scope made = new(doc, opened.Map(static shown => (shown.Canvases, shown.Document)), @case.Args, folder);
+                    _ = toSeq(@case.Precondition.Add.Zip(code.Geometry)).Iter(pair => made.Made[pair.First.As] = Add(made, pair.First, pair.Second));
                     return made;
                 })
-                from selected in Selected(scope, @case.Select)
+                from selected in Selected(scope, @case.Precondition.Select)
                 from stepped in Recorded(doc, $"{@case.Name} steps", () => {
                     code.Steps(scope);
                     return Fin.Succ(unit);
                 })
                 select scope;
-            recorder.Begin();
-            Option<int> logged = canvas.Map(static held => held.Canvases.Logged());
-            Outcome outcome = prepared.Match(Succ: scope => Observe(@case, code, scope, recorder), Fail: error => new Outcome(@case.Name, new Completion.Failed(Message(error))));
-            recorded = recorder.End(outcome) with {
-                Console = stdout.ToString() is "" && stderr.ToString() is "" ? null : new Streams(stdout.ToString(), stderr.ToString()),
-                Diagnostics = canvas.Bind(held => logged.Map(held.Canvases.Diagnostics)).Filter(static entries => !entries.IsEmpty).Map<ImmutableArray<Diagnosed>?>(static entries => entries).ValueUnsafe(),
-            };
-            recorded = held.Match(Some: doc => recorded with { Document = State(doc), Saved = Save(doc, Path.Combine(captures, string.Create(CultureInfo.InvariantCulture, $"{index}.after.3dm"))) }, None: () => recorded);
+            recorder.Begin(@case.Folder);
+            Option<int> logged = canvas.Map(static shown => shown.Canvases.Logged());
+            Outcome outcome = prepared.Match(Succ: scope => Observe(@case, code, scope), Fail: error => new Outcome(@case.Name, new Completion.Failed(Message(error))));
+            recorded = recorder.End(outcome, stdout.ToString(), stderr.ToString(), canvas.Bind(shown => logged.Map(shown.Canvases.Diagnostics)).IfNone([]));
+            recorded = held.Match(Some: doc => recorded with { Document = State(doc), Saved = Save(doc, Path.Combine(@case.Folder, "after.3dm")) }, None: () => recorded);
         } finally {
             Console.SetOut(streams[0]);
             Console.SetError(streams[1]);
             _ = batch && RhinoApp.RunScript("_BatchMode _Off", echo: false);
-            _ = canvas.Iter(static held => held.Canvases.Release(held.Document, held.Prior));
+            _ = canvas.Iter(static shown => shown.Canvases.Release(shown.Document, shown.Prior));
             recorded = recorded with { Leaked = Settings.Changed(settings) };
         }
         ImmutableArray<uint> current = [.. RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber).Where(serial => !open.Contains(serial))];
         return (recorded, held.IsSome ? current : [.. previous, .. current]);
     }
 
-    private static Outcome Observe(Case @case, Expressions code, Scope scope, Recorder recorder) {
-        Option<RhinoDoc> doc = Optional(@case.Source is DocumentSource.Application ? null : scope.Doc);
-        (JsonObject before, JsonObject beforeFailed) = Reads(@case.Reads, code.Reads, scope);
-        (ImmutableArray<Macro> macros, Fin<JsonNode?> result) = recorder.Observing<(ImmutableArray<Macro>, Fin<JsonNode?>)>(scope, () => (
-            [.. @case.Macros.Select(macro => new Macro(macro, doc.Match(Some: held => RhinoApp.RunScript(held.RuntimeSerialNumber, macro, echo: true), None: () => RhinoApp.RunScript(macro, echo: true))))],
-            Recorded(doc, @case.Name, () =>
-                from ran in Optional(@case.Script).Match(Some: script => Run(script, doc), None: static () => unit)
-                from value in Optional(code.Body).Match(Some: body => Lift(() => body(scope)).Bind(Encode), None: static () => Fin.Succ<JsonNode?>(value: null))
-                select value)));
+    private static Outcome Observe(Case @case, Expressions.Compiled code, Scope scope) {
+        Option<RhinoDoc> doc = Optional(@case.Precondition.Source is DocumentSource.Application ? null : scope.Doc);
+        (JsonObject before, JsonObject _) = Reads(@case.Reads, code.Reads, scope);
+        ImmutableArray<Macro> macros = [.. @case.Macros.Select(macro => new Macro(macro, doc.Match(Some: held => RhinoApp.RunScript(held.RuntimeSerialNumber, macro, echo: true), None: () => RhinoApp.RunScript(macro, echo: true))))];
+        Fin<JsonNode?> result = Recorded(doc, @case.Name, () =>
+            from ran in Optional(@case.Script).Match(Some: script => Run(script, doc), None: static () => unit)
+            from value in Optional(code.Body).Match(Some: body => Lift(() => body(scope)).Bind(Encode), None: static () => Fin.Succ<JsonNode?>(value: null))
+            select value);
         (JsonObject read, JsonObject readFailed) = Reads(@case.Reads, code.Reads, scope);
         return new Outcome(@case.Name, result.Match(Succ: static _ => new Completion.Ran(), Fail: Thrown)) {
             Value = result.IfFail(static _ => null),
             Before = Empty(before),
-            BeforeFailed = Empty(beforeFailed),
             Read = Empty(read),
             ReadFailed = Empty(readFailed),
             Macros = macros.IsEmpty ? null : macros,
@@ -647,16 +588,8 @@ public static class Engine {
         });
 
     // --- [PRECONDITIONS]
-    private static Fin<Unit> Spoken(string? language) =>
-        Optional(language).Filter(static code => !Ancestry(CultureInfo.GetCultureInfo(Localization.CurrentLanguageId)).Exists(held => string.Equals(held.Name, code, StringComparison.OrdinalIgnoreCase))).Match<Fin<Unit>>(
-            Some: static code => Error.New(string.Create(CultureInfo.InvariantCulture, $"instance runs language {Localization.CurrentLanguageId} ({CultureInfo.GetCultureInfo(Localization.CurrentLanguageId).Name}), not {code}, set Options/Appearance/LanguageIdentifier and relaunch")),
-            None: static () => unit);
-
-    private static Seq<CultureInfo> Ancestry(CultureInfo culture) =>
-        culture.Equals(CultureInfo.InvariantCulture) ? [] : culture.Cons(Ancestry(culture.Parent));
-
     private static Fin<Option<RhinoDoc>> Document(Case @case, string file, ImmutableArray<uint> previous, Action<Option<RhinoDoc>> hold) =>
-        @case.Source.Switch(
+        @case.Precondition.Source.Switch(
             (@case, file, previous, hold),
             template: static (state, template) => Path.Combine(FileSettings.TemplateFolder, template.Name) switch {
                 var path when File.Exists(path) => Prepared(state.@case, path, template.Units, template.Tolerance, state.file, state.previous, state.hold),
@@ -672,7 +605,7 @@ public static class Engine {
             _ = toSeq(previous).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Iter(Close);
             return doc;
         })
-        from written in Lift(() => Prepare(held, @case, units, tolerance, file))
+        from written in Lift(() => Prepare(held, @case.Precondition, units, tolerance, file))
         select Some(written);
 
     private static RhinoDoc New(string source) {
@@ -682,16 +615,16 @@ public static class Engine {
             ?? throw new InvalidOperationException($"_-New {source} opened no document, RunScript answered {created}");
     }
 
-    private static RhinoDoc Prepare(RhinoDoc doc, Case @case, UnitSystem? units, Tolerances? tolerance, string file) {
+    private static RhinoDoc Prepare(RhinoDoc doc, Placed placed, UnitSystem? units, Tolerances? tolerance, string file) {
         _ = Optional(units).Iter(unit => doc.AdjustModelUnitSystem(unit, scale: false));
         _ = Optional(tolerance).Iter(held => {
             doc.ModelAbsoluteTolerance = held.Absolute;
             _ = Optional(held.Angle).Iter(angle => doc.ModelAngleToleranceDegrees = angle);
             _ = Optional(held.Relative).Iter(relative => doc.ModelRelativeTolerance = relative);
         });
-        _ = Optional(@case.View).Iter(view => Show(doc, view));
-        _ = Optional(@case.Layout).Iter(page => AddPage(doc, page));
-        _ = toSeq(@case.Layers).Iter(row => Layered(doc, row));
+        _ = Optional(placed.View).Iter(view => Show(doc, view));
+        _ = Optional(placed.Layout).Iter(page => AddPage(doc, page));
+        _ = toSeq(placed.Layers).Iter(row => Layered(doc, row));
         using FileWriteOptions options = new() { UpdateDocumentPath = true, SuppressDialogBoxes = true, IncludePreviewImage = false };
         _ = doc.WriteFile(file, options) ? unit : throw new IOException($"document {doc.RuntimeSerialNumber} did not write {file}");
         doc.Modified = false;

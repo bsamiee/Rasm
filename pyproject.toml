@@ -274,10 +274,15 @@ workspace = [
 
     # --- [TYPOGRAPHY]
     "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
+    "fontbakery",                                                                 # Font QA profiles over built binaries
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
+    "opentype-sanitizer",                                                         # OTS sanitizer browsers run on web fonts
     "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                                                                     # Language-aware hyphenation dictionaries
     "python-bidi",                                                                # UAX 9 bidi reorder pass before HarfBuzz shaping
+    "skia-pathops",                                                               # Skia path boolean, simplify, and stroke operations
+    "ufo2ft",                                                                     # UFO source to OpenType binary compiler
+    "ufoLib2",                                                                    # UFO font source object model
     "uharfbuzz",                                                                  # HarfBuzz text-shaping bindings
     "uniseg",                                                                     # Unicode line, word, and grapheme segmentation
     "vharfbuzz",                                                                  # HarfBuzz shaping QA and buffer-diff

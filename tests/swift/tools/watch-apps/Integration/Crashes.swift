@@ -45,7 +45,7 @@ extension Integration {
                 let prompt: WatchAppsLine = try await lines.next { line in line.prompts(besides: fixture.identifier) }.line
                 CFUserNotificationCancel(alert)
                 _ = try await lines.next { line in line.key == prompt.key && line.entry == .instances([:]) }
-                return (prompt.key, (prompt.entry.instances ?? [:]).values.compactMap(\.running?.status.responding).joined().map(\.self))
+                return (prompt.key, (prompt.entry.instances ?? [:]).values.compactMap(\.running?.status.responding?.elements).joined().map(\.self))
             }
             .outcome
             let unanswered: [String] = shown.dialogs.filter { dialog in dialog.requiresAnswer != true }.map(\.id)

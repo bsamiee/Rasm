@@ -5,7 +5,7 @@ severity: error
 utils:
     library-program:
         kind: string_literal
-        regex: '^"(?:[^"]*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?"$'
+        regex: '^"(?:[^"]*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|pdftocairo|pdfimages|pdfunite|pdfseparate|qpdf|mutool|gs|tesseract|verapdf|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?"$'
     conditional-program:
         kind: string_literal
         any:
@@ -25,7 +25,7 @@ utils:
     shell-command:
         kind: string_literal
         pattern: $PROGRAM
-        regex: '^"\s*(?:\S*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?(?:\s|"$)'
+        regex: '^"\s*(?:\S*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|pdftocairo|pdfimages|pdfunite|pdfseparate|qpdf|mutool|gs|tesseract|verapdf|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?(?:\s|"$)'
         matches: argument-line
     argument-line:
         inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
@@ -68,9 +68,10 @@ transform:
     TLS: {replace: {source: $SSH, replace: '^openssl$', by: 'aws-lc-rs`, `rcgen`, or `x509-parser'}}
     MEDIA: replace($TLS, replace='^(ffmpeg|ffprobe)$', by='ffmpeg-next')
     IMAGE: replace($MEDIA, replace='^(magick|convert|vips)$', by='image` or `libvips')
-    PDF_TEXT: replace($IMAGE, replace='^pdftotext$', by='pdf_oxide')
-    PDF_RASTER: replace($PDF_TEXT, replace='^pdftoppm$', by='hayro')
-    SVG: replace($PDF_RASTER, replace='^rsvg-convert$', by='resvg')
+    PDF_TEXT: replace($IMAGE, replace='^(pdftotext|pdfimages|pdfunite|pdfseparate|qpdf|tesseract|verapdf)$', by='pdf_oxide')
+    PDF_RASTER: replace($PDF_TEXT, replace='^(pdftoppm|pdftocairo)$', by='hayro')
+    PDF: replace($PDF_RASTER, replace='^(mutool|gs)$', by='hayro` or `pdf_oxide')
+    SVG: replace($PDF, replace='^rsvg-convert$', by='resvg')
     MERMAID: replace($SVG, replace='^mmdc$', by='merman')
     DATABASE: replace($MERMAID, replace='^(sqlite3|psql)$', by='sqlx')
     JSON: replace($DATABASE, replace='^jq$', by='serde_json')

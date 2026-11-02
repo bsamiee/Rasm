@@ -187,7 +187,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn run<W, L, T, E>(self, command: &Command, defaults: Defaults, writer: W, layer: L, work: impl FnOnce(Handle) -> Result<T, NEVec<E>>) -> ExitCode
+    pub fn run<W, L, T, E>(self, command: &Command, defaults: Defaults, writer: W, layer: L, work: impl FnOnce(Handle, LevelFilter) -> Result<T, NEVec<E>>) -> ExitCode
     where
         W: MakeWriter,
         L: Layer,
@@ -271,6 +271,7 @@ impl Options {
         });
         let exported = exporters.iter().any(Exporter::is_otlp);
         let [traces, metrics, logs] = exporters;
+        let level = iter::chain(directives.split(','), log.iter().map(String::as_str)).filter_map(|directive| directive.parse::<LevelFilter>().ok()).last().unwrap_or(LevelFilter::OFF);
         let (accepted, refused): (Vec<Directive>, Vec<_>) =
             log.iter().filter(|directive| !directive.is_empty()).map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let detectors: [Box<dyn ResourceDetector>; _] =
@@ -377,7 +378,7 @@ impl Options {
         let stopping = DropGuard::new((tracer_provider, meter_provider, logger_provider), |providers| settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
         let worked = {
             let _parent = parent.attach();
-            work(handle).inspect_err(reported)
+            work(handle, level).inspect_err(reported)
         };
         panic::set_hook(Box::new(move |info| previous(info)));
         let stopped = settled(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);

@@ -9,7 +9,7 @@ export default uxp(import.meta.dirname, {
     daemon: 'atelier',
     manifest: {
         host: { app: 'ID', minVersion: '18.5.0', data: Option.some({ loadEvent: 'startup' }) },
-        entrypoints: [],
+        entrypoints: [{ type: 'panel', id: 'typesetting', label: { default: 'Typesetting' } }],
         requiredPermissions: { localFileSystem: Option.some('fullAccess'), allowCodeGenerationFromStrings: Option.some(true) },
     },
 });

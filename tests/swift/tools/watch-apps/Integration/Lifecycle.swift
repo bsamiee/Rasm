@@ -9,8 +9,6 @@ import WatchAppsWire
 
 @testable import AppKitFixture
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 private struct Ended: Equatable {
@@ -93,7 +91,7 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
-        func launchHoldsLaunchingUntilSlowLaunchFinishes() async throws {
+        func launchPrintsLaunchingUntilSlowLaunchFinishesThenExitsLeavingInstanceRunning() async throws {
             let fixture: Fixture = try Fixture()
             let duration: Duration = .seconds(2)
             let clock: ContinuousClock = ContinuousClock()
@@ -104,6 +102,28 @@ extension Integration {
             let held: Bool = elapsed >= duration
             #expect(held, "launch returned after \(elapsed)")
             expectNoDifference([launchPhases.first, launchPhases.last], [.launching, .responding])
+            let titles: [String] = try await read(fixture, pid: launched.pid).compactMap(\.title)
+            expectNoDifference(titles.contains("Fixture 0"), true, "\(titles)")
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false), .timeLimit(.minutes(1)))
+        func launchTerminatedWhileLaunchingExitsZeroLeavingInstanceRunning() async throws {
+            let fixture: Fixture = try Fixture()
+            let settings: Settings = Settings(scenario: .slowLaunch, duration: .seconds(3))
+            let ended: (outcome: Int32, lines: [TimedLine<WatchAppsLine>], status: TerminationStatus) = try await streamingJSONLines(
+                of: .product(named: "watch-apps"),
+                within: .seconds(30),
+                arguments: ["launch", fixture.identifier] + settings.arguments.flatMap { argument in ["--arguments", argument] },
+                as: WatchAppsLine.self,
+            ) { lines in
+                var iterator: AsyncStream<TimedLine<WatchAppsLine>>.Iterator = lines.makeAsyncIterator()
+                let first: TimedLine<WatchAppsLine> = try await iterator.next { line in line.entry.instances?.isEmpty == false }
+                return try #require(first.line.entry.instances?.keys.first)
+            }
+            expectNoDifference(ended.status, .exited(0))
+            expectNoDifference(phases(in: ended.lines.map(\.line)), [.launching])
+            let titles: [String] = try await read(fixture, pid: ended.outcome).compactMap(\.title)
+            expectNoDifference(titles.contains("Fixture 0"), true, "\(titles)")
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
@@ -160,14 +180,16 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
-        func hangReadsUnresponsiveWithUsageThenRecovers() async throws {
+        func hangReadsUnresponsiveWithUsageAndEveryWindowThenRecovers() async throws {
             let fixture: Fixture = try Fixture()
             _ = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
                 try await press(.hangBusy, in: fixture, pid: pid)
                 let hung: TimedLine<WatchAppsLine> = try await lines.next { line in line.entry.instances?[pid]?.phase == .unresponsive(.running) }
                 _ = try #require(hung.line.entry.instances?[pid]?.running?.usage, "unresponsive line holds usage")
+                expectNoDifference(hung.line.windows(of: pid)?.map(\.number).contains(described), true)
                 let released: Int32 = kill(pid, SIGUSR1)
                 expectNoDifference(released, 0)
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }

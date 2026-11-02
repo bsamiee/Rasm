@@ -54,10 +54,32 @@ extension Integration {
             expectNoDifference(answered.last?.state.elements.filter(\.requiresAnswer).map(\.role), [])
         }
 
+        @Test(.application(FixtureApplication.self, launches: false))
+        func windowAccessibilityOmitsListsUnderWindowsWithItsFacts() async throws {
+            try #require(CGPreflightScreenCaptureAccess(), "window titles need Screen Recording grant")
+            let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings())
+            let described: CGWindowID = try await numbered("Fixture 0", in: instance)
+            let seen: [Observed] = try await observe(
+                instance,
+                within: .seconds(15),
+                until: { seen in seen.last?.state.windows?.contains { window in window.title == "Undescribed" } == true },
+                acting: { try await run(.undescribed, in: instance) },
+            )
+            let state: InstanceState = try #require(seen.last).state
+            let listed: [Window] = try #require(state.windows)
+            let undescribed: Window = try #require(listed.first { window in window.title == "Undescribed" })
+            let size: CGSize = await NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: undescribedSize), styleMask: [.titled]).size
+            expectNoDifference(state.elements.compactMap(\.title).contains("Undescribed"), false)
+            expectNoDifference(listed.map(\.number).contains(described), false)
+            expectNoDifference([undescribed.frame.width, undescribed.frame.height], [size.width, size.height])
+            expectNoDifference([undescribed.layer, undescribed.onScreen ? 1 : 0], [0, 1])
+        }
+
         @Test(.application(FixtureApplication.self, launches: false), arguments: hangs)
-        func hangTurnsUnresponsiveUsingCPUOfItsStatusThenRecovers(scenario: Scenario, process: ProcessStatus) async throws {
+        func hangTurnsUnresponsiveListingEveryWindowUsingCPUOfItsStatusThenRecovers(scenario: Scenario, process: ProcessStatus) async throws {
             let clock: ContinuousClock = ContinuousClock()
             let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings(hidden: true))
+            let described: CGWindowID = try await numbered("Fixture 0", in: instance)
             let hung: [Observed] = try await observe(
                 instance,
                 within: .seconds(15),
@@ -66,6 +88,7 @@ extension Integration {
             )
             let turned: Observed = try #require(hung.last)
             expectNoDifference(phases(hung).last, .unresponsive(process))
+            expectNoDifference(turned.state.windows?.map(\.number).contains(described), true)
             let first: ResourceUsage = try #require(turned.state.usage, "unresponsive line holds usage")
             let sampled: ContinuousClock.Instant = clock.now
             let reread: InstanceState = await instance.state { _ in false }

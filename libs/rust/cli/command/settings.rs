@@ -1,4 +1,4 @@
-use core::{borrow::Borrow, mem, ops::Range};
+use core::{borrow::Borrow, iter, mem, ops::Range};
 use std::sync::Arc;
 
 use annotate_snippets::{AnnotationKind, Element, Level, Renderer, Snippet};
@@ -6,9 +6,10 @@ use camino::Utf8PathBuf;
 use clap::{Args, ValueHint};
 use fs_err::tokio::read_to_string;
 use futures::future;
+use itertools::Itertools as _;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use serde::de::DeserializeOwned;
-use serde_path_to_error::Segment;
+use serde_path_to_error::{Path, Segment};
 use toml::{
     Spanned,
     de::{DeTable, DeValue, Deserializer},
@@ -27,11 +28,29 @@ pub struct Layers {
     pub settings: Vec<Utf8PathBuf>,
 }
 
+#[derive(Debug, derive_more::Display)]
+pub enum Phase {
+    #[display("cannot parse settings")]
+    Parse(Origin),
+    #[display("cannot decode settings key `{path}`")]
+    Decode { path: Path, origin: Option<Origin> },
+}
+
 #[derive(Debug)]
 pub struct Origin {
     pub path: Utf8PathBuf,
     pub text: Arc<str>,
     pub span: Option<Range<usize>>,
+}
+
+impl Origin {
+    #[must_use]
+    pub fn excerpt(&self, title: &str) -> String {
+        Renderer::plain().render(&[Level::ERROR.no_name().primary_title(title).element(match &self.span {
+            Some(span) => Element::from(Snippet::source(&*self.text).path(self.path.as_str()).annotation(AnnotationKind::Primary.span(span.clone()))),
+            None => Element::from(annotate_snippets::Origin::path(self.path.as_str())),
+        })])
+    }
 }
 
 #[derive(Debug)]
@@ -84,40 +103,32 @@ where S: DeserializeOwned {
             table
         })
     }
-    let provenance = Provenance {
-        layers: future::join_all(paths.into_iter().map(async |path| read_to_string(&path).await.map(|text| (path, Arc::<str>::from(text))).map_err(CommandError::File)))
-            .await
-            .into_iter()
-            .collect::<Validated<Vec<_>, _>>()
-            .ok()?,
-    };
-    let tables = provenance
-        .layers
-        .iter()
-        .map(|(path, text)| {
-            let (table, errors) = DeTable::parse_recoverable(text);
-            NEVec::try_from_vec(errors)
-                .map(|failures| {
+    let (layers, missing): (Vec<_>, Vec<_>) =
+        future::join_all(paths.into_iter().map(async |path| read_to_string(&path).await.map(|text| (path, Arc::<str>::from(text))))).await.into_iter().partition_result();
+    let provenance = Provenance { layers };
+    let table = iter::chain(
+        missing.into_iter().map(|source| Validated::fail(CommandError::File(source))),
+        provenance.layers.iter().map(|(path, text)| {
+            let (table, failures) = DeTable::parse_recoverable(text);
+            match NEVec::try_from_vec(failures) {
+                None => Validated::Good(table.into_inner()),
+                Some(failures) => Validated::Fail(
                     failures
                         .into_nonempty_iter()
                         .map(|mut source| {
                             source.set_input(None);
-                            CommandError::Syntax { origin: Origin { path: Utf8PathBuf::clone(path), text: Arc::clone(text), span: source.span() }, source: Box::new(source) }
+                            CommandError::Settings { phase: Phase::Parse(Origin { path: path.clone(), text: Arc::clone(text), span: source.span() }), source: Box::new(source) }
                         })
-                        .collect()
-                })
-                .map_or(Validated::Good(table), Validated::Fail)
-        })
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()?;
-    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().map(Spanned::into_inner).fold(DeTable::new(), merged))))
-        .map_err(|source| NEVec::new(CommandError::Decode { origin: provenance.origin(source.path()), path: source.path().clone(), source: Box::new(source.into_inner()) }))
+                        .collect(),
+                ),
+            }
+        }),
+    )
+    .collect::<Validated<Vec<_>, _>>()
+    .ok()?
+    .into_iter()
+    .fold(DeTable::new(), merged);
+    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, table)))
+        .map_err(|source| NEVec::new(CommandError::Settings { phase: Phase::Decode { origin: provenance.origin(source.path()), path: source.path().clone() }, source: Box::new(source.into_inner()) }))
         .map(|settings| (settings, provenance))
-}
-
-pub(crate) fn excerpt(title: &str, origin: Option<&Origin>) -> String {
-    Renderer::plain().render(&[Level::ERROR.no_name().primary_title(title).elements(origin.map(|origin| match &origin.span {
-        Some(span) => Element::from(Snippet::source(&*origin.text).path(origin.path.as_str()).annotation(AnnotationKind::Primary.span(span.clone()))),
-        None => Element::from(annotate_snippets::Origin::path(origin.path.as_str())),
-    }))])
 }

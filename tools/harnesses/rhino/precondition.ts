@@ -1,60 +1,32 @@
-import { Record, Schema } from 'effect';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Expression = Schema.NonEmptyString.annotate({ description: 'C# expression over doc, view, made, canvas, editor, and scope' });
-const Member = Schema.NonEmptyString.annotate({ description: 'Enumeration member name the engine decodes against RhinoCommon' });
-const Point = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite]);
-const Tolerance = Schema.Struct({
-    absolute: Schema.Finite.annotate({ description: 'ModelAbsoluteTolerance in the case units' }),
-    angle: Schema.optionalKey(Schema.Finite.annotate({ description: 'ModelAngleToleranceDegrees' })),
-    relative: Schema.optionalKey(Schema.Finite.annotate({ description: 'ModelRelativeTolerance' })),
-});
-const sources = {
-    template: { template: Schema.NonEmptyString.annotate({ description: 'File under FileSettings.TemplateFolder of the running language' }), units: Member.annotate({ description: 'UnitSystem member' }), tolerance: Tolerance },
-    open: { open: Schema.NonEmptyString.annotate({ description: '.3dm path under the product folder, its own units and tolerances kept unless stated' }), units: Schema.optionalKey(Member), tolerance: Schema.optionalKey(Tolerance) },
-    application: { application: Schema.Literal(true).annotate({ description: 'Application-level case opening no document' }) },
-};
-const scripted = {
-    canvas: Schema.optionalKey(Schema.Struct({ open: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: '.ghz path under the product folder' })) }).annotate({ description: 'Grasshopper 2 document the editor canvas shows, new without open' })),
-    steps: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'C# statements run after add and select in one undo record' })),
-    batch: Schema.optionalKey(Schema.Boolean.annotate({ description: 'BatchMode on for the case, command line input in place of dialogs' })),
-};
-const documented = new Set(Object.values(sources).flatMap(Object.keys));
+import { Schema, Struct } from 'effect';
+import { Application, placings } from '#/precondition';
+import { Opened, Placed, type Survey, Template } from '#/rhino/contract';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const merged = (batch: Record.ReadonlyRecord<string, Schema.Json>, own: Record.ReadonlyRecord<string, Schema.Json>) => ({ ...(Object.keys(own).some((key) => key in sources) ? Record.filter(batch, (_, key) => !documented.has(key)) : batch), ...own });
-const precondition = (languages: readonly string[]) => {
-    const language = { language: Schema.optionalKey(Schema.Literals(languages).annotate({ description: 'RhCore localization Localization.CurrentLanguageId must report' })) };
-    const placed = {
-        ...language,
-        view: Schema.optionalKey(
-            Schema.Struct({
-                projection: Schema.optionalKey(Member.annotate({ description: 'DefinedViewportProjection member' })),
-                display: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'DisplayModeDescription English name' })),
-                location: Schema.optionalKey(Point),
-                target: Schema.optionalKey(Point),
-                lens: Schema.optionalKey(Schema.Finite.annotate({ description: 'Camera35mmLensLength' })),
-            }).annotate({ description: 'Active viewport of the case document' }),
-        ),
-        layout: Schema.optionalKey(Schema.Struct({ name: Schema.NonEmptyString, width: Schema.Finite, height: Schema.Finite, units: Schema.optionalKey(Member.annotate({ description: 'UnitSystem member of the page units' })) }).annotate({ description: 'Page view added in page units' })),
-        layers: Schema.optionalKey(
-            Schema.Array(Schema.Struct({ path: Schema.NonEmptyString.annotate({ description: 'Layer full path, parents joined by ::' }), color: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'HTML color name or #rrggbb' })), locked: Schema.optionalKey(Schema.Boolean) })).annotate({
-                description: 'Layers made or updated before add, each parent path created first',
-            }),
-        ),
-        add: Schema.optionalKey(
-            Schema.Array(Schema.Struct({ as: Schema.NonEmptyString, geometry: Expression.annotate({ description: 'GeometryBase expression' }), layer: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Layer full path' })) })).annotate({
-                description: 'Objects added with default attributes, their ids read as made["<as>"]',
-            }),
-        ),
-        select: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'made names selected, a locked, hidden, or absent one failing the case' })),
-        ...scripted,
-    };
-    return Schema.Union([Schema.Struct({ ...sources.template, ...placed }), Schema.Struct({ ...sources.open, ...placed }), Schema.Struct({ ...sources.application, ...language, ...scripted })]);
+const ancestry = (culture: string) => {
+    const parts = culture.split('-').filter((part) => part !== '');
+    return parts.map((_, index) => parts.slice(0, parts.length - index).join('-'));
+};
+const precondition = (survey: typeof Survey.Type) => {
+    const language = { language: Schema.optionalKey(Schema.Literals(ancestry(survey.language.culture)).annotate({ description: 'Culture the instance runs or one of its parents' })) };
+    const placed = { ...Struct.omit(Placed.fields, ['source', 'language']), ...language };
+    const scripted = { ...Struct.pick(Placed.fields, ['canvas', 'steps', 'batch']), ...language };
+    return placings(
+        Placed,
+        {
+            document: Schema.Struct({ template: Template.name, units: Template.units, tolerance: Template.tolerance, ...placed }),
+            open: Schema.Struct({ open: Opened.path, units: Opened.units, tolerance: Opened.tolerance, ...placed }),
+            application: Schema.Struct({ application: Application, ...scripted }),
+        },
+        {
+            document: ({ template, units, tolerance, ...rest }) => ({ ...rest, source: { _tag: 'Template' as const, name: template, units, tolerance } }),
+            open: ({ open, units, tolerance, ...rest }) => ({ ...rest, source: { _tag: 'Open' as const, path: open, ...(units === undefined ? {} : { units }), ...(tolerance === undefined ? {} : { tolerance }) } }),
+            application: ({ application: _, ...rest }) => ({ ...rest, source: { _tag: 'Application' as const } }),
+        },
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { merged, precondition };
+export { precondition };

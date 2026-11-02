@@ -17,9 +17,6 @@ use validated::Validated;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Tolerance(f64);
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Observations {
     sites: DMatrix<f64>,

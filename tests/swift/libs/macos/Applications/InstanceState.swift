@@ -1,3 +1,4 @@
+import CoreGraphics
 import CustomDump
 import Encoding
 import Foundation
@@ -27,22 +28,29 @@ private let sheet: Element = Element(
     detail: nil,
 )
 
+private let titled: Window = Window(number: 78, title: "Prompt", frame: CGRect(x: 1, y: 2, width: 3, height: 4), layer: 0, onScreen: true)
+private let untitled: Window = Window(number: 79, title: nil, frame: CGRect(x: 0, y: 0, width: 5, height: 6), layer: 3, onScreen: false)
+private let windows: String = #"[{"number":78,"title":"Prompt","frame":[[1,2],[3,4]],"layer":0,"onScreen":true},{"number":79,"frame":[[0,0],[5,6]],"layer":3,"onScreen":false}]"#
+
 private let lines: [(state: InstanceState, line: String)] = [
     (.running(.launching, usage: nil), #"{"running":{"status":{"launching":{}}}}"#),
-    (.running(.responding(elements: []), usage: nil), #"{"running":{"status":{"responding":{"elements":[]}}}}"#),
+    (.running(.responding(elements: [], windows: []), usage: nil), #"{"running":{"status":{"responding":{"elements":[],"windows":[]}}}}"#),
     (
-        .running(.responding(elements: [sheet]), usage: nil),
-        #"{"running":{"status":{"responding":{"elements":[{"id":"AQID","window":77,"role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"requiresAnswer":true}]}}}}"#,
+        .running(.responding(elements: [sheet], windows: [titled, untitled]), usage: nil),
+        #"""
+        {"running":{"status":{"responding":{"elements":[{"id":"AQID","window":77,"role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"requiresAnswer":true}],
+        "windows":\#(windows)}}}}
+        """#,
     ),
-    (.running(.unresponsive(process: .sleeping), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"sleeping"}}}}"#),
-    (.running(.unresponsive(process: .running), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"running"}}}}"#),
-    (.running(.unresponsive(process: .stopped), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"stopped"}}}}"#),
+    (.running(.unresponsive(process: .sleeping, windows: []), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"sleeping","windows":[]}}}}"#),
+    (.running(.unresponsive(process: .running, windows: [titled, untitled]), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"running","windows":\#(windows)}}}}"#),
+    (.running(.unresponsive(process: .stopped, windows: []), usage: nil), #"{"running":{"status":{"unresponsive":{"process":"stopped","windows":[]}}}}"#),
     (.exited(.success(.exited(0)), report: nil), #"{"exited":{"status":0}}"#),
     (.exited(.success(.exited(7)), report: nil), #"{"exited":{"status":7}}"#),
     (.exited(.success(.signaled(9)), report: nil), #"{"exited":{"signal":9}}"#),
     (.exited(.failure(.noSuchProcess), report: nil), #"{"exited":{"statusFailure":"\#(Errno.noSuchProcess.description)"}}"#),
 ]
-private let statuses: [ApplicationStatus] = [.launching, .responding(elements: [sheet]), .unresponsive(process: .running)]
+private let statuses: [ApplicationStatus] = [.launching, .responding(elements: [sheet], windows: [titled]), .unresponsive(process: .running, windows: [untitled])]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

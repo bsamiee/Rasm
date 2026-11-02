@@ -12,7 +12,6 @@ var harness = (function () {
     var realExecute = executeAction;
     var realOpen = File.prototype.open;
     var ENGINE = new File($.fileName).fsName;
-    var BUILTINS = [Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Date.prototype, RegExp.prototype, Error.prototype];
     var ENUMERATOR = /^([A-Za-z]\w*)\.([A-Z][A-Z0-9_]*)$/;
     var PATHED = /^[\/~]/;
     var SPECIFIER = /^\/document\[@id=(\d+)\](?:\/layer\[@id=(\d+)\])?$/;
@@ -24,6 +23,9 @@ var harness = (function () {
     var EVENTS = ["openViewlessDocument", "systemCall", "quit"];
     var PARTS = [["guide", "numberOfGuides"], ["channel", "numberOfChannels"], ["path", "numberOfPaths"]];
     var GRID = 65536;
+    var read = shared.read, append = shared.append, quote = shared.quote, tag = shared.tag, number = shared.number, iso = shared.iso, literal = shared.literal, tagged = shared.tagged;
+    var next = shared.next, nameOf = shared.nameOf, match = shared.match, fill = shared.fill, tree = shared.tree, picked = shared.picked, patched = shared.patched;
+    var globals = shared.globals, released = shared.released, thrown = shared.thrown, attempt = shared.attempt;
     function has(owner, key) { return Object.prototype.hasOwnProperty.call(owner, key); }
     function listed(name, list) {
         for (var i = 0; i < list.length; i++) { if (list[i] === name) { return true; } }
@@ -32,21 +34,14 @@ var harness = (function () {
     function id(name) { return stringIDToTypeID(name); }
 
     // --- [FILES]
-    function read(path, from) {
+    function tail(path, from) {
         var file = new RealFile(path);
         file.encoding = "UTF-8";
         if (!file.exists || !file.open("r")) { return ""; }
-        file.seek(from || 0);
+        file.seek(from);
         var text = file.read();
         file.close();
         return text;
-    }
-    function write(path, text) {
-        var file = new RealFile(path);
-        file.encoding = "UTF-8";
-        if (!file.open("w")) { throw new Error("cannot write " + path); }
-        file.write(text);
-        file.close();
     }
     function ensured(folder) {
         if (folder !== null && !folder.exists) { ensured(folder.parent); folder.create(); }
@@ -57,11 +52,6 @@ var harness = (function () {
         var descriptor = new ActionDescriptor();
         descriptor.putObject(id("object"), id("object"), value);
         return realExecute(id("convertJSONdescriptor"), descriptor, DialogModes.NO).getString(id("json"));
-    }
-    function descriptorOf(text) {
-        var descriptor = new ActionDescriptor();
-        descriptor.putString(id("json"), text);
-        return realExecute(id("convertJSONdescriptor"), descriptor, DialogModes.NO).getObjectValue(id("object"));
     }
     function action(value) {
         var kind = value.typename;
@@ -74,37 +64,6 @@ var harness = (function () {
     }
 
     // --- [CODEC]
-    function exponent(value) {
-        var mantissa = Math.abs(value);
-        var power = 0;
-        while (mantissa >= 9007199254740992) { mantissa /= 2; power += 1; }
-        while (mantissa !== Math.floor(mantissa)) { mantissa *= 2; power -= 1; }
-        return (value < 0 ? "-" : "") + String(mantissa) + "p" + power;
-    }
-    function quote(text) {
-        var out = '"';
-        for (var i = 0; i < text.length; i++) {
-            var code = text.charCodeAt(i);
-            var ch = text.charAt(i);
-            if (ch === '"' || ch === "\\") { out += "\\" + ch; } else if (code < 32 || code > 126) { out += "\\u" + ("000" + code.toString(16)).slice(-4); } else { out += ch; }
-        }
-        return out + '"';
-    }
-    function tag(text) { return '{"$":' + quote(text) + "}"; }
-    function number(value) {
-        if (isNaN(value)) { return tag("NaN"); }
-        if (!isFinite(value)) { return tag(value > 0 ? "Infinity" : "-Infinity"); }
-        if (value === 0 && 1 / value < 0) { return tag("-0"); }
-        return Number(String(value)) === value ? String(value) : tag(exponent(value));
-    }
-    function iso(date) {
-        function padded(count, width) { return ("000" + count).slice(-width); }
-        return isNaN(date.getTime()) ? "NaN" : padded(date.getUTCFullYear(), 4) + "-" + padded(date.getUTCMonth() + 1, 2) + "-" + padded(date.getUTCDate(), 2) + "T" + padded(date.getUTCHours(), 2) + ":" + padded(date.getUTCMinutes(), 2) + ":" + padded(date.getUTCSeconds(), 2) + "." + padded(date.getUTCMilliseconds(), 3) + "Z";
-    }
-    function parsed(text) {
-        var parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d{1,3}))?Z$/.exec(text);
-        return parts ? new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6]), Number(parts[7] || 0))) : new Date(NaN);
-    }
     function enumerator(value) {
         var parts = ENUMERATOR.exec(String(value));
         return parts && realGlobal[parts[1]] !== undefined && realGlobal[parts[1]] !== null && realGlobal[parts[1]][parts[2]] == value ? "enum:" + parts[1] + "." + parts[2] : null;
@@ -172,17 +131,11 @@ var harness = (function () {
             return list;
         }
         if (value === null || typeof value !== "object") { return value; }
-        var count = 0;
-        for (var probe in value) { if (has(value, probe)) { count += 1; } }
-        if (count === 1 && has(value, "$")) {
+        if (tagged(value)) {
             var text = String(value.$);
-            var numbers = { "undefined": undefined, "NaN": NaN, "Infinity": Infinity, "-Infinity": -Infinity, "-0": -0 };
-            var scaled = /^(-?\d+)p(-?\d+)$/.exec(text);
-            var dated = /^date:(.+)$/.exec(text);
+            var found = literal(text);
+            if (found !== null) { return found.value; }
             var enumerated = /^enum:([^.]+)\.(.+)$/.exec(text);
-            if (has(numbers, text)) { return numbers[text]; }
-            if (scaled) { return Number(scaled[1]) * Math.pow(2, Math.ceil(Number(scaled[2]) / 2)) * Math.pow(2, Math.floor(Number(scaled[2]) / 2)); }
-            if (dated) { return parsed(dated[1]); }
             if (enumerated) {
                 var held;
                 try { held = realGlobal[enumerated[1]][enumerated[2]]; } catch (missing) { held = undefined; }
@@ -198,44 +151,17 @@ var harness = (function () {
     }
 
     // --- [SCRIPTUI]
-    function next(queue, fallback) { return queue.length ? queue.shift() : fallback; }
-    function controls(root) {
-        var rows = [];
-        function walk(control) {
-            var children = control.children || [];
-            for (var i = 0; i < children.length; i++) { rows.push(children[i]); walk(children[i]); }
-        }
-        walk(root);
-        return rows;
-    }
-    function nameOf(control) { return control.properties && control.properties.name !== undefined ? String(control.properties.name) : ""; }
-    function control(root, key) {
-        var rows = controls(root);
-        for (var i = 0; i < rows.length; i++) { if (nameOf(rows[i]) === key || rows[i].text === key) { return rows[i]; } }
-        throw new Error("no control " + key + " in " + root.text);
-    }
-    function tree(root) {
-        var rows = controls(root);
-        var out = [];
-        for (var i = 0; i < rows.length; i++) { out.push({ type: rows[i].type, text: rows[i].text, name: nameOf(rows[i]), value: typeof rows[i].value === "boolean" || typeof rows[i].value === "number" ? rows[i].value : null }); }
-        return out;
+    function press(root, key) {
+        var control = match(root, key);
+        control.notify("onClick");
+        return nameOf(control) === "cancel" || control.text === "Cancel" ? 2 : 1;
     }
     function shown(session, root) {
         var answer = next(session.windows, {});
-        var fields = answer.fields || {};
-        var presses = answer.presses || [];
         var result = answer.answer === undefined ? 1 : answer.answer;
-        for (var key in fields) {
-            if (!has(fields, key)) { continue; }
-            var held = control(root, key);
-            if (typeof held.value === "boolean" || typeof held.value === "number") { held.value = fields[key]; } else { held.text = String(fields[key]); }
-            if (typeof held.onChange === "function") { held.onChange.call(held); }
-        }
-        for (var i = 0; i < presses.length; i++) {
-            var pressed = control(root, presses[i]);
-            pressed.notify("onClick");
-            result = nameOf(pressed) === "cancel" ? 2 : 1;
-        }
+        if (answer.fields) { fill(root, answer.fields); }
+        var presses = answer.presses || [];
+        for (var i = 0; i < presses.length; i++) { result = press(root, presses[i]); }
         session.record.windows.push({ title: root.text, type: root.type, tree: tree(root) });
         return result;
     }
@@ -247,19 +173,12 @@ var harness = (function () {
             return made;
         }
         Window.prototype = RealWindow.prototype;
-        Window.alert = function (message, title) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); };
-        Window.confirm = function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
-        Window.prompt = function (message, value) { session.record.prompts.push(String(message)); return next(session.prompts, value); };
+        Window.alert = shared.alerted(session);
+        Window.confirm = shared.confirmed(session);
+        Window.prompt = shared.prompted(session);
         Window.find = function () { return RealWindow.find.apply(RealWindow, arguments); };
         Window.update = function () { return RealWindow.update.apply(RealWindow, arguments); };
         return Window;
-    }
-    function picked(session, kind, Kind, many) {
-        session.record.files.push(kind);
-        var answer = next(session.files, null);
-        if (answer === null) { return null; }
-        var made = new Kind(answer);
-        return many ? [made] : made;
     }
 
     // --- [SHADOWS]
@@ -427,8 +346,7 @@ var harness = (function () {
             return scoped.apply(global, values.concat(context, [code]));
         };
     }
-    function shadowed(session) {
-        function executed() { session.record.activations.push("execute " + this.fsName); return true; }
+    function redirected(session) {
         function opening(mode) {
             var name = this.fsName;
             if (/^[wae]/.test(String(mode)) && name.indexOf(session.folder + "/") !== 0) {
@@ -437,23 +355,9 @@ var harness = (function () {
             }
             return realOpen.apply(this, arguments);
         }
-        var rows = [
-            [RealFile, "openDialog", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
-            [RealFile, "saveDialog", function () { return picked(session, "save", RealFile, false); }],
-            [RealFolder, "selectDialog", function () { return picked(session, "folder", RealFolder, false); }],
-            [RealFile.prototype, "openDlg", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
-            [RealFile.prototype, "saveDlg", function () { return picked(session, "save", RealFile, false); }],
-            [RealFolder.prototype, "selectDlg", function () { return picked(session, "folder", RealFolder, false); }],
-            [RealFile.prototype, "execute", executed],
-            [RealFolder.prototype, "execute", executed],
-            [RealFile.prototype, "open", opening]
-        ];
-        var held = [];
-        for (var i = 0; i < rows.length; i++) {
-            held.push(rows[i][0][rows[i][1]]);
-            rows[i][0][rows[i][1]] = rows[i][2];
-        }
-        return function () { for (var j = 0; j < rows.length; j++) { rows[j][0][rows[j][1]] = held[j]; } };
+        var release = patched(session);
+        RealFile.prototype.open = opening;
+        return function () { RealFile.prototype.open = realOpen; release(); };
     }
 
     // --- [STATE]
@@ -585,27 +489,6 @@ var harness = (function () {
             if (held.prior !== null) { realApp.putCustomOptions(key, held.prior, held.persistent); } else if (after !== null) { realApp.eraseCustomOptions(key); }
         }
         session.record.writes = session.record.writes.concat(rows);
-    }
-    function globals() {
-        var owners = [realGlobal].concat(BUILTINS);
-        var held = [];
-        for (var i = 0; i < owners.length; i++) {
-            var keys = {};
-            for (var key in owners[i]) { keys[key] = { value: owners[i][key] }; }
-            held.push({ owner: owners[i], keys: keys });
-        }
-        return held;
-    }
-    function released(held) {
-        var leaked = [];
-        for (var i = 0; i < held.length; i++) {
-            for (var key in held[i].owner) {
-                try {
-                    if (!has(held[i].keys, key)) { delete held[i].owner[key]; } else if (held[i].owner[key] !== held[i].keys[key].value) { held[i].owner[key] = held[i].keys[key].value; }
-                } catch (error) { leaked.push("global " + key + ": " + error.message); }
-            }
-        }
-        return leaked;
     }
     function open() {
         var ids = {};
@@ -758,14 +641,12 @@ var harness = (function () {
     }
 
     // --- [RUN]
-    function thrown(error, item) {
-        if (error === null || typeof error !== "object") { return { _tag: "Thrown", message: String(error) }; }
-        var completion = { _tag: "Thrown", message: (error.name ? error.name + ": " : "") + String(error.message) };
-        var file = typeof error.fileName === "string" && PATHED.test(error.fileName) ? new RealFile(error.fileName).fsName : "";
+    function located(error, item) {
+        var completion = thrown(error);
+        var file = error !== null && typeof error === "object" && typeof error.fileName === "string" && PATHED.test(error.fileName) ? new RealFile(error.fileName).fsName : "";
         var loaded = item._tag !== "Probe" && item.source !== undefined ? item.source.script : "";
-        var located = file !== "" && file !== ENGINE ? file : loaded;
-        if (typeof error.number === "number") { completion.number = error.number; }
-        if (located !== "" && typeof error.line === "number") { completion.file = located; completion.line = error.line; }
+        var at = file !== "" && file !== ENGINE ? file : loaded;
+        if (at === "") { delete completion.line; } else if (has(completion, "line")) { completion.file = at; }
         return completion;
     }
     function ran(session, item, docs, made, result) {
@@ -784,13 +665,10 @@ var harness = (function () {
             if (item._tag !== "Run") { result.value = kept(value); }
             return { _tag: "Ran" };
         } catch (error) {
-            return thrown(error, item);
+            return located(error, item);
         } finally {
             session.shadows.Folder.current = folder;
         }
-    }
-    function attempt(leaked, label, work) {
-        try { work(); } catch (error) { leaked.push(label + ": " + String(error.message)); }
     }
     function outcome(item, batch, index, found, shift) {
         var session = { refresh: function () {}, evaluate: null, shadows: null, options: {}, created: [], folder: new RealFolder(item.folder).fsName, windows: (item.windows || []).slice(0), confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alerts: [], confirms: [], prompts: [], windows: [], files: [], activations: [], console: [], writes: [], history: [], opened: [], errors: [] } };
@@ -827,7 +705,7 @@ var harness = (function () {
                 }
                 session.record.opened.push({ document: before.targets[prefix].whole, layers: layers, parts: parts });
             }
-            release = shadowed(session);
+            release = redirected(session);
             result.completion = ran(session, item, docs, made, result);
             attempt(leaked, "shadows", release);
             release = function () {};
@@ -854,7 +732,7 @@ var harness = (function () {
         });
         attempt(leaked, "globals", function () { leaked = leaked.concat(released(global)); });
         attempt(leaked, "application", function () { leaked = leaked.concat(restored(initial, shift.shifting)); });
-        attempt(leaked, "errors", function () { session.record.errors = logged(read(log.fsName, offset)); });
+        attempt(leaked, "errors", function () { session.record.errors = logged(tail(log.fsName, offset)); });
         var record = session.record;
         result.alerts = record.alerts; result.confirms = record.confirms; result.prompts = record.prompts; result.windows = record.windows; result.files = record.files;
         result.activations = record.activations; result.console = record.console; result.writes = kept(record.writes); result.history = record.history; result.opened = record.opened;
@@ -866,19 +744,18 @@ var harness = (function () {
         for (var i = 0; i < list.length; i++) { keys[list[i]] = true; }
         return keys;
     }
-    function shifted(label, records) {
+    function shifted(label, folder) {
         var first = application();
         var doc = realApp.documents.add(new UnitValue(1, "px"), new UnitValue(1, "px"), 72, label + "-shift");
         var start = targets([doc.id]);
-        doc.saveAs(new RealFile(records + "/" + label + "-shift.psd"), new PhotoshopSaveOptions(), false);
+        doc.saveAs(new RealFile(folder + "/" + label + "-shift.psd"), new PhotoshopSaveOptions(), false);
         var saved = targets([doc.id]);
         doc.close(SaveOptions.DONOTSAVECHANGES);
         var second = application();
         var saving = [];
         for (var key in start) {
             if (!has(start, key) || !has(saved, key)) { continue; }
-            var moved = differing(start[key], saved[key], keysOf(saving));
-            saving = saving.concat(moved);
+            saving = saving.concat(differing(start[key], saved[key], keysOf(saving)));
         }
         return { keys: differing(first, second, {}), saving: saving, defaults: second.whole };
     }
@@ -890,12 +767,19 @@ var harness = (function () {
         for (var i = 0; i < list.length; i++) { names[list[i].name] = list[i].type; }
         return names;
     }
+    function quitting() {
+        var closed = realApp.documents.length;
+        for (var i = closed - 1; i >= 0; i--) { realApp.documents[i].close(SaveOptions.DONOTSAVECHANGES); }
+        realExecute(id("quit"), new ActionDescriptor(), DialogModes.NO);
+        return { closed: closed };
+    }
     return function (text) {
         var dialogs = realApp.displayDialogs;
         realApp.displayDialogs = DialogModes.NO;
         try {
             var batch = parsedJson(text);
-            var shift = shifted(batch.label, batch.records);
+            if (batch.quit === true) { return json(quitting()); }
+            var shift = shifted(batch.label, new RealFile(batch.records).parent.fsName);
             var defaults = {};
             var shifting = keysOf(shift.keys);
             for (var key in shift.defaults) { if (has(shift.defaults, key) && key !== "_obj" && !has(shifting, key)) { defaults[key] = shift.defaults[key]; } }
@@ -903,19 +787,17 @@ var harness = (function () {
             var unlisted = [];
             var members = REFUSED.concat(PROGRESS, OPTIONS);
             for (var m = 0; m < members.length; m++) { if (!has(found.methods, members[m])) { unlisted.push(members[m]); } }
-            var answer = { _tag: "Answered", application: realApp.name, version: realApp.version, state: { dialogs: String(dialogs), shifting: shift.keys, saving: shift.saving, unlisted: unlisted, defaults: defaults } };
+            var answer = { application: realApp.name, version: realApp.version, state: { dialogs: String(dialogs), shifting: shift.keys, saving: shift.saving, unlisted: unlisted, defaults: defaults } };
             if (batch.survey === true) { answer.survey = survey(shift); }
             for (var i = 0; i < batch.cases.length; i++) {
-                write(batch.records + "/" + i + ".started", "");
-                write(batch.records + "/" + i + ".json", json(outcome(batch.cases[i], batch, i, found, { shifting: shifting, saving: keysOf(shift.saving) })));
+                append(batch.records, json({ _tag: "Started", index: i }) + "\n");
+                append(batch.records, json({ _tag: "Finished", outcome: outcome(batch.cases[i], batch, i, found, { shifting: shifting, saving: keysOf(shift.saving) }) }) + "\n");
             }
             return json(answer);
         } catch (error) {
-            return json({ _tag: "Failed", reason: String(error.message) + (error.line ? " at engine line " + error.line : "") });
+            return json({ failed: String(error.message) + (error.line ? " at engine line " + error.line : "") });
         } finally {
             realApp.displayDialogs = dialogs;
         }
     };
 })();
-
-harness(arguments[0]);

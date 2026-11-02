@@ -1,6 +1,8 @@
 import { pathToFileURL } from 'node:url';
 import { Array, Effect, Match, Option, Predicate, Record, Result, Schema } from 'effect';
 import { HarnessError } from '#/error';
+import type { Compare } from '#/results';
+import { bury } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,6 +18,7 @@ interface Difference {
     readonly host: unknown;
     readonly rebuilt: unknown;
 }
+type Reply = Result.Result<unknown, unknown>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -41,15 +44,25 @@ const observed = (pair: Pair) =>
             return 'thrown' in pair.host ? differences(pair.host.thrown, message, '.thrown') : [{ path: '.thrown', host: pair.host.value, rebuilt: message }];
         },
     });
-const compare = Effect.fn('compare')(function* (module: string, pairs: readonly Pair[]) {
+const imported = Effect.fn('imported')(function* (module: string) {
     const loaded = yield* Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(module).href), catch: HarnessError.refused(module) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Module)));
-    const exported = (fn: string) => Effect.fromOption(Option.filter(Record.get(loaded, fn), Predicate.isFunction), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${fn}` }, subject: module }));
-    const checked = (pair: Pair) => (made: Parameters<typeof Reflect.apply>[0]) => ({ name: pair.name, fn: pair.fn, args: pair.args, differences: observed(pair)(Result.try(() => Reflect.apply(made, undefined, pair.args))) });
-    const rows = yield* Effect.forEach(pairs, (pair) => Effect.map(exported(pair.fn), checked(pair)));
+    return (pair: Pair): Effect.Effect<Reply, HarnessError> =>
+        Effect.map(
+            Effect.fromOption(Option.filter(Record.get(loaded, pair.fn), Predicate.isFunction), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
+            (made) => Result.try(() => Reflect.apply(made, undefined, pair.args)),
+        );
+});
+const compared = (module: string, pairs: readonly Pair[], replies: ReadonlyMap<string, Reply>, unproven: readonly string[]): typeof Compare.Type => {
+    const rows = pairs.flatMap((pair) => Option.toArray(Option.map(Option.fromUndefinedOr(replies.get(pair.name)), (reply) => ({ name: pair.name, fn: pair.fn, args: bury(pair.args), differences: observed(pair)(reply).map(({ path, host, rebuilt }) => ({ path, host: bury(host), rebuilt: bury(rebuilt) })) }))));
     const mismatches = rows.filter(({ differences: found }) => found.length > 0);
-    return { cases: rows.length, agreed: rows.length - mismatches.length, mismatches };
+    return { module, agreed: rows.length - mismatches.length, mismatches, unproven: [...unproven, ...pairs.filter(({ name }) => !replies.has(name)).map(({ name }) => name)] };
+};
+const compare = Effect.fn('compare')(function* (module: string, pairs: readonly Pair[], unproven: readonly string[] = []) {
+    const reply = yield* imported(module);
+    const replies = new Map(yield* Effect.forEach(pairs, (pair) => Effect.map(reply(pair), (held) => [pair.name, held] as const)));
+    return compared(module, pairs, replies, unproven);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { compare, type Pair };
+export { compare, compared, type Pair, type Reply };

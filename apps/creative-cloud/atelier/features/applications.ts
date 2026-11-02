@@ -55,7 +55,7 @@ const launch = ({ application, listed }: Effect.Success<ReturnType<typeof routes
         serves: () => true,
     })(
         Tool.make('launch', {
-            description: 'Launches application in background beside other versions, returns pid once running',
+            description: 'Opens application hidden in background beside other versions, returns pid once it leaves launching or a dialog requires an answer, the instance running until quit',
             parameters: Schema.Struct({}),
             success: Schema.Struct({ pid: Pid }),
         }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false), Context.add(Visible, Effect.succeed(true)))),

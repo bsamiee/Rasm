@@ -72,7 +72,9 @@ enum Phase: Hashable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension WatchAppsLine {
-    func elements(of pid: Int32) -> [WatchAppsLine.Element]? { entry.instances?[pid]?.running?.status.responding }
+    func elements(of pid: Int32) -> [WatchAppsLine.Element]? { entry.instances?[pid]?.running?.status.responding?.elements }
+
+    func windows(of pid: Int32) -> [WatchAppsLine.Window]? { entry.instances?[pid]?.running?.status.windows }
 
     func prompts(besides application: String) -> Bool { key != application && key != "system" && entry.instances?.isEmpty == false }
 }
@@ -83,9 +85,9 @@ extension WatchAppsLine.Instance {
             case .running(let running):
                 switch running.status {
                     case .launching: .launching
-                    case .responding(let elements) where elements.answers.isEmpty: .responding
+                    case .responding(let elements, _) where elements.answers.isEmpty: .responding
                     case .responding: .answering
-                    case .unresponsive(let process): .unresponsive(process)
+                    case .unresponsive(let process, _): .unresponsive(process)
                 }
             case .failed: .failed
             case .exited: .exited
@@ -130,8 +132,18 @@ func pids(in lines: [WatchAppsLine]) -> [[Int32]] { lines.map { line in (line.en
 
 func phases(of pid: Int32, in lines: [WatchAppsLine]) -> [Phase] { lines.compactMap { line in line.entry.instances?[pid]?.phase } }
 
-func phases(in lines: [WatchAppsLine]) -> Set<Phase> {
+func phases(in lines: some Sequence<WatchAppsLine>) -> Set<Phase> {
     Set(lines.compactMap(\.entry.instances).flatMap { instances in instances.values.map(\.phase) })
+}
+
+func show(_ fixture: Fixture, pid: Int32) async throws {
+    let shown: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+        of: .product(named: "watch-apps"),
+        arguments: ["show", fixture.identifier, "--pid", String(pid)],
+        as: WatchAppsLine.self,
+    )
+    expectNoDifference(shown.lines, [])
+    expectNoDifference(shown.status, .exited(0))
 }
 
 func expectRefusal(
@@ -176,33 +188,21 @@ func launch(
     flags: [String] = [],
     running: Set<Int32> = [],
 ) async throws -> (pid: Int32, lines: [WatchAppsLine]) {
-    let decoder: JSONDecoder = JSONDecoder()
-    let launched: ExecutionResult<[WatchAppsLine], SequenceOutput, DiscardedOutput> = try await Subprocess.run(
-        Configuration(
-            executable: .product(named: "watch-apps"),
-            arguments: Arguments(["launch", name ?? fixture.identifier] + flags + settings.arguments.flatMap { argument in ["--arguments", argument] }),
-            platformOptions: session(),
-        ),
-        input: .none,
-        output: .sequence,
-        error: .discarded,
-    ) { execution in
-        var seen: [WatchAppsLine] = []
-        for try await text: String in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded) where !text.isEmpty {
-            seen.append(try decoder.decode(WatchAppsLine.self, from: Data(text.utf8)))
-            if seen.last?.entry.instances?.values.contains(where: { instance in instance.phase != .launching }) == true { break }
-        }
-        if phases(in: seen).contains(.launching) { try execution.send(signal: .kill, toProcessGroup: true) }
-        return seen
-    }
-    let lines: [WatchAppsLine] = launched.closureResult
-    expectNoDifference(launched.terminationStatus, phases(in: lines).contains(.launching) ? .signaled(SIGKILL) : .exited(0))
+    let launched: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+        of: .product(named: "watch-apps"),
+        arguments: ["launch", name ?? fixture.identifier] + flags + settings.arguments.flatMap { argument in ["--arguments", argument] },
+        as: WatchAppsLine.self,
+    )
+    let lines: [WatchAppsLine] = launched.lines
+    expectNoDifference(launched.status, .exited(0))
+    expectNoDifference(phases(in: lines.dropLast(1)).subtracting([.launching]), [])
+    expectNoDifference(phases(in: lines.suffix(1)).subtracting([.launching]).isEmpty, false, "last line \(String(describing: lines.last))")
     let started: Set<Int32> = Set(try #require(lines.last?.entry.instances).keys).subtracting(running)
     expectNoDifference(started.count, 1)
     return (try #require(started.first), lines)
 }
 
-func read(_ fixture: Fixture, pid: Int32) async throws -> [WatchAppsLine.Element] {
+func status(of fixture: Fixture, pid: Int32) async throws -> WatchAppsLine.Status {
     let read: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
         arguments: ["read", fixture.identifier, "--pid", String(pid)],
@@ -210,8 +210,11 @@ func read(_ fixture: Fixture, pid: Int32) async throws -> [WatchAppsLine.Element
     )
     expectNoDifference(read.status, .exited(0))
     expectNoDifference(read.lines.map(\.key), [fixture.identifier])
-    let elements: [WatchAppsLine.Element]? = read.lines.first?.elements(of: pid)
-    return try #require(elements)
+    return try #require(read.lines.first?.entry.instances?[pid]?.running?.status)
+}
+
+func read(_ fixture: Fixture, pid: Int32) async throws -> [WatchAppsLine.Element] {
+    try #require(try await status(of: fixture, pid: pid).responding?.elements)
 }
 
 func perform(_ control: WatchAppsLine.Control, _ action: String = "AXPress") async throws {

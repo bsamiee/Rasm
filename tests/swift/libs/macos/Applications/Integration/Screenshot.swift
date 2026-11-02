@@ -150,6 +150,22 @@ extension Integration {
             try await dismiss(element)
         }
 
+        @Test(.application(FixtureApplication.self, launches: false))
+        func zeroSizeWindowCaptureFailsNamingItsNumberAndFrame() async throws {
+            let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings())
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
+            let seen: [Observed] = try await observe(
+                instance,
+                within: .seconds(15),
+                until: { seen in seen.last?.state.windows?.contains { window in window.frame.isEmpty } == true },
+                acting: { try await run(.collapsed, in: instance) },
+            )
+            let collapsed: Window = try #require(seen.last?.state.windows?.first { window in window.frame.isEmpty })
+            let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed.number) }
+            let absent: String = try #require(failure.reason[case: \.absent])
+            expectNoDifference(absent.contains(String(collapsed.number)), true, absent)
+        }
+
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func applicationCaptureHoldsOnScreenWindowsAlone() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()

@@ -1,8 +1,10 @@
 import AppKit
 import Applications
+import AsyncAlgorithms
 import CasePaths
 import CustomDump
 import Processes
+import ScreenCaptureKit
 import Subprocess
 import System
 import TestSupport
@@ -16,75 +18,65 @@ extension Integration {
     @Suite
     struct Launches {
         @Test(.application(FixtureApplication.self, launches: false))
-        func launchReusesRunningInstanceUnlessNewOneIsAsked() async throws {
+        func launchReusesRunningInstanceUnlessNewOneIsAskedAndLeavesEachRunning() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
-            let first: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true)))
-            try await first.instance.finishedLaunching()
+            let first: (instance: NSRunningApplication, created: Bool) = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true)))
+            await launched(first.instance)
             let facts: [String: Bool] = [
                 "created": first.created, "finished": first.instance.isFinishedLaunching, "agent": installation.agent, "runs": installation.runs(first.instance),
                 "runs current": installation.runs(.current),
             ]
             expectNoDifference(facts, ["created": true, "finished": true, "agent": true, "runs": true, "runs current": false])
-            let again: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true)))
+            let again: (instance: NSRunningApplication, created: Bool) = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true)))
             expectNoDifference([again.instance.processIdentifier: again.created], [first.instance.processIdentifier: false])
-            let second: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true), new: true))
-            try await second.instance.finishedLaunching()
+            let second: (instance: NSRunningApplication, created: Bool) = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true), new: true))
+            await launched(second.instance)
             expectNoDifference(second.created, true)
             expectNoDifference(Set(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier)), [first.instance.processIdentifier, second.instance.processIdentifier])
+            expectNoDifference([first.instance.isTerminated, second.instance.isTerminated], [false, false])
             let installed: [Installation] = try await Installation.installed(named: installation.identifier)
             expectNoDifference(installed, [installation])
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func createdInstanceQuitsWhenItsLaunchEndsAndReusedOneStays() async throws {
-            try checkAccessibilityTrust()
-            let installation: Installation = try installation()
-            func ended(new: Bool) async throws -> (pid: pid_t, created: Bool) {
-                let launch: Launch = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true), new: new))
-                try await launch.instance.finishedLaunching()
-                return (launch.instance.processIdentifier, launch.created)
-            }
-            let kept: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true))).detached()
-            try await kept.finishedLaunching()
-            let reused: (pid: pid_t, created: Bool) = try await ended(new: false)
-            let fresh: (pid: pid_t, created: Bool) = try await ended(new: true)
-            expectNoDifference([reused.created, fresh.created], [false, true])
-            let exit: Result<ProcessExit, Errno>? = await termination(of: fresh.pid).first { _ in true }
-            let gone: Bool = exit.map { exit in exit[case: \.success] != nil || exit == .failure(.noSuchProcess) } ?? false
-            #expect(gone, "created instance \(fresh.pid) ended with \(String(describing: exit))")
-            expectNoDifference(reused.pid, kept.processIdentifier)
-            #expect(!kept.isTerminated, "reused instance \(kept.processIdentifier) quit")
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
         func agentLaunchesShown() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
-            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings())).detached()
-            try await instance.finishedLaunching()
+            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings())).instance
+            await launched(instance)
             expectNoDifference([installation.agent, instance.isHidden], [true, false])
         }
 
-        @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
-        func launchHidesStaysReadableAndHasNoWindowToCapture() async throws {
+        @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular), .timeLimit(.minutes(1)))
+        func launchHidesStaysReadableWithNoWindowToCaptureUntilShown() async throws {
             try checkAccessibilityTrust()
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
             let installation: Installation = try installation()
-            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings())).detached()
-            try await instance.finishedLaunching()
+            let frontmost: pid_t? = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings())).instance
+            await launched(instance)
             expectNoDifference([instance.activationPolicy == .regular, instance.isHidden, instance.isActive], [true, true, false])
             let elements: [Element] = try await read(instance)
             expectNoDifference(elements.filter { element in element.role == kAXWindowRole }.compactMap(\.title), ["Fixture 0"])
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot() }
             let absent: Bool = failure.reason.is(\.absent)
             #expect(absent, "hidden capture failed \(failure.reason)")
+            try instance.show()
+            for await _: ContinuousClock.Instant in AsyncTimerSequence(interval: .milliseconds(50), clock: .continuous) where !instance.isHidden { break }
+            try instance.show()
+            let window: CGWindowID = try await numbered("Fixture 0", in: instance)
+            let captured: [CGWindowID] = try await instance.screenshot().windows
+            expectNoDifference(captured, [window])
+            expectNoDifference([instance.isHidden, instance.isActive], [false, false])
+            expectNoDifference(NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmost)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
         func selfEnforcedSingleInstanceAlertsInNewInstanceThenExits() async throws {
             let refusing: Settings = Settings(scenario: .singleInstance, hidden: true, status: 3)
             let (installation, first): (Installation, NSRunningApplication) = try await launched(refusing)
-            let second: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(refusing, new: true)).detached()
+            let second: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(refusing, new: true)).instance
             let asked: [Observed] = try await observe(second, within: .seconds(20), until: { seen in seen.last?.state.asking != nil })
             let alert: Element = try #require(asked.last?.state.asking)
             let refused: Bool = alert.detail?.text.contains("Another instance is running") == true
