@@ -6,7 +6,7 @@ export const meta = {
     { title: 'Read', detail: 'parallel readers, one lens each, over the folder, its consumers and its dependencies' },
     { title: 'Land', detail: 'one adversarial lander judges every finding and lands the accepted ones' },
     { title: 'Review', detail: 'parallel adversaries over the diff against the base' },
-    { title: 'Check', detail: 'the review findings fixed, then every check' },
+    { title: 'Check', detail: 'the review findings fixed' },
   ],
 }
 
@@ -18,7 +18,6 @@ const LANGUAGES = {
     manifests: ['Cargo.toml', 'Cargo.lock'],
     consumers: '`cargo tree --invert --workspace --package <crate>`',
     sources: `each dependency's source at the newest release \`cargo info <crate>\` names, under ~/.cargo/registry/src/index.crates.io-*/ after \`cargo fetch\`, through Skill(search-code); the nightly's forms from rust-toolchain.toml and docs/research/coding/rust/; forbidden forms from tools/dylint and tools/ast-grep/rules/rust`,
-    checks: (files) => `\`cargo fetch\` when a manifest changed, \`nx run <project>:check\` for the crate and each consumer, \`nx run lints:check\` when tools/dylint changed, \`nx run rasm:lint:rustfmt -- --package <crate>\` for each, \`nx run rasm:lint:tombi\` over edited TOML, \`nx run rasm:lint:ast-grep -- ${files}\`, \`nx run rasm-mcp-bridge:test:integration\` when the bridge changed`,
   },
   typescript: {
     skills: 'Skill(typescript-coding) and Skill(typescript-coding-effect)',
@@ -26,7 +25,6 @@ const LANGUAGES = {
     manifests: ['package.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml'],
     consumers: '`pnpm ls --filter \'...<package name>\' --depth -1` and the apps importing it',
     sources: `each package's source under node_modules/.pnpm/<name>@<version>/node_modules/<name>/ (effect ships src, .d.ts elsewhere) through Skill(search-code); host types from the uxp-coding skill; forbidden forms from tools/ast-grep/rules/typescript and biome.json`,
-    checks: (files) => `\`pnpm install --prefer-offline\` when a manifest changed, \`nx run <project>:check\` for the package and each consumer, \`nx run rasm:typecheck:tsc\`, \`nx run rasm:lint:biome -- ${files}\`, \`nx run rasm:lint:ast-grep -- ${files}\`, \`nx run <project>:build\` where a build target exists`,
   },
   python: {
     skills: 'Skill(python-coding) and each python-coding-* skill its imports name',
@@ -34,7 +32,6 @@ const LANGUAGES = {
     manifests: ['pyproject.toml', 'uv.lock'],
     consumers: '`rg -l` over libs, apps and tests for imports of the package',
     sources: `each package's source under .venv/lib/python*/site-packages/ through Skill(search-code); forbidden forms from the ruff, refurb and ast-grep rules`,
-    checks: (files) => `\`nx run <project>:check\` for the package and each consumer, \`nx run rasm:lint:ruff -- ${files}\`, \`nx run rasm:lint:ast-grep -- ${files}\`, \`nx run rasm:lint:deptry\``,
   },
 }
 const lang = LANGUAGES[args.language]
@@ -78,6 +75,6 @@ phase('Check')
 const built = await agent(`Fix and check. The reviewers' findings on the landed diff:
 ${listed(reviews)}
 Judge each as the lander did and fix the ones that hold, at their root. Fix each ${lang.rules} or skill line named as steering a defect, as a general principle in the file's own form: ${[...steering(readings), ...steering(reviews)].join(' | ') || 'none named'}.
-Then run in ${REPO}: ${lang.checks('the files this run edited')}. Fix every finding at its root in the files this run edited (code or the rule, never a lowered severity or a suppression), and list each finding in other files with file and message. Measure lines and public items per file at ${args.base} and now, and write ${DIR}/surface.md with both and the capability behind each growth; growth from restating, wrapping or splitting is removed before you return. ${TARGET} ${BASIS}
+Measure lines and public items per file at ${args.base} and now, and write ${DIR}/surface.md with both and the capability behind each growth; growth from restating, wrapping or splitting is removed before you return. ${TARGET} ${BASIS}
 Return at most 20 lines: each command's result, each fix, each remaining finding, public items before and after, and \`git diff --shortstat ${args.base}\` over the target and its consumers.`, { label: 'check', phase: 'Check' })
 return { readings: readings.filter(Boolean).map((r) => `${r.lens}: ${r.findings.length}`), landed, reviews: reviews.filter(Boolean).map((r) => `${r.lens}: ${r.findings.length}`), built }

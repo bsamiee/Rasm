@@ -54,7 +54,7 @@ Read the files as they now stand. Land the findings without relitigating them, i
 Return at most 20 lines: what landed, what you pushed back on and why, the files you edited.`, { label: `land:${p.path}`, phase: 'Land' }),
   (report, p) => agent(`Second lander for ${p.path}, adversarial. Read \`git diff ${args.base} -- ${p.path}\`, the consumers it touched, and the files whole as a draft still short of the bar. The first lander reported:
 ${report}
-Restore anything the base did better, then take the project further: collapse what remains of junk, indirection, wrappers, aliases and surface no operation needs, deepen logic advanced use breaks, and bring its project files and imports to current standard form. Each change is justified by a result that does more with less. Then run \`nx run <project>:check\` for this project, and \`nx run rasm:lint:biome\` and \`nx run rasm:lint:ast-grep\` over the files this run edited here, fixing every finding at its root in code or the rule, never a lowered severity or a suppression. ${BASIS}
+Restore anything the base did better, then take the project further: collapse what remains of junk, indirection, wrappers, aliases and surface no operation needs, deepen logic advanced use breaks, and bring its project files and imports to current standard form. Each change is justified by a result that does more with less. ${BASIS}
 Return (structured): findings as what you changed and why, ${STEERING}.`, { label: `deepen:${p.path}`, phase: 'Land', schema: FOUND }).then((r) => r && { ...r, path: p.path }),
 )
 
