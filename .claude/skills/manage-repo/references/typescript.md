@@ -26,7 +26,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Project `tsconfig.json` extends `tsconfig.base.json`, or the host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
-- Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules joins one entry's import graph
+- Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules sits in one entry's import graph
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)

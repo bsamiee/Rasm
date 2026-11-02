@@ -73,6 +73,15 @@ const FOREGROUND: Request = { tool: 'Bash', background: false, timeout: none };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// --- [WORDS]
+
+const quote = (word: string): string => (SAFE.test(word) ? word : `'${word.replaceAll("'", String.raw`'\''`)}'`);
+
+const assigned = ({ words, invocations: chain }: Command): readonly Word[] => words.slice(0, words.length - chain.reduce((sum, { length }) => sum + length, 0));
+
+const segments = (command: Command): readonly Segment[] =>
+    command.invocations.reduce<{ readonly at: number; readonly parts: readonly Segment[] }>(({ at, parts }, invocation) => ({ at: at + invocation.length, parts: [...parts, { invocation, words: command.words.slice(at, at + invocation.length) }] }), { at: assigned(command).length, parts: [] }).parts;
+
 // --- [DELETE]
 
 const deletes = ({ system: { root, home }, script: { commands }, project }: Call): readonly string[] => {
