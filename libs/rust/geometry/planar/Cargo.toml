@@ -1,0 +1,40 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-planar"
+version.workspace    = true
+edition.workspace    = true
+description          = "Planar polylines and regions over cavalier_contours at nalgebra signatures: line and arc polylines open or closed refused when non-finite, collapsed within the tolerance or self-intersecting, regions of line and arc polygons whose holes lie inside their exterior, from and into geo_types polygons, arc flattening, winding numbers, intersections, parallel offsets of polylines and regions, polyline booleans, constrained Delaunay triangulation with refinement, and Voronoi cells clipped to a boundary"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["polyline", "offset", "boolean", "triangulation", "voronoi"]
+categories           = ["graphics", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+nalgebra             = { workspace = true }
+cavalier_contours    = { workspace = true }
+spade                = { workspace = true }
+geo-types            = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

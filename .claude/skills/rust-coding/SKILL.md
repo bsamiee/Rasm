@@ -18,7 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values and methods that vary are parameters, a caller choosing among methods of one result (a percentile or BCa interval) rather than the callee fixing the costlier one, and kinds, keys, and states are typed values rather than strings
-- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a function the result it returns, a file its concept's
+- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name (`row_filter` for `with_row_filter`), or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a function the result it returns, a file its concept's
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
@@ -88,7 +88,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 }
 ```
 
-- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), a kept order (`Acyclic::nodes_iter`) read in place of a sort, and `fold` holds a reduction no member names
+- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), a kept order (`Acyclic::nodes_iter`) read in place of a sort, and `fold` holds a reduction no member names, never a side collection a second pass zips back by index
 - Adjacent pairs (`array_windows`, `map_windows`, `circular_tuple_windows` closing a ring) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
 - Steps every arm shares (reversing a graph for a direction) run once before the `match`
@@ -159,7 +159,7 @@ pub enum Delivery {
 - Data every variant shares sits in a struct beside a field holding the enum, variants sharing fields are one variant over an enum of the rest
 - Variants differing only by a tag are one struct keyed by a fieldless enum, and fields named per key (`early_start`, `late_start`) one `EnumMap`
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it, and `Option` fields read only together (`address.zip(port)`) one `Option` of a record
-- Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), `Result` holding failure alone
+- Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), each side holding the value a consumer reads (a station along both paths) in place of a package record's raw fields, `Result` holding failure alone
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
 - Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1, an empty name) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
@@ -168,7 +168,7 @@ pub enum Delivery {
 
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
-- `derive_more` `#[as_ref]` exposes a guarded record's field read-only, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
+- `derive_more` `#[as_ref]` exposes each field of a guarded record read-only, a result flag beside them included, never one `pub` field among guarded ones, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
 - `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context (a field default included) as `NonZero::new(<value>).unwrap()`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
@@ -176,7 +176,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - Rules across fields take `nutype` over a standard type of that shape, else over a declared record: an interval is a `core::range` value (`RangeInclusive<f64>`, `Copy` with public ends), an integer window whose type's maximum is a valid member (a Sobol index through `u16::MAX`) a nutype over `RangeInclusive<u16>` refusing `start > last`, never a half-open range or a count that tops out one short or admits an empty window, and a `core::ops` range stays where a wire derive reads it (serde implements `ops::Range<Timestamp>` alone)
 - Public fields hold values no rule across fields constrains, each field's own type validating it
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
-- Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry or a guard emptying the result
+- Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry, a guard emptying the result, or a predicate walk restating the transform's refusals
 - Tokens a value issues carry an invariant `'id` brand its scoped constructor binds, and another issuer's token fails to compile
 
 ### [03.3]-[OWNERSHIP]
@@ -248,7 +248,7 @@ Give each step a function and select the operator by the step's signature and by
 |  [04]   | Independent `Result`s          | `Validated::from`, `map2` to `map4`    | Joins every failure             |
 |  [05]   | Items with `T -> Result<U, E>` | `try_collect::<Vec<U>>()`              | Stops at the first failure      |
 |  [06]   | Items with `T -> Result<U, E>` | `collect::<Validated<Vec<U>, E>>()`    | Joins every failure             |
-|  [07]   | Items, failures kept apart     | `partition_result`                     | Splits successes from failures  |
+|  [07]   | Items, both sides read         | `partition_result`                     | Splits successes from failures  |
 |  [08]   | `Option<Result<T, E>>`         | `transpose`                            | Swaps nesting for `?`           |
 |  [09]   | `Option<(T, U)>`               | `unzip`                                | Splits pair, one `Option` each  |
 
@@ -267,7 +267,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 - `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
-- Errors from one traversed element name the element, its index or its key, a check over a matrix naming its column and row (`Start { chain, dimension }`), and each check runs where the input enters, before the step that would turn a bad value non-finite
+- Errors from one traversed element name the element, its index or its key, a check over a matrix naming its column and row (`Start { chain, dimension }`), each check runs where the input enters, before the step that would turn a bad value non-finite, and failures accumulated across elements one variant over an `NEVec` of subject and typed source pairs, never `NEVec<Self>`
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 - Infallible callbacks a foreign API types as fallible return `Ok::<_, !>(..)`, and the chain calls `into_ok()` for an `Err` type of `!`
 
@@ -295,7 +295,7 @@ pub enum LedgerError {
 
 - Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
 - Absent message fields render as what absence means (a package default)
-- Messages branching on a field or listing a variant's `NEVec` (one `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
+- Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
 - Boundaries `map_err` a foreign error into a variant holding the operation or the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
@@ -311,7 +311,7 @@ pub enum LedgerError {
 
 ### [04.3]-[EXIT]
 
-Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Layer errors convert through `impl<X> From<LayerError<X>> for ExitCode where X: Into<Self>`. Accumulated failures exit with the first one's status, the variant holding an `NEVec` of crate errors converting its first through `Self::from` in place of a status of its own:
+Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Layer errors convert through `impl<X> From<LayerError<X>> for ExitCode where X: Into<Self>`. Accumulated failures exit with the first one's status, the variant converting the source of its `NEVec`'s first item in place of a status of its own:
 
 ```rust
 impl From<LedgerError> for ExitCode {
