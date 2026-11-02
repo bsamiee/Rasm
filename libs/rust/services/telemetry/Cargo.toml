@@ -28,6 +28,7 @@ sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
+strum                              = { workspace = true }
 json-subscriber                    = { workspace = true }
 log                                = { workspace = true }
 opentelemetry                      = { workspace = true }

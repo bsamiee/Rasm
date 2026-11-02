@@ -13,7 +13,7 @@ use clap::{ArgMatches, Args, Command, CommandFactory, FromArgMatches, ValueHint,
 use clap_complete::CompleteEnv;
 use futures::stream;
 use nonempty_collections::NEVec;
-use rasm_telemetry::Defaults;
+use rasm_telemetry::{Defaults, Handle, Layer, MakeWriter};
 use tokio::runtime::Runtime;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
@@ -28,12 +28,7 @@ use tracing_appender::{
     non_blocking::NonBlockingBuilder,
     rolling::{InitError, RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{
-    EnvFilter, Layer, Registry,
-    fmt::writer::{MakeWriter, MakeWriterExt as _, OptionalWriter},
-    layer::Layered,
-    reload,
-};
+use tracing_subscriber::fmt::writer::{MakeWriterExt as _, OptionalWriter};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -109,7 +104,7 @@ where
 pub struct Process<A> {
     pub args: A,
     pub signals: Signals,
-    pub filter: reload::Handle<EnvFilter, Registry>,
+    pub filter: Handle,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -153,8 +148,8 @@ fn augmented(program: Command, augment: impl FnOnce(Command) -> Command) -> Comm
 pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
-    W: for<'writer> MakeWriter<'writer> + Clone + Send + Sync + 'static,
-    L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
+    W: MakeWriter,
+    L: Layer,
     T: Termination,
     E: Error + From<CommandError> + Into<sysexits::ExitCode>,
 {
@@ -196,7 +191,7 @@ where
             .into_iter()
             .try_collect::<Signals>()
             .map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Signal, source })))?;
-            work(Process { args, signals, filter: filter.clone() }).await
+            work(Process { args, signals, filter }).await
         })
     })
 }

@@ -9,10 +9,9 @@ use futures::{FutureExt as _, StreamExt as _, future};
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, SERVER_ADDRESS, SERVER_PORT};
 use rasm_command::{Augmented, CommandError, Process};
-use rasm_telemetry::Defaults;
+use rasm_telemetry::{Defaults, Layer};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::{EnvFilter, Layer, Registry, layer::Layered, reload};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -83,7 +82,7 @@ where X: Into<Self>
 pub fn run<A, L, D>(defaults: Defaults, layer: L, start: impl AsyncFnOnce(A, SocketAddr, CancellationToken) -> Result<D, D::Error>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
-    L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
+    L: Layer,
     D: Daemon,
 {
     rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen }, args }, mut signals, filter: _ }| {

@@ -4381,7 +4381,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
  "validated",
 ]
 
@@ -4426,6 +4425,7 @@ dependencies = [
  "matchit 0.9.2",
  "nonempty-collections",
  "opentelemetry",
+ "opentelemetry-http",
  "opentelemetry-semantic-conventions",
  "percent-encoding",
  "rasm-command",
@@ -4618,6 +4618,7 @@ dependencies = [
  "opentelemetry-resource-detectors",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
+ "strum",
  "sysexits",
  "thiserror 2.0.21",
  "tracing",

@@ -1,21 +1,25 @@
-#![feature(default_field_values, error_reporter, try_blocks_heterogeneous)]
+#![feature(default_field_values, error_reporter, trait_alias, try_blocks_heterogeneous)]
 
-use core::error::Error;
+use core::{error::Error, iter};
 use std::{
     backtrace::Backtrace,
     borrow::Cow,
+    collections::HashMap,
     error::Report,
+    io,
     mem::DropGuard,
-    panic,
+    panic::{self, PanicHookInfo},
     process::{ExitCode, Termination},
+    sync::Arc,
+    thread,
 };
 
-use clap::{Args, Command, ValueEnum};
+use clap::{ArgAction, Args, Command, ValueEnum};
 use json_subscriber::JsonLayer;
 use log::SetLoggerError;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use opentelemetry::{
-    InstrumentationScope, Key, KeyValue, global,
+    Context, InstrumentationScope, Key, KeyValue, global,
     propagation::{TextMapCompositePropagator, TextMapPropagator},
     trace::TracerProvider as _,
 };
@@ -24,7 +28,7 @@ use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, SpanEx
 use opentelemetry_resource_detectors::{ContainerResourceDetector, HostResourceDetector, OsResourceDetector, ProcessResourceDetector, ServiceInstanceIdResourceDetector};
 use opentelemetry_sdk::{
     Resource,
-    error::{OTelSdkError, OTelSdkResult},
+    error::OTelSdkError,
     logs::{LoggerProviderBuilder, SdkLoggerProvider},
     metrics::{MeterProviderBuilder, SdkMeterProvider},
     propagation::{BaggagePropagator, TraceContextPropagator},
@@ -35,16 +39,17 @@ use opentelemetry_semantic_conventions::{
     SCHEMA_URL,
     attribute::{CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME},
 };
+use strum::VariantArray as _;
 use tracing::{
     Dispatch, Subscriber, dispatcher,
     subscriber::{self, SetGlobalDefaultError},
 };
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    EnvFilter, Layer, Registry,
+    EnvFilter, Registry,
     filter::{Directive, LevelFilter, ParseError},
-    fmt::{MakeWriter, time::SystemTime},
-    layer::{Layered, SubscriberExt as _},
+    fmt::{self, time::SystemTime},
+    layer::{self, Layered, SubscriberExt as _},
     registry::LookupSpan,
     reload,
 };
@@ -52,12 +57,26 @@ use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, derive_more::Display)]
+pub trait MakeWriter = for<'writer> fmt::MakeWriter<'writer> + Clone + Send + Sync + 'static;
+
+pub trait Layer = layer::Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static;
+
+pub type Handle = reload::Handle<EnvFilter, Registry>;
+
+#[derive(Clone, Copy, Debug, derive_more::Display, strum::VariantArray)]
 #[display(rename_all = "lowercase")]
 enum Signal {
     Traces,
     Metrics,
     Logs,
+}
+
+#[derive(Clone, Copy, Debug, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+enum Operation {
+    Flush,
+    #[display("shut down")]
+    Shutdown,
 }
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum, derive_more::IsVariant)]
@@ -101,13 +120,21 @@ pub struct Options {
     metrics_exporter: Exporter,
     #[arg(long, global = true, env = "OTEL_LOGS_EXPORTER", value_name = "EXPORTER", value_enum, default_value_t, help = "Exporter receiving log records")]
     logs_exporter: Exporter,
+    #[arg(long, global = true, env = "OTEL_SDK_DISABLED", value_name = "BOOL", action = ArgAction::Set, default_value_t, help = "Disable every signal's exporter")]
+    sdk_disabled: bool,
+    #[arg(long, global = true, hide = true, env)]
+    traceparent: Option<String>,
+    #[arg(long, global = true, hide = true, env)]
+    tracestate: Option<String>,
+    #[arg(long, global = true, hide = true, env)]
+    baggage: Option<String>,
 }
 
 impl Options {
-    pub fn run<W, L, T, E>(self, command: &Command, defaults: Defaults, writer: W, layer: L, work: impl FnOnce(&reload::Handle<EnvFilter, Registry>) -> Result<T, NEVec<E>>) -> ExitCode
+    pub fn run<W, L, T, E>(self, command: &Command, defaults: Defaults, writer: W, layer: L, work: impl FnOnce(Handle) -> Result<T, NEVec<E>>) -> ExitCode
     where
-        W: for<'writer> MakeWriter<'writer> + Clone + Send + Sync + 'static,
-        L: Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static,
+        W: MakeWriter,
+        L: Layer,
         T: Termination,
         E: Error + Into<sysexits::ExitCode>,
     {
@@ -117,10 +144,10 @@ impl Options {
                 Exporter::Otlp => build().map(Some).map_err(|source| TelemetryError::Build { signal, source }).into(),
             }
         }
-        fn json<S, W>(resource: &Resource, writer: W) -> JsonLayer<S, W>
+        fn json<S, M>(resource: &Resource, writer: M) -> JsonLayer<S, M>
         where
             S: Subscriber + for<'span> LookupSpan<'span>,
-            W: for<'writer> MakeWriter<'writer> + 'static,
+            M: MakeWriter,
         {
             let mut layer = JsonLayer::new(writer);
             layer
@@ -147,13 +174,34 @@ impl Options {
         where F: Into<sysexits::ExitCode> {
             sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
         }
-        fn flushed(results: impl IntoIterator<Item = (Signal, OTelSdkResult)>) -> Result<(), NEVec<TelemetryError>> {
-            results.into_iter().map(|(signal, result)| result.map_err(|source| TelemetryError::Flush { signal, source })).collect::<Validated<(), _>>().ok()
-        }
-        fn shutdown((traces, metrics, logs): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)) -> Result<(), NEVec<TelemetryError>> {
-            flushed([(Signal::Traces, traces.shutdown()), (Signal::Metrics, metrics.shutdown()), (Signal::Logs, logs.shutdown())])
-        }
-        let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter } = self;
+        let settled = |operation: Operation, (traces, metrics, logs): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)| {
+            thread::scope(|scope| {
+                let spawned = match operation {
+                    Operation::Flush => [
+                        thread::Builder::new().spawn_scoped(scope, || traces.force_flush()),
+                        thread::Builder::new().spawn_scoped(scope, || metrics.force_flush()),
+                        thread::Builder::new().spawn_scoped(scope, || logs.force_flush()),
+                    ],
+                    Operation::Shutdown => [
+                        thread::Builder::new().spawn_scoped(scope, || traces.shutdown()),
+                        thread::Builder::new().spawn_scoped(scope, || metrics.shutdown()),
+                        thread::Builder::new().spawn_scoped(scope, || logs.shutdown()),
+                    ],
+                };
+                iter::zip(Signal::VARIANTS, spawned)
+                    .map(|(&signal, spawned)| {
+                        spawned
+                            .map_err(|source| TelemetryError::Spawn { operation, signal, source })?
+                            .join()
+                            .unwrap_or_else(|payload| panic::resume_unwind(payload))
+                            .map_err(|source| TelemetryError::Sdk { operation, signal, source })
+                    })
+                    .collect::<Validated<(), _>>()
+                    .ok()
+            })
+        };
+        let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter, sdk_disabled, traceparent, tracestate, baggage } = self;
+        let [traces_exporter, metrics_exporter, logs_exporter] = [traces_exporter, metrics_exporter, logs_exporter].map(|exporter| if sdk_disabled { Exporter::None } else { exporter });
         let Defaults { directives, attributes } = defaults;
         let detectors: [Box<dyn ResourceDetector>; _] =
             [Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(ProcessResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)];
@@ -170,17 +218,21 @@ impl Options {
         let early = Dispatch::new(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN));
         let started = dispatcher::with_default(&early, || {
             (try bikeshed Result<_, NEVec<TelemetryError>> {
-                let (filter, span_exporter, metric_exporter, log_exporter) = Validated::from(EnvFilter::try_new(&directives).map_err(|source| TelemetryError::Filter { directives, source }))
+                let (filter, traces, metrics, logs) = Validated::from(EnvFilter::try_new(&directives).map_err(|source| TelemetryError::Filter { directives, source }))
                     .map4(
                         built(Signal::Traces, traces_exporter, || SpanExporter::builder().build()),
                         built(Signal::Metrics, metrics_exporter, || MetricExporter::builder().build()),
                         built(Signal::Logs, logs_exporter, || LogExporter::builder().build()),
-                        |filter, span_exporter, metric_exporter, log_exporter| (filter, span_exporter, metric_exporter, log_exporter),
+                        |filter, span_exporter, metric_exporter, log_exporter| {
+                            (
+                                filter,
+                                span_exporter.into_iter().fold(SdkTracerProvider::builder().with_resource(resource.clone()), TracerProviderBuilder::with_batch_exporter).build(),
+                                metric_exporter.into_iter().fold(SdkMeterProvider::builder().with_resource(resource.clone()), MeterProviderBuilder::with_periodic_exporter).build(),
+                                log_exporter.into_iter().fold(SdkLoggerProvider::builder().with_resource(resource.clone()), LoggerProviderBuilder::with_batch_exporter).build(),
+                            )
+                        },
                     )
                     .ok()?;
-                let traces = span_exporter.into_iter().fold(SdkTracerProvider::builder().with_resource(resource.clone()), TracerProviderBuilder::with_batch_exporter).build();
-                let metrics = metric_exporter.into_iter().fold(SdkMeterProvider::builder().with_resource(resource.clone()), MeterProviderBuilder::with_periodic_exporter).build();
-                let logs = log_exporter.into_iter().fold(SdkLoggerProvider::builder().with_resource(resource.clone()), LoggerProviderBuilder::with_batch_exporter).build();
                 let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build();
                 let (filter, handle) = reload::Layer::new(log.into_iter().fold(filter, EnvFilter::add_directive));
                 let dispatched = tracing_subscriber::registry()
@@ -189,8 +241,9 @@ impl Options {
                     .with(json(&resource, writer))
                     .with(tracing_opentelemetry::layer().with_tracer(traces.tracer_with_scope(scope)))
                     .with(OpenTelemetryTracingBridge::builder(&logs).with_tracing_span_attributes(TracingSpanAttributes::all()).build());
-                subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| NEVec::new(TelemetryError::Dispatch))?;
-                LogTracer::init().map_err(|SetLoggerError { .. }| NEVec::new(TelemetryError::Forward))?;
+                Validated::from(subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| TelemetryError::Dispatch))
+                    .map2(Validated::from(LogTracer::init().map_err(|SetLoggerError { .. }| TelemetryError::Forward)), |(), ()| ())
+                    .ok()?;
                 (traces, metrics, logs, handle)
             })
             .inspect_err(reported)
@@ -213,17 +266,25 @@ impl Options {
                 })
                 .collect(),
         ));
-        let hooked = (traces.clone(), metrics.clone(), logs.clone());
-        let stopping = DropGuard::new((traces, metrics, logs), |providers| shutdown(&providers).unwrap_or_else(|errors| reported(&errors)));
+        let carried = [(stringify!(traceparent), traceparent), (stringify!(tracestate), tracestate), (stringify!(baggage), baggage)]
+            .into_iter()
+            .filter_map(|(field, value)| Some((field.to_owned(), value?)))
+            .collect::<HashMap<_, _>>();
+        let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carried));
+        let previous: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync> = panic::take_hook().into();
+        let (chained, hooked) = (Arc::clone(&previous), (traces.clone(), metrics.clone(), logs.clone()));
+        let stopping = DropGuard::new((traces, metrics, logs), move |providers| settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
+        panic::set_hook(Box::new(move |info| {
+            tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
+            settled(Operation::Flush, &hooked).unwrap_or_else(|errors| reported(&errors));
+            chained(info);
+        }));
         let worked = {
-            let _restore = DropGuard::new(panic::take_hook(), panic::set_hook);
-            panic::set_hook(Box::new(move |info| {
-                tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
-                flushed([(Signal::Traces, hooked.0.force_flush()), (Signal::Metrics, hooked.1.force_flush()), (Signal::Logs, hooked.2.force_flush())]).unwrap_or_else(|errors| reported(&errors));
-            }));
-            work(&handle).inspect_err(reported)
+            let _parent = parent.attach();
+            work(handle).inspect_err(reported)
         };
-        let stopped = shutdown(&DropGuard::dismiss(stopping)).inspect_err(reported);
+        panic::set_hook(Box::new(move |info| previous(info)));
+        let stopped = settled(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);
         match (worked, stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
             (Err(failures), _) => status(failures),
@@ -244,16 +305,38 @@ enum TelemetryError {
     Dispatch,
     #[error("cannot forward log records, a logger is installed")]
     Forward,
-    #[error("cannot flush {signal}")]
-    Flush { signal: Signal, source: OTelSdkError },
+    #[error("cannot start a thread to {operation} {signal}")]
+    Spawn { operation: Operation, signal: Signal, source: io::Error },
+    #[error("cannot {operation} {signal}")]
+    Sdk { operation: Operation, signal: Signal, source: OTelSdkError },
 }
 
 impl From<TelemetryError> for sysexits::ExitCode {
     fn from(value: TelemetryError) -> Self {
         match value {
-            TelemetryError::Filter { directives: _, source: _ } | TelemetryError::Dispatch | TelemetryError::Forward => Self::Software,
+            TelemetryError::Filter { directives: _, source: _ }
+            | TelemetryError::Dispatch
+            | TelemetryError::Forward
+            | TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::AlreadyShutdown } => Self::Software,
             TelemetryError::Build { signal: _, source: _ } => Self::Config,
-            TelemetryError::Flush { signal: _, source: _ } => Self::Unavailable,
+            TelemetryError::Spawn { operation: _, signal: _, source } => source.into(),
+            TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::Timeout(_) } => Self::TempFail,
+            TelemetryError::Sdk { operation: _, signal: _, source: OTelSdkError::InternalFailure(_) } => Self::Unavailable,
         }
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+pub fn environment(context: &Context) -> impl Iterator<Item = (String, String)> {
+    global::get_text_map_propagator(|propagator| {
+        let mut carried = HashMap::new();
+        propagator.inject_context(context, &mut carried);
+        carried
+    })
+    .into_iter()
+    .map(|(field, value)| {
+        let prefix = field.chars().next().is_none_or(|first| first.is_ascii_digit()).then_some('_');
+        (iter::chain(prefix, field.chars().map(|character| if character.is_ascii_alphanumeric() { character.to_ascii_uppercase() } else { '_' })).collect(), value)
+    })
 }

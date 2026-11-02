@@ -606,7 +606,7 @@ tracing-test           = "0.2.6"                                                
 wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
 
 # --- [MEMBERS]
-rasm-telemetry  = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
+rasm-telemetry  = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, parent context from the environment carrier and its injection into a child's, providers flushed on panic and shut down concurrently, exit status
 rasm-command    = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
 rasm-output     = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
 rasm-screen     = { path = "libs/rust/cli/screen", version = "1.0.0" }         # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view

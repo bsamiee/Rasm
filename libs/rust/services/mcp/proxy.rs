@@ -7,7 +7,7 @@ use futures::{
     future::{BoxFuture, Shared},
     stream,
 };
-use opentelemetry::global;
+use opentelemetry::{Context, global};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::{
     ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, ServerHandler, Service, ServiceError,
@@ -15,9 +15,9 @@ use rmcp::{
     model::{
         CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientCapabilities, ClientConfig, ClientRequest, ClientResult, CompleteRequest,
         CompleteRequestParams, CompleteResult, CustomRequest, CustomResult, GetMeta as _, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetPromptResult, GetTaskParams, GetTaskRequest,
-        GetTaskResult, Implementation, JsonObject, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult,
-        ListToolsRequest, ListToolsResult, MetaObject, PaginatedRequestParams, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
-        RequestMetaObject, ResultType, ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
+        GetTaskResult, Implementation, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest,
+        ListToolsResult, MetaObject, PaginatedRequestParams, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, RequestMetaObject, ResultType,
+        ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
     },
     service::{NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
     transport::{IntoTransport, TokioChildProcess},
@@ -29,10 +29,8 @@ use tokio::{
 };
 use tokio_stream::wrappers::{BroadcastStream, SplitStream, errors::BroadcastStreamRecvError};
 use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
-use tracing::Span;
-use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 
-use crate::{Endpoint, McpError, Notifier, Progress, host::Response, internal, listed, resynced, versions};
+use crate::{Endpoint, McpError, Meta, Notifier, Progress, host::Response, internal, listed, resynced, versions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -78,7 +76,7 @@ pub struct Proxy {
 impl Proxy {
     pub async fn spawn(mut command: Command, identity: Implementation, notifier: Notifier) -> Result<Self, McpError> {
         let program = command.as_std().get_program().to_owned();
-        command.kill_on_drop(true);
+        command.kill_on_drop(true).envs(rasm_telemetry::environment(&Context::current()));
         let (transport, stderr) = TokioChildProcess::builder(command).stderr(Stdio::piped()).spawn().map_err(|source| McpError::Spawn { command: program, source })?;
         let stderr = stderr.map(|stderr| {
             let logged =
@@ -123,11 +121,7 @@ impl Proxy {
         let meta = request.get_meta_mut();
         *meta = context.meta.clone();
         scrub(meta);
-        meta.extend(RequestMetaObject::from(global::get_text_map_propagator(|propagator| {
-            let mut carried = HashMap::new();
-            propagator.inject_context(&Span::current().context(), &mut carried);
-            carried.into_iter().map(|(key, value)| (key, value.into())).collect::<JsonObject>()
-        })));
+        global::get_text_map_propagator(|propagator| propagator.inject_context(&Context::current(), &mut Meta(&mut meta.0)));
         let downstream = context.client_info().zip(context.client_capabilities()).filter(|_| !self.version.has_initialize());
         let options = downstream
             .into_iter()

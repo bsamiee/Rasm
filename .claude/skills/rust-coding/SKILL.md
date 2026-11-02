@@ -255,7 +255,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names:
+Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names, and a variant whose words differ from its name (`Shutdown` as `shut down`) takes its own `#[display(..)]`:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]

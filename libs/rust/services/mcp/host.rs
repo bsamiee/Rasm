@@ -1,7 +1,7 @@
 use core::net::SocketAddr;
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     error::Report,
     process,
     sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
@@ -16,9 +16,9 @@ use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStre
 use opentelemetry::{
     Context, InstrumentationScope, KeyValue, global,
     metrics::Histogram,
-    propagation::TextMapPropagator,
     trace::{Status, TraceContextExt as _},
 };
+use opentelemetry_http::HeaderExtractor;
 use opentelemetry_semantic_conventions::attribute::{
     ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, NETWORK_PEER_ADDRESS, NETWORK_PEER_PORT, NETWORK_PROTOCOL_NAME, NETWORK_TRANSPORT, RPC_RESPONSE_STATUS_CODE,
 };
@@ -53,7 +53,7 @@ use tracing::{
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
 use tracing_subscriber::layer::Identity;
 
-use crate::{Endpoint, McpError, Notifier, listed, resynced, versions};
+use crate::{Endpoint, McpError, Meta, Notifier, listed, resynced, versions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -221,9 +221,6 @@ where E: Endpoint
         const MCP_SERVER_OPERATION_DURATION: &str = "mcp.server.operation.duration";
         const EXECUTE_TOOL: &str = "execute_tool";
         static OPERATION: LazyLock<Histogram<f64>> = LazyLock::new(|| duration(MCP_SERVER_OPERATION_DURATION));
-        fn extracted<'value>(propagator: &dyn TextMapPropagator, carried: impl Fn(&str) -> Option<&'value str>) -> Context {
-            propagator.extract_with_context(&Context::new(), &propagator.fields().filter_map(|field| carried(field).map(|value| (field.to_owned(), value.to_owned()))).collect::<HashMap<_, _>>())
-        }
         let _held = self.host.requests.token();
         let (version, parts) = (context.protocol_version(), context.extensions.get::<Parts>());
         let peer = parts.and_then(|parts| parts.extensions.get::<ConnectInfo<SocketAddr>>()).map(|&ConnectInfo(peer)| peer);
@@ -254,13 +251,8 @@ where E: Endpoint
         );
         let (carried, transported) = global::get_text_map_propagator(|propagator| {
             (
-                extracted(propagator, |field| {
-                    context
-                        .meta
-                        .get(field)
-                        .and_then(|value| serde_path_to_error::deserialize(value).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "trace context unread")).ok())
-                }),
-                parts.map_or_else(Context::new, |parts| extracted(propagator, |field| parts.headers.get(field).and_then(|value| value.to_str().ok()))),
+                propagator.extract_with_context(&Context::new(), &Meta(&context.meta.0)),
+                parts.map_or_else(Context::new, |parts| propagator.extract_with_context(&Context::new(), &HeaderExtractor(&parts.headers))),
             )
         });
         let (parent, linked) = match (carried.has_active_span(), transported.has_active_span()) {

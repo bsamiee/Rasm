@@ -4,6 +4,7 @@ use core::{
     error::Error,
     fmt,
     future::{Ready, ready},
+    ops::{Deref, DerefMut},
     pin::pin,
     str::Utf8Error,
 };
@@ -12,11 +13,12 @@ use std::{borrow::Cow, error::Report, ffi::OsString, io};
 use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::{ValidationError, paths::Location};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+use opentelemetry::propagation::{Extractor, Injector};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
-        ErrorCode, ProgressNotificationParam, ProgressToken, PromptListChangedNotification, ProtocolVersion, ResourceListChangedNotification, ResourceUpdatedNotification,
+        ErrorCode, MetaObject, ProgressNotificationParam, ProgressToken, PromptListChangedNotification, ProtocolVersion, ResourceListChangedNotification, ResourceUpdatedNotification,
         ResourceUpdatedNotificationParam, ServerCapabilities, ServerNotification, SubscriptionFilter, ToolListChangedNotification,
     },
     service::{ClientInitializeError, RequestContext},
@@ -50,6 +52,26 @@ pub enum Unanswered {
     Unsupported,
     #[display("call ended before user answered, call again")]
     Abandoned,
+}
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct Meta<M>(M);
+
+impl<M> Extractor for Meta<M>
+where M: Deref<Target = MetaObject>
+{
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|value| serde_path_to_error::deserialize(value).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "trace context unread")).ok())
+    }
+
+    fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
+}
+
+impl<M> Injector for Meta<M>
+where M: DerefMut<Target = MetaObject>
+{
+    fn set(&mut self, key: &str, value: String) { self.0.insert(key.to_owned(), value.into()); }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

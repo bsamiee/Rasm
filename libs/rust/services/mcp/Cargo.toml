@@ -46,6 +46,7 @@ matchit                            = { workspace = true }
 percent-encoding                   = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry                      = { workspace = true }
+opentelemetry-http                 = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-opentelemetry              = { workspace = true }
