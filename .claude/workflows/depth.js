@@ -11,7 +11,6 @@ export const meta = {
 }
 
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const HOSTS = 'Hosts run in the background through Atelier\'s MCP tools and watch-apps; nothing activates an app or takes the owner\'s focus.'
 const LANGUAGES = {
   rust: {
     skills: 'Skill(rust-coding)',
@@ -42,27 +41,21 @@ const lang = LANGUAGES[args.language]
 const ROOT = `libs/${args.language}/${args.key}`
 const DIR = `${REPO}/.artifacts/workflows/depth/${args.language}/${args.key}`
 const TARGET = `Target: ${ROOT} in ${REPO}, its consumers (${lang.consumers}) and its rows in ${lang.manifests.join(', ')}; base commit ${args.base}.`
-const BASIS = `Load ${lang.skills} first; they and ${lang.rules} decide every line, and the folder's [03] row there, where one exists, is its specification. The folder is a library for downstream software no one has written yet: present code and consumers hold no authority, general capability it holds stays, and every consumer moves to the new form. It holds the full capability its domain needs under advanced use in the fewest public and internal items: values derived from their owner and parameterized where they repeat, no stringly type, arbitrary constant, wrapper, forwarder, alias or shim, nothing hand-rolled that a dependency member states, every dependency used through its full members. Thread safety and performance hold, with no indirection. A change lands only when its result does more with less than its base; growth stands only for capability the base lacked or held shallowly. An item with no present caller stays, a weak one is rebuilt. Read behavior from ${lang.sources}. ${HOSTS}`
+const BASIS = `Load ${lang.skills} first; they and ${lang.rules} decide every line, and the folder's [03] row there, where one exists, is its specification. The folder is a library for downstream software no one has written yet: present code and consumers hold no authority, general capability it holds stays, and every consumer moves to the new form. It holds the full capability its domain needs under advanced use in the fewest public and internal items: values derived from their owner and parameterized where they repeat, no stringly type, arbitrary constant, wrapper, forwarder, alias or shim, nothing hand-rolled that a dependency member states, every dependency used through its full members. Thread safety and performance hold, with no indirection. A change lands only when its result does more with less than its base; growth stands only for capability the base lacked or held shallowly. An item with no present caller stays, a weak one is rebuilt. Read behavior from ${lang.sources}. Hosts run in the background through Atelier's MCP tools and watch-apps; nothing activates an app or takes the owner's focus.`
 const SILENT = 'Report only what changes code, each with file and line; say nothing about what holds.'
 const FOUND = { type: 'object', properties: { findings: { type: 'array', items: { type: 'object', properties: { file: { type: 'string' }, line: { type: 'integer' }, change: { type: 'string' }, gain: { type: 'string' } }, required: ['file', 'change', 'gain'] } }, steering: { type: 'array', items: { type: 'string' } } }, required: ['findings', 'steering'] }
 const listed = (results) => results.filter(Boolean).flatMap((r) => r.findings.map((f) => `- [${r.lens}] ${f.file}:${f.line ?? ''} ${f.change} (${f.gain})`)).join('\n')
 const steering = (results) => results.filter(Boolean).flatMap((r) => r.steering)
 
-const READERS = [
+
+phase('Read')
+const readings = await parallel([
   { lens: 'capability', ask: 'Work out the domain and the operations downstream software performs in it under real, advanced use (degenerate, large, malformed and partial input, precision and tolerance, concurrency and cancellation, every variant the domain holds), and name each capability the folder lacks or holds shallowly, as stronger logic inside an operation or an operation the domain needs, never convenience surface.' },
   { lens: 'dependencies', ask: 'Read each dependency at its newest release for every member and feature that states a capability the folder needs or replaces logic it writes by hand, and each package the folder should add, replace or drop.' },
   { lens: 'reduction', ask: 'Name each piece of hand logic, restated value or type, stringly type, arbitrary constant, wrapper, forwarder, alias and helper, each item one parameterized item would state, and each public or internal item that collapses, with the derived or parameterized form that replaces it.' },
   { lens: 'correctness', ask: 'Name each defect: wrong results at edges, malformed or partial input, precision, error paths that lose their cause, thread safety, blocking or starved work, needless allocation, copies and slow paths.' },
   { lens: 'shape', ask: 'Name each file that holds more than one concept or a concept split across files, each folder that sprawls or holds one file, nested or branching control flow that flattens, each coined or vague name, and each consumer that adapts, wraps or reshapes the folder instead of calling it directly.' },
-]
-const REVIEWERS = [
-  { lens: 'additions', ask: 'For each item the diff adds: it serves an operation a consumer could not perform before, holds under advanced use, carries no stringly type, needless constant, type or record, and stands in its strongest form; otherwise name its fix or its removal.' },
-  { lens: 'regressions', ask: 'For each item the diff removes or changes: name each capability or behavior the base held that is now lost, each lowered lint or suppression, each dropped Send, Sync or cancellation, each slower path, and each consumer left on the old form.' },
-  { lens: 'reduction', ask: 'Over the folder as it now stands, name what still collapses: surface, parameterization, derivation, file shape and control flow.' },
-]
-
-phase('Read')
-const readings = await parallel(READERS.map((r) => () => agent(`Reader, ${r.lens} lens. Read ${ROOT} whole, its consumers and its dependencies. ${r.ask} Treat the folder as a shallow draft: a file earns no finding only where you can name the advanced use it handles and the dependency members you read. ${SILENT} Edit nothing. ${TARGET} ${BASIS}
+].map((r) => () => agent(`Reader, ${r.lens} lens. Read ${ROOT} whole, its consumers and its dependencies. ${r.ask} Treat the folder as a shallow draft: a file earns no finding only where you can name the advanced use it handles and the dependency members you read. ${SILENT} Edit nothing. ${TARGET} ${BASIS}
 Return (structured): findings, and each ${lang.rules} or skill line that steered a defect, quoted (empty when none).`, { label: `read:${r.lens}`, phase: 'Read', schema: FOUND }).then((found) => found && { lens: r.lens, ...found })))
 
 phase('Land')
@@ -72,7 +65,11 @@ Judge each as an adversary: reject a weak, cosmetic or regressive finding, one t
 Return at most 25 lines: what landed with the capability or form each adds, what you rejected and why, and the files you edited.`, { label: 'land', phase: 'Land' })
 
 phase('Review')
-const reviews = await parallel(REVIEWERS.map((r) => () => agent(`Reviewer, ${r.lens} lens. Read \`git diff ${args.base} -- ${ROOT}\` and the consumers it touched, then the files whole. ${r.ask} The lander reported:
+const reviews = await parallel([
+  { lens: 'additions', ask: 'For each item the diff adds: it serves an operation a consumer could not perform before, holds under advanced use, carries no stringly type, needless constant, type or record, and stands in its strongest form; otherwise name its fix or its removal.' },
+  { lens: 'regressions', ask: 'For each item the diff removes or changes: name each capability or behavior the base held that is now lost, each lowered lint or suppression, each dropped Send, Sync or cancellation, each slower path, and each consumer left on the old form.' },
+  { lens: 'reduction', ask: 'Over the folder as it now stands, name what still collapses: surface, parameterization, derivation, file shape and control flow.' },
+].map((r) => () => agent(`Reviewer, ${r.lens} lens. Read \`git diff ${args.base} -- ${ROOT}\` and the consumers it touched, then the files whole. ${r.ask} The lander reported:
 ${landed}
 ${SILENT} Edit nothing. ${TARGET} ${BASIS}
 Return (structured): findings, and each ${lang.rules} or skill line that steered a defect, quoted (empty when none).`, { label: `review:${r.lens}`, phase: 'Review', schema: FOUND }).then((found) => found && { lens: r.lens, ...found })))

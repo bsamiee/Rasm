@@ -16,7 +16,6 @@ const DIR = `${REPO}/.artifacts/workflows/guidance`
 const STANDARD = `${DIR}/STANDARD.md`
 const SELECTION = `${DIR}/SELECTION.md`
 const BASIS = `Load Skill(clean-prose) first. A folder CLAUDE.md loads when an agent works under that folder, so each line costs every task there and must change how an agent builds in that folder. ${STANDARD} states what a good one holds and how it is measured. The root CLAUDE.md, README.md and the skills under .claude/skills already state repository-wide rules and language practice; a folder file never repeats or restates them. Edit nothing outside the files your step names.`
-const FOUND = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] }
 
 phase('Basis')
 const [docs, existing] = await parallel([
@@ -26,7 +25,7 @@ const [docs, existing] = await parallel([
 
 phase('Map')
 const maps = await parallel(args.areas.map((area) => () => agent(`Reader for ${area}. Read ${STANDARD} and ${DIR}/EXISTING.md, then the code under ${area} and its history in depth: \`git log --stat -- ${area}\` across its whole life, and \`git show\` of every commit that rebuilt, reverted, renamed, collapsed or fixed something there. Infer, per folder level from ${area} down, the guidance that would have prevented the repeated fixes and regressions (mini files, declaration files, mixed levels of abstraction, coupling a library to today's consumer, restated package facts, wrappers, anchoring to the present shape), as higher-order principles rather than today's names. For each candidate level, state what a file there would hold under the standard, what share of it a level above would already cover, and whether it earns a file. Report only levels with guidance a reader could not get from the root, README or skills. Edit nothing. ${BASIS}
-Return (structured): findings, each naming its folder, what it would hold, and its overlap with the levels above.`, { label: `map:${area}`, phase: 'Map', schema: FOUND }).then((m) => m && `## ${area}\n${m.findings.map((f) => `- ${f}`).join('\n')}`)))
+Return (structured): findings, each naming its folder, what it would hold, and its overlap with the levels above.`, { label: `map:${area}`, phase: 'Map', schema: { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] } }).then((m) => m && `## ${area}\n${m.findings.map((f) => `- ${f}`).join('\n')}`)))
 
 phase('Select')
 const chosen = await agent(`Judge. From the maps below, write ${SELECTION}: the folders that get a CLAUDE.md (existing ones rebuilt, new ones created), each with the content outline it holds and the history behind each point, and the existing files to delete because a level above covers them or nothing in them earns its place. Choose the highest level that covers a group; add a lower file only for what the higher one cannot say. Reject candidates that would repeat the root, README or a skill, state the obvious, or freeze today's shape. Maps:
