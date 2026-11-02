@@ -24,7 +24,7 @@ pub fn units<'fleet>(fleet: &'fleet Fleet, schedule: &Schedule) -> Validated<Vec
 }
 ```
 
-Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`. Refusals an iterator yields collect into `Validated` in place of `partition_map` and an `NEVec::try_from_vec` test of the refused side, which wraps a failure list a package returns built.
+Each unlisted unit reports its own `Refused`, an empty schedule passes, and consumers read the found units with no second lookup. Items yielding `Validated` collect the same way into one `NEVec` of every failure. Checks returning nothing collect into `Validated<(), E>` through `bool::ok_or`. Refusals an iterator yields collect into `Validated` in place of `partition_map` and an `NEVec::try_from_vec` test of the refused side, `try_from_vec` wrapping a failure list a package returns built.
 
 ## [03]-[BINDING]
 

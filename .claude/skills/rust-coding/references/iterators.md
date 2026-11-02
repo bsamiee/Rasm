@@ -31,7 +31,7 @@ pub fn missing(readings: &[Reading], interval: Interval) -> impl Iterator<Item =
 }
 ```
 
-`array_windows` borrows each `[before, after]` window of a slice. `map_windows` passes each `&[T; N]` window of an iterator from its own buffer and clones no item. `Timestamp::series` steps from `before` until a step overflows, and `take_while` ends each gap at `after`. `Interval` holds a positive `Span` its constructor enforces, a zero step never reaching `after`. `coalesce` hands its rule each adjacent pair and keeps the merged item for the next, and ranges sorted by start join every overlap in one pass. `merge_join_by` walks a sorted pair once and yields `Left`, `Right`, or `Both` per key, and reconciling expected against found needs no set. `k_smallest_relaxed_by_key` holds `2k` items and returns the `k` least in order in linear time with no sort of its input. `exactly_one` returns an error that iterates every item it read when none or more than one remains. `array_chunks` groups an iterator with no collected buffer, `Vec::into_chunks` reinterprets an owned buffer without a copy, and `as_flattened` reverses either.
+`array_windows` borrows each `[before, after]` window of a slice. `map_windows` passes each `&[T; N]` window of an iterator from its own buffer and clones no item. `Timestamp::series` steps from `before` until a step overflows, and `take_while` ends each gap at `after`. `Interval` holds a positive `Span` its constructor enforces, a zero step never reaching `after`. `coalesce` hands its rule each adjacent pair and keeps the merged item for the next, and ranges sorted by start join every overlap in one pass. `merge_join_by` walks a sorted pair once and yields `Left`, `Right`, or `Both` per key, and reconciling expected against found needs no set. `k_smallest_relaxed_by_key` holds `2k` items and returns the `k` least in order in linear time with no sort of its input. `exactly_one` returns an error that iterates every item it read when none or more than one remains. `array_chunks` reads an iterator's chunks with no collected `Vec`, `Vec::into_chunks` reinterprets an owned buffer without a copy, and `as_flattened` reverses either.
 
 ## [02]-[GROUPING]
 
@@ -79,4 +79,37 @@ pub fn fingerprints(blobs: &[Blob]) -> Validated<Vec<Fingerprint>, StoreError> {
 }
 ```
 
-Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob, a failure list read in input order collecting into a `Vec` first, then sequentially into `Validated`. Parallel inputs take `IntoParallelIterator<Item = T, Iter: IndexedParallelIterator>`, keeping order and length. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. Seeded results stay independent of scheduling through one generator per job, each `rng.fork()` taken sequentially ahead of `into_par_iter`, or `set_stream(job)` over one seed. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure.
+Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob, a failure list read in input order collecting into a `Vec` first, then sequentially into `Validated`. Parallel inputs take `IntoParallelIterator<Item = T, Iter: IndexedParallelIterator>`, keeping order and length. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. Seeded results stay independent of scheduling through one generator per job, each `rng.fork()` taken sequentially ahead of `into_par_iter`, or `set_stream(job)` over one seed. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure. Grid kernels take an `ArrayView` generic over `D: Dimension`, and one `Zip::par_map_collect` serves a profile, a plane, and a volume:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Envelope {
+    Rights,
+    Collection,
+}
+
+#[must_use]
+pub fn envelope<D>(kind: Envelope, cells: ArrayView<'_, Point3<f64>, D>, edges: &[[Point3<f64>; 2]], suns: &[UnitVector3<f64>]) -> Array<Point3<f64>, D>
+where D: Dimension {
+    let sign = match kind {
+        Envelope::Rights => -1.0,
+        Envelope::Collection => 1.0,
+    };
+    let paths = suns.iter().filter(|sun| sun.z > 0.0).filter_map(|sun| Unit::try_new_and_get(sun.xy() * sign, 0.0).map(|(heading, run)| (heading, sun.z / run))).collect::<Vec<_>>();
+    Zip::from(cells).par_map_collect(|cell| {
+        let reach = edges
+            .iter()
+            .cartesian_product(&paths)
+            .filter_map(|([start, end], (heading, slope))| {
+                let (edge, offset) = (end.xy() - start.xy(), start.xy() - cell.xy());
+                let across = heading.perp(&edge);
+                let (distance, share) = (offset.perp(&edge) / across, offset.perp(heading) / across);
+                (distance >= 0.0 && (0.0..=1.0).contains(&share)).then(|| slope.mul_add(-distance, sign * start.lerp(end, share).z))
+            })
+            .fold(sign * cell.z, f64::max);
+        Point3::new(cell.x, cell.y, sign * reach)
+    })
+}
+```
+
+`sign` states each kind's direction once, and the bound folds as `f64::max` under it in place of a second field stating the same fact.

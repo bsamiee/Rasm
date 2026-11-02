@@ -36,14 +36,16 @@ Function signatures are contracts, parameter types state every value a function 
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
-- Defaults sit on one options struct whose `default_field_values` state each, an optional input defaulting to `None` among them in place of a positional `Option` parameter unless `None` would equal the type's default, and a caller writes the fields it changes before `..`
+- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent
 - Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
-- Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it, and a value an input already holds (a mesh's cached `local_aabb`) is read from it, never recomputed
+- Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
+- Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
+- Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds a generic of its own, a `const fn`, a return borrowing from its parameter, or recursion no closure reaches, a closure calling its enclosing function recursing through it
+- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -52,7 +54,7 @@ Functions are total when each declared input produces a declared output, and a p
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
 - Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type excluding only what the callee rejects, a value it gives a meaning (a `0.0` tolerance as the subject's own, a `0.0` epsilon as an exact test) staying reachable as `None`, and a clamp stays where the domain defines it
-- Inputs a dependency asserts on (a cone's dimension, a raster past its size) are refused at construction or before the call, naming their subject
+- Inputs a dependency asserts on (a cone's dimension, an oversized raster) are refused at construction or before the call, naming their subject
 - Associated constants a dependency panics on (a zero period) take `const { assert!(..) }` in the generic body, failing at monomorphization
 
 ### [01.2]-[PURITY]
@@ -76,7 +78,7 @@ Select the form by the call site:
 
 ## [02]-[EXPRESSIONS]
 
-Blocks, `if`, `match`, and `loop` are expressions. A function body is one expression where the work allows, a chain already of the return type standing as that expression rather than inside `Ok(..?)`, and a returned value is one struct literal that sets each field at creation:
+Blocks, `if`, `match`, and `loop` are expressions. A function body is one expression where the work allows, a chain of the return type standing as the body in place of `Ok(<chain>?)`, and a returned value is one struct literal that sets each field at creation:
 
 ```rust
 #[must_use]
@@ -94,7 +96,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Side effects on an `Option` run inside `if let` in place of `into_iter().for_each` or a `filter` ignoring its item
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Builder steps over an `Option` or iterator fold its items into the builder with the method path as the step (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`
-- `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` rows, a method taking `IntoIterator` receiving the `Option` whole
+- `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` pairs, a method taking `IntoIterator` receiving the `Option` whole
 - `LazyCell` locals defer a value only some inputs read, and a value built lazily per element is a `OnceLock` in that element's tuple or record, never a parallel collection matched by index
 
 ### [02.1]-[PATTERN_MATCHING]
@@ -154,7 +156,7 @@ pub enum Delivery {
 - Data every variant shares sits in a struct beside a field holding the enum, variants sharing fields are one variant over an enum of the rest
 - Variants differing only by a tag are one struct keyed by a fieldless enum, and fields named per key (`early_start`, `late_start`) one `EnumMap`
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it, and `Option` fields read only together (`address.zip(port)`) one `Option` of a record
-- Shapes a package sum states take it (`EitherOrBoth` for one side or both, `Either` for a plain choice), `Result` holding failure alone
+- Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), `Result` holding failure alone
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
 - Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1, an empty name) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
@@ -163,7 +165,7 @@ pub enum Delivery {
 
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
-- `derive_more` derives `From`, `Into`, `AsRef`, and `Display` on a newtype with no invariant, `#[as_ref]` exposes a guarded record's field read-only
+- `derive_more` `#[as_ref]` exposes a guarded record's field read-only, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
 - `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context (a field default included) as `NonZero::new(<value>).unwrap()`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
@@ -172,7 +174,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - Public fields hold values no rule constrains
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
 - Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry or a guard emptying the result
-- Tokens a value issues carry an invariant `'id` brand its scoped constructor binds, so another issuer's token fails to compile
+- Tokens a value issues carry an invariant `'id` brand its scoped constructor binds, and another issuer's token fails to compile
 
 ### [03.3]-[OWNERSHIP]
 
@@ -185,19 +187,19 @@ Ownership states who decides a value's lifetime:
 
 ### [03.4]-[IMMUTABILITY]
 
-Values are fixed once built, and a state transition consumes the old state and returns the next:
+Values are fixed once built, and a fallible state transition borrows the old state and returns the next, a refusal leaving the caller's value whole:
 
 ```rust
 impl Account {
-    pub fn post(self, amount: Decimal) -> Result<Self, LedgerError> {
-        self.balance.checked_add(amount).ok_or(LedgerError::Refused { account: self.id, reason: Refusal::Overflow }).map(|balance| Self { balance, ..self })
+    pub fn post(&self, amount: Decimal) -> Result<Self, LedgerError> {
+        self.balance.checked_add(amount).ok_or(LedgerError::Refused { account: self.id, reason: Refusal::Overflow }).map(|balance| Self { balance, ..*self })
     }
 }
 ```
 
 - `Account` holds an `id` and a `balance`, and one signed `amount` states a credit and a debit alike
-- Struct update copies unchanged fields from a replaced state (`..self`, a changed type parameter included), a foreign default, or a foreign value (`..event`)
-- `&mut self` methods stay on a type whose purpose is an owned buffer (a builder, a parser cursor)
+- Struct update copies unchanged fields from a state (`..*self`, `..self` consumed to change a type parameter), a foreign default, or a foreign value (`..event`)
+- `&mut self` methods stay on a type whose purpose is an owned buffer or an index updated in place (a builder, a parser cursor, a spatial tree)
 
 Select collections by their most frequent operation:
 
@@ -251,7 +253,7 @@ Each dependent chain binds through `?`, and independent chains join through `Val
 ```rust
 #[must_use]
 pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: AccountId, to: AccountId, amount: Decimal) -> Validated<[Account; 2], LedgerError> {
-    let posted = |account: AccountId, change: Decimal| accounts.get(&account).cloned().ok_or(LedgerError::Refused { account, reason: Refusal::Missing })?.post(change);
+    let posted = |account: AccountId, change: Decimal| accounts.get(&account).ok_or(LedgerError::Refused { account, reason: Refusal::Missing })?.post(change);
     Validated::from(posted(from, -amount)).map2(Validated::from(posted(to, amount)), |source, target| [source, target])
 }
 ```
@@ -263,7 +265,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key, a check over a matrix naming its column and row (`Start { chain, dimension }`), and each check runs where the input enters, before the step that would turn a bad value non-finite
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
-- Fallible callbacks a foreign API takes receive `Ok::<_, !>(..)`, its `Result<T, !>` read through `into_ok()` in the chain
+- Infallible callbacks a foreign API types as fallible return `Ok::<_, !>(..)`, and the chain calls `into_ok()` for an `Err` type of `!`
 
 ### [04.2]-[ERRORS]
 
@@ -289,7 +291,7 @@ pub enum LedgerError {
 
 - Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
 - Messages branching on a field or listing a variant's `NEVec` (one `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
-- Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` over `custom` text
+- Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
 - Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
@@ -297,7 +299,9 @@ pub enum LedgerError {
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts through `?`
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
-- Discards match each error variant they drop (`Err(LatitudeError::PredicateViolated)`) or record the failure as an event, an error type reaching a fallback, `None`, or an idle arm through `Err(_)` or `Err(<Type> { .. })` drops every variant unnamed, `Err(<Type> { .. })` stays for a returned value that is no error (`Err(Vec { .. })`), and an `if let` on a success variant (`Ok`, `Validated::Good`) discards the failure it skips alike
+- Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
+- `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
+- Errors of one fieldless variant (a nutype `<Name>Error`) reach `None` through `ok()`, clippy `manual_ok_err` rejecting a `match` naming it
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
@@ -364,7 +368,7 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [04]   | Variant tests                           | `derive_more` `IsVariant`                                                 |
 |  [05]   | One value per variant or combination    | `enum_map::Enum`                                                          |
 |  [06]   | Checked newtype and its error           | `nutype`                                                                  |
-|  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                     |
+|  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`, `Display`                          |
 |  [08]   | Traits adding no bound on a generic     | `derive_where`, `skip` or `skip_inner` for fields lacking the trait       |
 |  [09]   | `Debug` over a foreign field lacking it | `derive_more` `Debug`, `#[debug(skip)]`                                   |
 |  [10]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                           |
@@ -427,14 +431,15 @@ Numeric facts come from the type or package that states them:
 - Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules, and a dependency bound stated as `< 2^n` is the full `u<n>` range of indices, never a `u<n>` count, which reaches one short
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
 - Tolerances and bounds are values a caller passes and floats compare within, a bound the callee derives (a makespan) reachable as `None`
-- Absent bounds stay `None` at each read, never a stand-in (`f64::INFINITY` for no limit, `pending()` for no deadline)
+- Tolerances on a measure in the caller's units are relative to it (a residual change against the previous residual)
+- Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`
-- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` and refuses overflow, an `Add::add` call hiding the unchecked operator from the lint
-- Operators state float, dual, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
+- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`
+- Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair
-- Floats narrow through `cast::<f32>()` and saturate to integers by `to_int_saturating`, `convert_unchecked` and integer `convert` casting by `as`
+- Floats narrow by `cast::<f32>()` and `to_int_saturating`, `convert_unchecked` and integer `convert` being `as` casts
 - Formulas a member names take it (`Point::lerp`, `f64::midpoint`, `Vector2::perp`, `Unit::try_new_and_get`), `mul_add` fusing a step none names
 
 Roots, quadrature, factorizations, derivatives, quantiles, and optimization are package members:

@@ -38,20 +38,33 @@ where H: Handler + Send + Sync + 'static {
 }
 ```
 
-Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. HTTP services bind a `TcpSocket`, read `local_addr`, and `listen(u32::MAX)` before start in place of `TcpListener::bind`'s 128 backlog, then `axum::serve` over `tap_io(set_nodelay)` drains through `with_graceful_shutdown(token.cancelled_owned())`. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, or `drop_guard_ref` while the scope reads it, and the drop cancels it and every child token on each exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
+Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. HTTP services bind a `TcpSocket`, read `local_addr`, and call `listen(u32::MAX)` in place of the 128 backlog `TcpListener::bind` sets, then `axum::serve` over `tap_io(set_nodelay)` drains through `with_graceful_shutdown(token.cancelled_owned())`. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, or `drop_guard_ref` while the scope reads it, and the drop cancels it and every child token on each exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
 
 ```rust
-pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(), ServiceError>, mut signals: impl Stream + Unpin) -> Result<(), ServiceError> {
+pub async fn supervised(
+    grace: Option<Duration>,
+    serving: impl AsyncFnOnce(CancellationToken) -> Result<(), ServiceError>,
+    drain: impl AsyncFnOnce() -> Result<(), ServiceError>,
+    mut signals: impl Stream + Unpin,
+) -> Result<(), NEVec<ServiceError>> {
     let stop = CancellationToken::new();
-    let mut serving = pin!(future::maybe_done(serving(stop.clone())));
-    future::select(serving.as_mut(), signals.next()).await;
-    stop.cancel();
-    future::select(serving.as_mut(), signals.next()).await;
-    serving.take_output().unwrap_or(Err(ServiceError::Abandoned))
+    let _stopped = stop.drop_guard_ref();
+    let mut serving = pin!(future::maybe_done(serving(stop.child_token())));
+    let skipped = tokio::select! {
+        _ = signals.next() => 0,
+        () = serving.as_mut() => 1,
+    };
+    let finished = tokio::select! {
+        biased;
+        (drained, ()) = future::join(drain().inspect(|_| stop.cancel()), serving.as_mut()) => drained,
+        _ = signals.skip(skipped).into_future() => Err(ServiceError::Abandoned { reason: Abandonment::Signal }),
+        Some(()) = OptionFuture::from(grace.map(time::sleep)) => Err(ServiceError::Abandoned { reason: Abandonment::Deadline }),
+    };
+    serving.as_mut().take_output().into_iter().chain([finished]).collect::<Validated<(), _>>().ok()
 }
 ```
 
-`move |stop| serve(listener, handler, stop)` fills `serving`. `maybe_done` holds its output across both races until `take_output` reads it once. Drains over more than one future race in one `tokio::select!` with each branch producing the outcome: the drained join's result, or `Err(Abandoned { reason })` per abandonment. `biased;` puts the join first, and a drain finished at the instant of a signal or deadline wins. An optional deadline enters as `OptionFuture::from(grace.map(time::sleep))` under `Some(())`, `None` disabling its branch. Each `take_output()` joins the race's outcome as zero or one item into `Validated<(), _>`, and a failure finished before the abandonment joins it. Drains finishing ahead of cancellation sit inside one `join` beside each worker (`drain.inspect(|_| stop.cancel())`). A server future stays in each race it cannot win, its accept loop advancing only while polled, and the root token's `drop_guard_ref` cancels it on every exit the drain does not reach. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`move |stop| serve(listener, handler, stop)` fills `serving`, and `maybe_done` holds its output across both races until `take_output` reads it once. `skipped` makes the second signal abandon the drain whether a signal or serving's own end began it. `biased;` puts the join first, and a drain finished at the instant of a signal or deadline wins. `OptionFuture` resolves a `None` grace at once, and the failed `Some(())` pattern disables its branch. Serving stays in the join, its accept loop advancing only while polled. Failures serving returned before an abandonment join the outcome. More workers join beside the drain (`join3`), each error mapped where its future is built. Outputs more than one future reads are `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
 
 ## [03]-[STREAMS]
 
