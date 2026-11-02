@@ -472,6 +472,9 @@ line-length    = 200
 src            = [".", "libs/python"]
 format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
+[tool.ruff.per-file-target-version]
+"tools/harnesses/blender/**" = "py313" # Every installed Blender runs the engine on its bundled Python
+
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
@@ -542,6 +545,13 @@ pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_
 "{apps/blender,tests/python/libs/blender/bpy/background/fixture}/**"             = [
     "non-empty-init-module",                                                                  # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
     "relative-imports",                                                                       # Blender imports extensions under `bl_ext.<repository>.<id>`, folders reach each other through relative imports alone
+]
+"tools/harnesses/blender/**"                                                     = [
+    "banned-api",                                                                             # Blender's bundled Python holds the standard library alone, `json` in place of msgspec
+    "blind-except",                                                                           # Each case records whatever its original raised as its result
+    "exec-builtin",                                                                           # Cases run host statements a case file supplies
+    "return-in-generator",                                                                    # Timer passes advance case steps, and `yield from` returns each step's result
+    "suspicious-eval-usage",                                                                  # Cases evaluate host expressions a case file supplies
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]

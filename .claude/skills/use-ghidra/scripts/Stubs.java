@@ -1,6 +1,7 @@
 import ghidra.app.script.GhidraScript;
-import ghidra.app.util.bin.format.objc.ObjcUtils;
+
 import ghidra.app.util.bin.format.objc.objc1.Objc1Constants;
+import ghidra.app.util.sourcelanguage.ObjcSourceLanguageSpecExtension;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Function.FunctionUpdateType;
@@ -11,10 +12,13 @@ import ghidra.program.model.symbol.SourceType;
 import ghidra.util.exception.DuplicateNameException;
 import ghidra.util.exception.InvalidInputException;
 
+import rasm.Arguments;
+import rasm.Functions;
+import rasm.Report;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -31,7 +35,7 @@ public class Stubs extends GhidraScript {
                     .map(
                             name ->
                                     name.equals(stub.getName())
-                                                    && ObjcUtils.OBJC_MSGSEND_STUBS_CC.equals(
+                                                    && ObjcSourceLanguageSpecExtension.OBJC_MSGSEND_STUBS.equals(
                                                             stub.getCallingConventionName())
                                             ? new Unchanged(stub)
                                             : apply(stub, name))
@@ -44,10 +48,10 @@ public class Stubs extends GhidraScript {
                     + switch (this) {
                         case Renamed(Function stub, String previous) ->
                                 previous + " -> " + stub.getName(true);
-                        case Unchanged(Function stub) -> stub.getName(true) + " unchanged";
-                        case Unresolved(Function stub) -> stub.getName(true) + " unresolved";
+                        case Unchanged(Function stub) -> stub.getName(true);
+                        case Unresolved(Function stub) -> stub.getName(true);
                         case Rejected(Function stub, String message) ->
-                                stub.getName(true) + " rejected: " + message;
+                                stub.getName(true) + ": " + message;
                     };
         }
     }
@@ -65,7 +69,7 @@ public class Stubs extends GhidraScript {
         String previous = stub.getName();
         try {
             stub.updateFunction(
-                    ObjcUtils.OBJC_MSGSEND_STUBS_CC,
+                    ObjcSourceLanguageSpecExtension.OBJC_MSGSEND_STUBS,
                     new ReturnParameterImpl(PointerDataType.dataType, program),
                     List.of(new ParameterImpl("self", PointerDataType.dataType, program)),
                     FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS,
@@ -83,28 +87,24 @@ public class Stubs extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        Path out = Arguments.out(getScriptName(), getScriptArgs());
+        Path out = new Arguments.Usage(getScriptName(), "<out>").only(getScriptArgs());
         List<Rename> renames =
                 Functions.internal(currentProgram)
                         .filter(Functions::isStub)
                         .sorted(Functions.BY_ENTRY)
                         .map(Rename::of)
                         .toList();
-        String counts =
+        List<Report.Section> sections =
                 Stream.of(Renamed.class, Unchanged.class, Unresolved.class, Rejected.class)
                         .map(
-                                type ->
-                                        type.getSimpleName().toLowerCase(Locale.ROOT)
-                                                + "="
-                                                + renames.stream().filter(type::isInstance).count())
-                        .collect(Collectors.joining(" ", "stubs=" + renames.size() + " ", ""));
-        println(
-                Report.write(
-                        out,
-                        currentProgram,
-                        counts,
-                        Stream.concat(
-                                Stream.of(Report.section("STUBS")),
-                                renames.stream().map(Rename::row))));
+                                outcome ->
+                                        Report.Section.rows(
+                                                outcome.getSimpleName().toUpperCase(Locale.ROOT),
+                                                renames.stream()
+                                                        .filter(outcome::isInstance)
+                                                        .map(Rename::row)
+                                                        .toList()))
+                        .toList();
+        println(Report.write(out, currentProgram, sections, ""));
     }
 }

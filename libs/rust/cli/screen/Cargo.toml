@@ -27,6 +27,7 @@ futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
 nonempty-collections               = { workspace = true }
+validated                          = { workspace = true }
 sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 derive_more                        = { workspace = true }

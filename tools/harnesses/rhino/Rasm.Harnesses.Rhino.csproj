@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino and Grasshopper 2 proof engine loaded into the host for one batch of cases</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Install Runtime" Condition="'$(RhinoInstallPath)' != ''">
+        <_HarnessRuntimeConfig>$([System.IO.Directory]::GetFiles('$(RhinoInstallPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources', 'dotnetstart.*.runtimeconfig.json'))</_HarnessRuntimeConfig>
+        <TargetFramework>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(_HarnessRuntimeConfig)')), '(?&lt;="tfm":\s*")[^"]+').Value)</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Plug-In" Condition="'$(HarnessPlugIn)' != ''">
+        <PublicizerRuntimeStrategies>Unsafe</PublicizerRuntimeStrategies>
+    </PropertyGroup>
+
+    <ItemGroup Label="Batch">
+        <Compile Include="$(HarnessCases)" Condition="'$(HarnessCases)' != ''" />
+        <Compile Include="$(HarnessRebuilt)" Condition="'$(HarnessRebuilt)' != ''" />
+        <Compile Remove="Canvases.cs" Condition="'$(HarnessCanvas)' == ''" />
+        <Reference Include="$(HarnessPlugIn)" Private="false" Condition="'$(HarnessPlugIn)' != ''" />
+        <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" ExcludeAssets="contentfiles" Condition="'$(HarnessPlugIn)' != ''" />
+        <Publicize Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(HarnessPlugIn)'))" Condition="'$(HarnessPlugIn)' != ''" />
+    </ItemGroup>
+
+    <Target Name="ReferenceRhinoInstall" AfterTargets="ResolveLockFileReferences" DependsOnTargets="ResolveRhinoMacHost" Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
+        <ItemGroup>
+            <_PackageRhino Include="@(Reference)" Condition="'%(Reference.NuGetPackageId)' == 'RhinoCommon'" />
+            <Reference Remove="@(_PackageRhino)" />
+            <Reference Include="@(_PackageRhino->'$(_RhinoResourcesDir)%(Filename)%(Extension)');$(_RhinoResourcesDir)Rhino.Runtime.Code.dll;$(_RhinoResourcesDir)RhinoCodePlatform.Rhino3D.dll" Private="false" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ReferenceGrasshopper" AfterTargets="ReferenceRhinoInstall" Condition="'$(HarnessCanvas)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+        <PropertyGroup>
+            <_InstallGrasshopper>$(_RhinoResourcesDir)ManagedPlugIns/Grasshopper2Plugin.rhp</_InstallGrasshopper>
+        </PropertyGroup>
+        <GetAssemblyIdentity AssemblyFiles="$(_RhinoResourcesDir)RhinoCommon.dll" Condition="!Exists('$(_InstallGrasshopper)/Grasshopper2.dll')">
+            <Output TaskParameter="Assemblies" ItemName="_InstallRhinoIdentity" />
+        </GetAssemblyIdentity>
+        <XmlPeek XmlInputPath="$(HOME)/Library/Application Support/McNeel/Rhinoceros/$([System.Version]::Parse('%(_InstallRhinoIdentity.Version)').Major).0/settings/settings-Scheme__Default.xml" Query="//child[@key='PlugInRegistry']/child/child[entry[@key='Name']='Grasshopper2']/child[@key='PlugIn']/entry[@key='FileName']/text()" Condition="!Exists('$(_InstallGrasshopper)/Grasshopper2.dll')">
+            <Output TaskParameter="Result" PropertyName="_RegistryGrasshopper" />
+        </XmlPeek>
+        <PropertyGroup Condition="'$(_RegistryGrasshopper)' != ''">
+            <_InstallGrasshopper>$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Frameworks', '$(_RegistryGrasshopper)'))</_InstallGrasshopper>
+            <_InstallGrasshopper Condition="!Exists('$(_InstallGrasshopper)/Grasshopper2.dll')">$([System.IO.Path]::GetDirectoryName('$(_InstallGrasshopper)'))</_InstallGrasshopper>
+        </PropertyGroup>
+        <Error Condition="!Exists('$(_InstallGrasshopper)/Grasshopper2.dll')" Text="$(RhinoInstallPath) bundles no Grasshopper2Plugin.rhp and its PlugInRegistry names no Grasshopper2 plug-in file" />
+        <ItemGroup>
+            <Reference Include="$(_InstallGrasshopper)/Grasshopper2.dll;$(_InstallGrasshopper)/GrasshopperIO.dll" Private="false" />
+        </ItemGroup>
+    </Target>
+</Project>

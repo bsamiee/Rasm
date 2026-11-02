@@ -1,3 +1,5 @@
+package rasm;
+
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
@@ -24,10 +26,64 @@ import java.util.stream.Stream;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-final class Arguments {
+public final class Arguments {
+    // --- [USAGE]
+
+    public record Usage(String script, String form) {
+        public String text() {
+            return "usage: %s %s".formatted(script, form);
+        }
+
+        public <T> List<T> values(Stream<Report.Result<T>> results) {
+            List<Report.Result<T>> collected = results.toList();
+            List<String> failures = collected.stream().flatMap(Report.Result::failures).toList();
+            if (!failures.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.join("\n", failures) + "\n" + text());
+            }
+            return collected.stream().flatMap(Report.Result::values).toList();
+        }
+
+        public <T> Stream<Report.Result<T>> require(boolean present, String noun) {
+            return present
+                    ? Stream.empty()
+                    : Stream.of(new Report.Failure<>("Arguments name no " + noun));
+        }
+
+        public Path out(String... args) {
+            return values(
+                            Stream.concat(
+                                    Arrays.stream(args)
+                                            .limit(1)
+                                            .<Report.Result<Path>>map(
+                                                    argument ->
+                                                            new Report.Success<>(
+                                                                    Path.of(argument))),
+                                    require(args.length > 0, "output path")))
+                    .getFirst();
+        }
+
+        public Path only(String... args) {
+            Path out = out(args);
+            values(
+                    Arrays.stream(args)
+                            .skip(1)
+                            .<Report.Result<Path>>map(
+                                    argument ->
+                                            new Report.Failure<>(
+                                                    "Argument `%s` follows the output path"
+                                                            .formatted(argument))));
+            return out;
+        }
+
+        public List<String> operands(String... args) {
+            return Arrays.asList(args).subList(Math.min(1, args.length), args.length);
+        }
+    }
+
     // --- [OPERANDS]
 
-    enum Setting {
+    public enum Setting {
         CALLERS("depth", 0, 0),
         CALLEES("depth", 0, 0),
         TIMEOUT("seconds", DecompileOptions.SUGGESTED_DECOMPILE_TIMEOUT_SECS, 1),
@@ -55,6 +111,16 @@ final class Arguments {
 
         String usage() {
             return "[%s<%s>]".formatted(key(), unit);
+        }
+
+        public static Map<Setting, Integer> defaults() {
+            return Arrays.stream(values())
+                    .collect(
+                            Collectors.toMap(
+                                    setting -> setting,
+                                    setting -> setting.defaultValue,
+                                    (first, _) -> first,
+                                    () -> new EnumMap<>(Setting.class)));
         }
 
         static Optional<Setting> of(String argument) {
@@ -205,63 +271,60 @@ final class Arguments {
 
     record SettingValue(Setting setting, int value) implements Operand {}
 
-    record Request(
+    public record Request(
             Path out, List<Function> seeds, Map<Setting, Integer> settings, String arguments) {}
 
     private Arguments() {}
 
     // --- [PARSING]
 
-    static <T> List<T> values(List<Report.Result<T>> results, String usage) {
-        List<String> failures = results.stream().flatMap(Report.Result::failures).toList();
-        if (!failures.isEmpty()) {
-            throw new IllegalArgumentException(String.join("\n", failures) + "\n" + usage);
-        }
-        return results.stream().flatMap(Report.Result::values).toList();
-    }
-
-    static Path out(String script, String... args) {
-        return Optional.of(args)
-                .filter(arguments -> arguments.length == 1)
-                .map(arguments -> Path.of(arguments[0]))
-                .orElseThrow(
-                        () -> new IllegalArgumentException("usage: %s <out>".formatted(script)));
-    }
-
-    static Request parse(String script, String[] args, Set<Setting> accepted, Program program) {
-        String usage =
-                "usage: %s <out> <seed>... %s\nseed: %s"
-                        .formatted(
-                                script,
-                                accepted.stream()
-                                        .map(Setting::usage)
-                                        .collect(Collectors.joining(" ")),
-                                Arrays.stream(Seed.values())
-                                        .map(Seed::usage)
-                                        .collect(Collectors.joining(" | ")));
-        if (args.length == 0) {
-            throw new IllegalArgumentException(usage);
-        }
-        List<String> arguments = Arrays.asList(args).subList(1, args.length);
-        Stream<Report.Result<Operand>> missing =
-                arguments.stream().map(Setting::of).allMatch(Optional::isPresent)
-                        ? Stream.of(new Report.Failure<>("Arguments name no seed"))
-                        : Stream.empty();
-        Stream<Report.Result<Operand>> resolved =
-                arguments.stream()
-                        .map(
-                                argument ->
-                                        Setting.of(argument)
-                                                .map(
-                                                        setting ->
-                                                                setting.assign(
-                                                                        argument, script, accepted))
-                                                .orElseGet(() -> Seed.resolve(argument, program)));
-        List<Operand> operands = values(Stream.concat(resolved, missing).toList(), usage);
-        Stream<SettingValue> defaults =
-                accepted.stream().map(setting -> new SettingValue(setting, setting.defaultValue));
+    public static Request parse(
+            String script, String[] args, Set<Setting> accepted, Program program) {
+        Usage usage =
+                new Usage(
+                        script,
+                        "<out> <seed>... %s\nseed: %s"
+                                .formatted(
+                                        accepted.stream()
+                                                .map(Setting::usage)
+                                                .collect(Collectors.joining(" ")),
+                                        Arrays.stream(Seed.values())
+                                                .map(Seed::usage)
+                                                .collect(Collectors.joining(" | "))));
+        Path out = usage.out(args);
+        List<String> arguments = usage.operands(args);
+        List<Operand> operands =
+                usage.values(
+                        Stream.concat(
+                                arguments.stream()
+                                        .map(
+                                                argument ->
+                                                        Setting.of(argument)
+                                                                .map(
+                                                                        setting ->
+                                                                                setting.assign(
+                                                                                        argument,
+                                                                                        script,
+                                                                                        accepted))
+                                                                .orElseGet(
+                                                                        () ->
+                                                                                Seed.resolve(
+                                                                                        argument,
+                                                                                        program))),
+                                usage.require(
+                                        arguments.stream()
+                                                .map(Setting::of)
+                                                .anyMatch(Optional::isEmpty),
+                                        "seed")));
         Map<Setting, Integer> settings =
-                Stream.concat(defaults, operands.stream().flatMap(Operand::assignments))
+                Stream.concat(
+                                Setting.defaults().entrySet().stream()
+                                        .filter(entry -> accepted.contains(entry.getKey()))
+                                        .map(
+                                                entry ->
+                                                        new SettingValue(
+                                                                entry.getKey(), entry.getValue())),
+                                operands.stream().flatMap(Operand::assignments))
                         .collect(
                                 Collectors.toMap(
                                         SettingValue::setting,
@@ -269,6 +332,6 @@ final class Arguments {
                                         (_, last) -> last,
                                         () -> new EnumMap<>(Setting.class)));
         List<Function> seeds = operands.stream().flatMap(Operand::seeds).distinct().toList();
-        return new Request(Path.of(args[0]), seeds, settings, String.join(" ", arguments));
+        return new Request(out, seeds, settings, String.join(" ", arguments));
     }
 }

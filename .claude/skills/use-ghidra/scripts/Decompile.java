@@ -19,13 +19,17 @@ import ghidra.program.model.pcode.HighLocal;
 import ghidra.program.model.pcode.HighSymbol;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
-import ghidra.util.task.TaskMonitor;
+
+import rasm.Arguments;
+import rasm.Functions;
+import rasm.Report;
 
 import util.CollectionUtils;
 
 import java.io.StringWriter;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +39,7 @@ import java.util.SequencedMap;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.function.BiFunction;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -43,6 +47,29 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Decompile extends GhidraScript {
+    // --- [ROLES]
+
+    @FunctionalInterface
+    interface Neighbors {
+        List<Function> of(Function function);
+    }
+
+    sealed interface Role permits Seed, Caller, Callee {
+        default String text() {
+            return switch (this) {
+                case Seed _ -> "seed";
+                case Caller(int depth) -> "caller:" + depth;
+                case Callee(int depth) -> "callee:" + depth;
+            };
+        }
+    }
+
+    record Seed() implements Role {}
+
+    record Caller(int depth) implements Role {}
+
+    record Callee(int depth) implements Role {}
+
     // --- [BLOCKS]
 
     record Global(Address address, String name, DataType type) {
@@ -92,7 +119,7 @@ public class Decompile extends GhidraScript {
     }
 
     sealed interface Block permits Decompiled, Failed, Stub {
-        static Block of(Function function, String role, Report.Result<DecompileResults> result) {
+        static Block of(Function function, Role role, Report.Result<DecompileResults> result) {
             return switch (result) {
                 case Report.Success<DecompileResults>(DecompileResults decompiled) ->
                         new Decompiled(function, role, decompiled);
@@ -103,13 +130,31 @@ public class Decompile extends GhidraScript {
 
         Function function();
 
-        Stream<String> lines(List<Function> callers);
+        default Stream<String> lines(Neighbors callers) {
+            return switch (this) {
+                case Decompiled(Function function, Role role, String code, _, _) ->
+                        Stream.concat(
+                                Stream.of(
+                                        Report.subdivider(function.getName(true)),
+                                        header(function, role, callers.of(function))),
+                                code.lines());
+                case Stub(Function function) ->
+                        Stream.of(
+                                Report.subdivider(function.getName(true)),
+                                "// %s %s -> %s"
+                                        .formatted(
+                                                function.getEntryPoint(),
+                                                function.isThunk() ? "thunk" : "stub",
+                                                Functions.target(function).getName(true)));
+                case Failed _ -> Stream.empty();
+            };
+        }
     }
 
     record Decompiled(
-            Function function, String role, String code, List<DataType> types, List<Global> globals)
+            Function function, Role role, String code, List<DataType> types, List<Global> globals)
             implements Block {
-        Decompiled(Function function, String role, DecompileResults results) {
+        Decompiled(Function function, Role role, DecompileResults results) {
             this(
                     function,
                     role,
@@ -133,41 +178,19 @@ public class Decompile extends GhidraScript {
                             .distinct()
                             .toList());
         }
+    }
 
-        @Override
-        public Stream<String> lines(List<Function> callers) {
-            return Stream.concat(
-                    Stream.of(
-                            Report.subsection(function.getName(true)),
-                            header(function, role, callers)),
-                    code.lines());
+    record Failed(Function function, Role role, String cause) implements Block {
+        String row() {
+            return "// %s %s %s: %s"
+                    .formatted(
+                            function.getEntryPoint(), function.getName(true), role.text(), cause);
         }
     }
 
-    record Failed(Function function, String role, String cause) implements Block {
-        @Override
-        public Stream<String> lines(List<Function> callers) {
-            return Stream.of(
-                    Report.subsection(function.getName(true)),
-                    header(function, role, callers),
-                    "// failed: " + cause);
-        }
-    }
+    record Stub(Function function) implements Block {}
 
-    record Stub(Function function) implements Block {
-        @Override
-        public Stream<String> lines(List<Function> callers) {
-            return Stream.of(
-                    Report.subsection(function.getName(true)),
-                    "// %s %s -> %s"
-                            .formatted(
-                                    function.getEntryPoint(),
-                                    function.isThunk() ? "thunk" : "stub",
-                                    Functions.target(function).getName(true)));
-        }
-    }
-
-    private static String header(Function function, String role, List<Function> callers) {
+    private static String header(Function function, Role role, List<Function> callers) {
         String names =
                 callers.stream()
                         .map(caller -> caller.getName(true))
@@ -176,18 +199,25 @@ public class Decompile extends GhidraScript {
                 .formatted(
                         function.getEntryPoint(),
                         function.getBody().getNumAddresses(),
-                        role,
+                        role.text(),
                         callers.size(),
                         names.isEmpty() ? "" : ": " + names);
     }
 
     // --- [SELECTION]
 
-    private SequencedMap<Function, String> expand(
-            SequencedMap<Function, String> selection,
+    private final Map<Function, List<Function>> callers = new HashMap<>();
+
+    private List<Function> callersOf(Function function) {
+        return callers.computeIfAbsent(
+                function, each -> Functions.callers(each, monitor).toList());
+    }
+
+    private static SequencedMap<Function, Role> expand(
+            SequencedMap<Function, Role> selection,
             List<Function> frontier,
-            BiFunction<Function, TaskMonitor, Stream<Function>> neighbors,
-            String role,
+            Neighbors neighbors,
+            IntFunction<Role> role,
             int depth,
             int limit) {
         if (depth > limit) {
@@ -195,14 +225,14 @@ public class Decompile extends GhidraScript {
         }
         List<Function> next =
                 frontier.stream()
-                        .flatMap(function -> neighbors.apply(function, monitor))
+                        .flatMap(function -> neighbors.of(function).stream())
                         .filter(Decompile::isDecompilable)
                         .filter(Predicate.not(selection::containsKey))
                         .distinct()
                         .sorted(Functions.BY_ENTRY)
                         .toList();
-        SequencedMap<Function, String> expanded = new LinkedHashMap<>(selection);
-        next.forEach(function -> expanded.put(function, role + ":" + depth));
+        SequencedMap<Function, Role> expanded = new LinkedHashMap<>(selection);
+        next.forEach(function -> expanded.put(function, role.apply(depth)));
         return expand(expanded, next, neighbors, role, depth + 1, limit);
     }
 
@@ -220,26 +250,26 @@ public class Decompile extends GhidraScript {
                         getScriptArgs(),
                         EnumSet.allOf(Arguments.Setting.class),
                         currentProgram);
-        SequencedMap<Function, String> seeded =
+        SequencedMap<Function, Role> seeded =
                 request.seeds().stream()
                         .collect(
                                 Collectors.toMap(
                                         seed -> seed,
-                                        seed -> "seed",
+                                        _ -> new Seed(),
                                         (first, _) -> first,
                                         LinkedHashMap::new));
-        SequencedMap<Function, String> selection =
+        SequencedMap<Function, Role> selection =
                 expand(
                         expand(
                                 seeded,
                                 request.seeds(),
-                                Functions::callees,
-                                "callee",
+                                function -> Functions.callees(function, monitor).toList(),
+                                Callee::new,
                                 1,
                                 request.settings().get(Arguments.Setting.CALLEES)),
                         request.seeds(),
-                        Functions::callers,
-                        "caller",
+                        this::callersOf,
+                        Caller::new,
                         1,
                         request.settings().get(Arguments.Setting.CALLERS));
         SequencedMap<Function, Report.Result<DecompileResults>> results =
@@ -259,17 +289,11 @@ public class Decompile extends GhidraScript {
                                                         results.get(entry.getKey()))
                                                 : new Stub(entry.getKey()))
                         .toList();
-        Set<Function> members = blocks.stream().map(Block::function).collect(Collectors.toSet());
-        Map<Function, List<Function>> callers =
-                members.stream()
-                        .collect(
-                                Collectors.toMap(
-                                        function -> function,
-                                        function ->
-                                                Functions.callers(function, monitor)
-                                                        .filter(members::contains)
-                                                        .sorted(Functions.BY_ENTRY)
-                                                        .toList()));
+        Set<Function> members =
+                blocks.stream()
+                        .filter(Predicate.not(Failed.class::isInstance))
+                        .map(Block::function)
+                        .collect(Collectors.toSet());
         List<Decompiled> decompiled =
                 blocks.stream()
                         .filter(Decompiled.class::isInstance)
@@ -295,26 +319,39 @@ public class Decompile extends GhidraScript {
         StringWriter declarations = new StringWriter();
         new DataTypeWriter(currentProgram.getDataTypeManager(), declarations, false)
                 .write(List.copyOf(types), monitor);
-        String counts =
-                "functions=%d failed=%d globals=%d types=%d args=%s"
-                        .formatted(
-                                blocks.size(),
-                                blocks.stream().filter(Failed.class::isInstance).count(),
-                                globals.size(),
-                                types.size(),
-                                request.arguments());
-        Stream<String> body =
-                Stream.of(
+        List<Report.Section> sections =
+                List.of(
+                        new Report.Section(
+                                "FUNCTIONS",
+                                members.size(),
                                 blocks.stream()
                                         .flatMap(
                                                 block ->
-                                                        block.lines(callers.get(block.function()))),
-                                Stream.of(Report.section("GLOBALS")),
+                                                        block.lines(
+                                                                function ->
+                                                                        callersOf(function).stream()
+                                                                                .filter(
+                                                                                        members
+                                                                                                ::contains)
+                                                                                .sorted(
+                                                                                        Functions
+                                                                                                .BY_ENTRY)
+                                                                                .toList()))
+                                        .toList()),
+                        Report.Section.rows(
+                                "FAILED",
+                                blocks.stream()
+                                        .filter(Failed.class::isInstance)
+                                        .map(Failed.class::cast)
+                                        .map(Failed::row)
+                                        .toList()),
+                        Report.Section.rows(
+                                "GLOBALS",
                                 globals.stream()
-                                        .map(global -> global.row(currentProgram.getListing())),
-                                Stream.of(Report.section("TYPES")),
-                                declarations.toString().lines())
-                        .flatMap(section -> section);
-        println(Report.write(request.out(), currentProgram, counts, body));
+                                        .map(global -> global.row(currentProgram.getListing()))
+                                        .toList()),
+                        new Report.Section(
+                                "TYPES", types.size(), declarations.toString().lines().toList()));
+        println(Report.write(request.out(), currentProgram, sections, request.arguments()));
     }
 }

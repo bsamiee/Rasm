@@ -1,0 +1,19 @@
+{
+    "name": "@rasm/harnesses-indesign-uxpscript",
+    "private": true,
+    "description": "UXPScript engine running harness cases inside InDesign",
+    "type": "module",
+    "imports": {
+        "#/package.json": "./package.json"
+    },
+    "main": "main.ts",
+    "dependencies": {
+        "@rasm/harnesses": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:"
+    }
+}

@@ -55,7 +55,7 @@
                     "strictBooleanExpressions": "suggestion",
                     "unnecessaryArrowBlock": "suggestion"
                 },
-                "overrides": [ { "include": [ "tests/typescript/e2e-*/**/*.ts", "**/*.test.tsx" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
+                "overrides": [ { "include": [ "**/*.test.tsx" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
         "skipLibCheck": true,

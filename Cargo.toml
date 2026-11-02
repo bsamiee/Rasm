@@ -87,6 +87,7 @@ bytes               = { version = "1.12.1", features = ["serde"] }              
 cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                                # CBOR codec
 csv                 = "1.4.0"                                                                                # CSV records decoded into and encoded from typed rows
 data-encoding       = "2.11.1"                                                                               # Base64, base32, and hex codecs
+itoa                = "1.0.18"                                                                               # Integer text through a stack buffer, the form serde_json writes integers in
 json-patch          = "4.2.0"                                                                                # JSON Patch apply and diff over JSON values
 jsonptr             = "0.8.2"                                                                                # JSON Pointer resolution with typed failures
 plist               = "1.10.3"                                                                               # XML and binary property lists
@@ -97,6 +98,7 @@ serde_json          = { version = "1.0.154", features = ["raw_value", "float_rou
 serde_path_to_error = "0.1.20"                                                                               # Boundary decode errors that name failing field path
 serde_urlencoded    = "0.7.1"                                                                                # Typed decode of form-encoded fields, numbers and booleans parsed from text
 serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] }         # Field codecs declared on records that schema derivation reads
+zmij                = "1.0.23"                                                                               # Shortest round-trip float text, the form serde_json writes floats in
 toml                = { version = "1.1.8", features = ["preserve_order"] }                                   # Typed TOML decode and encode, tables in file order
 toml_edit           = { version = "0.25.17", features = ["serde"] }                                          # TOML edits that keep comments and layout
 yaml-edit           = "0.3.6"                                                                                # YAML edits that keep comments and layout
@@ -222,7 +224,7 @@ vaultrs                         = "0.8.0"                                       
 
 # --- [HTTP]
 aide               = { version = "0.16.0-alpha.4", features = ["axum-json", "axum-query", "scalar"] }                                                                                                           # OpenAPI documents derived from tool parameter schemas
-axum               = "0.8.9"                                                                                                                                                                                    # Servers mounting tower services on bound sockets
+axum               = { version = "0.8.9", features = ["http2"] }                                                                                                                                                # Servers mounting tower services on bound sockets
 form_urlencoded    = "1.2.2"                                                                                                                                                                                    # application/x-www-form-urlencoded encoding of name and value pairs
 headers            = "0.4.2"                                                                                                                                                                                    # Typed conditional, range, and entity-tag headers
 hickory-resolver   = "0.26.3"                                                                                                                                                                                   # Async DNS resolution with SRV lookups
@@ -232,7 +234,7 @@ mime               = "0.3.17"                                                   
 octocrab           = { version = "0.54.9", default-features = false, features = ["default-client", "follow-redirect", "jwt-aws-lc-rs", "retry", "rustls", "rustls-aws-lc-rs", "stream", "timeout", "tracing"] } # GitHub REST client, default `rustls-ring` adds ring beside aws-lc-rs
 percent-encoding   = "2.3.2"                                                                                                                                                                                    # RFC 3986 percent-decoding of URI template variables
 progenitor         = "0.15.1"                                                                                                                                                                                   # Typed clients generated from OpenAPI documents
-reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli"] }                                                                                                            # HTTP client with pooling, streaming, and decompression
+reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli", "blocking"] }                                                                                                # HTTP client with pooling, streaming, and decompression, and a blocking client typst-kit's synchronous downloader reads
 reqwest-middleware = { version = "0.5.2", features = ["json", "rustls"] }                                                                                                                                       # Middleware chain around HTTP clients
 reqwest-tracing    = "0.7.1"                                                                                                                                                                                    # Client request spans with semantic-convention attributes
 sfv                = "0.16.0"                                                                                                                                                                                   # HTTP structured field values
@@ -277,31 +279,31 @@ tracing-opentelemetry              = "0.34.0"                                   
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
-anstream             = "1.0.0"                                                                                              # Writers that keep, strip, or translate ANSI per terminal
-anstyle              = "1.0.14"                                                                                             # Style values shared by help text, terminal output, and TUI spans
-clap                 = { version = "4.6.7", features = ["cargo", "derive", "env"] }                                         # Typed command-line arguments and environment values
-clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                                        # Verbosity flags resolved to tracing level filter
-clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                                              # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
-clap_mangen          = { version = "0.3.3", features = ["env"] }                                                            # Man pages generated from each command, `env` naming each variable a row reads
-colorchoice-clap     = "1.0.8"                                                                                              # Color choice flag feeding terminal writers
-comfy-table          = "8.0.1"                                                                                              # Terminal tables sized to terminal width
-crossterm            = { version = "0.29.0", features = ["event-stream", "serde"] }                                         # Raw mode, alternate screen, async terminal events, and key codes and modifiers decoded from keymap rows
-gilrs                = "0.11.2"                                                                                             # Gamepad input navigating viewports
-iced                 = { version = "0.14.0", features = ["tokio"] }                                                         # Windows in The Elm Architecture
-indicatif            = "0.18.6"                                                                                             # Progress bars and spinners
-inquire              = { version = "0.9.4", features = ["editor"] }                                                         # Interactive prompts
-minus                = { version = "5.8.0", features = ["static_output", "search"] }                                        # In-process pager for a grid taller than the terminal, `/` search
-ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache", "macros"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` 0.3 beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds nix 0.29 and thiserror 1 to the metadata clippy reads
-ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                                                 # Conversions between terminal styles and TUI styles
-ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }                      # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the catalog
-ratatui-textarea     = "0.9.4"                                                                                              # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
-throbber-widgets-tui = "0.11.1"                                                                                             # Activity indicators of pending effects
-tracing-indicatif    = "0.3.14"                                                                                             # Progress bars driven by tracing spans
-tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] }                                  # Log pane fed by tracing events
-tui-popup            = "0.7.7"                                                                                              # Popups and dialogs, `derive_setters` adds darling 0.21 beside instability's 0.24 and the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
-tui-scrollview       = "0.6.8"                                                                                              # Scrollable viewports, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
-tui-tree-widget      = "0.24.1"                                                                                             # Collapsible tree views
-winit                = "0.31.0-beta.4"                                                                                      # Platform windows and input events
+anstream             = "1.0.0"                                                                                    # Writers that keep, strip, or translate ANSI per terminal
+anstyle              = "1.0.14"                                                                                   # Style values shared by help text, terminal output, and TUI spans
+clap                 = { version = "4.6.7", features = ["cargo", "derive", "env"] }                               # Typed command-line arguments and environment values
+clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                              # Verbosity flags resolved to tracing level filter
+clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                                    # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
+clap_mangen          = { version = "0.3.3", features = ["env"] }                                                  # Man pages generated from each command, `env` naming each variable a row reads
+colorchoice-clap     = "1.0.8"                                                                                    # Color choice flag feeding terminal writers
+comfy-table          = "8.0.1"                                                                                    # Terminal tables sized to terminal width
+crossterm            = { version = "0.29.0", features = ["event-stream", "serde"] }                               # Raw mode, alternate screen, async terminal events, and key codes and modifiers decoded from keymap rows
+gilrs                = "0.11.2"                                                                                   # Gamepad input navigating viewports
+iced                 = { version = "0.14.0", features = ["tokio"] }                                               # Windows in The Elm Architecture
+indicatif            = "0.18.6"                                                                                   # Progress bars and spinners
+inquire              = { version = "0.9.4", features = ["editor"] }                                               # Interactive prompts
+minus                = { version = "5.8.0", features = ["static_output", "search"] }                              # In-process pager for a grid taller than the terminal, `/` search
+ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` 0.3 beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds nix 0.29 and thiserror 1 to the metadata clippy reads
+ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                                       # Conversions between terminal styles and TUI styles
+ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }            # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the catalog
+ratatui-textarea     = "0.9.4"                                                                                    # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+throbber-widgets-tui = "0.11.1"                                                                                   # Activity indicators of pending effects
+tracing-indicatif    = "0.3.14"                                                                                   # Progress bars driven by tracing spans
+tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] }                        # Log pane fed by tracing events
+tui-popup            = "0.7.7"                                                                                    # Popups and dialogs, `derive_setters` adds darling 0.21 beside instability's 0.24 and the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+tui-scrollview       = "0.6.8"                                                                                    # Scrollable viewports, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+tui-tree-widget      = "0.24.1"                                                                                   # Collapsible tree views
+winit                = "0.31.0-beta.4"                                                                            # Platform windows and input events
 
 # --- [DATA_STORAGE]
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
@@ -404,11 +406,11 @@ twofloat       = "0.8.4"                                                        
 uom            = { version = "0.38.0", features = ["use_serde"] }                                               # Quantities with dimensions checked at compile time
 
 # --- [SIGNALS]
-apodize      = "1.0.0"                                     # Hann, Hamming, Blackman, and Nuttall windows
+apodize      = "1.0.0"                                     # Symmetric Hann, Hamming, four-term Blackman–Harris, Nuttall and triangular windows
 biquad       = "0.6.0"                                     # Second-order IIR sections in transposed direct form
 ndarray-conv = { version = "0.6.1", features = ["rayon"] } # FFT convolution over ndarray planes
 ndrustfft    = "0.6.2"                                     # FFT, real FFT, and DCT along ndarray axes
-realfft      = "3.5.1"                                     # Real-input FFT at half complex-input work
+realfft      = "3.5.1"                                     # Real-input FFT under ndrustfft's real handler and ndarray-conv's processor
 rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
@@ -481,7 +483,7 @@ pmtiles           = { version = "0.26.0", features = ["brotli", "http-async", "m
 proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                                       # CRS transforms over a static PROJ with its database embedded, a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
 rstar             = "0.13.0"                                                                                                                                                                  # R*-tree envelope and nearest queries
 shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                                           # Shapefiles
-solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                                       # SPA and Grena solar positions and events, default `chrono` adds chrono beside jiff
+solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                                       # SPA solar positions and horizon events over UT Julian dates, default `chrono` adds chrono beside jiff
 stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                                                # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
 stac-io           = "0.3.5"                                                                                                                                                                   # STAC reads, writes, and API searches
 thermalcomfort    = { version = "4.6.2", features = ["std"] }                                                                                                                                 # PMV, UTCI, adaptive comfort, and psychrometrics
@@ -507,6 +509,7 @@ libvips           = "2.3.0"                                                     
 nom-exif          = "3.8.0"                                                                                                # EXIF and QuickTime metadata
 opencv            = "0.101.1"                                                                                              # Image processing, camera calibration, feature matching, and video
 oxipng            = "10.2.1"                                                                                               # Lossless PNG optimization
+png               = "0.18.1"                                                                                               # PNG encoding failures typst-render pixmaps report through tiny-skia's png-format, at the release tiny-skia links
 tiff              = { version = "0.11.3", features = ["zstd"] }                                                            # TIFF and DNG containers with tag access and multi-page image sequences
 turbojpeg         = "1.5.1"                                                                                                # JPEG encode and decode through libjpeg-turbo
 
@@ -533,29 +536,29 @@ merman = { version = "0.9.3", default-features = false, features = ["all-diagram
 plotly = "0.14.1"                                                                                                                # Plotly chart documents
 
 # --- [DOCUMENTS]
-calamine         = "0.37.0"                                                                                  # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
-chromiumoxide    = "0.9.1"                                                                                   # HTML printed to PDF through Chromium
-docx-rs          = "0.4.22"                                                                                  # DOCX reading and writing
-hayro            = "0.8.0"                                                                                   # PDF rasterization
-hayro-svg        = "0.8.0"                                                                                   # PDF pages converted to SVG
-hayro-syntax     = "0.8.0"                                                                                   # PDF object, page, and stream parsing hayro renders from
-ironcalc         = "0.9.1"                                                                                   # Spreadsheet formula evaluation
-krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                        # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
-krilla-svg       = "0.8.1"                                                                                   # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
-lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }            # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
-office-crypto    = "0.4.0"                                                                                   # Encrypted Office documents decrypted
-pdf_oxide        = { version = "0.3.78", features = ["parallel", "signatures", "jpeg2000", "ocr-tract"] }    # PDF text, path, table, and form extraction, editing, PAdES signing, OCR, and PDF/A, UA, and X validation
-rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] }          # Streaming XLSX writing with formats, tables, and charts
-spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }               # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, zip 6 turns on `time`
-typst            = "0.15.1"                                                                                  # Typst typesetting
-typst-bundle     = "0.15.1"                                                                                  # Typst documents exported as multi-file bundles
-typst-html       = "0.15.1"                                                                                  # Typst documents exported to HTML
-typst-kit        = { version = "0.15.1", features = ["embedded-fonts", "system-files", "emit-diagnostics"] } # Typst file stores, font stores over embedded and caller fonts, Universe packages over a caller's downloader, and diagnostics, `scan-fonts` scans system fonts
-typst-layout     = "0.15.1"                                                                                  # Typst paged layout
-typst-pdf        = "0.15.1"                                                                                  # Typst documents exported to PDF
-typst-render     = "0.15.1"                                                                                  # Typst pages rendered to PNG
-typst-svg        = "0.15.1"                                                                                  # Typst pages exported to SVG
-umya-spreadsheet = "4.0.0-beta.1"                                                                            # XLSX read-modify-write with styles
+calamine         = "0.37.0"                                                                                     # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
+chromiumoxide    = "0.9.1"                                                                                      # HTML printed to PDF through Chromium
+docx-rs          = "0.4.22"                                                                                     # DOCX reading and writing
+hayro            = "0.8.0"                                                                                      # PDF rasterization
+hayro-svg        = "0.8.0"                                                                                      # PDF pages converted to SVG
+hayro-syntax     = "0.8.0"                                                                                      # PDF object, page, and stream parsing hayro renders from
+ironcalc         = "0.9.1"                                                                                      # Spreadsheet formula evaluation
+krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                           # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
+krilla-svg       = "0.8.1"                                                                                      # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
+lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }               # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
+office-crypto    = "0.4.0"                                                                                      # Encrypted Office documents decrypted
+pdf_oxide        = { version = "0.3.78", features = ["parallel", "signatures", "jpeg2000", "ocr-tract"] }       # PDF text, path, table, and form extraction, editing, PAdES signing, OCR, and PDF/A, UA, and X validation
+rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] }             # Streaming XLSX writing with formats, tables, and charts
+spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }                  # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, zip 6 turns on `time`
+typst            = "0.15.1"                                                                                     # Typst typesetting, typst-library adds `time` 0.3 beside jiff, toml 0.8 beside 1, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
+typst-bundle     = "0.15.1"                                                                                     # Typst bundle export and the per-format options record paged export reads
+typst-html       = "0.15.1"                                                                                     # Typst documents exported to HTML
+typst-kit        = { version = "0.15.1", features = ["embedded-fonts", "system-packages", "emit-diagnostics"] } # Typst file and font stores, Universe packages over a caller's downloader, and diagnostics, `emit-diagnostics` adds codespan-reporting 0.11 with unicode-width 0.1 beside 0.2, `scan-fonts` scans system fonts
+typst-layout     = "0.15.1"                                                                                     # Typst paged layout
+typst-pdf        = "0.15.1"                                                                                     # Typst documents exported to PDF
+typst-render     = "0.15.1"                                                                                     # Typst pages rendered to PNG
+typst-svg        = "0.15.1"                                                                                     # Typst pages exported to SVG
+umya-spreadsheet = "4.0.0-beta.1"                                                                               # XLSX read-modify-write with styles
 
 # --- [MEDIA]
 c2pa        = { version = "0.91.7", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
@@ -620,10 +623,13 @@ rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } #
 rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
+rasm-solar      = { path = "libs/rust/geospatial/solar", version = "1.0.0" }   # Sun every Rasm site consumer composes: SPA positions beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval and the windows above an apparent elevation, Tregenza and Reinhart sky patches and the patch a direction falls in, incidence, sun hours and sky view through placed obstacles, solar rights and collection envelopes
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming the closing path, keyed order, layers, invalidation reach, change propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, critical path schedules
 rasm-optimize   = { path = "libs/rust/numerics/optimize", version = "1.0.0" }  # Optimization every Rasm numerics consumer composes: bounded nonlinear solves over a named space with vector constraints and global search, conic programs from typed cone blocks, allocation models, constrained Pareto ranking with crowding
+rasm-spectra    = { path = "libs/rust/numerics/spectra", version = "1.0.0" }   # Spectra every Rasm numerics consumer composes: Fourier, real and cosine transforms of planes along any axis, chirp-z zoom over a band, series convolution and correlation, Welch power estimates under periodic tapers, Butterworth and biquad cascades over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves and room-acoustic parameters
 rasm-tables     = { path = "libs/rust/data/tables", version = "1.0.0" }        # Typed tables every Rasm data consumer composes: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink and source
 rasm-network    = { path = "libs/rust/graphs/network", version = "1.0.0" }     # Network analysis every Rasm consumer of a street, circulation or utility network composes: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities
+rasm-typeset    = { path = "libs/rust/documents/typeset", version = "1.0.0" }  # Typst documents every Rasm consumer composes: a world over in-memory and on-disk sources with caller fonts beside embedded ones with each buffer refused when none of its faces parses, typed sys.inputs, optional Universe packages over a blocking HTTP client, compiles with bounded caches, PDF, SVG and PNG pages, and Mermaid diagrams measured with the document's fonts
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

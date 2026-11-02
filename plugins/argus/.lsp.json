@@ -2,16 +2,7 @@
     "typescript": {
         "command": "mise",
         "args": [ "exec", "--", "tsc", "--lsp", "--stdio" ],
-        "extensionToLanguage": {
-            ".ts": "typescript",
-            ".tsx": "typescriptreact",
-            ".mts": "typescript",
-            ".cts": "typescript",
-            ".js": "javascript",
-            ".jsx": "javascriptreact",
-            ".mjs": "javascript",
-            ".cjs": "javascript"
-        },
+        "extensionToLanguage": { ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript" },
         "diagnostics": false,
         "settings": { "js/ts": { "tsserver": { "automaticTypeAcquisition": { "enabled": false } } } }
     },

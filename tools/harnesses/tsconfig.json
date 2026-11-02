@@ -1,4 +1,6 @@
 {
     "extends": "../../tsconfig.base.json",
-    "compilerOptions": { "types": [ "node" ] }
+    "compilerOptions": { "types": [ "node" ] },
+    "include": [ "**/*.ts" ],
+    "exclude": [ "node_modules", "*/uxpscript/**" ]
 }

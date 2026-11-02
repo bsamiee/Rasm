@@ -2,37 +2,39 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.services.Analyzer;
 import ghidra.util.classfinder.ClassSearcher;
 
+import rasm.Arguments;
+import rasm.Report;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Analyzers extends GhidraScript {
     @Override
     public void run() {
-        String usage = "usage: %s <analyzer>...".formatted(getScriptName());
-        List<String> args = List.of(getScriptArgs());
-        if (args.isEmpty()) {
-            throw new IllegalArgumentException(usage);
-        }
+        Arguments.Usage usage = new Arguments.Usage(getScriptName(), "<analyzer>...");
+        String[] args = getScriptArgs();
         Set<String> analyzers =
                 ClassSearcher.getInstances(Analyzer.class).stream()
                         .map(Analyzer::getName)
                         .collect(Collectors.toSet());
         List<String> names =
-                Arguments.values(
-                        args.stream()
-                                .distinct()
-                                .<Report.Result<String>>map(
-                                        name ->
-                                                analyzers.contains(name)
-                                                        ? new Report.Success<>(name)
-                                                        : new Report.Failure<>(
-                                                                "Argument `%s` names no analyzer"
-                                                                        .formatted(name)))
-                                .toList(),
-                        usage);
+                usage.values(
+                        Stream.concat(
+                                Arrays.stream(args)
+                                        .distinct()
+                                        .<Report.Result<String>>map(
+                                                name ->
+                                                        analyzers.contains(name)
+                                                                ? new Report.Success<>(name)
+                                                                : new Report.Failure<>(
+                                                                        "Argument `%s` names no analyzer"
+                                                                                .formatted(name))),
+                                usage.require(args.length > 0, "analyzer")));
         Set<String> registered = getCurrentAnalysisOptionsAndValues(currentProgram).keySet();
         setAnalysisOptions(
                 currentProgram,

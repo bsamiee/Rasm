@@ -1,8 +1,12 @@
+#![feature(default_field_values)]
+
 use std::{ffi::OsString, process::ExitCode};
 
 use clap::{Arg, ArgMatches, CommandFactory, FromArgMatches, ValueHint, error::ErrorKind, value_parser};
 use rasm_mcp::{host, proxy::Proxy};
+use rasm_telemetry::Defaults;
 use tokio::process::Command;
+use tracing_subscriber::layer::Identity;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -51,4 +55,4 @@ impl FromArgMatches for Upstream {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() -> ExitCode { host::run(|Upstream(command), identity, notifier| Proxy::spawn(command, identity, notifier)) }
+fn main() -> ExitCode { host::run(Defaults { .. }, Identity::new(), |Upstream(command), identity, _, notifier| Proxy::spawn(command, identity, notifier)) }

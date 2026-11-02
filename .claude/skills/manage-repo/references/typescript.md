@@ -21,6 +21,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 ## [02]-[COMPILER]
 
+- `tsc` is the TypeScript 7 native build `@effect/tsgo` patches with Effect diagnostics, the repository holds no `tsgo` binary
+- `nx run <project>:typecheck:tsc` checks one project, incremental with build info in `.cache/tsc/<project>`
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
 - Importers name package `exports` entries mapping each concept to its file (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules joins no other entry's import graph
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
@@ -33,10 +35,12 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
 - Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
 - `tsconfig.base.json` excludes project `*.config.ts` files, root `tsconfig.json` compiles them and `.storybook/main.ts`
+- Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json`, outside the root program the language server loads
 - Project `include` lists `.storybook/*.stories.ts` or `.stories.tsx` beside `**/*` (skips dot directories), story imports reach `.storybook/preview`
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
-- Project `typecheck:tsc` hashes compiler packages and its package closure, root `typecheck:tsc` keeps Nx's default hash of every installed package
+- Project `typecheck:tsc` hashes its `extends` chain, compiler packages, and package closure
+- Root `typecheck:tsc` hashes TypeScript and `package.json` files outside `docs` and nested programs, and every installed package
 
 ## [03]-[EXECUTION]
 

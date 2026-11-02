@@ -1,4 +1,4 @@
-import ghidra.app.cmd.function.ApplyFunctionSignatureCmd;
+import ghidra.app.cmd.function.ApplyFunctionDataTypesCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.util.cparser.C.CParser;
 import ghidra.app.util.cparser.C.CParserUtils;
@@ -9,10 +9,15 @@ import ghidra.app.util.cparser.CPP.TokenMgrError;
 import ghidra.framework.Application;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.FunctionDefinition;
+import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 
 import util.CollectionUtils;
+
+import rasm.Arguments;
+import rasm.Functions;
+import rasm.Report;
 
 import utilities.util.FileUtilities;
 
@@ -27,10 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -99,7 +101,7 @@ public class Headers extends GhidraScript {
             cpp.setOutputStream(output);
             try {
                 if (!cpp.parse(source.toString())) {
-                    return new Report.Failure<>("failed %s\nFile is unreadable".formatted(file));
+                    return new Report.Failure<>("%s\nFile is unreadable".formatted(file));
                 }
                 parser.setParseFileName(file.toString());
                 String pointers =
@@ -112,11 +114,11 @@ public class Headers extends GhidraScript {
                                         .matcher(pointers)
                                         .replaceAll("$1")
                                         .getBytes(StandardCharsets.ISO_8859_1)));
-                return new Report.Success<>("parsed " + file);
+                return new Report.Success<>(file.toString());
             } catch (ParseException
                     | ghidra.app.util.cparser.CPP.ParseException
                     | TokenMgrError exception) {
-                return new Report.Failure<>("failed " + file + "\n" + exception.getMessage());
+                return new Report.Failure<>(file + "\n" + exception.getMessage());
             }
         }
     }
@@ -257,57 +259,55 @@ public class Headers extends GhidraScript {
 
     // --- [SIGNATURES]
 
-    private Stream<Report.Result<String>> apply(FunctionDefinition definition) {
+    private Stream<Report.Result<String>> applied(FunctionDefinition definition) {
         return Stream.of(definition.getName(), "_" + definition.getName())
                 .map(currentProgram.getSymbolTable()::getSymbols)
                 .flatMap(CollectionUtils::asStream)
-                .map(Symbol::getAddress)
-                .map(currentProgram.getFunctionManager()::getFunctionAt)
-                .filter(Objects::nonNull)
+                .map(Symbol::getObject)
+                .filter(Function.class::isInstance)
+                .map(Function.class::cast)
                 .map(Functions::target)
                 .distinct()
                 .sorted(Functions.BY_ENTRY)
                 .map(
-                        function -> {
-                            ApplyFunctionSignatureCmd command =
-                                    new ApplyFunctionSignatureCmd(
-                                            function.getEntryPoint(),
-                                            definition,
-                                            SourceType.USER_DEFINED);
-                            return runCommand(command)
-                                    ? new Report.Success<>(
-                                            "applied %s %s"
-                                                    .formatted(
-                                                            function.getEntryPoint(),
-                                                            function.getPrototypeString(
-                                                                    true, false)))
-                                    : new Report.Failure<>(
-                                            "rejected %s %s: %s"
-                                                    .formatted(
-                                                            function.getEntryPoint(),
-                                                            function.getName(true),
-                                                            command.getStatusMsg()));
-                        });
+                        function ->
+                                definition.isEquivalentSignature(function.getSignature(true))
+                                        ? new Report.Success<>(
+                                                "%s %s"
+                                                        .formatted(
+                                                                function.getEntryPoint(),
+                                                                function.getPrototypeString(
+                                                                        true, false)))
+                                        : new Report.Failure<>(
+                                                "%s %s keeps %s"
+                                                        .formatted(
+                                                                function.getEntryPoint(),
+                                                                definition.getPrototypeString(),
+                                                                function.getPrototypeString(
+                                                                        true, false))));
     }
 
     // --- [RUN]
 
     @Override
     public void run() throws Exception {
-        String usage =
-                "usage: %s <report> <header>... [-I<dir>]... [-D<name>[=<value>]]... [-imacros <file>]..."
-                        .formatted(getScriptName());
-        List<String> args = List.of(getScriptArgs());
-        if (args.isEmpty()) {
-            throw new IllegalArgumentException(usage);
-        }
-        List<Report.Result<Argument>> results = arguments(args.subList(1, args.size())).toList();
-        Stream<Report.Result<Argument>> missing =
-                results.stream().flatMap(Report.Result::values).anyMatch(Header.class::isInstance)
-                        ? Stream.empty()
-                        : Stream.of(new Report.Failure<>("Arguments name no header"));
+        Arguments.Usage usage =
+                new Arguments.Usage(
+                        getScriptName(),
+                        "<report> <header>... [-I<dir>]... [-D<name>[=<value>]]... [-imacros <file>]...");
+        String[] args = getScriptArgs();
+        Path out = usage.out(args);
+        List<String> tokens = usage.operands(args);
+        List<Report.Result<Argument>> results = arguments(tokens).toList();
         List<Argument> arguments =
-                Arguments.values(Stream.concat(results.stream(), missing).toList(), usage);
+                usage.values(
+                        Stream.concat(
+                                results.stream(),
+                                usage.require(
+                                        results.stream()
+                                                .flatMap(Report.Result::values)
+                                                .anyMatch(Header.class::isInstance),
+                                        "header")));
         Path overlay =
                 Files.createTempDirectory(Application.getUserTempDirectory().toPath(), "headers");
         try {
@@ -378,46 +378,45 @@ public class Headers extends GhidraScript {
                                                     parser))
                             .toList();
             cpp.getDefinitions().populateDefineEquates(null, currentProgram.getDataTypeManager());
-            List<Report.Result<String>> applied =
+            List<FunctionDefinition> definitions =
                     parser.getFunctions().values().stream()
-                            .sorted(Comparator.comparing(DataType::getName))
                             .filter(FunctionDefinition.class::isInstance)
                             .map(FunctionDefinition.class::cast)
-                            .flatMap(this::apply)
+                            .sorted(Comparator.comparing(DataType::getName))
                             .toList();
-            long failed = parsed.stream().flatMap(Report.Result::failures).count();
-            long rejected = applied.stream().flatMap(Report.Result::failures).count();
-            String counts =
-                    "headers=%d failed=%d types=%d functions=%d applied=%d rejected=%d args=%s"
-                            .formatted(
-                                    parsed.size(),
-                                    failed,
-                                    Stream.of(
-                                                    parser.getComposites(),
-                                                    parser.getEnums(),
-                                                    parser.getTypes())
-                                            .mapToInt(Map::size)
-                                            .sum(),
-                                    parser.getFunctions().size(),
-                                    applied.size() - rejected,
-                                    rejected,
-                                    String.join(" ", args.subList(1, args.size())));
-            Function<Report.Result<String>, Stream<String>> text =
-                    result -> Stream.concat(result.values(), result.failures());
-            Stream<String> body =
-                    Stream.of(
-                                    Map.entry("HEADERS", parsed.stream().flatMap(text)),
-                                    Map.entry("PREPROCESSOR", Stream.of(cpp.getParseMessages())),
-                                    Map.entry("PARSER", Stream.of(parser.getParseMessages())),
-                                    Map.entry("APPLIED", applied.stream().flatMap(text)))
-                            .flatMap(
-                                    section ->
-                                            Stream.concat(
-                                                    Stream.of(Report.section(section.getKey())),
-                                                    section.getValue()
-                                                            .flatMap(String::lines)
-                                                            .map("// "::concat)));
-            println(Report.write(Path.of(args.getFirst()), currentProgram, counts, body));
+            definitions.stream()
+                    .map(DataType::getCategoryPath)
+                    .distinct()
+                    .map(currentProgram.getDataTypeManager()::getCategory)
+                    .forEach(
+                            category ->
+                                    runCommand(
+                                            new ApplyFunctionDataTypesCmd(
+                                                    category,
+                                                    null,
+                                                    SourceType.USER_DEFINED,
+                                                    true,
+                                                    false)));
+            List<Report.Result<String>> applied =
+                    definitions.stream().flatMap(this::applied).toList();
+            List<Report.Section> sections =
+                    List.of(
+                            Report.Section.rows(
+                                    "PARSED", parsed.stream().flatMap(Report.Result::values).toList()),
+                            Report.Section.comments(
+                                    "FAILED",
+                                    parsed.stream().flatMap(Report.Result::failures).toList()),
+                            Report.Section.comments(
+                                    "PREPROCESSOR", cpp.getParseMessages().lines().toList()),
+                            Report.Section.comments(
+                                    "PARSER", parser.getParseMessages().lines().toList()),
+                            Report.Section.rows(
+                                    "APPLIED",
+                                    applied.stream().flatMap(Report.Result::values).toList()),
+                            Report.Section.rows(
+                                    "REJECTED",
+                                    applied.stream().flatMap(Report.Result::failures).toList()));
+            println(Report.write(out, currentProgram, sections, String.join(" ", tokens)));
         } finally {
             FileUtilities.deleteDir(overlay);
         }

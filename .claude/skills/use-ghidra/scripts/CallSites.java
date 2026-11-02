@@ -7,6 +7,10 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 
+import rasm.Arguments;
+import rasm.Functions;
+import rasm.Report;
+
 import util.CollectionUtils;
 
 import java.util.Comparator;
@@ -207,45 +211,46 @@ public class CallSites extends GhidraScript {
                                                                                     cause)));
                                         })
                         .toList();
-        List<String> failed = results.stream().flatMap(Report.Result::failures).toList();
-        Map<Function, List<Call>> calls =
+        List<Call> sorted =
                 results.stream()
                         .flatMap(Report.Result::values)
                         .sorted(
                                 Comparator.comparing((Call call) -> call.caller().getEntryPoint())
                                         .thenComparing(Call::address))
-                        .collect(Collectors.groupingBy(call -> call.callee().target()));
-        String counts =
-                "targets=%d callers=%d calls=%d failed=%d args=%s"
-                        .formatted(
-                                callersByTarget.size(),
-                                callers.size(),
-                                calls.values().stream().mapToLong(List::size).sum(),
-                                failed.size(),
-                                request.arguments());
-        Stream<String> sections =
-                callersByTarget.entrySet().stream()
-                        .flatMap(
-                                entry -> {
-                                    Function target = entry.getKey();
-                                    List<Call> targetCalls = calls.getOrDefault(target, List.of());
-                                    return Stream.concat(
-                                            Stream.of(
-                                                    Report.subsection(target.getName(true)),
-                                                    "// %s @ %s callers=%d calls=%d"
-                                                            .formatted(
-                                                                    target.getName(true),
-                                                                    target.getEntryPoint(),
-                                                                    entry.getValue().size(),
-                                                                    targetCalls.size())),
-                                            targetCalls.stream().map(Call::row));
-                                });
-        Stream<String> body =
-                Stream.of(
-                                sections,
-                                Stream.of(Report.section("FAILED")),
-                                failed.stream().map("// "::concat))
-                        .flatMap(section -> section);
-        println(Report.write(request.out(), currentProgram, counts, body));
+                        .toList();
+        Map<Function, List<Call>> calls =
+                sorted.stream().collect(Collectors.groupingBy(call -> call.callee().target()));
+        List<Report.Section> sections =
+                List.of(
+                        new Report.Section(
+                                "CALLS",
+                                sorted.size(),
+                                callersByTarget.entrySet().stream()
+                                        .flatMap(
+                                                entry -> {
+                                                    Function target = entry.getKey();
+                                                    List<Call> targetCalls =
+                                                            calls.getOrDefault(target, List.of());
+                                                    return Stream.concat(
+                                                            Stream.of(
+                                                                    Report.subdivider(
+                                                                            target.getName(true)),
+                                                                    "// %s @ %s callers=%d calls=%d"
+                                                                            .formatted(
+                                                                                    target.getName(
+                                                                                            true),
+                                                                                    target
+                                                                                            .getEntryPoint(),
+                                                                                    entry.getValue()
+                                                                                            .size(),
+                                                                                    targetCalls
+                                                                                            .size())),
+                                                            targetCalls.stream().map(Call::row));
+                                                })
+                                        .toList()),
+                        Report.Section.comments(
+                                "FAILED",
+                                results.stream().flatMap(Report.Result::failures).toList()));
+        println(Report.write(request.out(), currentProgram, sections, request.arguments()));
     }
 }

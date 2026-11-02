@@ -22,7 +22,7 @@
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" } ],
         "python": [ "{workspaceRoot}/**/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
-        "vite": [ "{workspaceRoot}/vite.shared.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
+        "vite": [ "{workspaceRoot}/vite.shared.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin", "@swc/core", "smol-toml" ] } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "nextest": [ "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
         "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "{projectRoot}/Cargo.toml" ],
@@ -75,6 +75,7 @@
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "vite build --config uxp.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
+            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "vite build --config cep.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             { "filter": { "projects": [ "tag:output:script" ] }, "command": "vite build --config script.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             { "filter": { "projects": [ "tag:host:extendscript" ] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": [ "...", { "externalDependencies": [ "@swc/core", "@swc/cli" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
@@ -126,6 +127,7 @@
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "rsync -a --delete .artifacts/{projectRoot}/ \"$HOME/Library/Application Support/Adobe/CEP/extensions/$(basename {projectRoot})/\" && defaults write com.adobe.CSXS.12 PlayerDebugMode 1", "dependsOn": [ "build" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
         ],
@@ -166,7 +168,12 @@
         "run:*.cs": { "command": "dotnet run" },
         "typecheck:*": [
             { "cache": true },
-            { "filter": { "projects": [ "tag:language:typescript" ] }, "command": "tsc --pretty false", "options": { "cwd": "{projectRoot}" }, "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ] },
+            {
+                "filter": { "projects": [ "tag:language:typescript", "rasm" ] },
+                "command": "tsc --pretty false --incremental --tsBuildInfoFile \"$NX_WORKSPACE_ROOT/.cache/tsc/{projectName}/tsconfig.tsbuildinfo\"",
+                "options": { "cwd": "{projectRoot}" },
+                "inputs": [ "...", "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ]
+            },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo clippy --locked --no-deps --package {projectName}", "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ], "parallelism": false }
         ],
         "lint:*": { "cache": true },
@@ -288,7 +295,11 @@
             "cache": true,
             "parallelism": false
         },
-        "check": [ { "filter": { "projects": [ "tag:language:*" ] }, "executor": "nx:noop", "dependsOn": [ "typecheck:*", "lint:*", "test" ] }, { "filter": { "projects": [ "tag:language:dotnet", "tag:language:swift" ] }, "dependsOn": [ "...", { "target": "build", "params": "forward" } ] } ],
+        "check": [
+            { "filter": { "projects": [ "tag:language:*" ] }, "executor": "nx:noop", "dependsOn": [ "typecheck:*", "lint:*", "test" ] },
+            { "filter": { "projects": [ "tag:language:dotnet", "tag:language:swift" ] }, "dependsOn": [ "...", { "target": "build", "params": "forward" } ] },
+            { "filter": { "projects": [ "tag:platform:windows" ] }, "dependsOn": [ "...", "build:windows" ] }
+        ],
         "upgrade:xcode": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },

@@ -1,4 +1,4 @@
-use core::{error::Error, future::ready, num::NonZero, time::Duration};
+use core::{future::ready, num::NonZero, time::Duration};
 use std::{
     collections::BTreeMap,
     sync::{Arc, nonpoison::Mutex},
@@ -27,12 +27,12 @@ use self::{
     resources::{ResourceRouter, Resources},
     tools::{Execution, Running},
 };
-use crate::{Endpoint, McpError, Notifier, internal};
+use crate::{Endpoint, Failure, McpError, Notifier, internal};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait App: Clone + Send + Sync + 'static {
-    type Error: Error + Send + Sync + 'static + From<McpError> + Into<sysexits::ExitCode> = McpError;
+    type Error: Failure + From<McpError> = McpError;
 
     fn serve(self, _: Changes<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }

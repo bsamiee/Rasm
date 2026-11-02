@@ -21,6 +21,8 @@ interface Program {
     readonly execs?: readonly string[];
     readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
     readonly previews?: readonly [string, ...string[]];
+    readonly headless?: readonly string[];
+    readonly targets?: { readonly project: 'root' } | { readonly project: 'owner'; readonly selects: readonly string[]; readonly names: 'path' | 'project' };
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -32,6 +34,7 @@ interface Operands {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
+const OPTION = /^--?[\p{L}\p{N}]/u;
 const TILDE = /^~(?<user>[^/]*)/u;
 const PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
 const SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
@@ -365,6 +368,33 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         ksh: SHELL,
         sqlite3: SQL,
         duckdb: SQL,
+        nx: { valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files'] },
+        tsc: {
+            valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
+            informational: ['-v', '-h'],
+            targets: { project: 'owner', selects: ['-p', '--project'], names: 'path' },
+        },
+        cargo: {
+            valued: ['-p', '--package', '--exclude', '--manifest-path', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
+            targets: { project: 'owner', selects: ['-p', '--package'], names: 'project' },
+        },
+        biome: {
+            valued: ['--config-path', '--max-diagnostics', '--reporter', '--diagnostic-level', '--log-level', '--log-kind', '--log-path', '--vcs-root', '--stdin-file-path', '--only', '--skip', '--colors', '--threads'],
+            targets: { project: 'root' },
+        },
+        ruff: {
+            valued: ['--config', '--select', '--extend-select', '--ignore', '--extend-ignore', '--per-file-ignores', '--extend-per-file-ignores', '--fixable', '--unfixable', '--output-format', '-o', '--output-file', '--target-version', '--line-length', '--exclude', '--extend-exclude', '--stdin-filename', '--cache-dir'],
+            targets: { project: 'root' },
+        },
+        'ast-grep': {
+            valued: ['-c', '--config', '-r', '--rule', '--inline-rules', '--filter', '--globs', '--error', '--warning', '--info', '--hint', '--off', '--format', '--report-style', '--color', '--no-ignore', '--custom-languages', '-j', '--threads', '-A', '--after', '-B', '--before', '-C', '--context', '--max-results'],
+            targets: { project: 'root' },
+        },
+        osascript: { valued: ['-e', '-l', '-s'] },
+        open: { valued: ['-a', '-b', '-s', '-u', '--env', '--stdin', '--stdout', '--stderr'] },
+        'watch-apps': { valued: ['--document', '--arguments', '--environment'] },
+        analyzeHeadless: { wholeWords: true, valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-connect', '-commit', '-max-cpu', '-librarySearchPaths', '-loader'] },
+        Blender: { informational: ['-v', '-h'], headless: ['-b', '--background'] },
     } satisfies Record<string, Program>),
 );
 
@@ -394,14 +424,14 @@ const option = (row: Program, word: string) => {
 const firstOperand = (invocation: Invocation, index: number): number => {
     const [program] = invocation;
     const word = invocation[index];
-    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
+    return word === undefined || word === '--' || !OPTION.test(word) ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
 };
 
 const separated = (row: Program, [head, ...rest]: readonly string[]): Operands => {
     if (head === undefined || head === '--') {
         return { inputs: rest, options: [], values: [], inner: [] };
     }
-    if (head === '-' || !head.startsWith('-')) {
+    if (!OPTION.test(head)) {
         const tail = separated(row, rest);
         return { ...tail, inputs: [head, ...tail.inputs] };
     }
@@ -482,7 +512,7 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
         const [first, ...more] = words;
         const deeper = pending.flatMap(([step, ...steps]) => (step !== undefined && step === first ? [steps] : []));
-        if (first?.startsWith('-') === true) {
+        if (first !== undefined && OPTION.test(first)) {
             return wrapped(more.slice(option(row, first).taken), pending);
         }
         if (deeper.length > 0) {

@@ -1,3 +1,5 @@
+package rasm;
+
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.decompiler.parallel.DecompilerCallback;
@@ -29,29 +31,29 @@ import java.util.stream.Stream;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-final class Functions {
+public final class Functions {
     // --- [GRAPH]
 
-    static final Comparator<Function> BY_ENTRY = Comparator.comparing(Function::getEntryPoint);
+    public static final Comparator<Function> BY_ENTRY = Comparator.comparing(Function::getEntryPoint);
 
     private Functions() {}
 
-    static Stream<Function> internal(Program program) {
+    public static Stream<Function> internal(Program program) {
         return CollectionUtils.asStream(program.getFunctionManager().getFunctions(true));
     }
 
-    static boolean isStub(Function function) {
+    public static boolean isStub(Function function) {
         MemoryBlock block = function.getProgram().getMemory().getBlock(function.getEntryPoint());
         return Stream.ofNullable(block)
                 .map(MemoryBlock::getName)
                 .anyMatch(Objc2Constants.OBJC2_STUBS::equals);
     }
 
-    static Function thunked(Function function) {
+    public static Function thunked(Function function) {
         return function.isThunk() ? function.getThunkedFunction(true) : function;
     }
 
-    static Function target(Function function) {
+    public static Function target(Function function) {
         return target(function, new HashSet<>());
     }
 
@@ -64,14 +66,14 @@ final class Functions {
                 : thunked(function);
     }
 
-    static Stream<Function> thunks(Function function) {
+    public static Stream<Function> thunks(Function function) {
         return Stream.ofNullable(function.getFunctionThunkAddresses(true))
                 .flatMap(Arrays::stream)
                 .map(function.getProgram().getFunctionManager()::getFunctionAt)
                 .filter(Objects::nonNull);
     }
 
-    static Stream<Function> callers(Function function, TaskMonitor monitor) {
+    public static Stream<Function> callers(Function function, TaskMonitor monitor) {
         return callers(function, monitor, new HashSet<>());
     }
 
@@ -88,13 +90,13 @@ final class Functions {
                 .distinct();
     }
 
-    static Stream<Function> callees(Function function, TaskMonitor monitor) {
+    public static Stream<Function> callees(Function function, TaskMonitor monitor) {
         return function.getCalledFunctions(monitor).stream().map(Functions::target).distinct();
     }
 
     // --- [DATA]
 
-    static Optional<String> selector(Function stub) {
+    public static Optional<String> selector(Function stub) {
         Program program = stub.getProgram();
         ReferenceManager references = program.getReferenceManager();
         return CollectionUtils.asStream(references.getReferenceSourceIterator(stub.getBody(), true))
@@ -110,7 +112,7 @@ final class Functions {
                 .findFirst();
     }
 
-    static Stream<Function> referrers(Data data) {
+    public static Stream<Function> referrers(Data data) {
         Program program = data.getProgram();
         Stream<Data> structs =
                 CollectionUtils.asStream(data.getReferenceIteratorTo())
@@ -128,7 +130,7 @@ final class Functions {
 
     // --- [DECOMPILE]
 
-    static SequencedMap<Function, Report.Result<DecompileResults>> decompile(
+    public static SequencedMap<Function, Report.Result<DecompileResults>> decompile(
             Program program,
             List<Function> functions,
             Map<Arguments.Setting, Integer> settings,

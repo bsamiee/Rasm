@@ -5,12 +5,15 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.util.DefinedDataIterator;
 import ghidra.util.task.TaskMonitor;
 
+import rasm.Arguments;
+import rasm.Functions;
+import rasm.Report;
+
 import util.CollectionUtils;
 
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -94,61 +97,48 @@ public class Catalog extends GhidraScript {
 
         @Override
         public String text() {
-            return "%s %s size=%d callers=%d callees=%d"
+            return "%s %s size=%d callers=%d callees=%d source=%s"
                     .formatted(
                             function.getEntryPoint(),
                             function.getName(true),
                             rank(),
                             callers,
-                            callees);
+                            callees,
+                            function.getSymbol().getSource());
         }
     }
 
-    record Section(String name, List<? extends Row> rows) {
-        String count() {
-            return name.toLowerCase(Locale.ROOT) + "=" + rows.size();
-        }
-
-        Stream<String> lines() {
-            return Stream.concat(
-                    Stream.of(Report.section(name)),
-                    rows.stream().sorted(Row.ORDER).map(Row::text));
-        }
+    private static Report.Section section(String name, Stream<? extends Row> rows) {
+        return Report.Section.rows(name, rows.sorted(Row.ORDER).map(Row::text).toList());
     }
 
     // --- [RUN]
 
     @Override
     public void run() throws Exception {
-        Path out = Arguments.out(getScriptName(), getScriptArgs());
-        List<Section> sections =
+        Path out = new Arguments.Usage(getScriptName(), "<out>").only(getScriptArgs());
+        List<Report.Section> sections =
                 List.of(
-                        new Section(
+                        section(
                                 "STRINGS",
                                 CollectionUtils.asStream(
                                                 DefinedDataIterator.byDataInstance(
                                                         currentProgram,
                                                         StringDataInstance::isString))
-                                        .map(StringRow::new)
-                                        .toList()),
-                        new Section(
+                                        .map(StringRow::new)),
+                        section(
                                 "IMPORTS",
                                 CollectionUtils.asStream(
                                                 currentProgram
                                                         .getFunctionManager()
                                                         .getExternalFunctions())
-                                        .map(function -> new ImportRow(function, monitor))
-                                        .toList()),
-                        new Section(
+                                        .map(function -> new ImportRow(function, monitor))),
+                        section(
                                 "FUNCTIONS",
                                 Functions.internal(currentProgram)
                                         .filter(Predicate.not(Function::isThunk))
                                         .filter(Predicate.not(Functions::isStub))
-                                        .map(function -> new FunctionRow(function, monitor))
-                                        .toList()));
-        String counts = sections.stream().map(Section::count).collect(Collectors.joining(" "));
-        println(
-                Report.write(
-                        out, currentProgram, counts, sections.stream().flatMap(Section::lines)));
+                                        .map(function -> new FunctionRow(function, monitor))));
+        println(Report.write(out, currentProgram, sections, ""));
     }
 }

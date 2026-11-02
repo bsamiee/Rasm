@@ -1,9 +1,10 @@
+import { Pid, State } from '@rasm/automation/applications';
 import { Schema } from 'effect';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: unique symbol }>()('HarnessError', {
-    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: { because: Schema.String }, Disagreed: { mismatches: Schema.Int } }),
+    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: { because: Schema.String }, Disagreed: { mismatches: Schema.Int }, Interrupted: { pid: Pid, state: State } }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
@@ -14,6 +15,7 @@ class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: un
             Refused: () => this.subject,
             Unavailable: ({ because }) => `${this.subject}: ${because}`,
             Disagreed: ({ mismatches }) => `${this.subject} disagrees with the host on ${mismatches} cases`,
+            Interrupted: ({ pid, state }) => `${this.subject}: process ${pid} ${state._tag}`,
         });
     }
 }

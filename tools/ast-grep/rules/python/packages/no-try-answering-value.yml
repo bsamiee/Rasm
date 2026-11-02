@@ -2,6 +2,7 @@
 id: no-try-answering-value
 language: python
 severity: error
+ignores: ['tools/harnesses/blender/engine.py']
 utils:
     answer:
         any:

@@ -61,6 +61,8 @@ pub trait MakeWriter = for<'writer> fmt::MakeWriter<'writer> + Clone + Send + Sy
 
 pub trait Layer = layer::Layer<Layered<reload::Layer<EnvFilter, Registry>, Registry>> + Send + Sync + 'static;
 
+pub trait Failure = Error + Into<sysexits::ExitCode>;
+
 pub type Handle = reload::Handle<EnvFilter, Registry>;
 
 #[derive(Clone, Copy, Debug, derive_more::Display, strum::VariantArray)]
@@ -136,7 +138,7 @@ impl Options {
         W: MakeWriter,
         L: Layer,
         T: Termination,
-        E: Error + Into<sysexits::ExitCode>,
+        E: Failure,
     {
         fn built<B>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<B, ExporterBuildError>) -> Validated<Option<B>, TelemetryError> {
             match exporter {

@@ -108,6 +108,7 @@ const XcodeProject = Parsed('JSON', parseJson).pipe(
     ),
 );
 const XcodeFolder = Schema.Struct({ kind: Schema.Literal('folder'), path: Schema.String });
+const TsConfig = Parsed('JSON', parseJson).pipe(Schema.decodeTo(Schema.Struct({ extends: Schema.ArrayEnsure(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })));
 const PackageName = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 const MSBuildProject = Parsed('MSBuild XML', (text) => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text)).pipe(
     Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })),
@@ -134,6 +135,12 @@ const cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, 
         Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root }) }),
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
+});
+const extendedConfigs: (root: string, file: string) => Effect.Effect<readonly string[], Effect.Error<ReturnType<typeof decode>>, Effect.Services<ReturnType<typeof decode>>> = Effect.fnUntraced(function* (root: string, file: string) {
+    const [path, config] = yield* Effect.all([Path.Path, decode(TsConfig, root, file)]);
+    const parents = config.extends.map((parent) => path.join(path.dirname(file), parent));
+    const chains = yield* Effect.forEach(parents, (parent) => extendedConfigs(root, parent));
+    return [...parents, ...chains.flat()];
 });
 
 // --- [WORKSPACE]
@@ -204,8 +211,8 @@ const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     targets: { check: {}, ...Record.fromIterableWith(['build', 'lint:periphery', ...targets], (target) => [target, {}]) },
 });
 const markers = {
-    '*.csproj': Effect.fnUntraced(function* (_, { file, root }) {
-        const { Project } = yield* decode(MSBuildProject, root, file);
+    '*.csproj': Effect.fnUntraced(function* ({ dir }, { file, root }) {
+        const [{ Project }, windows] = yield* Effect.all([decode(MSBuildProject, root, file), Effect.map(glob(root, [`${dir}/**/Windows/**/*.cs`]), Array.isArrayNonEmpty)]);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
         const outputs = (target: string, configuration: string) => [
             `{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${configuration}*`,
@@ -213,10 +220,18 @@ const markers = {
             ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${configuration}*`] : []),
         ];
         return {
-            tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : [])],
+            tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(windows ? ['platform:windows'] : [])],
             targets: {
                 build: { outputs: outputs('build', 'debug') },
                 'build:release': { outputs: outputs('build:release', 'release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
+                ...(windows
+                    ? {
+                          'build:windows': {
+                              options: { cwd: '{projectRoot}', args: ['--runtime', 'win-x64', '"-p:ArtifactsPath=$NX_WORKSPACE_ROOT/.artifacts/dotnet/windows"'] },
+                              outputs: ['{workspaceRoot}/.artifacts/dotnet/windows/{bin,obj}/{projectName}', '{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/build-windows.binlog'],
+                          },
+                      }
+                    : {}),
                 check: {},
                 ...(plugin ? { pack: {}, install: {}, publish: {} } : {}),
             },
@@ -300,9 +315,20 @@ const markers = {
         const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
         return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets };
     }),
-    'tsconfig.json': ({ dir }, { root }) => Effect.map(suiteInputs('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
+    'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root }) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const folders = [...dir.split(path.sep).map((_, at, segments) => segments.slice(0, segments.length - at).join(path.sep)), '.'];
+        const owner = yield* Effect.flatMap(
+            Effect.findFirst(folders, (folder) => fs.exists(path.join(root, folder, 'package.json'))),
+            Effect.fromOption,
+        );
+        const [suite, configs] = yield* Effect.all([suiteInputs('typescript', dir, root), extendedConfigs(root, file)], { concurrency: 'unbounded' });
+        const named = owner === dir ? {} : { name: path.join((yield* decode(PackageName, root, path.join(owner, 'package.json'))).name, path.relative(owner, dir)) };
+        return { ...suite, ...named, tags: ['language:typescript'], targets: { 'typecheck:tsc': { inputs: configs.map((config) => `{workspaceRoot}/${config}`) }, check: {} } };
+    }),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
+    'cep.config.ts': () => Effect.succeed({ tags: ['host:cep'], targets: { build: {}, install: {} } }),
     'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
     '.storybook/main.ts': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), targets: { storybook: {} } })),

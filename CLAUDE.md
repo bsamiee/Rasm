@@ -51,7 +51,6 @@
 
 Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
 
-- ALWAYS define one error type in the package every raiser imports, errors differing only in reason, source, field, or message become its data
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 

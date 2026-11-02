@@ -1,0 +1,1043 @@
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+var harness = (function () {
+    var realApp = app;
+    var RealFile = File;
+    var RealFolder = Folder;
+    var realDollar = $;
+    var BUILTINS = [Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Date.prototype, RegExp.prototype, Error.prototype];
+
+    // --- [FILES]
+    function read(path) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("r")) { throw new Error("cannot read " + path); }
+        var text = file.read();
+        file.close();
+        return text;
+    }
+    function write(path, text) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("w")) { throw new Error("cannot write " + path); }
+        file.write(text);
+        file.close();
+    }
+
+    // --- [CODEC]
+    function exponent(value) {
+        var mantissa = Math.abs(value);
+        var power = 0;
+        while (mantissa >= 9007199254740992) { mantissa /= 2; power += 1; }
+        while (mantissa !== Math.floor(mantissa)) { mantissa *= 2; power -= 1; }
+        return (value < 0 ? "-" : "") + String(mantissa) + "p" + power;
+    }
+    function quote(text) {
+        var out = '"';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            var ch = text.charAt(i);
+            if (ch === '"' || ch === "\\") { out += "\\" + ch; } else if (code < 32 || code > 126) { out += "\\u" + ("000" + code.toString(16)).slice(-4); } else { out += ch; }
+        }
+        return out + '"';
+    }
+    function tag(text) { return '{"$":' + quote(text) + "}"; }
+    function number(value) {
+        if (isNaN(value)) { return tag("NaN"); }
+        if (!isFinite(value)) { return tag(value > 0 ? "Infinity" : "-Infinity"); }
+        if (value === 0 && 1 / value < 0) { return tag("-0"); }
+        return Number(String(value)) === value ? String(value) : tag(exponent(value));
+    }
+    var owners = {};
+    function enumerated(enumerations) {
+        owners = {};
+        for (var enumeration in enumerations) {
+            if (!enumerations.hasOwnProperty(enumeration)) { continue; }
+            for (var i = 0; i < enumerations[enumeration].length; i++) { (owners[enumerations[enumeration][i]] = owners[enumerations[enumeration][i]] || []).push(enumeration); }
+        }
+    }
+    function candidates(name) {
+        var found = [];
+        var listed = owners.hasOwnProperty(name) ? owners[name] : [];
+        for (var i = 0; i < listed.length; i++) {
+            var held = $.global[listed[i]];
+            if (held !== undefined && held[name] !== undefined) { found.push([listed[i], held[name]]); }
+        }
+        return found;
+    }
+    function qualified(value) {
+        var name = String(value);
+        var holding = [];
+        var found = candidates(name);
+        for (var i = 0; i < found.length; i++) { if (Number(found[i][1]) === Number(value)) { holding.push(found[i][0]); } }
+        return holding.length === 1 ? "enum:" + holding[0] + "." + name : "enum:" + name;
+    }
+    function resolved(path) {
+        var dot = path.indexOf(".");
+        var found = dot < 0 ? candidates(path) : [[path.slice(0, dot), $.global[path.slice(0, dot)] === undefined ? undefined : $.global[path.slice(0, dot)][path.slice(dot + 1)]]];
+        if (!found.length || found[0][1] === undefined) { throw new Error("enum:" + path + " names no enumerator"); }
+        for (var i = 1; i < found.length; i++) { if (Number(found[i][1]) !== Number(found[0][1])) { throw new Error("enum:" + path + " names enumerators of " + (owners[path] || []).join(", ") + " with different codes"); } }
+        return found[0][1];
+    }
+    function iso(date) {
+        function padded(number, width) { return ("000" + number).slice(-width); }
+        return isNaN(date.getTime()) ? "NaN" : padded(date.getUTCFullYear(), 4) + "-" + padded(date.getUTCMonth() + 1, 2) + "-" + padded(date.getUTCDate(), 2) + "T" + padded(date.getUTCHours(), 2) + ":" + padded(date.getUTCMinutes(), 2) + ":" + padded(date.getUTCSeconds(), 2) + "." + padded(date.getUTCMilliseconds(), 3) + "Z";
+    }
+    function parsed(text) {
+        var parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d{1,3}))?Z$/.exec(text);
+        return parts ? new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), Number(parts[4]), Number(parts[5]), Number(parts[6]), Number(parts[7] || 0))) : new Date(NaN);
+    }
+    function reflected(value) {
+        if (!(value instanceof ReflectionInfo)) {
+            var rows = { name: String(value.name), properties: [], methods: [] };
+            for (var p = 0; p < value.properties.length; p++) { rows.properties.push(reflected(value.properties[p])); }
+            for (var m = 0; m < value.methods.length; m++) { rows.methods.push(reflected(value.methods[m])); }
+            return rows;
+        }
+        var info = { name: String(value.name), type: String(value.type), dataType: String(value.dataType), isCollection: value.isCollection === true, min: value.min === undefined ? null : String(value.min), max: value.max === undefined ? null : String(value.max), defaultValue: value.defaultValue === undefined ? null : String(value.defaultValue), arguments: [] };
+        for (var a = 0; String(value.type) === "method" && a < value.arguments.length; a++) { info.arguments.push(reflected(value.arguments[a])); }
+        return info;
+    }
+    function special(value) {
+        if (value instanceof Date) { return { $: "date:" + iso(value) }; }
+        if (value instanceof Reflection || value instanceof ReflectionInfo) { return reflected(value); }
+        return null;
+    }
+    function named(value) {
+        if (value.constructor && value.constructor.name === "Enumerator") { return qualified(value); }
+        if (typeof value.toSpecifier !== "function") { return null; }
+        try { return "object:" + value.toSpecifier(); } catch (error) { return null; }
+    }
+    function json(value) {
+        if (value === undefined) { return tag("undefined"); }
+        if (value === null) { return "null"; }
+        var kind = typeof value;
+        if (kind === "number") { return number(value); }
+        if (kind === "boolean") { return String(value); }
+        if (kind === "string") { return quote(value); }
+        if (kind === "function") { return '"<function>"'; }
+        if (value instanceof Array) {
+            var items = [];
+            for (var i = 0; i < value.length; i++) { items.push(json(value[i])); }
+            return "[" + items.join(",") + "]";
+        }
+        if (value.constructor === Object) {
+            var parts = [];
+            for (var key in value) { if (value.hasOwnProperty(key)) { parts.push(quote(key) + ":" + json(value[key])); } }
+            return "{" + parts.join(",") + "}";
+        }
+        var plain = special(value);
+        if (plain !== null) { return json(plain); }
+        var host = named(value);
+        return host === null ? quote(String(value)) : tag(host);
+    }
+    function kept(value) {
+        if (value === null || typeof value !== "object") { return value; }
+        if (value instanceof Array) {
+            var items = [];
+            for (var i = 0; i < value.length; i++) { items.push(kept(value[i])); }
+            return items;
+        }
+        if (value.constructor === Object) {
+            var object = {};
+            for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = kept(value[key]); } }
+            return object;
+        }
+        var plain = special(value);
+        if (plain !== null) { return plain; }
+        var host = named(value);
+        return host === null ? String(value) : { $: host };
+    }
+    function revive(value) {
+        if (value instanceof Array) {
+            var list = [];
+            for (var i = 0; i < value.length; i++) { list.push(revive(value[i])); }
+            return list;
+        }
+        if (value === null || typeof value !== "object") { return value; }
+        var count = 0;
+        for (var probe in value) { if (value.hasOwnProperty(probe)) { count += 1; } }
+        if (count === 1 && value.hasOwnProperty("$")) {
+            var text = String(value.$);
+            var numbers = { "undefined": undefined, "NaN": NaN, "Infinity": Infinity, "-Infinity": -Infinity, "-0": -0 };
+            var scaled = /^(-?\d+)p(-?\d+)$/.exec(text);
+            if (numbers.hasOwnProperty(text)) { return numbers[text]; }
+            if (scaled) { return Number(scaled[1]) * Math.pow(2, Math.ceil(Number(scaled[2]) / 2)) * Math.pow(2, Math.floor(Number(scaled[2]) / 2)); }
+            var dated = /^date:(.+)$/.exec(text);
+            if (dated) { return parsed(dated[1]); }
+            if (text.indexOf("enum:") === 0) { return resolved(text.slice(5)); }
+            if (text.indexOf("object:") === 0) { return resolve(text.slice(7)); }
+            return text;
+        }
+        var object = {};
+        for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = revive(value[key]); } }
+        return object;
+    }
+
+    // --- [SCRIPTUI]
+    var RealWindow = Window;
+    function run(handler, target) {
+        if (typeof handler === "function") { return handler.call(target); }
+    }
+    function descendants(root) {
+        var rows = [];
+        function walk(control) {
+            var children = control.children || [];
+            for (var i = 0; i < children.length; i++) { rows.push(children[i]); walk(children[i]); }
+        }
+        walk(root);
+        return rows;
+    }
+    function nameOf(control) { return control.properties && control.properties.name !== undefined ? String(control.properties.name) : ""; }
+    function listing(control) { return control.items !== undefined && typeof control.find === "function"; }
+    function match(root, key) {
+        var parts = /^(\w+)#(\d+)$/.exec(key);
+        var rows = descendants(root);
+        var counter = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (parts ? rows[i].type === parts[1] && counter++ === Number(parts[2]) : nameOf(rows[i]) === key || rows[i].text === key || rows[i].title === key) { return rows[i]; }
+        }
+        throw new Error("no control " + key + " in " + root.text);
+    }
+    function fill(root, fields) {
+        for (var key in fields) {
+            if (!fields.hasOwnProperty(key)) { continue; }
+            var control = match(root, key);
+            var value = fields[key];
+            if (listing(control)) {
+                control.selection = typeof value === "number" ? value : control.find(value);
+            } else if (typeof control.value === "boolean") {
+                control.value = value;
+                run(control.onClick, control);
+            } else {
+                if (typeof control.value === "number") { control.value = value; } else { control.text = String(value); }
+                run(control.onChanging, control);
+                run(control.onChange, control);
+            }
+        }
+    }
+    function press(root, key) {
+        var control = match(root, key);
+        control.notify("onClick");
+        return nameOf(control) === "cancel" || control.text === "Cancel" ? 2 : 1;
+    }
+    function tree(root) {
+        var rows = [];
+        var controls = descendants(root);
+        for (var i = 0; i < controls.length; i++) {
+            var control = controls[i];
+            var row = { type: control.type, text: control.text, name: nameOf(control), bounds: control.bounds ? [control.bounds[0], control.bounds[1], control.bounds[2], control.bounds[3]] : null };
+            if (listing(control)) {
+                row.items = [];
+                for (var j = 0; j < control.items.length; j++) { row.items.push(control.items[j].text); }
+                row.selection = control.selection ? control.selection.index : null;
+            } else if (typeof control.value === "boolean" || typeof control.value === "number") {
+                row.value = control.value;
+            }
+            rows.push(row);
+        }
+        return rows;
+    }
+    function shown(session, root) {
+        var answer = session.windowAnswers[session.windowShown] || {};
+        session.windowShown++;
+        root.layout.layout(true);
+        session.record.windows.push({ title: root.text, type: root.type, tree: tree(root) });
+        run(root.onShow, root);
+        if (root.type === "palette") {
+            session.palettes.push({ window: root, answer: answer });
+            return 0;
+        }
+        return answered(session, root, answer);
+    }
+    function answered(session, root, answer) {
+        var result = answer.answer === undefined ? 1 : answer.answer;
+        if (answer.fields) { fill(root, answer.fields); }
+        var presses = answer.presses || [];
+        for (var i = 0; i < presses.length; i++) { result = press(root, presses[i]); }
+        session.record.windows[session.record.windows.length - 1].filled = tree(root);
+        return result;
+    }
+    function windows(session) {
+        function Window(type, title, bounds, properties) {
+            var made = arguments.length === 1 ? new RealWindow(type) : arguments.length === 2 ? new RealWindow(type, title) : arguments.length === 3 ? new RealWindow(type, title, bounds) : new RealWindow(type, title, bounds, properties);
+            session.created.push(made);
+            made.show = function () { return shown(session, made); };
+            return made;
+        }
+        Window.prototype = RealWindow.prototype;
+        Window.alert = function (message, title) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); };
+        Window.confirm = function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
+        Window.prompt = function (message, value) { session.record.prompts.push(String(message)); return next(session.prompts, value); };
+        Window.find = function () { return RealWindow.find.apply(RealWindow, arguments); };
+        Window.update = function () { return RealWindow.update.apply(RealWindow, arguments); };
+        Window.frameworkName = RealWindow.frameworkName;
+        Window.version = RealWindow.version;
+        return Window;
+    }
+    function next(queue, fallback) { return queue && queue.length ? queue.shift() : fallback; }
+
+    // --- [DIALOGS]
+    var valueMember = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
+    var containers = ["dialogColumns", "dialogRows", "borderPanels", "enablingGroups", "radiobuttonGroups"];
+    var widgets = ["staticTexts", "textEditboxes", "measurementEditboxes", "integerEditboxes", "realEditboxes", "percentEditboxes", "angleEditboxes", "comboboxes", "integerComboboxes", "realComboboxes", "percentComboboxes", "angleComboboxes", "measurementComboboxes", "dropdowns", "checkboxControls", "radiobuttonControls"];
+    function collection(kind, owner, dialog) {
+        var list = [];
+        list.kind = kind;
+        list.add = function (props) {
+            var made = makeNode(kind, owner, dialog);
+            props = props || {};
+            for (var key in props) { made[key] = props[key]; }
+            if (kind === "radiobuttonControls" && props && props.checkedState === true) { owner.selectedButton = list.length; }
+            list.push(made);
+            dialog.flat.push({ kind: kind, node: made });
+            return made;
+        };
+        list.item = function (index) { return list[index]; };
+        list.firstItem = function () { return list[0]; };
+        list.lastItem = function () { return list[list.length - 1]; };
+        list.everyItem = function () { return { getElements: function () { return list.slice(0); } }; };
+        return list;
+    }
+    function makeNode(kind, owner, dialog) {
+        var node = { parent: owner, isValid: true, kind: kind, destroy: function () { node.isValid = false; }, staticLabel: "", editContents: "", editValue: 0, selectedIndex: 0, stringList: [], checkedState: false, selectedButton: 0, minWidth: 0, minimumValue: 0, maximumValue: 0, smallNudge: 1, largeNudge: 10 };
+        var i;
+        for (i = 0; i < containers.length; i++) { node[containers[i]] = collection(containers[i], node, dialog || node); }
+        for (i = 0; i < widgets.length; i++) { node[widgets[i]] = collection(widgets[i], node, dialog || node); }
+        if (kind === "enablingGroups") { node.checkedState = true; }
+        return node;
+    }
+    function fakeDialogs(session) {
+        var list = [];
+        list.add = function (props) {
+            var dialog = makeNode("dialog", realApp, null);
+            dialog.flat = [];
+            var i;
+            for (i = 0; i < containers.length; i++) { dialog[containers[i]] = collection(containers[i], dialog, dialog); }
+            for (i = 0; i < widgets.length; i++) { dialog[widgets[i]] = collection(widgets[i], dialog, dialog); }
+            dialog.name = "";
+            dialog.canCancel = true;
+            dialog.label = "";
+            props = props || {};
+            for (var key in props) { dialog[key] = props[key]; }
+            dialog.show = function () {
+                var answer = session.dialogAnswers[session.dialogShown] || {};
+                session.dialogShown++;
+                var values = answer.fields || {};
+                var counters = {};
+                var before = [];
+                for (var i = 0; i < dialog.flat.length; i++) {
+                    var row = dialog.flat[i];
+                    var member = valueMember[row.kind];
+                    var seen = counters[row.kind] || 0;
+                    counters[row.kind] = seen + 1;
+                    var rowKey = row.kind + "#" + seen;
+                    if (row.kind === "staticTexts") { before.push({ kind: row.kind, index: seen, label: row.node.staticLabel }); continue; }
+                    if (row.kind === "radiobuttonControls") { before.push({ kind: row.kind, index: seen, label: row.node.staticLabel, checked: row.node.checkedState }); continue; }
+                    before.push({ kind: row.kind, index: seen, label: row.node.staticLabel, list: row.kind === "dropdowns" ? row.node.stringList : undefined, value: member ? row.node[member] : undefined });
+                    if (member === "editValue" && row.node.editContents === "") { row.node.editContents = String(row.node.editValue); }
+                    if (values[rowKey] !== undefined) {
+                        row.node[member] = values[rowKey];
+                        if (member === "editValue") { row.node.editContents = String(values[rowKey]); }
+                    }
+                }
+                session.record.dialogs.push({ name: dialog.name, controls: before });
+                return answer.answer === undefined ? true : answer.answer;
+            };
+            list.push(dialog);
+            return dialog;
+        };
+        list.item = function (index) { return list[index]; };
+        return list;
+    }
+
+    // --- [STATE]
+    function keyOf(list) {
+        try { list.everyItem().id; return "id"; } catch (error) {}
+        try { list.everyItem().name; return "name"; } catch (error2) { return null; }
+    }
+    function closes(list) {
+        var methods;
+        var removable = false;
+        try { methods = list.everyItem().reflect.methods; } catch (error) { return true; }
+        for (var i = 0; i < methods.length; i++) {
+            if (methods[i].name === "close") { return true; }
+            removable = removable || methods[i].name === "remove";
+        }
+        return !removable;
+    }
+    function members() {
+        var found = { preferences: [], collections: [], unread: [] };
+        var list = realApp.reflect.properties;
+        for (var i = 0; i < list.length; i++) {
+            var name = list[i].name;
+            var value;
+            if (name === "__proto__" || name === "parent" || name === "properties") { continue; }
+            try { value = realApp[name]; } catch (error) { found.unread.push(name + ": " + error.message); continue; }
+            if (value === null || typeof value !== "object" || value instanceof Array || value instanceof RealFile || !value.reflect) { continue; }
+            if (typeof value.everyItem === "function") {
+                var key = closes(value) ? undefined : keyOf(value);
+                if (key === null) { found.unread.push(name + ": items hold neither id nor name"); } else if (key !== undefined) { found.collections.push({ name: name, key: key }); }
+            } else if (!value.reflect.find("id") && name !== "scriptPreferences") {
+                try { if (value.properties !== null && typeof value.properties === "object") { found.preferences.push(name); } } catch (error2) { found.unread.push(name + ": " + error2.message); }
+            }
+        }
+        found.preferences.push("scriptPreferences");
+        return found;
+    }
+    function pinned(work) {
+        var unit = realApp.scriptPreferences.measurementUnit;
+        realApp.scriptPreferences.measurementUnit = MeasurementUnits.POINTS;
+        try { return work(); } finally { realApp.scriptPreferences.measurementUnit = unit; }
+    }
+    function snapshot(found) {
+        return pinned(function () { return snapshotted(found); });
+    }
+    function snapshotted(found) {
+        var held = { preferences: [], collections: [] };
+        var i;
+        for (i = 0; i < found.preferences.length; i++) {
+            var target = realApp[found.preferences[i]];
+            var saved = target.properties;
+            var encoded = {};
+            for (var key in saved) {
+                var text = Object.prototype.hasOwnProperty.call(saved, key) && key !== "measurementUnit" ? json(saved[key]) : "";
+                if (text !== "" && text.indexOf("{\"$\":\"object:/document") !== 0) { encoded[key] = text; }
+            }
+            held.preferences.push({ name: found.preferences[i], target: target, saved: saved, encoded: encoded });
+        }
+        for (i = 0; i < found.collections.length; i++) {
+            var row = found.collections[i];
+            var list = realApp[row.name];
+            var present = list.everyItem()[row.key];
+            var known = {};
+            for (var j = 0; j < present.length; j++) { known[present[j]] = true; }
+            held.collections.push({ name: row.name, key: row.key, list: list, known: known });
+        }
+        return held;
+    }
+    function differences(held) {
+        return pinned(function () { return different(held); });
+    }
+    function different(held) {
+        var rows = [];
+        var i;
+        for (i = 0; i < held.preferences.length; i++) {
+            var row = held.preferences[i];
+            var current = row.target.properties;
+            for (var key in row.encoded) {
+                var now = row.encoded.hasOwnProperty(key) ? json(current[key]) : "";
+                if (now !== "" && now.indexOf("{\"$\":\"object:/document") !== 0 && now !== row.encoded[key]) { rows.push({ member: row.name + "." + key, before: row.saved[key], after: current[key], target: row.target, key: key }); }
+            }
+        }
+        for (i = 0; i < held.collections.length; i++) {
+            var list = held.collections[i];
+            var present = list.list.everyItem()[list.key];
+            var seen = {};
+            for (var j = 0; j < present.length; j++) {
+                seen[present[j]] = true;
+                if (!list.known[present[j]]) {
+                    var item = list.key === "id" ? list.list.itemByID(present[j]) : list.list.itemByName(present[j]);
+                    rows.push({ member: list.name, after: item, item: item });
+                }
+            }
+            for (var gone in list.known) { if (list.known.hasOwnProperty(gone) && !seen[gone]) { rows.push({ member: list.name + "." + list.key + "=" + gone, before: gone, after: null }); } }
+        }
+        return rows;
+    }
+    function written(rows) {
+        var out = [];
+        for (var i = 0; i < rows.length; i++) { out.push(rows[i].before === undefined ? { member: rows[i].member, after: kept(rows[i].after) } : { member: rows[i].member, before: kept(rows[i].before), after: kept(rows[i].after) }); }
+        return out;
+    }
+    function restore(held) {
+        return pinned(function () { return restored(held); });
+    }
+    function restored(held) {
+        var leaked = [];
+        var rows = differences(held);
+        for (var i = 0; i < rows.length; i++) {
+            try {
+                if (rows[i].target === realApp.scriptPreferences) { rows[i].target[rows[i].key] = rows[i].before; } else if (rows[i].item) { rows[i].item.remove(); }
+            } catch (error) { leaked.push(rows[i].member + ": " + error.message); }
+        }
+        var left = differences(held);
+        for (var j = 0; j < left.length; j++) { leaked.push(left[j].member); }
+        return leaked;
+    }
+    function globals() {
+        var owners = [$.global].concat(BUILTINS);
+        var held = [];
+        for (var i = 0; i < owners.length; i++) {
+            var keys = {};
+            for (var key in owners[i]) { keys[key] = { value: owners[i][key] }; }
+            held.push({ owner: owners[i], keys: keys });
+        }
+        return held;
+    }
+    function released(held) {
+        var leaked = [];
+        for (var i = 0; i < held.length; i++) {
+            var owner = held[i].owner;
+            var keys = held[i].keys;
+            for (var key in owner) {
+                try {
+                    if (!keys.hasOwnProperty(key)) { delete owner[key]; } else if (owner[key] !== keys[key].value) { owner[key] = keys[key].value; }
+                } catch (error) { leaked.push("global " + key + ": " + error.message); }
+            }
+        }
+        return leaked;
+    }
+    function docIds() {
+        var ids = {};
+        var found = realApp.documents.everyItem().id;
+        for (var i = 0; i < found.length; i++) { ids[found[i]] = true; }
+        return ids;
+    }
+    function activeId() {
+        try { return realApp.documents.length ? realApp.activeDocument.id : null; } catch (error) { return null; }
+    }
+    function owns(session, doc) {
+        for (var i = 0; i < session.documents.length; i++) { if (session.documents[i].isValid && doc.isValid && session.documents[i].id === doc.id) { return true; } }
+        return false;
+    }
+
+    // --- [APP]
+    var LIVE = ["activeDocument", "activeWindow", "layoutWindows", "windows", "selection"];
+    function forwarded(real) {
+        return function (key, previous, next) {
+            real[key] = next;
+            return real[key];
+        };
+    }
+    function statics(fake, real, own) {
+        var plain = function () {};
+        var lists = [real.reflect.properties, real.reflect.methods];
+        for (var l = 0; l < lists.length; l++) {
+            for (var i = 0; i < lists[l].length; i++) {
+                var name = lists[l][i].name;
+                if (name in plain || own.hasOwnProperty(name)) { continue; }
+                if (l === 1) {
+                    fake[name] = (function (method) { return function () { return real[method].apply(real, arguments); }; })(name);
+                } else {
+                    try { fake[name] = real[name]; } catch (error) { continue; }
+                    fake.watch(name, forwarded(real));
+                }
+            }
+        }
+        for (var key in own) { if (own.hasOwnProperty(key)) { fake[key] = own[key]; } }
+        return fake;
+    }
+    function picked(session, kind, Kind, many) {
+        session.record.files.push(kind);
+        var answer = next(session.files, null);
+        if (answer === null) { return null; }
+        var made = new Kind(session.product + "/" + answer);
+        return many ? [made] : made;
+    }
+    function fakeDollar(session, item) {
+        function printed(text) { session.record.console.push(String(text)); }
+        return statics({}, realDollar, { write: printed, writeln: printed, fileName: item.source === undefined ? "" : item.source.script, evalFile: function (file) { return session.evaluate(read(file instanceof RealFile ? file.fsName : String(file)), []); } });
+    }
+    function patched(session) {
+        function executed() { session.record.activations.push("execute " + this.fsName); return true; }
+        var rows = [
+            [RealFile, "openDialog", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
+            [RealFile, "saveDialog", function () { return picked(session, "save", RealFile, false); }],
+            [RealFolder, "selectDialog", function () { return picked(session, "folder", RealFolder, false); }],
+            [RealFile.prototype, "openDlg", function (prompt, filter, many) { return picked(session, "open", RealFile, many === true); }],
+            [RealFile.prototype, "saveDlg", function () { return picked(session, "save", RealFile, false); }],
+            [RealFolder.prototype, "selectDlg", function () { return picked(session, "folder", RealFolder, false); }],
+            [RealFile.prototype, "execute", executed],
+            [RealFolder.prototype, "execute", executed]
+        ];
+        var held = [];
+        for (var i = 0; i < rows.length; i++) {
+            held.push(rows[i][0][rows[i][1]]);
+            rows[i][0][rows[i][1]] = rows[i][2];
+        }
+        return function () { for (var j = 0; j < rows.length; j++) { rows[j][0][rows[j][1]] = held[j]; } };
+    }
+    function fakeDocuments(session) {
+        var list = [];
+        function sync() {
+            var valid = [];
+            for (var i = 0; i < session.documents.length; i++) { if (session.documents[i].isValid && session.documents[i].reflect.name === "Document") { valid.push(session.documents[i]); } }
+            for (var j = 0; j < valid.length; j++) { list[j] = valid[j]; }
+            list.length = valid.length;
+        }
+        function at(index) { return list[index < 0 ? list.length + index : index]; }
+        function missing() { return realApp.documents.itemByID(-1); }
+        list.add = function (showing, preset, properties) {
+            var made = typeof showing === "object" && showing !== null ? realApp.documents.add(true, undefined, showing) : realApp.documents.add(showing === undefined ? true : showing, preset, properties);
+            session.documents.push(made);
+            sync();
+            return made;
+        };
+        list.count = function () { return list.length; };
+        list.item = function (key) { return typeof key === "number" ? at(key) || missing() : list.itemByName(key); };
+        list.itemByName = function (name) { for (var i = 0; i < list.length; i++) { if (list[i].name === name) { return list[i]; } } return missing(); };
+        list.itemByID = function (id) { for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } } return missing(); };
+        list.itemByRange = function (from, to) {
+            var start = typeof from === "number" ? from : list.indexOf(from);
+            var end = typeof to === "number" ? to : list.indexOf(to);
+            return list.slice(Math.min(start, end), Math.max(start, end) + 1);
+        };
+        list.indexOf = function (doc) { for (var i = 0; i < list.length; i++) { if (list[i].id === doc.id) { return i; } } return -1; };
+        list.firstItem = function () { return at(0) || missing(); };
+        list.lastItem = function () { return at(-1) || missing(); };
+        list.anyItem = function () { return at(0) || missing(); };
+        list.middleItem = function () { return at(Math.floor(list.length / 2)) || missing(); };
+        list.previousItem = function (doc) { return at(list.indexOf(doc) - 1) || missing(); };
+        list.nextItem = function (doc) { var index = list.indexOf(doc); return index < 0 ? missing() : at(index + 1) || missing(); };
+        list.everyItem = function () {
+            var every = { getElements: function () { return list.slice(0); } };
+            var fields = realApp.documents.everyItem().reflect.properties;
+            for (var f = 0; f < fields.length; f++) {
+                var name = fields[f].name;
+                if (name === "__proto__") { continue; }
+                try {
+                    var values = [];
+                    for (var i = 0; i < list.length; i++) { values.push(list[i][name]); }
+                    every[name] = values;
+                } catch (error) {}
+            }
+            return every;
+        };
+        list.sync = sync;
+        sync();
+        return list;
+    }
+    function fakeMenus(session) {
+        var menu = {
+            submenus: { item: function () { return menu; }, itemByName: function () { return menu; } },
+            menuItems: { item: function (name) { return { name: name, isValid: true }; }, itemByName: function (name) { return { name: name, isValid: true }; }, add: function (action) { session.record.menus.push({ added: action && action.title }); return {}; } },
+            menuSeparators: { add: function () { return {}; } },
+            isValid: true
+        };
+        var actions = {
+            add: function (title) {
+                var action = { title: title, name: title, enabled: true, checked: false, isValid: true, listeners: {} };
+                action.addEventListener = function (type, handler) { action.listeners[type] = handler; return {}; };
+                action.remove = function () { action.isValid = false; };
+                session.actions.push(action);
+                return action;
+            },
+            itemByName: function () { return { isValid: false }; },
+            everyItem: function () { return { getElements: function () { return session.actions.slice(0); } }; }
+        };
+        return { scriptMenuActions: actions, menus: { item: function () { return menu; }, itemByName: function () { return menu; } } };
+    }
+    function fakePreferences() {
+        var real = realApp.scriptPreferences;
+        var held = {};
+        var names = [];
+        var members = real.reflect.properties;
+        function written(key, previous, next) {
+            if (key === "userInteractionLevel") { return next; }
+            real[key] = next;
+            return real[key];
+        }
+        for (var i = 0; i < members.length; i++) {
+            if (members[i].name !== "__proto__" && members[i].name !== "parent" && members[i].name !== "properties" && members[i].name !== "reflect") { names.push(members[i].name); }
+        }
+        function synced() {
+            for (var j = 0; j < names.length; j++) {
+                held.unwatch(names[j]);
+                try { held[names[j]] = real[names[j]]; } catch (error) { continue; }
+                held.watch(names[j], written);
+            }
+        }
+        synced();
+        return { held: held, synced: synced };
+    }
+    function fakeApp(session, item) {
+        var fake = {};
+        var preferences = fakePreferences();
+        var own = {
+            dialogs: fakeDialogs(session),
+            scriptPreferences: preferences.held,
+            documents: fakeDocuments(session),
+            activate: function () { session.record.activations.push("activate"); },
+            quit: function () { session.record.activations.push("quit"); },
+            doScript: function (script, language, withArguments) {
+                if (typeof script === "function") { return realApp.doScript.apply(realApp, arguments); }
+                if (language !== undefined && language !== ScriptLanguage.JAVASCRIPT) { throw new Error("doScript in " + String(language) + " runs outside the harness shadow"); }
+                return session.evaluate(script instanceof RealFile ? read(script.fsName) : String(script), withArguments || []);
+            },
+            open: function (file, showing, options) {
+                var opened = realApp.open(file, showing === undefined ? true : showing, options);
+                var list = opened instanceof Array ? opened : [opened];
+                for (var i = 0; i < list.length; i++) { session.documents.push(list[i]); }
+                refresh();
+                return opened;
+            }
+        };
+        if (item.source !== undefined) { own.activeScript = new RealFile(item.source.script); }
+        if (session.menus) {
+            var menus = fakeMenus(session);
+            own.scriptMenuActions = menus.scriptMenuActions;
+            own.menus = menus.menus;
+        }
+        function held(name, value) {
+            fake.unwatch(name);
+            if (value === undefined) { delete fake[name]; } else { fake[name] = value; }
+            fake.watch(name, function (key, previous, next) {
+                realApp[key] = next;
+                refresh();
+                return fake[key];
+            });
+        }
+        function windowed(windows) {
+            var kept = [];
+            for (var i = 0; i < windows.length; i++) { if (owns(session, windows[i].parent)) { kept.push(windows[i]); } }
+            return kept;
+        }
+        function refresh() {
+            var active = null;
+            try { active = realApp.documents.length ? realApp.activeDocument : null; } catch (error) {}
+            var owned = active !== null && owns(session, active);
+            var fallback;
+            for (var i = session.documents.length - 1; i >= 0 && fallback === undefined; i--) { if (session.documents[i].isValid && session.documents[i].reflect.name === "Document") { fallback = session.documents[i]; } }
+            held("activeDocument", owned ? active : fallback);
+            held("selection", owned ? realApp.selection : []);
+            held("activeWindow", owned ? realApp.activeWindow : undefined);
+            held("layoutWindows", windowed(realApp.layoutWindows.everyItem().getElements()));
+            held("windows", windowed(realApp.windows.everyItem().getElements()));
+            own.documents.sync();
+            preferences.synced();
+        }
+        var reflected = realApp.reflect;
+        var i;
+        for (i = 0; i < reflected.properties.length; i++) {
+            var name = reflected.properties[i].name;
+            if (name === "__proto__" || own.hasOwnProperty(name) || ("," + LIVE.join(",") + ",").indexOf("," + name + ",") >= 0) { continue; }
+            try { fake[name] = realApp[name]; } catch (error) { continue; }
+            fake.watch(name, forwarded(realApp));
+        }
+        for (i = 0; i < reflected.methods.length; i++) {
+            (function (method) {
+                if (method === "toSource" || method === "toSpecifier" || own.hasOwnProperty(method)) { return; }
+                fake[method] = function () {
+                    var result = realApp[method].apply(realApp, arguments);
+                    refresh();
+                    return result;
+                };
+            })(reflected.methods[i].name);
+        }
+        for (var key in own) { if (own.hasOwnProperty(key)) { fake[key] = own[key]; } }
+        refresh();
+        session.refresh = refresh;
+        return fake;
+    }
+
+    // --- [PRECONDITION]
+    var MEMBERS = /^(?:\.[A-Za-z_$][\w$]*)+$/;
+    function evaluated(session, expression, doc, made, statement) { return new Function("doc", "app", "made", statement ? expression : "return (" + expression + ");")(doc, session.app, made); }
+    function spread(session, key, expression, doc, made) {
+        var at = expression.indexOf("[*]");
+        if (at < 0) { return [[key, function () { return evaluated(session, expression, doc, made); }]]; }
+        var head = expression.slice(0, at);
+        var count = evaluated(session, head, doc, made).length;
+        var each = [];
+        var i;
+        for (i = 0; i < count; i++) { each.push(expression.split("[*]").join("[" + i + "]")); }
+        var bulk = null;
+        if (MEMBERS.test(expression.slice(at + 3))) {
+            try {
+                var values = evaluated(session, head + ".everyItem()" + expression.slice(at + 3), doc, made);
+                if (values instanceof Array && values.length === count) { bulk = values; }
+            } catch (refused) {}
+        }
+        function one(index) { return function () { return bulk === null ? evaluated(session, each[index], doc, made) : bulk[index]; }; }
+        if (key.indexOf("[*]") < 0) {
+            return [[key, function () {
+                if (bulk !== null) { return bulk; }
+                var list = [];
+                for (var j = 0; j < count; j++) { list.push(evaluated(session, each[j], doc, made)); }
+                return list;
+            }]];
+        }
+        var rows = [];
+        for (i = 0; i < count; i++) { rows.push([key.split("[*]").join("[" + i + "]"), one(i)]); }
+        return rows;
+    }
+    function assign(session, target, value, doc, made) {
+        var at = target.indexOf("[*]");
+        var count = at < 0 ? 1 : evaluated(session, target.slice(0, at), doc, made).length;
+        for (var i = 0; i < count; i++) {
+            var path = target.split("[*]").join("[" + i + "]");
+            var dot = path.lastIndexOf(".");
+            evaluated(session, path.slice(0, dot), doc, made)[path.slice(dot + 1)] = revive(value);
+        }
+    }
+    function tagged(value) {
+        var count = 0;
+        for (var key in value) { if (value.hasOwnProperty(key)) { count += 1; } }
+        return count === 1 && typeof value.$ === "string";
+    }
+    function differing(target, wanted, path) {
+        if (wanted !== null && typeof wanted === "object" && !(wanted instanceof Array) && !tagged(wanted)) {
+            var rows = [];
+            for (var key in wanted) { if (wanted.hasOwnProperty(key)) { rows = rows.concat(differing(target[key], wanted[key], path + "." + key)); } }
+            return rows;
+        }
+        var same = wanted !== null && typeof wanted === "object" && tagged(wanted) && wanted.$.indexOf("enum:") === 0 ? Number(target) === Number(revive(wanted)) : json(target) === json(wanted) || (typeof wanted === "string" && target !== null && typeof target === "object" && target.name === wanted);
+        return same ? [] : [path + " reads " + json(target) + " where the precondition asks " + json(wanted)];
+    }
+    function opened(session, item, batch) {
+        var condition = item.precondition;
+        realApp.scriptPreferences.measurementUnit = revive(condition.units.script);
+        var docs = [];
+        var i;
+        for (i = 0; i < condition.documents.length; i++) {
+            var row = condition.documents[i];
+            var doc = row.open === undefined ? realApp.documents.add(true, undefined, revive(row.properties)) : realApp.open(new RealFile(row.open), true);
+            session.documents.push(doc);
+            doc.insertLabel(batch.label, batch.records);
+            if (row.open !== undefined) {
+                doc.viewPreferences.horizontalMeasurementUnits = revive(condition.units.horizontal);
+                doc.viewPreferences.verticalMeasurementUnits = revive(condition.units.vertical);
+            }
+            var wrong = row.open === undefined ? differing(doc, row.properties, "document " + i) : [];
+            if (wrong.length) { throw new Error(wrong.join(", ")); }
+            docs.push(doc);
+        }
+        var missing = [];
+        var fonts = condition.fonts || [];
+        for (i = 0; i < fonts.length; i++) {
+            var font = realApp.fonts.itemByName(fonts[i]);
+            var status = font.isValid ? font.status : undefined;
+            if (status === undefined || Number(status) !== Number(FontStatus.INSTALLED)) { missing.push(fonts[i] + " " + String(status === undefined ? "absent" : status)); }
+        }
+        if (missing.length) { throw new Error("fonts not installed: " + missing.join(", ")); }
+        if (docs.length > 1) { realApp.activeDocument = docs[0]; }
+        session.refresh();
+        return docs;
+    }
+    function state(doc) {
+        var row = { name: doc.name };
+        var list = doc.reflect.properties;
+        for (var i = 0; i < list.length; i++) {
+            var name = list[i].name;
+            var value;
+            if (name === "__proto__" || name === "parent" || name === "properties") { continue; }
+            try { value = doc[name]; } catch (error) { continue; }
+            if (value === null || typeof value !== "object" || value instanceof Array || !value.reflect || typeof value.everyItem === "function" || value.reflect.find("id")) { continue; }
+            try { row[name] = value.properties; } catch (error2) { row[name] = "unread: " + error2.message; }
+        }
+        row.cmykProfile = doc.cmykProfile;
+        row.rgbProfile = doc.rgbProfile;
+        row.appliedLanguage = doc.textDefaults.appliedLanguage.name;
+        row.fonts = { names: doc.fonts.everyItem().name, status: doc.fonts.everyItem().status };
+        row.links = { names: doc.links.everyItem().name, status: doc.links.everyItem().status };
+        return kept(row);
+    }
+    function prepare(session, doc, condition, made) {
+        var i;
+        var labels = condition.labels || {};
+        for (var label in labels) { if (labels.hasOwnProperty(label)) { doc.insertLabel(label, labels[label]); } }
+        var sets = condition.set || [];
+        for (i = 0; i < sets.length; i++) { assign(session, sets[i][0], sets[i][1], doc, made); }
+        var adds = condition.add || [];
+        for (i = 0; i < adds.length; i++) { made[adds[i].as] = evaluated(session, adds[i].to, doc, made)[adds[i].kind].add(revive(adds[i].properties || {})); }
+        var steps = condition.steps || [];
+        for (i = 0; i < steps.length; i++) { evaluated(session, steps[i], doc, made, true); }
+        var selected = [];
+        var picks = condition.select || [];
+        for (i = 0; i < picks.length; i++) { selected.push(evaluated(session, picks[i], doc, made)); }
+        if (selected.length) { realApp.select(selected); }
+        session.refresh();
+    }
+    function reads(session, docs, wanted, made) {
+        var unit = realApp.scriptPreferences.measurementUnit;
+        var frames = [];
+        var i;
+        realApp.scriptPreferences.measurementUnit = MeasurementUnits.POINTS;
+        for (i = 0; i < docs.length; i++) {
+            if (!docs[i].isValid) { continue; }
+            frames.push([docs[i], docs[i].viewPreferences.rulerOrigin, docs[i].zeroPoint]);
+            docs[i].viewPreferences.rulerOrigin = RulerOrigin.PAGE_ORIGIN;
+            docs[i].zeroPoint = [0, 0];
+        }
+        var values = {};
+        var failed = {};
+        try {
+            for (var key in wanted) {
+                if (!wanted.hasOwnProperty(key)) { continue; }
+                try {
+                    var rows = spread(session, key, wanted[key], docs[0], made);
+                    for (var r = 0; r < rows.length; r++) {
+                        try { values[rows[r][0]] = rows[r][1](); } catch (inner) { failed[rows[r][0]] = String(inner.message); }
+                    }
+                } catch (error) { failed[key] = String(error.message); }
+            }
+        } finally {
+            for (i = 0; i < frames.length; i++) {
+                if (!frames[i][0].isValid) { continue; }
+                frames[i][0].viewPreferences.rulerOrigin = frames[i][1];
+                frames[i][0].zeroPoint = frames[i][2];
+            }
+            realApp.scriptPreferences.measurementUnit = unit;
+        }
+        return { state: kept(values), failed: failed };
+    }
+    function exported(item, docs, moment) {
+        if (item.precondition.idml !== true) { return; }
+        for (var i = 0; i < docs.length; i++) { if (docs[i].isValid) { docs[i].exportFile(ExportFormat.INDESIGN_MARKUP, new RealFile(item.folder + "/" + i + "." + moment + ".idml")); } }
+    }
+
+    // --- [RUN]
+    function Exited() {}
+    function scoped(Window, alert, confirm, prompt, app, File, Folder, exit, $, source, extra) {
+        return (function () { return eval(source); }).apply(undefined, extra);
+    }
+    function body(item) {
+        if (item._tag === "Probe") { return "(function (doc, made) { return (" + item.evaluate + "); }).apply(undefined, arguments);"; }
+        if (item._tag === "Call") { return (item.source === undefined ? "" : item.source.code) + "\n;(" + item.call + ").apply(undefined, arguments);"; }
+        return item.source.code;
+    }
+    function thrown(error) {
+        if (error === null || typeof error !== "object") { return { _tag: "Thrown", message: String(error) }; }
+        var completion = { _tag: "Thrown", message: (error.name ? error.name + ": " : "") + String(error.message) };
+        if (typeof error.number === "number") { completion.number = error.number; }
+        if (typeof error.line === "number") { completion.line = error.line; }
+        return completion;
+    }
+    function sessionFor(item, product) {
+        return { palettes: [], created: [], actions: [], documents: [], windowShown: 0, dialogShown: 0, product: product, exited: false, menus: item.precondition.menus === true, windowAnswers: item.windows || [], dialogAnswers: item.dialogs || [], confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], logs: [], writes: [], undo: [], opened: [] } };
+    }
+    function attempt(leaked, label, work) {
+        try { work(); } catch (error) { leaked.push(label + ": " + String(error.message)); }
+    }
+    function ran(session, item, extra, result) {
+        try {
+            var value = session.evaluate(body(item), extra);
+            for (var p = 0; p < session.palettes.length; p++) { answered(session, session.palettes[p].window, session.palettes[p].answer); }
+            for (var a = 0; a < session.actions.length; a++) {
+                var handler = session.actions[a].listeners.onInvoke;
+                session.record.menus.push({ title: session.actions[a].title, invoked: typeof handler === "function" });
+                if (typeof handler === "function") { handler.call(session.actions[a], { eventType: "onInvoke" }); }
+            }
+            if (item._tag !== "Run") { result.value = kept(value); }
+            return { _tag: "Ran" };
+        } catch (error) {
+            return error instanceof Exited || session.exited ? { _tag: "Exited" } : thrown(error);
+        }
+    }
+    function outcome(item, batch, found) {
+        var session = sessionFor(item, batch.product);
+        var result = { name: item.name, completion: { _tag: "Failed", reason: "case did not finish" } };
+        var leaked = [];
+        var unit = realApp.scriptPreferences.measurementUnit;
+        var redraw = realApp.scriptPreferences.enableRedraw;
+        var active = activeId();
+        var known = docIds();
+        var held = null;
+        var global = globals();
+        var release = function () {};
+        var made = {};
+        try {
+            held = snapshot(found);
+            var shadows = [
+                windows(session),
+                function (message, title) { if (!session.exited) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); } },
+                function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); },
+                function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); },
+                fakeApp(session, item),
+                RealFile,
+                RealFolder,
+                function () { session.exited = true; throw new Exited(); },
+                fakeDollar(session, item)
+            ];
+            session.app = shadows[4];
+            session.evaluate = function (code, extra) { return scoped.apply(undefined, shadows.concat([code, extra])); };
+            release = patched(session);
+            if (item.precondition.redraw !== undefined) { realApp.scriptPreferences.enableRedraw = item.precondition.redraw; }
+            var docs = opened(session, item, batch);
+            for (var s = 0; s < docs.length; s++) { session.record.opened.push(state(docs[s])); }
+            prepare(session, docs[0], item.precondition, made);
+            result.before = reads(session, docs, item.read, made).state;
+            var inner = {};
+            try {
+                realApp.doScript(function () {
+                    try {
+                        exported(item, docs, "before");
+                        var history = [];
+                        var d;
+                        for (d = 0; d < docs.length; d++) { history.push(docs[d].undoHistory.length); }
+                        inner.completion = ran(session, item, item._tag === "Probe" ? [docs[0], made] : revive(item.args), result);
+                        inner.undo = [];
+                        for (d = 0; d < docs.length; d++) {
+                            if (!docs[d].isValid) { continue; }
+                            var now = docs[d].undoHistory;
+                            for (var u = 0; u < now.length - history[d]; u++) { inner.undo.push(now[u]); }
+                        }
+                        inner.after = reads(session, docs, item.read, made);
+                        inner.writes = written(differences(held));
+                        exported(item, docs, "after");
+                    } catch (error) { inner.error = error; }
+                    throw new Error("rollback");
+                }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT, item.name);
+            } catch (rollback) {
+                if (inner.error !== undefined) { throw inner.error; }
+                if (inner.completion === undefined) { throw rollback; }
+            }
+            result.completion = inner.completion;
+            result.read = inner.after.state;
+            result.readFailed = inner.after.failed;
+            session.record.writes = inner.writes;
+            session.record.undo = inner.undo;
+        } catch (outer) {
+            result.completion = { _tag: "Failed", reason: String(outer.message) + (outer.line ? " at line " + outer.line : "") };
+        }
+        attempt(leaked, "prototypes", release);
+        for (var w = 0; w < session.created.length; w++) { attempt(leaked, "window", (function (made) { return function () { made.close(); }; })(session.created[w])); }
+        for (var c = 0; c < session.documents.length; c++) {
+            attempt(leaked, "close", (function (open) { return function () { if (open.isValid) { if (open.reflect.name === "Library") { open.close(); } else { open.close(SaveOptions.NO); } } }; })(session.documents[c]));
+        }
+        attempt(leaked, "documents", function () {
+            var open = realApp.documents.everyItem().getElements();
+            for (var o = 0; o < open.length; o++) { if (!known[open[o].id]) { leaked.push("document " + open[o].name + (owns(session, open[o]) ? " stays open after close" : " opened outside the case")); } }
+        });
+        attempt(leaked, "restore", function () { if (held !== null) { leaked = leaked.concat(restore(held)); } });
+        attempt(leaked, "globals", function () { leaked = leaked.concat(released(global)); });
+        attempt(leaked, "scriptPreferences", function () { realApp.scriptPreferences.measurementUnit = unit; realApp.scriptPreferences.enableRedraw = redraw; });
+        attempt(leaked, "activeDocument", function () { if (active !== null && activeId() !== active) { realApp.activeDocument = realApp.documents.itemByID(active); } });
+        var record = session.record;
+        result.alerts = record.alerts; result.confirms = record.confirms; result.prompts = record.prompts; result.windows = record.windows; result.dialogs = record.dialogs; result.files = record.files; result.menus = record.menus;
+        result.activations = record.activations; result.console = record.console; result.logs = record.logs; result.writes = record.writes; result.undo = record.undo; result.opened = record.opened; result.written = []; result.answered = []; result.leaked = leaked;
+        return result;
+    }
+    function header(found) {
+        var defaults = {};
+        for (var i = 0; i < found.preferences.length; i++) { defaults[found.preferences[i]] = realApp[found.preferences[i]].properties; }
+        var settings = realApp.colorSettings;
+        return { application: realApp.name, version: realApp.version, state: { modal: realApp.modalState, cmyk: settings.workingSpaceCMYK, rgb: settings.workingSpaceRGB, defaults: defaults, unread: found.unread } };
+    }
+    function recovered(label) {
+        if (realApp.modalState) { return; }
+        var open = realApp.documents.everyItem().getElements();
+        for (var i = 0; i < open.length; i++) { if (open[i].extractLabel(label) !== "") { open[i].close(SaveOptions.NO); } }
+    }
+    return function (text) {
+        var level = realApp.scriptPreferences.userInteractionLevel;
+        realApp.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+        try {
+            var batch = eval("(" + text + ")");
+            enumerated(batch.enumerations);
+            recovered(batch.label);
+            var found = members();
+            var answer = header(found);
+            for (var i = 0; i < batch.cases.length; i++) {
+                write(batch.records + "/" + i + ".started", "");
+                write(batch.records + "/" + i + ".json", json(outcome(batch.cases[i], batch, found)));
+            }
+            return json(answer);
+        } catch (error) {
+            return json({ failed: String(error.message) + (error.line ? " at line " + error.line : "") });
+        } finally {
+            realApp.scriptPreferences.userInteractionLevel = level;
+        }
+    };
+})();

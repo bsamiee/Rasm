@@ -4,7 +4,7 @@
 name                 = "rasm-daemon"
 version.workspace    = true
 edition.workspace    = true
-description          = "Served process over rasm-command: listen row, bind, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, and a two-stage drain on the command's signals"
+description          = "Served process over rasm-command: listen and grace rows, bind then listen once started, axum serve over HTTP/1 and HTTP/2 with TCP_NODELAY and peer ConnectInfo under graceful shutdown, and a two-stage drain ending at the second signal or a grace deadline"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["daemon", "server", "axum", "graceful-shutdown", "signals"]
@@ -31,6 +31,7 @@ sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
+jiff                               = { workspace = true }
 axum                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }

@@ -1,0 +1,50 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-typeset"
+version.workspace    = true
+edition.workspace    = true
+description          = "Typst documents compiled in process: a world over in-memory and on-disk sources, caller fonts beside embedded ones with each buffer refused when none of its faces parses, optional Universe packages over a blocking HTTP client and typed sys.inputs, compiles with bounded caches, PDF, SVG and PNG pages with a pixmap bound, and Mermaid diagrams measured with the document's fonts"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["typst", "typesetting", "pdf", "svg", "mermaid"]
+categories           = ["text-processing", "rendering"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                              = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true }
+jiff                               = { workspace = true }
+reqwest                            = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+png                                = { workspace = true }
+merman                             = { workspace = true }
+typst                              = { workspace = true }
+typst-bundle                       = { workspace = true }
+typst-kit                          = { workspace = true }
+typst-layout                       = { workspace = true }
+typst-pdf                          = { workspace = true }
+typst-render                       = { workspace = true }
+typst-svg                          = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

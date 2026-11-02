@@ -24,6 +24,7 @@ use opentelemetry_semantic_conventions::attribute::{
 };
 use rasm_command::Augmented;
 use rasm_daemon::Daemon;
+use rasm_telemetry::{Defaults, Handle, Layer};
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     model::{
@@ -51,7 +52,6 @@ use tracing::{
     field::{self, Empty},
 };
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
-use tracing_subscriber::layer::Identity;
 
 use crate::{Endpoint, McpError, Meta, Notifier, listed, resynced, versions};
 
@@ -191,12 +191,13 @@ where E: Endpoint
 
     fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), E::Error>> + Send { self.endpoint.serve(stopping) }
 
-    async fn drain(&self) {
+    async fn drain(&self) -> Result<(), E::Error> {
         self.requests.close();
         self.requests.wait().await;
         self.stopping.cancel();
         self.watches.close();
         self.watches.wait().await;
+        Ok(())
     }
 }
 
@@ -466,21 +467,21 @@ fn duration(name: &'static str) -> Histogram<f64> {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<P, E>(build: impl AsyncFnOnce(P, Implementation, Notifier) -> Result<E, E::Error>) -> process::ExitCode
+pub fn run<P, L, E>(defaults: Defaults, layer: L, build: impl AsyncFnOnce(P, Implementation, Handle, Notifier) -> Result<E, E::Error>) -> process::ExitCode
 where
     P: CommandFactory + FromArgMatches,
+    L: Layer,
     E: Endpoint,
 {
     const CAPACITY: usize = 64;
     let program = P::command();
-    let identity =
-        program.get_about().into_iter().fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), |identity, about| identity.with_description(about.to_string()));
+    let identity = program.get_about().into_iter().map(ToString::to_string).fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), Implementation::with_description);
     rasm_daemon::run(
-        rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. },
-        Identity::new(),
-        async |Augmented { options: Options { allowed_host }, args }, address, stopping| {
+        Defaults { directives: format!("rmcp=warn,rmcp::service=error,{}", defaults.directives).into(), ..defaults },
+        layer,
+        async |Augmented { options: Options { allowed_host }, args }, address, filter, stopping| {
             let notifier = Notifier(broadcast::Sender::new(CAPACITY));
-            let endpoint = build(args, identity, notifier.clone()).await?;
+            let endpoint = build(args, identity, filter, notifier.clone()).await?;
             let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation().with_cancellation_token(stopping.child_token());
             config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
             Ok(Host { endpoint, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default(), config })

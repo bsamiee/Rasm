@@ -31,8 +31,10 @@ use tokio_util::sync::CancellationToken;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+pub trait Failure = rasm_telemetry::Failure + Send + Sync + 'static;
+
 pub trait Endpoint: ServerHandler {
-    type Error: Error + Send + Sync + Into<sysexits::ExitCode> + 'static;
+    type Error: Failure;
 
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> { Err::<Ready<()>, _>(McpError::Unrouted { uri: uri.to_owned() }) }
 

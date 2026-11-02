@@ -166,6 +166,7 @@
         "@pulumiverse/grafana": "catalog:",
         "@pyroscope/nodejs": "catalog:",
         "@qualithm/arrow-flight-client": "catalog:",
+        "@rasm/cep": "workspace:*",
         "@rasm/database": "workspace:*",
         "@rasm/function-hooks": "workspace:*",
         "@rasm/hosting": "workspace:*",
@@ -363,7 +364,7 @@
                 "dependsOn": [ "grammar" ]
             },
             "typecheck": { "dependsOn": [ "typecheck:*" ] },
-            "typecheck:tsc": { "command": "tsc --pretty false", "inputs": [ "^default", "typescript", "{workspaceRoot}/**/*.{ts,json}" ] },
+            "typecheck:tsc": { "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", "!{workspaceRoot}/{docs,infra,tools/nx}/**" ] },
             "typecheck:swift": { "command": "swift build --build-tests --disable-automatic-resolution", "parallelism": false },
             "typecheck:javac": {
                 "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -proc:none -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"",

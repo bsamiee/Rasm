@@ -33,9 +33,11 @@ path = "../../tests/rust/tools/bridge/transport.rs"
 
 # --- [RUNTIME]
 [dependencies]
-tokio    = { workspace = true }
-clap     = { workspace = true }
-rasm-mcp = { workspace = true }
+tokio              = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap               = { workspace = true }
+rasm-telemetry     = { workspace = true }
+rasm-mcp           = { workspace = true }
 
 # --- [TESTING]
 [target."cfg(unix)".dev-dependencies]

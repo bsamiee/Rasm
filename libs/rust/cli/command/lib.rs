@@ -1,7 +1,7 @@
 #![feature(error_reporter, iterator_try_collect, try_blocks_heterogeneous)]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
-use core::{error::Error, num::NonZero};
+use core::num::NonZero;
 use std::{
     error::Report,
     io,
@@ -15,11 +15,15 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use clap::{ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueHint, builder::Resettable, error::ErrorKind};
+use clap::{
+    ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueHint,
+    builder::{Resettable, Styles},
+    error::ErrorKind,
+};
 use clap_complete::CompleteEnv;
 use futures::stream;
 use nonempty_collections::NEVec;
-use rasm_telemetry::{Defaults, Handle, Layer, MakeWriter};
+use rasm_telemetry::{Defaults, Failure, Handle, Layer, MakeWriter};
 use tokio::runtime::Runtime;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
@@ -32,7 +36,7 @@ use tokio_stream::wrappers::SignalStream;
 use toml::de;
 use tracing_appender::{
     non_blocking::NonBlockingBuilder,
-    rolling::{InitError, RollingFileAppender, Rotation},
+    rolling::{self, InitError, RollingFileAppender, Rotation},
 };
 use tracing_subscriber::fmt::writer::{MakeWriterExt as _, OptionalWriter};
 
@@ -123,6 +127,7 @@ where
 #[derive(Debug)]
 pub struct Process<A> {
     pub args: A,
+    pub styles: Styles,
     pub signals: Signals,
     pub filter: Handle,
 }
@@ -168,7 +173,7 @@ where
     W: MakeWriter,
     L: Layer,
     T: Termination,
-    E: Error + From<CommandError> + Into<sysexits::ExitCode>,
+    E: Failure + From<CommandError>,
 {
     let factory = Augmented::<Options, A>::command;
     CompleteEnv::with_factory(factory).complete();
@@ -196,11 +201,13 @@ where
         }
     };
     color.write_global();
+    let styles = command.get_styles().clone();
     let opened = log_directory
         .map(|directory| {
             max_log_files
+                .map(NonZero::get)
                 .into_iter()
-                .fold(RollingFileAppender::builder().rotation(Rotation::DAILY).filename_prefix(command.get_name()).filename_suffix("jsonl"), |builder, count| builder.max_log_files(count.get()))
+                .fold(RollingFileAppender::builder().rotation(Rotation::DAILY).filename_prefix(command.get_name()).filename_suffix("jsonl"), rolling::Builder::max_log_files)
                 .build(&directory)
                 .map(|appender| NonBlockingBuilder::default().lossy(false).finish(appender))
                 .map_err(|source| CommandError::Appender { directory, source })
@@ -232,7 +239,7 @@ where
             .into_iter()
             .try_collect::<Signals>()
             .map_err(failed(Operation::Signal))?;
-            work(Process { args, signals, filter }).await
+            work(Process { args, styles, signals, filter }).await
         })
     })
 }

@@ -13,31 +13,26 @@ use tui_logger::{TuiLoggerWidget, TuiWidgetState};
 
 use crate::{
     Program,
-    keymap::{self, Binding},
+    keymap::{self, Binding, Pane},
 };
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
-pub(crate) enum Pane {
-    Logs,
-    Keys,
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(crate) fn drawn<P>(frame: &mut Frame<'_>, program: &mut P, pane: Option<Pane>, logs: &TuiWidgetState, styles: &Styles)
 where P: Program {
-    let rows = keymap::resolved(program.keys());
     let label = |row: &Binding<P::Action>| if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) };
+    let rows = keymap::resolved(program.keys())
+        .unique_by(|row| keymap::normalized(row.code, row.modifiers))
+        .map(|row| (label(&row), row.action.to_string(), keymap::active(&row.action, pane)))
+        .collect::<Vec<_>>();
     let toned = |active: bool, style: &anstyle::Style| if active { *style } else { *styles.get_placeholder() };
-    let framed = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
+    let bordered = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
     let gap = Span::raw("  ");
     let width = usize::from(frame.area().width);
     let footer =
         rows.iter()
-            .filter(|row| keymap::active(&row.action, pane))
-            .map(|row| Line::from_iter([Span::styled(label(row), *styles.get_literal()), Span::raw(" "), Span::styled(row.action.to_string(), *styles.get_context())]))
+            .filter(|(_, _, active)| *active)
+            .map(|(key, action, _)| Line::from_iter([Span::styled(key.as_str(), *styles.get_literal()), Span::raw(" "), Span::styled(action.as_str(), *styles.get_context())]))
             .coalesce(|line, hint| {
                 if line.width().saturating_add(gap.width()).saturating_add(hint.width()) <= width { Ok(iter::chain(line, iter::once(gap.clone())).chain(hint).collect()) } else { Err((line, hint)) }
             })
@@ -49,7 +44,7 @@ where P: Program {
     match pane {
         Some(shown @ Pane::Logs) => frame.render_widget(
             TuiLoggerWidget::default()
-                .block(framed(shown))
+                .block(bordered(shown))
                 .style_error(Style::from(*styles.get_error()))
                 .style_warn(Style::from(*styles.get_invalid()))
                 .style_info(Style::from(*styles.get_valid()))
@@ -60,12 +55,12 @@ where P: Program {
         ),
         Some(shown @ Pane::Keys) => frame.render_widget(
             Table::new(
-                rows.iter()
-                    .map(|row| (row, keymap::active(&row.action, pane)))
-                    .map(|(row, active)| Row::new([Cell::from(label(row)).style(toned(active, styles.get_literal())), Cell::from(row.action.to_string()).style(toned(active, styles.get_context()))])),
+                rows.iter().map(|(key, action, active)| {
+                    Row::new([Cell::from(key.as_str()).style(toned(*active, styles.get_literal())), Cell::from(action.as_str()).style(toned(*active, styles.get_context()))])
+                }),
                 [Constraint::Fill(1), Constraint::Fill(3)],
             )
-            .block(framed(shown)),
+            .block(bordered(shown)),
             lower,
         ),
         None => {}

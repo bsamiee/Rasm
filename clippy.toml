@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::Dual", "num_dual::DualVec"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -28,18 +28,18 @@ pub-underscore-fields-behavior = "AllPubFields"
 
 # --- [GRAPH]
 allowed-duplicate-crates = [
-    "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1 and under `nuts-derive` of newest `nuts-rs` 0.19.1, 2 under proc macros not on `syn` 3 (`derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `zerocopy-derive`)
+    "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1 and under `nuts-derive` of newest `nuts-rs` 0.19.1, 2 under proc macros not on `syn` 3 (`comemo-macros`, `derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `palette_derive`, `phf_macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `typst-macros`, `zerocopy-derive`)
     "darling",               # 0.14 under `derive_builder` 0.11 of newest `clarabel` 0.11.1 beside 0.24 under `serde_with_macros` of newest `serde_with` 3.24.0 and `instability`
     "darling_core",          # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
     "darling_macro",         # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
     "strsim",                # 0.10 under `darling_core` 0.14 beside 0.11 under `darling_core` 0.24 and `clap_builder`
     "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, and `jobserver`
-    "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` and newest `leiden-rs` 0.8.1 beside 0.10 under rmcp `server-side-http` and newest `rustworkx-core` 0.18.1
-    "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
+    "rand",                  # 0.8 under `lipsum` 0.9 of `typst-library` 0.15.1, 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` and newest `leiden-rs` 0.8.1 beside 0.10 under rmcp `server-side-http` and newest `rustworkx-core` 0.18.1
+    "rand_core",             # 0.6 under `rand` 0.8 and `rand_chacha` 0.3, 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
     "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.38 and `jiff-core` 0.1.1 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
-    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, and `opentelemetry-proto` 0.33.1 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, and `rmcp`
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, `opentelemetry-proto` 0.33.1, `typst-svg` 0.15.1, `krilla` 0.8.2, `usvg` 0.47.0, and `hayro-svg` 0.7.0 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, `rmcp`, and `merman-render` 0.9.3
     "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
     "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
     "windows-sys",           # 0.52 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
@@ -64,6 +64,28 @@ allowed-duplicate-crates = [
     "alloc-no-stdlib",       # 2 under `alloc-stdlib` 0.2 beside 3 under `alloc-stdlib` 0.3
     "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, and `arrow-json`
     "schemars",              # 0.9 under newest `serde_with` 3.24.0 through the weak `schemars_0_9?/std` of its default `std` (rust-clippy#16440), beside 1 under `rmcp`, `bounded-integer`, and serde_with `schemars_1`
+    "toml",                  # 0.8 under `typst-syntax`, `typst-library`, and `typst-eval` 0.15.1 beside 1 under `rasm-command`, `dylint_linting`, and `dylint_internal`
+    "serde_spanned",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1
+    "toml_datetime",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1 and `toml_edit` 0.25
+    "toml_edit",             # 0.22 under `toml` 0.8 beside 0.25 under `dylint_internal`
+    "winnow",                # 0.7 under `toml_edit` 0.22 beside 1 under `toml` 1, `toml_edit` 0.25, and `toml_parser`
+    "strum",                 # 0.27 under `biblatex` 0.12, the default `biblatex` of `hayagriva` 0.10.1 that `typst-library` takes, beside 0.28 under `jsonschema`, `ratatui-core`, and every Rasm crate deriving it
+    "strum_macros",          # 0.27 under `strum` 0.27 beside 0.28 under `strum` 0.28
+    "unicode-width",         # 0.1 under `codespan-reporting` 0.11 of typst-kit `emit-diagnostics` beside 0.2 under `annotate-snippets`, `ratatui-core`, `merman-core`, and `merman-render`
+    "fancy-regex",           # 0.16 under `syntect` 5.3 of `typst-library` beside 0.19 under `jsonschema`
+    "float-cmp",             # 0.9 under `krilla` 0.8.2 and the default `approx-eq` of `strict-num` under `usvg` beside 0.10 under `meshopt`
+    "miniz_oxide",           # 0.8 under `png` 0.18, which `typst-library`, `krilla`, and `tiny-skia` take, beside 0.9 under `flate2`
+    "rand_chacha",           # 0.3 under `lipsum` 0.9 of `typst-library` beside 0.9 under `rand` 0.9
+    "pastey",                # 0.1 under `htmlize` 1.1 of `merman-core` beside 0.2 under `rmcp` and `dylint_internal`
+    "phf",                   # 0.13 under `typst-library` and `hayro-interpret` 0.7 beside 0.14 under the default `fast_match_color` of `cssparser` 0.38 that `merman-core` and `merman-render` take
+    "phf_shared",            # 0.13 under `phf` 0.13 beside 0.14 under `phf` 0.14
+    "phf_generator",         # 0.13 under `phf_macros` 0.13 beside 0.14 under `phf_macros` 0.14
+    "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
+    "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` beside 0.42 under `merman-render`
+    "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
+    "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and both `vello_common` copies beside 1 under `hayro-jbig2` 0.3
+    "vello_common",          # 0.0.8 under `vello_cpu` 0.0.8 of `hayro` 0.7, which `typst-render` and `typst-svg` take, beside 0.0.9 under `glifo` 0.1.1 of that `vello_cpu`
+    "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 beside 0.4 under `hayro-jbig2` 0.3
 ]
 
 # --- [BANS]
