@@ -21,8 +21,8 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
-use super::{UntypedKind, body_output, unread, untyped_kind};
-use crate::{expanded_externally, fn_item_value, is_error, path, paths, resolve, result_parts, workspace_def};
+use super::{body_output, failing, unread};
+use crate::{expanded_externally, fn_item_value, path, paths, resolve, result_parts};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -277,14 +277,6 @@ fn skipped(cx: &LateContext<'_>, pattern: &Pat<'_>, struct_rest: bool) -> bool {
                 && cx.qpath_res(&qpath, pattern.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr),
         _ => false,
     }
-}
-
-fn failing<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> bool {
-    !error.is_privately_uninhabited(cx.tcx, cx.typing_env())
-        && match untyped_kind(cx, error) {
-            Some(UntypedKind::Text | UntypedKind::Erased | UntypedKind::Report | UntypedKind::Many(_) | UntypedKind::Messages | UntypedKind::NoError(_)) => true,
-            Some(UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit) | None => is_error(cx, error) || error.ty_adt_def().is_some_and(|adt| workspace_def(cx, adt.did())),
-        }
 }
 
 fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, discard: Discard, label: &str, error: Ty<'tcx>) {

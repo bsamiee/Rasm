@@ -508,9 +508,9 @@ fn discarded_error(found: &str) {
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-       --> tools/dylint/examples/stringified_error.rs:166:44
+       --> tools/dylint/examples/stringified_error.rs:160:44
         |
-    166 |     let mut attempt = counted(parsed(text).unwrap_or_default());
+    160 |     let mut attempt = counted(parsed(text).unwrap_or_default());
         |                                            ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
@@ -1710,22 +1710,6 @@ fn stringified_error(found: &str) {
         |
     146 | fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) }
         |                                                              ^^^^^^^^^^^^^^^^^
-        |
-        = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
-
-    warning: text of error `std::io::Error` is stored
-       --> tools/dylint/examples/stringified_error.rs:150:53
-        |
-    150 | fn encoded(error: io::Error) -> serde_json::Error { <serde_json::Error as serde::ser::Error>::custom(error) }
-        |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        |
-        = help: hold `std::io::Error` as `#[source]` of a `thiserror` variant
-
-    warning: text of error `std::num::ParseIntError` is stored
-       --> tools/dylint/examples/stringified_error.rs:152:81
-        |
-    152 | fn decoded(text: &str) -> Result<u16, serde_json::Error> { parsed(text).map_err(<serde_json::Error as serde::de::Error>::custom) }
-        |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 

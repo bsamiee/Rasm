@@ -6,7 +6,7 @@ use rustc_hir::{
 use rustc_lint::LateContext;
 use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, fast_reject::DeepRejectCtxt};
 
-use crate::{bounds_of, is_error, is_text, pointee};
+use crate::{bounds_of, is_error, is_text, pointee, workspace_def};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -68,6 +68,14 @@ fn untyped_kind<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> Option<Untyped
             })
             .map(UntypedKind::NoError),
     }
+}
+
+fn failing<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> bool {
+    !error.is_privately_uninhabited(cx.tcx, cx.typing_env())
+        && match untyped_kind(cx, error) {
+            Some(UntypedKind::Text | UntypedKind::Erased | UntypedKind::Report | UntypedKind::Many(_) | UntypedKind::Messages | UntypedKind::NoError(_)) => true,
+            Some(UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit) | None => is_error(cx, error) || error.ty_adt_def().is_some_and(|adt| workspace_def(cx, adt.did())),
+        }
 }
 
 fn body_output<'tcx>(cx: &LateContext<'tcx>, body: LocalDefId) -> Option<Ty<'tcx>> {

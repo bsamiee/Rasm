@@ -108,9 +108,6 @@ fn raster(path: &VirtualPath, page: NonZero<usize>, content: &Page, options: &Re
     let size = (content.frame.size() + if options.render_bleed { content.bleed } else { Sides::default() }.sum_by_axis())
         .map(|axis| (options.pixel_per_pt.get().cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
     let refused = |bound| TypesetError::Raster { path: path.clone(), page, width: size.x, height: size.y, budget: bound };
-    size.x
-        .checked_mul(4)
-        .is_some_and(|row| row <= i32::MAX.cast_unsigned() && usize::try_from(u64::from(row).strict_mul(u64::from(size.y))).is_ok())
-        .ok_or_else(|| refused(None))?;
+    size.x.checked_mul(4).is_some_and(|row| row <= i32::MAX.cast_unsigned() && usize::try_from(u64::from(row).strict_mul(u64::from(size.y))).is_ok()).ok_or_else(|| refused(None))?;
     budget.is_none_or(|budget| u64::from(size.x).strict_mul(u64::from(size.y)) <= budget.get()).ok_or_else(|| refused(budget))
 }

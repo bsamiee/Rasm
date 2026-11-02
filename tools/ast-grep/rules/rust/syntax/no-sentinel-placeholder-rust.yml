@@ -70,6 +70,11 @@ utils:
               not: {any: [{matches: default-text}, {kind: reference_expression, has: {field: value, matches: default-text}}]}
             - kind: closure_expression
               has: {field: body, matches: sentinel, not: {matches: default-text}}
+    limit-argument:
+        has: {field: arguments, has: {nthChild: 1, matches: bound}}
+        any:
+            - inside: {kind: arguments}
+            - inside: {kind: closure_expression, field: body, inside: {kind: arguments}}
     absent-value:
         any:
             - matches: absent-sentinel
@@ -144,6 +149,7 @@ rule:
             - has: {field: function, matches: substitute}
             - has: {field: arguments, has: {nthChild: 1, matches: fallback}}
             - not: {matches: default-map}
+            - not: {matches: limit-argument}
         - kind: call_expression
           all:
             - has: {field: function, matches: substitute}

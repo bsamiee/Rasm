@@ -17,11 +17,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let indexed = cx.typeck_results().expr_ty(base)
             && indexed.is_ref()
             && let held = indexed.peel_refs()
-            && let keyed = cx.typeck_results().expr_ty(key).is_ref()
+            && let key_borrowed = cx.typeck_results().expr_ty(key).is_ref()
             && let Some(getter) = [sym::get, Symbol::intern("get_index")].into_iter().find_map(|name| {
                 get_adt_inherent_method(cx, held, name).filter(|method| {
                     let signature = cx.tcx.fn_sig(method.def_id).skip_binder().skip_binder();
-                    matches!(signature.output().kind(), ty::Adt(option, _) if option.is_diag_item(cx, sym::Option)) && signature.inputs().get(1).is_some_and(|taken| taken.is_ref() == keyed)
+                    matches!(signature.output().kind(), ty::Adt(option, _) if option.is_diag_item(cx, sym::Option)) && signature.inputs().get(1).is_some_and(|parameter| parameter.is_ref() == key_borrowed)
                 })
             })
         {

@@ -4,12 +4,12 @@ use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
 
-use super::unread;
+use super::{failing, unread};
 use crate::{expanded_externally, result_parts};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(DISCARDED_ERROR_SOURCE: "`map_err` and `or_else` closures that replace a non-zero-sized error without reading it");
+lint!(DISCARDED_ERROR_SOURCE: "`map_err` and `or_else` closures that replace a non-zero-sized failure without reading it");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -19,6 +19,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let name @ (sym::map_err | sym::or_else) = cx.tcx.item_name(method)
             && let Some((_, error)) = result_parts(cx, cx.typeck_results().expr_ty_adjusted(receiver))
             && approx_ty_size(cx, error) > 0
+            && failing(cx, error)
             && !is_from_proc_macro(cx, expr)
             && let Some(body) = unread(cx, handler)
             && (name == sym::map_err || fn_def_id(cx, body).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr))

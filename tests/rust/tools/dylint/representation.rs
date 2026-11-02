@@ -1192,7 +1192,7 @@ fn unchecked_construction(found: &str) {
        |
     17 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(va...
        |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `0` private and read it through `#[derive(derive_more::AsRef)]` with `#[as_ref]` on the field
+       = help: make `0` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
        = note: `#[warn(unchecked_construction)]` on by default
 
     warning: field `width` lets code outside the module skip the `u32` check of `Window::new`
@@ -1206,7 +1206,7 @@ fn unchecked_construction(found: &str) {
        |
     27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
        |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `width` private and read it through `#[derive(derive_more::AsRef)]` with `#[as_ref]` on the field
+       = help: make `width` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
 
     warning: field `height` lets code outside the module skip the `u32` check of `Window::new`
       --> tools/dylint/examples/unchecked_construction.rs:23:9
@@ -1219,7 +1219,7 @@ fn unchecked_construction(found: &str) {
        |
     27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
        |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `height` private and read it through `#[derive(derive_more::AsRef)]` with `#[as_ref]` on the field
+       = help: make `height` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
 
     warning: building `Weight` from a `u32` parameter skips `Weight::try_from`
       --> tools/dylint/examples/unchecked_construction.rs:42:62
@@ -1245,7 +1245,7 @@ fn unchecked_construction(found: &str) {
        |
     72 |         pub(crate) fn new(value: u8) -> Option<Self> { (value <= 10).then_some(Self { value, label: "level" }) }
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `value` private and read it through `#[derive(derive_more::AsRef)]` with `#[as_ref]` on the field
+       = help: make `value` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
 
     warning: building `Weight` from a `u32` parameter skips `Weight::try_from`
       --> tools/dylint/examples/unchecked_construction.rs:85:57

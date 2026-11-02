@@ -147,12 +147,6 @@ fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) 
 
 fn handed(error: &ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
 
-fn encoded(error: io::Error) -> serde_json::Error { <serde_json::Error as serde::ser::Error>::custom(error) }
-
-fn decoded(text: &str) -> Result<u16, serde_json::Error> { parsed(text).map_err(<serde_json::Error as serde::de::Error>::custom) }
-
-fn relayed<E: serde::de::Error>(text: &str) -> Result<u16, E> { parsed(text).map_err(E::custom) }
-
 async fn confirmed(prompt: String) -> bool { prompt.ends_with('?') }
 
 fn checked(prompt: String, fallback: bool) -> bool { prompt.ends_with('?') || fallback }
@@ -185,5 +179,4 @@ fn main() {
     let boundaries = error.as_ref().map(rejected).is_some_and(|refused| refused.attempts > 0) && error.as_ref().map(handed).is_some();
     black_box(&(ports, checks, boundaries, texts, refused(String::new()).attempts, fast(Mode::Fast), labeled(Mode::Fast, true), Failure::new(" ").message));
     black_box(&(futures::executor::block_on(confirmed(format!("Delete {text}?"))), checked(format!("Delete {text}?"), false)));
-    black_box(&(encoded(denied), decoded(text), relayed::<serde_json::Error>(text)));
 }

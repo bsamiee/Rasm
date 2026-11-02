@@ -70,7 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 format!("field `{}` lets code outside the module skip the `{value}` check of `{checker}`", field.ident),
                 |diag| {
                     diag.span_note(cx.tcx.def_span(check), format!("`{checker}` declared here"));
-                    diag.help(format!("make `{}` private and read it through `#[derive(derive_more::AsRef)]` with `#[as_ref]` on the field", field.ident));
+                    diag.help(format!("make `{}` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`", field.ident));
                 },
             );
         }

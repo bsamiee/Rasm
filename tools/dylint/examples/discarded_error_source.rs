@@ -36,11 +36,13 @@ async fn received(answer: oneshot::Receiver<u16>) -> Result<u16, Failure> { answ
 
 fn recovered(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Ok(0)) }
 
+fn port(bytes: Vec<u8>) -> Result<u16, Failure> { <[u8; 2]>::try_from(bytes).map(u16::from_be_bytes).map_err(|Vec { .. }| Failure::Missing) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() {
     let (sender, answer) = oneshot::channel();
     black_box(&(sender.send(1), received(answer).await));
-    black_box(&[named("1"), ignored("1"), retried("2"), retried_named("3"), destructured("1"), kept("4"), read("5"), recovered("6")]);
+    black_box(&[named("1"), ignored("1"), retried("2"), retried_named("3"), destructured("1"), kept("4"), read("5"), recovered("6"), port(vec![0, 80])]);
 }

@@ -80,9 +80,7 @@ pub enum TypesetError {
 pub struct HttpDownloader(pub Client);
 
 impl Downloader for HttpDownloader {
-    fn stream(&self, _key: &dyn Any, url: &str) -> io::Result<(Option<usize>, Box<dyn Read>)> {
-        request(&self.0, url).map(|(size, body)| (size, Box::new(body) as Box<dyn Read>))
-    }
+    fn stream(&self, _key: &dyn Any, url: &str) -> io::Result<(Option<usize>, Box<dyn Read>)> { request(&self.0, url).map(|(size, body)| (size, Box::new(body) as Box<dyn Read>)) }
 
     fn download(&self, _key: &dyn Any, url: &str) -> io::Result<Vec<u8>> {
         let (size, mut body) = request(&self.0, url)?;
@@ -98,9 +96,7 @@ struct Body {
 }
 
 impl Read for Body {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.request.in_scope(|| self.response.read(buf)).map_err(|error| failed(&self.request, error))
-    }
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.request.in_scope(|| self.response.read(buf)).map_err(|error| failed(&self.request, error)) }
 }
 
 #[derive(Debug, Default, derive_more::AsRef, derive_more::AsMut)]
@@ -114,10 +110,7 @@ pub struct Files {
 
 impl Files {
     pub fn new(root: Option<&Path>, overlay: HashMap<FileId, Bytes>, packages: Option<SystemPackages>) -> Result<Self, TypesetError> {
-        root.map(fs_err::canonicalize)
-            .transpose()
-            .map(|root| Self { root: root.map(FsRoot::new), overlay, packages })
-            .map_err(|source| TypesetError::Root { source })
+        root.map(fs_err::canonicalize).transpose().map(|root| Self { root: root.map(FsRoot::new), overlay, packages }).map_err(|source| TypesetError::Root { source })
     }
 }
 
@@ -272,12 +265,7 @@ fn request(client: &Client, url: &str) -> io::Result<(Option<usize>, Body)> {
         })
         .and_then(Response::error_for_status)
         .map_err(|error| failed(&request, io::Error::other(error)))?;
-    response
-        .content_length()
-        .map(usize::try_from)
-        .transpose()
-        .map_err(|error| failed(&request, io::Error::new(io::ErrorKind::FileTooLarge, error)))
-        .map(|size| (size, Body { request, response }))
+    response.content_length().map(usize::try_from).transpose().map_err(|error| failed(&request, io::Error::new(io::ErrorKind::FileTooLarge, error))).map(|size| (size, Body { request, response }))
 }
 
 fn failed(request: &Span, error: io::Error) -> io::Error {
