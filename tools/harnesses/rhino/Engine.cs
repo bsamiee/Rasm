@@ -603,7 +603,7 @@ public static class Engine {
                 from value in Optional(code.Body).Match(Some: body => Lift(() => body(scope)).Bind(Encode), None: static () => Fin.Succ<JsonNode?>(value: null))
                 select value)));
         (JsonObject read, JsonObject readFailed) = Reads(@case.Reads, code.Reads, scope);
-        return new Outcome(@case.Name, result.Match<Completion>(Succ: static _ => new Completion.Ran(), Fail: Thrown)) {
+        return new Outcome(@case.Name, result.Match(Succ: static _ => new Completion.Ran(), Fail: Thrown)) {
             Value = result.IfFail(static _ => null),
             Before = Empty(before),
             BeforeFailed = Empty(beforeFailed),

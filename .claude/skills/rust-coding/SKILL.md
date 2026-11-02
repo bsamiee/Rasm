@@ -325,7 +325,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 - Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, implementors write `async fn` for a body that awaits and return `ready(..)` under the trait's signature for one that awaits nothing
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
-- Bounds repeated across signatures or crates are one trait alias, a crate-private trait with one implementor is that type's inherent `impl`
+- Bounds repeated across signatures or crates are one trait alias over the traits each body reads, a crate-private trait with one implementor is that type's inherent `impl`
 - Foreign trait implementations write required methods and each default their type or a forwarded inner type answers differently, other defaults stand
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl

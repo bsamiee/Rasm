@@ -55,10 +55,10 @@ pub fn estimate(series: &Series, welch: Welch) -> Result<Array1<f64>, SpectraErr
     .slice_move(s![..length]);
     let count = samples.strict_sub(length).strict_div(hop.get()).strict_add(1);
     let mut frames = Array2::zeros((count, length));
+    let width = convert::<usize, f64>(length);
     Zip::from(frames.rows_mut()).and(series.samples.windows_with_stride(length, hop.get())).par_for_each(|frame, window| {
-        if let Some(mean) = window.mean() {
-            Zip::from(frame).and(&window).and(&weights).for_each(|value, &sample, &weight| *value = (sample - mean) * weight);
-        }
+        let mean = window.sum() / width;
+        Zip::from(frame).and(&window).and(&weights).for_each(|value, &sample, &weight| *value = (sample - mean) * weight);
     });
     let power = spectrum(&frames, Axis(1), [])?.map(Complex::norm_sqr).sum_axis(Axis(0));
     let norm = convert::<usize, f64>(count)

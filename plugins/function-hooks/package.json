@@ -6,12 +6,6 @@
     "exports": {
         ".": "./index.ts"
     },
-    "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
-        "effect": "catalog:",
-        "vitest": "catalog:"
-    },
     "nx": {
         "tags": [ "host:claude" ],
         "targets": {
