@@ -15,8 +15,8 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::Dual", "num_dual::DualVec"]
-arithmetic-side-effects-allowed-unary = ["nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::Dual", "num_dual::DualVec"]
+arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
 upper-case-acronyms-aggressive = true
@@ -29,6 +29,10 @@ pub-underscore-fields-behavior = "AllPubFields"
 # --- [GRAPH]
 allowed-duplicate-crates = [
     "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1 and under `nuts-derive` of newest `nuts-rs` 0.19.1, 2 under proc macros not on `syn` 3 (`derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `zerocopy-derive`)
+    "darling",               # 0.14 under `derive_builder` 0.11 of newest `clarabel` 0.11.1 beside 0.24 under `serde_with_macros` of newest `serde_with` 3.24.0 and `instability`
+    "darling_core",          # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
+    "darling_macro",         # 0.14 under `darling` 0.14 beside 0.24 under `darling` 0.24
+    "strsim",                # 0.10 under `darling_core` 0.14 beside 0.11 under `darling_core` 0.24 and `clap_builder`
     "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, and `jobserver`
     "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` and newest `leiden-rs` 0.8.1 beside 0.10 under rmcp `server-side-http` and newest `rustworkx-core` 0.18.1
     "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10

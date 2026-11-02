@@ -3674,6 +3674,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "linebender_resource_handle"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
+
+[[package]]
 name = "linesweeper"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4556,6 +4562,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "parlance"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73072a9470554c8e794778acece2312661218aaabb635600957d952cf01c716e"
+
+[[package]]
 name = "parquet"
 version = "59.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5172,9 +5184,11 @@ dependencies = [
  "geo-types",
  "itertools 0.15.0",
  "kurbo",
+ "linebender_resource_handle",
  "linesweeper",
  "nonempty-collections",
  "nutype",
+ "parlance",
  "rayon",
  "thiserror 2.0.21",
  "validated",
@@ -5400,6 +5414,7 @@ dependencies = [
  "rand 0.10.3",
  "rayon",
  "serde",
+ "serde_with",
  "sobol_burley",
  "statrs",
  "thiserror 2.0.21",

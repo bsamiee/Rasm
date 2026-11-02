@@ -1,4 +1,4 @@
-use core::range::RangeInclusive;
+use core::{num::NonZero, range::RangeInclusive};
 
 use datasketches::error::Error;
 use nonempty_collections::NEBTreeMap;
@@ -8,6 +8,25 @@ use statrs::distribution::StudentsTError;
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub type Space<K> = NEBTreeMap<K, Bounds>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+pub enum Moment {
+    Mean,
+    Variance,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum Sample {
+    #[display("resample estimates are not finite")]
+    Resamples,
+    #[display("resample estimates fall on one side of the full-sample estimate")]
+    Bias,
+    #[display("groups all hold a non-finite output")]
+    Groups,
+    #[display("draws per chain split into halves under two")]
+    Draws,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,15 +46,23 @@ pub enum StatsError {
     #[error("log density or its gradient is not finite")]
     NotFinite,
     #[error("chain {chain} failed")]
-    Sampler { chain: u64, source: NutsError },
-    #[error("chain {chain} failed with no typed source")]
-    Chain { chain: u64 },
+    Sampler { chain: u64, source: Option<NutsError> },
+    #[error("start of chain {chain} lies outside the open bounds of dimension {dimension}")]
+    Start { chain: u64, dimension: usize },
     #[error("sampler settings refused")]
     Settings,
-    #[error("{found} outputs for a design of {expected} points")]
-    Outputs { expected: usize, found: usize },
-    #[error(transparent)]
-    Distribution(#[from] StudentsTError),
+    #[error("{found} entries along an axis of {expected}")]
+    Shape { expected: usize, found: usize },
+    #[error("{levels} levels over {dimensions} dimensions overflow a factorial design")]
+    Factorial { levels: NonZero<u16>, dimensions: NonZero<usize> },
+    #[error("{found} observations admit no interval")]
+    Observations { found: u64, source: StudentsTError },
+    #[error("{found} finite pairs grade no fit of {parameters} parameters")]
+    Pairs { found: u64, parameters: u32 },
+    #[error("{found} {sample}")]
+    Degenerate { found: usize, sample: Sample },
+    #[error("{0} is zero")]
+    Zero(Moment),
     #[error(transparent)]
     Sketch(#[from] Error),
 }
@@ -44,7 +71,16 @@ impl LogpError for StatsError {
     fn is_recoverable(&self) -> bool {
         match self {
             Self::NotFinite => true,
-            Self::Sampler { chain: _, source: _ } | Self::Chain { chain: _ } | Self::Settings | Self::Outputs { expected: _, found: _ } | Self::Distribution(_) | Self::Sketch(_) => false,
+            Self::Sampler { chain: _, source: _ }
+            | Self::Start { chain: _, dimension: _ }
+            | Self::Settings
+            | Self::Shape { expected: _, found: _ }
+            | Self::Factorial { levels: _, dimensions: _ }
+            | Self::Observations { found: _, source: _ }
+            | Self::Pairs { found: _, parameters: _ }
+            | Self::Degenerate { found: _, sample: _ }
+            | Self::Zero(_)
+            | Self::Sketch(_) => false,
         }
     }
 }

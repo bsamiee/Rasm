@@ -1,67 +1,71 @@
-use core::{iter, num::NonZero};
+use core::{iter, num::NonZero, range::RangeInclusive};
 
 use itertools::Itertools as _;
 use nalgebra::DMatrix;
 use rand::{Rng, RngExt as _, seq::SliceRandom as _};
 use sobol_burley::NUM_DIMENSION_SETS_4D;
 
-use crate::Space;
+use crate::{Space, StatsError};
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+#[nutype::nutype(validate(predicate = |window| window.start <= window.last), derive(Debug, Clone, Copy, PartialEq, Eq, Deref))]
+pub struct Window(RangeInclusive<u16>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Design {
     Random { points: NonZero<usize> },
     LatinHypercube { points: NonZero<usize> },
-    Sobol { points: NonZero<u16> },
+    Sobol { window: Window, seed: u32 },
     Factorial { levels: NonZero<u16> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn sample<K, R>(space: &Space<K>, design: Design, rng: &mut R) -> DMatrix<f64>
+pub fn sample<K, R>(space: &Space<K>, design: Design, rng: &mut R) -> Result<DMatrix<f64>, StatsError>
 where R: Rng + ?Sized {
-    let dimensions = space.len().get();
-    place(
+    let dimensions = space.len();
+    Ok(place(
         space,
         match design {
-            Design::Random { points } => DMatrix::from_fn(dimensions, points.get(), |_, _| rng.random()),
+            Design::Random { points } => DMatrix::from_fn(dimensions.get(), points.get(), |_, _| rng.random()),
             Design::LatinHypercube { points } => {
                 let strata = nalgebra::convert::<usize, f64>(points.get());
                 DMatrix::from_row_iterator(
-                    dimensions,
+                    dimensions.get(),
                     points.get(),
                     iter::repeat_with(|| {
                         let mut permutation = (0..points.get()).collect::<Vec<_>>();
                         permutation.shuffle(rng);
-                        permutation
+                        permutation.into_iter().map(|stratum| (nalgebra::convert::<usize, f64>(stratum) + rng.random::<f64>()) / strata).collect::<Vec<_>>()
                     })
-                    .take(dimensions)
+                    .take(dimensions.get())
                     .flatten(),
                 )
-                .map(|stratum| (nalgebra::convert::<usize, f64>(stratum) + rng.random::<f64>()) / strata)
             }
-            Design::Sobol { points } => sobol(dimensions, points, rng.next_u32()),
-            Design::Factorial { levels } if levels.get() == 1 => DMatrix::from_element(dimensions, 1, 0.5),
+            Design::Sobol { window, seed } => sobol(dimensions.get(), window, seed),
             Design::Factorial { levels } => {
+                let points = iter::repeat_n(NonZero::<usize>::from(levels), dimensions.get())
+                    .try_fold(NonZero::<usize>::MIN, NonZero::<usize>::checked_mul)
+                    .filter(|points| points.checked_mul(dimensions).is_some())
+                    .ok_or(StatsError::Factorial { levels, dimensions })?;
                 let span = f64::from(levels.get().strict_sub(1));
                 DMatrix::from_iterator(
-                    dimensions,
-                    iter::repeat_n(NonZero::<usize>::from(levels).get(), dimensions).fold(1, usize::strict_mul),
-                    iter::repeat_n((0..levels.get()).map(|level| f64::from(level) / span), dimensions).multi_cartesian_product().flatten(),
+                    dimensions.get(),
+                    points.get(),
+                    iter::repeat_n((0..levels.get()).map(|level| if span > 0.0 { f64::from(level) / span } else { 0.5 }), dimensions.get()).multi_cartesian_product().flatten(),
                 )
             }
         },
-    )
+    ))
 }
 
 #[must_use]
-pub(crate) fn sobol(dimensions: usize, points: NonZero<u16>, seed: u32) -> DMatrix<f64> {
+pub(crate) fn sobol(dimensions: usize, window: Window, seed: u32) -> DMatrix<f64> {
     DMatrix::from_iterator(
         dimensions,
-        NonZero::<usize>::from(points).get(),
-        (0..points.get()).flat_map(|index| {
+        usize::from(window.last.strict_sub(window.start)).strict_add(1),
+        window.iter().flat_map(|index| {
             (0_u32..).cartesian_product(0..NUM_DIMENSION_SETS_4D).flat_map(move |(block, set)| sobol_burley::sample_4d(u32::from(index), set, seed ^ block)).take(dimensions).map(f64::from)
         }),
     )

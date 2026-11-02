@@ -1,14 +1,17 @@
 use average::{Estimate as _, Merge, Variance};
 use datasketches::tdigest::{TDigest, TDigestMut};
 use rayon::iter::{FromParallelIterator, IntoParallelIterator, ParallelIterator as _};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+use serde_with::{Bytes, DeserializeAs};
 
 use crate::StatsError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Summary {
     moments: Variance,
+    #[serde(serialize_with = "encode", deserialize_with = "decode")]
     digest: TDigestMut,
     non_finite: u64,
 }
@@ -20,7 +23,7 @@ impl Summary {
     pub const fn moments(&self) -> &Variance { &self.moments }
 
     #[must_use]
-    pub fn digest(&self) -> TDigest { self.digest.clone().freeze() }
+    pub fn digest(self) -> TDigest { self.digest.freeze() }
 
     #[must_use]
     pub const fn non_finite(&self) -> u64 { self.non_finite }
@@ -87,4 +90,16 @@ impl FromParallelIterator<f64> for Summary {
             })
             .collect()
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn encode<S>(digest: &TDigestMut, serializer: S) -> Result<S::Ok, S::Error>
+where S: Serializer {
+    serializer.serialize_bytes(&digest.clone().serialize())
+}
+
+fn decode<'de, D>(deserializer: D) -> Result<TDigestMut, D::Error>
+where D: Deserializer<'de> {
+    <Bytes as DeserializeAs<'de, Vec<u8>>>::deserialize_as(deserializer).and_then(|bytes| TDigestMut::deserialize(&bytes).map_err(D::Error::custom))
 }

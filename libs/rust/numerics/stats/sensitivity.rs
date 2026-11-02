@@ -1,24 +1,36 @@
 use core::{iter, num::NonZero};
 use std::collections::BTreeSet;
 
-use average::Variance;
+use average::{Covariance, Variance};
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector};
 use nonempty_collections::{NEBTreeMap, NonEmptyIterator as _};
 use rand::{Rng, RngExt as _, seq::SliceRandom as _};
-use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
 use crate::{
-    Space, StatsError,
-    sampling::{place, sobol},
+    Moment, Sample, Space, StatsError,
+    descriptive::symmetric,
+    sampling::{Window, place, sobol},
 };
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+pub type Outputs<'space, K, E> = Vec<Result<Sensitivity<'space, K, E>, StatsError>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
+pub struct Sensitivity<'space, K, E> {
+    pub dimensions: NEBTreeMap<&'space K, E>,
+    pub non_finite: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct Indices {
-    pub first: Variance,
+    pub first: Covariance,
     pub total: Variance,
+    pub variance: Variance,
 }
 
 #[derive(Debug, derive_more::AsRef)]
@@ -30,52 +42,54 @@ pub struct Saltelli<'space, K> {
 
 impl<'space, K> Saltelli<'space, K> {
     #[must_use]
-    pub fn new<R>(space: &'space Space<K>, base: NonZero<u16>, rng: &mut R) -> Self
-    where R: Rng + ?Sized {
+    pub fn new(space: &'space Space<K>, window: Window, seed: u32) -> Self {
         let dimensions = space.len().get();
-        let pairs = sobol(dimensions.strict_mul(2), base, rng.next_u32());
+        let width = dimensions.strict_add(2);
+        let pairs = sobol(dimensions.strict_mul(2), window, seed);
         let (sample, resample) = pairs.rows_range_pair(..dimensions, dimensions..);
         Self {
             space,
             points: place(
                 space,
-                DMatrix::from_columns(
-                    &iter::zip(sample.column_iter(), resample.column_iter())
-                        .flat_map(|(point, partner)| {
-                            iter::once(point.clone_owned())
-                                .chain((0..dimensions).map(move |dimension| {
-                                    DVector::from_iterator(
-                                        dimensions,
-                                        iter::zip(point, partner).enumerate().map(|(row, (&coordinate, &replacement))| if row == dimension { replacement } else { coordinate }),
-                                    )
-                                }))
-                                .chain(iter::once(partner.clone_owned()))
+                DMatrix::from_iterator(
+                    dimensions,
+                    pairs.ncols().strict_mul(width),
+                    iter::zip(sample.column_iter(), resample.column_iter()).flat_map(|(point, partner)| {
+                        (0..width).flat_map(move |slot| {
+                            iter::zip(point, partner)
+                                .enumerate()
+                                .map(move |(row, (&coordinate, &replacement))| if slot == row.strict_add(1) || slot == width.strict_sub(1) { replacement } else { coordinate })
                         })
-                        .collect::<Vec<_>>(),
+                    }),
                 ),
             ),
         }
     }
 
-    pub fn indices(&self, outputs: &[f64]) -> Result<NEBTreeMap<&'space K, Indices>, StatsError>
-    where K: Ord {
-        evaluated(&self.points, outputs)?;
-        let dimensions = self.space.len().get();
-        let width = dimensions.strict_add(2);
-        let runs = DMatrixView::from_slice(outputs, width, outputs.len().strict_div(width));
-        let moments = iter::chain(runs.row(0), runs.row(dimensions.strict_add(1))).collect::<Variance>();
-        let standard = runs.add_scalar(-moments.mean()).unscale(moments.population_variance().sqrt());
-        let (sample, resample) = (standard.row(0), standard.row(dimensions.strict_add(1)));
-        Ok(self
-            .space
-            .keys()
-            .enumerate()
-            .map(|(dimension, key)| {
-                let (first, total) =
-                    izip!(sample, standard.row(dimension.strict_add(1)), resample).map(|(kept, crossed, swapped)| (swapped * (crossed - kept), (kept - crossed).powi(2) / 2.0_f64)).unzip();
-                (key, Indices { first, total })
-            })
-            .collect())
+    pub fn indices(&self, outputs: DMatrixView<'_, f64>) -> Result<Outputs<'space, K, Indices>, StatsError>
+    where K: Ord + Sync {
+        let width = self.space.len().get().strict_add(2);
+        grouped(&self.points, outputs, width, &iter::repeat(()), |runs, _| {
+            let (sample, resample) = (runs.row(0), runs.row(width.strict_sub(1)));
+            let variance = iter::chain(sample.iter(), resample.iter()).copied().collect::<Variance>();
+            (variance.population_variance() > 0.0).ok_or(StatsError::Zero(Moment::Variance))?;
+            Ok(self
+                .space
+                .keys()
+                .enumerate()
+                .map(|(dimension, key)| {
+                    let crossed = runs.row(dimension.strict_add(1));
+                    (
+                        key,
+                        Indices {
+                            first: izip!(resample.iter(), crossed.iter(), sample.iter()).map(|(&swapped, &crossed, &kept)| (swapped, crossed - kept)).collect(),
+                            total: iter::zip(sample.iter(), crossed.iter()).map(|(kept, crossed)| (kept - crossed).powi(2) / 2.0_f64).collect(),
+                            variance: variance.clone(),
+                        },
+                    )
+                })
+                .collect())
+        })
     }
 }
 
@@ -88,7 +102,7 @@ pub struct Effects {
 #[nutype::nutype(validate(greater_or_equal = 2, predicate = |levels| levels.is_multiple_of(2)), derive(Debug, Clone, Copy, PartialEq, Eq))]
 pub struct Levels(u16);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Step {
     dimension: usize,
     delta: f64,
@@ -104,7 +118,7 @@ pub struct Morris<'space, K> {
 
 impl<'space, K> Morris<'space, K> {
     #[must_use]
-    pub fn new<R>(space: &'space Space<K>, trajectories: NonZero<u16>, surplus: u16, levels: Levels, rng: &mut R) -> Self
+    pub fn new<R>(space: &'space Space<K>, trajectories: NonZero<u16>, surplus: Option<NonZero<u16>>, levels: Levels, rng: &mut R) -> Self
     where R: Rng + ?Sized {
         let dimensions = space.len().get();
         let grid = levels.into_inner();
@@ -122,74 +136,97 @@ impl<'space, K> Morris<'space, K> {
                 })
                 .collect::<Vec<_>>();
             (
-                DMatrix::from_columns(
-                    &(0..=dimensions).map(|point| DVector::from_iterator(dimensions, moves.iter().map(|&(rank, start, delta)| if rank < point { start + delta } else { start }))).collect::<Vec<_>>(),
+                DMatrix::from_row_iterator(
+                    dimensions,
+                    dimensions.strict_add(1),
+                    moves.iter().flat_map(|&(rank, start, delta)| (0..=dimensions).map(move |point| if rank < point { start + delta } else { start })),
                 ),
                 moves.iter().enumerate().sorted_unstable_by_key(|&(_, &(rank, _, _))| rank).map(|(dimension, &(_, _, delta))| Step { dimension, delta }).collect::<Vec<_>>(),
             )
         })
-        .take(NonZero::<usize>::from(trajectories).get().strict_add(usize::from(surplus)))
+        .take(NonZero::<usize>::from(trajectories).get().strict_add(surplus.map_or_default(|surplus| NonZero::<usize>::from(surplus).get())))
         .collect::<Vec<_>>();
-        let squared = DMatrix::from_vec(
-            candidates.len(),
-            candidates.len(),
+        let chosen = if surplus.is_some() {
+            let distance =
+                |left: &DMatrix<f64>, right: &DMatrix<f64>| left.column_iter().cartesian_product(right.column_iter()).map(|(point, other)| point.metric_distance(&other)).sum::<f64>().powi(2);
+            let mut squared = symmetric(&candidates, |(left, _), (right, _)| distance(left, right));
+            squared.fill_diagonal(0.0_f64);
+            let spread = |score: &mut DVector<f64>, pick: usize| {
+                score.axpy(1.0_f64, &squared.column(pick), 1.0_f64);
+                score.row_mut(pick).fill(f64::NEG_INFINITY);
+            };
+            let seed = squared.column_sum().argmax().0;
+            let mut initial = DVector::zeros(candidates.len());
+            spread(&mut initial, seed);
+            let picks = iter::once(seed)
+                .chain((1..trajectories.get()).scan(initial, |score, _| {
+                    let pick = score.argmax().0;
+                    spread(score, pick);
+                    Some(pick)
+                }))
+                .collect::<BTreeSet<_>>();
+            candidates.into_iter().enumerate().filter_map(|(index, candidate)| picks.contains(&index).then_some(candidate)).collect()
+        } else {
             candidates
-                .par_iter()
-                .flat_map_iter(|(left, _)| {
-                    candidates.iter().map(move |(right, _)| left.column_iter().cartesian_product(right.column_iter()).map(|(point, other)| point.metric_distance(&other)).sum::<f64>().powi(2))
-                })
-                .collect(),
-        );
-        let spread = |mut score: DVector<f64>, pick: usize| {
-            score.axpy(1.0_f64, &squared.column(pick), 1.0_f64);
-            score.row_mut(pick).fill(f64::NEG_INFINITY);
-            score
         };
-        let seed = squared.column_sum().argmax().0;
-        let picks = iter::once(seed)
-            .chain((1..trajectories.get()).scan(spread(DVector::zeros(candidates.len()), seed), |score, _| {
-                let pick = score.argmax().0;
-                *score = spread(score.clone(), pick);
-                Some(pick)
-            }))
-            .collect::<BTreeSet<_>>();
-        let chosen = candidates.into_iter().enumerate().filter_map(|(index, candidate)| picks.contains(&index).then_some(candidate)).collect::<Vec<_>>();
         Self {
             space,
-            points: place(space, DMatrix::from_columns(&chosen.iter().flat_map(|(trajectory, _)| trajectory.column_iter()).collect::<Vec<_>>())),
+            points: place(space, DMatrix::from_iterator(dimensions, chosen.len().strict_mul(dimensions.strict_add(1)), chosen.iter().flat_map(|(trajectory, _)| trajectory.iter().copied()))),
             steps: chosen.into_iter().flat_map(|(_, steps)| steps).collect(),
         }
     }
 
-    pub fn effects(&self, outputs: &[f64]) -> Result<NEBTreeMap<&'space K, Effects>, StatsError>
-    where K: Ord {
-        evaluated(&self.points, outputs)?;
+    pub fn effects(&self, outputs: DMatrixView<'_, f64>) -> Result<Outputs<'space, K, Effects>, StatsError>
+    where K: Ord + Sync {
         let dimensions = self.space.len().get();
-        let elementary = DMatrix::from_columns(
-            &outputs
-                .chunks_exact(dimensions.strict_add(1))
-                .zip(self.steps.chunks_exact(dimensions))
-                .map(|(runs, steps)| {
-                    DVector::from_iterator(
-                        dimensions,
-                        runs.array_windows::<2>()
-                            .zip(steps)
-                            .map(|(&[before, after], step)| (step.dimension, (after - before) / step.delta))
-                            .sorted_unstable_by_key(|&(dimension, _)| dimension)
-                            .map(|(_, effect)| effect),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
-        Ok(self
-            .space
-            .keys()
-            .enumerate()
-            .map(|(dimension, key)| (key, Effects { signed: elementary.row(dimension).iter().copied().collect(), absolute: elementary.row(dimension).iter().map(|effect| effect.abs()).collect() }))
-            .collect())
+        grouped(&self.points, outputs, dimensions.strict_add(1), &self.steps.chunks_exact(dimensions), |runs, steps| {
+            let elementary = DMatrix::from_iterator(
+                dimensions,
+                runs.ncols(),
+                runs.column_iter().zip(steps).flat_map(|(group, steps)| {
+                    group
+                        .as_slice()
+                        .array_windows::<2>()
+                        .zip(*steps)
+                        .map(|(&[before, after], step)| (step.dimension, (after - before) / step.delta))
+                        .sorted_unstable_by_key(|&(dimension, _)| dimension)
+                        .map(|(_, effect)| effect)
+                }),
+            );
+            Ok(self
+                .space
+                .keys()
+                .enumerate()
+                .map(|(dimension, key)| (key, Effects { signed: elementary.row(dimension).iter().copied().collect(), absolute: elementary.row(dimension).iter().map(|effect| effect.abs()).collect() }))
+                .collect())
+        })
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn evaluated(points: &DMatrix<f64>, outputs: &[f64]) -> Result<(), StatsError> { (outputs.len() == points.ncols()).ok_or(StatsError::Outputs { expected: points.ncols(), found: outputs.len() }) }
+fn grouped<'space, K, X, E, P, M>(points: &DMatrix<f64>, outputs: DMatrixView<'_, f64>, width: usize, partners: &P, estimate: M) -> Result<Outputs<'space, K, E>, StatsError>
+where
+    K: Sync,
+    X: Send,
+    E: Send,
+    P: Iterator<Item = X> + Clone + Sync,
+    M: Fn(&DMatrix<f64>, &[X]) -> Result<NEBTreeMap<&'space K, E>, StatsError> + Sync,
+{
+    (outputs.ncols() == points.ncols()).ok_or(StatsError::Shape { expected: points.ncols(), found: outputs.ncols() })?;
+    let groups = outputs.ncols().strict_div(width);
+    Ok((0..outputs.nrows())
+        .into_par_iter()
+        .map(|output| {
+            let row = outputs.row(output);
+            let runs = |group: usize| row.columns(group.strict_mul(width), width);
+            let (kept, failed): (Vec<_>, Vec<_>) = (0..groups).zip(partners.clone()).partition(|&(group, _)| runs(group).iter().all(|run| run.is_finite()));
+            (!kept.is_empty()).ok_or(StatsError::Degenerate { found: failed.len(), sample: Sample::Groups })?;
+            let (columns, paired): (Vec<_>, Vec<_>) = kept.into_iter().unzip();
+            Ok(Sensitivity {
+                dimensions: estimate(&DMatrix::from_iterator(width, columns.len(), columns.iter().flat_map(|&group| runs(group).into_iter().copied())), &paired)?,
+                non_finite: nalgebra::convert::<usize, u64>(failed.len()),
+            })
+        })
+        .collect())
+}
