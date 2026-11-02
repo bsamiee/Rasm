@@ -88,10 +88,11 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 1. **Acquire:** done but for the owner's choices below. Assets sit under `docs/research/applications/adobe/extensions/<vendor>-<product>/`, color engines under `docs/research/typescript-extension/sources/`, fonts under `docs/research/typescript-extension/fonts/` and the owner's Paid Premium Fonts drive folder.
 2. **Decompile:** `plugin-decompile` (native and single products: `acquired/`, `unpacked/`, `binaries/`, `ghidra/`, `recovered/`, `rebuilt/`, `proof/`, a study per product) and `script-decompile` (scripts decoded in batches, then rebuilt, proven and studied per domain). Then the same method over any product still bought and InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]).
-3. **Clean:** `docs/research` keeps only current, proven material for this work. Studies a proven study supersedes, scratch notes and stale plans are deleted, and every path a study cites resolves.
-4. **Packages:** one research pass over the newest packages per domain, then the chosen catalog rows land at their newest release and install before any row runs.
-5. **Architecture:** after phases 2 to 4, one integration pass rewrites ARCHITECTURE.md and WORKFLOWS.md in place from every study: a capability matrix across all products, each capability placed at its level, then two adversarial architects rewriting in place.
-6. **Rows:** once the last [01] TypeScript row lands, the one TYPESCRIPT.md edit, then each extension row on typescript.js (adversary, depth adversary, check), reviewed against its base, committed, then `typescript-tune` on its commit.
+3. **Distill:** each proven product's `rebuilt/` is rewritten into `distilled/` in the repository code shape (parameterized, derived, no stringly types, the fewest exports, 20 to 50 percent fewer lines), proven identical by an A/B harness over every vector and seeded inputs, then reduced again by an adversary with the harness green. `rebuilt/` stays as the address-cited link to the binary, and studies, the architecture pass and the rows read `distilled/`.
+4. **Clean:** `docs/research` keeps only current, proven material for this work. Studies a proven study supersedes, scratch notes and stale plans are deleted, and every path a study cites resolves.
+5. **Packages:** one research pass over the newest packages per domain, then the chosen catalog rows land at their newest release and install before any row runs.
+6. **Architecture:** after phases 2 to 5, reading each product's `distilled/`, one integration pass rewrites ARCHITECTURE.md and WORKFLOWS.md in place from every study: a capability matrix across all products, each capability placed at its level, then two adversarial architects rewriting in place.
+7. **Rows:** once the last [01] TypeScript row lands, the one TYPESCRIPT.md edit, then each extension row on typescript.js (adversary, depth adversary, check), reviewed against its base, committed, then `typescript-tune` on its commit.
 
 ### State
 
