@@ -84,7 +84,6 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 - **Landing order:** each step lands its findings whole in one pass, never as a stop-gap.
   1. Atelier finish agent returns: review and commit Atelier with its request-pair folds, then the daemon, solar and `cli/output` runs together.
   2. Right after: `DEPLOY.md` (plugin artifacts and installs, one Atelier link endpoint that names each plugin by its application) and the one launch path in `libs/swift/macos` `Launch.swift` for watch-apps and Atelier, with the skill lines it silences.
-  2a. Once the Ghidra skill, function-hooks and launch-path agents return: one focused agent reads `.artifacts/workflows/findings/` and reviews those three diffs alone, confirming each finding landed correctly and fixing what is wrong, sprawling or junk, with no broad checks.
   3. Harness run commits: the harness state format, the launch path in each harness, the Rhino settings snapshot and analyzer findings, the harness tsconfig rows, the InDesign host-scripting denies, deletion of the product AppleScript runners, then the Illustrator harness run and the paused ScribeDOOR-for-Illustrator proofs, then `harness-depth` per host.
   4. Decompile runs finish: the Ghidra product migration.
   5. Every TypeScript run has landed: `typescript-sweep`, then its tune.
