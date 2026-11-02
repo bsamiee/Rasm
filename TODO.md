@@ -54,6 +54,7 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 - **Decompile in full:** every acquired product is decompiled from its code, every algorithm rebuilt as runnable TypeScript and proven against the binary (emulation) and the host (InDesign 2027 Beta, or 2026 where a product loads only there).
 - **Rebuild, never port:** `distilled/` shows what each product does; the libraries state that capability in the repository's own shape, the strongest form where products overlap.
+- **Host mechanism, not product shortcut:** a product's fixed name, width or style becomes the host's real mechanism for it (a numbering style built on InDesign's GREP styling, not a hardcoded `HS-DynamicTableNumbering`), and related quantities live in one derived relation any of whose values a caller can solve for.
 - **Levels:** general (no host type), Creative Cloud (shared across Adobe hosts), one folder per app, then Atelier and Galley composing them; each capability once, at the lowest level that holds it whole.
 - **Hosts:** code targets the newest host releases; older releases load only products built for them.
 - **Packages:** the newest well-made package owns each domain fact.
@@ -71,7 +72,8 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 ### State
 
 - **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `plugin-finish` (Grid Calculator, ScribeDOOR), `proof-move` (the six script domains, each ending with its distill), the InPage distill, and `font-foundry`.
-- **Harnesses:** stopped by the owner; a fresh session rebuilds the harness logic. The second script decompile (seven paid hasaninscripts scripts, V-Justify, Kashida) and the ScribeDOOR-for-Illustrator proofs start once it lands.
+- **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
+- **Next proofs:** the second script decompile (seven paid hasaninscripts scripts, V-Justify, Kashida) and ScribeDOOR for Illustrator start on it.
 - **InPage:** 164 functions binary-proven over 1494 cases; the plug-in is Windows-only, so host proof is impossible. Its distill carries the typesetting logic (nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, the Quran glossary) for Persian and Arabic over any installed font, reading what each font states; Urdu-only forms stay out.
 - **Distilled:** the fifteen grids products.
 - **Fonts:** `font-foundry` studies the InPage set through Perso-Arabic typography and font engineering, tosses South Asian and junk faces, rebuilds each kept family to foundry grade and publishes to research and the drive, tossed families into `Rejected/`. Then every font in the drive's `01.Fonts/00.Paid Premium Fonts` and `01.Fonts/01.Premium Fonts` is added through Typeface (`/Applications/Typeface-beta.app`).
