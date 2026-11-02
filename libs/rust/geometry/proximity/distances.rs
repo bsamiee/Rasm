@@ -24,7 +24,6 @@ pub struct Projection {
 
 pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option<Distance>) -> Result<Vec<Option<Projection>>, NEVec<ProximityError>> {
     crate::bounded(points).map_err(NEVec::new)?;
-    let max_cost = max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up());
     points
         .par_iter()
         .enumerate()
@@ -33,7 +32,7 @@ pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option
             assembly
                 .bvh
                 .find_best(
-                    max_cost,
+                    max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up()),
                     |node, _| node.aabb().distance_to_local_point(target, true),
                     |leaf, best| {
                         let element @ (_, pose, shape) = assembly.element(leaf)?;

@@ -43,10 +43,7 @@ impl Assembly {
     where I: IntoIterator<Item = (Isometry3<f64>, SharedShape)> {
         let elements = elements.into_iter().map(|(pose, shape)| Some((Pose::from(pose), shape))).collect::<Vec<_>>();
         Validated::from((elements.len() <= MAX_LEAF_COUNT).ok_or(ProximityError::Capacity { count: elements.len() }))
-            .map2(Validated::from(bounds(elements.par_iter().map(Option::as_ref))), |(), bounds| Self {
-                elements,
-                bvh: Bvh::from_iter(strategy, bounds.into_iter().flatten().enumerate()),
-            })
+            .map2(Validated::from(bounds(elements.par_iter().map(Option::as_ref))), |(), bounds| Self { elements, bvh: Bvh::from_iter(strategy, bounds.into_iter().flatten().enumerate()) })
             .ok()
     }
 

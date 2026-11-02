@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, join, relative } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import { Manifest as Extension } from '@rasm/cep/manifest';
 import { Manifest } from '@rasm/uxp/manifest';
@@ -68,12 +68,12 @@ const bundled = (directory: string, asset: { readonly fileName: string; readonly
     };
 };
 
-const origin = (daemon: string) =>
+const port = (daemon: string) =>
     Schema.decodeUnknownEffect(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Struct({ port: Schema.optionalKey(Schema.Int) })) }))(parse(readFileSync(join(_ROOT, 'mise.toml'), 'utf8'))).pipe(
-        Effect.flatMap(({ daemons }) => Effect.fromOption(Option.flatMap(Record.get(daemons, daemon), ({ port }) => Option.fromUndefinedOr(port)))),
-        Effect.map(Manifest.loopback),
+        Effect.flatMap(({ daemons }) => Effect.fromOption(Option.flatMap(Record.get(daemons, daemon), ({ port: held }) => Option.fromUndefinedOr(held)))),
         Effect.runSync,
     );
+const origin = (daemon: string) => Manifest.loopback(port(daemon));
 const released = (directory: string, { description }: { readonly description: string }) =>
     Effect.all({
         id: Effect.map(Config.String('PRODUCT_BUNDLE_IDENTIFIER'), (bundle) => `${bundle}.${basename(directory)}`),
@@ -112,7 +112,59 @@ const cep = (directory: string, { npm, host, daemon, manifest: fields }: { reado
     };
 };
 const script = (directory: string, { extension }: { readonly extension: string }): UserConfig => bundled(directory, { fileName: `main.${extension}`, source: `require('./${_MAIN}');\n` });
+const sea = (directory: string, { main, daemon, host }: { readonly main: string; readonly daemon: string; readonly host: string }): UserConfig => {
+    const outDir = join(_ROOT, '.artifacts', relative(_ROOT, directory));
+    const load = createRequire(join(directory, 'package.json'));
+    const addon = `@swc/core-${process.platform}-${process.arch}`;
+    const binding = createRequire(load.resolve('@swc/core')).resolve(addon);
+    const { bundle, executable } = Effect.all({ bundle: Config.String('PRODUCT_BUNDLE_IDENTIFIER'), executable: Config.String(host) }).pipe(Effect.runSync);
+    const label = `${bundle}.server`;
+    const environment = { MCP_LISTEN: `127.0.0.1:${port(daemon)}`, [host]: executable, SWC_BINARY_PATH: join(dirname(dirname(executable)), 'Frameworks', basename(binding)) };
+    const plist = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+        '<plist version="1.0">',
+        '<dict>',
+        `    <key>Label</key><string>${label}</string>`,
+        `    <key>BundleProgram</key><string>Contents/Helpers/${daemon}</string>`,
+        `    <key>AssociatedBundleIdentifiers</key><array><string>${bundle}</string></array>`,
+        '    <key>KeepAlive</key><true/>',
+        `    <key>EnvironmentVariables</key><dict>${Record.collect(environment, (key, value) => `<key>${key}</key><string>${value}</string>`).join('')}</dict>`,
+        '</dict>',
+        '</plist>',
+        '',
+    ].join('\n');
+    return {
+        build: {
+            ssr: true,
+            outDir,
+            emptyOutDir: false,
+            rolldownOptions: { input: { [daemon]: join(directory, main) }, platform: 'node', external: (id) => id.startsWith('@swc/core-') && id !== addon, experimental: _EXPERIMENTAL, output: { format: 'esm', entryFileNames: '[name].mjs', codeSplitting: false } },
+        },
+        environments: { ssr: { resolve: { noExternal: true } } },
+        plugins: [
+            {
+                name: 'sea',
+                enforce: 'pre',
+                resolveId: (id) => (id === addon ? `\0${addon}` : undefined),
+                load: (id) => (id === `\0${addon}` ? 'module.exports = require(process.env.SWC_BINARY_PATH);' : undefined),
+                generateBundle(this: Rolldown.PluginContext, _options, output): void {
+                    const chunks = Object.values(output).filter((file) => file.type === 'chunk' && file.isEntry);
+                    const assets = Record.fromIterableWith(
+                        Array.flatMap(Array.dedupe(chunks.flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds.filter((id) => isAbsolute(id)).map((id) => dirname(id)) : []))), (folder) =>
+                            Array.filter(readdirSync(folder, { withFileTypes: true }), (entry) => entry.isFile() && entry.name.endsWith('.wasm')).map((entry) => join(folder, entry.name)),
+                        ),
+                        (file) => [basename(file), file],
+                    );
+                    this.emitFile({ type: 'asset', fileName: 'sea.json', source: `${JSON.stringify({ main: join(outDir, `${daemon}.mjs`), mainFormat: 'module', output: join(outDir, daemon), useVfs: true, disableExperimentalSEAWarning: true, assets }, null, 4)}\n` });
+                    this.emitFile({ type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: plist });
+                    this.emitFile({ type: 'asset', fileName: basename(binding), source: readFileSync(binding) });
+                },
+            } satisfies Plugin,
+        ],
+    };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { cep, react, script, uxp, worker };
+export { cep, react, script, sea, uxp, worker };

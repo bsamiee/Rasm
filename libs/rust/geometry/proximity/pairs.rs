@@ -7,7 +7,7 @@ use parry3d_f64::{
     query::{self, Contact, PointQuery as _, ShapeDistance, Unsupported},
     shape::{SharedShape, SubShapeId},
 };
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use validated::Validated;
 
 use crate::{Assembly, Distance, ProximityError};
@@ -55,15 +55,15 @@ pub fn clashes(assembly: &Assembly, other: Option<&Assembly>, clearance: Distanc
 
 pub fn separations(assembly: &Assembly, other: Option<&Assembly>, max_distance: Option<Distance>, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
     let candidates = other.unwrap_or(assembly);
-    let max_cost = max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up());
-    (0..assembly.elements.len())
+    (0..u32::MAX)
         .into_par_iter()
-        .filter_map(|index| leaf(assembly, u32::try_from(index).ok()?))
+        .zip(&assembly.elements)
+        .filter_map(|(slot, _)| leaf(assembly, slot))
         .filter_map(|element @ (index, pose, shape, aabb)| {
             candidates
                 .bvh
                 .find_best(
-                    max_cost,
+                    max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up()),
                     |node, _| node.aabb().add_half_extents(aabb.half_extents()).distance_to_local_point(aabb.center(), true),
                     |partner, _| {
                         let candidate @ (_, candidate_pose, candidate_shape, _) = leaf(candidates, partner).filter(|&(partner, ..)| (other.is_some() || partner != index) && rule(index, partner))?;
@@ -76,7 +76,9 @@ pub fn separations(assembly: &Assembly, other: Option<&Assembly>, max_distance: 
                 .and_then(|(_, (distance, nearest))| {
                     nearest
                         .and_then(|candidate @ (_, candidate_pose, candidate_shape, _)| {
-                            query::contact(pose, &**shape, candidate_pose, &**candidate_shape, distance).map_err(|Unsupported| unsupported(element, candidate)).map(|contact| clash(element, candidate, contact))
+                            query::contact(pose, &**shape, candidate_pose, &**candidate_shape, distance)
+                                .map_err(|Unsupported| unsupported(element, candidate))
+                                .map(|contact| clash(element, candidate, contact))
                         })
                         .transpose()
                 })

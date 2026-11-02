@@ -1,4 +1,4 @@
-use core::num::NonZero;
+use core::{iter, num::NonZero};
 
 use faer::{MatRef, Side};
 use kiddo::{Eytzinger, QueryResultItem, SquaredEuclidean, kd_tree::KdTree, leaf_strategies::VecOfArenas};
@@ -45,7 +45,7 @@ pub fn neighbors(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborh
 }
 
 pub fn normals(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood, toward: Option<Point3<f64>>) -> Result<Vec<Option<Unit<Vector3<f64>>>>, ProximityError> {
-    crate::bounded(queries.iter().chain(&toward))?;
+    crate::bounded(iter::chain(queries, &toward))?;
     Ok(search(cloud, queries, neighborhood).into_par_iter().map(|group| normal(&group, toward)).collect())
 }
 

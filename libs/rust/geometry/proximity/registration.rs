@@ -137,7 +137,10 @@ pub fn register(
                 let found = match max_correspondence_distance {
                     None => Either::Left(points::nearest(cloud, &transformed).map_err(NEVec::new)?.into_iter().map(Some)),
                     Some(radius) => Either::Right(
-                        points::neighbors(cloud, &transformed, Neighborhood::NearestWithin { max_qty: NonZero::<usize>::MIN, radius }).map_err(NEVec::new)?.into_iter().map(|group| group.into_iter().next()),
+                        points::neighbors(cloud, &transformed, Neighborhood::NearestWithin { max_qty: NonZero::<usize>::MIN, radius })
+                            .map_err(NEVec::new)?
+                            .into_iter()
+                            .map(|group| group.into_iter().next()),
                     ),
                 }
                 .collect::<Vec<_>>();

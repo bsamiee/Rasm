@@ -44,45 +44,57 @@ pub struct Obstruction {
 
 pub fn hits<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<Option<Hit>>, ProximityError>
 where R: RangeBounds<Distance> + Send {
-    cast(rays.into_par_iter(), |&origin| Some(origin), |ray, start, reach, _| {
-        assembly
-            .bvh
-            .find_best(
-                reach,
-                |node, best| node.cast_ray(ray, best),
-                |leaf, best| {
-                    let (element, pose, shape) = assembly.element(leaf)?;
-                    shape.cast_ray_and_get_normal(pose, ray, best, false).map(|intersection| (intersection.time_of_impact, (element, intersection)))
-                },
-            )
-            .map(|(_, (_, (element, intersection)))| hit(ray, start, element, intersection))
-    })
+    cast(
+        rays.into_par_iter(),
+        |&origin| Some(origin),
+        |ray, start, reach, _| {
+            assembly
+                .bvh
+                .find_best(
+                    reach,
+                    |node, best| node.cast_ray(ray, best),
+                    |leaf, best| {
+                        let (element, pose, shape) = assembly.element(leaf)?;
+                        shape.cast_ray_and_get_normal(pose, ray, best, false).map(|intersection| (intersection.time_of_impact, (element, intersection)))
+                    },
+                )
+                .map(|(_, (_, (element, intersection)))| hit(ray, start, element, intersection))
+        },
+    )
 }
 
 pub fn occluded<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<bool>, ProximityError>
 where R: RangeBounds<Distance> + Send {
-    cast(rays.into_par_iter(), |&origin| Some(origin), |ray, _, reach, _| {
-        assembly
-            .bvh
-            .leaves(|node| node.aabb().intersects_local_ray(ray, reach))
-            .filter_map(|leaf| assembly.element(leaf))
-            .any(|(_, pose, shape)| shape.cast_ray(pose, ray, reach, true).is_some_and(|time_of_impact| time_of_impact < reach))
-    })
+    cast(
+        rays.into_par_iter(),
+        |&origin| Some(origin),
+        |ray, _, reach, _| {
+            assembly
+                .bvh
+                .leaves(|node| node.aabb().intersects_local_ray(ray, reach))
+                .filter_map(|leaf| assembly.element(leaf))
+                .any(|(_, pose, shape)| shape.cast_ray(pose, ray, reach, true).is_some_and(|time_of_impact| time_of_impact < reach))
+        },
+    )
 }
 
 pub fn crossings<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<Vec<Hit>>, ProximityError>
 where R: RangeBounds<Distance> + Send {
-    cast(rays.into_par_iter(), |&origin| Some(origin), |ray, start, reach, _| {
-        assembly
-            .bvh
-            .leaves(|node| node.aabb().intersects_local_ray(ray, reach))
-            .filter_map(|leaf| assembly.element(leaf))
-            .filter_map(|(element, pose, shape)| {
-                shape.cast_ray_and_get_normal(pose, ray, reach, false).filter(|intersection| intersection.time_of_impact < reach).map(|intersection| hit(ray, start, element, intersection))
-            })
-            .sorted_by(|left, right| left.time_of_impact.total_cmp(&right.time_of_impact).then(left.element.cmp(&right.element)))
-            .collect()
-    })
+    cast(
+        rays.into_par_iter(),
+        |&origin| Some(origin),
+        |ray, start, reach, _| {
+            assembly
+                .bvh
+                .leaves(|node| node.aabb().intersects_local_ray(ray, reach))
+                .filter_map(|leaf| assembly.element(leaf))
+                .filter_map(|(element, pose, shape)| {
+                    shape.cast_ray_and_get_normal(pose, ray, reach, false).filter(|intersection| intersection.time_of_impact < reach).map(|intersection| hit(ray, start, element, intersection))
+                })
+                .sorted_by(|left, right| left.time_of_impact.total_cmp(&right.time_of_impact).then(left.element.cmp(&right.element)))
+                .collect()
+        },
+    )
 }
 
 pub fn sweeps<R, B>(assembly: &Assembly, clearance: Distance, bodies: B) -> Result<Vec<Option<Obstruction>>, NEVec<ProximityError>>

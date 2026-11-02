@@ -4,7 +4,6 @@ use jiff::{Zoned, tz::TimeZone};
 use png::{BitDepth, ColorType, Encoder, PixelDimensions, SrgbRenderingIntent, Unit};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use typst::{
-    comemo,
     foundations::{Bytes, Datetime},
     layout::{Abs, Sides},
     model::PagedFormat,
@@ -12,27 +11,32 @@ use typst::{
 };
 use typst_bundle::{Bundle, BundleDocument, BundleFile, BundleOptions, PagedExtras, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
-use typst_kit::{diagnostics::DiagnosticWorld, files::FileLoader};
+use typst_kit::diagnostics::DiagnosticWorld;
 use typst_layout::{Page, PagedDocument};
-use typst_pdf::{PdfOptions, Timestamp};
+use typst_pdf::Timestamp;
 use typst_render::RenderOptions;
 use validated::Validated;
 
-use crate::{Project, TypesetError, located};
+use crate::{TypesetError, located};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn paged<L>(project: &Project<L>, document: &PagedDocument, format: PagedFormat, options: BundleOptions, budget: NonZero<u64>) -> Validated<Vec<(NonZero<usize>, Bytes)>, TypesetError>
-where L: FileLoader + Send + Sync {
-    let options = stamped(&project.now, options);
+pub fn paged(
+    world: &dyn DiagnosticWorld,
+    document: &PagedDocument,
+    format: PagedFormat,
+    options: &BundleOptions,
+    budget: Option<NonZero<u64>>,
+) -> Validated<Vec<(NonZero<usize>, Bytes)>, TypesetError> {
     let selected = |number: &NonZero<usize>| options.pdf.page_ranges.as_ref().is_none_or(|ranges| ranges.includes_page(*number));
     let pages = document.pages().par_iter().enumerate().map(|(index, page)| (NonZero::<usize>::MIN.saturating_add(index), page)).filter(|(number, _)| selected(number));
-    match (format, (1..=document.pages().len()).filter_map(NonZero::new).find(selected)) {
-        (PagedFormat::Pdf, None) => Validated::Good(Vec::new()),
-        (PagedFormat::Pdf, Some(first)) => typst_pdf::pdf(document, &options.pdf).map(|bytes| vec![(first, Bytes::new(bytes))]).map_err(|diagnostics| located(project, diagnostics)).into(),
-        (PagedFormat::Svg, _) => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
-        (PagedFormat::Png, _) => {
+    match format {
+        PagedFormat::Pdf if let Some(first) = (1..=document.pages().len()).filter_map(NonZero::new).find(selected) =>
+            typst_pdf::pdf(document, &options.pdf).map(|bytes| vec![(first, Bytes::new(bytes))]).map_err(|diagnostics| located(world, diagnostics)).into(),
+        PagedFormat::Pdf => Validated::Good(Vec::new()),
+        PagedFormat::Svg => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
+        PagedFormat::Png => {
             let density = NonZero::new((options.png.pixel_per_pt.get() * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).map(|ppu| PixelDimensions {
                 xppu: ppu.get(),
                 yppu: ppu.get(),
@@ -40,7 +44,7 @@ where L: FileLoader + Send + Sync {
             });
             pages
                 .map(|(number, page)| {
-                    raster(project.main.vpath(), number, page, &options.png, budget)?;
+                    raster(world.main().vpath(), number, page, &options.png, budget)?;
                     let pixmap = typst_render::render(page, &options.png);
                     let mut data = Vec::new();
                     let mut encoder = Encoder::new(&mut data, pixmap.width(), pixmap.height());
@@ -64,9 +68,7 @@ pub fn html(world: &dyn DiagnosticWorld, document: &HtmlDocument, options: &Html
 }
 
 #[must_use]
-pub fn bundle<L>(project: &Project<L>, bundle: &Bundle, options: BundleOptions, budget: NonZero<u64>, max_age: usize) -> Validated<VirtualFs, TypesetError>
-where L: FileLoader + Send + Sync {
-    let options = stamped(&project.now, options);
+pub fn bundle(world: &dyn DiagnosticWorld, bundle: &Bundle, options: &BundleOptions, budget: Option<NonZero<u64>>) -> Validated<VirtualFs, TypesetError> {
     let bounded = bundle
         .files
         .iter()
@@ -77,28 +79,13 @@ where L: FileLoader + Send + Sync {
         })
         .collect::<Validated<(), _>>();
     match bounded {
-        Validated::Good(()) => {
-            let exported = typst_bundle::export(bundle, &options).map_err(|diagnostics| located(project, diagnostics));
-            comemo::evict(max_age);
-            exported.into()
-        }
+        Validated::Good(()) => typst_bundle::export(bundle, options).map_err(|diagnostics| located(world, diagnostics)).into(),
         Validated::Fail(errors) => Validated::Fail(errors),
     }
 }
 
-fn raster(path: &VirtualPath, page: NonZero<usize>, content: &Page, options: &RenderOptions, budget: NonZero<u64>) -> Result<(), TypesetError> {
-    let size = (content.frame.size() + if options.render_bleed { content.bleed } else { Sides::default() }.sum_by_axis())
-        .map(|axis| (options.pixel_per_pt.get().cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
-    (size.x.checked_mul(4).is_some_and(|row| row <= i32::MAX.cast_unsigned()) && u64::from(size.x).strict_mul(u64::from(size.y)) <= budget.get()).ok_or(TypesetError::Raster {
-        path: path.clone(),
-        page,
-        width: size.x,
-        height: size.y,
-        budget,
-    })
-}
-
-fn stamped(now: &Zoned, options: BundleOptions) -> BundleOptions {
+#[must_use]
+pub fn timestamp(now: &Zoned) -> Option<Timestamp> {
     let datetime = |zoned: &Zoned| {
         Datetime::from_ymd_hms(
             i32::from(zoned.year()),
@@ -110,12 +97,20 @@ fn stamped(now: &Zoned, options: BundleOptions) -> BundleOptions {
         )
     };
     let offset = now.offset().seconds();
-    let timestamp = options.pdf.timestamp.or_else(|| {
-        (offset.rem_euclid(60) == 0 && !(-3599..0).contains(&offset))
-            .then(|| datetime(now))
-            .flatten()
-            .and_then(|local| Timestamp::new_local(local, offset.div_euclid(60)))
-            .or_else(|| datetime(&now.with_time_zone(TimeZone::UTC)).map(Timestamp::new_utc))
-    });
-    BundleOptions { pdf: PdfOptions { timestamp, ..options.pdf }, ..options }
+    (offset.rem_euclid(60) == 0 && !(-3599..0).contains(&offset))
+        .then_some(now)
+        .and_then(datetime)
+        .and_then(|local| Timestamp::new_local(local, offset.div_euclid(60)))
+        .or_else(|| datetime(&now.with_time_zone(TimeZone::UTC)).map(Timestamp::new_utc))
+}
+
+fn raster(path: &VirtualPath, page: NonZero<usize>, content: &Page, options: &RenderOptions, budget: Option<NonZero<u64>>) -> Result<(), TypesetError> {
+    let size = (content.frame.size() + if options.render_bleed { content.bleed } else { Sides::default() }.sum_by_axis())
+        .map(|axis| (options.pixel_per_pt.get().cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
+    let refused = |bound| TypesetError::Raster { path: path.clone(), page, width: size.x, height: size.y, budget: bound };
+    size.x
+        .checked_mul(4)
+        .is_some_and(|row| row <= i32::MAX.cast_unsigned() && usize::try_from(u64::from(row).strict_mul(u64::from(size.y))).is_ok())
+        .ok_or_else(|| refused(None))?;
+    budget.is_none_or(|budget| u64::from(size.x).strict_mul(u64::from(size.y)) <= budget.get()).ok_or_else(|| refused(budget))
 }

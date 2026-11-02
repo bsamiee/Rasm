@@ -539,29 +539,29 @@ merman = { version = "0.9.3", default-features = false, features = ["all-diagram
 plotly = "0.14.1"                                                                                                                # Plotly chart documents
 
 # --- [DOCUMENTS]
-calamine         = "0.37.0"                                                                                     # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
-chromiumoxide    = "0.9.1"                                                                                      # HTML printed to PDF through Chromium
-docx-rs          = "0.4.22"                                                                                     # DOCX reading and writing
-hayro            = "0.8.0"                                                                                      # PDF rasterization
-hayro-svg        = "0.8.0"                                                                                      # PDF pages converted to SVG
-hayro-syntax     = "0.8.0"                                                                                      # PDF object, page, and stream parsing hayro renders from
-ironcalc         = "0.9.1"                                                                                      # Spreadsheet formula evaluation
-krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                           # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
-krilla-svg       = "0.8.1"                                                                                      # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
-lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }               # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
-office-crypto    = "0.4.0"                                                                                      # Encrypted Office documents decrypted
-pdf_oxide        = { version = "0.3.78", features = ["parallel", "signatures", "jpeg2000", "ocr-tract"] }       # PDF text, path, table, and form extraction, editing, PAdES signing, OCR, and PDF/A, UA, and X validation
-rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] }             # Streaming XLSX writing with formats, tables, and charts
-spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }                  # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, zip 6 turns on `time`
-typst            = "0.15.1"                                                                                     # Typst typesetting, typst-library adds `time` 0.3 beside jiff, toml 0.8 beside 1, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
-typst-bundle     = "0.15.1"                                                                                     # Typst bundle export and the per-format options record paged export reads
-typst-html       = "0.15.1"                                                                                     # Typst documents exported to HTML
-typst-kit        = { version = "0.15.1", features = ["embedded-fonts", "system-packages", "emit-diagnostics"] } # Typst file and font stores, Universe packages over a caller's downloader, and diagnostics, `emit-diagnostics` adds codespan-reporting 0.11 with unicode-width 0.1 beside 0.2, `scan-fonts` scans system fonts
-typst-layout     = "0.15.1"                                                                                     # Typst paged layout
-typst-pdf        = "0.15.1"                                                                                     # Typst documents exported to PDF
-typst-render     = "0.15.1"                                                                                     # Typst pages rendered to PNG
-typst-svg        = "0.15.1"                                                                                     # Typst pages exported to SVG
-umya-spreadsheet = "4.0.0-beta.1"                                                                               # XLSX read-modify-write with styles
+calamine         = "0.37.0"                                                                               # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
+chromiumoxide    = "0.9.1"                                                                                # HTML printed to PDF through Chromium
+docx-rs          = "0.4.22"                                                                               # DOCX reading and writing
+hayro            = "0.8.0"                                                                                # PDF rasterization
+hayro-svg        = "0.8.0"                                                                                # PDF pages converted to SVG
+hayro-syntax     = "0.8.0"                                                                                # PDF object, page, and stream parsing hayro renders from
+ironcalc         = "0.9.1"                                                                                # Spreadsheet formula evaluation
+krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                     # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
+krilla-svg       = "0.8.1"                                                                                # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
+lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }         # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
+office-crypto    = "0.4.0"                                                                                # Encrypted Office documents decrypted
+pdf_oxide        = { version = "0.3.78", features = ["parallel", "signatures", "jpeg2000", "ocr-tract"] } # PDF text, path, table, and form extraction, editing, PAdES signing, OCR, and PDF/A, UA, and X validation
+rust_xlsxwriter  = { version = "0.102.0", features = ["constant_memory", "jiff", "serde", "zlib"] }       # Streaming XLSX writing with formats, tables, and charts
+spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }            # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, zip 6 turns on `time`
+typst            = "0.15.1"                                                                               # Typst typesetting, typst-library adds `time` 0.3 beside jiff, toml 0.8 beside 1, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
+typst-bundle     = "0.15.1"                                                                               # Typst bundle export and the per-format options record paged export reads
+typst-html       = "0.15.1"                                                                               # Typst documents exported to HTML
+typst-kit        = { version = "0.15.1", features = ["system-packages", "emit-diagnostics"] }             # Typst file and font stores, Universe packages over a caller's downloader, and diagnostics, `embedded-fonts` on the row of a crate passing `fonts::embedded()`, `emit-diagnostics` adds codespan-reporting 0.11 with unicode-width 0.1 beside 0.2, `scan-fonts` scans system fonts
+typst-layout     = "0.15.1"                                                                               # Typst paged layout
+typst-pdf        = "0.15.1"                                                                               # Typst documents exported to PDF
+typst-render     = "0.15.1"                                                                               # Typst pages rendered to PNG
+typst-svg        = "0.15.1"                                                                               # Typst pages exported to SVG
+umya-spreadsheet = "4.0.0-beta.1"                                                                         # XLSX read-modify-write with styles
 
 # --- [MEDIA]
 c2pa        = { version = "0.91.7", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
