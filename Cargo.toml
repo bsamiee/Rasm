@@ -97,7 +97,7 @@ serde_json          = { version = "1.0.154", features = ["raw_value", "float_rou
 serde_path_to_error = "0.1.20"                                                                               # Boundary decode errors that name failing field path
 serde_urlencoded    = "0.7.1"                                                                                # Typed decode of form-encoded fields, numbers and booleans parsed from text
 serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] }         # Field codecs declared on records that schema derivation reads
-toml                = "1.1.8"                                                                                # Typed TOML decode and encode
+toml                = { version = "1.1.8", features = ["preserve_order"] }                                   # Typed TOML decode and encode, tables in file order
 toml_edit           = { version = "0.25.17", features = ["serde"] }                                          # TOML edits that keep comments and layout
 yaml-edit           = "0.3.6"                                                                                # YAML edits that keep comments and layout
 

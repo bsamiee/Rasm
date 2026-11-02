@@ -35,11 +35,11 @@ Code treats each crate as part of the language:
 Function signatures are contracts, parameter types state every value a function accepts and its return type every outcome a caller handles:
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
-- Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
-- Defaults sit on one options struct whose `default_field_values` state each, a caller writes the fields it changes before `..`
-- Values and types differing per platform are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself
+- Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
+- Defaults sit on one options struct whose `default_field_values` state each, an optional input defaulting to `None` among them in place of a positional `Option` parameter, and a caller writes the fields it changes before `..`
+- Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
-- Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it
+- Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it, and a value an input already holds (a mesh's cached `local_aabb`) is read from it, never recomputed
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
@@ -51,7 +51,7 @@ Function signatures are contracts, parameter types state every value a function 
 Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
-- Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type, a clamp stays where the domain defines it
+- Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type excluding only what the callee rejects, a value it gives a meaning (a `0.0` tolerance as the subject's own, a `0.0` epsilon as an exact test) staying reachable as `None`, and a clamp stays where the domain defines it
 
 ### [01.2]-[PURITY]
 
@@ -90,7 +90,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Optional builder steps fold an `Option` into the value (`tint.into_iter().fold(style, Style::fg)`), and `None` returns it unchanged
-- `LazyCell` locals defer a value only some inputs read
+- `LazyCell` locals defer a value only some inputs read, and a value built lazily per element is a `OnceLock` in that element's tuple or record, never a parallel collection matched by index
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -151,7 +151,7 @@ pub enum Delivery {
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
-- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant
+- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1) becomes `None` where it enters (`Option<NonZero<u32>>`)
 
 ### [03.2]-[CONSTRAINED_VALUES]
 
@@ -169,7 +169,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 ### [03.3]-[OWNERSHIP]
 
 Ownership states who decides a value's lifetime:
-- Functions storing an argument take it by value, the caller decides whether to clone
+- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` (`+ Copy` when walked more than once), so a borrowed collection a package hands out passes without a copy
 - Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Interior mutability belongs to boundary types that own shared state, domain types hold none
@@ -411,7 +411,7 @@ Libraries return their own error, and the application composes each failure poli
 Numeric facts come from the type or package that states them:
 - Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect, `saturating_*` where clamping rules
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
-- Tolerances are values a caller passes, and floats compare within them
+- Tolerances are values a caller passes, and floats compare within them, a zero or default the callee defines reachable as `None`
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`
 - Operators state float, dual, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair

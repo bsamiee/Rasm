@@ -1,8 +1,8 @@
-use core::{iter, ops::Range};
+use core::{borrow::Borrow, mem, ops::Range};
 use std::sync::Arc;
 
-use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
-use camino::{Utf8Path, Utf8PathBuf};
+use annotate_snippets::{AnnotationKind, Element, Level, Renderer, Snippet};
+use camino::Utf8PathBuf;
 use clap::{Args, ValueHint};
 use fs_err::tokio::read_to_string;
 use futures::future;
@@ -15,14 +15,15 @@ use toml::{
 };
 use validated::Validated;
 
-use crate::{CommandError, Operation};
+use crate::CommandError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Args, Debug)]
 #[group(skip)]
 pub struct Layers {
-    #[arg(long, global = true, value_name = "PATH", value_hint = ValueHint::FilePath, help = "Settings file layered over earlier ones and field defaults")]
+    #[arg(long, global = true, env, value_name = "PATH", value_hint = ValueHint::FilePath)]
+    #[arg(help = "Settings file layered over earlier ones and field defaults")]
     pub settings: Vec<Utf8PathBuf>,
 }
 
@@ -33,71 +34,90 @@ pub struct Origin {
     pub span: Option<Range<usize>>,
 }
 
+#[derive(Debug)]
+pub struct Provenance {
+    layers: Vec<(Utf8PathBuf, Arc<str>)>,
+}
+
+impl Provenance {
+    #[must_use]
+    pub fn origin<P>(&self, path: P) -> Option<Origin>
+    where P: IntoIterator<Item: Borrow<Segment>> + Copy {
+        self.layers
+            .iter()
+            .map(|(file, text)| {
+                let (table, _) = DeTable::parse_recoverable(text);
+                let root = Spanned::new(table.span(), DeValue::Table(table.into_inner()));
+                let held = path
+                    .into_iter()
+                    .scan(&root, |value, segment| {
+                        let next = match segment.borrow() {
+                            Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
+                            Segment::Seq { index } => value.get_ref().get(*index),
+                            Segment::Unknown => None,
+                        }?;
+                        *value = next;
+                        Some(next.span())
+                    })
+                    .enumerate()
+                    .last();
+                (held, file, text)
+            })
+            .max_by_key(|(held, _, _)| held.as_ref().map(|(depth, _)| *depth))
+            .map(|(held, file, text)| Origin { path: Utf8PathBuf::clone(file), text: Arc::clone(text), span: held.map(|(_, span)| span) })
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub async fn decoded<S, E>(paths: impl IntoIterator<Item: AsRef<Utf8Path>>) -> Result<S, NEVec<E>>
-where
-    S: DeserializeOwned,
-    E: From<CommandError>,
-{
+pub async fn decoded<S>(paths: impl IntoIterator<Item = Utf8PathBuf>) -> Result<(S, Provenance), NEVec<CommandError>>
+where S: DeserializeOwned {
     fn merged<'text>(lower: DeTable<'text>, upper: DeTable<'text>) -> DeTable<'text> {
         upper.into_iter().fold(lower, |mut table, (key, entry)| {
-            let value = Spanned::new(
-                entry.span(),
-                match (table.remove(&key).map(Spanned::into_inner), entry.into_inner()) {
-                    (Some(DeValue::Table(earlier)), DeValue::Table(later)) => DeValue::Table(merged(earlier, later)),
-                    (_, later) => later,
-                },
-            );
-            table.insert(key, value);
+            let span = entry.span();
+            match (table.get_mut(&key).map(Spanned::get_mut), entry.into_inner()) {
+                (Some(DeValue::Table(earlier)), DeValue::Table(later)) => *earlier = merged(mem::take(earlier), later),
+                (_, later) => {
+                    table.insert(key, Spanned::new(span, later));
+                }
+            }
             table
         })
     }
-    fn located(path: &serde_path_to_error::Path, texts: &[(Utf8PathBuf, Arc<str>)], tables: &[Spanned<DeTable<'_>>]) -> Option<Origin> {
-        iter::zip(texts, tables).rev().find_map(|((file, text), table)| {
-            let mut segments = path.iter();
-            let root = match segments.next()? {
-                Segment::Map { key } | Segment::Enum { variant: key } => table.get_ref().get(key.as_str()),
-                Segment::Seq { index: _ } | Segment::Unknown => None,
-            }?;
-            segments
-                .try_fold(root, |value, segment| match segment {
-                    Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
-                    Segment::Seq { index } => value.get_ref().get(*index),
-                    Segment::Unknown => None,
-                })
-                .map(|value| Origin { path: Utf8PathBuf::clone(file), text: Arc::clone(text), span: Some(value.span()) })
-        })
-    }
-    let texts = future::join_all(paths.into_iter().map(|path| path.as_ref().to_owned()).map(async |path| (read_to_string(&path).await, path)))
-        .await
-        .into_iter()
-        .map(|(read, path)| read.map(|text| (path, Arc::<str>::from(text))).map_err(|source| E::from(CommandError::Io { operation: Operation::Read, source })))
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()?;
-    let tables = texts
+    let provenance = Provenance {
+        layers: future::join_all(paths.into_iter().map(async |path| read_to_string(&path).await.map(|text| (path, Arc::<str>::from(text))).map_err(CommandError::File)))
+            .await
+            .into_iter()
+            .collect::<Validated<Vec<_>, _>>()
+            .ok()?,
+    };
+    let tables = provenance
+        .layers
         .iter()
         .map(|(path, text)| {
             let (table, errors) = DeTable::parse_recoverable(text);
-            NEVec::try_from_vec(errors).map_or(Validated::Good(table), |failures| {
-                Validated::Fail(
+            NEVec::try_from_vec(errors)
+                .map(|failures| {
                     failures
                         .into_nonempty_iter()
                         .map(|mut source| {
                             source.set_input(None);
-                            E::from(CommandError::Syntax { origin: Origin { path: Utf8PathBuf::clone(path), text: Arc::clone(text), span: source.span() }, source: Box::new(source) })
+                            CommandError::Syntax { origin: Origin { path: Utf8PathBuf::clone(path), text: Arc::clone(text), span: source.span() }, source: Box::new(source) }
                         })
-                        .collect(),
-                )
-            })
+                        .collect()
+                })
+                .map_or(Validated::Good(table), Validated::Fail)
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
-    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.iter().map(|table| table.get_ref().clone()).fold(DeTable::new(), merged))))
-        .map_err(|source| NEVec::new(E::from(CommandError::Settings { origin: located(source.path(), &texts, &tables), source: Box::new(source) })))
+    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().map(Spanned::into_inner).fold(DeTable::new(), merged))))
+        .map_err(|source| NEVec::new(CommandError::Decode { origin: provenance.origin(source.path()), source: Box::new(source) }))
+        .map(|settings| (settings, provenance))
 }
 
-pub(crate) fn excerpt(title: &str, origin: &Origin) -> String {
-    Renderer::plain()
-        .render(&[Level::ERROR.primary_title(title).element(Snippet::source(&*origin.text).path(origin.path.as_str()).annotations(origin.span.clone().map(|span| AnnotationKind::Primary.span(span))))])
+pub(crate) fn excerpt(title: &str, origin: Option<&Origin>) -> String {
+    Renderer::plain().render(&[Level::ERROR.no_name().primary_title(title).elements(origin.map(|origin| match &origin.span {
+        Some(span) => Element::from(Snippet::source(&*origin.text).path(origin.path.as_str()).annotation(AnnotationKind::Primary.span(span.clone()))),
+        None => Element::from(annotate_snippets::Origin::path(origin.path.as_str())),
+    }))])
 }
