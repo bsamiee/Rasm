@@ -51,7 +51,7 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger', {
 
 ## [03]-[SCOPED_RESOURCES]
 
-Resources acquired in `make` belong to their layer. Layers remove `Scope` from their requirements and release each resource when the layer scope closes. Resource lifetime selects where a scope opens:
+Layers remove `Scope` from their requirements. Resource lifetime selects where a scope opens:
 
 | [INDEX] | [LIFETIME]   | [FORM]                                                                    |
 | :-----: | :----------- | :------------------------------------------------------------------------ |

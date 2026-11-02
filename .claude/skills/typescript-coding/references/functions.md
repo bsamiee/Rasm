@@ -76,7 +76,7 @@ const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
 
 ## [05]-[DISPATCH_TABLES]
 
-Dispatch tables select behaviors sharing a signature by a decoded key. Modules or objects already holding the rows are the table, and the key schema lists the member names it accepts:
+Dispatch tables select behaviors sharing a signature by a decoded key. Modules or objects holding the rows are the table, and the key schema lists the member names it accepts:
 
 ```ts
 const Casing = Schema.Literals(['camelCase', 'constantCase', 'kebabCase', 'pascalCase', 'snakeCase'] satisfies readonly (keyof typeof String)[]);

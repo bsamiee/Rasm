@@ -26,7 +26,7 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 - `FiberMap.join` fails with a member's first failure where a caller awaits the set
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
 - `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
-- `Effect.forkChild`, `forkScoped`, `forkIn`, and `forkDetach` take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, and `{ startImmediately: true }` runs the fiber to its first suspension before the fork returns
+- `Effect` forks take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, and `{ startImmediately: true }` runs the fiber to its first suspension before the fork returns
 - `Exit.hasInterrupts(yield* Fiber.await(fiber))` holds when an interrupt reached the fiber, and a fiber that finished before `Fiber.interrupt` exits with success
 
 ## [02]-[STREAMS]
@@ -46,7 +46,7 @@ const sizes = Stream.callback<DOMRectReadOnly>((queue) =>
 );
 ```
 
-`Stream.callback` forks the registration into the stream scope, and the release disconnects `viewport`'s observer when the stream ends, in place of an `Effect.ensuring(Effect.never, release)` holding that fiber open. `ResizeObserver` reports once on `observe` for an element with a nonzero size. `Queue.offerUnsafe` drops the new item when the buffer is full, or the oldest under `strategy: 'sliding'`. Effectful producers offer through `Queue.offer`, suspending while the buffer is full:
+`Stream.callback` forks the registration into the stream scope, and the release disconnects `viewport`'s observer when the stream ends, in place of an `Effect.ensuring(Effect.never, release)` holding a fiber open. `ResizeObserver` reports once on `observe` for an element with a nonzero size. `Queue.offerUnsafe` drops the new item when the buffer is full, or the oldest under `strategy: 'sliding'`. Effectful producers offer through `Queue.offer`, suspending while the buffer is full:
 
 ```ts
 const entries = Stream.callback<Entry, WalkError>((queue) => walk(root, (entry) => Queue.offer(queue, entry)).pipe(Queue.into(queue)), { bufferSize: 64 });
@@ -57,7 +57,7 @@ const entries = Stream.callback<Entry, WalkError>((queue) => walk(root, (entry) 
 - `Stream.filterMap` with `Result.fromOption` keeps the elements a lookup finds
 - Sources a constructor states enter through it: `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, `paginate` for cursors
 - `Stream.peel(stream, Sink.head())` returns an `Option` of the first element beside a scoped stream of the rest, seeding state first
-- `flow(Effect.fn(body), Stream.unwrap)` returns a stream whose acquired resources release when the stream ends
+- `flow(Effect.fn(body), Stream.unwrap)` returns a stream releasing its acquired resources at its end
 
 ## [03]-[SHARED_STATE]
 
@@ -102,7 +102,7 @@ const nodeOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 - Host state a view observes is a `SubscriptionRef` the host's events set, read through `Atom.subscriptionRef` or its `changes` stream
 - `changes` piped through `Stream.zipWithPrevious` diffs successive states, and `Stream.changesWith(eq)` drops states equal on a projection
 - `SubscriptionRef.modifyEffect` runs a host call and the transition it decides as one update
-- `Semaphore.withPermits(semaphore, n)` bounds a resource shared across operations, `concurrency` bounds one traversal
+- `Semaphore.withPermits(semaphore, n)` bounds across operations, `concurrency` bounds one traversal
 - `Cache.makeWith` takes `timeToLive` as a function of each lookup's `Exit` and key
 
 ## [04]-[SCHEDULES]

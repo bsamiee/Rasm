@@ -9,10 +9,10 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
+- Packages and hosts are used directly through what they provide
+- Every type, export, and helper inside and outside each module states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from domain vocabulary and members of packages in use, a file takes its concept's name, and no name is coined
+- Names come from domain vocabulary and members of packages in use, a file takes its concept's name
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition
@@ -45,7 +45,8 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters with a dominant value take a default, callers state what varies
-- Declarations read once sit inline at their use, a value read twice is a `const` named for its fact, and a number Biome's `noMagicNumbers` refuses comes from the package member stating it, else a `const` local to its one reader
+- Declarations read once sit inline, a value read twice is a `const` named for its fact
+- Numbers Biome's `noMagicNumbers` refuses come from the package member stating them, else a `const` local to their one reader
 - Schemas declare at module scope, and each parser caches by its schema's AST
 
 ## [02]-[FUNCTIONS]
@@ -84,7 +85,7 @@ Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no
 
 ### [03.1]-[PATTERN_MATCHING]
 
-Pattern matching keeps recognition, extraction, guards, and results together. Unions own their fold: `Schema.TaggedUnion` through `match`, `Data.taggedEnum` through `$match` and `Option.filter(<option>, <enum>.$is(<tag>))` for a field of one case, and any other value through `Match`:
+Unions own their fold: `Schema.TaggedUnion` through `match`, `Data.taggedEnum` through `$match` and `Option.filter(<option>, <enum>.$is(<tag>))` for a field of one case, and any other value through `Match`:
 
 ```ts
 const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: true }, fromCache), Match.when({ method: 'GET' }, fromOrigin), Match.orElse(reject));
@@ -218,7 +219,7 @@ Consumers receive the narrowest dependency they read: a value for a stable snaps
 ### [06.2]-[ERROR_HANDLING]
 
 Failure policies are distinct operations:
-- Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`, `Effect.catchTag` for one classified error, or `Effect.catchReason` for one reason of it
+- Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`
 - Timeout bounds a wait, `Effect.timeout` fails with `Cause.TimeoutError` and `Effect.timeoutOption` returns `Option.none()`
 - Recovery maps a final failure to a value at the host
 

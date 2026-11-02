@@ -51,7 +51,7 @@ const resilient = <A, R>(read: Effect.Effect<A, OrderError | HttpClientError.Htt
     );
 ```
 
-- `Effect.catchReason` recovers one reason of an error (`HttpClientError`, `HttpServerError`, `PlatformError`, `SqlError`, `AiError`) and keeps the error's other reasons
+- `Effect.catchReason` recovers one reason of an error with a tagged union `reason` and keeps its other reasons
 - `Effect.catchReasons` takes a handler per reason, and `Effect.unwrapReason` lifts every reason into `E` for `Effect.catchTags`
 - `Effect.catchIf` keeps what its predicate passes over in `E`, and a refinement narrows `E` past what it matches
 - `Effect.catchTag` takes one tag or a list of tags and `Effect.catchTags` a handler per tag, each removing what it handles from `E`
