@@ -152,9 +152,9 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         ImmutableArray<SyntaxNode> sites = [.. removed.Select(static lift => lift.Lift.Syntax)];
         ImmutableArray<SyntaxAnnotation> marks = [.. removed.Select(static _ => new SyntaxAnnotation())];
         SyntaxAnnotation outer = new();
-        SyntaxNode bare = scope.ReplaceNodes(sites, (site, rewritten) => SyntaxFactory.ParenthesizedExpression(Unlifted(rewritten)!.WithoutTrivia()).WithTriviaFrom(rewritten).WithAdditionalAnnotations(marks[sites.IndexOf(site)]))
+        SyntaxNode unlifted = scope.ReplaceNodes(sites, (site, rewritten) => SyntaxFactory.ParenthesizedExpression(Unlifted(rewritten)!.WithoutTrivia()).WithTriviaFrom(rewritten).WithAdditionalAnnotations(marks[sites.IndexOf(site)]))
             .WithAdditionalAnnotations(outer);
-        SemanticModel? speculative = bare switch {
+        SemanticModel? speculative = unlifted switch {
             StatementSyntax statement when model.TryGetSpeculativeSemanticModel(scope.SpanStart, statement, out SemanticModel? held) => held,
             ArrowExpressionClauseSyntax arrow when model.TryGetSpeculativeSemanticModel(scope.SpanStart, arrow, out SemanticModel? held) => held,
             EqualsValueClauseSyntax initializer when model.TryGetSpeculativeSemanticModel(scope.SpanStart, initializer, out SemanticModel? held) => held,

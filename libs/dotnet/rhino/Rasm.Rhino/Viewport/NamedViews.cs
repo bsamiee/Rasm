@@ -83,14 +83,14 @@ public static class NamedViews {
         IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(Table.Missing(name)));
 
     // --- [SAVE]
-    internal static IO<NamedWrite> Staged(RhinoDoc doc, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, [CallerMemberName] string verb = "") =>
+    internal static IO<NamedWrite> Staged(RhinoDoc doc, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, [CallerMemberName] string action = "") =>
         Products.Transfer(copy, held =>
             from staged in use(() => new ViewInfo(held)).Bind(view => stage.Traverse(run => run(held, view)).As()).Bracket()
             from prior in Stored(doc, name)
             from same in Same(doc, prior, held)
             from written in same
                 ? IO.lift(held.Dispose) >> prior.Traverse(static stored => IO.lift(stored.Dispose)).As().Map(unit)
-                : Commits.Undoable(doc, $"{verb} {name}", IO.pure(prior), Put(doc, name), Some(held))
+                : Commits.Undoable(doc, $"{action} {name}", IO.pure(prior), Put(doc, name), Some(held))
             select NamedWrite.Undoable);
 
     private static IO<bool> Same(RhinoDoc doc, Option<RhinoViewport> prior, RhinoViewport staged) =>
@@ -161,7 +161,7 @@ public static class NamedViews {
     private static Func<RhinoViewport, ViewInfo, IO<Unit>> Moved(Transform xform) =>
         (copy, view) =>
             from dilation in IO.lift(() => NamedTable.Dilation(xform))
-            from carried in IO.lift(() => Carried(copy, xform, dilation))
+            from camera in IO.lift(() => Transformed(copy, xform, dilation))
             from plane in ConstructionPlanes.Read(view)
             from moved in ConstructionPlanes.Moved(plane, xform)
             from written in ConstructionPlanes.Write(view, moved)
@@ -171,7 +171,7 @@ public static class NamedViews {
     private static Func<RhinoViewport, ViewInfo, IO<Unit>> Detached(Transform scaling) =>
         (copy, view) => Moved(scaling)(copy, view).Bind(_ => IO.lift(() => { view.NamedViewId = Guid.Empty; }));
 
-    private static Fin<Unit> Carried(RhinoViewport viewport, Transform xform, double dilation) {
+    private static Fin<Unit> Transformed(RhinoViewport viewport, Transform xform, double dilation) {
         using ViewportInfo camera = new(viewport);
         return RhinoFault.Unless(camera.TransformCamera(xform), RhinoReason.Declined, xform)
             .Bind(_ => RhinoFault.Unless(

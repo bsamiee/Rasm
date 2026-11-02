@@ -59,7 +59,7 @@ public static class Earth {
             Unchanged: (live, _) => edits.ForAll(edit => edit.Holds.Exists(holds => holds(live))),
             Commit: (live, staged) =>
                 from written in Commits.Undoable(doc, nameof(RhinoDoc.EarthAnchorPoint), IO.pure(live), anchor => IO.lift(() => { doc.EarthAnchorPoint = anchor; }), staged)
-                from landed in use(() => doc.EarthAnchorPoint).Bind(read => IO.lift(() => Products.Each(edits, (edit, index) =>
+                from verified in use(() => doc.EarthAnchorPoint).Bind(read => IO.lift(() => Products.Each(edits, (edit, index) =>
                     edit.Holds.ForAll(holds => holds(read)) ? Fin.Succ(unit) : new RhinoFault(edit.Write.Member, RhinoReason.Declined, index)))).Bracket()
                 select staged);
 

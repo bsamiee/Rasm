@@ -29,7 +29,7 @@ public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, R
     where TControl : Control
     where T : notnull {
     public Func<TControl, bool> Previewing { get; init; } = static _ => false;
-    public Option<Func<TControl, HostEvent<Unit>>> Settled { get; init; }
+    public Option<Func<TControl, HostEvent<Unit>>> Committing { get; init; }
     public Func<TControl, Option<T>, RowScope, IO<Unit>> Shaped { get; init; } = static (_, _, _) => IO.pure(unit);
     public Func<TControl, IO<Unit>> Attached { get; init; } = static _ => IO.pure(unit);
     public Seq<HostEvent<Unit>> Changes { get; init; }
@@ -44,7 +44,7 @@ public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, R
         from current in first.Current
         from shaped in first.Shaped(control, current, scope)
         from binding in first.Binding(control, scope)
-        from show in Values.Bound(control, binding, first.Previewing, first.Settled.Map(settled => settled(control)), current, edit => latest.Bind(row => row.Edited(edit)))
+        from show in Values.Bound(control, binding, first.Previewing, first.Committing.Map(committing => committing(control)), current, edit => latest.Bind(row => row.Edited(edit)))
         let shown =
             from row in latest
             from value in row.Current
@@ -59,7 +59,7 @@ public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, R
 public static class Values {
     // --- [BINDING]
     internal static IO<Func<Option<T>, IO<Unit>>> Bound<TControl, T>(
-        TControl control, BindableBinding<TControl, Option<T>> binding, Func<TControl, bool> previewing, Option<HostEvent<Unit>> settled, Option<T> initial, Func<Edit<T>, IO<Unit>> edited)
+        TControl control, BindableBinding<TControl, Option<T>> binding, Func<TControl, bool> previewing, Option<HostEvent<Unit>> committing, Option<T> initial, Func<Edit<T>, IO<Unit>> edited)
         where TControl : Control
         where T : notnull =>
         from state in IO.lift(() => Ref((Shown: initial, Previewed: Option<T>.None)))
@@ -73,7 +73,7 @@ public static class Values {
             from sent in when(fresh, edited(phase.Of(value))).As()
             select unit)
         from dual in use(() => binding.Bind(Binding.Delegate(() => state.Value.Shown, held => Session.Run(held.Traverse(entered).As()))), static dual => dual.Unbind())
-        from settles in settled.Traverse(settle => settle.Attach(_ =>
+        from commits in committing.Traverse(signal => signal.Attach(_ =>
             from value in IO.lift(() => dual.Destination.DataValue)
             from before in atomicIO(() => {
                 (Option<T> Shown, Option<T> Previewed) held = state.Value;
@@ -186,7 +186,7 @@ public static class Values {
             static (picker, _) => IO.pure(Colored(picker)),
             IO.pure(value), edited) {
             Previewing = static _ => true,
-            Settled = Some(Closed),
+            Committing = Some(Closed),
             Menu = static latest => [[Named(latest.Bind(static row => row.Current), edit => latest.Bind(row => row.Edited(edit)))]],
         };
 
@@ -245,7 +245,7 @@ public static class Values {
                 .Convert(static held => Optional(held), static held => held.ToNullable())),
             IO.pure(value), edited) {
             Previewing = static _ => true,
-            Settled = Some<Func<global::Rhino.UI.Controls.Slider, HostEvent<Unit>>>(static slider =>
+            Committing = Some<Func<global::Rhino.UI.Controls.Slider, HostEvent<Unit>>>(static slider =>
                 Subscriptions.Inline<PropertyChangedEventHandler, PropertyChangedEventArgs>(h => slider.PropertyChanged += h, h => slider.PropertyChanged -= h, static handler => handler.Invoke)
                     .Choose(static args => Conversions.Present(args.PropertyName is "OnEndChanged", unit))),
             Attached = slider => IO.lift(() => {
@@ -290,7 +290,7 @@ public static class Values {
                 static (held, handler) => held.TextChanged -= handler)),
             IO.pure(value), edited) {
             Previewing = static box => box.HasFocus,
-            Settled = Some<Func<TextBox, HostEvent<Unit>>>(static box => Entries.Settled(box, Keys.Enter)),
+            Committing = Some<Func<TextBox, HostEvent<Unit>>>(static box => Entries.Committing(box, Keys.Enter)),
             Shaped = static (box, current, _) => IO.lift(() => { box.PlaceholderText = current.IsNone ? LocalText.Of("Varies").Local : ""; }),
         };
 }

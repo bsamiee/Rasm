@@ -75,16 +75,16 @@ public static class Placements {
 
     // --- [NUDGING]
     public static IO<Unit> Nudging(Canvas canvas, IO<bool> enabled) =>
-        from gesture in use(IO.lift(static () => Ref(Option<(Document Document, HashMap<Guid, PivotAction> Started)>.None)), Settled)
+        from gesture in use(IO.lift(static () => Ref(Option<(Document Document, HashMap<Guid, PivotAction> Started)>.None)), Ended)
         from pressed in Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args => Offset(args).Filter(_ => !args.Handled).Match(
             Some: offset =>
-                from moved in when(gesture.Value.Exists(held => !ReferenceEquals(held.Document, canvas.Document)), Settled(gesture)).As()
+                from moved in when(gesture.Value.Exists(held => !ReferenceEquals(held.Document, canvas.Document)), Ended(gesture)).As()
                 from allowed in enabled
                 from nudged in IO.lift(() => Optional(canvas.Document).Filter(_ => allowed && canvas.AllowedActions.AllowDrag).Iter(document => Nudged(canvas, document, offset, gesture, args)))
                 select unit,
             None: static () => unitIO))
-        from released in Hooks.On<KeyEventArgs>(h => canvas.KeyUp += h, h => canvas.KeyUp -= h, args => when(Direction(args.Key).IsSome, Settled(gesture)).As())
-        from blurred in Hooks.On<EventArgs>(h => canvas.LostFocus += h, h => canvas.LostFocus -= h, _ => Settled(gesture))
+        from released in Hooks.On<KeyEventArgs>(h => canvas.KeyUp += h, h => canvas.KeyUp -= h, args => when(Direction(args.Key).IsSome, Ended(gesture)).As())
+        from blurred in Hooks.On<EventArgs>(h => canvas.LostFocus += h, h => canvas.LostFocus -= h, _ => Ended(gesture))
         select unit;
 
     private static Option<SizeF> Direction(Keys key) =>
@@ -117,7 +117,7 @@ public static class Placements {
         return unit;
     }
 
-    private static IO<Unit> Settled(Ref<Option<(Document Document, HashMap<Guid, PivotAction> Started)>> gesture) =>
+    private static IO<Unit> Ended(Ref<Option<(Document Document, HashMap<Guid, PivotAction> Started)>> gesture) =>
         from held in IO.lift(() => atomic(() => (Prior: gesture.Value, Next: gesture.Swap(static _ => None)).Prior))
         from committed in held.Match(
             Some: static started => Edits.Commit(started.Document, new VerbNoun("Nudge", started.Started.Count is 1 ? "Object" : "Objects"), actions =>

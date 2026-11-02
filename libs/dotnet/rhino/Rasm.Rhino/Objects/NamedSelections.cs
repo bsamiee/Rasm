@@ -67,7 +67,7 @@ public static class NamedSelections {
         Rename = static (doc, entry, name) =>
             from found in Found(doc, entry.Name)
             from renamed in Scripted(doc, "Rename", entry.Name, name)
-            from landed in Found(doc, name)
+            from verified in Found(doc, name)
             select new NamedWrite(Scripted(doc, "Rename", name, entry.Name), IO.pure(unit)),
         Delete = static (doc, entry) =>
             from held in Found(doc, entry.Name)
@@ -82,8 +82,8 @@ public static class NamedSelections {
     private static NamedEntry Entry(NamedSelection row) => new(Table, row.Name, Some(row.Id));
 
     // --- [SCRIPT]
-    internal static IO<Unit> Scripted(RhinoDoc doc, string verb, params Seq<string> names) =>
-        Documents.RunScript(doc, $"-_NamedSelections _{verb} {string.Join(' ', names.Map(static name => $"{Quote}{name}{Quote}"))}", echo: false, display: None);
+    internal static IO<Unit> Scripted(RhinoDoc doc, string option, params Seq<string> names) =>
+        Documents.RunScript(doc, $"-_NamedSelections _{option} {string.Join(' ', names.Map(static name => $"{Quote}{name}{Quote}"))}", echo: false, display: None);
 
     internal static IO<Unit> Saved(RhinoDoc doc, string name, Seq<Guid> objects, Seq<(Guid ObjectId, ComponentIndex Component)> parts) =>
         from created in ObjectTarget.Selection(doc).Bind(held =>
@@ -94,9 +94,9 @@ public static class NamedSelections {
                  select selected).As()
              from made in Scripted(doc, "Save", name)
              select unit).Finally(Reverted(doc, held)))
-        from landed in Named(doc, name)
+        from stored in Named(doc, name)
         from confirmed in IO.lift(() => RhinoFault.Unless(
-            landed.Head.Exists(row => toHashSet(row.Objects) == toHashSet(objects) && toHashSet(row.SubObjects) == toHashSet(parts)), RhinoReason.Declined, name))
+            stored.Head.Exists(row => toHashSet(row.Objects) == toHashSet(objects) && toHashSet(row.SubObjects) == toHashSet(parts)), RhinoReason.Declined, name))
         select unit;
 
     internal static IO<Unit> Reverted(RhinoDoc doc, Seq<(RhinoObject Object, bool Persistent)> held) =>

@@ -25,8 +25,8 @@ public sealed record UnitsAndTolerances(LengthUnit Unit, Tolerances Tolerances, 
 
     public static IO<Unit> Adjust(RhinoDoc doc, Space space, LengthUnit units, bool scale) =>
         from adjusted in Products.Accepted(() => doc.AdjustLengthUnits(space == Space.Model, units, scale))
-        from landed in IO.lift(() => RhinoFault.Unless(space.Read(doc).Unit == units, RhinoReason.Declined, units))
-        select landed;
+        from verified in IO.lift(() => RhinoFault.Unless(space.Read(doc).Unit == units, RhinoReason.Declined, units))
+        select verified;
 
     public string Format(Length length, bool appendUnitSystemName) =>
         Localization.FormatNumber(Quantities.As(length, Unit), Unit, Display, Precision, appendUnitSystemName);
@@ -34,8 +34,8 @@ public sealed record UnitsAndTolerances(LengthUnit Unit, Tolerances Tolerances, 
     private static IO<Unit> Assigned(RhinoDoc doc, Space space, UnitsAndTolerances value) =>
         from adjusted in IO.lift(() => space.Read(doc).Unit == value.Unit).Bind(same => unless(same, Adjust(doc, space, value.Unit, scale: false)).As())
         from written in IO.lift(() => space.Write(doc, value))
-        from landed in IO.lift(() => RhinoFault.Unless(space.Read(doc) == value, RhinoReason.Declined, value))
-        select landed;
+        from verified in IO.lift(() => RhinoFault.Unless(space.Read(doc) == value, RhinoReason.Declined, value))
+        select verified;
 }
 
 [SmartEnum]

@@ -110,7 +110,7 @@ public sealed record ColorAxis(Axis Axis, ColorRamp Ramp) {
     internal static DataSeries Series(Option<ColorAxis> color, uint ordinal, Option<ColorValue> fixedColor, Option<double> value) =>
         new(ordinal) { Color = fixedColor, Value = value.Map(held => color.Map(axis => (double)axis.Axis.Fraction((float)held)).IfNone(held)) };
 
-    internal static bool Admits(Option<ColorAxis> color, Option<double> value) =>
+    internal static bool Shows(Option<ColorAxis> color, Option<double> value) =>
         color.ForAll(axis => value.ForAll(held => axis.Shown.ForAll(range => axis.Axis.Contains(range, (float)held))));
 
     internal static StyleSheet Sheet(Option<ColorAxis> color) => color.Map(static axis => new StyleSheet(HashMap((Role.Series, new Look { Scale = axis.Ramp })))).IfNone(StyleSheet.Empty);
@@ -260,7 +260,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
 
     private View Marked(Plotted plotted, int ordinal, bool shown) {
         View mark = new View.Mark(plotted.Figure) { Key = plotted.Key, Role = plotted.Role | Some(Role.Series), Series = ColorAxis.Series(Color, (uint)ordinal, plotted.Color, plotted.Value) };
-        return shown && ColorAxis.Admits(Color, plotted.Value) ? mark : mark.Conditioned(Condition.Disabled);
+        return shown && ColorAxis.Shows(Color, plotted.Value) ? mark : mark.Conditioned(Condition.Disabled);
     }
 
     private Seq<View> Layered(Seq<Key> keys, Seq<View> marks) =>

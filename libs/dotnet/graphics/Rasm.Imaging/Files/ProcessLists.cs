@@ -191,7 +191,7 @@ public sealed partial class LutFormat {
     private static Fin<LutTable> ReadCdl(XElement node) =>
         from read in (
                 Attribute(node, Style).Match(
-                    Some: static token => (CdlStyle.TryGet(token, out CdlStyle? style) ? Some(style) : None) | toSeq(CdlStyle.Items).Find(item => string.Equals(item.Legacy, token, StringComparison.OrdinalIgnoreCase)),
+                    Some: static token => (CdlStyle.TryGet(token, out CdlStyle? style) ? Some(style) : None) | toSeq(CdlStyle.Items).Find(item => string.Equals(item.Clf2Name, token, StringComparison.OrdinalIgnoreCase)),
                     None: static () => Some(CdlStyle.Fwd)).ToFin(Malformed(node)),
                 CorrectionValues(node))
             .Apply(static (style, values) => (Style: style, Values: values))

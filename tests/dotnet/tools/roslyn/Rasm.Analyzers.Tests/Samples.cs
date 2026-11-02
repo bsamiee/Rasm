@@ -106,20 +106,20 @@ public sealed class Samples {
         }.RunAsync(token));
         ImmutableArray<Document> documents = applied is null ? [] : [.. (await applied.GetOperationsAsync(token)).OfType<ApplyChangesOperation>().Single().ChangedSolution.Projects.Single().Documents];
         SourceText[] changed = await Task.WhenAll(documents.Select(document => document.GetTextAsync(token)));
-        Option<ImmutableArray<(string Path, string Source)>> repaired = applied is null ? None : ImmutableArray.CreateRange(documents.Zip(changed, static (document, text) => (document.FilePath ?? document.Name, text.ToString())));
+        Option<ImmutableArray<(string Path, string Source)>> fixedSources = applied is null ? None : ImmutableArray.CreateRange(documents.Zip(changed, static (document, text) => (document.FilePath ?? document.Name, text.ToString())));
         string Marked(Location location) =>
             samples.Single(sample => string.Equals(sample.Path, location.SourceTree?.FilePath, StringComparison.Ordinal)).Markers.Single(marker => marker.Value.Single() == location.SourceSpan).Key;
         Atom<ImmutableSortedDictionary<(string Path, int Start), string>> reported = Atom(ImmutableSortedDictionary.Create<(string Path, int Start), string>(Comparer<(string Path, int Start)>.Create(
             static (left, right) => string.CompareOrdinal(left.Path, right.Path) is var order and not 0 ? order : left.Start.CompareTo(right.Start)), StringComparer.Ordinal));
-        await new Analysis(sources, repaired.IfNone(sources), expected) {
+        await new Analysis(sources, fixedSources.IfNone(sources), expected) {
             DiagnosticVerifier = (diagnostic, _, _) => _ = reported.Swap(held => held.SetItem(
                 (diagnostic.Location.SourceTree?.FilePath ?? "", diagnostic.Location.SourceSpan.Start),
                 $"{Marked(diagnostic.Location)} {diagnostic.GetMessage(CultureInfo.InvariantCulture)}\n")),
         }.RunAsync(token);
-        Seq<Target> repairs = from fixes in repaired.ToSeq()
-                              from fix in toSeq(fixes)
-                              select new Target("txt", fix.Source, fixes.Length is 1 ? "fixed" : $"fixed-{Path.GetFileNameWithoutExtension(fix.Path)}");
-        _ = await Verify(string.Concat(reported.Value.Values), repairs).UseDirectory("Snapshots").UseFileName(rule);
+        Seq<Target> fixedTargets = from fixes in fixedSources.ToSeq()
+                                   from fix in toSeq(fixes)
+                                   select new Target("txt", fix.Source, fixes.Length is 1 ? "fixed" : $"fixed-{Path.GetFileNameWithoutExtension(fix.Path)}");
+        _ = await Verify(string.Concat(reported.Value.Values), fixedTargets).UseDirectory("Snapshots").UseFileName(rule);
     }
 
     [Fact]

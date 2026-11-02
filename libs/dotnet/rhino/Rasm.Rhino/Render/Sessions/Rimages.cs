@@ -137,15 +137,15 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
         float[] rgba = GC.AllocateUninitializedArray<float>(4 * Size.Width * Size.Height);
         Span2D<float> rows = new(rgba, Size.Height, 4 * Size.Width);
         using SpanOwner<float> line = SpanOwner<float>.Allocate(planes.Count * Size.Width);
-        Span2D<float> lanes = line.Span.AsSpan2D(planes.Count, Size.Width);
+        Span2D<float> scan = line.Span.AsSpan2D(planes.Count, Size.Width);
         for (int y = 0; y < Size.Height; y++) {
-            for (int lane = 0; lane < planes.Count; lane++) {
-                Span<float> plane = lanes.GetRowSpan(lane);
-                _ = RandomAccess.Read(file, MemoryMarshal.AsBytes(plane), planes[lane] + ((long)y * sizeof(float) * Size.Width));
+            for (int channel = 0; channel < planes.Count; channel++) {
+                Span<float> plane = scan.GetRowSpan(channel);
+                _ = RandomAccess.Read(file, MemoryMarshal.AsBytes(plane), planes[channel] + ((long)y * sizeof(float) * Size.Width));
                 if (!BitConverter.IsLittleEndian) BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<float, int>(plane), MemoryMarshal.Cast<float, int>(plane));
             }
             Span2D<float> pixels = rows.GetRowSpan(y).AsSpan2D(Size.Width, 4);
-            for (int lane = 0; lane < planes.Count; lane++) lanes.GetRowSpan(lane).AsSpan2D(Size.Width, 1).CopyTo(pixels[.., lane..(lane + 1)]);
+            for (int channel = 0; channel < planes.Count; channel++) scan.GetRowSpan(channel).AsSpan2D(Size.Width, 1).CopyTo(pixels[.., channel..(channel + 1)]);
             Channels.Widen(pixels, planes.Count);
         }
         return new Memory2D<float>(rgba, Size.Height, 4 * Size.Width);

@@ -76,7 +76,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             Enumerated(type) is { } items
             && (Derives(items.TypeArguments[0], control)
                 || (depth > 0 && items.TypeArguments[0].GetMembers().OfType<IPropertySymbol>().Any(property => Derives(property.Type, control) || Holding(property.Type, depth - 1))));
-        IEnumerable<IOperation> Seated(IOperation? initializer) =>
+        IEnumerable<IOperation> Initialized(IOperation? initializer) =>
             initializer is IObjectOrCollectionInitializerOperation members
                 ? members.Initializers.SelectMany(member => member switch {
                     ISimpleAssignmentOperation { Target: IPropertyReferenceOperation property } assignment when Derives(property.Property.Type, control) => [assignment.Value],
@@ -85,7 +85,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 })
                 : [];
         IEnumerable<IOperation> Created(IOperation? origin) =>
-            origin is null ? [] : origin.DescendantsAndSelf().OfType<IObjectCreationOperation>().Where(creation => Derives(creation.Type, container)).SelectMany(creation => Seated(creation.Initializer));
+            origin is null ? [] : origin.DescendantsAndSelf().OfType<IObjectCreationOperation>().Where(creation => Derives(creation.Type, container)).SelectMany(creation => Initialized(creation.Initializer));
         static IEnumerable<IOperation> Paired(IPropertyReferenceOperation property, IDeconstructionAssignmentOperation deconstruction) =>
             property.Parent is ITupleOperation targets && Stripped(deconstruction.Value) is ITupleOperation values && targets.Elements.Length == values.Elements.Length
                 ? [values.Elements[targets.Elements.IndexOf(property)]]

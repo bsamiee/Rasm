@@ -91,7 +91,7 @@ public sealed record ImageRow(ReadoutSource<Loading<Bitmap>> Image) : IRow<Image
         from keyed in CommandRows.Keyed(groups, scope)
         from keys in Subscriptions.Inline<KeyEventArgs>(h => scroll.KeyDown += h, h => scroll.KeyDown -= h).Attach(args => CommandRows.Pressed(keyed, args))
         from sized in Subscriptions.On<EventArgs>(h => scroll.SizeChanged += h, h => scroll.SizeChanged -= h).Attach(_ => shown)
-        from seated in IO.lift(() => { scroll.Content = view; })
+        from placed in IO.lift(() => { scroll.Content = view; })
         from heading in RowTable.Lined([new TableCell(strip.Control), new TableCell { ScaleWidth = true }, new TableCell(readout)])
         from body in Containers.Frame(() => new StackLayout(new StackLayoutItem(heading), new StackLayoutItem(scroll, expand: true)) {
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Table),

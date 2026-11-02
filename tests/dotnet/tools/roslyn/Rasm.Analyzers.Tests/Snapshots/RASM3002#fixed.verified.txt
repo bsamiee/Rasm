@@ -17,7 +17,7 @@ internal static class CoveredEnum {
         Mode.Second => 2,
     };
 
-    internal static int Bare(Mode mode) => mode switch { Mode.First or Mode.Second => 1 };
+    internal static int Combined(Mode mode) => mode switch { Mode.First or Mode.Second => 1 };
 
     internal static int Negated(Mode mode) => mode switch { Mode.First => 1, Mode.Second => 2 };
 }

@@ -10,7 +10,7 @@ namespace Rasm.UI.Rendering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal interface ISlot : IDisposable {
-    public void Sweep();
+    public void Evict();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -33,7 +33,7 @@ internal sealed class Slot<TKey, TValue> : ISlot where TKey : notnull {
 
     internal Fin<TValue> GetOrAdd(TKey key, Func<Fin<TValue>> make) => Find(key).Match(Some: Fin.Succ, None: () => make().Map(made => Added(key, made)));
 
-    public void Sweep() {
+    public void Evict() {
         HashMap<TKey, TValue> dead;
         lock (gate) (dead, live, aging) = (aging, [], live);
         _ = Release(dead.Values);
@@ -210,7 +210,7 @@ internal sealed class PaintCache : IDisposable {
         if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == left && held.Scale.CompareTo(scale) is 0)) return unit;
         Seq<LayoutNode> drawn = (scene.Layout.Cons(scene.Layers) + scene.Fragments.Values.ToSeq() + leaving).Bind(static layout => layout.Preorder).Strict();
         _ = drawn.Iter(layout => Leaves.Find(layout));
-        _ = SceneSlots.Add(scene.Outlines).Iter(static slot => slot.Sweep());
+        _ = SceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
         Seq<((LayoutNode Layout, GlyphSource Source) Shown, Fin<LoadedMedia> Media)> arts = (
             from layout in drawn
             from source in Decoding.Sources(layout)
@@ -229,7 +229,7 @@ internal sealed class PaintCache : IDisposable {
     }
 
     internal void Framed(Painter.Pass pass) {
-        _ = FrameSlots.Iter(static slot => slot.Sweep());
+        _ = FrameSlots.Iter(static slot => slot.Evict());
         _ = retained.Iter(held => toSeq(held.Art.Values).Filter(static shown => shown.Animated).Distinct().Iter(shown => shown.Seek(pass.Now)));
         _ = Leaves.Values.Iter(leaf => leaf.Framed(pass));
     }

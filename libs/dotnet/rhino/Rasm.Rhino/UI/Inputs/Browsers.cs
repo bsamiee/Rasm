@@ -21,7 +21,7 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
     public static IO<RowCells> Realize(IO<BrowserRow<TItem, TKey>> latest, LocalizeStringPair label, RowScope scope) =>
         from first in latest
         from tiles in IO.lift(static () => Ref(HashMap<TKey, Owned<Image>>()))
-        from seated in IO.lift(static () => Ref(HashMap<TKey, Owned<ImageButton>>()))
+        from buttons in IO.lift(static () => Ref(HashMap<TKey, Owned<ImageButton>>()))
         from keep in atomIO<Func<TItem, bool>>(static _ => true)
         from owned in use(static () => EnvIO.New(token: CancellationToken.None))
         from loads in IO.lift(static () => Ref(Option<Owned<Unit>>.None))
@@ -40,33 +40,33 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
             from kept in keep.ValueIO
             let listed = current.Items.Filter(kept)
             from loaded in Products.Clear(loads).Bind(_ => Products.Replace(loads, Loaded(latest, tiles, listed, scope, owned))).Scoped(owned)
-            from reseated in Seated(grid, latest, seated, tiles, listed, commands.Menu, scope, owned)
+            from arranged in Arranged(grid, latest, buttons, tiles, listed, commands.Menu, scope, owned)
             from emptied in IO.lift(() => { (scroll.Visible, empty.Visible, grid.ItemSize) = (!listed.IsEmpty, listed.IsEmpty, current.TileSize); })
             select unit
         from keys in Subscriptions.Inline<KeyEventArgs>(h => grid.KeyDown += h, h => grid.KeyDown -= h).Attach(args => CommandRows.Pressed(commands.Keyed, args))
         from content in Lists.Searched(stack, first.Search, kept => writeIO(keep, kept).Bind(_ => shown))
         select new RowCells(content.Control, latest.Bind(current => content.Shown(current.Search)).Bind(_ => shown).Bind(_ => commands.Refresh)) { Menu = commands.Menu };
 
-    private static IO<Unit> Seated(
-        ControlGridLayout grid, IO<BrowserRow<TItem, TKey>> latest, Ref<HashMap<TKey, Owned<ImageButton>>> seated, Ref<HashMap<TKey, Owned<Image>>> tiles,
+    private static IO<Unit> Arranged(
+        ControlGridLayout grid, IO<BrowserRow<TItem, TKey>> latest, Ref<HashMap<TKey, Owned<ImageButton>>> buttons, Ref<HashMap<TKey, Owned<Image>>> tiles,
         Seq<TItem> listed, Seq<Seq<Command<Invoke>>> menu, RowScope scope, EnvIO owned) =>
         from current in latest
         let wanted = listed.Map(current.Key)
         let chosen = toHashSet(wanted)
-        from prior in atomicIO(() => seated.Value)
-        from made in wanted.Filter(key => !prior.ContainsKey(key)).TraverseM(key => Products.Replace(seated, key, Tiled(latest, key, menu, scope)).Scoped(owned)).As()
-        from held in atomicIO(() => seated.Value)
+        from prior in atomicIO(() => buttons.Value)
+        from made in wanted.Filter(key => !prior.ContainsKey(key)).TraverseM(key => Products.Replace(buttons, key, Tiled(latest, key, menu, scope)).Scoped(owned)).As()
+        from held in atomicIO(() => buttons.Value)
         from images in atomicIO(() => tiles.Value)
-        from faced in listed.TraverseM(item => held.Find(current.Key(item)).Traverse(seat => IO.lift(() => {
-            (seat.Value.Size, seat.Value.ToolTip, seat.Value.Image) = (current.TileSize, current.Label(item), images.Find(current.Key(item)).Map(static tile => tile.Value).ValueUnsafe());
-            seat.Value.BackgroundColor = current.Current == Some(current.Key(item)) ? SystemColors.Highlight : Colors.Transparent;
+        from faced in listed.TraverseM(item => held.Find(current.Key(item)).Traverse(button => IO.lift(() => {
+            (button.Value.Size, button.Value.ToolTip, button.Value.Image) = (current.TileSize, current.Label(item), images.Find(current.Key(item)).Map(static tile => tile.Value).ValueUnsafe());
+            button.Value.BackgroundColor = current.Current == Some(current.Key(item)) ? SystemColors.Highlight : Colors.Transparent;
         })).As()).As()
-        let controls = wanted.Choose(key => held.Find(key).Map(static seat => (Control)seat.Value))
+        let controls = wanted.Choose(key => held.Find(key).Map(static button => (Control)button.Value))
         from ordered in unless(toSeq(grid.Items) == controls, IO.lift(() => {
             grid.Items.Clear();
             _ = controls.Iter(control => grid.Items.Add(control));
         })).As()
-        from dropped in toSeq(held.Keys).Filter(key => !chosen.Contains(key)).TraverseM(key => Products.Clear(seated, key).Scoped(owned)).As()
+        from dropped in toSeq(held.Keys).Filter(key => !chosen.Contains(key)).TraverseM(key => Products.Clear(buttons, key).Scoped(owned)).As()
         select unit;
 
     private static IO<ImageButton> Tiled(IO<BrowserRow<TItem, TKey>> latest, TKey key, Seq<Seq<Command<Invoke>>> menu, RowScope scope) =>

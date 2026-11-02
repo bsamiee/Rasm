@@ -101,24 +101,24 @@ public static class Exchange {
     public static IO<Committed<Unit>> Import<TOptions>(
         RhinoDoc doc, InputPath path, RedrawPolicy redraw, Func<string, RhinoDoc, TOptions, bool> reader, Func<FileReadOptions, TOptions> options,
         [CallerArgumentExpression(nameof(reader))] string member = "") =>
-        Recorded(doc, path, redraw, Carried(static () => new FileReadOptions { ImportMode = true, BatchMode = true }, carrier => Products.Accepted(() => reader(path, doc, options(carrier)), member)));
+        Recorded(doc, path, redraw, Using(static () => new FileReadOptions { ImportMode = true, BatchMode = true }, fileOptions => Products.Accepted(() => reader(path, doc, options(fileOptions)), member)));
 
     public static IO<Committed<Unit>> ReadFile(InputPath path, RedrawPolicy redraw, Action<FileReadOptions> mode) =>
         Documents.With(new DocumentSource.Active(), active => Recorded(active, path, redraw,
-            Carried(static () => new FileReadOptions { BatchMode = true }, carrier => IO.lift(() => mode(carrier)) >> Products.Accepted(() => RhinoDoc.ReadFile(path, carrier)))));
+            Using(static () => new FileReadOptions { BatchMode = true }, fileOptions => IO.lift(() => mode(fileOptions)) >> Products.Accepted(() => RhinoDoc.ReadFile(path, fileOptions)))));
 
     // --- [WRITES]
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, OutputPath path, Func<string, RhinoDoc, TOptions, WriteFileResult> writer, Func<FileWriteOptions, TOptions> options,
         [CallerArgumentExpression(nameof(writer))] string member = "") =>
-        Written(doc, path, carrier => IO.lift(() => writer(path, doc, options(carrier)) switch {
+        Written(doc, path, fileOptions => IO.lift(() => writer(path, doc, options(fileOptions)) switch {
             WriteFileResult.Success => Fin.Succ(unit),
             WriteFileResult.Cancel => Errors.Cancelled,
             WriteFileResult.Failure => new RhinoFault(member, RhinoReason.Declined),
         }));
 
     public static IO<Unit> WriteFile(RhinoDoc doc, OutputPath path, Action<FileWriteOptions> options) =>
-        Written(doc, path, carrier => IO.lift(() => options(carrier)) >> Products.Accepted(() => doc.WriteFile(path, carrier)));
+        Written(doc, path, fileOptions => IO.lift(() => options(fileOptions)) >> Products.Accepted(() => doc.WriteFile(path, fileOptions)));
 
     public static IO<Option<string>> Save(RhinoDoc doc) =>
         IO.lift(() => doc.Modified || doc.IsHeadless).Bind(pending => pending
@@ -128,14 +128,14 @@ public static class Exchange {
               select Some(titled)
             : IO.pure(Option<string>.None));
 
-    // --- [CARRIERS]
+    // --- [OPTIONS]
     private static IO<Committed<Unit>> Recorded(RhinoDoc doc, InputPath path, RedrawPolicy redraw, IO<Unit> read) =>
         Commits.Commit(doc, Path.GetFileName(path), redraw, read);
 
     private static IO<Unit> Written(RhinoDoc doc, OutputPath path, Func<FileWriteOptions, IO<Unit>> write) =>
-        IO.lift(() => Writable(doc, path)) >> Carried(static () => new FileWriteOptions { SuppressAllInput = true, SuppressDialogBoxes = true }, write);
+        IO.lift(() => Writable(doc, path)) >> Using(static () => new FileWriteOptions { SuppressAllInput = true, SuppressDialogBoxes = true }, write);
 
-    private static IO<Unit> Carried<TCarrier>(Func<TCarrier> acquire, Func<TCarrier, IO<Unit>> call) where TCarrier : IDisposable =>
+    private static IO<Unit> Using<TOptions>(Func<TOptions> acquire, Func<TOptions, IO<Unit>> call) where TOptions : IDisposable =>
         use(acquire).Bind(call).Bracket();
 
     private static Fin<Unit> Writable(RhinoDoc doc, string target) =>

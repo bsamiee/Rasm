@@ -29,7 +29,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         "RASM1203",
         Category,
         "Failure reported twice, report once at host translation",
-        "`{0}` reports a failure `{1}` already reported, report once at the host translation",
+        "`{0}` reports failure `{1}` a second time, report once at the host translation",
         "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or `HostUtils.ExceptionReport` on receiver or handler side alone");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called, Twice];

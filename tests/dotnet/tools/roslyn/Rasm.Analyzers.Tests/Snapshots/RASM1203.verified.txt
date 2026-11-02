@@ -1,1 +1,1 @@
-#0 `HostUtils.ExceptionReport` reports a failure `Sink.Report` already reported, report once at the host translation
+#0 `HostUtils.ExceptionReport` reports failure `Sink.Report` a second time, report once at the host translation

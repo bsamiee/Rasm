@@ -46,7 +46,7 @@ public static class SolidAssembly {
                     Some: domain => brep.Edges.Add(ends.Start, ends.End, ends.Curve, domain, Conversions.Unset(edge.Tolerance)),
                     None: () => brep.Edges.Add(ends.Start, ends.End, ends.Curve, Conversions.Unset(edge.Tolerance))), at)))
         from trims in Products.Each(topology.Faces, (face, at) => Faced((Brep: brep, Surfaces: surfaces, Vertices: vertices, Edges: edges, At: at), face))
-        select Settled(brep, trims.Bind(static held => held));
+        select Flagged(brep, trims.Bind(static held => held));
 
     private static Fin<Seq<(BrepTrim Trim, Option<IsoStatus> Iso)>> Faced((Brep Brep, Seq<int> Surfaces, Seq<BrepVertex> Vertices, Seq<BrepEdge> Edges, int At) of, TopologyFace face) =>
         face.Switch(
@@ -85,7 +85,7 @@ public static class SolidAssembly {
         return face;
     }
 
-    private static Unit Settled(Brep brep, Seq<(BrepTrim Trim, Option<IsoStatus> Iso)> trims) {
+    private static Unit Flagged(Brep brep, Seq<(BrepTrim Trim, Option<IsoStatus> Iso)> trims) {
         brep.SetTrimIsoFlags();
         _ = trims.Iter(static held => held.Iso.Iter(iso => held.Trim.IsoStatus = iso));
         brep.SetTolerancesBoxesAndFlags(

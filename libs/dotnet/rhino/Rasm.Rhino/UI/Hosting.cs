@@ -62,7 +62,7 @@ internal sealed class ViewBody {
         from visibility in enclosing.OnVisibility(_ => built.Evaluated)
         select built;
 
-    // --- [EDGES]
+    // --- [CALLBACKS]
     public IO<Unit> Shown(bool visible) =>
         IO.lift(() => showing = visible).Bind(_ => Products.Each(Seq(ViewOps.Toggled(listeners, visible, Listening).Scoped(scope), Evaluated))).Map(unit);
 
@@ -111,7 +111,7 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
                 from frame in IO.lift(() => new HostFrame(this) { Content = made.Frame })
                 select (made.Body, Frame: (Control)frame)).Scoped(Scope)));
 
-    internal static IO<(ViewBody Body, Control Frame)> Seated(View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, IO<Unit>>> listening) =>
+    internal static IO<(ViewBody Body, Control Frame)> Opened(View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, IO<Unit>>> listening) =>
         from body in ViewBody.Open(row, document, mode, listening)
         from frame in row.Children.Exists(static child => child.Fill)
             ? IO.pure(body.Content)
@@ -121,13 +121,13 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
             }))
         select (body, frame);
 
-    internal static IO<(ViewBody Body, Control Frame)> Styled(IO<(ViewBody Body, Control Frame)> seated) =>
-        seated.Bind(static held => IO.lift(() => {
+    internal static IO<(ViewBody Body, Control Frame)> Styled(IO<(ViewBody Body, Control Frame)> opened) =>
+        opened.Bind(static held => IO.lift(() => {
             held.Frame.UseRhinoStyle();
             return held;
         }));
 
-    // --- [EDGES]
+    // --- [CALLBACKS]
     internal Unit Shown(bool visible) =>
         Session.Run((visible ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
 
@@ -168,7 +168,7 @@ internal sealed class HostFrame(HostedView hosted) : Panel {
 
 internal sealed class HostedWindow : Form {
     internal HostedWindow(View.Window row, RhinoDoc document) : base(row.Kind.Handler()) =>
-        (Row, Hosted) = (row, new HostedView(() => HostedView.Seated(row, Some(document), new CommitMode.Immediate(), None)));
+        (Row, Hosted) = (row, new HostedView(() => HostedView.Opened(row, Some(document), new CommitMode.Immediate(), None)));
 
     internal View.Window Row { get; }
 
@@ -184,7 +184,7 @@ public abstract class DefinedPanel<TSelf> : Panel, IPanel, IHelp where TSelf : D
     private readonly HostedView hosted;
 
     protected DefinedPanel(RhinoDoc document) {
-        hosted = new HostedView(() => HostedView.Seated(TSelf.Definition, Some(document), new CommitMode.Immediate(), None));
+        hosted = new HostedView(() => HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None));
         _ = TSelf.Definition.MinimumSize.Iter(size => MinimumSize = size);
         Content = hosted.Frame.ValueUnsafe();
     }
@@ -204,7 +204,7 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
 
     internal DefinedOptionsPage(View.Page row, Option<RhinoDoc> document) : base(row.Caption) {
         this.row = row;
-        hosted = new HostedView(() => HostedView.Styled(HostedView.Seated(row, document, row.Commit, Some(Marking))));
+        hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(row, document, row.Commit, Some(Marking))));
         (NavigationTextIsBold, NavigationTextColor) = (row.NavigationBold, Conversions.Unset(row.NavigationColor));
     }
 
@@ -257,7 +257,7 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
 
     internal DefinedPropertiesPage(View.PropertiesPage row) {
         this.row = row;
-        hosted = new HostedView(() => HostedView.Styled(HostedView.Seated(row, Optional(new ObjectPropertiesPageEventArgs(this).Document), new CommitMode.Targets(this), Refreshing)));
+        hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(row, Optional(new ObjectPropertiesPageEventArgs(this).Document), new CommitMode.Targets(this), Refreshing)));
     }
 
     public override string EnglishPageTitle => row.Caption;

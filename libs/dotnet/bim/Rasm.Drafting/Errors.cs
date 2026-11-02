@@ -11,10 +11,10 @@ public sealed partial class DraftingReason {
     public static readonly DraftingReason RevisionLetters = new("letters outside the revision alphabet or its letter count");
     public static readonly DraftingReason RevisionOrdinal = new("ordinal outside the revision alphabet");
     public static readonly DraftingReason IssueDate = new("no ISO 8601 date");
-    public static readonly DraftingReason TitleMissing = new("title-block field without an entry");
-    public static readonly DraftingReason TitleInvalid = new("title-block field with an invalid entry");
+    public static readonly DraftingReason TitleMissing = new("empty title-block field");
+    public static readonly DraftingReason TitleInvalid = new("invalid title-block field");
     public static readonly DraftingReason NameBroken = new("name outside its naming standard");
-    public static readonly DraftingReason NumberTaken = new("number another sheet holds");
+    public static readonly DraftingReason NumberTaken = new("duplicate sheet number");
 
     public string Message { get; }
 }

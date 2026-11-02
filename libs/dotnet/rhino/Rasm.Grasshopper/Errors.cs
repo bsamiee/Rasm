@@ -7,7 +7,7 @@ namespace Rasm.Grasshopper;
 [SmartEnum]
 public sealed partial class GrasshopperReason {
     public static readonly GrasshopperReason Stated = new("rejected input");
-    public static readonly GrasshopperReason Declined = new("declined by the host");
+    public static readonly GrasshopperReason Declined = new("host declined");
     public static readonly GrasshopperReason Invalid = new("rule violated");
     public static readonly GrasshopperReason Missing = new("missing");
     public static readonly GrasshopperReason Taken = new("taken");

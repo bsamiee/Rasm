@@ -81,15 +81,15 @@ public abstract partial record NamedChange {
     // --- [APPLY]
     public static IO<Seq<Committed<Seq<NamedEvent>>>> Apply(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> changes) =>
         from held in NamedTable.Read(doc, tables)
-        from valid in IO.lift(() => changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Landed)))
-        from landed in IO.lift(static () => (Writes: Atom(Seq<NamedWrite>()), Records: Atom(Seq<Option<uint>>())))
+        from valid in IO.lift(() => changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Projected)))
+        from journal in IO.lift(static () => (Writes: Atom(Seq<NamedWrite>()), Records: Atom(Seq<Option<uint>>())))
         from committed in toSeq(changes.Segment(static (current, previous, _) => !current.Table.Batches || !previous.Table.Batches))
-            .TraverseM(segment => Applied(doc, tables, toSeq(segment), landed.Writes, landed.Records)).As()
+            .TraverseM(segment => Applied(doc, tables, toSeq(segment), journal.Writes, journal.Records)).As()
             .Catch(error => Products.Each(Seq(
-                    IO.lift(() => landed.Writes.Value).Bind(NamedWrite.Reverted),
-                    IO.lift(() => landed.Records.Value.Rev().Somes()).Bind(records => records.TraverseM(_ => Commits.Step(doc, doc.Undo)).As()).Map(static _ => unit)))
+                    IO.lift(() => journal.Writes.Value).Bind(NamedWrite.Reverted),
+                    IO.lift(() => journal.Records.Value.Rev().Somes()).Bind(records => records.TraverseM(_ => Commits.Step(doc, doc.Undo)).As()).Map(static _ => unit)))
                 >> IO.fail<Seq<Committed<Seq<NamedEvent>>>>(error))
-            .Finally(IO.lift(() => landed.Writes.Value).Bind(NamedWrite.Released))
+            .Finally(IO.lift(() => journal.Writes.Value).Bind(NamedWrite.Released))
         select committed;
 
     private static IO<Committed<Seq<NamedEvent>>> Applied(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> segment, Atom<Seq<NamedWrite>> writes, Atom<Seq<Option<uint>>> records) =>
@@ -125,7 +125,7 @@ public abstract partial record NamedChange {
             xform: static (document, xform) => IO.lift(() => xform.Entry.Table.Supported(xform.Entry.Table.Transform)).Bind(run => run(document, xform.Entry, xform.Transform)),
             import: static (document, import) => IO.lift(() => import.Source.Supported(import.Source.Import)).Bind(run => run(document, import.Path, import.Names)));
 
-    private Fin<Seq<NamedEntry>> Landed(Seq<NamedEntry> entries) =>
+    private Fin<Seq<NamedEntry>> Projected(Seq<NamedEntry> entries) =>
         Switch(
             entries,
             save: static (held, save) =>
@@ -140,10 +140,10 @@ public abstract partial record NamedChange {
             delete: static (held, delete) => delete.Entry.Table.Present(held, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
             xform: static (held, xform) =>
                 from found in xform.Entry.Table.Present(held, xform.Entry.Name)
-                from verb in xform.Entry.Table.Supported(xform.Entry.Table.Transform)
+                from operation in xform.Entry.Table.Supported(xform.Entry.Table.Transform)
                 select held,
             import: static (held, import) =>
-                from verb in import.Source.Supported(import.Source.Import)
+                from operation in import.Source.Supported(import.Source.Import)
                 select import.Names.Match(
                     Some: names => names.Fold(held, (entries, name) => import.Source.Find(entries, name).IsSome ? entries : entries.Add(new NamedEntry(import.Source, name, None))),
                     None: () => held));
@@ -216,8 +216,8 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
     internal Fin<Unit> Accepted(StateName entry) =>
         Accepts.Map(accepts => accepts(entry)).IfNone(unit);
 
-    internal Fin<T> Supported<T>(Option<T> verb, [CallerArgumentExpression(nameof(verb))] string call = "") =>
-        verb.ToFin(new RhinoFault($"{call} on {name}", RhinoReason.Unsupported));
+    internal Fin<T> Supported<T>(Option<T> operation, [CallerArgumentExpression(nameof(operation))] string call = "") =>
+        operation.ToFin(new RhinoFault($"{call} on {name}", RhinoReason.Unsupported));
 
     internal RhinoFault Missing(string entry) =>
         new($"{entry} in {name}", RhinoReason.Missing);

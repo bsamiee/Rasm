@@ -37,7 +37,7 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
                 static (held, handler) => held.TextChanged += handler,
                 static (held, handler) => held.TextChanged -= handler),
             static _ => true,
-            Some(Entries.Settled(entry.Field, entry.Commit)),
+            Some(Entries.Committing(entry.Field, entry.Commit)),
             first.Value, edit => latest.Bind(row => row.Edited(edit)))
         let shown = latest.Bind(row => show(row.Value))
         from escaped in Subscriptions.Inline<KeyEventArgs>(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h).Attach(args =>
@@ -69,8 +69,8 @@ internal static class Entries {
         from box in use(static () => new PasswordBox())
         select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
 
-    // --- [SETTLING]
-    internal static HostEvent<Unit> Settled(TextControl field, Keys commit) =>
+    // --- [COMMITS]
+    internal static HostEvent<Unit> Committing(TextControl field, Keys commit) =>
         Subscriptions.Merged(
             Subscriptions.Inline<EventArgs>(h => field.LostFocus += h, h => field.LostFocus -= h).Choose(static _ => Some(unit)),
             Subscriptions.Inline<KeyEventArgs>(h => field.KeyDown += h, h => field.KeyDown -= h).Choose(args => Conversions.Present(args.KeyData == commit, args).Map(static held => {

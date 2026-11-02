@@ -108,7 +108,7 @@ public static class Edits {
     public static IO<IParameter> Retype(IParameter relay, ActionList actions) =>
         from document in Floating(relay)
         from typed in IO.lift(() => ObjectProxies.CreateOverlappingParameter(Ends(document, relay.Inputs) is { IsEmpty: false } sources ? sources : Ends(document, relay.Outputs)))
-        from carried in IO.lift(() => {
+        from copied in IO.lift(() => {
             typed.UserName = relay.UserName;
             AbstractParameter.SiphonProperties(relay, typed, StateAspects.Revertable);
         })

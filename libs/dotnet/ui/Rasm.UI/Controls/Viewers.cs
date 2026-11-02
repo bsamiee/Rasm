@@ -104,7 +104,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
             @default: static (_, node) => node,
             mark: static (data, mark) => mark with { Series = data });
         View member = face with { Key = key, Role = face.Role | Some(Role.Series) };
-        bool present = !Hidden.Contains(key) && (Isolated.IsEmpty || Isolated.Contains(key)) && ColorAxis.Admits(Color, value);
+        bool present = !Hidden.Contains(key) && (Isolated.IsEmpty || Isolated.Contains(key)) && ColorAxis.Shows(Color, value);
         return present ? Some((key, member)) : Ghosted && !Hidden.Contains(key) ? Some((key, member.Conditioned(Condition.Disabled))) : None;
     }
 

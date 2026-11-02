@@ -20,9 +20,9 @@ public static class ReferenceCalculations {
         int dim = points is [var first, ..] ? first.Length : throw new ArgumentOutOfRangeException(nameof(points));
         double[] mass = Mass(points.Length, weights);
         double total = mass.Sum();
-        Shape(mass.Length == points.Length, "one weight per point", nameof(weights));
-        Shape(Math.Abs(total) > 0.0, "weights sum to zero", nameof(weights));
-        Shape(points.All(point => point.Length == dim), "points differ in dimension", nameof(points));
+        Require(mass.Length == points.Length, "one weight per point", nameof(weights));
+        Require(Math.Abs(total) > 0.0, "weights sum to zero", nameof(weights));
+        Require(points.All(point => point.Length == dim), "points differ in dimension", nameof(points));
         return [.. Enumerable.Range(0, dim).Select(axis => Enumerable.Range(0, points.Length).Sum(i => points[i][axis] * mass[i]) / total)];
     }
     public static double[] ScatterMatrixUpperTriangle(double[][] points, Option<double[]> weights = default) {
@@ -42,22 +42,22 @@ public static class ReferenceCalculations {
         return (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
     }
     public static double Distance(double[] left, double[] right) {
-        Shape(left.Length == right.Length, "points differ in dimension", nameof(right));
+        Require(left.Length == right.Length, "points differ in dimension", nameof(right));
         return Math.Sqrt(Enumerable.Range(0, left.Length).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
     }
     private static double[] Mass(int count, Option<double[]> weights) => weights.IfNone(() => [.. Enumerable.Repeat(1.0, count)]);
 
     // --- [GEOMETRY_CALCULATIONS]
     public static double SignedShoelaceArea(double[][] ring) {
-        Shape(ring.All(static point => point.Length >= 2), "every ring point needs two coordinates", nameof(ring));
+        Require(ring.All(static point => point.Length >= 2), "every ring point needs two coordinates", nameof(ring));
         return 0.5 * Enumerable.Range(0, ring.Length).Sum(i => {
             (double[] a, double[] b) = (ring[i], ring[(i + 1) % ring.Length]);
             return (a[0] * b[1]) - (b[0] * a[1]);
         });
     }
     public static double SignedVolume(double[][] vertices, int[][] faces) {
-        Shape(vertices.All(static vertex => vertex.Length >= 3), "every vertex needs three coordinates", nameof(vertices));
-        Shape(faces.All(face => face.Length >= 3 && face.All(index => index >= 0 && index < vertices.Length)), "every face needs three valid vertex indices", nameof(faces));
+        Require(vertices.All(static vertex => vertex.Length >= 3), "every vertex needs three coordinates", nameof(vertices));
+        Require(faces.All(face => face.Length >= 3 && face.All(index => index >= 0 && index < vertices.Length)), "every face needs three valid vertex indices", nameof(faces));
         return faces.Sum(face => Enumerable.Range(1, face.Length - 2).Sum(k => SignedTetraVolume(vertices[face[0]], vertices[face[k]], vertices[face[k + 1]])));
     }
     public static double SignedTetraVolume(double[] a, double[] b, double[] c) =>
@@ -69,7 +69,7 @@ public static class ReferenceCalculations {
     public static int OrientationSign(double[][] simplex) {
         int dim = simplex.Length - 1;
         bool valid = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));
-        Shape(valid, "OrientationSign needs 3 finite 2D points or 4 finite 3D points", nameof(simplex));
+        Require(valid, "OrientationSign needs 3 finite 2D points or 4 finite 3D points", nameof(simplex));
         (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(dim).Select(Decompose)])];
         int floor = parts.SelectMany(static point => point).Min(static part => part.Exponent);
         BigInteger[][] scaled = [.. parts.Select(point => (BigInteger[])[.. point.Select(part => part.Mantissa << (part.Exponent - floor))])];
@@ -112,8 +112,8 @@ public static class ReferenceCalculations {
     public static double ProductResidual(int rows, int width, int cols, Func<int, int, double> left, Func<int, int, double> right, Func<int, int, double> actual) =>
         EntrywiseResidual(rows, cols, (row, col) => MatrixProductEntry(width, left, right, row, col), actual);
     public static double SolveResidual(int rows, int cols, Func<int, int, double> at, double[] x, double[] b) {
-        Shape(x.Length == cols, "one unknown per column", nameof(x));
-        Shape(b.Length == rows, "one right-hand value per row", nameof(b));
+        Require(x.Length == cols, "one unknown per column", nameof(x));
+        Require(b.Length == rows, "one right-hand value per row", nameof(b));
         return Enumerable.Range(0, rows).Max(row => Math.Abs(Dot(cols, col => at(row, col), col => x[col]) - b[row]));
     }
     public static double EigenpairResidual(int n, Func<int, int, double> at, double eigenvalue, double[] eigenvector) =>
@@ -139,7 +139,7 @@ public static class ReferenceCalculations {
         Enumerable.Range(0, eigenvalues.Length).Sum(i => Math.Exp(-eigenvalues[i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
 
     // --- [PRECONDITIONS]
-    private static void Shape(bool valid, string message, string paramName) {
+    private static void Require(bool valid, string message, string paramName) {
         if (!valid) throw new ArgumentException(message, paramName);
     }
 }

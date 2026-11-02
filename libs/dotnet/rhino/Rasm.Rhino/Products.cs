@@ -69,7 +69,7 @@ public static class Products {
 
     public static IO<Seq<T>> Each<T>(Seq<IO<T>> effects) =>
         effects.Map<K<IO, T>>(static effect => effect).PartitionFallible().As()
-            .Bind(static settled => settled.Fails.IsEmpty ? IO.pure(settled.Succs) : IO.fail<Seq<T>>(Error.Many(settled.Fails)));
+            .Bind(static outcome => outcome.Fails.IsEmpty ? IO.pure(outcome.Succs) : IO.fail<Seq<T>>(Error.Many(outcome.Fails)));
 
     // --- [RELEASES]
     public static IO<Unit> Released(Action release) => use(() => new StrongBox<Action>(release), static box => box.Value!()).Map(unit);

@@ -179,7 +179,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     private IO<Unit> Focused(Edit<Selection> edit, Key node, Seq<Key> keys) =>
         Selected.Map(selected => selected(edit.Map(_ => Selection.Navigated(keys, node, extend: false)).As())).IfNone(unitIO);
 
-    // --- [WIRING]
+    // --- [WIRES]
     private Option<View> Connection(Wire wire, HashMap<Socket, Slot> slots) =>
         from start in slots.Find(wire.From).Filter(static slot => slot.Output)
         from end in slots.Find(wire.To)
@@ -194,27 +194,27 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
 
     private Lift Lifted(Slot slot, HashMap<Socket, Slot> slots) =>
         Lift.Of(ports => new Transfer.Keys(ports.Map(port => Seq(slot.Socket.Node, port)))) with {
-            Preview = slots.Find(Carried(slot.Socket, slots).Head.Map(static wire => wire.From).IfNone(slot.Socket))
+            Preview = slots.Find(Attached(slot.Socket, slots).Head.Map(static wire => wire.From).IfNone(slot.Socket))
                 .Map(start => (Func<Vector2, View>)(pointer => Line(start.Anchor, pointer, slot.Port.Type, []))),
         };
 
-    private Seq<Wire> Carried(Socket socket, HashMap<Socket, Slot> slots) => slots.Find(socket).Exists(static slot => !slot.Output) ? Wires.Filter(wire => wire.To == socket) : [];
+    private Seq<Wire> Attached(Socket socket, HashMap<Socket, Slot> slots) => slots.Find(socket).Exists(static slot => !slot.Output) ? Wires.Filter(wire => wire.To == socket) : [];
 
     private Option<Seq<Wire>> Rewired(Socket source, Socket target, HashMap<Socket, Slot> slots) {
-        Seq<Wire> carried = Carried(source, slots);
-        return from wire in carried.Head.Filter(_ => slots.Find(target).Exists(static slot => !slot.Output)).Map(held => new Wire(held.From, target))
+        Seq<Wire> attached = Attached(source, slots);
+        return from wire in attached.Head.Filter(_ => slots.Find(target).Exists(static slot => !slot.Output)).Map(held => new Wire(held.From, target))
                    | Some(slots.Find(source).Exists(static slot => slot.Output) ? new Wire(source, target) : new Wire(target, source))
                from output in slots.Find(wire.From).Filter(static slot => slot.Output)
                from input in slots.Find(wire.To).Filter(static slot => !slot.Output)
                where Accepts(output.Port, input.Port) && !Wires.Exists(held => held == wire)
-               select Wires.Filter(held => !carried.Exists(moved => moved == held) && (input.Port.Many || held.To != wire.To)).Add(wire);
+               select Wires.Filter(held => !attached.Exists(moved => moved == held) && (input.Port.Many || held.To != wire.To)).Add(wire);
     }
 
     private Option<IO<Unit>> Detached(Transfer transfer, HashMap<Socket, Slot> slots, Func<Edit<Seq<Wire>>, IO<Unit>> wired) =>
         from source in Source(transfer)
-        let carried = Carried(source, slots)
-        where !carried.IsEmpty
-        select wired(Edit.Of(EditPhase.Commit, Wires.Filter(wire => !carried.Exists(held => held == wire))));
+        let attached = Attached(source, slots)
+        where !attached.IsEmpty
+        select wired(Edit.Of(EditPhase.Commit, Wires.Filter(wire => !attached.Exists(held => held == wire))));
 
     private static Option<Socket> Source(Transfer transfer) =>
         from keys in Optional(transfer as Transfer.Keys)

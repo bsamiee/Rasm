@@ -34,8 +34,8 @@ public sealed record RowCells(Control Value, IO<Unit> Show) {
 }
 
 public sealed record Row {
-    private Row(string label, RowShape shape, object kind, Func<LocalizeStringPair, RowScope, IO<(RowCells Cells, Func<Row, IO<bool>> Restated)>> seated) =>
-        (Label, Shape, Kind, Seated) = (label, shape, kind, seated);
+    private Row(string label, RowShape shape, object kind, Func<LocalizeStringPair, RowScope, IO<(RowCells Cells, Func<Row, IO<bool>> Restated)>> realize) =>
+        (Label, Shape, Kind, Realize) = (label, shape, kind, realize);
 
     public string Label { get; }
     public RowShape Shape { get; }
@@ -45,7 +45,7 @@ public sealed record Row {
     public bool Modified { get; init; }
 
     internal object Kind { get; }
-    internal Func<LocalizeStringPair, RowScope, IO<(RowCells Cells, Func<Row, IO<bool>> Restated)>> Seated { get; }
+    internal Func<LocalizeStringPair, RowScope, IO<(RowCells Cells, Func<Row, IO<bool>> Restated)>> Realize { get; }
 
     public static Row Of<TKind>(string label, TKind kind) where TKind : IRow<TKind> =>
         new(label, kind.Shape, kind, (caption, scope) =>

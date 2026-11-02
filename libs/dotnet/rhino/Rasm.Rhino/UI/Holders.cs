@@ -47,7 +47,7 @@ internal sealed class HostedSection : IDisposable {
 
     internal bool Hidden => body.Exists(static held => held.Hidden);
 
-    // --- [EDGES]
+    // --- [CALLBACKS]
     internal Option<IHeaderButtonHandler> Header =>
         actions.IsEmpty
             ? None
@@ -135,7 +135,7 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
 
     public override IHeaderButtonHandler NewHeaderButtonHandler() => hosted.Header.IfNone(base.NewHeaderButtonHandler);
 
-    // --- [EDGES]
+    // --- [CALLBACKS]
     internal Option<SectionHolder> Holder { get; private set; }
 
     public override void OnAttachedToHolder(ICollapsibleSectionHolder2 holder) {
@@ -178,7 +178,7 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         stack.Dispose();
     }
 
-    // --- [EDGES]
+    // --- [CALLBACKS]
     internal static IO<Unit> HolderVisible(Control content, bool visible) =>
         content switch {
             SectionHolder stack => Products.Each(toSeq(stack.Sections).Choose(static section => Optional(section as EtoCollapsibleSection2))

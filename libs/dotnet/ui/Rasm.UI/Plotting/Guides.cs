@@ -43,17 +43,17 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
     // --- [PLOT]
     private sealed record Marked(Guide Guide, float Spacing, Seq<(float Value, LayoutNode Layout)> Labels, Option<LayoutNode> Title) {
         internal static Gutter Reached(Seq<Marked> marks, PlotPlane plane, SKRect data, float gap) =>
-            Outside(data, marks.Bind(marked => marked.Seats(plane, data, gap)).Fold(data, static (reach, seat) => SKRect.Union(reach, seat.Reach)));
+            Outside(data, marks.Bind(marked => marked.Placements(plane, data, gap)).Fold(data, static (reach, placement) => SKRect.Union(reach, placement.Reach)));
 
-        internal Seq<(LayoutNode Layout, SKRect Frame, SKRect Reach)> Seats(PlotPlane plane, SKRect data, float gap) {
+        internal Seq<(LayoutNode Layout, SKRect Frame, SKRect Reach)> Placements(PlotPlane plane, SKRect data, float gap) {
             PlotFrame frame = plane.In(data);
             PhysicalAxis cross = Guide.Along.Cross;
             float outward = frame.Sign(cross) * ((float)Guide.Edge < 0.5f ? -1f : 1f);
             float edge = outward < 0f ? cross.Of(data.Location) : cross.End(data);
             Seq<(LayoutNode Layout, SKRect Frame, SKRect Reach)> labels = Labels.Map(label =>
-                Seated(label.Layout, Guide.Angle, Guide.Along.With(cross.With(Vector2.Zero, edge + (outward * gap)), Guide.Along.Of(frame.Point(Guide.Anchor(plane, label.Value)))), cross, outward));
-            float depth = labels.Map(seat => outward < 0f ? edge - cross.Of(seat.Reach.Location) : cross.End(seat.Reach) - edge).Max(gap);
-            return labels + Title.Map(title => Seated(title, Guide.TitleAngle, Guide.Along.With(cross.With(Vector2.Zero, edge + (outward * (depth + gap))), Guide.Along.Of(new Vector2(data.MidX, data.MidY))), cross, outward)).ToSeq();
+                Placement(label.Layout, Guide.Angle, Guide.Along.With(cross.With(Vector2.Zero, edge + (outward * gap)), Guide.Along.Of(frame.Point(Guide.Anchor(plane, label.Value)))), cross, outward));
+            float depth = labels.Map(placement => outward < 0f ? edge - cross.Of(placement.Reach.Location) : cross.End(placement.Reach) - edge).Max(gap);
+            return labels + Title.Map(title => Placement(title, Guide.TitleAngle, Guide.Along.With(cross.With(Vector2.Zero, edge + (outward * (depth + gap))), Guide.Along.Of(new Vector2(data.MidX, data.MidY))), cross, outward)).ToSeq();
         }
     }
 
@@ -79,16 +79,16 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
             .Map((node, index) => Built(available, layout.Path.Add(Grids).Add(new Key.Ordinal((uint)index)), node, earlier));
         Seq<LayoutNode> members = Contained(layout, Grids, grids.Map(grid => Layouts.Framed(available.Pass, grid, Local(data, content))))
             + Layouts.Pins(available, data, callers, plot.Plane.In(data).Point, (room, member) => Layouts.Framed(room.Pass, member, data))
-            + Contained(layout, Labels, marks.Bind(marked => marked.Seats(plot.Plane, data, gap)).Map(seat => Layouts.Framed(available.Pass, seat.Layout, Local(seat.Frame, content))));
+            + Contained(layout, Labels, marks.Bind(marked => marked.Placements(plot.Plane, data, gap)).Map(placement => Layouts.Framed(available.Pass, placement.Layout, Local(placement.Frame, content))));
         return layout with { Data = data, Members = members, Children = members };
     }
 
-    internal static Seq<LayoutNode> Shared(AvailableSpace available, Seq<LayoutNode> placed, PhysicalAxis axis, Func<int, int> lane) {
+    internal static Seq<LayoutNode> Shared(AvailableSpace available, Seq<LayoutNode> placed, PhysicalAxis axis, Func<int, int> line) {
         if (available.Along != PhysicalAxis.Vertical) return placed;
-        HashMap<int, Gutter> widest = placed.Map((child, index) => (Child: child, Lane: lane(index))).Filter(static held => held.Child.View is View.Plot)
-            .Fold(HashMap<int, Gutter>(), (held, plot) => held.AddOrUpdate(plot.Lane, Some: shared => shared.Max(Of(plot.Child).Along(axis)), None: () => Of(plot.Child).Along(axis)));
+        HashMap<int, Gutter> widest = placed.Map((child, index) => (Child: child, Line: line(index))).Filter(static held => held.Child.View is View.Plot)
+            .Fold(HashMap<int, Gutter>(), (held, plot) => held.AddOrUpdate(plot.Line, Some: shared => shared.Max(Of(plot.Child).Along(axis)), None: () => Of(plot.Child).Along(axis)));
         return placed.Map((child, index) => (from plot in Optional(child.View as View.Plot)
-                                             from shared in widest.Find(lane(index))
+                                             from shared in widest.Find(line(index))
                                              where shared != Of(child).Along(axis)
                                              select shared.Plot(available with { Layout = child, Start = child.ContentBox.Top, Space = child.ContentBox.Height }, plot)).IfNone(child));
     }
@@ -117,7 +117,7 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
         axis.Ticks(least).Filter(static tick => tick.Major).Map((tick, index) => (tick.Value, Built(available, available.Layout.Path.Add(Labels).Add(new Key.Ordinal(offset + (uint)index)),
             new View.Text([guide.Label(axis, tick.Value, available.Pass.Culture)]) { Role = Role.Tick, Align = UnitPoint.Center, Transform = Rotation(guide.Angle) }, earlier)));
 
-    private static (LayoutNode Layout, SKRect Frame, SKRect Reach) Seated(LayoutNode layout, float degrees, Vector2 near, PhysicalAxis cross, float outward) {
+    private static (LayoutNode Layout, SKRect Frame, SKRect Reach) Placement(LayoutNode layout, float degrees, Vector2 near, PhysicalAxis cross, float outward) {
         SKSize turned = Turned(layout.Intrinsic, degrees);
         Vector2 center = cross.With(near, cross.Of(near) + (outward * cross.Of(turned) / 2f));
         return (layout, Centered(center, layout.Intrinsic), Centered(center, turned));

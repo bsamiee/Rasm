@@ -59,21 +59,21 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
     // --- [LOOKS]
     public static StyleSheet Empty { get; } = new(HashMap<Role, Look>());
 
-    private static readonly Seq<Stroke> Bare = Seq<Stroke>();
+    private static readonly Seq<Stroke> Strokeless = Seq<Stroke>();
     private static readonly Seq<Stroke> Edged = [new Stroke(new ColorValue.Current(Channel.Stroke))];
     private static readonly Shape Pill = new Shape.Capsule();
     private static readonly Seq<Shadow> Contact = [new Shadow(Fixed(Css.Black, 0.2f), Blur: 1f) { Y = 0.5f }];
     private static readonly Look Outlined = new() { Fills = Seq<Material>(), Strokes = Seq(new Stroke(PanelText)), Text = PanelText };
-    private static readonly Look Frosted = new() { Fills = Seq(Frost, new Material.Solid(new ColorValue.Current(Channel.Fill) { Alpha = Fraction.Validated(0.6f).ThrowIfFail() })), Strokes = Bare };
-    private static readonly Look Flat = new() { Strokes = Bare };
+    private static readonly Look Frosted = new() { Fills = Seq(Frost, new Material.Solid(new ColorValue.Current(Channel.Fill) { Alpha = Fraction.Validated(0.6f).ThrowIfFail() })), Strokes = Strokeless };
+    private static readonly Look Flat = new() { Strokes = Strokeless };
     private static readonly Look Hueless = new() { Fills = Solid(Greyed(new ColorValue.Current(Channel.Fill))) };
     private static readonly Look HuelessStates = Hueless with {
         StateLayers = toHashMap(toSeq(Interaction.Items).Choose(static interaction => interaction.Emphasis.Map(_ => (interaction, (ColorValue)Greyed(new ColorValue.Current(Channel.Fill) { Interaction = interaction }))))),
     };
-    private static readonly Look WellSelection = new() { Fills = Solid(Fixed(Css.White, 0.39f)), Strokes = Bare };
+    private static readonly Look WellSelection = new() { Fills = Solid(Fixed(Css.White, 0.39f)), Strokes = Strokeless };
     private static readonly Look Ringed = new() { Strokes = Seq(new Stroke(FocusTint)) };
     private static readonly Look Lined = new() { Strokes = Seq(new Stroke(new ColorValue.Current(Channel.Stroke)) { Cap = SKStrokeCap.Butt }) };
-    private static readonly Look Surfaced = Look.Unpainted with {
+    private static readonly Look Raised = Look.Unpainted with {
         Fills = Solid(new ColorValue.Current(Channel.Fill)),
         Text = PanelText,
         Shadows = Lifted(1f),
@@ -88,7 +88,7 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
 
     public static StyleSheet Base { get; } = new(HashMap(
         (Role.Panel, new Look {
-            Strokes = Bare,
+            Strokes = Strokeless,
             Metrics = HashMap((Metric.Inset, 8f), (Metric.Gap, 6f)),
             When = HashMap(
                 (Condition.Glass, Frosted),
@@ -113,15 +113,15 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
             Metrics = HashMap((Metric.Inset, 12f), (Metric.Gap, 8f), (Metric.Radius, Corner + 2f)),
             When = HashMap((Condition.Glass, Frosted), (Condition.Neutral, Flat)) + Emphasized(Ringed),
         }),
-        (Role.Dialog, Surfaced with { Metrics = HashMap((Metric.Inset, 16f), (Metric.Gap, 12f), (Metric.Radius, Corner * 2f), (Metric.Measure, Control * 18f)) }),
-        (Role.Sheet, Surfaced with { Metrics = HashMap((Metric.Inset, 12f), (Metric.Gap, 8f), (Metric.Measure, Control * 14f)) }),
-        (Role.Hud, Surfaced with {
+        (Role.Dialog, Raised with { Metrics = HashMap((Metric.Inset, 16f), (Metric.Gap, 12f), (Metric.Radius, Corner * 2f), (Metric.Measure, Control * 18f)) }),
+        (Role.Sheet, Raised with { Metrics = HashMap((Metric.Inset, 12f), (Metric.Gap, 8f), (Metric.Measure, Control * 14f)) }),
+        (Role.Hud, Raised with {
             Metrics = HashMap((Metric.Inset, 4f), (Metric.Gap, 2f), (Metric.Radius, Corner + 2f)),
             Within = HashMap((Role.Well, new Look { Metrics = HashMap((Metric.Extent, Control * 4f)) })),
         }),
-        (Role.Popover, Surfaced with { Metrics = HashMap((Metric.Inset, 8f), (Metric.Gap, 4f), (Metric.Radius, Corner + 4f), (Metric.Measure, Control * 24f)) }),
-        (Role.Tooltip, Surfaced with { Metrics = HashMap((Metric.Inset, 4f), (Metric.Gap, 2f), (Metric.Radius, Corner - 1f), (Metric.FontSize, 0.85f), (Metric.Measure, Control * 12f)) }),
-        (Role.Menu, Surfaced with { Metrics = HashMap((Metric.Inset, 4f), (Metric.Radius, Corner)) }),
+        (Role.Popover, Raised with { Metrics = HashMap((Metric.Inset, 8f), (Metric.Gap, 4f), (Metric.Radius, Corner + 4f), (Metric.Measure, Control * 24f)) }),
+        (Role.Tooltip, Raised with { Metrics = HashMap((Metric.Inset, 4f), (Metric.Gap, 2f), (Metric.Radius, Corner - 1f), (Metric.FontSize, 0.85f), (Metric.Measure, Control * 12f)) }),
+        (Role.Menu, Raised with { Metrics = HashMap((Metric.Inset, 4f), (Metric.Radius, Corner)) }),
         (Role.Stack, Look.Unpainted with { Metrics = HashMap((Metric.Gap, 12f)) }),
         (Role.Scrim, Look.Unpainted with { Fills = Solid(Fixed(Css.Black, 0.32f)), Motion = Critical }),
         (Role.Button, new Look {
@@ -162,7 +162,7 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
             Metrics = HashMap((Metric.Inset, 2f), (Metric.Gap, 2f), (Metric.Radius, Corner)),
             Within = HashMap((Role.Button, new Look {
                 Fills = Solid(Clear),
-                Strokes = Bare,
+                Strokes = Strokeless,
                 StateLayers = HashMap<Interaction, ColorValue>(
                     (Interaction.Hover, Chrome(Role.Button, Channel.Fill, condition: Condition.Borderless, interaction: Interaction.Hover)),
                     (Interaction.Pressed, Chrome(Role.Button, Channel.Fill, condition: Condition.Borderless, interaction: Interaction.Pressed))),
@@ -192,7 +192,7 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
             When = HashMap((Condition.Busy, new Look { Fills = Seq(Shimmer) })),
         }),
         (Role.Span, new Look {
-            Fills = Solid(ToolbarFill), Strokes = Bare, Text = PanelText, Metrics = HashMap((Metric.Reach, 4f), (Metric.Radius, 2f)),
+            Fills = Solid(ToolbarFill), Strokes = Strokeless, Text = PanelText, Metrics = HashMap((Metric.Reach, 4f), (Metric.Radius, 2f)),
         }),
         (Role.Ring, Outlined with { Metrics = HashMap((Metric.Extent, 12f), (Metric.Reach, 6f)) }),
         (Role.Needle, Outlined with { Metrics = HashMap((Metric.Stroke, 2f), (Metric.Reach, 6f)) }),
@@ -243,7 +243,7 @@ public sealed record StyleSheet(HashMap<Role, Look> Looks) : Monoid<StyleSheet> 
         (Role.Link, Look.Unpainted with { Text = Accent, Face = new TextFace { Underline = UnderlineStyle.Gapped } }),
         (Role.Stat, Look.Unpainted with { Face = SemiBold.Combine(TextFace.Tabular), Metrics = HashMap((Metric.FontSize, 2.15f)), When = Signaled }),
         (Role.ListRow, new Look {
-            Strokes = Bare,
+            Strokes = Strokeless,
             Motion = Underdamped,
             Metrics = HashMap((Metric.Extent, Control), (Metric.Inset, 6f), (Metric.Gap, 6f)),
             When = HashMap((Condition.Neutral, HuelessStates)) + Edits + Signaled,

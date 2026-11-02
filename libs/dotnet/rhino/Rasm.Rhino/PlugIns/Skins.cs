@@ -87,9 +87,9 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
         from next in load.SwapIO(transition)
         from shown in IO.lift(() => {
-            _ = splash.Value.Iter(lease => {
-                Refresh(next, lease.Value.Status, lease.Value.Bar);
-                Placed(lease.Value.Window, Size.Max(lease.Value.Window.ClientSize, Size.Ceiling(lease.Value.Window.Content.GetPreferredSize())));
+            _ = splash.Value.Iter(owned => {
+                Refresh(next, owned.Value.Status, owned.Value.Bar);
+                Placed(owned.Value.Window, Size.Max(owned.Value.Window.ClientSize, Size.Ceiling(owned.Value.Window.Content.GetPreferredSize())));
             });
             Application.Instance.RunIteration();
         })

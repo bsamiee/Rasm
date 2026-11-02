@@ -45,14 +45,14 @@ internal sealed record Motion(RhinoDoc Document, CameraMove Move, Func<Sink<Dura
     public IO<Unit> Halt() =>
         Transition(static state => state with { Phase = new Phase.Stopped() }).Bind(moved => moved.Prior.Phase.Switch(
             (Motion: this, moved.Next),
-            running: static (state, running) => Products.Each(Seq(IO.lift(running.Source.Dispose), state.Motion.Settled(state.Next))).Map(unit),
-            paused: static (state, _) => state.Motion.Settled(state.Next),
+            running: static (state, running) => Products.Each(Seq(IO.lift(running.Source.Dispose), state.Motion.Finished(state.Next))).Map(unit),
+            paused: static (state, _) => state.Motion.Finished(state.Next),
             stopped: static (_, _) => IO.pure(unit))).Uninterruptible();
 
     public IO<T> Uncommitted<T>(IO<T> body) =>
         Products.Changed(() => Document.UndoRecordingEnabled, value => Document.UndoRecordingEnabled = value, value: false).Bind(_ => body).Bracket();
 
-    private IO<Unit> Settled(MotionState state) =>
+    private IO<Unit> Finished(MotionState state) =>
         state.Viewports.Filter(static motion => motion.Row.Pending.IsSome) switch {
             var details => Products.Each(Seq(
                 Ticks.Complete(),

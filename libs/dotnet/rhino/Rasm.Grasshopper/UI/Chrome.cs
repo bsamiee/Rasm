@@ -71,7 +71,7 @@ public static class Chrome {
     private static LanguageExt.HashSet<Keys> Accelerators(IEnumerable<MenuItem> items) =>
         toHashSet(toSeq(items).Bind(static item => (item.Shortcut is Keys.None ? Seq<Keys>() : Seq(item.Shortcut)) + (item is SubMenuItem nested ? toSeq(Accelerators(nested.Items)) : Seq<Keys>())));
 
-    // --- [SURFACES]
+    // --- [MENUS]
     public static IO<Unit> Menu(Seq<Command> commands) =>
         unless(commands.IsEmpty, Hooks.Editor(editor =>
             from host in IO.lift(() => (EditorMainMenu)editor.Menu)

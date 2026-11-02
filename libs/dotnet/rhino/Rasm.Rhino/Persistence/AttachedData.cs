@@ -59,8 +59,8 @@ public abstract class DefinedUserData<TState> : UserData where TState : notnull 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AttachedData {
     // --- [FRAMES]
-    public static IO<Unit> Write<T>(BinaryArchiveWriter writer, uint typeCode, DictionaryCodec<T> codec, T payload) =>
-        IO.lift(() => codec.ToDictionary(payload)).Bind(dictionary => Write(writer, typeCode, dictionary));
+    public static IO<Unit> Write<T>(BinaryArchiveWriter writer, uint typeCode, DictionaryCodec<T> codec, T value) =>
+        IO.lift(() => codec.ToDictionary(value)).Bind(dictionary => Write(writer, typeCode, dictionary));
 
     public static IO<Unit> Write(BinaryArchiveWriter writer, uint typeCode, ArchivableDictionary dictionary) =>
         (from begun in use(Products.Accepted(() => writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0)), _ => Products.Accepted(writer.EndWrite3dmChunk))
@@ -70,17 +70,17 @@ public static class AttachedData {
     public static IO<StoredRecord<T>> Read<T>(BinaryArchiveReader reader, uint typeCode, DictionaryCodec<T> codec) =>
         from begun in Products.Accepted(() => reader.BeginRead3dmChunk(typeCode, out _, out _))
         from dictionary in IO.lift(reader.ReadDictionary).Finally(Products.Accepted(() => reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true)))
-        from payload in IO.lift(() => codec.FromDictionary(dictionary))
-        select payload;
+        from stored in IO.lift(() => codec.FromDictionary(dictionary))
+        select stored;
 
     public static IO<Option<T>> Read<T>(File3dm archive, Guid plugIn, Func<BinaryArchiveReader, IO<T>> read) =>
         from found in IO.lift(() => Conversions.Rows(archive.PlugInData).Find(data => data.PlugInId == plugIn))
-        from payload in found.Traverse(data => Products.Captured<T>(answer => IO.lift(() => ignore(archive.PlugInData.TryRead(data, (_, reader) => {
+        from value in found.Traverse(data => Products.Captured<T>(answer => IO.lift(() => ignore(archive.PlugInData.TryRead(data, (_, reader) => {
             Fin<T> outcome = Session.RunSafe(read(reader), CancellationToken.None);
             answer(outcome);
             return outcome.IsSucc;
         }))))).As()
-        select payload;
+        select value;
 
     // --- [USER_DATA]
     public static IO<Option<TData>> Find<TData>(CommonObject target) where TData : UserData =>

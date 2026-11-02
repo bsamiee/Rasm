@@ -173,19 +173,19 @@ public static class Rows {
         new(
             Copy: live => use(() => kind.Copy(live)),
             Unchanged: (live, _) => Satisfied(edits, live),
-            Commit: (live, staged) => Products.Accepted(() => kind.Modify(doc, staged, live.Index)) >> Landed(kind.Table(doc), new ComponentRef<T>.ById(live.Id), edits));
+            Commit: (live, staged) => Products.Accepted(() => kind.Modify(doc, staged, live.Index)) >> Verified(kind.Table(doc), new ComponentRef<T>.ById(live.Id), edits));
 
     private static Stage<T> Added<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         new(
             Copy: static fresh => IO.pure(fresh),
             Unchanged: static (_, _) => false,
             Commit: (_, staged) => IO.lift(() => Conversions.Required(Conversions.Present(kind.Add(doc, staged))))
-                .Bind(index => Landed(kind.Table(doc), new ComponentRef<T>.ByIndex(index), edits)));
+                .Bind(index => Verified(kind.Table(doc), new ComponentRef<T>.ByIndex(index), edits)));
 
     private static bool Satisfied<T>(Seq<RowEdit<T>> edits, T row) where T : class =>
         edits.ForAll(edit => edit.Holds.Exists(holds => holds(row)));
 
-    private static IO<T> Landed<T>(RhinoDocCommonTable<T> table, ComponentRef<T> address, Seq<RowEdit<T>> edits) where T : ModelComponent =>
+    private static IO<T> Verified<T>(RhinoDocCommonTable<T> table, ComponentRef<T> address, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         Find(table, address).Bind(live => IO.lift(() => Products.Each(edits, (edit, index) =>
             edit.Holds.ForAll(holds => holds(live)) ? Fin.Succ(unit) : new RhinoFault(edit.Write.Member, RhinoReason.Declined, index)).Map(_ => live)));
 

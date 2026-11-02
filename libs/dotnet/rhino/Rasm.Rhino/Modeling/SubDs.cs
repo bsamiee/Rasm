@@ -29,7 +29,7 @@ public static class SubDs {
             from apart in RhinoFault.Unless(!ends.First.Edges.Exists(link => link.Id == edgeB), RhinoReason.Repeated, (edgeA, edgeB))
             from even in RhinoFault.Unless(ends.First.Edges.Count == ends.Second.Edges.Count, RhinoReason.Mismatched, (ends.First.Edges.Count, ends.Second.Edges.Count))
             from faces in Products.Each(
-                Anchored(ends.First, edgeA).Zip(Anchored(ends.Second with { Edges = ends.Second.Edges.Rev() }, edgeB), static (a, b) => (A: a, B: b)).Strict(),
+                Rotated(ends.First, edgeA).Zip(Rotated(ends.Second with { Edges = ends.Second.Edges.Rev() }, edgeB), static (a, b) => (A: a, B: b)).Strict(),
                 (rail, index) => Quad(subd, rail.A, rail.B).ToFin(new RhinoFault(nameof(SubD.Faces), RhinoReason.Declined, index)))
             select subd), nameof(SubD.Faces));
 
@@ -50,21 +50,21 @@ public static class SubDs {
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
         boundaries.Filter(boundary => boundary.Edges.Exists(link => link.Id == edge)).Head.ToFin(new RhinoFault(nameof(ComponentIndexType.SubdEdge), RhinoReason.Missing, (int)edge));
 
-    private static Seq<SubDEdge> Anchored((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
+    private static Seq<SubDEdge> Rotated((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
         (boundary.Closed ? boundary.Edges.TakeWhile(link => link.Id != edge).Count : 0) switch {
             var lead => boundary.Edges.Skip(lead) + boundary.Edges.Take(lead),
         };
 
     private static Option<SubDFace> Quad(SubD subd, SubDEdge a, SubDEdge b) =>
-        from up in Rung(subd, a.RelativeVertexTo, b.RelativeVertexFrom)
-        from down in Rung(subd, b.RelativeVertexTo, a.RelativeVertexFrom)
+        from up in Connecting(subd, a.RelativeVertexTo, b.RelativeVertexFrom)
+        from down in Connecting(subd, b.RelativeVertexTo, a.RelativeVertexFrom)
         from face in Optional(subd.Faces.Add([a, up, b, down]))
         select face;
 
-    private static Option<SubDEdge> Rung(SubD subd, SubDVertex from, SubDVertex to) =>
-        Optional(subd.Edges.FindOrAdd(from, to)).Map(rung => {
-            rung.ComponentDirection = rung.VertexFrom.Id != from.Id;
-            return rung;
+    private static Option<SubDEdge> Connecting(SubD subd, SubDVertex from, SubDVertex to) =>
+        Optional(subd.Edges.FindOrAdd(from, to)).Map(edge => {
+            edge.ComponentDirection = edge.VertexFrom.Id != from.Id;
+            return edge;
         });
 
     // --- [CHAINS]

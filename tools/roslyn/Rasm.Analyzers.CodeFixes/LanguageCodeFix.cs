@@ -131,11 +131,11 @@ public sealed class SingleReaderCodeFix : CodeFixProvider {
             SyntaxTriviaList leading = member.GetLeadingTrivia();
             MemberDeclarationSyntax next = members[index + 1];
             SyntaxTriviaList after = next.GetLeadingTrivia();
-            bool carried = Commented(leading) && !Commented(after);
-            IEnumerable<SyntaxTrivia> kept = carried ? leading.Reverse().SkipWhile(static trivia => !trivia.IsKind(SyntaxKind.EndOfLineTrivia)).Reverse()
+            bool movesComment = Commented(leading) && !Commented(after);
+            IEnumerable<SyntaxTrivia> kept = movesComment ? leading.Reverse().SkipWhile(static trivia => !trivia.IsKind(SyntaxKind.EndOfLineTrivia)).Reverse()
                 : index is 0 || (after.Count is not 0 && after[0].IsKind(SyntaxKind.EndOfLineTrivia)) ? []
                 : leading.TakeWhile(static trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
-            IEnumerable<SyntaxTrivia> following = carried || index is 0 ? after.SkipWhile(static trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)) : after;
+            IEnumerable<SyntaxTrivia> following = movesComment || index is 0 ? after.SkipWhile(static trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)) : after;
             return placed.ReplaceNode(type, type.WithMembers(members.Replace(next, next.WithLeadingTrivia(kept.Concat(following))).RemoveAt(index)));
         }
         return placed.GetAnnotatedNodes(declared).FirstOrDefault() switch {

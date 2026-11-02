@@ -94,20 +94,20 @@ public sealed record SwatchesRow(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, I
 
     public static IO<RowCells> Realize(IO<SwatchesRow> latest, LocalizeStringPair label, RowScope scope) =>
         from picked in atomIO(Option<int>.None)
-        from seated in IO.lift(static () => Ref(HashMap<int, Owned<(ColorPicker Picker, Func<Option<Color4f>, IO<Unit>> Show)>>()))
+        from pickers in IO.lift(static () => Ref(HashMap<int, Owned<(ColorPicker Picker, Func<Option<Color4f>, IO<Unit>> Show)>>()))
         from owned in use(static () => EnvIO.New(token: CancellationToken.None))
         from strip in Containers.Frame(static () => new StackLayout { Orientation = Orientation.Horizontal, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table).Width })
         let selected = from row in latest from held in picked.ValueIO select held.Filter(at => at < row.Colors.Count)
         let shown =
             from row in latest
-            from held in atomicIO(() => seated.Value)
+            from held in atomicIO(() => pickers.Value)
             from made in toSeq(Range(0, row.Colors.Count)).Filter(index => !held.ContainsKey(index))
-                .TraverseM(index => Products.Replace(seated, index, Swatched(latest, picked, strip, index)).Scoped(owned)).As()
+                .TraverseM(index => Products.Replace(pickers, index, Swatched(latest, picked, strip, index)).Scoped(owned)).As()
             from dropped in toSeq(held.Keys).Filter(index => index >= row.Colors.Count).TraverseM(index =>
-                held.Find(index).Traverse(cut => IO.lift(() => strip.Items.Remove(cut.Value.Picker))).As() >> Products.Clear(seated, index).Scoped(owned)).As()
-            from kept in atomicIO(() => seated.Value)
+                held.Find(index).Traverse(cut => IO.lift(() => strip.Items.Remove(cut.Value.Picker))).As() >> Products.Clear(pickers, index).Scoped(owned)).As()
+            from kept in atomicIO(() => pickers.Value)
             from colored in row.Colors.Map(static (color, index) => (Color: color, Index: index))
-                .TraverseM(entry => kept.Find(entry.Index).Traverse(seat => seat.Value.Show(Some(entry.Color))).As()).As()
+                .TraverseM(entry => kept.Find(entry.Index).Traverse(picker => picker.Value.Show(Some(entry.Color))).As()).As()
             select unit
         let add = new Command<Invoke>.Run(new CommandFace("color-add", "Add Color"), new Invoke.Effect(_ =>
             from row in latest

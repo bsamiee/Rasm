@@ -81,7 +81,7 @@ public static class RhinoObjects {
         // --- [SUBOBJECTS]
         public IO<Unit> SelectSubObjects(Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
             IO.lift(() => Products.Each(components, (component, index) => ObjectSelection.Get(o.SelectSubObject(component, selection.On, syncHighlight, selection.PersistentSelect)) switch {
-                var landed => RhinoFault.Unless(landed == selection, RhinoReason.Declined, landed, index),
+                var applied => RhinoFault.Unless(applied == selection, RhinoReason.Declined, applied, index),
             })).Map(unit);
 
         public IO<Unit> HighlightSubObjects(Seq<ComponentIndex> components, bool highlight) =>

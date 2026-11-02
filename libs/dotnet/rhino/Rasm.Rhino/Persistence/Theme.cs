@@ -84,7 +84,7 @@ public sealed record RhinoTheme(string Name) {
     public IO<Unit> Hold =>
         (from latest in IO.lift(static () => Ref(Option<Owned<(bool Dark, IO<Unit> Restore)>>.None))
          from colored in Products.Replace(latest, Colored)
-         from settled in Preferences.Hold(Overrides + Seq(Current.Swap(Name))).Catch(error => Restored(latest) >> IO.fail<Unit>(error))
+         from held in Preferences.Hold(Overrides + Seq(Current.Swap(Name))).Catch(error => Restored(latest) >> IO.fail<Unit>(error))
          from released in Products.Released(() => Session.Run(Restored(latest) >> Flush))
          from flushed in Flush
          from followed in ThemeChanged.Attach(_ => Switched(latest))

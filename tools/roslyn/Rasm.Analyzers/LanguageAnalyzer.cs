@@ -34,7 +34,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         Category,
         "Discarded awaitable, await or return the value",
         "`_ =` discards awaitable `{0}`, await `{0}` or return `{0}` to an awaiting caller",
-        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard, outside host start requests whose task only reports completion");
+        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard, outside host start requests with a task that only reports completion");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
@@ -394,7 +394,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
 
     // --- [QUALIFICATIONS]
     private static void Qualifications(CompilationStartAnalysisContext context) {
-        ConcurrentDictionary<SyntaxTree, ILookup<string, SimpleNameSyntax>> bare = new();
+        ConcurrentDictionary<SyntaxTree, ILookup<string, SimpleNameSyntax>> unqualified = new();
         static bool Looked(SimpleNameSyntax name) =>
             name.Parent switch {
                 QualifiedNameSyntax qualified => qualified.Right != name,
@@ -425,7 +425,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 if (owner is INamedTypeSymbol ? !imported : imported) return;
                 string name = right.Identifier.ValueText;
                 ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: name).Where(found => !Same(found, target))];
-                ILookup<string, SimpleNameSyntax> used = bare.GetOrAdd(
+                ILookup<string, SimpleNameSyntax> used = unqualified.GetOrAdd(
                     node.Node.SyntaxTree,
                     tree => tree.GetRoot(token).DescendantNodes().OfType<SimpleNameSyntax>().Where(Looked).ToLookup(static held => held.Identifier.ValueText, StringComparer.Ordinal));
                 bool Ambiguous(INamedTypeSymbol member) =>

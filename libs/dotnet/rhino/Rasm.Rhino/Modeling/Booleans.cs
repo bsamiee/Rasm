@@ -64,12 +64,12 @@ public static class Booleans {
     // --- [MESHES]
     public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Meshes(Tolerances tolerances, Boolean<Mesh> operation, Func<MeshBooleanOptions> options) =>
         from report in Running(tolerances, options)
-        from groups in Settled(() => operation.Operation.Meshed(operation.First, operation.Second, report))
+        from groups in Checked(() => operation.Operation.Meshed(operation.First, operation.Second, report))
         select (groups, report);
 
     public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Meshes(Tolerances tolerances, Split<Mesh> split, Func<MeshBooleanOptions> options) =>
         from report in Running(tolerances, options)
-        from groups in Settled(() => (Mesh.CreateBooleanSplit(split.Pieces, split.Cutters, report, out Result result, out int[][] map), result, map))
+        from groups in Checked(() => (Mesh.CreateBooleanSplit(split.Pieces, split.Cutters, report, out Result result, out int[][] map), result, map))
         select (groups, report);
 
     private static IO<MeshBooleanOptions> Running(Tolerances tolerances, Func<MeshBooleanOptions> options) =>
@@ -78,7 +78,7 @@ public static class Booleans {
         from running in IO.lift(() => (fresh.Tolerance, fresh.CancellationToken) = (tolerances.MeshIntersection, token))
         select fresh;
 
-    private static IO<Seq<Grouped<Mesh, int>>> Settled(Func<(Mesh[]? Meshes, Result Result, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
+    private static IO<Seq<Grouped<Mesh, int>>> Checked(Func<(Mesh[]? Meshes, Result Result, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         from answered in IO.lift(call)
         from ended in IO.lift(() => Results.Ended(answered.Result, member))
         from groups in Mapped(() => (answered.Meshes, answered.Map), member)

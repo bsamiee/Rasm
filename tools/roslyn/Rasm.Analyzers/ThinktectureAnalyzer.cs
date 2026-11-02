@@ -49,7 +49,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         Category,
         "Smart enum with no data, move behavior onto items or declare a union",
         "`{0}` {1}, move consumer data onto items or declare a shape-differing record union",
-        "`[SmartEnum]` items carry a key or data, and code reads `[SmartEnum<string>]` member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`)",
+        "`[SmartEnum]` items hold a key or data, and code reads `[SmartEnum<string>]` member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`)",
         WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Picked = Rule(

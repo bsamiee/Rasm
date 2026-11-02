@@ -74,7 +74,7 @@ public static partial class Hooks {
     // --- [RUNS]
     internal static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         effect.RunSafe().IfFail(error => {
-            if (error.Count is 1 && error.Is(Errors.Cancelled)) Cancelled(Session.Logger, member);
+            if (error.Count is 1 && error.Is(Errors.Cancelled)) Canceled(Session.Logger, member);
             else Failed(Session.Logger, member, error.Message, error.Exception.ValueUnsafe());
             return failed;
         });
@@ -82,6 +82,6 @@ public static partial class Hooks {
     [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}")]
     private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} cancelled")]
-    private static partial void Cancelled(ILogger logger, string member);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
+    private static partial void Canceled(ILogger logger, string member);
 }

@@ -246,7 +246,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     private IO<Unit> Delivered(HudEvent hudEvent) => Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(static _ => unit);
 
     // --- [REPORTS]
-    protected Option<RealtimeSession> Running => sessions.Value.Map(static lease => lease.Value.Session);
+    protected Option<RealtimeSession> Running => sessions.Value.Map(static owned => owned.Value.Session);
 
     protected IO<Unit> FrameRendered(int pass, ViewInfo view) =>
         IO.lift(() => ComputeViewportCrc(view)).Bind(frame => Changed((session, _) => session.Locked ? session : session with { Pass = pass, Frame = Some(frame) }));
@@ -259,7 +259,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
 
     private IO<Unit> Changed(Func<RealtimeSession, Instant, RealtimeSession> change) =>
         from now in IO.lift(TSelf.Definition.Clock.GetCurrentInstant)
-        from swapped in atomicIO(() => sessions.Swap(state => state.Map(lease => lease with { Value = lease.Value with { Session = change(lease.Value.Session, now) } })))
+        from swapped in atomicIO(() => sessions.Swap(state => state.Map(owned => owned with { Value = owned.Value with { Session = change(owned.Value.Session, now) } })))
         from redrawn in IO.lift(SignalRedraw)
         select unit;
 }

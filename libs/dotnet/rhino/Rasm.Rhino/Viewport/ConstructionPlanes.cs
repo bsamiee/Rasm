@@ -125,7 +125,7 @@ public static class ConstructionPlanes {
             Plane staged = plane.Plane;
             return RhinoFault.Unless(staged.Transform(xform), RhinoReason.Declined, xform).Map(_ => staged);
         })
-        from carried in IO.lift(() => { (plane.Plane, plane.GridSpacing, plane.SnapSpacing) = (moved, plane.GridSpacing * dilation, plane.SnapSpacing * dilation); })
+        from scaled in IO.lift(() => { (plane.Plane, plane.GridSpacing, plane.SnapSpacing) = (moved, plane.GridSpacing * dilation, plane.SnapSpacing * dilation); })
         select plane;
 
     // --- [STORED]
@@ -135,11 +135,11 @@ public static class ConstructionPlanes {
     internal static IO<ConstructionPlane> Found(RhinoDoc doc, string name) =>
         Stored(doc, name).Bind(found => IO.lift(() => found.ToFin(Table.Missing(name))));
 
-    internal static IO<NamedWrite> Written(RhinoDoc doc, ConstructionPlane plane, [CallerMemberName] string verb = "") =>
+    internal static IO<NamedWrite> Written(RhinoDoc doc, ConstructionPlane plane, [CallerMemberName] string action = "") =>
         from prior in Stored(doc, plane.Name)
         from tolerances in Tolerances.Read(doc, Space.Model)
         from written in unless(prior.Exists(held => Same(held, plane, tolerances)),
-            Commits.Undoable(doc, $"{verb} {plane.Name}", IO.pure(prior), Put(doc, plane.Name), Some(plane))).As()
+            Commits.Undoable(doc, $"{action} {plane.Name}", IO.pure(prior), Put(doc, plane.Name), Some(plane))).As()
         select NamedWrite.Undoable;
 
     private static Func<Option<ConstructionPlane>, IO<Unit>> Put(RhinoDoc doc, string name) =>

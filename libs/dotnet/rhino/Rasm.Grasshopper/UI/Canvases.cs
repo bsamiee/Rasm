@@ -22,15 +22,15 @@ namespace Rasm.Grasshopper.UI;
 public static class Canvases {
     // --- [POLICIES]
     public static IO<Unit> Restrict(Canvas canvas, Action<CanvasActions> restrict) =>
-        from lease in use(IO.lift(() => Leased(canvas, restrict)), lease => IO.lift(() => Released(canvas, lease)))
+        from restriction in use(IO.lift(() => Restricted(canvas, restrict)), restriction => IO.lift(() => Released(canvas, restriction)))
         from over in use(IO.lift(static () => Atom(Option<IResponsive>.None)), static over => IO.lift(() => ignore(Hovered(over, None))))
         from hovering in Hooks.On<MouseEventArgs>(h => canvas.MouseMove += h, h => canvas.MouseMove -= h, args => IO.lift(() =>
-            Hovered(over, args.Buttons is MouseButtons.None && ReferenceEquals(canvas.FocusObject, lease.Guard)
+            Hovered(over, args.Buttons is MouseButtons.None && ReferenceEquals(canvas.FocusObject, restriction.Guard)
                     ? toSeq(canvas.ResponsivesForwards).Rev().Find(responsive => responsive.Responder.IsCoincident(args.Location, canvas.Map(args.Location, CoordinateSystem.Control, CoordinateSystem.Content)))
                     : None)
                 .Iter(target => target.Responder.MouseOver(new ResponseMouseArgs(canvas, args)))))
         from menu in Optional(Editor.Instance).Filter(editor => ReferenceEquals(editor.Canvas, canvas)).Match(
-            Some: editor => Disabled((EditorMainMenu)editor.Menu, lease.Next),
+            Some: editor => Disabled((EditorMainMenu)editor.Menu, restriction.Next),
             None: static () => unitIO)
         select unit;
 
@@ -44,7 +44,7 @@ public static class Canvases {
             actions.AllowWireMenu = false;
         });
 
-    private static (CanvasActions Prior, CanvasActions Next, (bool Objects, bool Wires, bool Groups, bool Dragging) Was, (bool Objects, bool Wires, bool Groups, bool Dragging) Set, Option<Document> Document, Interaction Guard) Leased(
+    private static (CanvasActions Prior, CanvasActions Next, (bool Objects, bool Wires, bool Groups, bool Dragging) Was, (bool Objects, bool Wires, bool Groups, bool Dragging) Set, Option<Document> Document, Interaction Guard) Restricted(
         Canvas canvas, Action<CanvasActions> restrict) {
         CanvasActions prior = Merged(new CanvasActions(), canvas.AllowedActions, None);
         CanvasActions next = Merged(new CanvasActions(), prior, None);
@@ -60,14 +60,14 @@ public static class Canvases {
     }
 
     private static Unit Released(
-        Canvas canvas, (CanvasActions Prior, CanvasActions Next, (bool Objects, bool Wires, bool Groups, bool Dragging) Was, (bool Objects, bool Wires, bool Groups, bool Dragging) Set, Option<Document> Document, Interaction Guard) lease) {
-        canvas.PopFocus(lease.Guard);
-        _ = Merged(canvas.AllowedActions, lease.Prior, Some(lease.Next));
+        Canvas canvas, (CanvasActions Prior, CanvasActions Next, (bool Objects, bool Wires, bool Groups, bool Dragging) Was, (bool Objects, bool Wires, bool Groups, bool Dragging) Set, Option<Document> Document, Interaction Guard) restriction) {
+        canvas.PopFocus(restriction.Guard);
+        _ = Merged(canvas.AllowedActions, restriction.Prior, Some(restriction.Next));
         (canvas.WindowSelectObjects, canvas.WindowSelectWires, canvas.WindowSelectGroups) = (
-            Kept(canvas.WindowSelectObjects, lease.Set.Objects, lease.Was.Objects),
-            Kept(canvas.WindowSelectWires, lease.Set.Wires, lease.Was.Wires),
-            Kept(canvas.WindowSelectGroups, lease.Set.Groups, lease.Was.Groups));
-        if (lease.Document.Exists(document => ReferenceEquals(document, canvas.Document))) canvas.ViewportDragging = Kept(canvas.ViewportDragging, lease.Set.Dragging, lease.Was.Dragging);
+            Kept(canvas.WindowSelectObjects, restriction.Set.Objects, restriction.Was.Objects),
+            Kept(canvas.WindowSelectWires, restriction.Set.Wires, restriction.Was.Wires),
+            Kept(canvas.WindowSelectGroups, restriction.Set.Groups, restriction.Was.Groups));
+        if (restriction.Document.Exists(document => ReferenceEquals(document, canvas.Document))) canvas.ViewportDragging = Kept(canvas.ViewportDragging, restriction.Set.Dragging, restriction.Was.Dragging);
         return unit;
     }
 

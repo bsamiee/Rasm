@@ -117,7 +117,7 @@ public abstract record Part {
             gesture is Gesture.Perform perform
                 ? perform.Act.SwitchPartially(
                     (Choice: this, Aim: aim, perform.Modifiers),
-                    @default: static (held, act) => act.Toward.Bind(toward => held.Choice.Landed(held.Aim, toward)).Bind(key => held.Choice.Stepping(start => start.Navigated(held.Choice.Items, key, held.Modifiers.Shift))),
+                    @default: static (held, act) => act.Toward.Bind(toward => held.Choice.Reached(held.Aim, toward)).Bind(key => held.Choice.Stepping(start => start.Navigated(held.Choice.Items, key, held.Modifiers.Shift))),
                     press: Activated,
                     confirm: Activated,
                     showMenu: static held =>
@@ -177,7 +177,7 @@ public abstract record Part {
         private static Option<Reply> Activated((Choice Choice, HitTarget Aim, KeyModifiers Modifiers) held) =>
             held.Choice.Item(held.Aim.Hit, held.Aim.Owner.Layout).Bind(key => held.Choice.Stepping(start => start.Pressed(held.Choice.Items, key, held.Modifiers, clicked: true)));
 
-        private Option<Key> Landed(HitTarget aim, Bearing toward) =>
+        private Option<Key> Reached(HitTarget aim, Bearing toward) =>
             toward.Granularity.Switch(
                 (Choice: this, Aim: aim, Toward: toward),
                 step: static held => held.Choice.Value.Lead.Match(
@@ -265,7 +265,7 @@ public abstract record Part {
         // --- [SESSIONS]
         private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Tracking(PlotFrame frame, Func<PlotPlane, Gesture, Option<PlotPlane>> step) =>
             new((frame.Plane, None), [Receiver<(PlotPlane Plane, Option<Figure.Region> Box)>.Of(static view => view.Plane, edit => Some(Edited(edit)))], CursorShape.Grab) {
-                Step = (start, gesture) => step(start.Plane, gesture).Bind(plane => Settled(frame, plane)).Map(static plane => (plane, Option<Figure.Region>.None)),
+                Step = (start, gesture) => step(start.Plane, gesture).Bind(plane => Bounded(frame, plane)).Map(static plane => (plane, Option<Figure.Region>.None)),
             };
 
         private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Boxing(PlotFrame frame) =>
@@ -318,7 +318,7 @@ public abstract record Part {
             Seq<(PlaneAxis Free, AxisRange Target)> targets = start.Dimensions.Map(free => (free, free.Along.Map(horizontal: box.First, vertical: box.Second).IfNone(free.Axis.Domain)));
             return from centered in start.Shifted(targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, target.Target.Mid - target.Free.Axis.Domain.Mid)))
                    from zoomed in Zoomed(centered, targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, target.Target.Mid)), targets.Fold(0f, static (most, target) => float.Max(most, MathF.Abs(target.Target.Span / target.Free.Axis.Domain.Span))))
-                   from plane in Settled(frame, zoomed)
+                   from plane in Bounded(frame, zoomed)
                    select plane;
         }
 
@@ -331,7 +331,7 @@ public abstract record Part {
                   from plane in start.Scaled(start.Center, start.Center, factors.Fold(Vector2.One, static (held, factor) => factor.Along.With(held, factor.Factor)))
                   select plane;
 
-        private Option<PlotPlane> Settled(PlotFrame frame, PlotPlane plane) =>
+        private Option<PlotPlane> Bounded(PlotFrame frame, PlotPlane plane) =>
             Bounds.Match(
                     Some: bounds => plane.Shifted(plane.Dimensions.Fold(Vector2.Zero, (delta, held) => bounds.Dimension(held.Along).Map(bound => held.Along.With(delta, Inside(held.Axis.Domain, bound.Domain))).IfNone(delta))),
                     None: () => Some(plane))

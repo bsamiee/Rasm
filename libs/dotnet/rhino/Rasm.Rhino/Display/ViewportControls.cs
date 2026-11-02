@@ -135,7 +135,7 @@ public static class ViewportControls {
     private static IO<TControl> Bound<TControl>(TControl control, Action<TControl, EventHandler<EventArgs>> add, Action<TControl, EventHandler<EventArgs>> remove, Func<TControl, IO<Unit>> changed) =>
         Subscriptions.On<EventArgs>(handler => add(control, handler), handler => remove(control, handler)).Attach(_ => changed(control)).Map(_ => control);
 
-    // --- [LEASE]
+    // --- [REGISTRATION]
     public static IO<Unit> Show(RhinoDoc doc, string name, Seq<UserInterfaceObjectBase> items) =>
         Uuid.NewNameBased(Session.PlugIn.Id, name) switch {
             var groupId =>

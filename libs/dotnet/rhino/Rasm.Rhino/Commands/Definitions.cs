@@ -83,8 +83,8 @@ public static class Results {
             var (result, value) => Ended(result, member).Map(_ => value),
         });
 
-    public static Fin<Result> Of(Fin<Unit> settled) =>
-        settled.Map(static _ => Result.Success).BindFail(static error => Precedence.Find(toHashSet(error.AsIterable().Choose(Ending)).Contains).ToFin(error));
+    public static Fin<Result> Of(Fin<Unit> outcome) =>
+        outcome.Map(static _ => Result.Success).BindFail(static error => Precedence.Find(toHashSet(error.AsIterable().Choose(Ending)).Contains).ToFin(error));
 
     public static IO<Result> Of(IO<Unit> effect) =>
         effect.Map(static _ => Result.Success).Catch(static error => IO.lift(Of(Fin.Fail<Unit>(error)))).As();

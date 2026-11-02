@@ -20,18 +20,18 @@ public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible 
 
     internal static Option<string> Joined(Seq<string> parts) => parts.IsEmpty ? None : Some(string.Join(' ', parts));
 
-    private static Seq<AutomationElement> Projected(Scene scene, LayoutNode layout, Option<PartOwner> owner, Accessible lent) =>
-        scene.Inert.Contains(layout.Path) ? [] : Admitted(scene, layout, scene.PartAt(layout.Path) | owner, lent);
+    private static Seq<AutomationElement> Projected(Scene scene, LayoutNode layout, Option<PartOwner> owner, Accessible inherited) =>
+        scene.Inert.Contains(layout.Path) ? [] : Described(scene, layout, scene.PartAt(layout.Path) | owner, inherited);
 
-    private static Seq<AutomationElement> Admitted(Scene scene, LayoutNode layout, Option<PartOwner> owning, Accessible lent) {
+    private static Seq<AutomationElement> Described(Scene scene, LayoutNode layout, Option<PartOwner> owning, Accessible inherited) {
         Seq<PlacedLayer> anchoring = scene.Anchoring(layout.Path);
         Accessible anchored = anchoring.Choose(held => held.Layer.Trigger.Bind(static trigger => trigger.AnchorRole).Map(role => new Accessible { Role = role, Expanded = scene.Open.Contains(held.Layout.Path) })).Fold(Accessible.Empty, static (held, next) => held.Combine(next));
         Accessible accessible = Charted(layout.View.Accessible.Combine(anchored).Combine(owning.IsSome ? Accessible.Empty : Implied(scene, layout)), layout);
-        Accessible lends = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(lent);
-        Seq<AutomationElement> children = layout.Children.Bind(child => Projected(scene, child, owning, lends)) + Spanned(scene, layout);
+        Accessible passed = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(inherited);
+        Seq<AutomationElement> children = layout.Children.Bind(child => Projected(scene, child, owning, passed)) + Spanned(scene, layout);
         return (from role in accessible.Role
                 from frame in scene.Frame(layout.Path)
-                select new AutomationElement(layout.Path, role, accessible.Combine(new Accessible { Label = role.NamedByContents ? Joined(Texts(layout)) : None }).Combine(lent),
+                select new AutomationElement(layout.Path, role, accessible.Combine(new Accessible { Label = role.NamedByContents ? Joined(Texts(layout)) : None }).Combine(inherited),
                     toSeq((owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]) + anchoring.Bind(static held => held.Acts)).Distinct()),
                     layout.Style.Conditions, frame, children))
             .Match(Some: static element => [element], None: () => children);

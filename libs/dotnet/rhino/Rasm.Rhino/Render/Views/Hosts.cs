@@ -18,7 +18,7 @@ public abstract class DefinedTab<TSelf> : Eto.Forms.Panel where TSelf : DefinedT
     private readonly HostedView hosted;
 
     protected DefinedTab(RhinoDoc document) {
-        hosted = new HostedView(() => HostedView.Styled(HostedView.Seated(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
+        hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
         Content = hosted.Realized.Map(static held => held.Frame).ValueUnsafe();
     }
 
@@ -42,7 +42,7 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
     private readonly HostedView hosted;
 
     protected DefinedPane(RhinoDoc document) {
-        hosted = new HostedView(() => HostedView.Styled(HostedView.Seated(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
+        hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
         Content = hosted.Realized.Map(static held => held.Frame).ValueUnsafe();
     }
 

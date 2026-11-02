@@ -94,7 +94,7 @@ public sealed class OrthogonalRoute : IWireRoute {
                 var middle => Seq(source, new PointF(middle, source.Y), new PointF(middle, target.Y), target),
             },
             (false, var rise) => ((rise >= 2f * stub) ? (source.Y + target.Y) / 2f : Math.Max(source.Y, target.Y) + stub) switch {
-                var lane => Seq(source, source.Move(stub, 0f), new PointF(source.X + stub, lane), new PointF(target.X - stub, lane), target.Move(-stub, 0f), target),
+                var track => Seq(source, source.Move(stub, 0f), new PointF(source.X + stub, track), new PointF(target.X - stub, track), target.Move(-stub, 0f), target),
             },
         }).Map(static point => point.To3d())];
 }

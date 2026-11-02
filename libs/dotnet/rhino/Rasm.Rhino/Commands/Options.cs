@@ -76,7 +76,7 @@ public static class OptionType {
     internal static IO<LocalizeStringPair> Named(string english) =>
         IO.lift(() => Conversions.Required(RhinoGet.StringToCommandOptionName(english, LocalText.Of(english).Local)));
 
-    // --- [ADDERS]
+    // --- [REGISTRATION]
     internal static Fin<int> Indexed(int index, [CallerArgumentExpression(nameof(index))] string call = "") =>
         RhinoFault.Unless(index > 0, RhinoReason.Declined, index, names: call).Map(_ => index);
 

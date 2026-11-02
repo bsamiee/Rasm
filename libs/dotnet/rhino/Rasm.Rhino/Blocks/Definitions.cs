@@ -93,14 +93,14 @@ public static class Definitions {
                         Some: IO.pure,
                         None: () =>
                             from fresh in IO.lift(() => Conversions.Required(definition.CreatePreviewBitmap(displayMode, projection, camera, decorations, pixels, applyDpiScaling: true)))
-                            from settled in atomicIO(() => Previews.Value.Find(key).Match(
+                            from stored in atomicIO(() => Previews.Value.Find(key).Match(
                                 Some: held => (Kept: held, Spare: Some(fresh)),
                                 None: () => {
                                     Previews.Value = Previews.Value.Add(key, fresh);
                                     return (Kept: fresh, Spare: Option<Bitmap>.None);
                                 }))
-                            from spared in IO.lift(() => settled.Spare.Iter(static spare => spare.Dispose()))
-                            select settled.Kept)
+                            from spared in IO.lift(() => stored.Spare.Iter(static spare => spare.Dispose()))
+                            select stored.Kept)
                     select bitmap,
             };
     }

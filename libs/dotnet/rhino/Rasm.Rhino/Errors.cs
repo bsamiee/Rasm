@@ -14,12 +14,12 @@ public sealed partial class RhinoReason {
     public static readonly RhinoReason Repeated = new("repeated");
     public static readonly RhinoReason Mismatched = new("wrong type");
     public static readonly RhinoReason Unavailable = new("unavailable in its plug-in state");
-    public static readonly RhinoReason Unsupported = new("unsupported by the host");
+    public static readonly RhinoReason Unsupported = new("unsupported by host");
     public static readonly RhinoReason Raised = new("script raised");
     public static readonly RhinoReason Nothing = new("command ended with nothing");
     public static readonly RhinoReason Exited = new("command ended with Rhino exiting");
     public static readonly RhinoReason Unknown = new("unknown command");
-    public static readonly RhinoReason Taken = new("already taken");
+    public static readonly RhinoReason Taken = new("taken");
     public static readonly RhinoReason Unwritable = new("not writable");
     public static readonly RhinoReason Unreadable = new("not readable");
     public static readonly RhinoReason Unqualified = new("not qualified");

@@ -7,7 +7,7 @@ namespace Rasm.Rhino.UI.Rows;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RowTable {
     // --- [STATE]
-    private readonly Ref<(Seq<Seat> Seats, Option<Arrangement> Laid)> seating = Ref((Seats: Seq<Seat>(), Laid: Option<Arrangement>.None));
+    private readonly Ref<(Seq<RealizedRow> Realized, Option<Arrangement> Laid)> state = Ref((Realized: Seq<RealizedRow>(), Laid: Option<Arrangement>.None));
     private readonly RowScope scope;
     private readonly Panel view;
 
@@ -35,10 +35,10 @@ public sealed class RowTable {
         from shown in rows.TraverseM(row => Holds(row.Visible).Map(visible => (Row: row, Visible: visible))).As()
         let visible = Identified(shown.Filter(static entry => entry.Visible).Map(static entry => entry.Row))
         from prior in Taken
-        from seated in visible.TraverseM(entry => Restated(prior.Seats.Find(seat => seat.Id == entry.Id), entry.Id, entry.Row)).As()
-        from laid in Arranged(prior.Laid, seated.Map(static seat => seat.Placed), prior.Laid.Map(static held => held.Beside).IfNone(noneValue: true))
-        from stored in atomicIO(() => seating.Value = (Seats: seated.Map(static seat => seat.Seat), Laid: Some(laid)))
-        from released in prior.Seats.Filter(seat => !seated.Exists(kept => ReferenceEquals(kept.Seat, seat))).TraverseM(static seat => seat.Released).As()
+        from current in visible.TraverseM(entry => Restated(prior.Realized.Find(row => row.Id == entry.Id), entry.Id, entry.Row)).As()
+        from laid in Arranged(prior.Laid, current.Map(static held => held.Placed), prior.Laid.Map(static held => held.Beside).IfNone(noneValue: true))
+        from stored in atomicIO(() => state.Value = (Realized: current.Map(static held => held.Row), Laid: Some(laid)))
+        from released in prior.Realized.Filter(row => !current.Exists(kept => ReferenceEquals(kept.Row, row))).TraverseM(static row => row.Released).As()
         select unit;
 
     private static Seq<((Type Kind, string Label, int Ordinal) Id, Row Row)> Identified(Seq<Row> rows) =>
@@ -47,32 +47,32 @@ public sealed class RowTable {
                 var (key, ordinal) => (state.Seen.AddOrUpdate(key, ordinal + 1), state.Rows.Add((Id: (key.Kind, key.Label, ordinal), Row: row))),
             }).Rows;
 
-    private IO<(Seq<Seat> Seats, Option<Arrangement> Laid)> Taken =>
+    private IO<(Seq<RealizedRow> Realized, Option<Arrangement> Laid)> Taken =>
         atomicIO(() => {
-            (Seq<Seat> Seats, Option<Arrangement> Laid) held = seating.Value;
-            seating.Value = (Seats: Seq<Seat>(), Laid: None);
+            (Seq<RealizedRow> Realized, Option<Arrangement> Laid) held = state.Value;
+            state.Value = (Realized: Seq<RealizedRow>(), Laid: None);
             return held;
         });
 
-    private IO<(Seat Seat, (RowShape Shape, Option<Label> Caption, Control Value) Placed)> Restated(Option<Seat> held, (Type Kind, string Label, int Ordinal) id, Row row) =>
-        from kept in held.Match(Some: seat => seat.Restated(row).Scoped(seat.Scope).Map(same => Conversions.Present(same, seat)), None: static () => IO.pure(Option<Seat>.None))
-        from seat in kept.Match(Some: static seat => IO.pure(seat), None: () => Seated(id, row))
-        from faced in Faced(seat, row)
-        select (seat, (row.Shape, seat.Caption, seat.Value));
+    private IO<(RealizedRow Row, (RowShape Shape, Option<Label> Caption, Control Value) Placed)> Restated(Option<RealizedRow> held, (Type Kind, string Label, int Ordinal) id, Row row) =>
+        from kept in held.Match(Some: existing => existing.Restated(row).Scoped(existing.Scope).Map(same => Conversions.Present(same, existing)), None: static () => IO.pure(Option<RealizedRow>.None))
+        from current in kept.Match(Some: static existing => IO.pure(existing), None: () => Realized(id, row))
+        from faced in Faced(current, row)
+        select (current, (row.Shape, current.Caption, current.Value));
 
-    private IO<Seat> Seated((Type Kind, string Label, int Ordinal) id, Row row) =>
+    private IO<RealizedRow> Realized((Type Kind, string Label, int Ordinal) id, Row row) =>
         Products.Transfer(static () => EnvIO.New(token: CancellationToken.None), owned =>
-            (from made in row.Seated(LocalText.Of(row.Label), scope)
+            (from made in row.Realize(LocalText.Of(row.Label), scope)
              from value in Valued(made.Cells, row)
              from caption in row.Shape.Labeled ? use(static () => new Label()).Map(Some) : IO.pure(Option<Label>.None)
-             select new Seat(id, caption, value, made.Restated, owned))
+             select new RealizedRow(id, caption, value, made.Restated, owned))
             .Scoped(owned));
 
-    private IO<Unit> Faced(Seat seat, Row row) =>
+    private IO<Unit> Faced(RealizedRow current, Row row) =>
         from enabled in Holds(row.Enabled)
         from faced in IO.lift(() => {
-            _ = seat.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
-            (seat.Value.Enabled, seat.Value.ToolTip) = (enabled, row.Help.Map(static help => LocalText.Of(help).Local).ValueUnsafe());
+            _ = current.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
+            (current.Value.Enabled, current.Value.ToolTip) = (enabled, row.Help.Map(static help => LocalText.Of(help).Local).ValueUnsafe());
         })
         select unit;
 
@@ -81,19 +81,19 @@ public sealed class RowTable {
     private IO<Unit> Released =>
         from prior in Taken
         from cleared in prior.Laid.Traverse(Cleared).As()
-        from released in prior.Seats.TraverseM(static seat => seat.Released).As()
+        from released in prior.Realized.TraverseM(static row => row.Released).As()
         from disposed in IO.lift(view.Dispose)
         select unit;
 
     // --- [ARRANGE]
     private IO<Unit> Fitted =>
         from prior in atomicIO(() => {
-            (Seq<Seat> Seats, Option<Arrangement> Laid) held = seating.Value;
-            seating.Value = held with { Laid = None };
+            (Seq<RealizedRow> Realized, Option<Arrangement> Laid) held = state.Value;
+            state.Value = held with { Laid = None };
             return held.Laid;
         })
         from laid in prior.Traverse(held => IO.lift(() => view.Width >= Needed(held.Rows)).Bind(beside => Arranged(prior, held.Rows, beside))).As()
-        from stored in atomicIO(() => seating.Value = seating.Value with { Laid = laid })
+        from stored in atomicIO(() => state.Value = state.Value with { Laid = laid })
         select unit;
 
     private IO<Arrangement> Arranged(Option<Arrangement> current, Seq<(RowShape Shape, Option<Label> Caption, Control Value)> rows, bool beside) =>
@@ -178,7 +178,7 @@ public sealed class RowTable {
     // --- [ROWS]
     private sealed record Arrangement(Seq<(RowShape Shape, Option<Label> Caption, Control Value)> Rows, bool Beside, TableLayout Table, Seq<TableLayout> Runs);
 
-    private sealed record Seat((Type Kind, string Label, int Ordinal) Id, Option<Label> Caption, Control Value, Func<Row, IO<bool>> Restated, EnvIO Scope) {
+    private sealed record RealizedRow((Type Kind, string Label, int Ordinal) Id, Option<Label> Caption, Control Value, Func<Row, IO<bool>> Restated, EnvIO Scope) {
         public IO<Unit> Released => IO.lift(Scope.Dispose);
     }
 }

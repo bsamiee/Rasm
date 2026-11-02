@@ -137,7 +137,7 @@ public sealed partial class CdlStyle {
 
     private static readonly Vector3 Luma = new((float)YbrConfiguration.Rec709.Kr, (float)YbrConfiguration.Rec709.Kg, (float)YbrConfiguration.Rec709.Kb);
 
-    public string Legacy { get; }
+    public string Clf2Name { get; }
 
     private readonly bool forward;
     private readonly bool clamps;

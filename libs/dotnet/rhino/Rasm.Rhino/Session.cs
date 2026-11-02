@@ -96,7 +96,7 @@ public static partial class Session {
 
     // --- [LOGS]
     public static Unit Failed(Error error, [CallerMemberName] string member = "") {
-        if (Cancellation(error)) Cancelled(Logger, member);
+        if (Cancellation(error)) Canceled(Logger, member);
         else if (Logger.IsEnabled(LogLevel.Error)) Failed(Logger, member, Messages(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
         return unit;
     }
@@ -105,11 +105,11 @@ public static partial class Session {
 
     public static bool Cancellation(Error error) => error.Count is 1 && error.Is(Errors.Cancelled);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed with {Message}", SkipEnabledCheck = true)]
+    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}", SkipEnabledCheck = true)]
     private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
-    private static partial void Cancelled(ILogger logger, string member);
+    private static partial void Canceled(ILogger logger, string member);
 
     private static Seq<Error> Causes(Error error) => error.FoldM(static leaf => leaf.Cons(leaf.Inner.ToSeq().Bind(Causes))).As();
 }

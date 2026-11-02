@@ -36,14 +36,14 @@ public sealed partial class SnapshotName {
 }
 
 [SmartEnum]
-public sealed partial class SnapshotVerb {
-    public static readonly SnapshotVerb Save = new(static (names, name) =>
+public sealed partial class SnapshotOperation {
+    public static readonly SnapshotOperation Save = new(static (names, name) =>
         $"""_-Snapshots _Save _Parameters=_All "{name}" {(SnapshotChange.Holds(names, name) ? "_Yes " : "")}_Enter""");
 
-    public static readonly SnapshotVerb Restore = new(static (names, name) =>
+    public static readonly SnapshotOperation Restore = new(static (names, name) =>
         SnapshotChange.Expecting(names, [(name, true)], $"""_-Snapshots _Restore "{name}" _Enter _Enter"""));
 
-    public static readonly SnapshotVerb Delete = new(static (names, name) =>
+    public static readonly SnapshotOperation Delete = new(static (names, name) =>
         SnapshotChange.Expecting(names, [(name, true)], $"""_-Snapshots _Delete "{name}" _Enter"""));
 
     [UseDelegateFromConstructor]
@@ -52,7 +52,7 @@ public sealed partial class SnapshotVerb {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SnapshotChange {
-    public sealed record Named(SnapshotVerb Verb, SnapshotName Name) : SnapshotChange;
+    public sealed record Named(SnapshotOperation Operation, SnapshotName Name) : SnapshotChange;
 
     public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
 
@@ -69,7 +69,7 @@ public abstract partial record SnapshotChange {
 
     // --- [SCRIPT]
     private Fin<string> Script(Seq<string> names) => Switch(names,
-        named: static (held, change) => change.Verb.Script(held, change.Name),
+        named: static (held, change) => change.Operation.Script(held, change.Name),
         rename: static (held, change) => Expecting(held, [(change.Name, true), (change.NewName, false)], $"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter"""),
         import: static (_, change) => SnapshotText.Quotable(change.Path)
             ? $"""_-Snapshots _Import "{change.Path}" _Enter"""
@@ -87,11 +87,11 @@ public abstract partial record SnapshotChange {
 }
 
 public sealed record SnapshotState(StateName Name) : NamedState(Snapshots.Table, Name) {
-    internal override IO<NamedWrite> Save(RhinoDoc doc) => Snapshots.Ran(doc, SnapshotVerb.Save, Name);
+    internal override IO<NamedWrite> Save(RhinoDoc doc) => Snapshots.Ran(doc, SnapshotOperation.Save, Name);
 }
 
 public sealed record SnapshotRestore(StateName Name) : NamedRestore(Snapshots.Table, Name) {
-    internal override IO<NamedWrite> Restore(RhinoDoc doc) => Snapshots.Ran(doc, SnapshotVerb.Restore, Name);
+    internal override IO<NamedWrite> Restore(RhinoDoc doc) => Snapshots.Ran(doc, SnapshotOperation.Restore, Name);
 }
 
 public sealed record SnapshotObject(RhinoDoc Doc, RhinoObject Object, Transform Transform);
@@ -284,11 +284,11 @@ public static class Snapshots {
         Rename = static (doc, entry, name) =>
             IO.lift(() => (SnapshotName.Validated(entry.Name), SnapshotName.Validated(name)).Apply(static (current, renamed) => new SnapshotChange.Rename(current, renamed)).As())
                 .Bind(rename => rename.Run(doc)).Map(static _ => NamedWrite.Undoable),
-        Delete = static (doc, entry) => Ran(doc, SnapshotVerb.Delete, entry.Name),
+        Delete = static (doc, entry) => Ran(doc, SnapshotOperation.Delete, entry.Name),
         Hold = static (doc, _) =>
             from name in IO.lift(static () => SnapshotName.Validated(Guid.NewGuid().ToString("D")))
-            from saved in new SnapshotChange.Named(SnapshotVerb.Save, name).Run(doc)
-            select new NamedWrite(new SnapshotChange.Named(SnapshotVerb.Restore, name).Run(doc), new SnapshotChange.Named(SnapshotVerb.Delete, name).Run(doc)),
+            from saved in new SnapshotChange.Named(SnapshotOperation.Save, name).Run(doc)
+            select new NamedWrite(new SnapshotChange.Named(SnapshotOperation.Restore, name).Run(doc), new SnapshotChange.Named(SnapshotOperation.Delete, name).Run(doc)),
         Import = Some<Func<RhinoDoc, InputPath, Option<Seq<StateName>>, IO<NamedWrite>>>(static (doc, path, names) =>
             from whole in IO.lift(() => RhinoFault.Unless(names.IsNone, RhinoReason.Unsupported, names))
             from imported in new SnapshotChange.Import(path).Run(doc)
@@ -298,6 +298,6 @@ public static class Snapshots {
     private static IO<Seq<NamedEntry>> Listed(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.Snapshots.Names).Map(static name => new NamedEntry(Table, name, None)).Strict());
 
-    internal static IO<NamedWrite> Ran(RhinoDoc doc, SnapshotVerb verb, string name) =>
-        IO.lift(() => SnapshotName.Validated(name)).Bind(held => new SnapshotChange.Named(verb, held).Run(doc)).Map(static _ => NamedWrite.Undoable);
+    internal static IO<NamedWrite> Ran(RhinoDoc doc, SnapshotOperation operation, string name) =>
+        IO.lift(() => SnapshotName.Validated(name)).Bind(held => new SnapshotChange.Named(operation, held).Run(doc)).Map(static _ => NamedWrite.Undoable);
 }

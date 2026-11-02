@@ -89,9 +89,9 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
             from current in atomicIO(() => held.Value)
             from control in Products.Replace(body, Placed(current.Map(static state => state.Content).IfNone(new Loading<TValue>.Pending(None)), row.Shown,
                 LocalText.Of("{0} unavailable", label.Local).Local)).Scoped(owned)
-            from seated in IO.lift(() => { frame.Content = control; })
+            from placed in IO.lift(() => { frame.Content = control; })
             select unit
-        from landed in Mailboxes.Idle<TRequest, Loading<TValue>>(arrived => Landed(held, kept, owned, latest, arrived).Bind(_ => shown))
+        from received in Mailboxes.Idle<TRequest, Loading<TValue>>(arrived => Received(held, kept, owned, latest, arrived).Bind(_ => shown))
         select new RowCells(frame,
             from row in latest
             from fresh in atomicIO(() => {
@@ -103,7 +103,7 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
             from forked in when(fresh, Products.Clear(working).Bind(_ => Products.Replace(working, use(
                 row.Compute(row.Request).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
                     .Catch(static error => !error.Is(Errors.Cancelled), static error => IO.pure<Loading<TValue>>(new Loading<TValue>.Failed(error)))
-                    .Bind(content => landed(row.Request, content))
+                    .Bind(content => received(row.Request, content))
                     .Fork(),
                 static fork => fork.Cancel))).Scoped(owned).Map(unit)).As()
             from redrawn in shown
@@ -119,7 +119,7 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
             ready: static (at, ready) => at.Shown(ready.Value),
             failed: static (at, _) => use(() => new Label { Text = at.Unavailable, TextColor = SystemColors.DisabledText }).Map(static label => (Control)label));
 
-    private static IO<Unit> Landed(
+    private static IO<Unit> Received(
         Ref<Option<(TRequest Request, Loading<TValue> Content)>> held, Ref<Option<Owned<TValue>>> kept, EnvIO owned, IO<ComputedRow<TRequest, TValue>> latest, HashMap<TRequest, Loading<TValue>> arrived) =>
         toSeq(arrived.AsIterable()).TraverseM(entry =>
             from current in atomicIO(() => {

@@ -42,9 +42,9 @@ public sealed record ValueHistory {
     public ValueHistory Undo(BigInteger serial) =>
         Done.Head.Filter(entry => entry.Serial == serial).Match(Some: entry => new ValueHistory(Done.Tail, entry.Cons(Undone), Next), None: () => this);
 
-    public ValueHistory Redo(BigInteger serial) => Mirrored.Undo(serial).Mirrored;
+    public ValueHistory Redo(BigInteger serial) => Swapped.Undo(serial).Swapped;
 
-    internal ValueHistory Mirrored => new(Undone, Done, Next);
+    internal ValueHistory Swapped => new(Undone, Done, Next);
 
     public ValueHistory Followed(ValueDiff taken) =>
         (Undone.Head.Filter(entry => entry.Diff == taken).Map(entry => Redo(entry.Serial))
@@ -165,7 +165,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
     // --- [STEPS]
     public IO<ValueDiff> Undo => Stepped(identity, static diff => diff.Inverse());
 
-    public IO<ValueDiff> Redo => Stepped(static history => history.Mirrored, identity);
+    public IO<ValueDiff> Redo => Stepped(static history => history.Swapped, identity);
 
     private IO<ValueDiff> Stepped(Func<ValueHistory, ValueHistory> view, Func<ValueDiff, ValueDiff> target) =>
         (from history in OptionT.lift(History.Map(view))
