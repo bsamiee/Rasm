@@ -66,9 +66,9 @@ pub enum CellError {
 }
 
 impl ser::Error for CellError {
-    fn custom<T>(message: T) -> Self
+    fn custom<T>(msg: T) -> Self
     where T: fmt::Display {
-        Self::Refused { message: message.to_string() }
+        Self::Refused { message: msg.to_string() }
     }
 }
 

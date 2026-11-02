@@ -217,7 +217,12 @@ where
             Ok(Ok(())) => ControlFlow::Continue((sink, failures)),
             Ok(Err(error @ OutputError::Write { source: _ })) => ControlFlow::Break((failures, Err(error))),
             Ok(Err(
-                error @ (OutputError::Encode { row: _, source: _ } | OutputError::Csv { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Pager(_) | OutputError::Prompt(_)),
+                error @ (OutputError::Encode { row: _, source: _ }
+                | OutputError::Csv { row: _, source: _ }
+                | OutputError::Cell { row: _, source: _ }
+                | OutputError::Column { row: _, name: _ }
+                | OutputError::Pager(_)
+                | OutputError::Prompt(_)),
             )) => {
                 failures.push(E::from(error));
                 ControlFlow::Continue((sink, failures))

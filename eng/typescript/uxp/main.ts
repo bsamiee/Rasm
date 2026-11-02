@@ -14,25 +14,16 @@ const UNMATCHED = '-411';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Listing = Schema.String.pipe(
-    Schema.decodeTo(
-        Schema.Array(Schema.Struct({ product: Schema.String, extensions: Schema.Array(Schema.Struct({ status: Schema.String, name: Schema.String, version: Schema.String })) })),
-        {
-            decode: SchemaGetter.transform((text: string) =>
-                Array.map(
-                    text.split(/\n\s*\n/u).filter(String.isNonEmpty),
-                    (block) => {
-                        const [header = '', , , ...rows] = block.trim().split('\n');
-                        const extensions = Array.map(rows, (row) => {
-                            const [status, name, version] = row.trim().split(/ {2,}/u);
-                            return { status, name, version };
-                        });
-                        return { product: header.replace(/^\d+ extensions? installed for /u, ''), extensions };
-                    },
-                ),
-            ),
-            encode: SchemaGetter.forbiddenEncoding,
-        },
-    ),
+    Schema.decodeTo(Schema.Unknown, {
+        decode: SchemaGetter.transform((text: string) =>
+            Array.map(text.split(/\n\s*\n/u).filter(String.isNonEmpty), (block) => {
+                const [header = '', , , ...rows] = block.trim().split('\n');
+                return { product: header.replace(/^\d+ extensions? installed for /u, ''), extensions: Array.map(rows, (row) => row.trim().split(/ {2,}/u)) };
+            }),
+        ),
+        encode: SchemaGetter.forbiddenEncoding,
+    }),
+    Schema.decodeTo(Schema.Array(Schema.Struct({ product: Schema.String, extensions: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }))),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -40,7 +31,7 @@ const Listing = Schema.String.pipe(
 const install = Effect.fn('install')(function* (built: string, agent: string) {
     const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
     const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, 'manifest.json')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), stdout(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
-    const installed = listing.some(({ extensions }) => extensions.some(({ name }) => name === manifest.name));
+    const installed = listing.some(({ extensions }) => extensions.some(([, name]) => name === manifest.name));
     yield* installed ? stdout(agent, ['--remove', manifest.name]) : Effect.void;
     const { text } = yield* output(agent, ['--install', `${built}.ccx`]);
     yield* Effect.filterOrFail(Effect.succeed(text), String.includes(INSTALLED), (answer) => new Cause.UnknownError(undefined, answer.includes(UNMATCHED) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `Adobe plugin installer refused ${manifest.name}. ${answer.trim()}`));
