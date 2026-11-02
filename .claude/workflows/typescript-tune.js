@@ -16,7 +16,7 @@ const DIR = `${REPO}/.artifacts/workflows/typescript-tune/${args.key}`
 const PLAN = `${REPO}/.artifacts/workflows/typescript/${args.key}/PLAN.md`
 const CHECKS = ['tools/ast-grep/rules/typescript', 'tools/ast-grep/utils/typescript', 'biome.json', 'tsconfig.base.json']
 const SKILLS = ['.claude/skills/typescript-coding', '.claude/skills/typescript-coding-effect', '.claude/skills/uxp-coding']
-const SOURCES = `Read package behavior from the pinned sources under ${REPO}/node_modules/.pnpm/<name>@<version>/node_modules/<name>/ (effect ships src; .d.ts elsewhere) through Skill(search-code), cited by module path and source line, and the hosts from @adobe-uxp-types/uxp, indesign-uxp-types and Skill(uxp-coding).`
+const SOURCES = `Hosts run in the background through Atelier's MCP tools and watch-apps; nothing activates an app or takes the owner's focus. Read package behavior from the pinned sources under ${REPO}/node_modules/.pnpm/<name>@<version>/node_modules/<name>/ (effect ships src; .d.ts elsewhere) through Skill(search-code), cited by module path and source line, and the hosts from @adobe-uxp-types/uxp, indesign-uxp-types and Skill(uxp-coding).`
 const WROTE = { type: 'object', properties: { summary: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } }, required: ['summary', 'files'] }
 
 phase('Read')

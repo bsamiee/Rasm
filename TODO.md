@@ -49,6 +49,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 
 - **Each finished run:** the diff against the run's base read file by file, lines, declarations and exports measured with the same commands, regressions sent back to an agent, then a commit of the run's own paths by `git commit -- <paths>`, then its tune launch (`rust-tune` or `typescript-tune` with `args.commit`), so the next run never waits on mining.
 - **Run phases:** a parallel survey brief, an author, an in-place challenger, landing packages, per file group an adversary then a depth adversary that rebuilds each file for advanced use, and a check agent. Mining the checks and skills is its own launch after the commit.
+- **Hosts:** every agent runs desktop hosts in the background through Atelier's MCP tools and watch-apps. Nothing activates an app or takes the owner's focus, and scripts prove headless with their UI shadowed in scope.
 - **Shared tree:** another session may edit beside these runs. Files are split by owner before either commits, and neither touches the other's files.
 
 ### Rust depth passes
