@@ -103,6 +103,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         timeout: { valued: ['-k', '-s', '--kill-after', '--signal'], leading: 1, runs: [[]] },
         time: { valued: ['-o'], runs: [[]] },
         xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]] },
+        kill: { valued: ['-s', '-n'] },
         caffeinate: { valued: ['-t', '-w'], runs: [[]] },
         arch: { valued: ['-arch', '-d'], runs: [[]] },
         xcrun: { valued: ['--sdk', '--toolchain'], runs: [[]] },
