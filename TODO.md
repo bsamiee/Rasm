@@ -70,7 +70,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 ### Queue
 
 - **Drain:** no new Rust, depth, TypeScript or harness run starts until the running ones land: rows `numerics/dynamics`, `geometry/implicit`, `drawing/views`, `documents/pdf`, `geospatial/weather`; depth on `geometry/planar`, `services/telemetry`, `services/daemon`, `cli` and `numerics/optimize`; `web/hosting`; the Illustrator and the Photoshop and Acrobat harness runs. The decompile runs, the distills and `font-foundry` keep going.
-- **Then, at once:** each open item under Defects to land fixed surgically at its cause by one focused agent per defect, delegating to its own agents, every check at zero; `typescript-sweep` from the drained commit with `args.exclude` holding `tools/harnesses` while a decompile run still drives it, then its tune; and one `rust-tune` over every Rust commit since `24ede74fc`.
+- **Then, at once:** each open item under Defects to land fixed surgically at its cause by one focused agent per defect, delegating to its own agents, every check at zero; `typescript-sweep` from the drained commit with `args.exclude` holding `tools/harnesses` while a decompile run still drives it; and one `rust-tune` over every Rust commit since `24ede74fc`.
 - **After the Rust tune lands:** Rust rows in RUST.md order, six at once, sent without spacing; depth on three slots over each row as it lands, filled in this order while rows are short: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`.
 - **Folder guidance:** the `guidance` workflow once the sweep and the Rust queue settle.
 
@@ -86,7 +86,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
   2. `rust-tune` returns: the snippet lander over `.artifacts/workflows/findings/rust-snippets.md`, then one clean-prose agent over the changed skill lines, then commit.
   3. The `web/hosting` row runs now, the last [01] TypeScript row; once it and deployment land, `typescript-tune` runs on the Atelier, `web/media`, `web/ui` and `web/hosting` commits in turn.
   4. Illustrator harness returns: the paused ScribeDOOR-for-Illustrator proofs, then Acrobat and Photoshop harnesses, then `harness-depth` per host.
-  5. `typescript-sweep` once `web/hosting` lands, with `exclude` naming any folder a still-running run edits (a harness build), then its tune.
+  5. `typescript-sweep` once `web/hosting` lands, with `exclude` naming any folder a still-running run edits (a harness build).
   6. Decompile runs finish: the Ghidra product migration, then the extension phases in TODO [02] order.
 - **Open findings:** reports sit in `.artifacts/workflows/findings/`; the TypeScript config, launch, function-hook, C# analyzer and Ghidra skill reports have landed.
   - Ghidra product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) once the decompile runs finish.
