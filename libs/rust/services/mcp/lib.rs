@@ -5,18 +5,23 @@ use std::{
     borrow::Cow,
     collections::BTreeMap,
     error::Report,
-    io, process,
+    process,
     sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
 };
 
-use axum::http::{request::Parts, uri::Authority};
+use axum::{
+    extract::ConnectInfo,
+    http::{request::Parts, uri::Authority},
+};
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::ValidationError;
-use nonempty_collections::NEVec;
 use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, propagation::Extractor};
-use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE};
-use rasm_command::{Augmented, CommandError, Process};
+use opentelemetry_semantic_conventions::attribute::{
+    ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, NETWORK_PEER_ADDRESS, NETWORK_PEER_PORT, NETWORK_PROTOCOL_NAME, NETWORK_TRANSPORT, RPC_RESPONSE_STATUS_CODE,
+};
+use rasm_command::Augmented;
+use rasm_daemon::Daemon;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
@@ -33,7 +38,6 @@ use rmcp::{
 use serde_json::Value;
 use serde_urlencoded::de;
 use tokio::{
-    net,
     sync::{broadcast, watch},
     time::Instant,
 };
@@ -42,7 +46,10 @@ use tokio_util::{
     sync::CancellationToken,
     task::{AbortOnDropHandle, TaskTracker},
 };
-use tracing::{Instrument as _, field::Empty};
+use tracing::{
+    Instrument as _,
+    field::{self, Empty},
+};
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
 use tracing_subscriber::layer::Identity;
 
@@ -62,26 +69,21 @@ pub trait Endpoint: Send + Sync + 'static {
     fn listed(&self) -> SubscriptionFilter { SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(&self.info().capabilities) }
 }
 
-#[derive(Debug, derive_more::Display)]
-enum Operation {
-    #[display("bind {_0}")]
-    Bind(SocketAddr),
-    #[display("read bound address")]
-    Address,
-    #[display("serve HTTP")]
-    Serve,
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_18, ProtocolVersion::V_2025_11_25, ProtocolVersion::V_2026_07_28];
+const MCP_METHOD_NAME: &str = "mcp.method.name";
+const MCP_PROTOCOL_VERSION: &str = "mcp.protocol.version";
+const MCP_RESOURCE_URI: &str = "mcp.resource.uri";
+const GEN_AI_TOOL_NAME: &str = "gen_ai.tool.name";
+const GEN_AI_PROMPT_NAME: &str = "gen_ai.prompt.name";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Args)]
+#[group(skip)]
+#[command(next_help_heading = "MCP")]
 struct Options {
-    #[arg(long, env = "MCP_LISTEN", help = "Streamable HTTP endpoint address")]
-    listen: SocketAddr,
     #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback and bound address")]
     allowed_host: Vec<Authority>,
 }
@@ -128,35 +130,6 @@ impl From<Unserved> for ErrorData {
             Unserved::Stopping => ErrorCode::INTERNAL_ERROR,
         };
         Self::new(code, Report::new(value).to_string(), None)
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum Failed<X> {
-    #[error(transparent)]
-    Command(#[from] CommandError),
-    #[error("cannot {operation}")]
-    Io { operation: Operation, source: io::Error },
-    #[error("endpoint failed")]
-    Endpoint(#[source] X),
-    #[error("second shutdown signal arrived before endpoint stopped")]
-    Abandoned,
-}
-
-impl<X> From<Failed<X>> for NEVec<Failed<X>> {
-    fn from(value: Failed<X>) -> Self { Self::new(value) }
-}
-
-impl<X> From<Failed<X>> for sysexits::ExitCode
-where X: Into<Self>
-{
-    fn from(value: Failed<X>) -> Self {
-        match value {
-            Failed::Command(source) => source.into(),
-            Failed::Io { operation: _, source } => source.into(),
-            Failed::Endpoint(source) => source.into(),
-            Failed::Abandoned => Self::TempFail,
-        }
     }
 }
 
@@ -210,6 +183,31 @@ struct Host<E> {
     requests: TaskTracker,
     watches: TaskTracker,
     leases: Mutex<BTreeMap<String, Weak<AbortOnDropHandle<()>>>>,
+    config: StreamableHttpServerConfig,
+}
+
+impl<E> Daemon for Host<E>
+where E: Endpoint
+{
+    type Error = E::Error;
+
+    fn router(self: Arc<Self>) -> axum::Router {
+        let config = self.config.clone();
+        axum::Router::new().route_service(
+            "/",
+            StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&self), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::new(LocalSessionManager::default()), config),
+        )
+    }
+
+    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), E::Error>> + Send { self.endpoint.serve(stopping) }
+
+    async fn drain(&self) {
+        self.requests.close();
+        self.requests.wait().await;
+        self.stopping.cancel();
+        self.watches.close();
+        self.watches.wait().await;
+    }
 }
 
 struct Session<E> {
@@ -227,7 +225,7 @@ where E: Endpoint
         let held = if let Some(held) = leases.get(&uri).and_then(Weak::upgrade) {
             held
         } else {
-            let watched = self.host.stopping.clone().run_until_cancelled_owned(self.host.endpoint.subscribe(&uri)?).map(drop).instrument(tracing::info_span!("watch", mcp.resource.uri = uri));
+            let watched = self.host.stopping.clone().run_until_cancelled_owned(self.host.endpoint.subscribe(&uri)?).map(drop).instrument(tracing::info_span!("watch", { MCP_RESOURCE_URI } = uri));
             Arc::new(AbortOnDropHandle::new(self.host.watches.spawn(watched)))
         };
         leases.insert(uri.clone(), Arc::downgrade(&held));
@@ -236,6 +234,9 @@ where E: Endpoint
     }
 
     async fn dispatch(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
+        const MCP_SESSION_ID: &str = "mcp.session.id";
+        const TRANSPORT: &str = "tcp";
+        const PROTOCOL: &str = "http";
         struct Carrier<'meta>(&'meta JsonObject);
         impl Extractor for Carrier<'_> {
             fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(Value::as_str) }
@@ -243,15 +244,17 @@ where E: Endpoint
             fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
         }
         static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| {
+            const MCP_SERVER_OPERATION_DURATION: &str = "mcp.server.operation.duration";
             const BOUNDARIES: [f64; 14] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0];
             global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build())
-                .f64_histogram("mcp.server.operation.duration")
+                .f64_histogram(MCP_SERVER_OPERATION_DURATION)
                 .with_unit("s")
                 .with_boundaries(BOUNDARIES.to_vec())
                 .build()
         });
         let _held = self.host.requests.token();
-        let (method, version) = (request.method().to_owned(), context.protocol_version());
+        let (method, version, parts) = (request.method().to_owned(), context.protocol_version(), context.extensions.get::<Parts>());
+        let peer = parts.and_then(|parts| parts.extensions.get::<ConnectInfo<SocketAddr>>()).map(|&ConnectInfo(peer)| peer);
         let (tool, prompt, uri) = match &request {
             ClientRequest::CallToolRequest(call) => (Some(call.params.name.to_string()), None, None),
             ClientRequest::GetPromptRequest(get) => (None, Some(get.params.name.clone()), None),
@@ -262,13 +265,17 @@ where E: Endpoint
             "request",
             otel.name = tool.as_ref().or(prompt.as_ref()).or(uri.as_ref()).map_or_else(|| method.clone(), |name| format!("{method} {name}")),
             otel.kind = "server",
-            mcp.method.name = method,
-            gen_ai.tool.name = tool.as_deref(),
-            gen_ai.prompt.name = prompt.as_deref(),
-            mcp.resource.uri = uri.as_deref(),
-            mcp.protocol.version = version.as_ref().map(ProtocolVersion::as_str),
-            mcp.session.id = context.extensions.get::<Parts>().and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
+            { MCP_METHOD_NAME } = method,
+            { GEN_AI_TOOL_NAME } = tool.as_deref(),
+            { GEN_AI_PROMPT_NAME } = prompt.as_deref(),
+            { MCP_RESOURCE_URI } = uri.as_deref(),
+            { MCP_PROTOCOL_VERSION } = version.as_ref().map(ProtocolVersion::as_str),
+            { MCP_SESSION_ID } = parts.and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
             { JSONRPC_REQUEST_ID } = %context.id,
+            { NETWORK_TRANSPORT } = TRANSPORT,
+            { NETWORK_PROTOCOL_NAME } = PROTOCOL,
+            { NETWORK_PEER_ADDRESS } = peer.map(|peer| field::display(peer.ip())),
+            { NETWORK_PEER_PORT } = peer.map(|peer| peer.port()),
             { ERROR_TYPE } = Empty,
             { RPC_RESPONSE_STATUS_CODE } = Empty,
         );
@@ -287,7 +294,7 @@ where E: Endpoint
             other => self.host.endpoint.handle(other, context).instrument(span.clone()).await,
         }
         .map_err(|error| match error.code {
-            ErrorCode::RESOURCE_NOT_FOUND if version.is_some_and(|version| !version.has_initialize()) => ErrorData { code: ErrorCode::INVALID_PARAMS, ..error },
+            ErrorCode::RESOURCE_NOT_FOUND if version.as_ref().is_some_and(|version| !version.has_initialize()) => ErrorData { code: ErrorCode::INVALID_PARAMS, ..error },
             _ => error,
         });
         let elapsed = started.elapsed();
@@ -304,9 +311,12 @@ where E: Endpoint
             tracing::info!(parent: &span, elapsed = elapsed.as_secs_f64(), "request completed");
         }
         let attributes = [
-            Some(KeyValue::new("mcp.method.name", method)),
-            tool.map(|name| KeyValue::new("gen_ai.tool.name", name)),
-            prompt.map(|name| KeyValue::new("gen_ai.prompt.name", name)),
+            Some(KeyValue::new(MCP_METHOD_NAME, method)),
+            tool.map(|name| KeyValue::new(GEN_AI_TOOL_NAME, name)),
+            prompt.map(|name| KeyValue::new(GEN_AI_PROMPT_NAME, name)),
+            version.map(|version| KeyValue::new(MCP_PROTOCOL_VERSION, version.as_str().to_owned())),
+            Some(KeyValue::new(NETWORK_TRANSPORT, TRANSPORT)),
+            Some(KeyValue::new(NETWORK_PROTOCOL_NAME, PROTOCOL)),
             error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind)),
         ];
         DURATION.record(elapsed.as_secs_f64(), &attributes.into_iter().flatten().collect::<Vec<_>>());
@@ -413,39 +423,15 @@ where
     let program = P::command();
     let identity =
         program.get_about().into_iter().fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), |identity, about| identity.with_description(about.to_string()));
-    rasm_command::run(
+    rasm_daemon::run(
         rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. },
-        io::stderr,
         Identity::new(),
-        async |Process { args: Augmented { options: Options { listen, allowed_host }, args }, mut signals, filter: _ }| {
-            let socket = net::TcpListener::bind(listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(listen), source })?;
-            let address = socket.local_addr().map_err(|source| Failed::Io { operation: Operation::Address, source })?;
+        async |Augmented { options: Options { allowed_host }, args }, address, stopping| {
             let notifier = Notifier(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY));
-            let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
-            let endpoint = started.map_err(Failed::Endpoint)?;
-            tracing::info!(listen = %address, "listening");
-            let host = Arc::new(Host { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
-            let manager = Arc::new(LocalSessionManager::default());
-            let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
+            let endpoint = build(args, identity, notifier.clone()).await?;
+            let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation().with_cancellation_token(stopping.child_token());
             config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
-            let factory = Arc::clone(&host);
-            let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
-            let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
-            let mut lifetime = pin!(future::maybe_done(host.endpoint.serve(host.stopping.clone())));
-            future::select(signals.next(), future::select(lifetime.as_mut(), http.as_mut())).await;
-            tracing::info!("shutting down");
-            let drained = async {
-                host.requests.close();
-                host.requests.wait().await;
-                host.stopping.cancel();
-                host.watches.close();
-                future::join_all(manager.sessions.read().await.values().map(|session| session.close_standalone_sse_stream(None))).await;
-                future::join(lifetime.as_mut(), host.watches.wait()).await;
-            };
-            future::select(pin!(future::join(drained, http.as_mut())), signals.next()).await;
-            let ended = lifetime.as_mut().take_output().map_or(Err(Failed::Abandoned), |ended| ended.map_err(Failed::Endpoint));
-            let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
-            validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
+            Ok(Host { endpoint, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default(), config })
         },
     )
 }

@@ -54,13 +54,13 @@ thiserror            = "2.0.21"                                    # Error enums
 validated            = { version = "1.0.0", features = ["rayon"] } # Applicative validation accumulating every independent error
 
 # --- [DERIVES]
-auto_impl    = "1.4.0"                                                                                                                               # Capability traits implemented for references, Arc, and Box from one impl
-bon          = "3.10.3"                                                                                                                              # Compile-time-checked builders for optional arguments
-derive-where = { version = "1.7.0", features = ["safe"] }                                                                                            # Derives on generic and phantom-typed records without spurious bounds
-derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Display derives on fieldless enums, conversion and constructor derives on invariant-free newtypes
-dynosaur     = "0.3.1"                                                                                                                               # Dynamic dispatch over async capability traits swapped at composition
-o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                  # Field mappings between domain and contract records, default `syn1` builds syn 1 beside syn 2
-strum        = { version = "0.28.0", features = ["derive"] }                                                                                         # Enum name tables, iteration, and discriminant enums
+auto_impl    = "1.4.0"                                                                                                                                        # Capability traits implemented for references, Arc, and Box from one impl
+bon          = "3.10.3"                                                                                                                                       # Compile-time-checked builders for optional arguments
+derive-where = { version = "1.7.0", features = ["safe"] }                                                                                                     # Derives on generic and phantom-typed records without spurious bounds
+derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "debug", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Display and Debug derives on fieldless enums and opaque newtypes, conversion and constructor derives on invariant-free newtypes
+dynosaur     = "0.3.1"                                                                                                                                        # Dynamic dispatch over async capability traits swapped at composition
+o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                           # Field mappings between domain and contract records, default `syn1` builds syn 1 beside syn 2
+strum        = { version = "0.28.0", features = ["derive"] }                                                                                                  # Enum name tables, iteration, and discriminant enums
 
 # --- [COLLECTIONS]
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
@@ -277,31 +277,31 @@ tracing-opentelemetry              = "0.34.0"                                   
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
-anstream             = "1.0.0"                                                             # Writers that keep, strip, or translate ANSI per terminal
-anstyle              = "1.0.14"                                                            # Style values shared by help text, terminal output, and TUI spans
-clap                 = { version = "4.6.7", features = ["derive", "env"] }                 # Typed command-line arguments and environment values
-clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                       # Verbosity flags resolved to tracing level filter
-clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }             # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
-clap_mangen          = { version = "0.3.3", features = ["env"] }                           # Man pages generated from each command, `env` naming each variable a row reads
-colorchoice-clap     = "1.0.8"                                                             # Color choice flag feeding terminal writers
-comfy-table          = "8.0.1"                                                             # Terminal tables sized to terminal width
-crossterm            = { version = "0.29.0", features = ["event-stream"] }                 # Raw mode, alternate screen, and async terminal events
-gilrs                = "0.11.2"                                                            # Gamepad input navigating viewports
-iced                 = { version = "0.14.0", features = ["tokio"] }                        # Windows in The Elm Architecture
-indicatif            = "0.18.6"                                                            # Progress bars and spinners
-inquire              = { version = "0.9.4", features = ["editor"] }                        # Interactive prompts
-minus                = { version = "5.8.0", features = ["static_output", "search"] }       # In-process pager for a grid taller than the terminal, `/` search
-ratatui              = "0.30.2"                                                            # Terminal UI layout, buffer diffing, and widgets
-ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                # Conversions between terminal styles and TUI styles
-ratatui-image        = "12.0.0-rc.3"                                                       # Raster previews in terminal
-ratatui-textarea     = "0.9.4"                                                             # Multi-line text editing widget
-throbber-widgets-tui = "0.11.1"                                                            # Activity indicators of pending effects
-tracing-indicatif    = "0.3.14"                                                            # Progress bars driven by tracing spans
-tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] } # Log pane fed by tracing events
-tui-popup            = "0.7.7"                                                             # Popups and dialogs
-tui-scrollview       = "0.6.8"                                                             # Scrollable viewports
-tui-tree-widget      = "0.24.1"                                                            # Collapsible tree views
-winit                = "0.31.0-beta.4"                                                     # Platform windows and input events
+anstream             = "1.0.0"                                                                                              # Writers that keep, strip, or translate ANSI per terminal
+anstyle              = "1.0.14"                                                                                             # Style values shared by help text, terminal output, and TUI spans
+clap                 = { version = "4.6.7", features = ["derive", "env"] }                                                  # Typed command-line arguments and environment values
+clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                                        # Verbosity flags resolved to tracing level filter
+clap_complete        = { version = "4.6.11", features = ["unstable-dynamic"] }                                              # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
+clap_mangen          = { version = "0.3.3", features = ["env"] }                                                            # Man pages generated from each command, `env` naming each variable a row reads
+colorchoice-clap     = "1.0.8"                                                                                              # Color choice flag feeding terminal writers
+comfy-table          = "8.0.1"                                                                                              # Terminal tables sized to terminal width
+crossterm            = { version = "0.29.0", features = ["event-stream", "serde"] }                                         # Raw mode, alternate screen, async terminal events, and key codes and modifiers decoded from keymap rows
+gilrs                = "0.11.2"                                                                                             # Gamepad input navigating viewports
+iced                 = { version = "0.14.0", features = ["tokio"] }                                                         # Windows in The Elm Architecture
+indicatif            = "0.18.6"                                                                                             # Progress bars and spinners
+inquire              = { version = "0.9.4", features = ["editor"] }                                                         # Interactive prompts
+minus                = { version = "5.8.0", features = ["static_output", "search"] }                                        # In-process pager for a grid taller than the terminal, `/` search
+ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache", "macros"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` 0.3 beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds nix 0.29 and thiserror 1 to the metadata clippy reads
+ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                                                 # Conversions between terminal styles and TUI styles
+ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }                      # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the workspace picks
+ratatui-textarea     = "0.9.4"                                                                                              # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+throbber-widgets-tui = "0.11.1"                                                                                             # Activity indicators of pending effects
+tracing-indicatif    = "0.3.14"                                                                                             # Progress bars driven by tracing spans
+tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] }                                  # Log pane fed by tracing events
+tui-popup            = "0.7.7"                                                                                              # Popups and dialogs, `derive_setters` adds darling 0.21 beside instability's 0.24 and the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+tui-scrollview       = "0.6.8"                                                                                              # Scrollable viewports, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+tui-tree-widget      = "0.24.1"                                                                                             # Collapsible tree views
+winit                = "0.31.0-beta.4"                                                                                      # Platform windows and input events
 
 # --- [DATA_STORAGE]
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
@@ -609,7 +609,10 @@ wiremock               = "0.6.5"                                                
 rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
 rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
 rasm-output    = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
-rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP every Rasm MCP product and `rasm-mcp-bridge` serve through
+rasm-screen    = { path = "libs/rust/cli/screen", version = "1.0.0" }         # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view
+rasm-daemon    = { path = "libs/rust/services/daemon", version = "1.0.0" }    # Served process every Rasm daemon runs: listen row, bind and bound address, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain on the command's signals
+rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP on `rasm-daemon` every Rasm MCP product and `rasm-mcp-bridge` serve through
+rasm-mesh      = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      # Solids every Rasm geometry consumer composes: mesh import with winding repair, extrusion, revolution, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, reduction, refinement, decomposition, measures
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

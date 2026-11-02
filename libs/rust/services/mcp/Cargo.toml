@@ -55,6 +55,7 @@ tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
 rasm-telemetry                     = { workspace = true }
 rasm-command                       = { workspace = true }
+rasm-daemon                        = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

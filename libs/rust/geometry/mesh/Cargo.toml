@@ -1,0 +1,39 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-mesh"
+version.workspace    = true
+edition.workspace    = true
+description          = "Solids over manifold-rust at nalgebra signatures: mesh import at a tolerance with winding repair, extrusion, revolution, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, meshopt and kernel reduction, refinement, body decomposition and measures"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["mesh", "csg", "boolean", "solid", "geometry"]
+categories           = ["graphics", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon           = { workspace = true }
+thiserror       = { workspace = true }
+derive_more     = { workspace = true }
+bounded-integer = { workspace = true }
+nutype          = { workspace = true }
+nalgebra        = { workspace = true }
+manifold-rust   = { workspace = true }
+meshopt         = { workspace = true }
+parry3d-f64     = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

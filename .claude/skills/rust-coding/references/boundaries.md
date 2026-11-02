@@ -103,7 +103,7 @@ pub struct Args {
 }
 ```
 
-Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Workspace telemetry crate `Options` adds log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
+Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Workspace telemetry crate `Options` adds log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Flattened `Options` records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]

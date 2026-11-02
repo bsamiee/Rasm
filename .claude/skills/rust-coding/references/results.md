@@ -55,4 +55,4 @@ pub fn first_over_budget(costs: &[Decimal], budget: Decimal) -> ControlFlow<usiz
 }
 ```
 
-`Break` holds the first index whose running total overflows or passes `budget`, and `Continue` holds a total within it. `?` on a `ControlFlow` returns its `Break`, and a recursive walk stops at the first `Break` any child returns.
+`Break` holds the first index whose running total overflows or passes `budget`, and `Continue` holds a total within it. `?` on a `ControlFlow` returns its `Break`, and a recursive walk stops at the first `Break` any child returns. `break_ok` and `continue_ok` turn the outcome into a `Result`, `into_value` under `control_flow_into_value` reads payloads of one type, and a fold editing its state in place is `try_for_each` over `&mut` state with `ControlFlow<()>`.

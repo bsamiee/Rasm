@@ -1,8 +1,7 @@
-#![feature(error_reporter, iterator_try_collect)]
+#![feature(iterator_try_collect)]
 
 use core::{error::Error, fmt};
 use std::{
-    error::Report,
     io,
     process::{ExitCode, Termination},
 };
@@ -145,6 +144,10 @@ where
     T: Termination,
     E: Error + From<CommandError> + Into<sysexits::ExitCode>,
 {
+    fn reported(command: &mut Command, message: fmt::Arguments<'_>, status: sysexits::ExitCode) -> ExitCode {
+        let (Ok(()) | Err(_)) = command.error(ErrorKind::Io, message).print();
+        status.into()
+    }
     CompleteEnv::with_factory(Augmented::<Options, A>::command).complete();
     let mut command = Augmented::<Options, A>::command().subcommand_required(false);
     let mut matches = command.get_matches_mut();
@@ -152,17 +155,24 @@ where
     color.write_global();
     if let Some(directory) = manual {
         return clap_mangen::generate_to(Augmented::<Options, A>::command(), &directory)
-            .map_or_else(|source| command.error(ErrorKind::Io, format_args!("cannot write man pages into {directory}: {}", Report::new(&source))).exit(), |()| ExitCode::SUCCESS);
+            .map_or_else(|source| reported(&mut command, format_args!("cannot write man pages into {directory}: {source}"), sysexits::ExitCode::from(source.kind())), |()| ExitCode::SUCCESS);
     }
     let args = A::from_arg_matches_mut(&mut matches).unwrap_or_else(|error| error.format(&mut command).exit());
-    let (journal, _worker) = log_directory
+    let opened = log_directory
         .map(|directory| {
-            RollingFileAppender::builder().rotation(Rotation::DAILY).filename_prefix(command.get_name()).filename_suffix("jsonl").build(&directory).map_or_else(
-                |source| command.error(ErrorKind::Io, format_args!("cannot open log directory {directory}: {source}")).exit(),
-                |appender| NonBlockingBuilder::default().lossy(false).finish(appender),
-            )
+            RollingFileAppender::builder()
+                .rotation(Rotation::DAILY)
+                .filename_prefix(command.get_name())
+                .filename_suffix("jsonl")
+                .build(&directory)
+                .map(|appender| NonBlockingBuilder::default().lossy(false).finish(appender))
+                .map_err(|source| (directory, source))
         })
-        .unzip();
+        .transpose();
+    let (journal, _worker) = match opened {
+        Ok(opened) => opened.unzip(),
+        Err((directory, source)) => return reported(&mut command, format_args!("cannot open log directory {directory}: {source}"), sysexits::ExitCode::CantCreat),
+    };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(journal.clone())).or_else(stderr), layer, |filter| {
         let runtime = Runtime::new().map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Runtime, source })))?;
         let worked = runtime.block_on(async {

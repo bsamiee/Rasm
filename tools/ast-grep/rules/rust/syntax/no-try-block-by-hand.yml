@@ -13,6 +13,11 @@ utils:
     wrapped-value:
         kind: call_expression
         has: {field: function, kind: identifier, regex: '^(Some|Ok)$'}
+    unit-step:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^and_then$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: closure_expression, has: {field: parameters, regex: '^\|\s*\(\)\s*\|$'}}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
         - kind: call_expression
@@ -36,5 +41,10 @@ rule:
                 all:
                     - has: {kind: label, pattern: $LABEL}
                     - has: {any: [{kind: identifier, regex: '^None$'}, {kind: call_expression, has: {field: function, kind: identifier, regex: '^Err$'}}]}
-message: 'Closure called once or labeled block stands in for a `try` block'
+        - kind: call_expression
+          all:
+            - matches: unit-step
+            - has: {field: function, has: {field: value, matches: unit-step}}
+            - not: {inside: {kind: field_expression, field: value, inside: {matches: unit-step}}}
+message: 'Closure called once, labeled block, or `.and_then(|()| ..)` chain stands in for a `try` block'
 note: 'Write `try { <statements>; <value> }` (`#![feature(try_blocks)]`), or `async move { <statements>; Ok(<value>) }` for an `async` closure'

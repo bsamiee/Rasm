@@ -375,6 +375,19 @@ fn single_reader(found: &str) {
         |                                           ^^^^^^^
         = help: move `floored` into `unwrapped` as a nested item
 
+    warning: `listed` has one reader, `paired`
+       --> tools/dylint/examples/single_reader.rs:211:1
+        |
+    211 | fn listed<T>(item: T) -> Vec<T> { vec![item] }
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: read here
+       --> tools/dylint/examples/single_reader.rs:215:6
+        |
+    215 |     (listed(item), item)
+        |      ^^^^^^
+        = help: move `listed` into `paired` as a closure over its generic parameters
+
     warning: `halved` has one reader, `narrowed`
        --> tools/dylint/examples/single_reader.rs:162:1
         |
@@ -382,9 +395,9 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:215:42
+       --> tools/dylint/examples/single_reader.rs:222:42
         |
-    215 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+    222 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
         |                                          ^^^^^^
         = help: move `halved` into `narrowed` as a nested item
     "#);

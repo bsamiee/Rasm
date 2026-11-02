@@ -1,0 +1,44 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-daemon"
+version.workspace    = true
+edition.workspace    = true
+description          = "Served process over rasm-command: listen row, bind, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, and a two-stage drain on the command's signals"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["daemon", "server", "axum", "graceful-shutdown", "signals"]
+categories           = ["network-programming", "web-programming::http-server"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+futures              = { workspace = true }
+tokio                = { workspace = true }
+tokio-util           = { workspace = true }
+nonempty-collections = { workspace = true }
+sysexits             = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+axum                 = { workspace = true }
+tracing              = { workspace = true }
+tracing-subscriber   = { workspace = true }
+clap                 = { workspace = true }
+rasm-telemetry       = { workspace = true }
+rasm-command         = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

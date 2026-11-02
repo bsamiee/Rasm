@@ -18,7 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from the domain's standard vocabulary and the members of the packages in use, a file takes the name of the concept it holds, and no name is coined
+- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, a file its concept's
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
@@ -37,19 +37,20 @@ Function signatures are contracts, parameter types state every value a function 
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
 - Defaults sit on one options struct whose `default_field_values` state each, a caller writes the fields it changes before `..`
-- Values differing per platform are one `cfg_select!` expression
+- Values and types differing per platform are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads nest inside it, a module-level function has more than one caller
+- Helpers one function reads nest inside it, as a closure reading its generics, and one adding a fact to a package call serves only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
 Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
+- Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type, a clamp stays where the domain defines it
 
 ### [01.2]-[PURITY]
 
@@ -85,7 +86,8 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Adjacent pairs (`array_windows`, `map_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, an arm nests no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
-- `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call
+- `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
+- Optional builder steps fold an `Option` into the value (`tint.into_iter().fold(style, Style::fg)`), and `None` returns it unchanged
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -142,9 +144,10 @@ pub enum Delivery {
 - Kinds derive from the enum: `discriminant()` returns a fieldless `Stage` ranked in declaration order, `EnumMap<Stage, V>` one value per stage
 - Data shared by every variant sits in a struct beside a field holding the enum
 - Variants differing only by a tag are one struct keyed by a fieldless enum
-- Flags with fields meaningful for one flag value become one variant per valid state
+- Flags with fields one flag value reads become one variant per valid state, and a setting one variant alone reads sits inside that variant
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
+- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant
 
 ### [03.2]-[CONSTRAINED_VALUES]
 
@@ -157,6 +160,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - `uom` quantities hold physical values with dimensions the compiler checks
 - Rules across fields take `nutype` over a standard type of that shape (`Range<Timestamp>`), else over a declared record
 - Public fields hold values no rule constrains
+- Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
 
 ### [03.3]-[OWNERSHIP]
 
@@ -221,7 +225,7 @@ Give each step a function and select the operator by the step's signature and by
 | :-----: | :----------------------------- | :------------------------------------- | :------------------------------ |
 |  [01]   | `T -> U`                       | `map`                                  | Transforms a present value      |
 |  [02]   | `T -> Result<U, E>`            | `?` in sequence, `and_then` in a chain | Continues with a dependent step |
-|  [03]   | `Option<T>` to `Result<T, E>`  | `ok_or`, a `bool` through `then_some`  | Names the error absence means   |
+|  [03]   | `Option<T>` to `Result<T, E>`  | `ok_or`, `bool::ok_or`                 | Names the error absence means   |
 |  [04]   | Independent `Result`s          | `Validated::from`, `map2` to `map4`    | Joins every failure             |
 |  [05]   | Items with `T -> Result<U, E>` | `collect::<Result<Vec<U>, E>>()`       | Stops at the first failure      |
 |  [06]   | Items with `T -> Result<U, E>` | `collect::<Validated<Vec<U>, E>>()`    | Joins every failure             |
@@ -239,7 +243,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target
-- `try` blocks scope `?` to a block of `Option` or `Result`, a helper function exists only for a name
+- `try` blocks scope `?` to a block of `Option` or `Result` in place of an `and_then(|()| ..)` chain over unit steps, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 
@@ -267,14 +271,15 @@ pub enum LedgerError {
 
 - Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
 - Fields named `source` hold the foreign error a variant wraps
-- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, forwarding their own message, and a foreign error with one value (`SetGlobalDefaultError`, `SetLoggerError`) holds nothing to forward, so its variant is a unit variant with the crate's message
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one holding a single value (`SetLoggerError`) is a unit variant with the crate's message
 - Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
+- Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
 
-Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Accumulated failures exit with the first one's status:
+Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Layer errors convert through `impl<X> From<LayerError<X>> for ExitCode where X: Into<Self>`. Accumulated failures exit with the first one's status:
 
 ```rust
 impl From<LedgerError> for ExitCode {
@@ -303,7 +308,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 |  [04]   | Implementations chosen at run time or mixed in one collection | `Box<dyn Trait>`, `Arc<dyn Trait>`     |
 |  [05]   | Async capability chosen at run time                           | `dynosaur` dynamic type over the trait |
 
-- `async fn` in a trait declares the async capability, return-type notation (`S::load(..): Send`) states `Send` where a task spawns it
+- A public trait states `Send` on each async method as `-> impl Future<Output = T> + Send`, and an implementor writes `async fn`
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
 - Bounds repeated across signatures are one trait alias, a crate-private trait with one implementor is that type's inherent `impl`
@@ -333,12 +338,13 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [01]   | Error message and source chain          | `thiserror::Error`                                                   |
 |  [02]   | Text name and parse of a fieldless enum | `derive_more` `Display` and `FromStr` with `rename_all`              |
 |  [03]   | Variant list, count, and discriminants  | `strum` `VariantArray`, `EnumCount`, `EnumDiscriminants`, `FromRepr` |
-|  [04]   | One value per variant                   | `enum_map::Enum`                                                     |
-|  [05]   | Checked newtype and its error           | `nutype`                                                             |
-|  [06]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                |
-|  [07]   | Traits on a `PhantomData` generic       | `derive_where`                                                       |
-|  [08]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                      |
-|  [09]   | Field mapping between domain and wire   | `o2o`                                                                |
+|  [04]   | Variant tests                           | `derive_more` `IsVariant`                                            |
+|  [05]   | One value per variant                   | `enum_map::Enum`                                                     |
+|  [06]   | Checked newtype and its error           | `nutype`                                                             |
+|  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                |
+|  [08]   | Traits adding no bound on a generic     | `derive_where`                                                       |
+|  [09]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                      |
+|  [10]   | Field mapping between domain and wire   | `o2o`                                                                |
 
 ## [06]-[EFFECTS]
 

@@ -47,7 +47,7 @@ pub struct Layout {
 `Layout { title, wrap: Wrap { width: 72, .. }, .. }` sets a title and wrap width. Crates writing a `..` literal of a foreign record enable `default_field_values`.
 - Required fields (`title`) appear in every literal, and their record derives no `Default` to fill them with an empty value
 - `#[derive(Default)]` reads each declared default: `Wrap::default()` and a container-level `#[serde(default)]` decode agree with `Wrap { .. }`
-- Defaults are constant expressions, owned text defaults through `Cow::Borrowed` in a `Cow<'static, str>` field
+- Defaults are constant expressions, text no caller builds at run time is `&'static str`, and text a caller can own defaults through `Cow::Borrowed`
 - Typed dependencies (a store, a layer) enter as a parameter beside the record, never a defaulted field
 
 ## [03]-[TRAIT_ALIASES]

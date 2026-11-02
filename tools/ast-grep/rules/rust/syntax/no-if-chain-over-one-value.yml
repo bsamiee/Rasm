@@ -20,7 +20,7 @@ utils:
     pattern-operand:
         any:
             - kind: 'integer_literal, char_literal, boolean_literal, float_literal'
-            - {kind: scoped_identifier, has: {field: name, regex: '^[A-Z][A-Z0-9_]+$'}}
+            - {kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
             - {kind: identifier, regex: '^[A-Z][A-Z0-9_]+$'}
             - kind: unary_expression
               regex: '^-'

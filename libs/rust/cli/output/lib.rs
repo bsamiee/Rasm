@@ -1,4 +1,4 @@
-#![feature(iterator_try_collect)]
+#![feature(iterator_try_collect, try_blocks)]
 
 use core::{error::Error, fmt, pin::pin};
 use std::{io, panic, process};

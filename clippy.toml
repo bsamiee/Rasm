@@ -27,17 +27,19 @@ pub-underscore-fields-behavior = "AllPubFields"
 
 # --- [GRAPH]
 allowed-duplicate-crates = [
-    "syn",
-    "getrandom",
-    "rand",
-    "rand_core",
-    "r-efi",
-    "matchit",
-    "bitflags",
-    "base64",
-    "core-foundation",
-    "cpufeatures",
-    "windows-sys",
+    "syn",                   # 2 under proc macros not on `syn` 3 (`derive_more-impl`, `jiff-static`, `nalgebra-macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `zerocopy-derive`)
+    "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, and `jobserver`
+    "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` beside 0.10 under rmcp `server-side-http`
+    "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
+    "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
+    "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
+    "bitflags",              # 1 under newest `defmt` 1.2.0 through the weak `defmt?/alloc` of `jiff` 0.2.38 and `jiff-core` 0.1.1 (rust-clippy#16440), beside 2 under `nix`, `rustix`, `tower-http`, `meshopt`, and `parry3d-f64`
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.9, and `opentelemetry-proto` 0.33.1 beside 0.23 under newest `hyper-util` 0.1.21, `reqwest`, and `rmcp`
+    "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
+    "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
+    "windows-sys",           # 0.52 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
+    "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
+    "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
 ]
 
 # --- [BANS]

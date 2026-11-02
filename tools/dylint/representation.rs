@@ -3,7 +3,7 @@ use clippy_utils::{
     res::{MaybeQPath as _, MaybeResPath as _},
     sym,
 };
-use rustc_data_structures::fx::FxHashSet;
+use itertools::Itertools as _;
 use rustc_hir::{Expr, ExprKind, UnOp, def_id::DefId};
 use rustc_lint::LateContext;
 use rustc_middle::ty::{self, AdtDef, Ty, VariantDef};
@@ -63,8 +63,8 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
             && entries
                 .iter()
                 .map(|entry| if let ExprKind::Tup([key, _]) = entry.kind { key.res(typeck).opt_def_id() } else { None })
-                .try_collect::<FxHashSet<_>>()
-                .is_some_and(|keys| keys.len() == entries.len())
+                .collect::<Option<Vec<_>>>()
+                .is_some_and(|keys| keys.iter().all_unique())
     };
     match pairs.kind {
         ExprKind::MethodCall(mapped, source, [Expr { kind: ExprKind::Closure(closure), .. }], _) if mapped.ident.name == sym::map =>

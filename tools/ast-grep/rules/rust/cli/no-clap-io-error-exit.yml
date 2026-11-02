@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-clap-io-error-exit
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: arguments, not: {has: {pattern: $_}}}
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^exit$'}}
+        - has:
+            field: function
+            has:
+                field: value
+                kind: call_expression
+                all:
+                    - has: {field: function, regex: '(\.error|\bError::(raw|new))$'}
+                    - has: {field: arguments, has: {nthChild: 1, pattern: $KIND, regex: '^((clap::)?(error::)?ErrorKind::)?(Io|Format)$'}}
+message: '`clap::Error::exit` on `$KIND` exits with usage status 2'
+note: 'Call `.print()` on the clap error and return the failure''s `sysexits::ExitCode`, `From<io::ErrorKind>` derives it from an `io::Error`'

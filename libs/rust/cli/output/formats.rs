@@ -95,12 +95,13 @@ where
             Sink::Grid { table, header: _, paging: Paging::Never } => writeln!(anstream::stdout(), "{table}").map_err(|source| OutputError::Write { source }),
             Sink::Grid { table, header: _, paging: paging @ (Paging::Auto | Paging::Always) } => {
                 let pager = Pager::new();
-                pager
-                    .remove_hook(Hook::PostPagerExit, 1)
-                    .and_then(|()| pager.set_run_no_overflow(matches!(paging, Paging::Always)))
-                    .and_then(|()| pager.set_text(table.to_string()))
-                    .and_then(|()| minus::page_all(pager))
-                    .map_err(OutputError::Pager)
+                let viewed = try {
+                    pager.remove_hook(Hook::PostPagerExit, 1)?;
+                    pager.set_run_no_overflow(matches!(paging, Paging::Always))?;
+                    pager.set_text(table.to_string())?;
+                    minus::page_all(pager)?
+                };
+                viewed.map_err(OutputError::Pager)
             }
         }
     }

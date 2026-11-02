@@ -18,7 +18,7 @@ where S: Bucket<put(..): Send> + Send + Sync + 'static {
 }
 ```
 
-`iter::repeat` clones the `Arc` per part, and each future owns its inputs as `'static`. `join_all` resumes a task panic in the caller. Services hold a `TaskTracker` for tasks they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
+`iter::repeat` clones the `Arc` per part, and each future owns its inputs as `'static`. `join_all` resumes a task panic in the caller, and a `spawn_blocking` join resumes one through `panic::resume_unwind(error.into_panic())`. Blocking tasks read a stream as an iterator through `executor::block_on_stream`. Services hold a `TaskTracker` for tasks they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
 
 ```rust
 pub async fn serve<H>(listener: TcpListener, handler: Arc<H>, stop: CancellationToken) -> Result<(), ServiceError>
@@ -51,7 +51,7 @@ pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(
 }
 ```
 
-`async move |stop| serve(listener, handler, stop).await` fills `serving`. `maybe_done` holds its output across both races until `take_output` reads it once. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`async move |stop| serve(listener, handler, stop).await` fills `serving`. `maybe_done` holds its output across both races until `take_output` reads it once. Drains over more than one future take abandonment from the second race's `Either::Right`, and `Either::Left` reads every output with no default for an absent one. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
 
 ## [03]-[STREAMS]
 
@@ -64,7 +64,7 @@ where S: Sensor {
 }
 ```
 
-`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` sets ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`. Paged sources unfold into one stream of items:
+`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` sets ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped` tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
 
 ```rust
 pub fn listed<C>(catalog: &C) -> impl Stream<Item = Result<Item, SourceError>>

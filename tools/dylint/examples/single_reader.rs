@@ -208,6 +208,13 @@ fn layered(width: usize) -> usize {
     middle(width)
 }
 
+fn listed<T>(item: T) -> Vec<T> { vec![item] }
+
+fn paired<T>(item: T) -> (Vec<T>, T)
+where T: Copy {
+    (listed(item), item)
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -218,5 +225,5 @@ async fn main() {
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));
-    black_box(&(Buffer { items: vec![1_u16] }.bytes(), sized(), port(1), kept(), counted("a"), grade(6), wrapped(3), layered(5)));
+    black_box(&(Buffer { items: vec![1_u16] }.bytes(), sized(), port(1), kept(), counted("a"), grade(6), wrapped(3), layered(5), paired(4_u8)));
 }

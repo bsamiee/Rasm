@@ -31,8 +31,22 @@ utils:
     panic-hook:
         any:
             - kind: scoped_identifier
-              regex: '(^|::)panic::(set_hook|take_hook|update_hook)$'
-            - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|take_hook|update_hook)$'}}}
+              regex: '(^|::)panic::(set_hook|take_hook)$'
+            - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|take_hook)$'}}}
+            - all:
+                - any:
+                    - {kind: scoped_identifier, regex: '(^|::)panic::update_hook$'}
+                    - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^update_hook$'}}}
+                - not:
+                    inside:
+                        kind: call_expression
+                        has:
+                            field: arguments
+                            has:
+                                kind: closure_expression
+                                all:
+                                    - has: {field: parameters, has: {kind: identifier, nthChild: 1, pattern: $PREVIOUS}}
+                                    - has: {field: body, stopBy: end, kind: call_expression, has: {field: function, pattern: $PREVIOUS}}
 rule:
     kind: 'identifier, scoped_identifier, field_expression'
     pattern: $SITE
@@ -45,5 +59,5 @@ rule:
             - matches: rust-test-scope
             - inside: {kind: scoped_identifier}
             - inside: {kind: use_declaration, stopBy: end}
-message: '`$SITE` installs a subscriber, `LogTracer`, provider, propagator, or panic hook outside `rasm-telemetry`'
-note: 'Run the process entry through `rasm_command::run`'
+message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
+note: 'Run the process entry through `rasm_command::run`, and chain a hook onto the one before it through `panic::update_hook` calling its first parameter'

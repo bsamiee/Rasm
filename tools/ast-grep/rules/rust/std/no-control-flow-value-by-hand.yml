@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-control-flow-value-by-hand
+language: rust
+severity: error
+utils:
+    break-binding:
+        kind: tuple_struct_pattern
+        all:
+            - has: {field: type, regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Break$'}
+            - has: {nthChild: 2, kind: identifier, pattern: $VALUE}
+            - not: {has: {nthChild: 3}}
+    continue-binding:
+        kind: tuple_struct_pattern
+        all:
+            - has: {field: type, regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Continue$'}
+            - has: {nthChild: 2, kind: identifier, pattern: $VALUE}
+            - not: {has: {nthChild: 3}}
+    returning-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, kind: identifier, pattern: $VALUE}
+rule:
+    any:
+        - kind: or_pattern
+          all:
+            - not: {has: {nthChild: 3}}
+            - any:
+                - all: [{has: {nthChild: 1, matches: break-binding}}, {has: {nthChild: 2, matches: continue-binding}}]
+                - all: [{has: {nthChild: 1, matches: continue-binding}}, {has: {nthChild: 2, matches: break-binding}}]
+        - kind: match_block
+          all:
+            - not: {has: {nthChild: 3}}
+            - has: {matches: returning-arm, has: {field: pattern, has: {matches: break-binding}}}
+            - has: {matches: returning-arm, has: {field: pattern, has: {matches: continue-binding}}}
+message: '`Break($VALUE)` and `Continue($VALUE)` patterns bind the payload both `ControlFlow` variants hold'
+note: 'Call `<control flow>.into_value()` (`#![feature(control_flow_into_value)]`), through `.map(ControlFlow::into_value)` under a `Result` or `Option`'

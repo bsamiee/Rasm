@@ -3,16 +3,42 @@ id: no-set-size-uniqueness
 language: rust
 severity: error
 rule:
-    kind: binary_expression
     any:
-        - pattern: $I.collect::<$SET<$_>>().len() == $N
-        - pattern: $N == $I.collect::<$SET<$_>>().len()
-        - pattern: $I.collect::<$SET<$_>>().len() != $N
-        - pattern: $N != $I.collect::<$SET<$_>>().len()
-        - pattern: $I.collect::<$SET<$_>>().len() < $N
-        - pattern: $N > $I.collect::<$SET<$_>>().len()
+        - kind: binary_expression
+          any:
+            - pattern: $I.collect::<$SET<$_>>().len() == $N
+            - pattern: $N == $I.collect::<$SET<$_>>().len()
+            - pattern: $I.collect::<$SET<$_>>().len() != $N
+            - pattern: $N != $I.collect::<$SET<$_>>().len()
+            - pattern: $I.collect::<$SET<$_>>().len() < $N
+            - pattern: $N > $I.collect::<$SET<$_>>().len()
+        - kind: call_expression
+          all:
+            - has: {field: function, has: {field: field, regex: '^is_(some|ok)_and$'}}
+            - has:
+                field: function
+                has:
+                    field: value
+                    any:
+                        - pattern: $I.try_collect::<$SET<$_>>()
+                        - pattern: $I.collect::<Option<$SET<$_>>>()
+                        - pattern: $I.collect::<Result<$SET<$_>, $_>>()
+            - has:
+                field: arguments
+                has:
+                    kind: closure_expression
+                    all:
+                        - has: {field: parameters, has: {kind: identifier, pattern: $K}}
+                        - has:
+                            field: body
+                            kind: binary_expression
+                            all:
+                                - has: {field: operator, regex: '^(==|!=)$'}
+                                - any:
+                                    - all: [{has: {field: left, pattern: $K.len()}}, {has: {field: right, pattern: $N}}]
+                                    - all: [{has: {field: right, pattern: $K.len()}}, {has: {field: left, pattern: $N}}]
 constraints:
     SET: {regex: '^(Fx|Unord)?(Hash|BTree|Index)Set$'}
     N: {kind: call_expression, regex: '\.(len|count)\(\)$'}
 message: '`$I` collects into a `$SET` only to compare its size with `$N`'
-note: 'Call `<iterator>.all_unique()` (`use itertools::Itertools as _;`), negated where the comparison tests for a duplicate'
+note: 'Call `<iterator>.all_unique()` (`use itertools::Itertools as _;`), negated where the comparison tests for a duplicate, over `collect::<Option<Vec<_>>>()` for fallible items'
