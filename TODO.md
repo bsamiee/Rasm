@@ -53,6 +53,10 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 - **Hosts:** every agent runs desktop hosts in the background through Atelier's MCP tools and watch-apps. Nothing activates an app or takes the owner's focus, and scripts prove headless with their UI shadowed in scope.
 - **Shared tree:** another session may edit beside these runs. Files are split by owner before either commits, and neither touches the other's files.
 
+### Folder guidance
+
+`.claude/workflows/guidance.js` writes and rebuilds the folder CLAUDE.md files once Atelier and the running rows have landed. A standard first (what a nested file earns, from the Claude Code documentation, with a line-by-line rubric), then one reader per area over its code and its whole history, inferring the higher-order principles that would have prevented the repeated fixes. One judge picks the highest folder level that covers each group and deletes files a level above covers; writers keep each file within 125 lines with an AGENTS.md link; adversaries cut whatever repeats the root, README, a skill or a level above, states the obvious, or freezes today's shape.
+
 ### Depth passes
 
 Depth runs follow behind the rows, so no library stays surface level: each committed folder gets one, up to three at once, on folders that share no logic with a running run.
