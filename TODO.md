@@ -64,6 +64,7 @@ Once every RUST.md [03] row has landed, each crate gets a depth run so no crate 
 - **Swift:** all three rows landed, with a close-out of the stopped Swift mine. A rerun of the Swift mine waits until the watch-apps session's Swift test wave lands.
 - **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. `creative-cloud/indesign` is running; it gets a Check-only rerun under the depth adversaries before its commit, then `typescript-tune`. Next are `data/database`, `web/hosting`, `web/media` and `web/ui`, one at a time as the lane opens.
 - **SchemaTransformation pass:** landed. The same mining runs over the other Effect 4 members the TypeScript code restates by hand, where a member states the form.
+- **Quality bar for every language:** thread safety and performance hold as firmly as surface and depth; a gap a review finds (a lowered lint, a dropped `Send`, a starved future) is fixed at its root and the rule or skill line that let it through is corrected.
 - **Rust:** `services/telemetry`, `cli/command` and `cli/output` landed. `cli/screen`, `services/daemon` and `geometry/mesh` landed under the old second pass and get Check-only reruns under the depth adversaries, then one commit and `rust-tune`. Then the 36 remaining rows launch, each disjoint row 20 minutes after the last, `services/mcp` first, since it waits on `services/daemon`.
 
 ### Done
@@ -77,17 +78,25 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 ### Method
 
-- **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Each plugin and script is decompiled in full and understood, then its capability is rebuilt in our own shape and depth as programmatic capability (general packages, `@rasm/indesign`, Atelier and its Galley extension), never as a port or a shippable script, the way Sidekick became the MCP layer, the Creative Cloud libraries and Atelier.
-- **Architecture:** one design of packages, folders and files, challenged by critics, recorded in TYPESCRIPT.md rows. Libraries hold general capability usable in any host. Adobe code holds what is specific to Adobe.
-- **Runs:** each row runs on typescript.js as it stands, with both adversarial passes, then `typescript-tune` on its commit, adding external packages where a domain needs them.
-- **Companion:** a checks and skill workflow launches after each extension run, designed in `docs/research/typescript-extension/WORKFLOWS.md`.
+- **Decompile in full:** every acquired plugin, extension and script, free, trial or bought, is decompiled completely and truthfully, never surveyed from strings, names or readmes. Native code is named and typed in Ghidra, scripts are decoded and named, every algorithm is rebuilt as runnable TypeScript, and every rebuild is proven against the binary (emulation) and the host (InDesign 2027 Beta, or 2026 where a plugin loads only there). A Windows-only build runs on the Mac where its form allows (scripts, CEP and UXP); native Windows code is proven through emulation.
+- **Rebuild, never port:** each capability is rebuilt in our own shape and depth as programmatic library capability, never as a port or a shippable script, the way Sidekick became the MCP layer, the Creative Cloud libraries and Atelier. Where products overlap, the rebuild takes the strongest form and the nuance of each, and nothing genuine any product holds is left out.
+- **Levels:** general capability with no host type (grids, margins, leading, color, text and right-to-left math), Creative Cloud capability shared across Adobe hosts, InDesign capability (host reads and writes), and Atelier with its Galley extension composing them. Nothing pre-existing binds the design: current code is rebuilt where the design needs it.
+- **Packages:** the newest well-made package owns each domain fact (typesetting, grids, arithmetic, right-to-left text, fonts, color); an older or weaker package is replaced, and nothing is hand-rolled that a package states.
+- **Quality:** the [01] bar holds or rises: depth for real, advanced use, the smallest internal and external surface, values derived and parameterized with no stringly type or arbitrary constant, no wrapper, alias, forwarder or shim, current Effect 4 forms (`SchemaTransformation`, `SchemaGetter` and their kin), and fast code with no indirection.
 
-### Progress
+### Phases
 
-- **Planning:** done. `docs/research/typescript-extension/` holds the map, six domain studies, ARCHITECTURE.md (nine rows, challenged twice in place) and WORKFLOWS.md (the one TYPESCRIPT.md edit, the `owned` keys, launch order and gates).
-- **Companion:** `.claude/workflows/typescript-tune.js` runs after each committed extension run, `args.key` its row and `args.commit` its commit, in the one TypeScript lane.
-- **Plugin studies:** the owner approved public sources, trials (Grid Calculator PE and ScribeDOOR stay on their demo and trial), one-time purchases on the owner's card with no subscription (Layout Grid Calculator bought; Fitbaseline and Manzar stopped at a CAPTCHA, for the owner to buy), InPage's Typesetting Tool and fonts (Manzar merged into InPage in 2025), every hasaninscripts.com script, and Kashida taken free as JSXBIN. Fonts land in `docs/research/typescript-extension/fonts/` and the owner's Paid Premium Fonts drive folder. Trials and demos come through vendor accounts. Each product folder under `docs/research/applications/adobe/extensions/` holds `acquired/`, `unpacked/`, `binaries/`, `ghidra/`, `recovered/` (every plugin function named and typed), `rebuilt/` (runnable TypeScript citing addresses) and `proof/` (the binary emulated and the host driven on the rebuild's vectors). The `plugin-decompile` run writes each study in `docs/research/typescript-extension/studies/` from the proven rebuild alone.
-- **Start:** once the last [01] TypeScript row lands, WORKFLOWS.md [02.1] and [03.1] land as one edit and `data/search` launches. Before it, InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]) and the purchased plugins go through Ghidra, and one integration pass rewrites ARCHITECTURE.md in place from every study, placing each recovered algorithm in a general package, in `@rasm/indesign` or in Atelier, under two adversarial architects.
+1. **Acquire:** done but for the owner's choices below. Assets sit under `docs/research/applications/adobe/extensions/<vendor>-<product>/`, color engines under `docs/research/typescript-extension/sources/`, fonts under `docs/research/typescript-extension/fonts/` and the owner's Paid Premium Fonts drive folder.
+2. **Decompile:** `plugin-decompile` (native and single products: `acquired/`, `unpacked/`, `binaries/`, `ghidra/`, `recovered/`, `rebuilt/`, `proof/`, a study per product) and `script-decompile` (scripts decoded in batches, then rebuilt, proven and studied per domain). Then the same method over any product still bought and InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]).
+3. **Clean:** `docs/research` keeps only current, proven material for this work. Studies a proven study supersedes, scratch notes and stale plans are deleted, and every path a study cites resolves.
+4. **Packages:** one research pass over the newest packages per domain, then the chosen catalog rows land at their newest release and install before any row runs.
+5. **Architecture:** after phases 2 to 4, one integration pass rewrites ARCHITECTURE.md and WORKFLOWS.md in place from every study: a capability matrix across all products, each capability placed at its level, then two adversarial architects rewriting in place.
+6. **Rows:** once the last [01] TypeScript row lands, the one TYPESCRIPT.md edit, then each extension row on typescript.js (adversary, depth adversary, check), reviewed against its base, committed, then `typescript-tune` on its commit.
+
+### State
+
+- **Planning:** the first plan (map, six domain studies, ARCHITECTURE.md with nine rows, WORKFLOWS.md) is the base phase 5 rewrites.
+- **Owner's choices:** InPage's InDesign plugin ships only inside Windows desktop bundles ($225, $325 with Kasheeda, $650 with the full InPage Naskh) and its Mac build is not on sale; manzar.in still sells the old Windows tool for $60 through PayPal; six paid hasaninscripts scripts ($62) stopped at an hCaptcha.
 
 ### Scope
 
