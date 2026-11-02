@@ -1,5 +1,5 @@
 import { atomic } from '@rasm/database/transaction';
-import { unavailable } from '@rasm/hosting';
+import { unavailable } from '@rasm/hosting/response';
 import { Array, Effect, Match, Record, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { SqlClient } from 'effect/sql';
@@ -18,7 +18,7 @@ const Draft = Schema.Tuple([Schema.Struct({ revision: documents.schema.fields.re
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const empty = Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({}));
+const empty = Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({})).pipe(Effect.orDie);
 const readDocument = Effect.fn('readDocument')(
     (state: typeof documents.schema.fields.state.Type) =>
         Effect.flatten(

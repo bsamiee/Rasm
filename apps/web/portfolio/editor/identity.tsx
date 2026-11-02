@@ -1,5 +1,5 @@
 import { useAtomSet } from '@effect/atom-react';
-import { sessionPath } from '@rasm/hosting/client';
+import { User } from '@rasm/hosting/user';
 import { Field } from '@rasm/ui/form/field';
 import { Optic } from 'effect';
 import { AsyncResult, type Atom } from 'effect/reactivity';
@@ -39,7 +39,7 @@ const Identity = ({ ids, onChooseHero, ...state }: Pick<Atom.Success<typeof draf
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={sessionPath('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={User.path('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

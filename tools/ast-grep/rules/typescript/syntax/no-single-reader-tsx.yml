@@ -5,7 +5,9 @@ severity: error
 utils:
     literal:
         any:
-            - kind: string, number, true, false, null, undefined, identifier, arrow_function
+            - kind: string, number, true, false, null, undefined, identifier
+            - kind: arrow_function
+              not: {has: {field: body, kind: statement_block, has: {nthChild: 3}}}
             - kind: member_expression
               not: {has: {stopBy: end, kind: call_expression}}
             - kind: template_string
@@ -92,11 +94,13 @@ rule:
               all:
                 - has: {field: name, kind: identifier, pattern: $NAME}
                 - has: {field: value, matches: literal, not: {matches: component}}
+                - not: {all: [{has: {field: type, kind: type_annotation}}, {has: {field: value, kind: 'identifier, member_expression'}}]}
                 - inside: {kind: lexical_declaration, all: [{has: {field: kind, regex: '^const$'}}, {inside: {kind: program}}]}
             - kind: function_declaration
               all:
                 - has: {field: name, pattern: $NAME}
                 - not: {matches: component}
+                - not: {has: {field: body, kind: statement_block, has: {nthChild: 3}}}
                 - inside: {kind: program}
         - any:
             - all:
@@ -111,6 +115,22 @@ rule:
                                 stopBy: end
                                 matches: reference
                                 not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}]}}
+                        - not: {has: {stopBy: end, matches: later-reference}}
+                - not:
+                    inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            stopBy: end
+                            matches: read
+                            inside:
+                                stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}
+                                matches: level
+                                inside: {stopBy: *body, matches: level}
+                - not:
+                    all:
+                        - any: [{has: {field: value, has: {stopBy: end, matches: level}}}, {has: {field: body, has: {stopBy: end, matches: level}}}]
+                        - inside: {kind: program, stopBy: end, has: {stopBy: end, matches: read, inside: {stopBy: *body, matches: level}}}
             - all:
                 - not: {matches: nests-thrice}
                 - not: {has: {field: value, any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}

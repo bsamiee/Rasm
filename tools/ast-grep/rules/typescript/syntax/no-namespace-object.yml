@@ -9,6 +9,7 @@ utils:
             - has: {any: [{kind: method_definition}, {kind: pair, has: {field: value, kind: 'arrow_function, function_expression, call_expression, new_expression'}}]}
             - not: {has: {kind: pair, has: {field: key, kind: 'string, number, computed_property_name'}}}
             - not: {has: {kind: spread_element}}
+            - not: {has: {kind: pair, has: {field: value, kind: 'string, template_string, number, true, false, null, undefined, regex, array'}}}
 rule:
     kind: variable_declarator
     all:
@@ -33,5 +34,5 @@ rule:
                             - inside: {kind: variable_declarator, field: name}
                             - inside: {kind: member_expression, field: object}
                             - inside: {kind: export_specifier}
-message: '`$NAME` groups module functions in a namespace object'
+message: '`$NAME` groups module functions in a namespace object holding no data field'
 note: 'Declare each member as a module `const` and list it in the export statement'

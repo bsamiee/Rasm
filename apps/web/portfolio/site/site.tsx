@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { sessionPath } from '@rasm/hosting/client';
+import { User } from '@rasm/hosting/user';
 import { openDialogs } from '@rasm/ui/dialog/open';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { flow, Option, Schema } from 'effect';
@@ -9,8 +9,8 @@ import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } fro
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure';
+import type { Session } from '#/model/bootstrap';
 import type { PortfolioData } from '#/model/portfolio';
-import type { Session } from '#/model/shell';
 import { Chapter } from '#/site/chapter';
 import { useNavigation } from '#/site/navigation';
 import { StickyBar, WorkIndex } from '#/site/work-index';
@@ -27,7 +27,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
     const requested = useSyncExternalStore(
         () => () => undefined,
-        () => session.kind === 'owner' && Option.isSome(Schema.decodeOption(EditRequest)(new URLSearchParams(location.search))),
+        () => session === 'owner' && Option.isSome(Schema.decodeOption(EditRequest)(new URLSearchParams(location.search))),
         () => false,
     );
     const [toggled, setToggled] = useState(Option.none<boolean>());
@@ -54,7 +54,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                     {portfolio.name || 'Portfolio'}
                     <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
                 </a>
-                {session.kind === 'owner' ? (
+                {session === 'owner' ? (
                     <DialogTrigger isOpen={open} onOpenChange={flow(Option.some, setToggled)}>
                         <Button className="quiet-link" ref={opener}>
                             Edit portfolio
@@ -97,8 +97,8 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session.signedIn ? sessionPath('signout', '/') : sessionPath('signin', '/?edit=1')} target="_top">
-                        {session.signedIn ? 'Sign out' : 'Owner sign-in'}
+                    <a className="quiet-link" href={session === 'signedIn' ? User.path('signout', '/') : User.path('signin', '/?edit=1')} target="_top">
+                        {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}
             </header>

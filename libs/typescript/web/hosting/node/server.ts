@@ -1,27 +1,39 @@
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { NodeHttpServer } from '@effect/platform-node';
-import { Config, Effect, Layer, Logger, Record } from 'effect';
-import { FetchHttpClient, HttpEffect, HttpRouter, HttpStaticServer } from 'effect/http';
+import { Config, ConfigProvider, Context, Effect, Function, Layer, Logger, Match, Record, Schema } from 'effect';
+import { FetchHttpClient, HttpEffect, HttpRouter, HttpServer, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
-import { output } from '#/node/vite';
-import { StaticAssets } from '#/rendering';
-import type { WorkerConfig } from '#/worker-config';
+import { layout } from '#/node/vite';
+import { Page } from '#/page/render';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const server = <K extends string, A, E, R, S, SE, SR>(
-    worker: { readonly name: string; readonly env: Record.ReadonlyRecord<K, (typeof WorkerConfig.Type)['env'][string]> },
-    app: (env: Config.Success<ReturnType<typeof Config.all<Record<K, Config.Config<string>>>>>) => { readonly routes: Layer.Layer<A, E, R>; readonly services: Layer.Layer<S, SE, SR> },
-) =>
-    Layer.unwrap(
+const server = <K extends string, A, E>(
+    worker: { readonly name: string; readonly env: Record.ReadonlyRecord<K, { readonly type: string }> },
+    app: (
+        env: Schema.Struct.Type<Record<K, typeof Schema.String>>,
+    ) => Layer.Layer<A, E, HttpRouter.HttpRouter | Page | Layer.Success<typeof NodeHttpServer.layerHttpServices> | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A | Page> | HttpRouter.Request<'GlobalRequires', A>>,
+) => {
+    const root = join(import.meta.dirname, layout.assets);
+    const telemetry = Otlp.layerFromConfig({ resource: { serviceName: worker.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson])));
+    return Layer.unwrap(
         Effect.gen(function* () {
-            const root = join(import.meta.dirname, output.assets);
-            const [env, files] = yield* Effect.all([Config.all(Record.map(worker.env, ({ type }, name) => (type === 'assets' ? Config.succeed(root) : Config.String(name)))), HttpStaticServer.make({ root })]);
-            const { routes, services } = app(env);
-            return HttpRouter.serve(Layer.merge(routes, HttpRouter.add('GET', '/*', files))).pipe(Layer.provide([services, Layer.succeed(StaticAssets, { fetch: HttpEffect.toWebHandler(files) })]));
+            const [env, files, memoMap] = yield* Effect.all([
+                Config.schema(Schema.Struct(Record.map(worker.env, Function.constant(Schema.String)))).pipe(
+                    Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(worker.env, Match.type<{ readonly type: string }>().pipe(Match.when({ type: 'assets' }, Function.constant(root)), Match.result))), { asPrimary: true })),
+                ),
+                HttpStaticServer.make({ root }),
+                Effect.map(Effect.context<never>(), Layer.CurrentMemoMap.forkOrCreate),
+            ]);
+            const { handler } = yield* Effect.acquireRelease(
+                Effect.sync(() => HttpRouter.toWebHandler(Layer.mergeAll(app(env), HttpRouter.add('GET', '/*', files)).pipe(Layer.provideMerge([Layer.succeed(Page, { fetch: HttpEffect.toWebHandler(files) }), NodeHttpServer.layerHttpServices, telemetry])), { memoMap })),
+                ({ dispose }) => Effect.promise(dispose),
+            );
+            return HttpServer.serve(HttpEffect.fromWebHandler((request) => handler(request, Context.empty())));
         }),
-    ).pipe(Layer.provide([NodeHttpServer.layerConfig(createServer, { port: Config.Port('PORT') }), Otlp.layerFromConfig({ resource: { serviceName: worker.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson])))]));
+    ).pipe(HttpServer.withLogAddress, Layer.provide([NodeHttpServer.layerConfig(createServer, { port: Config.Port(layout.port) }), telemetry]));
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

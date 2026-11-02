@@ -8,12 +8,14 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./authentication": "./authentication/index.ts",
-        "./client": "./client/index.ts",
-        "./cloudflare": "./cloudflare/worker.ts",
-        "./node": "./node/index.ts",
-        "./worker-config": "./worker-config.ts"
+        "./cloudflare": "./cloudflare.ts",
+        "./node/server": "./node/server.ts",
+        "./node/vite": "./node/vite.ts",
+        "./page/hydration": "./page/hydration.ts",
+        "./page/render": "./page/render.ts",
+        "./response": "./response.ts",
+        "./storage": "./storage.ts",
+        "./user": "./user.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
@@ -21,7 +23,6 @@
         "@effect/platform-node": "catalog:",
         "cheerio": "catalog:",
         "effect": "catalog:",
-        "jose": "catalog:",
         "partial-content": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",

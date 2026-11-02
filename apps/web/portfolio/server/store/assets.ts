@@ -1,5 +1,5 @@
 import { atomic } from '@rasm/database/transaction';
-import { unavailable } from '@rasm/hosting';
+import { unavailable } from '@rasm/hosting/response';
 import { Array, Data, Effect, Schema, Struct } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
@@ -11,8 +11,8 @@ import { assets, bookkeeping, references, UploadAttempt } from '#/server/store/c
 
 type Release = Data.TaggedEnum<{ Abandon: { readonly assetId: string; readonly attemptId: string }; Discard: { readonly assetId: string }; Delete: { readonly assetId: string } }>;
 const Release = Data.taggedEnum<Release>();
-const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Finite) });
-const AssetObject = Schema.Struct({ mime: Schema.String, published: Schema.BooleanFromBit, objectKey: Schema.String });
+const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) });
+const AssetObject = Schema.Struct({ mime: Schema.String, name: Schema.OptionFromNullOr(Schema.String), published: Schema.BooleanFromBit, objectKey: Schema.String });
 const UploadRow = assets.schema.mapFields(Struct.pick(['id', 'body']));
 const UploadKey = assets.schema.mapFields(Struct.pick(['objectKey']));
 
@@ -26,7 +26,7 @@ const readAsset = Effect.fn('readAsset')(
             Result: AssetObject,
             execute: ({ id, width }) =>
                 SqlClient.SqlClient.use(
-                    (sql) => sql`SELECT COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, concat_ws('/', a.${sql('objectKey')}, r.value ->> '$.width') AS ${sql('objectKey')},
+                    (sql) => sql`SELECT COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, CASE WHEN r.value IS NULL THEN a.body ->> '$.name' END AS name, concat_ws('/', a.${sql('objectKey')}, r.value ->> '$.width') AS ${sql('objectKey')},
                         EXISTS (SELECT 1 FROM (${references(sql)}) WHERE state = 'published' AND asset_id = a.id) AS published
                     FROM (SELECT ${id} AS id, ${width} AS width) q JOIN assets a ON a.id = q.id LEFT JOIN json_each(a.body, '$.renditions') r ON r.value ->> '$.width' = q.width
                     WHERE a.available AND q.width IS r.value ->> '$.width'`,

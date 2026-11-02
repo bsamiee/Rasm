@@ -1,5 +1,5 @@
 import { Relation } from '@rasm/database/relation';
-import { unavailable } from '@rasm/hosting';
+import { unavailable } from '@rasm/hosting/response';
 import { Array, Effect, flow, Option, Struct } from 'effect';
 import { owner } from '#/server/store/catalog';
 

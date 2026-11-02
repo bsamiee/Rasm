@@ -1,15 +1,15 @@
 import preview from '#/.storybook/preview';
 import { Entry, Portfolio } from '#/model/portfolio';
-import { renderSite } from '#/site/render-site';
+import { shell } from '#/site/shell';
 import { Site } from '#/site/site';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const meta = preview.meta({
     component: Site,
-    render: renderSite,
+    render: shell.render,
     args: {
-        session: { kind: 'visitor', signedIn: false },
+        session: 'signedOut',
         initial: {
             assets: {},
             portfolio: Portfolio.make({
@@ -26,7 +26,7 @@ const meta = preview.meta({
 });
 
 const Visitor = meta.story();
-const SignedIn = meta.story({ args: { session: { kind: 'visitor', signedIn: true } } });
+const SignedIn = meta.story({ args: { session: 'signedIn' } });
 const Empty = meta.story({ args: { initial: { assets: {}, portfolio: Portfolio.make({}) } } });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

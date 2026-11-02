@@ -25,7 +25,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [CONTRACT]: `HttpApiBuilder` serves and `AtomHttpApi` calls one `Api` over `StoredPortfolio`, editor encodes resolved `Portfolio` into each payload:
 - Expected failures are `HttpApiError` variants and `Schema.TaggedError` classes with `httpApiStatus`, clients match `_tag`
-- `Owner` is an `HttpApiMiddleware.Service` over every endpoint, accepting owner sessions and rejecting cross-origin writes
+- `Owner` is an `HttpApiMiddleware.Service` over every endpoint, accepting owner sessions and refusing a body-carrying request whose `Sec-Fetch-Site` is not `same-origin`
 - Answers a contract cannot type (rendered page, ranged media bytes) are `HttpRouter` routes beside API groups
 
 ## [03]-[WORKER]
@@ -39,16 +39,17 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Draft and published documents each store one JSON body and a revision
 - `Revision` encodes draft revisions as strong ETags, a write with a stale `If-Match` revision fails with `PreconditionFailed` unless the stored draft already holds its body, which answers with the stored revision
 - One `atomic` batch upserts
-- `@rasm/hosting` `serveObject` evaluates HTTP preconditions and ranges for media reads
+- `@rasm/hosting/storage` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
+- Upload bodies send the `asset` field, then each rendition named by its width in asset order, then the original, each part typed with its declared media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
 - Media reads serve assets placed in published work to anyone, every other asset to the owner alone
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting` `renderPage`, browsers hydrate the same `Site`:
+[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/page/render` `Page.render`, browsers hydrate the same `Site` through `hydratePage`:
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
-- `shell` names the root, data script, and `Bootstrap` schema `@rasm/hosting` renders in Worker and hydrates in browser
+- `site/shell.tsx` `shell` names the root, data script, `Bootstrap` schema, the `Site` render and the title and description its head writes
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
 - At page end, where the tracking line cannot reach last sections, scrolling keeps current fragment while its section stays in view
@@ -108,12 +109,12 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names:
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- Worker `fetch` supplies bindings to memoized handler construction inside request context
-- `server/app.ts` composes routes both entries serve, with D1 and `r2` storage in `server/worker.ts`, SQLite and `s3` storage in `server/node.ts`
+- `server/worker.ts` reads bindings from `cloudflare:workers` `env`, and `@rasm/hosting/cloudflare` `worker` builds the handler once per isolate on its first request
+- `server/app.ts` composes routes both entries serve, with D1 and `ObjectStorage.r2` in `server/worker.ts`, SQLite and path-style `ObjectStorage.s3` in `server/node.ts`
 - `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
-- Sites, Cloudflare Access through `@rasm/hosting` `Access`, or Docker proxy send user id and email as `@rasm/hosting` `contract` headers
+- Sites, Cloudflare Access through `@rasm/hosting/cloudflare` `Access`, or Docker proxy send user id and email as `@rasm/hosting/user` `User.sites` headers
 - Requests without a user id are signed-out visitors
-- First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone
+- First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
 - Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 

@@ -129,7 +129,7 @@ Every function returns an explicit outcome type, and one type serves one concern
 |  [05]   | `Exit<A, E>`      | Completed outcome a host reads                       |
 |  [06]   | `Cause<E>`        | Every failure, defect, and interruption of one fiber |
 
-Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
+Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, and `Option` stands where a consumer acts on absence. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
 
 Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
 

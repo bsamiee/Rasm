@@ -2450,9 +2450,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.1
-      jose:
-        specifier: 'catalog:'
-        version: 6.2.14
       partial-content:
         specifier: 'catalog:'
         version: 5.0.0(@aws-sdk/client-s3@3.1161.0)(@aws-sdk/s3-request-presigner@3.1161.0)(hono@4.13.8)
@@ -2637,6 +2634,9 @@ importers:
       '@rasm/search':
         specifier: workspace:*
         version: link:../../libs/typescript/data/search
+      '@swc/core':
+        specifier: 'catalog:'
+        version: 1.16.21(@swc/helpers@0.5.23)
       acorn:
         specifier: 'catalog:'
         version: 8.19.0
@@ -2646,7 +2646,13 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.1
+      jsesc:
+        specifier: 'catalog:'
+        version: 3.1.0
     devDependencies:
+      '@types/jsesc':
+        specifier: 'catalog:'
+        version: 3.0.3
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

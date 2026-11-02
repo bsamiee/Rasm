@@ -1,25 +1,32 @@
-import { user } from '@rasm/hosting/authentication';
+import { User } from '@rasm/hosting/user';
 import { Effect, Layer, Option } from 'effect';
-import { HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { SqlClient } from 'effect/sql';
 import { Owner } from '#/model/api';
-import type { Session } from '#/model/shell';
+import type { Session } from '#/model/bootstrap';
 import { ownerUserId, registerOwner } from '#/server/store/owner';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const session = Effect.fn('session')(function* (email: string) {
-    return yield* Option.match(user(yield* HttpServerRequest.HttpServerRequest), {
-        onNone: () => Effect.succeed<typeof Session.Type>({ kind: 'visitor', signedIn: false }),
-        onSome: ({ id, email: address }) =>
-            (Option.exists(address, (value) => value.toLowerCase() === email) ? Effect.asSome(registerOwner({ email, userId: id })) : ownerUserId(email)).pipe(Effect.map((ownerId): typeof Session.Type => (Option.contains(ownerId, id) ? { kind: 'owner' } : { kind: 'visitor', signedIn: true }))),
-    });
+const enrolled = Effect.fnUntraced(function* (email: string, { id, email: address }: User) {
+    const ownerId = yield* ownerUserId(email);
+    return Option.isNone(ownerId) && Option.exists(address, (value) => value.toLowerCase() === email) ? Option.some(yield* registerOwner({ email, userId: id })) : ownerId;
 });
+const session = Effect.fn('session')((email: string) =>
+    User.current.pipe(
+        Effect.flatMap(
+            Option.match({
+                onNone: () => Effect.succeed<typeof Session.Type>('signedOut'),
+                onSome: (user) => Effect.map(enrolled(email, user), (ownerId): typeof Session.Type => (Option.contains(ownerId, user.id) ? 'owner' : 'signedIn')),
+            }),
+        ),
+    ),
+);
 const authorize = (email: string) =>
     Effect.filterOrFail(
         session(email),
-        (current) => current.kind === 'owner',
+        (current) => current === 'owner',
         () => HttpApiError.Forbidden.make(),
     );
 
@@ -34,7 +41,7 @@ const owner = (email: string) =>
                 (effect): ReturnType<typeof Owner.Service> =>
                     HttpServerRequest.HttpServerRequest.pipe(
                         Effect.filterOrFail(
-                            (request) => request.method === 'GET' || Option.exists(HttpServerRequest.toURL(request), ({ origin }) => origin === request.headers.origin),
+                            ({ method, headers }) => !HttpMethod.hasBody(method) || headers['sec-fetch-site'] === 'same-origin',
                             () => HttpApiError.Forbidden.make(),
                         ),
                         Effect.andThen(authorize(email)),

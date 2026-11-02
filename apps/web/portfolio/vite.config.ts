@@ -1,5 +1,5 @@
 import { sites } from '@openai/sites-vite-plugin';
-import { node } from '@rasm/hosting/node';
+import { node } from '@rasm/hosting/node/vite';
 import { pdfjs } from '@rasm/media/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
