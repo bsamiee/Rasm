@@ -64,7 +64,7 @@ where F: ObjFn<()> {
         .try_for_each(|vector| (vector.len() == dimensions).ok_or(OptimizeError::Shape { expected: dimensions, found: vector.len() }))?;
     let ends = |end: fn(&Bounds) -> f64| space.values().into_iter().map(end).collect::<Vec<_>>();
     let mut nlopt = Nlopt::new(settings.optimizer.algorithm, dimensions, objective, settings.target, ());
-    let configured: Result<(), FailState> = try {
+    (try {
         nlopt.set_lower_bounds(&ends(|bounds| bounds.start))?;
         nlopt.set_upper_bounds(&ends(|bounds| bounds.last))?;
         configure(&mut nlopt, &settings.optimizer)?;
@@ -77,8 +77,8 @@ where F: ObjFn<()> {
         }
         settings.inequalities.iter().try_for_each(|mapping| nlopt.add_inequality_mconstraint(mapping.tolerances.len().get(), mapping.evaluate, (), mapping.tolerances.as_ref()).map(drop))?;
         settings.equalities.iter().try_for_each(|mapping| nlopt.add_equality_mconstraint(mapping.tolerances.len().get(), mapping.evaluate, (), mapping.tolerances.as_ref()).map(drop))?;
-    };
-    configured.map_err(|state| OptimizeError::Setting { state })?;
+    })
+    .map_err(|state| OptimizeError::Setting { state })?;
     Nlopt::<F, ()>::srand_seed(settings.seed);
     let mut point = start;
     match nlopt.optimize(point.as_mut_slice()) {

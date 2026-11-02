@@ -15,7 +15,7 @@ public class Drop extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        Arguments.Usage usage = new Arguments.Usage(getScriptName(), "<out> <path>...");
+        Arguments.Usage usage = new Arguments.Usage(getScriptName(), "<report> <path>...");
         String[] args = getScriptArgs();
         Path out = usage.out(args);
         List<String> paths = usage.operands(args);

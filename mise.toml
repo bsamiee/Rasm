@@ -80,6 +80,7 @@ google-java-format               = "latest"
 swiftlint                        = { version = "latest", os = ["macos"] }
 periphery                        = { version = "latest", os = ["macos"] }
 "github:sparkle-project/Sparkle" = { version = "latest", os = ["macos"], asset_pattern = "Sparkle-*.tar.xz", bin_path = "bin" }
+"http:zxpsigncmd"                = { version = "4.1.3", os = ["macos"], url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/master/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd" }
 "github:sbdchd/squawk"           = "latest"
 ripgrep                          = "latest"
 fd                               = "latest"

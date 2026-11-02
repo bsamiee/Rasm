@@ -45,9 +45,7 @@ pub fn above(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<
     let [first, last] = [interval.start, interval.end].map(|at| at.to_zoned(sun.place.zone.clone()));
     Ok(iter::chain(lit.then_some(first), inner)
         .chain(lit_at_end.then_some(last))
-        .collect::<Vec<_>>()
-        .into_chunks::<2>()
-        .into_iter()
+        .array_chunks::<2>()
         .map(|[rise, set]| Range { start: rise, end: set })
         .filter(|window| window.start < window.end)
         .collect())

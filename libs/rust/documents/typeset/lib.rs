@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
     error::Report,
     io::{self, Read as _},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -97,7 +97,7 @@ impl Downloader for HttpDownloader {
                 Some(status @ StatusCode::NOT_FOUND) => failed(io::Error::new(io::ErrorKind::NotFound, error), &status),
                 Some(status) => failed(io::Error::other(error), &status),
                 None => {
-                    let kind = iter::successors(error.source(), |cause| cause.source()).find_map(|cause| cause.downcast_ref::<io::Error>()).map_or(io::ErrorKind::Other, io::Error::kind);
+                    let kind = iter::successors(error.source(), |&cause| cause.source()).find_map(|cause| cause.downcast_ref::<io::Error>()).map_or(io::ErrorKind::Other, io::Error::kind);
                     failed(io::Error::new(kind, error), &kind)
                 }
             })?;
@@ -126,11 +126,10 @@ impl FileLoader for Files {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         let confined = |root: &FsRoot| {
             let path = root.resolve(id.vpath())?;
-            let refused = |path: &Path| move |error| FileError::from_io(error, path);
-            let real = fs_err::canonicalize(&path).map_err(refused(&path))?;
-            real.starts_with(fs_err::canonicalize(root.path()).map_err(refused(root.path()))?).ok_or(FileError::AccessDenied)?;
-            (!fs_err::metadata(&real).map_err(refused(&path))?.is_dir()).ok_or(FileError::IsDirectory)?;
-            fs_err::read(&real).map(Bytes::new).map_err(refused(&path))
+            let real = fs_err::canonicalize(&path).map_err(|error| FileError::from_io(error, &path))?;
+            real.starts_with(fs_err::canonicalize(root.path()).map_err(|error| FileError::from_io(error, root.path()))?).ok_or(FileError::AccessDenied)?;
+            (!fs_err::metadata(&real).map_err(|error| FileError::from_io(error, &path))?.is_dir()).ok_or(FileError::IsDirectory)?;
+            fs_err::read(&real).map(Bytes::new).map_err(|error| FileError::from_io(error, &path))
         };
         match (self.overlay.get(&id), id.root(), &self.root, &self.packages) {
             (Some(bytes), _, _, _) => Ok(bytes.clone()),
@@ -223,7 +222,7 @@ where
         .into_par_iter()
         .enumerate()
         .map(|(index, data)| {
-            let room = data.len().saturating_sub(size_of::<[u32; 3]>()) / size_of::<u32>();
+            let room = data.len().saturating_sub(size_of::<[u32; 3]>()) / const { NonZero::new(size_of::<u32>()).unwrap() };
             ttf_parser::fonts_in_collection(&data)
                 .map_or(Some(1), |count| usize::try_from(count).is_ok_and(|faces| faces <= room).then_some(count))
                 .and_then(|count| NEVec::try_from_vec((0..count).filter_map(|face| Font::new(data.clone(), face)).collect()))

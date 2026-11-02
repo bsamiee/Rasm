@@ -147,7 +147,7 @@ public final class Functions {
                             decompiler.setOptions(options);
                             if (!decompiler.openProgram(program)) {
                                 throw new IllegalStateException(
-                                        "Decompiler failed to open %s. %s"
+                                        "Decompiler failed to open %s, %s"
                                                 .formatted(
                                                         program.getName(),
                                                         decompiler.getLastMessage()));

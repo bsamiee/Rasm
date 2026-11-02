@@ -22,13 +22,13 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [02]-[COMPILER]
 
 - `tsc` is the TypeScript 7 native build `@effect/tsgo` patches with Effect diagnostics, the repository holds no `tsgo` binary
-- `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>`, its hash covering the `extends` chain
-- Project `tsconfig.json` extends `tsconfig.base.json`, or the host platform library `tsconfig.json` stating host `lib` and `types`
+- `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
+- Project `tsconfig.json` extends `tsconfig.base.json`, or host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
 - Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules sits in one entry's import graph
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
-- `tsc` compiles sibling source under the importer's options, the importer listing each typings package and `paths` row it needs
+- `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
 - Project `types` replaces an extended list, a project adding an entry restates the list it extends
 - `paths` maps a module specifier no `types` entry declares to a declaration file an installed package holds
@@ -46,7 +46,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Suites importing `testcontainers` run in `test:integration`, `test` excludes them
 - Packages depending on `@effect/sql-pg` take `lint:squawk` over the SQL their suites write
 - Bundle configs take `main.ts` beside them as entry, a project's `<folder>/main.ts` outside a nested project runs as target `<folder>`
-- `typeRoots` folders hash ignored declarations, a `hooks/hooks.json` with `modules` tags its plugin `host:claude`
+- Claude Code plugins with a `hooks/hooks.json` listing `modules` take tag `host:claude`
 
 ## [04]-[WEB]
 

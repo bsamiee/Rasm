@@ -703,7 +703,7 @@ public class Emu extends GhidraScript {
                                     "Plan `%s` sets no positive steps".formatted(file)));
         } catch (IOException | JsonParseException exception) {
             return new Report.Failure<>(
-                    "Plan `%s` is unreadable. %s".formatted(file, exception.getMessage()));
+                    "Plan `%s` is unreadable, %s".formatted(file, exception.getMessage()));
         }
     }
 }

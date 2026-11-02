@@ -189,7 +189,7 @@ qbsdiff           = "1.4.4"                                                     
 sevenz-rust2      = { version = "0.24.2", features = ["zstd"] }                                                                                                          # 7z archives
 snap              = "1.1.2"                                                                                                                                              # Snappy frames
 tar               = "0.4.46"                                                                                                                                             # Tar archives
-zip               = { version = "9.2.1", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
+zip               = { version = "9.2.2", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
 zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
@@ -633,6 +633,7 @@ rasm-spectra    = { path = "libs/rust/numerics/spectra", version = "1.0.0" }   #
 rasm-tables     = { path = "libs/rust/data/tables", version = "1.0.0" }        # Typed tables every Rasm data consumer composes: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink and source
 rasm-network    = { path = "libs/rust/graphs/network", version = "1.0.0" }     # Network analysis every Rasm consumer of a street, circulation or utility network composes: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities
 rasm-typeset    = { path = "libs/rust/documents/typeset", version = "1.0.0" }  # Typst documents compiled in process to PDF, SVG, PNG, HTML and bundles, with Universe packages and Mermaid diagrams
+rasm-ifc        = { path = "libs/rust/interchange/ifc", version = "1.0.0" }    # IFC5 models every Rasm BIM consumer composes: IFCX layers and import closures under SRI integrity, federation and composition with schema validation, typed attribute values with uom quantities, overlays and diffs, spatial and systems graphs, georeference codes, alignment stations, instanced geometry with presentation colors, BCF 3.0 issues keyed by node UUID
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

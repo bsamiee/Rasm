@@ -56,7 +56,7 @@ const spawned = Effect.fn('spawned')(function* (command: string, args: readonly 
     return { lines, code };
 }, Effect.scoped);
 const Launch = Effect.fn('Launch')(function* (spec: Launch) {
-    const flags = [...(spec.fresh === true ? ['--new'] : []), ...(spec.documents ?? []).flatMap((file) => ['--document', file]), ...(spec.arguments ?? []).flatMap((value) => ['--arguments', value]), ...Record.collect(spec.environment ?? {}, (name, value) => ['--environment', `${name}=${value}`]).flat()];
+    const flags = [...(spec.fresh === true ? ['--new'] : []), ...(spec.documents ?? []).map((file) => `--document=${file}`), ...(spec.arguments ?? []).map((value) => `--arguments=${value}`), ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`)];
     const states = yield* Stream.runCollect(Stream.takeUntil(yield* rows(['launch', spec.app, ...flags]), ({ state }) => !State.guards.Launching(state)));
     return yield* Option.match(
         Option.filter(Array.last(states), ({ state }) => !State.isAnyOf(['Launching', 'Exited'])(state)),

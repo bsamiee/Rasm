@@ -82,7 +82,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn tags(cx: &LateContext<'_>, pat: &Pat<'_>) -> Option<FxIndexSet<Symbol>> {
             match pat.kind {
                 PatKind::Expr(expr) if let Some(Constant::Str(text)) = ConstEvalCtxt::new(cx).eval_pat_expr(expr) => Some(FxIndexSet::from_iter([Symbol::intern(&text)])),
-                PatKind::Or(alternatives) => alternatives.iter().map(|alternative| tags(cx, alternative)).try_collect::<Vec<_>>().map(|listed| listed.into_iter().flatten().collect()),
+                PatKind::Or(alternatives) => alternatives.iter().map(|alternative| tags(cx, alternative)).collect::<Option<Vec<_>>>().map(|listed| listed.into_iter().flatten().collect()),
                 PatKind::Ref(inner, ..) | PatKind::Deref(inner) => tags(cx, inner),
                 _ => None,
             }

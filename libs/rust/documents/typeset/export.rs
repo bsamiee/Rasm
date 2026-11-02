@@ -1,19 +1,19 @@
 use core::num::NonZero;
 
 use jiff::{Zoned, tz::TimeZone};
-use png::{ColorType, Encoder, Info, PixelDimensions, SrgbRenderingIntent, Unit};
+use png::{BitDepth, ColorType, Encoder, PixelDimensions, SrgbRenderingIntent, Unit};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use typst::{
     comemo,
     foundations::{Bytes, Datetime},
-    layout::{Abs, Page, Sides},
+    layout::{Abs, Sides},
     model::PagedFormat,
     syntax::VirtualPath,
 };
 use typst_bundle::{Bundle, BundleDocument, BundleFile, BundleOptions, PagedExtras, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
 use typst_kit::{diagnostics::DiagnosticWorld, files::FileLoader};
-use typst_layout::PagedDocument;
+use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, Timestamp};
 use typst_render::RenderOptions;
 use validated::Validated;
@@ -41,12 +41,14 @@ where L: FileLoader + Send + Sync {
                     raster(project.main.vpath(), number, page, &options.png, budget)?;
                     let pixmap = typst_render::render(page, &options.png);
                     let mut data = Vec::new();
-                    Encoder::with_info(
-                        &mut data,
-                        Info { width: pixmap.width(), height: pixmap.height(), color_type: ColorType::Rgba, srgb: Some(SrgbRenderingIntent::RelativeColorimetric), pixel_dims: density, ..Info::default() },
-                    )
-                    .and_then(Encoder::write_header)
-                    .and_then(|mut writer| writer.write_image_data(&pixmap.take_demultiplied()).and_then(|()| writer.finish()))
+                    let mut encoder = Encoder::new(&mut data, pixmap.width(), pixmap.height());
+                    encoder.set_color(ColorType::Rgba);
+                    encoder.set_depth(BitDepth::Eight);
+                    encoder.set_source_srgb(SrgbRenderingIntent::RelativeColorimetric);
+                    encoder.set_pixel_dims(density);
+                    encoder
+                        .write_header()
+                        .and_then(|mut writer| writer.write_image_data(&pixmap.take_demultiplied()).and_then(|()| writer.finish()))
                     .map(|()| (number, Bytes::new(data)))
                     .map_err(|source| TypesetError::Encode { page: number, source })
                 })

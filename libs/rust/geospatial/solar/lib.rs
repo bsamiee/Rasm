@@ -1,4 +1,4 @@
-#![feature(array_try_map, default_field_values, gen_blocks, iterator_try_collect, type_changing_struct_update, vec_into_chunks)]
+#![feature(array_try_map, default_field_values, gen_blocks, iter_array_chunks, iterator_try_collect, type_changing_struct_update)]
 
 use jiff::{SignedDuration, Timestamp, tz::Offset};
 use nalgebra::{Unit, UnitQuaternion, Vector3};

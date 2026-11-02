@@ -5,7 +5,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 
 # [GHIDRA]
 
-`analyzeHeadless` imports each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, holding that binary's architecture slices and earlier releases as programs named after their files. Later runs execute bundle scripts on saved programs, and `Serve.java` keeps one process on a project for repeated reads and edits.
+`analyzeHeadless` imports each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, with its architecture slices and earlier releases as programs named after their files. Later runs execute bundle scripts on saved programs.
 
 [SCRIPTS]:
 - [01]-[SERVE](scripts/Serve.java): Postscript running bundle scripts on request against programs of its project
@@ -36,8 +36,8 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
 - Program: Repeated imports into one folder add `<file>.<n>`, `-process <file>` keeps reading the first
 - Lock: One process opens a project, a second run aborts with `LockException` until the first exits, `-readOnly` included
-- Lock: Work on one project goes through its `Serve.java` process, runs on other projects start in parallel
-- Writes: Runs save every script change at exit, `-readOnly` discards them, `Serve.java` saves after each request that changed a program
+- Lock: Runs on other projects start in parallel
+- Writes: Runs save every script change at exit and `-readOnly` discards them, `Serve.java` saves each program a request changed with or without `-readOnly`
 - Keys: Targets are a name, `0x<hex>`, or `FUN_<hex>`, rows print hex with no `0x`
 - Keys: Renames replace the `FUN_<hex>` name, the entry address stays the key
 - Analysis: `Apply Data Archives` applies `mac_osx.gdt` to a Mach-O at import, libc and CoreFoundation prototypes need no header
@@ -47,8 +47,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Time: Imports, analysis, script runs, and `Serve.java` take Bash `run_in_background: true`
 - Bundle: `-scriptPath` compiles each listed directory as one bundle at the JDK `JAVA_HOME` names, subdirectories become packages
 - Bundle: Compile failures drop the failing file and every file referencing it
-- Bundle: Scripts in another directory import `rasm` through a `//@importpackage rasm` line with both directories on `-scriptPath`
-- Bundle: A bundle importing `rasm` without the skill directory on `-scriptPath` fails whole, scripts that import nothing included
+- Bundle: Scripts in another directory import `rasm` through a `//@importpackage rasm` line, their whole bundle loads with both directories on `-scriptPath`
 - Parallel: Processes share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Parallel: Each process pays a JVM start, bundle load, and project open, a worker runs one process over its whole share of inputs
@@ -141,7 +140,7 @@ Seeds and settings of `Decompile.java` and `CallSites.java`:
 Repeated reads and edits on one project run through one `Serve.java` process:
 1. Request FIFO, then the process in the background on any program of the project
 2. One reply FIFO per caller, one request per line, the reply printing `ok <seconds>s[ saved <program>]` or `failed <seconds>s <cause>`
-3. Stop, after which the headless run saves and releases the project
+3. Stop, then the headless run saves and releases the project
 
 ```bash
 mkfifo <requests>
@@ -151,8 +150,7 @@ echo stop > <requests>
 ```
 
 - Requests: `<program>` is a project path (`<file>` or `/<folder>/<file>`), `<script>` any script on `-scriptPath`, arguments split on whitespace
-- Requests: Requests run one at a time in arrival order, a script edited between requests rebuilds before its next run
-- Writes: `Serve.java` saves each program a request changed, `-readOnly` has no effect on those saves
+- Requests: Run one at a time in arrival order, a script edited between requests rebuilds before its next run
 
 ## [03]-[LOCATE]
 
@@ -205,7 +203,7 @@ Types removed by path:
 <run> -postScript Drop.java <report> /<category>/<name>...
 ```
 
-Names, comments, and prototypes carry from an analyzed earlier release in the same project:
+`AutoVersionTrackingScript.java` copies names, comments, and prototypes from an analyzed earlier release in the same project:
 
 ```bash
 <headless> -process <file> -noanalysis -postScript AutoVersionTrackingScript.java /<sessions> <session> /<folder>/<file>
@@ -213,7 +211,7 @@ Names, comments, and prototypes carry from an analyzed earlier release in the sa
 
 ## [05]-[EMULATE]
 
-`Emu.java` runs a JSON plan of runs on fresh p-code machines over the program image, one process per worker over its whole share:
+`Emu.java` runs a JSON plan of runs on fresh p-code machines over the program image:
 
 ```json
 {
@@ -238,12 +236,12 @@ Names, comments, and prototypes carry from an analyzed earlier release in the sa
 <run> -readOnly -postScript Emu.java <out> <plan>
 ```
 
-- Entry: A seed matching one function or an address, `keep` runs on the memory the previous run left
+- Entry: Seed matching one function or an address, `keep` runs on memory the previous run left
 - Stubs: Thunks and pointer slots of an external function run the plan's Sleigh for its name or zero the return register, then return
 - Stubs: Sleigh writes registers and memory (`x0 = *[ram]:8 0x<hex>:8;`), a heap is a cell the stub advances
-- Layout: Sentinel return address, stub traps, and stack sit above the program's last block, inputs go outside both
+- Layout: Sentinel return address, stub traps, and stack sit above the program's last block, inputs go outside program blocks and layout
 - Stops: `returned` at the sentinel, `exhausted` at the step budget, `faulted` with the p-code fault
-- Results: Default to the default convention's return register
+- Results: Default calling convention's return register when a run names none
 - Userops: Language operations with no definition run as no-ops and count per name
 
 ## [06]-[FORMAT]

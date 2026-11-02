@@ -21,8 +21,8 @@ pub fn context(fonts: &FontStore, limits: NativeFontLimits, control: &OperationC
 }
 
 #[must_use]
-pub fn diagrams<'a, D>(context: NativeFontContext, renderer: &Renderer, request: SvgRequest, control: &OperationControl, diagrams: D) -> Validated<Vec<(FileId, Bytes)>, TypesetError>
-where D: IntoParallelIterator<Item = (VirtualPath, &'a str)> {
+pub fn diagrams<'source, D>(context: NativeFontContext, renderer: &Renderer, request: SvgRequest, control: &OperationControl, diagrams: D) -> Validated<Vec<(FileId, Bytes)>, TypesetError>
+where D: IntoParallelIterator<Item = (VirtualPath, &'source str)> {
     match request.environment.with_native_font_context(context) {
         Err(error) => Validated::fail(TypesetError::NativeFont(error)),
         Ok(environment) => {

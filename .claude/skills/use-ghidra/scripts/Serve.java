@@ -46,7 +46,7 @@ public class Serve extends GhidraScript {
             programs.put(path, opened);
             return new Report.Success<>(opened);
         } catch (VersionException | IOException | CancelledException exception) {
-            return new Report.Failure<>("Program `%s` did not open. %s".formatted(path, exception));
+            return new Report.Failure<>("Program `%s` did not open, %s".formatted(path, exception));
         }
     }
 

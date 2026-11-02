@@ -186,7 +186,7 @@ public class Apply extends GhidraScript {
         } catch (IOException exception) {
             return Stream.of(
                     new Report.Failure<>(
-                            "Rows file `%s` is unreadable. %s".formatted(file, exception)));
+                            "Rows file `%s` is unreadable, %s".formatted(file, exception)));
         }
     }
 
@@ -288,7 +288,7 @@ public class Apply extends GhidraScript {
                     Step.TYPED,
                     row.address(),
                     new Report.Failure<>(
-                            "`%s` did not parse. %s"
+                            "`%s` did not parse (%s)"
                                     .formatted(
                                             prototype,
                                             exception
@@ -392,7 +392,7 @@ public class Apply extends GhidraScript {
         Arguments.Usage usage =
                 new Arguments.Usage(
                         getScriptName(),
-                        "<out> <rows>...\n"
+                        "<report> <rows>...\n"
                                 + "row: <address> <namespace> <name> <prototype> <comment> <locals>"
                                 + " <kind> by tab\n"
                                 + "local: <local>=<name>[:<type>] | <local>= | re:<regex>=\n"

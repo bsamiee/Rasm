@@ -8,8 +8,8 @@
 - Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their path from it (`rasm/infra`)
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
-- Package manifests hold no Nx field, the workspace plugin infers each target and tag from a project's files and `targetDefaults` configure them
-- Root `package.json` joins the graph through an `nx` field alone, the workspace plugin's `root` option holds root targets and names the project
+- Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field
+- Workspace plugin `root` option holds root targets under root `package.json` `name`, Nx infers a root project from an `nx` field alone
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 
 ## [02]-[DISCOVERY]

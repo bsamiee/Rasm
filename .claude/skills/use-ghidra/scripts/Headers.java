@@ -178,7 +178,7 @@ public class Headers extends GhidraScript {
                 return new Report.Success<>(new Macros(Files.readString(Path.of(file))));
             } catch (IOException exception) {
                 return new Report.Failure<>(
-                        "Macros file `%s` is unreadable. %s".formatted(file, exception));
+                        "Macros file `%s` is unreadable, %s".formatted(file, exception));
             }
         }
     }

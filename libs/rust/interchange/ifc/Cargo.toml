@@ -1,0 +1,58 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-ifc"
+version.workspace    = true
+edition.workspace    = true
+description          = "IFC5 models and BCF issues: IFCX layers read with field paths, import closures fetched over HTTP and files under SRI integrity, federation and composition with schema validation, attribute values typed by their schemas with quantities in uom, overlays and diffs, spatial and systems graphs, georeference codes, alignment stations, instanced meshes, curves and points with their colors, and BCF 3.0 archives keyed by node UUID"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["ifc", "ifcx", "bim", "bcf", "interchange"]
+categories           = ["encoding", "science"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+futures              = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+strum                = { workspace = true }
+indexmap             = { workspace = true }
+data-encoding        = { workspace = true }
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+serde_path_to_error  = { workspace = true }
+serde_with           = { workspace = true }
+nutype               = { workspace = true }
+jiff                 = { workspace = true }
+newtype-uuid         = { workspace = true }
+newtype-uuid-macros  = { workspace = true }
+xot                  = { workspace = true }
+fs-err               = { workspace = true }
+zip                  = { workspace = true }
+aws-lc-rs            = { workspace = true }
+reqwest              = { workspace = true }
+url                  = { workspace = true }
+gauss-quad           = { workspace = true }
+nalgebra             = { workspace = true }
+uom                  = { workspace = true }
+petgraph             = { workspace = true }
+parry3d-f64          = { workspace = true }
+color                = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

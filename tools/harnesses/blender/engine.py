@@ -39,6 +39,7 @@ import mathutils
 type Json = bool | int | float | str | list[Json] | dict[str, Json] | None
 type Namespace = dict[str, object]
 type Struct = bpy.types.bpy_struct[object]
+type Collection = bpy.types.bpy_prop_collection[Struct]
 type Timers = list[tuple[Callable[[], float | None], float]]
 type Updates = list[tuple[str, frozenset[str]]]
 
@@ -298,7 +299,7 @@ def buried(value: object, /) -> Json:
         except Exception as error:
             return {"$": f"unreadable:{error}"}
 
-    def rows(collection: bpy.types.bpy_prop_collection[Struct], labels: list[str], /) -> list[Json]:
+    def rows(collection: Collection, labels: list[str], /) -> list[Json]:
         match tuple({type(entry) for entry in collection}):
             case (kind,) if issubclass(kind, bpy.types.bpy_struct) and not issubclass(kind, bpy.types.ID) and not any((entry.as_pointer(), kind) in seen for entry in collection):
                 seen.update({(entry.as_pointer(), kind): label for entry, label in zip(collection, labels, strict=True)})
@@ -307,7 +308,7 @@ def buried(value: object, /) -> Json:
             case _:
                 return list(starmap(walked, zip(collection, labels, strict=True)))
 
-    def column(collection: bpy.types.bpy_prop_collection[Struct], prop: bpy.types.Property, labels: list[str], /) -> list[Json]:
+    def column(collection: Collection, prop: bpy.types.Property, labels: list[str], /) -> list[Json]:
         dimensions: list[int] = [size for size in prop.array_dimensions if size] if prop.type in COLUMNS else [0, 0]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         width = math.prod(dimensions)
         match gathered(collection, prop, len(labels) * width) if len(dimensions) <= 1 else None:
@@ -321,7 +322,7 @@ def buried(value: object, /) -> Json:
     return walked(value, "", top=True)
 
 
-def gathered(collection: bpy.types.bpy_prop_collection[Struct], prop: bpy.types.Property, size: int, /) -> array[int] | array[float] | None:
+def gathered(collection: Collection, prop: bpy.types.Property, size: int, /) -> array[int] | array[float] | None:
     """Returns one scalar or vector RNA member of every collection item through one `foreach_get`, flattened, and nothing for a member raw access refuses (a dynamic array)."""
     buffer = array(COLUMNS[prop.type], [0]) * size
     try:
