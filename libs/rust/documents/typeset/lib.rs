@@ -1,19 +1,20 @@
-#![feature(error_reporter, float_conversions)]
+#![feature(error_reporter, float_conversions, try_with_capacity)]
 
 use core::{any::Any, fmt, iter};
 use std::{collections::HashMap, error::Report, io, path::PathBuf, sync::Arc};
 
 use jiff::{SignedDuration, Zoned, civil::Date, tz::TimeZone};
 use merman::RenderError;
+use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, URL_FULL};
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
 use reqwest::{
     Method, StatusCode,
     blocking::{Client, Response},
 };
 use serde::Serialize;
 use serde_json::value::Serializer;
-use tracing::{Span, field::Empty};
+use tracing::field::Empty;
 use typst::{
     Features, Library, LibraryExt as _, World, comemo,
     diag::{FileError, FileResult, PackageError, SourceDiagnostic, Warned},
@@ -57,12 +58,21 @@ pub struct HttpDownloader(pub Client);
 
 impl Downloader for HttpDownloader {
     fn stream(&self, _key: &dyn Any, url: &str) -> io::Result<(Option<usize>, Box<dyn io::Read>)> {
+        let request = tracing::info_span!(
+            "request",
+            otel.name = Method::GET.as_str(),
+            otel.kind = "client",
+            { HTTP_REQUEST_METHOD } = Method::GET.as_str(),
+            { URL_FULL } = url,
+            { HTTP_RESPONSE_STATUS_CODE } = Empty
+        )
+        .entered();
         let response = self
             .0
             .request(Method::GET, url)
             .send()
             .inspect(|response| {
-                Span::current().record(HTTP_RESPONSE_STATUS_CODE, response.status().as_u16());
+                request.record(HTTP_RESPONSE_STATUS_CODE, response.status().as_u16());
             })
             .and_then(Response::error_for_status)
             .map_err(|error| match error.status() {
@@ -74,18 +84,8 @@ impl Downloader for HttpDownloader {
     }
 
     fn download(&self, key: &dyn Any, url: &str) -> io::Result<Vec<u8>> {
-        let _request = tracing::info_span!(
-            "request",
-            otel.name = Method::GET.as_str(),
-            otel.kind = "client",
-            { HTTP_REQUEST_METHOD } = Method::GET.as_str(),
-            { URL_FULL } = url,
-            { HTTP_RESPONSE_STATUS_CODE } = Empty
-        )
-        .entered();
         let (size, mut reader) = self.stream(key, url)?;
-        let mut body = Vec::new();
-        size.map_or(Ok(()), |size| body.try_reserve_exact(size)).map_err(|error| io::Error::new(io::ErrorKind::OutOfMemory, error))?;
+        let mut body = size.map_or_else(|| Ok(Vec::new()), Vec::try_with_capacity).map_err(|error| io::Error::new(io::ErrorKind::OutOfMemory, error))?;
         reader.read_to_end(&mut body).map(|_| body)
     }
 }
@@ -171,13 +171,16 @@ where I: Serialize + ?Sized {
 
 #[must_use]
 pub fn fonts<B>(buffers: B) -> Validated<FontStore, TypesetError>
-where B: IntoIterator<Item = Bytes> {
+where
+    B: IntoParallelIterator<Item = Bytes>,
+    B::Iter: IndexedParallelIterator,
+{
     buffers
-        .into_iter()
-        .enumerate()
-        .collect::<Vec<_>>()
         .into_par_iter()
-        .map(|(index, data)| Some(Font::iter(data).collect::<Vec<_>>()).filter(|faces| !faces.is_empty()).ok_or(TypesetError::Font { index }))
+        .enumerate()
+        .map(|(index, data)| NEVec::try_from_vec(Font::iter(data).collect()).ok_or(TypesetError::Font { index }))
+        .collect::<Vec<_>>()
+        .into_iter()
         .collect::<Validated<Vec<_>, _>>()
         .map(|buffers| {
             let mut store = FontStore::new();
@@ -190,7 +193,7 @@ pub fn compile<T>(world: &dyn World, max_age: usize) -> Result<Warned<T>, Typese
 where T: Output {
     let Warned { output, warnings } = typst::compile::<T>(world);
     comemo::evict(max_age);
-    Ok(Warned { output: output.map_err(|errors| TypesetError::Typst(iter::chain(errors, warnings.iter().cloned()).collect()))?, warnings })
+    output.map_err(|errors| TypesetError::Typst(iter::chain(errors, warnings.iter().cloned()).collect())).map(|output| Warned { output, warnings })
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

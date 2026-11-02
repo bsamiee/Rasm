@@ -15,7 +15,7 @@ Code treats each crate as part of the language:
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values and methods that vary are parameters, a caller choosing among methods of one result (a percentile or BCa interval) rather than the callee fixing the costlier one, and kinds, keys, and states are typed values rather than strings
 - Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a file its concept's
@@ -308,7 +308,7 @@ impl From<LedgerError> for ExitCode {
 }
 ```
 
-One `match` holds every variant, and a source classifying itself converts inside its arm (`source.io_error_kind().map_or(Self::DataErr, Self::from)`). Entry points log each failure that reaches their translation as `Report::new(&error)`, inner layers return their result unlogged.
+One `match` holds every variant, and a source classifying itself converts inside its arm (`source.io_error_kind().map_or(Self::DataErr, Self::from)`), unless another step reads the same class (a broken pipe ending output), when the boundary maps the source into the variant both read. Entry points log each failure that reaches their translation as `Report::new(&error)`, inner layers return their result unlogged.
 
 ## [05]-[TRAITS]
 
@@ -369,6 +369,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, and `timeout` bounds one future
 - `tokio::select!` races futures, each branch producing its value, `biased;` ranking branches ready together, `OptionFuture` disabling an absent future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
+- Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do
 - Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
 - Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure

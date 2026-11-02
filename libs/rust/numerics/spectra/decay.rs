@@ -83,9 +83,10 @@ fn energy(response: &Series) -> Result<Array1<f64>, SpectraError> {
 
 fn split(response: &Series, early: Time) -> Result<[f64; 2], SpectraError> {
     let energy = energy(response)?;
-    let boundary = Some(early.get::<second>() * response.rate.get::<hertz>()).filter(|boundary| *boundary >= 0.0).ok_or(SpectraError::Split { early })?;
+    let boundary = early.get::<second>() * response.rate.get::<hertz>();
+    (boundary >= 0.0).ok_or(SpectraError::Split { early })?;
     let (early_part, late_part) = energy.view().split_at(Axis(0), convert_unchecked::<f64, usize>(boundary.round().min(convert::<usize, f64>(energy.len()))));
     Ok([early_part.sum(), late_part.sum()])
 }
 
-fn level(ratio: f64) -> f64 { 10.0 * ratio.log10() }
+fn level(quotient: f64) -> f64 { 10.0 * quotient.log10() }

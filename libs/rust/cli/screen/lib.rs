@@ -1,14 +1,14 @@
 #![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks_heterogeneous)]
 
 use core::{fmt, future, iter, ops::ControlFlow, pin::pin, time::Duration};
-#[cfg(not(panic = "abort"))]
-use std::thread;
 use std::{
     error::Report,
     io::{self, IsTerminal as _, Write as _},
     panic, process,
     time::Instant,
 };
+#[cfg(not(panic = "abort"))]
+use std::{mem::DropGuard, thread};
 
 use anstream::{AutoStream, ColorChoice};
 use clap::{CommandFactory, FromArgMatches, builder::Styles};
@@ -16,7 +16,7 @@ use clap::{CommandFactory, FromArgMatches, builder::Styles};
 use crossterm::event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::{
     cursor::Show,
-    event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, EventStream},
+    event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, EventStream, KeyEvent},
     execute, queue,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -119,7 +119,6 @@ where
     S: Stream<Item = Result<P::Item, E>>,
 {
     const BATCH: usize = 256;
-    #[derive(derive_more::IsVariant)]
     enum Arrival<I, E> {
         Event(io::Result<Event>),
         Item(Result<I, E>),
@@ -162,6 +161,13 @@ where
         Validated::from(cooked).map2(Validated::from(escaped), |(), ()| ()).ok()
     };
     let failed = |operation: Operation| move |source: io::Error| ScreenError::Terminal { operation, source };
+    let leaving = move || {
+        if raw()
+            && let Err(sources) = released()
+        {
+            sources.into_iter().map(failed(Operation::Leave)).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
+        }
+    };
     let checked = move |mut session: Session<P, E>, operation: Operation, outcome: Result<(), NEVec<io::Error>>| match outcome {
         Ok(()) => ControlFlow::Continue(session),
         Err(sources) => {
@@ -199,9 +205,9 @@ where
             ControlFlow::Continue(Session { level, logs: current.logs.set_default_display_level(level), ..current })
         };
         let bound = event.as_key_event().and_then(|key| {
-            let pressed = keymap::normalized(key.code, key.modifiers);
+            let pressed = keymap::normalized(key);
             keymap::resolved(session.program.keys())
-                .find(|row| keymap::active(&row.action, session.pane) && keymap::normalized(row.code, row.modifiers) == pressed)
+                .find(|row| keymap::active(&row.action, session.pane) && KeyEvent::from(&**row) == pressed)
                 .map(|row| (!key.is_release()).then(|| row.into_owned().action))
         });
         match bound {
@@ -230,42 +236,45 @@ where
         Arrival::End => updated(session, Input::End),
         Arrival::Tick(instant) => updated(session, Input::Tick(instant)),
     };
-    let framed = move |mut session: Session<P, E>, styles: &Styles| {
-        let shown = session.terminal.draw(|frame| view::drawn(frame, &mut session.program, session.pane, &session.logs, styles)).map(|_frame| ()).map_err(NEVec::new);
-        checked(session, Operation::Draw, shown)
-    };
-    let batched = move |session: Session<P, E>, chunk: Vec<Arrival<P::Item, E>>, styles: &Styles| {
-        tui_logger::move_events();
-        let drawn = !chunk.iter().all(Arrival::is_item);
-        let folded = chunk.into_iter().try_fold(session, arrived)?;
-        if drawn { framed(folded, styles) } else { ControlFlow::Continue(folded) }
-    };
     rasm_command::run(defaults, io::stderr.with_filter(move |_| !raw()), TuiTracingSubscriberLayer, async move |Process { args, styles, mut signals, filter: _ }| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
             ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
         };
-        tui_logger::set_default_level(LevelFilter::Trace);
+        let level = LevelFilter::Trace;
+        tui_logger::set_default_level(level);
         task::spawn_blocking(move || {
             io::stdout().is_terminal().ok_or_else(|| NEVec::new(E::from(ScreenError::Detached)))?;
             let Either::Left((started, _)) = executor::block_on(select(pin!(start(args)), signals.next())) else {
                 return Ok(ExitCode::TempFail);
             };
             let (program, items) = started?;
-            let mut ticks = time::interval(P::REFRESH);
+            let mut ticks = time::interval(
+                const {
+                    assert!(!P::REFRESH.is_zero(), "refresh period is zero, set `Program::REFRESH` to a nonzero duration");
+                    P::REFRESH
+                },
+            );
             ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
             #[cfg(not(panic = "abort"))]
             let owner = thread::current().id();
             panic::update_hook(move |hook, info| {
                 if cfg_select! {
-                    panic = "abort" => raw(),
-                    _ => raw() && thread::current().id() == owner,
-                } && let Err(sources) = released()
-                {
-                    sources.into_iter().map(failed(Operation::Leave)).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
+                    panic = "abort" => true,
+                    _ => thread::current().id() == owner,
+                } {
+                    leaving();
                 }
                 hook(info);
             });
+            let batched = |session: Session<P, E>, chunk: Vec<Arrival<P::Item, E>>| {
+                let mut folded = chunk.into_iter().try_fold(session, arrived)?;
+                tui_logger::move_events();
+                let shown = folded.terminal.draw(|frame| view::drawn(frame, &mut folded.program, folded.pane, &folded.logs, &styles)).map(|_frame| ()).map_err(NEVec::new);
+                checked(folded, Operation::Draw, shown)
+            };
+            #[cfg(not(panic = "abort"))]
+            let unwinding = DropGuard::new((), |()| leaving());
             let entering = entered().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
             let mut arrivals = pin!(
                 stream::select(
@@ -279,14 +288,14 @@ where
                 |source| vec![E::from(failed(Operation::Enter)(source))],
                 |terminal| {
                     executor::block_on_stream(arrivals.as_mut())
-                        .try_fold(Session { terminal, program, pane: None, level: LevelFilter::Trace, logs: TuiWidgetState::new(), failures: Vec::new() }, |session, chunk| {
-                            batched(session, chunk, &styles)
-                        })
+                        .try_fold(Session { terminal, program, pane: None, level, logs: TuiWidgetState::new(), failures: Vec::new() }, batched)
                         .into_value()
                         .failures
                 },
             );
             let status = if arrivals.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
+            #[cfg(not(panic = "abort"))]
+            DropGuard::dismiss(unwinding);
             let left = released().err().into_iter().flatten().map(failed(Operation::Leave)).map(E::from);
             NEVec::try_from_vec(iter::chain(failures, left).collect()).map_or(Ok(status), Err)
         })

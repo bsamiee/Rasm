@@ -44,18 +44,18 @@ pub struct Binding<K> {
 }
 
 impl<K> From<&Binding<K>> for KeyEvent {
-    fn from(value: &Binding<K>) -> Self { Self::new(value.code, value.modifiers) }
+    fn from(value: &Binding<K>) -> Self { normalized(Self::new(value.code, value.modifiers)) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub(crate) fn normalized(code: KeyCode, modifiers: KeyModifiers) -> (KeyCode, KeyModifiers) {
-    match code {
-        KeyCode::Char(typed) if modifiers.contains(KeyModifiers::SHIFT) =>
-            (KeyCode::Char(typed.to_uppercase().collect_array().map_or(typed, |[upper]| upper)), modifiers.difference(KeyModifiers::SHIFT)),
-        KeyCode::BackTab => (code, modifiers.difference(KeyModifiers::SHIFT)),
-        _ => (code, modifiers),
+pub(crate) fn normalized(key: KeyEvent) -> KeyEvent {
+    match key.code {
+        KeyCode::Char(typed) if key.modifiers.contains(KeyModifiers::SHIFT) =>
+            KeyEvent::new(KeyCode::Char(typed.to_uppercase().collect_array().map_or(typed, |[upper]| upper)), key.modifiers.difference(KeyModifiers::SHIFT)),
+        KeyCode::BackTab => KeyEvent::new(key.code, key.modifiers.difference(KeyModifiers::SHIFT)),
+        _ => KeyEvent::new(key.code, key.modifiers),
     }
 }
 

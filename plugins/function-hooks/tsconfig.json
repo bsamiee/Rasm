@@ -4,5 +4,7 @@
         "plugins": [ { "name": "@effect/language-service", "diagnostics": false } ],
         "typeRoots": [ ".claude-plugin/types" ],
         "types": [ "claude-code", "claude-code-tools" ]
-    }
+    },
+    "include": [ "**/*", "../../tests/typescript/plugins/function-hooks" ],
+    "exclude": [ "vitest.config.ts" ]
 }

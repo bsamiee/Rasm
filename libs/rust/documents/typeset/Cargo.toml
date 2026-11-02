@@ -24,9 +24,11 @@ bench   = false
 # --- [RUNTIME]
 [dependencies]
 rayon                              = { workspace = true }
+nonempty-collections               = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
+itertools                          = { workspace = true }
 serde                              = { workspace = true }
 serde_json                         = { workspace = true }
 serde_path_to_error                = { workspace = true }

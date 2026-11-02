@@ -144,7 +144,7 @@ where
                     return Err(OutputError::Encode { row, source });
                 }
                 (*formatter, *first) = (next, false);
-                let lines = scratch.iter().rposition(|byte| *byte == b'\n').map_or(0, |end| end.strict_add(1));
+                let lines = scratch.iter().rposition(|byte| *byte == b'\n').map_or_default(|end| end.strict_add(1));
                 out.write_all(scratch.drain(..lines).as_slice()).map_err(failed)
             }
             Sink::Csv { writer, columns } => {

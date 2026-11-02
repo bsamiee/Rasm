@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]

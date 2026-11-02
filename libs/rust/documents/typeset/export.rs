@@ -33,15 +33,11 @@ pub fn paged(document: &PagedDocument, format: PagedFormat, options: &BundleOpti
         PagedFormat::Svg => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
         PagedFormat::Png => {
             let pixel_per_pt = options.png.pixel_per_pt.get();
-            let density =
-                Some((pixel_per_pt * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).filter(|&ppu| ppu > 0).map(|ppu| PixelDimensions { xppu: ppu, yppu: ppu, unit: Unit::Meter });
+            let density = NonZero::new((pixel_per_pt * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).map(|ppu| PixelDimensions { xppu: ppu.get(), yppu: ppu.get(), unit: Unit::Meter });
             pages
                 .map(|(number, page)| {
-                    let bleed = if options.png.render_bleed { page.bleed } else { Sides::default() }.sum_by_axis();
-                    let size = page
-                        .frame
-                        .size()
-                        .zip_map(bleed, |frame, bleed| (pixel_per_pt.cast::<f32>() * Abs::raw(frame.to_raw() + bleed.to_raw()).to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
+                    let size = (page.frame.size() + if options.png.render_bleed { page.bleed } else { Sides::default() }.sum_by_axis())
+                        .map(|axis| (pixel_per_pt.cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
                     size.x
                         .checked_mul(4)
                         .filter(|&row| i32::try_from(row).is_ok())
@@ -80,9 +76,10 @@ pub fn timestamp(now: &Zoned) -> Option<Timestamp> {
             zoned.second().cast_unsigned(),
         )
     };
-    Some(now.offset().seconds())
-        .filter(|seconds| seconds.rem_euclid(60) == 0 && !(-3599..0).contains(seconds))
-        .zip(datetime(now))
-        .and_then(|(seconds, local)| Timestamp::new_local(local, seconds.div_euclid(60)))
+    let offset = now.offset();
+    (offset.seconds().rem_euclid(60) == 0 && !(-3599..0).contains(&offset.seconds()))
+        .then(|| datetime(now))
+        .flatten()
+        .and_then(|local| Timestamp::new_local(local, offset.seconds().div_euclid(60)))
         .or_else(|| datetime(&now.with_time_zone(TimeZone::UTC)).map(Timestamp::new_utc))
 }

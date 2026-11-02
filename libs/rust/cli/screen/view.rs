@@ -1,6 +1,7 @@
 use core::iter;
 
 use clap::builder::Styles;
+use crossterm::event::KeyEvent;
 use itertools::Itertools as _;
 use ratatui::{
     Frame,
@@ -13,17 +14,16 @@ use tui_logger::{TuiLoggerWidget, TuiWidgetState};
 
 use crate::{
     Program,
-    keymap::{self, Binding, Pane},
+    keymap::{self, Pane},
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(crate) fn drawn<P>(frame: &mut Frame<'_>, program: &mut P, pane: Option<Pane>, logs: &TuiWidgetState, styles: &Styles)
 where P: Program {
-    let label = |row: &Binding<P::Action>| if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) };
     let rows = keymap::resolved(program.keys())
-        .unique_by(|row| keymap::normalized(row.code, row.modifiers))
-        .map(|row| (label(&row), row.action.to_string(), keymap::active(&row.action, pane)))
+        .unique_by(|row| KeyEvent::from(&**row))
+        .map(|row| (if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) }, row.action.to_string(), keymap::active(&row.action, pane)))
         .collect::<Vec<_>>();
     let toned = |active: bool, style: &anstyle::Style| if active { *style } else { *styles.get_placeholder() };
     let bordered = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
