@@ -88,7 +88,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 |  [03]   | One field of every member  | `everyItem().<field>`, one call per field              | Array at any count, `properties` reads all    |
 |  [04]   | Same object across reads   | `equals`                                               | Repeated reads differ under `===`             |
 |  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`         | `item(index)` specifiers shift on insert      |
-|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.Path` and `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
+|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.Path` and `resolve` | `Character`, `Word`, `Paragraph` have no `id`, and find hits and style ranges read `(A to B)` with ends of any kind |
 |  [07]   | Style inside a group       | Specifier steps per group                              | Groups can repeat one style name              |
 |  [08]   | Active document            | `Effect.try` over `app.activeDocument`                 | Throws with only windowless documents open    |
 
