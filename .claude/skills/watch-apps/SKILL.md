@@ -55,7 +55,7 @@ watch-apps perform <id> <action>
 watch-apps set <id> '<text>'
 ```
 
-- `read` prints one state line per app, each menu under the menu bar item opening it
+- `read` prints one state line per app, each menu except the Apple menu under the menu bar item opening it
 - `--pid` selects the one instance `read` or `capture` prints and takes one app
 - `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>.png`
 - `--window` captures one window from a line's `window` field, `--longest-side` scales the image down to that many pixels
@@ -66,9 +66,9 @@ watch-apps set <id> '<text>'
 - Ids name one element of one presentation, absent once its window, sheet, or dialog closes or shows again, or the app replaces the element
 - Menu item ids name a position in their menu, rerun `read` after the app changes that menu
 - Menu items of a background app take `AXPress` with no Automation grant, items a background app disables read `enabled` false
-- Apps showing a modal dialog disable every menu item the dialog does not take
+- Modal dialogs shown while launching leave every menu item `enabled` false, modal dialogs a menu item opens leave `enabled` as it read
 - Runs print nothing when the app performed the action, the watcher shows its effect as the next state line
-- Runs print a `fail` line keyed by the `id`, its `reason` naming an absent element, `AXRaise`, or an action the app refused
+- Runs print a `fail` line keyed by the `id`, its `reason` naming an absent or disabled element, `AXRaise`, or an action the app refused
 - `AXRaise` brings the app forward and is never sent
 - Refused actions can have run
 - Actions left unanswered for the messaging timeout print a `fail` line naming them and can have run, read the next state line before retrying one
@@ -98,25 +98,25 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance
 - `role`, `subrole`, `modal` (`AXModal`), `title`, and `description` (`AXDescription`, `alert` on an alert) name the element
 - `subrole` reads `AXDialog` on some hidden and minimized windows
 - `identifier` (`AXIdentifier`) names its kind as AppKit does, `save-panel`, `open-panel`, and `_NS:87` for an alert, shared by every element of that kind
-- `document` holds the window's `AXDocument` file URL, `edited` its close button's `AXEdited`
+- `document` holds the window's `AXDocument` file URL, `edited` its close button's `AXEdited`, `minimized` its `AXMinimized`
 - `requiresAnswer` holds for a sheet, a window with `modal` true, or a system dialog, and never for a window that only reads `subrole` `AXDialog`
 - `actions` hold the element's own Accessibility actions other than `AXRaise`
 
 `detail` holds what a walk reads:
-- `frame` reads `[[x, y], [width, height]]` in screen points, `main`, `focused`, and `minimized` the window's flags
+- `frame` reads `[[x, y], [width, height]]` in screen points, `main` and `focused` the window's flags
 - `text` holds its static text with visible characters, whitespace and private-use icon glyphs left out
 - `controls` hold each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item offering `AXPress` once
 - Walks descend into scroll areas, the visible rows of tables and outlines, and the visible children of lists, a text area's `value` holds its visible text
 - Controls hold `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, and `attribute`
 - Control `attribute` holds the element attribute naming the control, `AXDefaultButton` answers Return and `AXCancelButton` Escape
-- Control `items` hold the controls of the menu the control opens, absent for a control opening none, the Apple menu is absent
+- Control `items` hold the controls of a menu bar item's menu and of a pop-up button's menu while `AXShowMenu` holds it open
 - Control `identifier` reads `action-button-<n>` on an alert in the order its buttons were added, `OKButton` and `CancelButton` on save and open panels, `PDPrint` and `PSOK` on print and page setup
 - Save and open panels set neither `AXDefaultButton` nor `AXCancelButton`
 - `unreadable` lists Accessibility reads the app refused, each with `reads`, `role`, `label`, and AXError `error`
 
 `usage` holds `cpu` seconds, `footprint` bytes of physical memory, and `threads`, in every `read` line and in each line turning an instance `unresponsive`. Rising `cpu` beside `unresponsive` `running` shows a busy app, flat `cpu` beside `sleeping` an app waiting on something.
 
-Instances are read at insertion and after each window, sheet, title, focus, or destruction notification they post. A heartbeat asks each instance one attribute once per messaging timeout of 1 second. A stopped process reads `unresponsive` `stopped` with no message sent, a heartbeat left unanswered reads `unresponsive` with the process status, and the next answer prints the instance's state again. `launching` holds until the app finishes launching, unless a dialog requiring an answer shows first. `exited` reads `status` for an exit or `signal` for a kill, then a second line adds `report` once ReportCrash writes the crash report for that pid, for a signal with a default action that dumps core or a code signing kill, or `reportFailure` after 60 seconds without one.
+Instances are read at insertion and after each window, sheet, title, focus, minimize, or destruction notification they post. A heartbeat reads each instance's window count and focused window once per messaging timeout of 1 second and reads the instance again when either changes, windows a hidden app opens post no notification. A stopped process reads `unresponsive` `stopped` with no message sent, a heartbeat left unanswered reads `unresponsive` with the main thread's run state, and the next answer prints the instance's state again. `launching` holds until the app finishes launching, unless a dialog requiring an answer shows first. `exited` reads `status` for an exit or `signal` for a kill, then a second line adds `report` once ReportCrash writes the crash report for that pid, for a signal with a default action that dumps core or a code signing kill, or `reportFailure` after 60 seconds without one.
 
 | [INDEX] | [STATE]        | [FIELDS]                                 | [MEANING]                             | [ACTION]                            |
 | :-----: | :------------- | :--------------------------------------- | :------------------------------------ | :---------------------------------- |

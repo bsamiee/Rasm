@@ -11,7 +11,7 @@ utils:
     mutation:
         any:
             - {kind: assignment, has: {field: target, has: {matches: head}}}
-            - {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, has: {field: target, matches: head}}}
+            - matches: derivable-mutation
     empty-value:
         kind: call_expression
         regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\(\s*\)$'

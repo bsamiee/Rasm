@@ -2,6 +2,7 @@
 id: no-log-subsystem-by-hand
 language: swiftlang
 severity: error
+ignores: ['tests/swift/support/**', 'tests/swift/fixtures/**']
 rule:
     kind: call_expression
     all:

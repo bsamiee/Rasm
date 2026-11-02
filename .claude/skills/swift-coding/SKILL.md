@@ -25,6 +25,7 @@ Code uses each module's types wherever they state a value, as part of the langua
 - [06]-[STREAMS](references/streams.md): Async sequence sources, typed failure, operators, observation, back pressure, and sharing
 - [07]-[BOUNDARIES](references/boundaries.md): Decoding, paths, child processes, command lines, and logging
 - [08]-[GENERICS](references/generics.md): Constraints, opaque types, conditional conformances, packs, integer generic parameters, and macros
+- [09]-[TESTING](references/testing.md): Suites, assertions, generated inputs, scoped resources, and fixture applications
 
 ## [01]-[FUNCTIONS]
 
@@ -278,7 +279,7 @@ Values over time are `some AsyncSequence<Element, Failure>` in signatures. Deliv
 |  [08]   | Consumers sharing one source          | `share(bufferingPolicy:)`                            |
 |  [09]   | Lines of a child process              | `strings(separatedBy:bufferingPolicy:)`              |
 
-Request-response work and one-shot waits stay an `async throws(E)` function, and a stream holds values a consumer reads in order.
+Request-response work and one-shot waits stay an `async throws(E)` function, and a stream holds values a consumer reads in order. One-shot waits whose typed failure has no cancelled case (`Errno`) are a one-element stream, and a cancelled consumer ends it with no element.
 
 ## [08]-[BOUNDARIES]
 
@@ -305,7 +306,7 @@ enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Coda
 - Synthesized `Codable` holds every wire mapping, and `init(from:)` is hand-written only where a stored type lacks `Codable` or a field names the case
 - Untyped host values (`Any`, `CFTypeRef`) decode through one generic read that checks the type
 - Host types stand where they state the value: a caller passes the host's configuration and receives its output whole
-- Host enums stay the host's type, and the wire spelling is one `switch` in the encoder that writes it, `@unknown default` writing the raw value
+- Host enums stay the host's type, and a model holding one writes it in its own `encode(to:)`, `@unknown default` writing the raw value
 - Names a host enumerates (attribute names, actions, settability) derive from its query at the read
 - `FileDescriptor` and `Errno` from System state the host's file API and its failures
 

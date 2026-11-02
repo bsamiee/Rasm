@@ -261,12 +261,24 @@
             },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift test --disable-automatic-resolution", "inputs": [ "default", "^default", "swift" ], "parallelism": false }
+            {
+                "filter": { "projects": [ "tag:build:swiftpm" ] },
+                "command": "rm -rf .artifacts/swift/test/{projectName} && mkdir -p .artifacts/swift/test/{projectName} && swift test --disable-automatic-resolution --attachments-path .artifacts/swift/test/{projectName}",
+                "inputs": [ "default", "^default", "swift" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/swift/test/{projectName}" ],
+                "parallelism": false
+            }
         ],
         "test:integration": [
             { "filter": { "projects": [ "tag:language:typescript", "tag:language:rust" ] }, "dependsOn": [ { "projects": [ "rasm" ], "target": "docker" } ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "command": "vitest run", "options": { "cwd": "{projectRoot}" } },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift test --disable-automatic-resolution", "cache": false, "parallelism": false }
+            {
+                "filter": { "projects": [ "tag:build:swiftpm" ] },
+                "command": "rm -rf .artifacts/swift/test/{projectName} && mkdir -p .artifacts/swift/test/{projectName} && swift test --disable-automatic-resolution --attachments-path .artifacts/swift/test/{projectName}",
+                "outputs": [ "{workspaceRoot}/.artifacts/swift/test/{projectName}" ],
+                "cache": false,
+                "parallelism": false
+            }
         ],
         "e2e": [ { "filter": { "plugin": "@nx/playwright/plugin" }, "configurations": { "ci": { "args": [ "--forbid-only", "--add-reporter=github" ] } }, "cache": false, "parallelism": true } ],
         "coverage": {

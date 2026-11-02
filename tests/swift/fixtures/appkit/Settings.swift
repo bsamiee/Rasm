@@ -8,6 +8,7 @@ public enum Scenario: String, CaseIterable, Sendable {
     case singleInstance
     case window
     case swatch
+    case table
     case sheet
     case modal
     case saveSheet
@@ -30,7 +31,7 @@ public enum Scenario: String, CaseIterable, Sendable {
     public var atLaunch: Bool {
         switch self {
             case .slowLaunch, .launchModal, .singleInstance: true
-            case .window, .swatch, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .signal, .fault, .trap,
+            case .window, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .signal, .fault, .trap,
                 .abort, .exit, .helper, .terminate:
                 false
         }
@@ -49,6 +50,7 @@ public struct Settings: Sendable {
         case windows
         case document
         case edited
+        case hidden
         case duration
         case status
         case owner
@@ -59,6 +61,7 @@ public struct Settings: Sendable {
     public let windows: Int
     public let document: URL?
     public let edited: Bool
+    public let hidden: Bool
     public let duration: Duration
     public let status: Int32
     public let owner: pid_t?
@@ -69,6 +72,7 @@ public struct Settings: Sendable {
         windows: Int = 1,
         document: URL? = nil,
         edited: Bool = false,
+        hidden: Bool = false,
         duration: Duration = .seconds(2),
         status: Int32 = 0,
         owner: pid_t? = getpid(),
@@ -78,6 +82,7 @@ public struct Settings: Sendable {
         self.windows = windows
         self.document = document
         self.edited = edited
+        self.hidden = hidden
         self.duration = duration
         self.status = status
         self.owner = owner
@@ -92,6 +97,7 @@ public struct Settings: Sendable {
             windows: text(.windows).flatMap { windows in Int(windows) } ?? fallback.windows,
             document: text(.document).map { path in URL(filePath: path) },
             edited: text(.edited).flatMap { edited in Bool(edited) } ?? fallback.edited,
+            hidden: text(.hidden).flatMap { hidden in Bool(hidden) } ?? fallback.hidden,
             duration: text(.duration).flatMap { seconds in Double(seconds) }.map(Duration.seconds) ?? fallback.duration,
             status: text(.status).flatMap { status in Int32(status) } ?? fallback.status,
             owner: text(.owner).flatMap { owner in pid_t(owner) },
@@ -101,7 +107,7 @@ public struct Settings: Sendable {
     public var arguments: [String] {
         let values: [(key: Key, value: String?)] = [
             (.role, role.rawValue), (.scenario, scenario?.rawValue), (.windows, String(windows)), (.document, document?.path(percentEncoded: false)), (.edited, String(edited)),
-            (.duration, String(duration / .seconds(1))), (.status, String(status)), (.owner, owner.map { owner in String(owner) }),
+            (.hidden, String(hidden)), (.duration, String(duration / .seconds(1))), (.status, String(status)), (.owner, owner.map { owner in String(owner) }),
         ]
         return values.flatMap { key, value in value.map { text in ["-\(key.rawValue)", text] } ?? [] }
     }

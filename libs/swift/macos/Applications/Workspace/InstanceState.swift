@@ -65,7 +65,7 @@ extension NSRunningApplication {
     }
 
     public func state(walking walked: @Sendable (Element) -> Bool) async -> InstanceState {
-        state(of: await status(walking: walked), sampling: true)
+        state(of: await status(walking: walked).status, sampling: true)
     }
 
     public func states(

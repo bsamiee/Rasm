@@ -2,6 +2,7 @@
 id: no-inline-missing-file-check
 language: swiftlang
 severity: error
+ignores: ['tests/swift/support/**', 'tests/swift/fixtures/**']
 rule:
     kind: simple_identifier
     regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError|fileDoesNotExist|(kCF|NS)URLErrorFileDoesNotExist)$'

@@ -109,7 +109,10 @@ struct JSONValueDecoder: Decoder, SingleValueDecodingContainer {
     }
 
     private func mismatch(_ type: Any.Type) -> DecodingError {
-        DecodingError.typeMismatch(type, DecodingError.Context(codingPath: codingPath, debugDescription: "Expected to decode \(type)"))
+        switch value {
+            case .null: DecodingError.valueNotFound(type, DecodingError.Context(codingPath: codingPath, debugDescription: "Expected \(type) value but found null"))
+            case _: DecodingError.typeMismatch(type, DecodingError.Context(codingPath: codingPath, debugDescription: "Expected to decode \(type)"))
+        }
     }
 }
 

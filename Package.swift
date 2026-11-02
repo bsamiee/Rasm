@@ -76,6 +76,7 @@ let support: [Target] = [
         dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
         path: "tests/swift/fixtures/appkit",
     ),
+    .target(name: "WatchAppsWire", path: "tests/swift/tools/watch-apps/Wire"),
 ]
 let suites: [Target] = [
     // --- [CORE]
@@ -87,13 +88,71 @@ let suites: [Target] = [
         ],
         path: "tests/swift/libs/core/Encoding",
     ),
+    .testTarget(
+        name: "ResultsTests",
+        dependencies: [
+            "Encoding", "Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"),
+            .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+        ],
+        path: "tests/swift/libs/core/Results",
+    ),
     // --- [MACOS]
+    .testTarget(
+        name: "FilesTests",
+        dependencies: [
+            "Files", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+        ],
+        path: "tests/swift/libs/macos/Files",
+    ),
+    .testTarget(
+        name: "ProcessesTests",
+        dependencies: [
+            "Encoding", "Processes", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
+        path: "tests/swift/libs/macos/Processes",
+    ),
+    .testTarget(
+        name: "ApplicationsTests",
+        dependencies: [
+            "Applications", "Encoding", "Processes", "Results", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"),
+            .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"), .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
+        path: "tests/swift/libs/macos/Applications",
+        exclude: ["Integration"],
+    ),
     .testTarget(
         name: "ApplicationsIntegrationTests",
         dependencies: [
-            "Applications", "TestSupport", "AppKitFixture", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
+            "Applications", "Encoding", "Results", "TestSupport", "AppKitFixture", .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "OrderedCollections", package: "swift-collections"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/swift/libs/macos/Applications/Integration",
+    ),
+    // --- [TOOLS]
+    .testTarget(
+        name: "watch-appsTests",
+        dependencies: [
+            "watch-apps", "TestSupport", "WatchAppsWire", .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
+        path: "tests/swift/tools/watch-apps",
+        exclude: ["Integration", "Wire"],
+    ),
+    .testTarget(
+        name: "watch-appsIntegrationTests",
+        dependencies: [
+            "watch-apps", "TestSupport", "AppKitFixture", "WatchAppsWire", .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
+        path: "tests/swift/tools/watch-apps/Integration",
     ),
 ]
 

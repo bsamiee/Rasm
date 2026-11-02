@@ -17,6 +17,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case unreadable(FailedRead)
         case absent(String)
         case activating
+        case disabled
         case refused(AXError)
         case hiddenAgent
         case multipleInstancesProhibited
@@ -45,6 +46,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error)"
             case .absent(let missing): "\(subject) has no \(missing)"
             case .activating: "\(subject) not sent. AXRaise brings window forward"
+            case .disabled: "\(subject) not sent. Element is disabled"
             case .refused(let error): "Application refused \(subject) with AXError \(error.rawValue)"
             case .hiddenAgent: "LSUIElement agent \(subject) cannot unhide, launch it without hiding"
             case .multipleInstancesProhibited: "\(subject) declares LSMultipleInstancesProhibited and an instance runs, launch it without a new instance"
@@ -63,7 +65,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .unanswered, .unreadable, .absent, .activating, .refused, .hiddenAgent, .multipleInstancesProhibited, .cancelled: [:]
+            case .untrusted, .unanswered, .unreadable, .absent, .activating, .disabled, .refused, .hiddenAgent, .multipleInstancesProhibited, .cancelled: [:]
         }
     }
 }

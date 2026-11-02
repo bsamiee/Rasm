@@ -1,0 +1,2 @@
+{"app_name":"Alpha","timestamp":"2026-11-01 12:04:00.00 -0600","app_version":"1.0","slice_uuid":"0b7c1f3e-2a51-3d3f-9a0e-6f1d2c4b5a60","build_version":"1","platform":1,"bundleID":"dev.rasm.reports.alpha","share_with_app_devs":0,"is_first_party":0,"bug_type":"309","os_version":"macOS 27.0.1 (26A434)","roots_installed":0,"name":"Alpha","incident_id":"3D5F7092-1A0E-4C4D-B8F6-5E7A9B1C3D55"}
+{"pid":4244,"procName":"Alpha","exception":{"type":"EXC_BAD_ACC

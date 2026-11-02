@@ -5,6 +5,7 @@ import Foundation
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
+private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -68,7 +69,7 @@ extension AXUIElement {
         let subject: String = "element \(token.base64EncodedString())"
         return ApplicationFailure(error, subject: subject, process: process) {
             let read: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
-            return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error.rawValue)))
+            return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error)))
         }
     }
 
@@ -76,7 +77,7 @@ extension AXUIElement {
         let (answer, slots): (AXError, [(attribute: String, slot: CFTypeRef)]) = copied(attributes)
         let refused: (attribute: String, error: AXError)? = slots.lazy.compactMap { attribute, slot in
             AXValue.unpacked(slot, .axError, AXError.success).flatMap { error in
-                [AXError.noValue, .attributeUnsupported, .invalidUIElement].contains(error) ? nil : (attribute: attribute, error: error)
+                absentAttribute.contains(error) ? nil : (attribute: attribute, error: error)
             }
         }
         .first

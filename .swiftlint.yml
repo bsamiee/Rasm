@@ -127,8 +127,6 @@ non_optional_string_data_conversion:
     include_variables: true
 optional_data_string_conversion:
     include_implicit_init: true
-redundant_self:
-    only_in_closures: false
 shorthand_argument:
     always_disallow_more_than_one: true
     always_disallow_member_access: true

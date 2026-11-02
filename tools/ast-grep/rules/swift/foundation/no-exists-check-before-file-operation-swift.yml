@@ -2,6 +2,7 @@
 id: no-exists-check-before-file-operation-swift
 language: swiftlang
 severity: error
+ignores: ['tests/swift/support/**', 'tests/swift/fixtures/**']
 utils:
     subject-path:
         any:

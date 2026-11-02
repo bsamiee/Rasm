@@ -67,7 +67,7 @@ extension CrashReport {
                     let files: [URL] =
                         switch change {
                             case .success(let batch) where batch.isEmpty: listing(directory, since: launch).files
-                            case .success(let batch): batch.map(\.url).filter { url in url.pathExtension == "ips" }
+                            case .success(let batch): batch.map(\.url).filter { url in url.pathExtension == "ips" && !url.lastPathComponent.hasPrefix(".") }
                             case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
                         }
                     if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }

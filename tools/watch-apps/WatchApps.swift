@@ -10,11 +10,16 @@ import Results
 import ScreenCaptureKit
 import System
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+typealias Output = AsyncStream<(key: String, line: Line)>.Continuation
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let messagingTimeout: Duration = .seconds(1)
 let notifications: Swift.Set<String> = [
     kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
+    kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification,
 ]
 let captures: URL = URL.temporaryDirectory.appending(component: "watch-apps", directoryHint: .isDirectory)
 
@@ -78,30 +83,19 @@ struct WatchApps: AsyncParsableCommand {
 
     static func main() async {
         do {
-            let command: any ParsableCommand = try parseAsRoot()
+            var command: any ParsableCommand = try parseAsRoot()
             try checkAccessibilityTrust()
             AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
-            switch command {
-                case let command as any AsyncParsableCommand: try await execute(command)
-                case let command: try execute(command)
-            }
+            if var asynchronous: any AsyncParsableCommand = command as? any AsyncParsableCommand { try await asynchronous.run() } else { try command.run() }
         } catch {
             guard exitCode(for: error) != .success else { exit(withError: error) }
             do { try await run { output in output.yield((ProcessInfo.processInfo.processName, .fail(message(for: error)))) } } catch { exit(withError: error) }
         }
     }
 
-    static func execute(_ command: consuming sending any AsyncParsableCommand) async throws {
-        try await command.run()
-    }
-
-    static func execute(_ command: consuming any ParsableCommand) throws {
-        try command.run()
-    }
-
     @MainActor
-    static func run(_ work: @escaping @MainActor (AsyncStream<(key: String, line: Line)>.Continuation) async -> Void) async throws {
-        let (lines, output): (AsyncStream<(key: String, line: Line)>, AsyncStream<(key: String, line: Line)>.Continuation) = AsyncStream.makeStream()
+    static func run(_ work: @escaping @MainActor (Output) async -> Void) async throws {
+        let (lines, output): (AsyncStream<(key: String, line: Line)>, Output) = AsyncStream.makeStream()
         let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
         parent.setEventHandler { output.finish() }
         parent.activate()
@@ -123,7 +117,7 @@ struct WatchApps: AsyncParsableCommand {
     @MainActor
     static func run(
         _ names: [String],
-        _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, AsyncStream<(key: String, line: Line)>.Continuation) async -> Void,
+        _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, Output) async -> Void,
     ) async throws {
         try await run { output in
             let found: [(name: String, application: Result<[Installation], ApplicationFailure>)] = await Array(
@@ -154,7 +148,7 @@ struct Instance: ParsableArguments {
 
     func each<Value>(
         of applications: some Collection<String>,
-        output: AsyncStream<(key: String, line: Line)>.Continuation,
+        output: Output,
         _ read: @escaping @Sendable (NSRunningApplication) async -> Result<Value, ApplicationFailure>,
         as line: (OrderedDictionary<NSRunningApplication, Value>) -> Line,
     ) async {
@@ -270,7 +264,7 @@ struct Launch: AsyncParsableCommand {
     }
 
     @MainActor
-    func launch(_ id: String, among copies: [Installation], output: AsyncStream<(key: String, line: Line)>.Continuation) async {
+    func launch(_ id: String, among copies: [Installation], output: Output) async {
         let running: Swift.Set<pid_t> = Swift.Set(NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }.map(\.processIdentifier))
         let launched: Result<NSRunningApplication, ApplicationFailure> = await Result { () async throws(ApplicationFailure) in
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
@@ -316,7 +310,13 @@ struct Capture: AsyncParsableCommand {
     @Option(help: "CoreGraphics window number from a read or watch line")
     var window: CGWindowID?
 
-    @Option(help: "Longest side in pixels, smaller captures keep native size")
+    @Option(
+        help: "Longest side in pixels, smaller captures keep native size",
+        transform: { pixels in
+            guard let side: Int = Int(pixels), side > 0 else { throw ValidationError("\(pixels) is no positive pixel count") }
+            return side
+        },
+    )
     var longestSide: Int?
 
     func run() async throws {

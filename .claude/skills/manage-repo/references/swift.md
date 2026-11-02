@@ -8,7 +8,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Target paths hold Swift sources alone, a `Package.swift` inside one compiles as a source and any other file warns as unhandled
 - Target paths are disjoint, SwiftPM fails a folder inside another target's path on overlapping sources
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
-- Products list library modules alone, SwiftPM synthesizes each executable's product, the `tests/swift/support` library and each `tests/swift/fixtures/<name>` executable sit in `support`
+- Products list library modules alone, SwiftPM synthesizes each executable's product, `support` holds test libraries and fixture executables
 - Modules take their suites' dependencies as Nx edges, a Rasm import in `support` or a fixture cycles with each module whose suite uses it
 - Test targets take `<Module>Tests`, cases needing a GUI session or TCC grant `<Module>IntegrationTests`, Nx attaches each to its module's `test` or `test:integration` and filters on the C99 module name
 - Test targets using swift-custom-dump link `IssueReportingTestSupport`, mise `OMIT_DYNAMIC_TEST_SUPPORT` builds it static where the dynamic form prints linker version warnings
@@ -80,7 +80,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - Warnings as errors covers on-by-default groups, `StrictLanguageFeatures` joins them to fail a misspelled feature the compiler accepts silently
 - `PerformanceHints` groups are off, `UntypedThrows` fails in `@Observable` expansions and `ExistentialType` on a `Codable` witness's `any Decoder`
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form
-- `-warn-long-expression-type-checking-scopes 200` fails `#expect` over `==`, tests compare through `expectNoDifference` or a typed `Bool` binding
+- `-warn-long-expression-type-checking-scopes 200` covers test targets
 
 ## [06]-[LOCKS]
 
@@ -109,6 +109,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - `no_empty_block` is off for required empty witnesses
 - `discouraged_optional_boolean` and `discouraged_optional_collection` are off for wire fields where absence differs from `false` or empty
 - Rules with an open fix or false-positive defect are off until a release fixes it (`trailing_closure`, `void_function_in_ternary`)
+- `redundant_self` keeps its closures-only default, its method-body mode reports the `self` an `@autoclosure` argument (`Logger` message) requires
 - `nesting` caps declaration depth, an ast-grep rule caps closure and control depth
 - `custom_rules` is unset, its regexes match text where ast-grep matches syntax
 - Logged command lines escape `#` in a macro plugin path, `swiftlint analyze` keeps the `\#` and its SourceKit replay finds no macro plugin

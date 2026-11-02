@@ -17,7 +17,8 @@ public struct Backoff: Sendable {
 
     func delays(using generator: inout some RandomNumberGenerator) -> [Duration] {
         sequence(first: base) { (delay: Duration) -> Duration in delay * growth }.prefix(count).map { (delay: Duration) -> Duration in
-            min(delay, cap ?? delay) * (1 + jitter * Double.random(in: 0..<1, using: &generator))
+            let stretched: Duration = delay * (1 + jitter * Double.random(in: 0..<1, using: &generator))
+            return min(stretched, cap ?? stretched)
         }
     }
 }

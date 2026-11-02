@@ -15,6 +15,11 @@ public struct TestFailure: LocalizedError, CustomNSError {
     public let subject: String
     public let reason: Reason
 
+    public init(subject: String, reason: Reason) {
+        self.subject = subject
+        self.reason = reason
+    }
+
     public var errorDescription: String? { "\(reason): \(subject)" }
 
     public var errorUserInfo: [String: Any] {

@@ -1,4 +1,4 @@
-import AppKit
+public import AppKit
 import Combine
 public import Foundation
 import Subprocess
@@ -15,15 +15,20 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     @TaskLocal public static var current: URL?
 
     let product: String
+    let named: String?
     let arguments: [String]
     let launches: Bool
+    let activationPolicy: NSApplication.ActivationPolicy
     let multipleInstancesProhibited: Bool
     let answering: @Sendable (_ name: String) async -> Void
 
+    public var isRecursive: Bool { true }
+
     public func provideScope(for test: Test, testCase: Test.Case?, performing function: @concurrent @Sendable () async throws -> Void) async throws {
         let tag: String = UUID().uuidString
-        let name: String = "\(product) \(tag.prefix(8))"
+        let name: String = named ?? "\(product) \(tag.prefix(8))"
         let identifier: String = "\(product).\(tag)"
+        let process: String = "\(product)-\(tag.prefix(8))"
         let folder: URL = try FileManager.default.url(for: .userDirectory, in: .localDomainMask, appropriateFor: nil, create: false)
             .appending(components: "Shared", identifier, directoryHint: .isDirectory)
         let bundle: URL = folder.appending(component: "\(name).app", directoryHint: .isDirectory)
@@ -40,12 +45,12 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             }
         }
         func assemble() async throws {
-            let executable: URL = bundle.appending(components: "Contents", "MacOS", product)
+            let executable: URL = bundle.appending(components: "Contents", "MacOS", process)
             try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: builtProduct(named: product), to: executable)
             let info: [String: Any] = [
-                kCFBundleIdentifierKey as String: identifier, kCFBundleNameKey as String: name, kCFBundleExecutableKey as String: product, "CFBundlePackageType": "APPL",
-                "LSMultipleInstancesProhibited": multipleInstancesProhibited,
+                kCFBundleIdentifierKey as String: identifier, kCFBundleNameKey as String: name, kCFBundleExecutableKey as String: process, "CFBundlePackageType": "APPL",
+                "LSMultipleInstancesProhibited": multipleInstancesProhibited, "LSUIElement": activationPolicy == .accessory, "LSBackgroundOnly": activationPolicy == .prohibited,
             ]
             try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: bundle.appending(components: "Contents", "Info.plist"))
             try await succeed(.name("codesign"), ["--sign", "-", "--force", bundle.path(percentEncoded: false)])
@@ -55,6 +60,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
             configuration.activates = false
             configuration.addsToRecentItems = false
+            configuration.hides = activationPolicy != .regular
             configuration.arguments = arguments
             let _: NSRunningApplication = try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
         }
@@ -115,12 +121,22 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
 extension Trait where Self == TestApplication {
     public static func application(
         _ entry: any Any.Type,
+        named name: String? = nil,
         arguments: [String] = [],
         launches: Bool = true,
+        activationPolicy: NSApplication.ActivationPolicy = .accessory,
         multipleInstancesProhibited: Bool = false,
         answering alerts: @escaping @Sendable (_ name: String) async -> Void = { _ in },
     ) -> Self {
         let product: String = String(String(reflecting: entry).prefix { character in character != "." })
-        return Self(product: product, arguments: arguments, launches: launches, multipleInstancesProhibited: multipleInstancesProhibited, answering: alerts)
+        return Self(
+            product: product,
+            named: name,
+            arguments: arguments,
+            launches: launches,
+            activationPolicy: activationPolicy,
+            multipleInstancesProhibited: multipleInstancesProhibited,
+            answering: alerts,
+        )
     }
 }

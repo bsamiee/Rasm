@@ -5,6 +5,10 @@ public import CasePaths
 public import Processes
 import Synchronization
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+typealias Windows = (count: Int, focused: Data?)
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
@@ -61,34 +65,43 @@ final class Observer {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension AXUIElement {
+    func windows() throws(ApplicationFailure) -> Windows {
+        var count: CFIndex = 0
+        let counted: AXError = unsafe AXUIElementGetAttributeValueCount(self, kAXWindowsAttribute as CFString, &count)
+        guard [.success, .noValue, .attributeUnsupported].contains(counted) else { throw failure(counted, reading: [kAXWindowsAttribute]) }
+        return (counted == .success ? count : 0, try element(kAXFocusedWindowAttribute)?.token)
+    }
+}
+
 extension NSRunningApplication {
     func processStatus() throws(ApplicationFailure) -> ProcessStatus {
-        do { return try ProcessStatus(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
+        do { return try ProcessStatus(of: processIdentifier, mainThread: true) } catch { throw ApplicationFailure(error, process: processIdentifier) }
     }
 
     @concurrent
     func status(
         walking walked: @Sendable (Element) -> Bool,
         observer: Result<Observer, ApplicationFailure>? = nil,
-        after last: Result<ApplicationStatus, ApplicationFailure>? = nil,
-    ) async -> Result<ApplicationStatus, ApplicationFailure> {
+        after last: (elements: [Element], windows: Windows)? = nil,
+    ) async -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: Windows?) {
         await withTaskExecutorPreference(accessibility) {
-            Result { () throws(ApplicationFailure) in
+            let read: Result<(status: ApplicationStatus, windows: Windows?), ApplicationFailure> = Result { () throws(ApplicationFailure) in
                 let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-                switch (try processStatus(), last) {
-                    case (.stopped, _): return .unresponsive(process: .stopped)
-                    case (_, .success(.responding(let elements))):
-                        _ = try application.values([kAXRoleAttribute])
-                        return .responding(elements: elements)
-                    case (_, _):
-                        let elements: [Element] = try application.candidates().map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
-                        try observer?.get().register()
-                        return isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? .responding(elements: elements) : .launching
-                }
+                guard try processStatus() != .stopped else { return (.unresponsive(process: .stopped), nil) }
+                let windows: Windows = try application.windows()
+                if let last, last.windows == windows { return (.responding(elements: last.elements), windows) }
+                let elements: [Element] = try application.candidates().map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
+                try observer?.get().register()
+                return (isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? .responding(elements: elements) : .launching, windows)
             }
-            .flatMapError { failure in
+            let status: Result<ApplicationStatus, ApplicationFailure> = read.map(\.status).flatMapError { failure in
                 failure.reason.is(\.unanswered)
                     ? Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus()) : .launching } : .failure(failure)
+            }
+            return switch read {
+                case .success(let read): (status, read.windows)
+                case .failure: (status, nil)
             }
         }
     }
@@ -103,9 +116,15 @@ extension NSRunningApplication {
         let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, notifications: notifications, ticks: tick) }
         let reason: @Sendable (ApplicationFailure) -> PartialCaseKeyPath<ApplicationFailure.Reason> = { failure in ApplicationFailure.Reason.allCasePaths[failure.reason] }
         return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in true })
-            .reductions(Result<ApplicationStatus, ApplicationFailure>.success(.launching)) { last, beat in
-                await self.status(walking: walked, observer: observer, after: beat ? last : nil)
+            .reductions((status: Result<ApplicationStatus, ApplicationFailure>.success(.launching), windows: Windows?.none)) { last, beat in
+                let seen: (elements: [Element], windows: Windows)? =
+                    switch (beat, last.status, last.windows) {
+                        case (true, .success(.responding(let elements)), .some(let windows)): (elements, windows)
+                        case (_, _, _): nil
+                    }
+                return await self.status(walking: walked, observer: observer, after: seen)
             }
+            .map(\.status)
             .prefix { read in read[case: \.failure]?.reason.is(\.noProcess) != true }
             .removeDuplicates { last, next in
                 switch (last, next) {

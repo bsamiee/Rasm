@@ -5,12 +5,13 @@ import os
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let windowSize: NSSize = NSSize(width: 400, height: 300)
+let windowSize: NSSize = NSSize(width: 400, height: 300)
+let rowHeight: CGFloat = 20
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 @MainActor
-final class ApplicationDelegate: NSObject, NSApplicationDelegate {
+final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource {
     private let settings: Settings
     private let logger: Logger = Logger(for: ApplicationDelegate.self)
     private let status: NSTextField = NSTextField(labelWithString: "idle")
@@ -31,15 +32,18 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
         for scenario: Scenario in Scenario.allCases where !scenario.atLaunch {
             scenarios.addItem(withTitle: scenario.rawValue, action: #selector(chosen(_:)), keyEquivalent: "").target = self
         }
+        scenarios.addItem(.separator())
+        scenarios.addItem(withTitle: "", action: #selector(chosen(_:)), keyEquivalent: "").target = self
+        scenarios.addItem(withTitle: "disabled", action: nil, keyEquivalent: "")
         for submenu: NSMenu in [application, scenarios] { bar.addItem(withTitle: submenu.title, action: nil, keyEquivalent: "").submenu = submenu }
         NSApp.mainMenu = bar
+        if settings.hidden { NSApp.hide(nil) }
+        windows = (0..<max(1, settings.windows)).map(window)
         if let scenario: Scenario = settings.scenario, scenario.atLaunch { run(scenario) }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let opened: [NSWindow] = (0..<max(1, settings.windows)).map(window)
-        windows = opened
-        logger.notice("Launch finished with \(opened.count, privacy: .public) windows")
+        logger.notice("Launch finished with \(self.windows.count, privacy: .public) windows")
         if let scenario: Scenario = settings.scenario, !scenario.atLaunch { run(scenario) }
     }
 
@@ -88,13 +92,37 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
             return panel
         }
         func swatch() -> NSWindow {
-            let window: NSWindow = NSWindow(contentRect: NSRect(origin: .zero, size: windowSize), styleMask: [.titled], backing: .buffered, defer: false)
+            let window: NSWindow = NSWindow(contentRect: NSRect(origin: .zero, size: Swatch.size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Swatch"
             window.isRestorable = false
             window.isReleasedWhenClosed = false
             window.colorSpace = .sRGB
             window.hasShadow = false
-            window.contentView = Swatch(frame: NSRect(origin: .zero, size: windowSize))
+            window.contentView = Swatch(frame: NSRect(origin: .zero, size: Swatch.size))
+            window.center()
+            for shown: NSWindow in windows { shown.orderOut(nil) }
+            NSApp.unhideWithoutActivation()
+            window.orderFront(nil)
+            return window
+        }
+        func table() -> NSWindow {
+            let window: NSWindow = NSWindow(contentRect: NSRect(origin: .zero, size: windowSize), styleMask: [.titled], backing: .buffered, defer: false)
+            window.title = "Table"
+            window.isRestorable = false
+            window.isReleasedWhenClosed = false
+            let table: NSTableView = NSTableView()
+            let column: NSTableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("row"))
+            column.isEditable = false
+            table.addTableColumn(column)
+            table.headerView = nil
+            table.style = .plain
+            table.rowHeight = rowHeight
+            table.intercellSpacing = .zero
+            table.dataSource = self
+            let scroll: NSScrollView = NSScrollView(frame: NSRect(origin: .zero, size: windowSize))
+            scroll.documentView = table
+            scroll.hasVerticalScroller = true
+            window.contentView = scroll
             window.center()
             window.orderFront(nil)
             return window
@@ -130,6 +158,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
                 exit(settings.status)
             case .window: windows.append(window(windows.count))
             case .swatch: windows.append(swatch())
+            case .table: windows.append(table())
             case .sheet: windows.first.map { window in alert("Sheet alert").beginSheetModal(for: window, completionHandler: nil) }
             case .modal: alert("Modal alert").runModal()
             case .saveSheet: windows.first.map { window in NSSavePanel().beginSheetModal(for: window) { _ in } }
@@ -171,6 +200,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+
+    // --- [ROWS]
+
+    func numberOfRows(in tableView: NSTableView) -> Int { 200 }
+
+    func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? { "Row \(row)" }
 
     // --- [WINDOWS]
 

@@ -33,13 +33,14 @@ public struct Lockfile: Sendable {
 
     public static func withLocks<Value: Sendable, Failure: LockFailure>(
         _ lockfiles: [Self],
+        clock: some Clock<Duration> & Sendable = ContinuousClock(),
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
         var generator: SystemRandomNumberGenerator = SystemRandomNumberGenerator()
-        let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] })
+        let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] }, clock: clock)
         let work: @Sendable () async throws(Failure) -> Value = lockfiles.indices.reduce(body) { work, index in
             { @Sendable () async throws(Failure) -> Value in
-                try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update) }
+                try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update, clock: clock) }
             }
         }
         let outcome: Result<Value, Failure> = await Result(catching: work)
@@ -47,7 +48,7 @@ public struct Lockfile: Sendable {
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
 
-    private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], delays: [[Duration]]) async throws(Failure) -> Holder<Failure> {
+    private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], delays: [[Duration]], clock: some Clock<Duration> & Sendable) async throws(Failure) -> Holder<Failure> {
         let acquired: (held: [Held], failure: (index: Int, error: FileFailure)?) = lockfiles.indices.reduce(into: ([], nil)) { acquired, index in
             guard acquired.failure == nil else { return }
             switch Result(catching: { () throws(FileFailure) in try Held.acquire(lockfiles[index]) }) {
@@ -69,9 +70,9 @@ public struct Lockfile: Sendable {
             }
         } against: {
             () async throws(Failure) in
-            do { try await Task.sleep(for: delay) } catch { throw .cancelled(CancellationError()) }
+            do { try await clock.sleep(for: delay) } catch { throw .cancelled(CancellationError()) }
         }
-        return try await acquire(lockfiles, delays: delays.indices.map { offset in offset == index ? Array(delays[offset].dropFirst()) : delays[offset] })
+        return try await acquire(lockfiles, delays: delays.indices.map { offset in offset == index ? Array(delays[offset].dropFirst()) : delays[offset] }, clock: clock)
     }
 
     private static func release<Failure: LockFailure>(_ held: [Held]) -> Result<Void, Failure> {
@@ -169,8 +170,8 @@ private actor Holder<Failure: LockFailure> {
     }
 
     // --- [HEARTBEAT]
-    func heartbeat(_ index: Int, every interval: Duration) async throws(Failure) -> Never {
-        for await _ in AsyncTimerSequence(interval: interval, clock: .continuous) {
+    func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable) async throws(Failure) -> Never {
+        for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
             do throws(FileFailure) { held[index] = try held[index].updated() } catch { throw .lock(error) }
         }
         throw .cancelled(CancellationError())

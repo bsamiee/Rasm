@@ -31,11 +31,18 @@ extension ElementAction {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open element \(element.base64EncodedString())"))
             guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
+            let read: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXWindowAttribute, kAXEnabledAttribute])
+            let window: AXUIElement? = read[kAXRoleAttribute] as? String == kAXWindowRole ? node : read[kAXWindowAttribute].flatMap(AXUIElement.checked)
+            let open: Bool? = try window.map { window throws(ApplicationFailure) in
+                try node.process.map(AXUIElementCreateApplication)?.elements(kAXWindowsAttribute).contains(window) ?? false
+            }
+            guard open != false else { throw absent }
             let outcome: AXError =
-                switch self {
-                    case .perform(_, let action) where Self.activating.contains(action): throw ApplicationFailure(subject: description, reason: .activating)
-                    case .perform(_, let action): AXUIElementPerformAction(node, action as CFString)
-                    case .set(_, let value): try node.write(value as CFString, to: kAXValueAttribute)
+                switch (self, read[kAXEnabledAttribute] as? Bool) {
+                    case (.perform(_, let action), _) where Self.activating.contains(action): throw ApplicationFailure(subject: description, reason: .activating)
+                    case (.perform, false): throw ApplicationFailure(subject: description, reason: .disabled)
+                    case (.perform(_, let action), _): AXUIElementPerformAction(node, action as CFString)
+                    case (.set(_, let value), _): try node.write(value as CFString, to: kAXValueAttribute)
                 }
             guard outcome != .success else { return }
             throw ApplicationFailure(outcome, subject: description, process: node.process, answering: self) {

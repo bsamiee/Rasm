@@ -36,7 +36,19 @@ public struct FailedRead: Encodable, Hashable, Sendable {
     public let reads: [String]
     public let role: String?
     public let label: String?
-    public let error: AXError.RawValue
+    public let error: AXError
+
+    private enum CodingKeys: CodingKey {
+        case reads, role, label, error
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(reads, forKey: .reads)
+        try fields.encodeIfPresent(role, forKey: .role)
+        try fields.encodeIfPresent(label, forKey: .label)
+        try fields.encode(error.rawValue, forKey: .error)
+    }
 }
 
 public struct Element: Encodable, Hashable, Sendable {
@@ -44,7 +56,6 @@ public struct Element: Encodable, Hashable, Sendable {
         public let frame: CGRect?
         public let main: Bool?
         public let focused: Bool?
-        public let minimized: Bool?
         public let text: [String]
         public let controls: [Control]
         public let unreadable: [FailedRead]
@@ -60,6 +71,7 @@ public struct Element: Encodable, Hashable, Sendable {
     public let title: String?
     public let document: URL?
     public let edited: Bool?
+    public let minimized: Bool?
     public let actions: [String]
     public let requiresAnswer: Bool
     public let detail: Detail?
@@ -133,22 +145,21 @@ extension AXUIElement {
             let actions: [String] = try actionNames()
             guard value != nil || actions.contains(kAXPressAction) else { return nil }
             let label: String? = try label(read)
-            return role == kAXMenuItemRole && label == nil
-                ? nil
-                : .control(
-                    Control(
-                        id: token,
-                        role: role,
-                        subrole: read[kAXSubroleAttribute] as? String,
-                        label: label,
-                        identifier: read[kAXIdentifierAttribute] as? String,
-                        attribute: attribute,
-                        value: value.flatMap(JSONValue.init(accessibility:)),
-                        enabled: read[kAXEnabledAttribute] as? Bool ?? true,
-                        actions: actions,
-                        items: items.isEmpty ? nil : items,
-                    )
+            guard role != kAXMenuItemRole || label != nil else { return nil }
+            return .control(
+                Control(
+                    id: token,
+                    role: role,
+                    subrole: read[kAXSubroleAttribute] as? String,
+                    label: label,
+                    identifier: read[kAXIdentifierAttribute] as? String,
+                    attribute: attribute,
+                    value: value.flatMap(JSONValue.init(accessibility:)),
+                    enabled: read[kAXEnabledAttribute] as? Bool ?? true,
+                    actions: actions,
+                    items: items.isEmpty ? nil : items,
                 )
+            )
         } catch {
             return try Part(error)
         }
@@ -180,6 +191,7 @@ extension AXUIElement {
                 title: title,
                 document: (read[kAXDocumentAttribute] as? String).flatMap { document in URL(string: document) },
                 edited: edited,
+                minimized: read[kAXMinimizedAttribute] as? Bool,
                 actions: actions,
                 requiresAnswer: role == kAXSheetRole || modal == true || subrole == kAXSystemDialogSubrole,
                 detail: detail,
@@ -198,7 +210,6 @@ extension AXUIElement {
                 frame: origin.flatMap { origin in size.map { size in CGRect(origin: origin, size: size) } },
                 main: read[kAXMainAttribute] as? Bool,
                 focused: read[kAXFocusedAttribute] as? Bool,
-                minimized: read[kAXMinimizedAttribute] as? Bool,
                 text: parts.compactMap(\.text),
                 controls: parts.compactMap(\.control),
                 unreadable: parts.compactMap(\.unreadable),

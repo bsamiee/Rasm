@@ -364,11 +364,14 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
             !Option.exists(below, reaches(version)) && Option.match(from, { onNone: () => true, onSome: reaches(version) });
     const off = gated.filter((rule) => [interpreter, ...scopes.map(({ version }) => version)].some((version) => !runs(version)(rule)));
     const ids = (rules: typeof gated) => `--filter '^(${rules.map(({ id }) => id).join('|')})$'`;
-    const groups = Object.entries(Array.groupBy(scopes, ({ version }) => version)).map(([version, members]) => {
-        const environment = `.cache/python/${version}`;
-        const excludedGroups = Object.entries(floors).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
-        return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
-    });
+    const groups = Record.collect(
+        Array.groupBy(scopes, ({ version }) => version),
+        (version, members) => {
+            const environment = `.cache/python/${version}`;
+            const excludedGroups = Object.entries(floors).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
+            return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
+        },
+    );
     const excluded = scopes.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
     const scan = (flags: readonly string[]) => ['ast-grep scan --custom-languages allow', ...flags].join(' ');
     const walk = (flags: readonly string[]) => scan(['--no-ignore hidden', "--globs '!pnpm-lock.yaml'", "--globs '!tools/*/examples/**'", ...flags]);
@@ -387,7 +390,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
         return {
             [target]: { dependsOn: [{ target: lead, params: 'forward' }, ...rest] },
-            ...Object.fromEntries(Object.entries(children).map(([child, command]) => [`${target}:${child}`, { command }])),
+            ...Record.mapEntries(children, (command, child) => [`${target}:${child}`, { command }]),
         };
     };
     const perVersion = (command: (group: (typeof groups)[number]) => string) => Object.fromEntries(groups.map((group) => [group.version, command(group)]));

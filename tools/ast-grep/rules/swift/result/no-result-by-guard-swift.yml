@@ -40,14 +40,14 @@ utils:
     bool-else:
         kind: control_transfer_statement
         regex: '^return\b'
-        has: {field: result, pattern: $BOOL_ELSE, matches: plain-value}
+        has: {field: result, pattern: $BOOL_ELSE, matches: plain-value, not: {regex: '\n'}}
     bool-tail:
         kind: control_transfer_statement
         regex: '^return\b'
         has:
             field: result
             pattern: $BOOL_TAIL
-            not: {kind: ternary_expression}
+            not: {any: [{kind: ternary_expression}, {regex: '\n'}]}
             any:
                 - not: {has: {matches: effect, stopBy: {kind: lambda_literal}}}
                 - all:
@@ -94,7 +94,7 @@ utils:
     else-return:
         kind: control_transfer_statement
         regex: '^return\b'
-        has: {field: result, pattern: $$ELSE, matches: plain}
+        has: {field: result, pattern: $$ELSE, matches: plain, not: {regex: '\n'}}
     else-body:
         matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
         has: {nthChild: 1, matches: else-return}
@@ -111,6 +111,7 @@ utils:
     value-return:
         kind: control_transfer_statement
         regex: '^return\b'
+        not: {has: {field: result, regex: '\n'}}
         any:
             - has: {field: result, kind: simple_identifier, pattern: $BOUND}
             - all:
@@ -173,7 +174,7 @@ utils:
                 matches:
                     swift-single-statement:
                         first: {matches: returned-value, not: {regex: '\belse\b'}, has: {field: result, pattern: $$GUARD_ELSE}}
-            - precedes: {matches: returned-value, has: {field: result, pattern: $$GUARD_TAIL}}
+            - precedes: {matches: returned-value, has: {field: result, pattern: $$GUARD_TAIL, not: {regex: '\n'}}}
     condition-if:
         kind: if_statement
         pattern: $IF_HEAD

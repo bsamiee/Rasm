@@ -49,6 +49,7 @@ func traverse<Input, Value, Element>(_ inputs: some Sequence<Input>, _ transform
 - `Error` bridging holds where `Element` is an error, and a reader of the bridged `NSError` finds every element under `NSMultipleUnderlyingErrorsKey`
 - `combine` and `traverse` return `Result`, `traverse` nests inside `combine`, and the caller converts once through `get()`, each leaf lifting its failure through `aggregated(\.self)`
 - Pack iteration collects every failure in one pass, and CasePaths makes `Result` case-pathable for `[case: \.failure]`
+- Swift 6.4 crashes in IRGen on `[case:]` over a `Result` whose `Success` is a concrete tuple type, and such a site reads the case through `if case` or `switch` until a release compiles it
 
 ## [02]-[VALIDATION]
 

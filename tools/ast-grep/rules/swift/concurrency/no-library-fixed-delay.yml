@@ -23,4 +23,4 @@ rule:
                         kind: call_expression
                         has: {nthChild: 1, regex: '(^|\.)(sleep|withTimeout|AsyncTimerSequence|repeating|debounce|throttle)$'}
 message: '`$DELAY` sets a literal wait, timeout, or interval inside a library'
-note: 'Take the duration (retry delay, heartbeat, deadline) as a parameter, or derive it from an argument'
+note: 'Take the duration (retry delay, heartbeat, deadline) as a defaulted parameter, or derive it from an argument'

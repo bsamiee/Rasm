@@ -24,7 +24,6 @@ enum FixtureApplication {
             case .application:
                 let application: NSApplication = NSApplication.shared
                 let delegate: ApplicationDelegate = ApplicationDelegate(settings: settings)
-                application.setActivationPolicy(.regular)
                 application.delegate = delegate
                 withExtendedLifetime((watchdog, delegate)) { application.run() }
         }
