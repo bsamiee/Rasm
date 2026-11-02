@@ -242,7 +242,7 @@ Modules hold one concept, and a class holds the concept's data with its operatio
 - Package types pass whole, and consumers read a returned host handle
 - Packages export the values consumers compose
 - Modules export named declarations, a default export stands where a host loads one
-- Types and `const` values naming one concept share one name under one `export { X }`, `erasableSyntaxOnly` refuses a `namespace`
+- Types, `const` values and operations naming one concept share one name under one `export { X }`, an operation over a model its static (`Change.write`, never `{ Change, change }`), `erasableSyntaxOnly` refuses a `namespace`
 - Package `exports` entries are the import paths consumers use
 - Modules load without side effects, a registry, cache, or connection builds in the layer that owns it
 - Use `typescript-coding-effect` for Effect module families, tests, and telemetry
