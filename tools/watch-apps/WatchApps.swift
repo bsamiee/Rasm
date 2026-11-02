@@ -235,7 +235,7 @@ struct Watch: AsyncParsableCommand {
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         abstract:
-            "Opens each application hidden without activation and prints its state until it leaves launching, then holds an instance it created until the starting process exits or a signal ends it, and quits that instance"
+            "Opens each application hidden without activation and prints its state until it leaves launching, then holds an instance it created until the starting process exits or a signal ends it, and quits that instance without saving"
     )
 
     @OptionGroup var installed: Installed

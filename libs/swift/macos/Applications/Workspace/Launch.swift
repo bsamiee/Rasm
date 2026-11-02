@@ -22,7 +22,10 @@ public struct Launch: ~Copyable, Sendable {
     }
 
     deinit {
-        if quits { _ = instance.terminate() }
+        if quits {
+            _ = try? NSAppleEventDescriptor(processIdentifier: instance.processIdentifier).coreEvent(kAEQuitApplication, declining: keyAESaveOptions)
+                .sendEvent(options: [.noReply, .neverInteract], timeout: NSAppleEventTimeOutDefault)
+        }
     }
 
     public consuming func detached() -> NSRunningApplication {
@@ -40,6 +43,20 @@ private let hostSettings: KeyValuePairs<String, [HostSetting]> = [
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension NSAppleEventDescriptor {
+    fileprivate func coreEvent(_ event: AEEventID, declining option: AEKeyword) -> NSAppleEventDescriptor {
+        let core: NSAppleEventDescriptor = NSAppleEventDescriptor(
+            eventClass: AEEventClass(kCoreEventClass),
+            eventID: event,
+            targetDescriptor: self,
+            returnID: AEReturnID(kAutoGenerateReturnID),
+            transactionID: AETransactionID(kAnyTransactionID),
+        )
+        core.setParam(NSAppleEventDescriptor(enumCode: OSType(kAENo)), forKeyword: option)
+        return core
+    }
+}
 
 private func nested(_ value: Int, at path: ArraySlice<String>, in dictionary: [String: Any]) -> Any {
     path.first.map { key in dictionary.merging([key: nested(value, at: path.dropFirst(), in: dictionary[key] as? [String: Any] ?? [:])]) { _, written in written } } ?? value
@@ -70,15 +87,7 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         if documents.isEmpty {
-            let opening: NSAppleEventDescriptor = NSAppleEventDescriptor(
-                eventClass: AEEventClass(kCoreEventClass),
-                eventID: AEEventID(kAEOpenApplication),
-                targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID),
-            )
-            opening.setParam(NSAppleEventDescriptor(enumCode: OSType(kAENo)), forKeyword: AEKeyword(keyAERestoreAppState))
-            configuration.appleEvent = opening
+            configuration.appleEvent = NSAppleEventDescriptor(applicationURL: url).coreEvent(kAEOpenApplication, declining: keyAERestoreAppState)
         }
         do {
             let instance: NSRunningApplication =
