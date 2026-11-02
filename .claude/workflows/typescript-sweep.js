@@ -1,7 +1,7 @@
 export const meta = {
   name: 'typescript-sweep',
   description: 'Rebuild every TypeScript project in place: readers per project, a reader and lander per group over shared declarations, then per project a lander and an adversarial second lander',
-  whenToUse: 'Once no other run edits TypeScript; args.base the commit it starts from. It edits every TypeScript project, its guidance and the catalog rows they need, so nothing else touching TypeScript runs beside it; Rust runs may.',
+  whenToUse: 'Once no other run edits TypeScript; args.base the commit it starts from, args.exclude the folders a still-running run edits. It edits every TypeScript project, its guidance and the catalog rows they need, so nothing else touching TypeScript runs beside it; Rust runs may.',
   phases: [
     { title: 'Map', detail: 'the TypeScript projects and their groups' },
     { title: 'Read', detail: 'two readers per project with an inventory of its declarations' },
@@ -21,7 +21,7 @@ const flat = (results) => results.filter(Boolean).flatMap((r) => r.findings.map(
 
 phase('Map')
 const map = await agent(`List every TypeScript project in ${REPO}: each folder holding a package.json beside .ts or .tsx files under libs/typescript, apps, tools and tests (node_modules excluded), plus the root TypeScript files outside every package as one project named "root". Group them by the folder their capability shares (libs/typescript/<group>, an app with the libraries it composes, tools, tests). Return the projects with their group.`, { label: 'map', phase: 'Map', schema: { type: 'object', properties: { projects: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, group: { type: 'string' } }, required: ['path', 'group'] } } }, required: ['projects'] } })
-const projects = map?.projects ?? []
+const projects = (map?.projects ?? []).filter(({ path }) => !(args.exclude ?? []).some((held) => path.startsWith(held)))
 
 phase('Read')
 const LENSES = [

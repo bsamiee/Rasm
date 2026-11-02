@@ -85,9 +85,9 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
   1. Now: deployment (`DEPLOY.md`), the `harness-findings` workflow (each ast-grep finding in `tools/harnesses` judged against its rule, misfiring rules fixed, real defects landed per folder and reviewed), the `rasm-dependency` refusal fix with its dylint fix, the Illustrator harness run.
   1a. `script-decompile` finished all six domains: the `proof-move` workflow moves each domain's proofs onto `tools/harnesses/indesign`, deletes its runner copies, runs every case in InDesign (the right-to-left gap and Table Stroke Adjuster Pro cases among them) and fixes each rebuild the host disproves, the stroke gap included. Then the second script run (`wf_82142624-10d`) resumes with `prove: true` on the harness, and once the plugin decompiles also prove through it, the InDesign host-scripting deny lands in function hooks.
   2. `rust-tune` returns: the snippet lander over `.artifacts/workflows/findings/rust-snippets.md`, then one clean-prose agent over the changed skill lines, then commit.
-  3. Deployment returns: `typescript-tune` on the Atelier commit, then on `web/media` and `web/ui`, then the `web/hosting` row and its tune, the last [01] TypeScript row.
+  3. The `web/hosting` row runs now, the last [01] TypeScript row; once it and deployment land, `typescript-tune` runs on the Atelier, `web/media`, `web/ui` and `web/hosting` commits in turn.
   4. Illustrator harness returns: the paused ScribeDOOR-for-Illustrator proofs, then Acrobat and Photoshop harnesses, then `harness-depth` per host.
-  5. Every TypeScript run has landed: `typescript-sweep`, then its tune.
+  5. `typescript-sweep` once `web/hosting` lands, with `exclude` naming any folder a still-running run edits (a harness build), then its tune.
   6. Decompile runs finish: the Ghidra product migration, then the extension phases in TODO [02] order.
 - **Open findings:** reports sit in `.artifacts/workflows/findings/`; the TypeScript config, launch, function-hook, C# analyzer and Ghidra skill reports have landed.
   - Ghidra product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) once the decompile runs finish.
