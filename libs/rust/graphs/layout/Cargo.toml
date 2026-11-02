@@ -1,0 +1,40 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-layout"
+version.workspace    = true
+edition.workspace    = true
+description          = "Drawn layouts of petgraph graphs: layered dagre layouts with ranked, routed and labeled edges and clusters, force-directed fCoSE layouts from a spectral or incremental start with alignment and relative placement constraints and anchored edges, every absent and self-nesting node refused in one error before either engine, straight, one-bend orthogonal and fanned parallel routes at anchored ports, from a member to the nearest side of its cluster and around stepped loops on any side, and GraphML and Graphviz DOT export of the placed geometry"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["graph-drawing", "graph-layout", "dagre", "force-directed", "graphml"]
+categories           = ["algorithms", "visualization"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+dugong               = { workspace = true }
+manatee              = { workspace = true }
+petgraph             = { workspace = true }
+petgraph-graphml     = { workspace = true }
+kurbo                = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

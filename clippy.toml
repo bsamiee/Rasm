@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -53,6 +53,7 @@ allowed-duplicate-crates = [
     "equator-macro",         # 0.2 and 0.4 under `equator` 0.2 and 0.4 beside 0.6 under `equator` 0.6
     "thiserror",             # 1 under newest `clarabel` 0.11.1 and under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
     "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
+    "hashbrown",             # 0.12 under `indexmap` 1 through the weak `indexmap_1?/std` of newest `serde_with` 3.24.0 (rust-clippy#16440), 0.15 under newest `petgraph` 0.8.3, 0.16 under `spade` 2.15.1 of `parry3d-f64`, beside 0.17 under `indexmap` 2 and `parry3d-f64`
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
     "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
