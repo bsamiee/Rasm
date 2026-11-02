@@ -50,7 +50,7 @@ Return at most 15 lines: what landed, what you refused and why, battery results 
 const LENSES = [
   { lens: 'information', ask: `Every way ${args.name} can answer what a proof needs, richer and faster than the harness asks now. Do not trust the current approach; find where it guesses, asks piecemeal, runs a stand-in environment, or misses a kind of fact.` },
   { lens: 'capability', ask: 'Each capability a proof needs that the harness lacks or holds shallowly, folded into existing entry points as deeper logic, never a new command a parameter serves.' },
-  { lens: 'derivation', ask: 'Each piece of hand-rolled logic, restated host fact, version or path written in, stringly form, needless constant, type or export, and each branch an algebraic form or derived value states.' },
+  { lens: 'derivation', ask: 'Each type, enum, error variant or validation no caller acts on differently, each piece of hand-rolled logic, restated host fact, version or path written in, stringly form, constant or export, and each branch an algebraic form or derived value states.' },
   { lens: 'abstraction', ask: `Whether each fix the lander made sits at the right level (host-neutral or ${args.key}), names the general capability rather than the case that exposed it, and leaves no special case behind.` },
 ]
 const depth = (n) => async () => {
