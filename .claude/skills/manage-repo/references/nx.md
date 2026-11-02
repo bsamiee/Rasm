@@ -47,11 +47,11 @@ Use JSON discovery from workspace root:
 - Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
 - `fd --exec-batch` runs no process without a match
 - Target names in `dependsOn` match as minimatch globs, `!(<name>)` excludes a target the glob matches
-- Commands that run `nx` inside a target name a dependency, `dependsOn` holds it
+- Targets reach a target they need through `dependsOn` in place of a command running `nx`
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
 - Container targets take `cache: false` and `parallelism: false`, no task input hashes container or service state
-- `parallelism: false` runs a target writing shared files or directories with no other task of its `nx` process
+- `parallelism: false` runs a target with no other task of its `nx` process
 - `--output-style=static-failures-only` prints failing tasks and a single-project run in full, agent default `summary` names failing task log files
 
 ## [04]-[INPUTS]

@@ -47,7 +47,6 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - Harness rows hold service URLs and read no `[env]` value into MCP config
 - Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT -- <command>`
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row
-- Pitchfork keeps daemon output in its log store, `mise daemons logs <name>` reads one daemon's output
 
 Pitchfork has no login start, one `[bootstrap.macos.launchd.agents]` row runs its supervisor at login:
 - Supervisor rows name no `stdout_path` or `stderr_path`, pitchfork writes its own file log
@@ -59,6 +58,7 @@ Daemon operations:
 - `mise daemons restart [<name>…]` registers current rows and restarts named daemons onto installed tools, starting a stopped one
 - `mise daemons stop [<name>…]` waits for each process group to exit, a stopped daemon stays down until a start
 - `mise daemons register` writes current rows to pitchfork without starting, supervisor boot reads registered rows
+- `mise daemons logs <name>` reads one daemon's output
 
 ## [04]-[MAINTENANCE]
 

@@ -14,32 +14,6 @@
         "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "EnterWorktree", "Bash(git worktree *)" ]
     },
     "worktree": { "bgIsolation": "none" },
-    "hooks": {
-        "SessionStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "uv",
-                        "args": [ "run", "--no-sync", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py" ],
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "SessionEnd": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "uv",
-                        "args": [ "run", "--no-sync", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py" ],
-                        "timeout": 10
-                    }
-                ]
-            }
-        ]
-    },
     "enabledPlugins": {
         "argus@rasm": true,
         "function-hooks@rasm": true,

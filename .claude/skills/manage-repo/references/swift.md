@@ -13,7 +13,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Modules take their suites' dependencies as Nx edges, a `support` target importing a package module cycles with each module whose suite uses it
 - Test targets take `<Module>Tests`, or `<Module>IntegrationTests` for cases needing a GUI session or TCC grant
 - Nx attaches each test target to its module's `test` or `test:integration` and filters on its C99 module name
-- Dynamic `IssueReportingTestSupport` prints linker version warnings, test targets using swift-custom-dump link it static through mise `OMIT_DYNAMIC_TEST_SUPPORT`
+- `OMIT_DYNAMIC_TEST_SUPPORT` links `IssueReportingTestSupport` static for swift-custom-dump tests, the dynamic form prints linker version warnings
 - Remote packages take `.package(url:from:)` and an `up-to-next-major-version` row in each app linking their products, `upgrade:swift` moves both
 - Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
@@ -25,7 +25,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
 - `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
-- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, an installed name needs `rm` first
+- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
@@ -116,7 +116,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - `custom_rules` is unset, its regexes match text where ast-grep matches syntax
 - Logged command lines escape `#` in a macro plugin path, `swiftlint analyze` keeps the `\#` and its SourceKit replay finds no macro plugin
 - Xcode apps analyze through `--compile-commands` over `-showBuildSettingsForIndex` `swiftASTCommandArguments`, which hold each argument unescaped
-- Package sources run `swiftlint lint` alone until a SwiftLint release unescapes `\#`, neither `xcodebuild` nor `debug.yaml` lists their compiler arguments
+- Package sources run `swiftlint lint` alone until SwiftLint unescapes `\#`, neither `xcodebuild` nor `debug.yaml` lists their compiler arguments
 - `unused_import` is off, analyze reports imports a macro expansion uses
 
 ## [09]-[PERIPHERY]

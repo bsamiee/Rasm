@@ -22,8 +22,8 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - `dotnet build`, `dotnet restore`, and `dotnet format` take one entry file per call, a second file hands every argument to MSBuild
 - `ArtifactsPath` defaults `IncludeProjectNameInArtifactsPaths` to true, placing output under `bin/<file>.cs/` and `obj/<file>.cs/`
 - Solution files hold no entry file, `dotnet sln add` rejects one and `dotnet build` restores its virtual project itself
-- Roslyn virtual projects (`dotnet format`, C# language server) set `IncludeProjectNameInArtifactsPaths` false before `Directory.Build.props` and the SDK's bundled framework after it
-- `#:property` directives follow the bundled framework, `#:property TargetFramework=$(RepoTargetFramework)` sets every tool's framework
+- Roslyn virtual projects (`dotnet format`, C# language server) set `IncludeProjectNameInArtifactsPaths` false before `Directory.Build.props`
+- `#:property TargetFramework=$(RepoTargetFramework)` sets every tool's framework over the bundled one Roslyn sets after `Directory.Build.props`
 - `dotnet msbuild` rejects a `.cs` file with `MSB4025`
 - `dotnet format` missing `project.assets.json` prints `Required references did not load`, skips analysis, and exits 0
 - Builds run code-style analyzers under `EnforceCodeStyleInBuild`, failing an app on formatting and style findings
@@ -32,7 +32,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 
 - `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET` and declare it an output
 - Projects holding `Windows/` sources take `platform:windows` and a `check` prerequisite `build:windows` compiling them for `win-x64`
-- Builds for a second runtime keep a separate `ArtifactsPath`, their restore rewrites `project.assets.json` to that framework
+- Builds for a second runtime take their own `ArtifactsPath`, their restore rewrites `project.assets.json` for that runtime
 
 ## [04]-[CHECKERS]
 
@@ -54,5 +54,5 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
 - Tests check a reviewed Verify snapshot of each rule's diagnostics and fixed source
 - Diagnostics fail builds through the `.editorconfig` severity floor, a descriptor's default severity sets no exemption
-- Rules a package disables by default escape the floor and take their own rows, rule options (`MA0053.public_class_should_be_sealed`) widen what a rule reports
-- Source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
+- Rules a package disables by default and source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
+- Rule options (`MA0053.public_class_should_be_sealed`) widen what a rule reports

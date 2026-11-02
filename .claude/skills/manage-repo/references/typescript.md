@@ -16,31 +16,26 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
 - Lock downgrade checks rank npm prereleases of one base by registry publish time where the first differing label is alphanumeric
-- `ncu --reject` skips rows `ncu` cannot pick (`typescript`, `tree-sitter-swift`'s suffixed tag), `eng/typescript/upgrade/typescript.ts` moves them
+- `ncu --reject` names rows `ncu` cannot pick, `eng/typescript/upgrade/typescript.ts` moves them
 - `pnpm install` keeps orphans for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browsers
 
 ## [02]-[COMPILER]
 
 - `tsc` is the TypeScript 7 native build `@effect/tsgo` patches with Effect diagnostics, the repository holds no `tsgo` binary
-- `nx run <project>:typecheck:tsc` checks one project, incremental with build info in `.cache/tsc/<project>`
-- `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- Importers name package `exports` entries mapping each concept to its file (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules joins no other entry's import graph
+- `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>`, its hash covering the `extends` chain
+- Project `tsconfig.json` extends `tsconfig.base.json`, or the host platform library `tsconfig.json` stating host `lib` and `types`
+- Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
+- Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
+- Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules joins one entry's import graph
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
-- `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
-- `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
+- `tsc` compiles sibling source under the importer's options, the importer listing each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
-- Project `types` replaces an extended list, a project restates `types` only to add an entry
+- Project `types` replaces an extended list, a project adding an entry restates the list it extends
 - `paths` maps a module specifier no `types` entry declares to a declaration file an installed package holds
 - `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, `esnext` with `dom` in a browser)
-- `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
-- Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
-- `tsconfig.base.json` excludes project `*.config.ts` files, root `tsconfig.json` compiles them and `.storybook/main.ts`
-- Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json`, outside the root program the language server loads
 - Project `include` lists `.storybook/*.stories.ts` or `.stories.tsx` beside `**/*` (skips dot directories), story imports reach `.storybook/preview`
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
-- Project `typecheck:tsc` hashes its `extends` chain, compiler packages, and package closure
-- Root `typecheck:tsc` hashes TypeScript and `package.json` files outside `docs` and nested programs, and every installed package
 
 ## [03]-[EXECUTION]
 

@@ -1,10 +1,18 @@
-import { none, type Option, some } from '../composition.ts';
-import { parse, type Script } from './command.ts';
-import { declared, firstOperand, type Invocation, informational, invocations, operands, option, placed, waits, within } from './invocation.ts';
+import { all, type Fault, map, none, type Option, ok, type Result, some, toArray } from '../composition.ts';
+import { parse, printed, type Script } from './command.ts';
+import { declared, firstOperand, type Invocation, informational, invocations, OPTION, operands, option, placed, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow' } | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string> };
+type Tool = 'Bash' | 'Monitor';
+type Command = Script['commands'][number];
+type Word = Command['words'][number];
+type Decision =
+    | { readonly kind: 'deny'; readonly reason: string }
+    | { readonly kind: 'allow' }
+    | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string>; readonly timeout: Option<number>; readonly background: boolean };
+type Launch = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'launch'; readonly names: readonly string[]; readonly flags: readonly string[]; readonly environment: boolean };
+type Targets = Readonly<Record<string, { readonly options?: { readonly command?: string; readonly commands?: readonly (string | { readonly command: string })[] }; readonly dependsOn?: readonly (string | { readonly target: string })[] }>>;
 
 interface System {
     readonly run: (argv: Invocation, init: { readonly cwd: string; readonly stdin: string }) => Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }>;
@@ -14,10 +22,27 @@ interface System {
     readonly cwd: string;
     readonly home: Option<string>;
 }
+interface Request {
+    readonly tool: Tool;
+    readonly background: boolean;
+    readonly timeout: Option<number>;
+}
 interface Call {
     readonly system: System;
     readonly script: Script;
     readonly project: string;
+    readonly request: Request;
+}
+interface Change {
+    readonly start: number;
+    readonly end: number;
+    readonly text: string;
+    readonly notice: Option<string>;
+    readonly timeout: Option<number>;
+}
+interface Segment {
+    readonly invocation: Invocation;
+    readonly words: readonly Word[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,10 +52,24 @@ const BRANCH = 'creates branch. Work on current branch';
 const UNPLACED = 'runs after unresolved directory change. Run cd to named directory first';
 const ALIAS = 'defines alias that can hide refused subcommand';
 const OVERWRITES = 'overwrites working-tree files. Edit files';
+const INLINE = 'runs inline program. Edit with Edit or sd, run installed tools by name';
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
 const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
 const NAMED = /[\p{L}\p{N}]/u;
+const SAFE = /^[\w@%+=:,./-]+$/u;
+const DURATION = /^(?<amount>\d+(?:\.\d+)?)(?<unit>[smhd]?)$/u;
+const BUNDLE = /\/(?<name>[^/]+)\.app\/Contents\/MacOS\/[^/]+$/u;
+const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<verb>activate|launch|run|reopen))?$/u;
+const VERB = /^(?:activate|launch|run|reopen)$/u;
+const CHECKER = /^(?:lint|format|typecheck):(?<tool>[^:]+)/u;
+const CACHED = /^(?:check|typecheck(?::.+)?)$/u;
+const UNITS: Readonly<Record<string, number>> = { '': 1000, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+const LOGS: Readonly<Record<string, string>> = { '-log': 'ghidra.log', '-scriptlog': 'ghidra-script.log' };
+const EZA: Readonly<Record<string, string>> = { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' };
+const UNCACHED = ['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'];
+const OPENS = ['-a', '-b', '-n', '-g', '-j', '-F', '--env'];
+const FOREGROUND: Request = { tool: 'Bash', background: false, timeout: none };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -154,7 +193,7 @@ const git = async ({ system: { exists, root, home }, script: { commands } }: Cal
                 return key === undefined || (moved.kind === 'some' && !within(moved.value, root.value)) ? [] : [{ values, key, args, moved }];
             }),
     );
-    const probed = calls.flatMap(({ args, moved }) => args.filter((word) => !word.startsWith('-')).map((word) => placed(word, moved, home))).flatMap((place) => (place.kind === 'some' ? [place.value] : []));
+    const probed = calls.flatMap(({ args, moved }) => args.filter((word) => !word.startsWith('-')).flatMap((word) => toArray(placed(word, moved, home))));
     const found = new Set((await Promise.all(probed.map(async (path) => ((await exists(path)) ? [path] : [])))).flat());
     return calls.flatMap(({ values, key, args, moved }) => {
         const aliased = values.flatMap(([name, value]) => (value.startsWith('alias.') ? [`git ${name} ${value} ${ALIAS}`] : []));
@@ -215,7 +254,8 @@ const probes = ({ script: { commands } }: Call): readonly string[] =>
             if (find === '') {
                 return [`${program} empty find matches between every character. ${preview}`];
             }
-            return find === replacement && inputs.length > 0 && !options.some((name) => previews.includes(name)) ? [`${program} rewrites ${inputs.join(' ')} with identical text. ${preview}`] : [];
+            const [line] = find.split('\n');
+            return find === replacement && inputs.length > 0 && !options.some((name) => previews.includes(name)) ? [`${program} replaces ${quote(line ?? find)} with identical text in ${inputs.join(' ')}. ${preview}`] : [];
         }),
     );
 
@@ -234,9 +274,15 @@ const inline = ({ script: { commands } }: Call): readonly string[] =>
         chain.flatMap((invocation) => {
             const [program] = invocation;
             const { code } = declared(program);
-            return code !== undefined && (operands(invocation).options.some((name) => code.includes(name)) || (fed && waits(invocation))) ? [`${program} runs inline program. Edit with Edit or sd, run installed tools by name`] : [];
+            return code !== undefined && (operands(invocation).options.some((name) => code.includes(name)) || (fed && waits(invocation))) ? [`${program} ${INLINE}`] : [];
         }),
     );
+
+const scripts = ({ system: { home }, script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ invocations: chain, cwd }, index) => {
+        const written = new Set(commands.slice(0, index).flatMap((writer) => writer.written.flatMap((path) => toArray(placed(path, writer.cwd, home)))));
+        return chain.flatMap((invocation) => (declared(invocation[0]).code !== undefined && operands(invocation).inputs.some((word) => toArray(placed(word, cwd, home)).some((path) => written.has(path))) ? [`${invocation[0]} ${INLINE}`] : []));
+    });
 
 // --- [DECISION]
 

@@ -210,7 +210,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
             .map((rule) => JSON.stringify({ language: 'bash', ...rule }))
             .join('\n---\n'),
     ] as const;
-    return bind(await exited(['mise', 'which', 'ast-grep'], ''), (path) => scripted([path.trim(), ...scanner], command, { cwd: placed(system.cwd, none, none), fed: false, looped: false, nested: false }));
+    return bind(await exited(system, ['mise', 'which', 'ast-grep'], { cwd: system.plugin, stdin: '' }), (path) => scripted([path.trim(), ...scanner], command, { cwd: placed(system.cwd, none, none), fed: false, looped: false, nested: false }));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
