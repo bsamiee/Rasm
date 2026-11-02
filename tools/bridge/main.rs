@@ -161,7 +161,7 @@ impl Endpoint for Bridge {
         let listed = self.listed();
         let _following =
             (!self.version.has_initialize() && listed != SubscriptionFilter::default()).then(|| AbortOnDropHandle::new(tokio::spawn(follow(self.peer.clone(), self.notifier.clone(), listed))));
-        let closed = stopping.run_until_cancelled(self.ended.clone()).await.map_or(Ok(()), |()| Err(BridgeError::Ended));
+        let closed = stopping.run_until_cancelled(self.ended.clone()).await.is_none().ok_or(BridgeError::Ended);
         self.stop.cancel();
         self.ended.clone().await;
         closed

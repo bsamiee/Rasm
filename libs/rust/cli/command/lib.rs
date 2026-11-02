@@ -1,7 +1,8 @@
-#![feature(iterator_try_collect)]
+#![feature(error_reporter, iterator_try_collect)]
 
 use core::{error::Error, fmt};
 use std::{
+    error::Report,
     io,
     process::{ExitCode, Termination},
 };
@@ -24,7 +25,7 @@ use tokio_stream::wrappers::SignalStream;
 use toml::de;
 use tracing_appender::{
     non_blocking::NonBlockingBuilder,
-    rolling::{RollingFileAppender, Rotation},
+    rolling::{InitError, RollingFileAppender, Rotation},
 };
 use tracing_subscriber::{
     EnvFilter, Layer, Registry,
@@ -91,9 +92,12 @@ where
     O: FromArgMatches,
     P: FromArgMatches,
 {
-    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> { O::from_arg_matches(matches).and_then(|options| P::from_arg_matches(matches).map(|args| Self { options, args })) }
+    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> { Ok(Self { options: O::from_arg_matches(matches)?, args: P::from_arg_matches(matches)? }) }
 
-    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> { self.options.update_from_arg_matches(matches).and_then(|()| self.args.update_from_arg_matches(matches)) }
+    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
+        self.options.update_from_arg_matches(matches)?;
+        self.args.update_from_arg_matches(matches)
+    }
 }
 
 #[derive(Debug)]
@@ -109,6 +113,10 @@ pub struct Process<A> {
 pub enum CommandError {
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
+    #[error("cannot write man pages into {directory}")]
+    Manual { directory: Utf8PathBuf, source: io::Error },
+    #[error("cannot open log directory {directory}")]
+    Journal { directory: Utf8PathBuf, source: InitError },
     #[error("{}", settings::excerpt("cannot parse settings", origin))]
     Syntax { origin: settings::Origin, source: Box<de::Error> },
     #[error("{}", fmt::from_fn(|formatter| match origin {
@@ -121,7 +129,8 @@ pub enum CommandError {
 impl From<CommandError> for sysexits::ExitCode {
     fn from(value: CommandError) -> Self {
         match value {
-            CommandError::Io { operation: _, source } => source.into(),
+            CommandError::Io { operation: _, source } | CommandError::Manual { directory: _, source } => source.into(),
+            CommandError::Journal { directory: _, source: _ } => Self::CantCreat,
             CommandError::Syntax { origin: _, source: _ } | CommandError::Settings { origin: _, source: _ } => Self::Config,
         }
     }
@@ -144,9 +153,8 @@ where
     T: Termination,
     E: Error + From<CommandError> + Into<sysexits::ExitCode>,
 {
-    fn reported(command: &mut Command, message: fmt::Arguments<'_>, status: sysexits::ExitCode) -> ExitCode {
-        let (Ok(()) | Err(_)) = command.error(ErrorKind::Io, message).print();
-        status.into()
+    fn reported(command: &mut Command, error: CommandError) -> ExitCode {
+        command.error(ErrorKind::Io, Report::new(&error)).print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| sysexits::ExitCode::from(error).into())
     }
     CompleteEnv::with_factory(Augmented::<Options, A>::command).complete();
     let mut command = Augmented::<Options, A>::command().subcommand_required(false);
@@ -155,7 +163,7 @@ where
     color.write_global();
     if let Some(directory) = manual {
         return clap_mangen::generate_to(Augmented::<Options, A>::command(), &directory)
-            .map_or_else(|source| reported(&mut command, format_args!("cannot write man pages into {directory}: {source}"), sysexits::ExitCode::from(source.kind())), |()| ExitCode::SUCCESS);
+            .map_or_else(|source| reported(&mut command, CommandError::Manual { directory, source }), |()| ExitCode::SUCCESS);
     }
     let args = A::from_arg_matches_mut(&mut matches).unwrap_or_else(|error| error.format(&mut command).exit());
     let opened = log_directory
@@ -166,12 +174,12 @@ where
                 .filename_suffix("jsonl")
                 .build(&directory)
                 .map(|appender| NonBlockingBuilder::default().lossy(false).finish(appender))
-                .map_err(|source| (directory, source))
+                .map_err(|source| CommandError::Journal { directory, source })
         })
         .transpose();
     let (journal, _worker) = match opened {
         Ok(opened) => opened.unzip(),
-        Err((directory, source)) => return reported(&mut command, format_args!("cannot open log directory {directory}: {source}"), sysexits::ExitCode::CantCreat),
+        Err(error) => return reported(&mut command, error),
     };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(journal.clone())).or_else(stderr), layer, |filter| {
         let runtime = Runtime::new().map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Runtime, source })))?;

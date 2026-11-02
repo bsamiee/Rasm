@@ -60,10 +60,7 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
     };
     let listed = |entries: &'tcx [Expr<'tcx>]| {
         entries.len() == keyed.variants().len()
-            && entries
-                .iter()
-                .map(|entry| if let ExprKind::Tup([key, _]) = entry.kind { key.res(typeck).opt_def_id() } else { None })
-                .collect::<Option<Vec<_>>>()
+            && Iterator::try_collect::<Vec<_>>(&mut entries.iter().map(|entry| if let ExprKind::Tup([key, _]) = entry.kind { key.res(typeck).opt_def_id() } else { None }))
                 .is_some_and(|keys| keys.iter().all_unique())
     };
     match pairs.kind {

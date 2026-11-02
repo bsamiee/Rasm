@@ -18,11 +18,11 @@ use rustc_hir::{
     intravisit::{self, Visitor},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, layout::LayoutOf as _, print::with_forced_trimmed_paths};
+use rustc_middle::ty::{self, Binder, Clause, GenericArg, Ty, TypeVisitableExt as _, layout::LayoutOf as _, print::with_forced_trimmed_paths};
 use rustc_span::{Span, Symbol};
 
 use super::{UntypedKind, body_output, untyped_kind};
-use crate::{awaited_output, constructed, expanded_externally, exported, is_error, is_text, literal_or_const, result_parts};
+use crate::{awaited_output, constructed, expanded_externally, exported, is_error, is_text, literal_or_const, parameter_of, result_parts, workspace_def};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -225,7 +225,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
         let raised = match expr.kind {
             _ if expanded_externally(cx, expr.span) => None,
-            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) => body_output(cx, closure.def_id)
+            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) && !fixed(cx, expr) => body_output(cx, closure.def_id)
                 .and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned)))
                 .map(|error| (closure.fn_decl_span, error)),
             ExprKind::Path(_) if typeck.expr_ty(expr).is_fn() => mapped(cx, expr, typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().output()).map(|error| (expr.span, error)),
@@ -265,6 +265,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn fixed(cx: &LateContext<'_>, closure: &Expr<'_>) -> bool {
+    let tcx = cx.tcx;
+    get_parent_expr(cx, closure).and_then(|call| parameter_of(cx, call, closure)).filter(|&(callee, _)| !workspace_def(cx, callee)).is_some_and(|(callee, parameter)| {
+        let inherited = tcx.generics_of(callee).parent_count;
+        tcx.param_env(callee).caller_bounds().filter_map(Clause::as_projection_clause).map(Binder::skip_binder).any(|bound| {
+            bound.self_ty() == parameter
+                && tcx.is_lang_item(bound.trait_def_id(tcx), LangItem::FnOnce)
+                && bound.term.as_type().and_then(|output| result_parts(cx, output)).is_some_and(|(_, error)| {
+                    !error.walk().filter_map(GenericArg::as_type).any(|part| matches!(part.kind(), ty::Param(declared) if usize::try_from(declared.index).is_ok_and(|index| index >= inherited)))
+                })
+        })
+    })
+}
 
 fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>, untyped: UntypedKind<'tcx>) {
     const TYPED: &str = "return a `thiserror` enum with a variant per failure and its typed source";

@@ -142,10 +142,22 @@ fn absent(value: Option<u32>) -> u32 { value.unwrap_or(0) }
 
 fn propagated(text: &str) -> Result<u32, ParseIntError> { parse(text).or_else(|error| if error.to_string().is_empty() { Ok(0) } else { Err(error) }) }
 
+fn alternatives(text: &str) {
+    fn returned_back(values: Vec<u32>) -> Result<(), Vec<u32>> { if values.is_empty() { Ok(()) } else { Err(values) } }
+    let (Ok(()) | Err(_)) = effect(text);
+    let (Ok(()) | Err(ParseIntError { .. })) = effect(text);
+    let (Ok(()) | Err(_)) = returned_back(vec![1]);
+    let (Ok(()) | Err(Vec { .. })) = returned_back(vec![2]);
+    match effect(text) {
+        Ok(()) | Err(_) => (),
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
     statements("1");
+    alternatives("20");
     black_box(&(fallbacks("1"), successes("1"), views("1"), walked(&["1", "x"]), expanded("2"), handled("3")));
     black_box(&(translated("4") == ExitCode::SUCCESS, certain(5), saturated(-5), clamped(-5), absent(None), propagated("6"), tested("7"), predicate("8")));
     black_box(&(absences("9"), returned("10"), received(&mpsc::channel().1), closed(&mpsc::channel().1), kept(&["11"]), patterns(&["12", "13"]), skipped(&["14"]), compared(&[15])));

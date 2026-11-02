@@ -195,10 +195,8 @@ impl Options {
                     .with(json(&resource, writer))
                     .with(tracing_opentelemetry::layer().with_tracer(traces.tracer_with_scope(scope)))
                     .with(OpenTelemetryTracingBridge::builder(&logs).with_tracing_span_attributes(TracingSpanAttributes::all()).build());
-                subscriber::set_global_default(dispatched)
-                    .map_err(|SetGlobalDefaultError { .. }| TelemetryError::Dispatch)
-                    .and_then(|()| LogTracer::init().map_err(|SetLoggerError { .. }| TelemetryError::Forward))
-                    .map_err(NEVec::new)?;
+                subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| NEVec::new(TelemetryError::Dispatch))?;
+                LogTracer::init().map_err(|SetLoggerError { .. }| NEVec::new(TelemetryError::Forward))?;
                 (traces, metrics, logs, handle)
             };
             started.inspect_err(reported)

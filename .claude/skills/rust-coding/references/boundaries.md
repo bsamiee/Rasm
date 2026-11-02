@@ -42,7 +42,7 @@ pub enum Change {
 }
 ```
 
-`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Streams producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, a malformed known tag fails. Closed protocols reject an unknown tag at decode. Encoded outcomes are a tagged enum of their cases in place of `Result`'s `{"Ok": ..}`. Crate errors derive `Serialize` under a tag with `#[serde(skip)]` on each `source`. Reason enums serialize through `serde_with::SerializeDisplay`.
+`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Streams producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, a malformed known tag fails. Closed protocols reject an unknown tag at decode. Enums a consumer extends end with a generic `#[serde(untagged)]` variant (`Extended(K)`) that decodes consumer cases. Encoded outcomes are a tagged enum of their cases in place of `Result`'s `{"Ok": ..}`. Crate errors derive `Serialize` under a tag with `#[serde(skip)]` on each `source`. Reason enums serialize through `serde_with::SerializeDisplay`.
 
 ## [03]-[FIELD_CONVERSIONS]
 
@@ -88,22 +88,22 @@ pub struct Frame {
 
 ## [05]-[CONFIGURATION]
 
-Each setting has one source: `clap` decodes invocation values (settings path, secrets, telemetry) from arguments and environment, a file the rest:
+Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment, settings files the rest:
 
 ```rust
 #[derive(Debug, Parser)]
 #[command(version, about)]
 pub struct Args {
-    #[arg(long, env)]
-    pub settings: Utf8PathBuf,
+    #[arg(long, global = true)]
+    pub settings: Vec<Utf8PathBuf>,
     #[arg(long, env, hide_env_values = true)]
     pub token: SecretString,
-    #[command(flatten)]
-    pub telemetry: Options,
+    #[arg(long, value_enum, default_value_t)]
+    pub retention: Retention,
 }
 ```
 
-Flags and variables derive from field names (`--settings`, `SETTINGS`). `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Workspace telemetry crate `Options` adds log filter, service name, propagator, and exporter flags with their `RUST_LOG` and `OTEL_*` variables. Flattened `Options` records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every file:
+Flags and variables derive from field names (`--token`, `TOKEN`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record holding it beside each program's `Args` implements `CommandFactory` and `FromArgMatches` and restores the program's `about` through `Resettable::from`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -114,23 +114,59 @@ pub struct Settings {
     pub windows: Vec<Window> = Vec::new(),
 }
 
-pub async fn decoded<T>(path: &Utf8Path) -> Result<T, ServiceError>
-where T: DeserializeOwned {
-    toml::from_str(&fs::read_to_string(path).await?).map_err(|source| ServiceError::Decode { path: path.to_owned(), source })
+pub fn layered<S>(layers: &[Arc<Layer>]) -> Result<S, NEVec<ServiceError>>
+where S: DeserializeOwned {
+    fn merged<'text>(lower: DeTable<'text>, upper: DeTable<'text>) -> DeTable<'text> {
+        upper.into_iter().fold(lower, |mut table, (key, entry)| {
+            let span = entry.span();
+            let value = match (table.remove(&key).map(Spanned::into_inner), entry.into_inner()) {
+                (Some(DeValue::Table(earlier)), DeValue::Table(later)) => DeValue::Table(merged(earlier, later)),
+                (_, later) => later,
+            };
+            table.insert(key, Spanned::new(span, value));
+            table
+        })
+    }
+    let tables = layers
+        .iter()
+        .map(|layer| {
+            let (table, errors) = DeTable::parse_recoverable(&layer.text);
+            NEVec::try_from_vec(errors).map_or(Validated::Good(table), |failures| {
+                Validated::Fail(failures.into_nonempty_iter().map(|mut source| {
+                    source.set_input(None);
+                    ServiceError::Syntax { layer: Arc::clone(layer), span: source.span(), source: Box::new(source) }
+                }).collect())
+            })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()?;
+    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().map(Spanned::into_inner).fold(DeTable::new(), merged))))
+        .map_err(|error| NEVec::new(ServiceError::Settings { path: error.path().clone(), source: Box::new(error.into_inner()) }))
 }
 ```
 
-`decoded::<Settings>(&args.settings)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error. The `fs_err` read states its operation and path inside the `io::Error`, and `?` passes it into the `#[error(transparent)]` `File` variant unchanged. `Decode` holds the path beside the `toml` error's line and column. `Runtime` names the operation for a runtime start's `io::Error`.
+`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, and a `Layer` holds one file's `path` and `text`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain`. Later layers replace values and merge tables key by key. `ServiceError::Settings` names the failing key's path, and its layer is the last one defining that path: merging clones keeps each parsed table, `iter::zip(layers, &tables).rev().find_map` walks each table through `path.iter().try_fold`, and an empty path names a whole layer.
 
 ## [06]-[ENTRY_POINT]
 
-`main` holds a program's only global effects:
+`main` holds a program's only global effects, one `command::run` call that parses arguments, installs telemetry, starts runtime and signal streams, and logs and translates each failure:
 
 ```rust
 fn main() -> ExitCode {
-    let Args { settings, token, telemetry } = Args::parse();
-    telemetry.run(&Args::command(), Defaults { .. }, io::stderr, Identity::new(), |_| Runtime::new().map_err(ServiceError::Runtime).and_then(|runtime| runtime.block_on(serve(settings, token))).map_err(NEVec::new))
+    command::run(Defaults { .. }, io::stderr, Identity::new(), async |Process { args: Args { settings, token, retention }, signals, filter: _ }| {
+        serve(layered::<Settings>(&read(settings).await?)?, token, retention, signals).await
+    })
 }
 ```
 
-`Options::run` installs the subscriber, exporters, propagators, and panic hook around the work, and logs and translates each failure. `Defaults { .. }` keeps the `info` filter, and `io::stderr` is the `MakeWriter` the JSON lines write to, stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`.
+`read` joins every path's `Arc<Layer>` read through `Validated`, and `Defaults { .. }` keeps the `info` filter. `command::run` holds each process effect around the work:
+- `get_matches_mut` under `subcommand_required(false)` runs an `exclusive` process flag (`--manual`) before a required subcommand is checked
+- JSON lines write to `(move || OptionalWriter::from(journal.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
+- Failures before the subscriber starts are crate error variants (`Journal { directory, source }`), printed through `Command::error(..).print()`
+- `.print().map_or(ExitCode::IoErr, |()| status).into()` exits with the variant's `sysexits::ExitCode`, or `IoErr` when printing fails
+- Startup failures report through `dispatcher::with_default(&early, ..)`, a scoped `WARN` dispatch ahead of the global subscriber
+- `block_on` runs the work, and `shutdown_background` returns without waiting for blocked tasks
+- `panic::update_hook` restores terminal state and force-flushes each provider ahead of the previous hook, and `panic = "abort"` runs no other flush
+- `catch_unwind` around the work shuts providers down before `resume_unwind`, and work returning `T: Termination` exits through `report()`
+
+Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Writer, encoder, and pager failures fold into one `Option<io::ErrorKind>`, and a `BrokenPipe` from a closed reader ends output as success.

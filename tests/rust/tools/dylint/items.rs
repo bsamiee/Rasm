@@ -388,6 +388,19 @@ fn single_reader(found: &str) {
         |      ^^^^^^
         = help: move `listed` into `paired` as a closure over its generic parameters
 
+    warning: `repeated` has one reader, `tripled`
+       --> tools/dylint/examples/single_reader.rs:218:1
+        |
+    218 | fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(i...
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: read here
+       --> tools/dylint/examples/single_reader.rs:220:42
+        |
+    220 | fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
+        |                                          ^^^^^^^^
+        = help: move `repeated` into `tripled` as a nested item
+
     warning: `halved` has one reader, `narrowed`
        --> tools/dylint/examples/single_reader.rs:162:1
         |
@@ -395,9 +408,9 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:222:42
+       --> tools/dylint/examples/single_reader.rs:226:42
         |
-    222 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+    226 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
         |                                          ^^^^^^
         = help: move `halved` into `narrowed` as a nested item
     "#);

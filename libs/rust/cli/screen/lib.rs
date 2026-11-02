@@ -1,7 +1,8 @@
-#![feature(control_flow_into_value, panic_update_hook, try_blocks)]
+#![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks)]
 
 use core::{error::Error, fmt, future, iter, ops::ControlFlow, pin::pin, time::Duration};
 use std::{
+    error::Report,
     io::{self, IsTerminal as _},
     panic, process,
 };
@@ -17,6 +18,7 @@ use crossterm::{
 };
 use futures::{Stream, StreamExt as _, executor, stream};
 use nonempty_collections::NEVec;
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_command::{CommandError, Process};
 use rasm_telemetry::Defaults;
 use ratatui::{DefaultTerminal, Frame, layout::Rect};
@@ -212,7 +214,9 @@ where
             let mut refresh = time::interval(REFRESH);
             refresh.set_missed_tick_behavior(MissedTickBehavior::Skip);
             panic::update_hook(|hook, info| {
-                let (Ok(()) | Err(_)) = released();
+                if let Err(error) = released() {
+                    tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot restore terminal");
+                }
                 hook(info);
             });
             let entered: io::Result<DefaultTerminal> = try {

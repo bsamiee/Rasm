@@ -28,4 +28,4 @@ rule:
                         - has: {field: value, matches: plain-value}
                 - not: {has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}
 message: '`match $VALUE` discards the value through one arm `$PATTERN`'
-note: 'Write `let (<pattern>) = <value>;` followed by the arm value'
+note: 'Write `let (<pattern>) = <value>;` followed by the arm value, matching each error variant it drops and a plain `Err` value by its type (`Err(<Type> { .. })`)'

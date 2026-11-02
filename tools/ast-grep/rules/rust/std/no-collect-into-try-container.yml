@@ -5,11 +5,22 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - any:
-            - pattern: $R.collect::<Result<$C, _>>()
-            - pattern: $R.collect::<Option<$C>>()
-        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
         - not: {has: {field: function, has: {stopBy: end, kind: field_identifier, regex: '^(into_)?par_|^par_bridge$'}}}
-fix: $R.try_collect::<$C>()
-message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
-note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or a `let mut` binding'
+        - any:
+            - all:
+                - any:
+                    - pattern: $R.collect::<Result<$C, _>>()
+                    - pattern: $R.collect::<Option<$C>>()
+                - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
+            - all:
+                - any:
+                    - pattern: $IR.collect::<Result<$IC, _>>()
+                    - pattern: $IR.collect::<Option<$IC>>()
+                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}
+transform:
+    METHOD_CALL: {replace: {source: $C, replace: '^([\s\S]+)$', by: '.try_collect::<$1>()'}}
+    QUALIFIED_START: {replace: {source: $IC, replace: '^([\s\S]+)$', by: 'Iterator::try_collect::<$1>(&mut '}}
+    QUALIFIED_END: {replace: {source: $IC, replace: '^[\s\S]+$', by: ')'}}
+fix: $QUALIFIED_START$IR$QUALIFIED_END$R$METHOD_CALL
+message: '`collect` names the `Result` or `Option` wrapper around `$C$IC` by hand'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, `Iterator::try_collect::<<container>>(&mut <iterator>)` where `Itertools` is imported'

@@ -402,7 +402,7 @@ where A: App
                     call.params.request_state.as_ref().map(|state| waiting.extract_if(state..=state, retried).next().ok_or(Unserved::Unparked)).transpose()
                 })?;
                 let mut running = if let Some((_, (running, answer))) = parked {
-                    let (Ok(()) | Err(_)) = answer.send(call.params.input_responses.unwrap_or_default());
+                    let (Ok(()) | Err(InputResponses { .. })) = answer.send(call.params.input_responses.unwrap_or_default());
                     running
                 } else {
                     let tools = self.changes.tools.load_full();

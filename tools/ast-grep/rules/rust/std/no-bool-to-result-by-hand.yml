@@ -37,6 +37,11 @@ utils:
         any:
             - pattern: $B.then_some(()).$OK($UE)
             - pattern: '$B.then(|| ()).$OK($UE)'
+    unit-map-or:
+        kind: call_expression
+        any:
+            - pattern: '$M.map_or(Ok(()), |()| Err($ME))'
+            - pattern: '$M.map_or(Ok(()), |_| Err($ME))'
     flattened-option:
         kind: call_expression
         any:
@@ -48,6 +53,7 @@ rule:
     any:
         - matches: branch
         - matches: unit-option
+        - matches: unit-map-or
         - matches: flattened-option
 constraints:
     OK: {regex: '^ok_or(_else)?$'}
@@ -58,6 +64,8 @@ transform:
     NQW: {replace: {source: $NQ, replace: '^([\s\S]+)$', by: '(!($1))'}}
     EAGER_TAIL: {replace: {source: $E, replace: '^([A-Za-z_][\w:]*(?:\.[A-Za-z_]\w*)*|-?[0-9][\w.]*|"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)'')$', by: '.ok_or($1)'}}
     BRANCH_TAIL: {replace: {source: $EAGER_TAIL, replace: '^([^.][\s\S]*)$', by: '.ok_or_else(|| $1)'}}
+    MAP_OR_EAGER: {replace: {source: $ME, replace: '^([A-Za-z_][\w:]*(?:\.[A-Za-z_]\w*)*|-?[0-9][\w.]*|"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)'')$', by: '.is_none().ok_or($1)'}}
+    MAP_OR_TAIL: {replace: {source: $MAP_OR_EAGER, replace: '^([^.][\s\S]*)$', by: '.is_none().ok_or_else(|| $1)'}}
     UNIT_TAIL: {replace: {source: $OK, replace: '^(.+)$', by: '.$1'}}
     UNIT_ARGUMENT: {replace: {source: $UE, replace: '^([\s\S]+)$', by: '($1)'}}
     FLAT_TAIL: {replace: {source: $FOK, replace: '^(.+)$', by: '.$1'}}
@@ -65,6 +73,6 @@ transform:
     LAZY_RESULT: {replace: {source: $LAZY, replace: '^([\s\S]+)$', by: '.and_then(|()| $1)'}}
     EAGER_RESULT: {replace: {source: $EAGER, replace: '^([\s\S]+)$', by: '.and($1)'}}
     CALLED_RESULT: {replace: {source: $CALL, replace: '^([\s\S]+)$', by: '.and_then(|()| $1())'}}
-fix: '$P$QW$NPW$NQW$BRANCH_TAIL$B$UNIT_TAIL$UNIT_ARGUMENT$C$FLAT_TAIL$FLAT_ARGUMENT$LAZY_RESULT$EAGER_RESULT$CALLED_RESULT'
-message: '`$P$Q$NP$NQ$B$C` converts a `bool` into a `Result` by hand'
-note: 'Write `<condition>.ok_or(<error>)` or `ok_or_else(<closure>)`, chaining `and` or `and_then` when the condition selects a result'
+fix: '$P$QW$NPW$NQW$BRANCH_TAIL$M$MAP_OR_TAIL$B$UNIT_TAIL$UNIT_ARGUMENT$C$FLAT_TAIL$FLAT_ARGUMENT$LAZY_RESULT$EAGER_RESULT$CALLED_RESULT'
+message: '`$P$Q$NP$NQ$M$B$C` converts a `bool` or `Option<()>` into a `Result` by hand'
+note: 'Write `<condition>.ok_or(<error>)` or `ok_or_else(<closure>)`, `<option>.is_none().ok_or(<error>)` for an `Option<()>`, chaining `and` or `and_then` when the condition selects a result'

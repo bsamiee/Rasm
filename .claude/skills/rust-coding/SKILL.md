@@ -35,7 +35,7 @@ Code treats each crate as part of the language:
 Function signatures are contracts, parameter types state every value a function accepts and its return type every outcome a caller handles:
 - Async callbacks take `impl AsyncFn(A) -> B`, an async closure (`async |order| ...`) supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
-- Members differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
+- Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
 - Defaults sit on one options struct whose `default_field_values` state each, a caller writes the fields it changes before `..`
 - Values and types differing per platform are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
@@ -82,9 +82,10 @@ pub fn profile(readings: &[Reading]) -> Profile {
 }
 ```
 
-- Iterator pipelines hold every traversal, and a named reduction (`max_by_key`, `minmax`, `counts_by`) states its fold
+- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`) in place of a `fold`, and `fold` holds a reduction no member names
 - Adjacent pairs (`array_windows`, `map_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
-- Values depending on more than one subject come from one `match` over their tuple or an arm guard, an arm nests no decision
+- Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
+- Arms nest no decision, a combinator choosing a value (`Some(x).filter(p).unwrap_or_else(f)`) included
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Optional builder steps fold an `Option` into the value (`tint.into_iter().fold(style, Style::fg)`), and `None` returns it unchanged
@@ -124,7 +125,7 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Public aliases name one generic instantiation (`TypedUuid<OrderKind>`).
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`).
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 
@@ -227,7 +228,7 @@ Give each step a function and select the operator by the step's signature and by
 |  [02]   | `T -> Result<U, E>`            | `?` in sequence, `and_then` in a chain | Continues with a dependent step |
 |  [03]   | `Option<T>` to `Result<T, E>`  | `ok_or`, `bool::ok_or`                 | Names the error absence means   |
 |  [04]   | Independent `Result`s          | `Validated::from`, `map2` to `map4`    | Joins every failure             |
-|  [05]   | Items with `T -> Result<U, E>` | `collect::<Result<Vec<U>, E>>()`       | Stops at the first failure      |
+|  [05]   | Items with `T -> Result<U, E>` | `try_collect::<Vec<U>>()`              | Stops at the first failure      |
 |  [06]   | Items with `T -> Result<U, E>` | `collect::<Validated<Vec<U>, E>>()`    | Joins every failure             |
 |  [07]   | Items, failures kept apart     | `partition_result`                     | Splits successes from failures  |
 |  [08]   | `Option<Result<T, E>>`         | `transpose`                            | Swaps nesting for `?`           |
@@ -243,7 +244,8 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target
-- `try` blocks scope `?` to a block of `Option` or `Result` in place of an `and_then(|()| ..)` chain over unit steps, a helper function exists only for a name
+- Foreign trait methods fixing one error type (`FromArgMatches::from_arg_matches`) bind independent steps through `?` in one struct literal
+- `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 
@@ -271,10 +273,12 @@ pub enum LedgerError {
 
 - Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
 - Fields named `source` hold the foreign error a variant wraps
-- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one holding a single value (`SetLoggerError`) is a unit variant with the crate's message
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
 - Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
+- Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts it through `?`
+- Discards match each error variant they drop and a plain `Err` value by its type (`Err(<Type> { .. })`), or record the failure as an event
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
@@ -308,7 +312,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 |  [04]   | Implementations chosen at run time or mixed in one collection | `Box<dyn Trait>`, `Arc<dyn Trait>`     |
 |  [05]   | Async capability chosen at run time                           | `dynosaur` dynamic type over the trait |
 
-- A public trait states `Send` on each async method as `-> impl Future<Output = T> + Send`, and an implementor writes `async fn`
+- Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, and implementors write `async fn`
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
 - Bounds repeated across signatures are one trait alias, a crate-private trait with one implementor is that type's inherent `impl`
@@ -336,13 +340,13 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 | [INDEX] | [CAPABILITY]                            | [DERIVE]                                                             |
 | :-----: | :-------------------------------------- | :------------------------------------------------------------------- |
 |  [01]   | Error message and source chain          | `thiserror::Error`                                                   |
-|  [02]   | Text name and parse of a fieldless enum | `derive_more` `Display` and `FromStr` with `rename_all`              |
+|  [02]   | Text name and parse of a fieldless enum | `derive_more` `Display`, `FromStr`, `strum` `IntoStaticStr`          |
 |  [03]   | Variant list, count, and discriminants  | `strum` `VariantArray`, `EnumCount`, `EnumDiscriminants`, `FromRepr` |
 |  [04]   | Variant tests                           | `derive_more` `IsVariant`                                            |
 |  [05]   | One value per variant                   | `enum_map::Enum`                                                     |
 |  [06]   | Checked newtype and its error           | `nutype`                                                             |
 |  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`                                |
-|  [08]   | Traits adding no bound on a generic     | `derive_where`                                                       |
+|  [08]   | Traits adding no bound on a generic     | `derive_where`, `skip` for a field lacking the trait                 |
 |  [09]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                      |
 |  [10]   | Field mapping between domain and wire   | `o2o`                                                                |
 
@@ -353,7 +357,8 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, `timeout` bounds one future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
-- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, a commit is a step after the work
+- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard` (`DropGuard::new(panic::take_hook(), panic::set_hook)`), a commit is a step after the work
+- Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
 
 Dependency structure and concurrency bound select the combinator:

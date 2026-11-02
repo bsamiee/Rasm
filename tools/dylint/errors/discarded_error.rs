@@ -36,6 +36,7 @@ enum Discard {
     Iterated,
     Flattened,
     Statement,
+    Unnamed,
 }
 
 #[derive(Clone, Copy)]
@@ -60,7 +61,7 @@ pub(crate) struct Pass {
 lint! {
     Pass;
     DISCARDED_ERROR:
-        "`Result` errors replaced by a fallback, success, or `None`, skipped by a pattern, tested into a `bool` outside a body returning `bool`, skipped by iteration, or dropped by a statement",
+        "`Result` errors replaced by a fallback, success, or `None`, skipped by a pattern or iteration, tested into a `bool` outside a body returning `bool`, or dropped by a statement or `Err(_)`",
 }
 
 impl Pass {
@@ -138,9 +139,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
         let constructs = |pattern: &Pat<'_>, item: LangItem| matches!(pattern.kind, PatKind::TupleStruct(qpath, ..) if cx.qpath_res(&qpath, pattern.hir_id).ctor_parent(cx).is_lang_item(cx, item));
-        let skipped = |pattern: &Pat<'_>| {
-            constructs(pattern, LangItem::ResultErr) && matches!(pattern.kind, PatKind::TupleStruct(_, [] | [Pat { kind: PatKind::Wild | PatKind::Binding(_, _, _, None), .. }], _))
-        };
         let idle = |body: &Expr<'_>| match peel_blocks(body).kind {
             ExprKind::Block(Block { stmts: [], expr: None, .. }, _) | ExprKind::Tup([]) | ExprKind::Continue(_) | ExprKind::Ret(None) => true,
             ExprKind::Block(Block { stmts: [Stmt { kind: StmtKind::Semi(left), .. }], expr: None, .. }, _) => matches!(left.kind, ExprKind::Continue(_) | ExprKind::Ret(None)),
@@ -213,7 +211,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && let Some(discard) = match (constructs(tested.pat, LangItem::ResultOk), otherwise) {
                         (true, None) => Some(Discard::Unmatched),
                         (true, Some(otherwise)) => fallback(otherwise).then_some(Discard::Fallback),
-                        (false, None) => (skipped(tested.pat) && idle(then)).then_some(Discard::Statement),
+                        (false, None) => (skipped(cx, tested.pat, true) && idle(then)).then_some(Discard::Statement),
                         (false, Some(_)) => None,
                     }
                 {
@@ -223,7 +221,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
             }),
             ExprKind::Match(scrutinee, arms, MatchSource::Normal) if let Some(error) = self.failure(cx, scrutinee, expr) =>
-                arms.iter().filter(|arm| arm.guard.is_none() && skipped(arm.pat)).find_map(|arm| {
+                arms.iter().filter(|arm| arm.guard.is_none() && skipped(cx, arm.pat, true)).find_map(|arm| {
                     idle(arm.body).then_some(Discard::Statement).or_else(|| fallback(arm.body).then_some(Discard::Fallback)).map(|discard| (arm.span, discard, String::from("Err(_) =>"), error))
                 }),
             _ => None,
@@ -232,7 +230,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && match discard {
                 Discard::View => approx_ty_size(cx, error) > 0 && !body_output(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)).is_some_and(Ty::is_bool),
                 Discard::Absence => approx_ty_size(cx, error) > 0,
-                Discard::Fallback | Discard::Success | Discard::Unmatched | Discard::Iterated | Discard::Flattened | Discard::Statement =>
+                Discard::Fallback | Discard::Success | Discard::Unmatched | Discard::Iterated | Discard::Flattened | Discard::Statement | Discard::Unnamed =>
                     typeck.expr_ty(expr).opt_def_id().is_none_or(|produced| Some(produced) != self.exit_code),
             }
         {
@@ -241,24 +239,42 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
+        const ALTERNATIVE: &str = "let (.. | Err(_))";
         if let Some(init) = local.init
             && !expanded_externally(cx, local.span.source_callsite())
-            && let Some(error) = self.failure(cx, init, init)
-            && let Some((discard, label)) = match (local.pat.kind, local.els) {
-                (PatKind::Wild, None) if matches!(local.source, LocalSource::AssignDesugar) => Some((Discard::Statement, String::from("_ ="))),
-                (PatKind::Binding(_, binding, ident, None), None) if get_enclosing_block(cx, local.hir_id).is_some_and(|block| !is_local_used(cx, block, binding)) =>
-                    Some((Discard::Statement, format!("let {ident}"))),
-                (PatKind::TupleStruct(qpath, ..), Some(_)) if cx.qpath_res(&qpath, local.pat.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk) =>
-                    Some((Discard::Unmatched, String::from("let Ok(..) else"))),
-                _ => None,
-            }
         {
-            report(cx, local.hir_id, local.span.source_callsite(), discard, &label, error);
+            let found = match (self.failure(cx, init, init), local.pat.kind, local.els) {
+                (Some(error), PatKind::Wild, None) if matches!(local.source, LocalSource::AssignDesugar) => Some((Discard::Statement, String::from("_ ="), error)),
+                (Some(error), PatKind::Binding(_, binding, ident, None), None) if get_enclosing_block(cx, local.hir_id).is_some_and(|block| !is_local_used(cx, block, binding)) =>
+                    Some((Discard::Statement, format!("let {ident}"), error)),
+                (Some(error), PatKind::TupleStruct(qpath, ..), Some(_)) if cx.qpath_res(&qpath, local.pat.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk) =>
+                    Some((Discard::Unmatched, String::from("let Ok(..) else"), error)),
+                (Some(error), PatKind::Or(_), None) if skipped(cx, local.pat, true) => Some((Discard::Statement, String::from(ALTERNATIVE), error)),
+                (None, PatKind::Or(_), None)
+                    if skipped(cx, local.pat, false)
+                        && let Some((_, error)) = result_parts(cx, cx.typeck_results().expr_ty(init))
+                        && error.is_adt() =>
+                    Some((Discard::Unnamed, String::from(ALTERNATIVE), error)),
+                _ => None,
+            };
+            if let Some((discard, label, error)) = found {
+                report(cx, local.hir_id, local.span.source_callsite(), discard, &label, error);
+            }
         }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn skipped(cx: &LateContext<'_>, pattern: &Pat<'_>, struct_rest: bool) -> bool {
+    match pattern.kind {
+        PatKind::Or(alternatives) => alternatives.iter().any(|alternative| skipped(cx, alternative, struct_rest)),
+        PatKind::TupleStruct(qpath, fields, _) =>
+            (matches!(fields, [] | [Pat { kind: PatKind::Wild | PatKind::Binding(_, _, _, None), .. }]) || struct_rest && matches!(fields, [Pat { kind: PatKind::Struct(_, [], Some(_)), .. }]))
+                && cx.qpath_res(&qpath, pattern.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr),
+        _ => false,
+    }
+}
 
 fn failing<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> bool {
     !error.is_privately_uninhabited(cx.tcx, cx.typing_env())
@@ -280,6 +296,7 @@ fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, discard: Discar
         Discard::Iterated => (format!("`{label}` iterates the `Result` and skips its `{error}`"), String::from(HANDLED)),
         Discard::Flattened => (format!("`{label}` iterates results and skips each `{error}`"), format!("collect the results into `validated::Validated<Vec<_>, {error}>` and call `.ok()`")),
         Discard::Statement => (format!("`{label}` drops a `Result` and its unhandled `{error}`"), String::from("match the `Result`, or return it with `?`")),
+        Discard::Unnamed => (format!("`{label}` drops `{error}` without naming its type"), String::from("match the `Err` value by its type, `Err(<Type> { .. })`")),
     };
     span_lint_hir_and_then(cx, DISCARDED_ERROR, node, span, message, |diag| {
         diag.help(help);

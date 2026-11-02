@@ -31,8 +31,16 @@ utils:
                     nthChild: 2
                     kind: closure_expression
                     all:
-                        - has: {field: parameters, has: {nthChild: 1, regex: '^mut\s+\w+$', has: {kind: identifier, pattern: $STATE}}}
-                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}]}
+                        - has: {field: parameters, has: {nthChild: 1, regex: '^mut\s+\w+(\s*:[\s\S]*)?$', has: {kind: identifier, pattern: $STATE}}}
+                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, any: [{matches: element-write}, {matches: guarded-write}, {matches: last-element-match}]}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}]}
+    guarded-write:
+        kind: if_expression
+        all:
+            - has: {field: condition, has: {stopBy: end, kind: identifier, pattern: $STATE}}
+            - has: {field: consequence, has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}
+    last-element-match:
+        kind: match_expression
+        has: {field: value, pattern: $STATE.last_mut()}
     element-write:
         kind: call_expression
         has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $STATE}}, {has: {field: field, regex: '^(push|push_back|push_front|insert)$'}}]}
@@ -59,4 +67,4 @@ labels:
     STATE: {style: secondary, message: 'Written each pass'}
     FOUND: {style: secondary, message: 'Returned from inside the loop'}
 message: '`$HEAD` computes its result statement by statement'
-note: 'Build the value through one iterator adapter chain, collecting a fallible traversal over independent elements into `validated::Validated`'
+note: 'Build the value through one iterator chain, with a named adapter or reduction (`collect`, `Itertools::unique_by`, `Itertools::coalesce`) in place of a `fold`, and collect a fallible traversal over independent elements into `validated::Validated`'

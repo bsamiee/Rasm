@@ -1,10 +1,13 @@
+#![feature(error_reporter)]
+
 use core::{error::Error, future::ready, net::SocketAddr, pin::pin};
-use std::{io, process::ExitCode, sync::Arc};
+use std::{error::Report, io, process::ExitCode, sync::Arc};
 
 use axum::{Router, serve::ListenerExt as _};
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, StreamExt as _, future};
 use nonempty_collections::NEVec;
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::Defaults;
 use tokio::net::TcpListener;
@@ -91,7 +94,9 @@ where
         let daemon = Arc::new(started.map_err(DaemonError::Daemon)?);
         tracing::info!(listen = %address, "listening");
         let accepted = listener.tap_io(|stream| {
-            let (Ok(()) | Err(_)) = stream.set_nodelay(true);
+            if let Err(error) = stream.set_nodelay(true) {
+                tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "TCP_NODELAY refused");
+            }
         });
         let routed = Arc::clone(&daemon).router().into_make_service_with_connect_info::<SocketAddr>();
         let mut http = pin!(future::maybe_done(axum::serve(accepted, routed).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future()));

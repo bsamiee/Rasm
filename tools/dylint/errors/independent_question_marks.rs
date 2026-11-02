@@ -7,12 +7,15 @@ use clippy_utils::{
     source::snippet,
     visitors::{for_each_expr_without_closures, is_local_used},
 };
-use rustc_hir::{Block, Expr, ExprField, ExprKind, HirId, MatchSource, Mutability, PatKind, Stmt, StmtKind, UnOp};
+use rustc_hir::{Block, Expr, ExprField, ExprKind, HirId, MatchSource, Mutability, PatKind, Stmt, StmtKind, UnOp, def::DefKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::adjustment::{Adjust, AutoBorrow, AutoBorrowMutability};
+use rustc_middle::ty::{
+    TypeVisitableExt as _,
+    adjustment::{Adjust, AutoBorrow, AutoBorrowMutability},
+};
 use rustc_span::Span;
 
-use crate::{any_expr, expanded_externally, result_parts};
+use crate::{any_expr, expanded_externally, result_parts, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -58,6 +61,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .any(|expr| for_each_expr_without_closures(expr, |part| if joins(part, first_binding, second_binding) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }).is_some()))
                 .then(|| (node, first.span.to(second.span), first_name, second_name))
             })
+            .filter(|&(node, ..)| !fixed(cx, node))
             .for_each(|(node, span, first_name, second_name)| report(cx, node, span, first_name, second_name, combined(2)));
     }
 
@@ -77,6 +81,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             operands(combined).filter(|&operand| !any_expr(cx.tcx, operand, mutates)).filter_map(|operand| for_each_expr_without_closures(operand, question)).collect::<Vec<_>>()
         };
         if !expanded_externally(cx, expr.span)
+            && !fixed(cx, expr.hir_id)
             && let results = tried(expr)
             && let &[first, second, ..] = &results
             && get_parent_expr(cx, expr).is_none_or(|parent| tried(parent).len() < 2)
@@ -105,6 +110,14 @@ fn operands<'tcx>(expr: &'tcx Expr<'tcx>) -> impl Iterator<Item = &'tcx Expr<'tc
         _ => (None, &[], &[]),
     };
     iter::chain(head, rest).chain(fields.iter().map(|field| field.expr))
+}
+
+fn fixed(cx: &LateContext<'_>, node: HirId) -> bool {
+    cx.tcx
+        .trait_item_of(cx.tcx.hir_enclosing_body_owner(node).to_def_id())
+        .filter(|&item| !item.is_local() && cx.tcx.def_kind(item) == DefKind::AssocFn)
+        .and_then(|item| result_parts(cx, signature(cx.tcx, item).output()))
+        .is_some_and(|(_, error)| !error.has_param())
 }
 
 fn combined(results: usize) -> String {

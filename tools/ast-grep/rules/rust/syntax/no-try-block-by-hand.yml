@@ -44,7 +44,13 @@ rule:
         - kind: call_expression
           all:
             - matches: unit-step
-            - has: {field: function, has: {field: value, matches: unit-step}}
             - not: {inside: {kind: field_expression, field: value, inside: {matches: unit-step}}}
-message: 'Closure called once, labeled block, or `.and_then(|()| ..)` chain stands in for a `try` block'
-note: 'Write `try { <statements>; <value> }` (`#![feature(try_blocks)]`), or `async move { <statements>; Ok(<value>) }` for an `async` closure'
+            - any:
+                - has: {field: function, has: {field: value, matches: unit-step}}
+                - inside: {kind: try_expression}
+                - inside: {stopBy: {kind: 'closure_expression, function_item'}, kind: try_block}
+                - all:
+                    - nthChild: {position: 1, reverse: true}
+                    - inside: {kind: block, inside: {kind: function_item, field: body}}
+message: 'Closure called once, labeled block, or `.and_then(|()| ..)` step stands in for a `try` block or a `?` statement'
+note: 'Write `<step>?;` in a function or `try` block, `try { <statements>; <value> }` (`#![feature(try_blocks)]`) elsewhere, or `async move { <statements>; Ok(<value>) }` in an `async` closure'

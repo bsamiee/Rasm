@@ -1,6 +1,7 @@
 use core::iter;
 
 use clap::builder::Styles;
+use itertools::Itertools as _;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout},
@@ -33,19 +34,16 @@ where P: Program {
     let framed = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
     let gap = Span::raw("  ");
     let width = usize::from(frame.area().width);
-    let footer = rows
-        .iter()
-        .filter(|row| keymap::active(&row.action, pane))
-        .map(|row| Line::from_iter([Span::styled(label(row), *styles.get_literal()), Span::raw(" "), Span::styled(row.action.to_string(), *styles.get_context())]))
-        .fold(Vec::<Line<'_>>::new(), |mut lines, hint| {
-            match lines.last_mut() {
-                Some(line) if line.width().saturating_add(gap.width()).saturating_add(hint.width()) <= width => line.extend(iter::once(gap.clone()).chain(hint.spans)),
-                Some(_) | None => lines.push(hint),
-            }
-            lines
-        });
+    let footer =
+        rows.iter()
+            .filter(|row| keymap::active(&row.action, pane))
+            .map(|row| Line::from_iter([Span::styled(label(row), *styles.get_literal()), Span::raw(" "), Span::styled(row.action.to_string(), *styles.get_context())]))
+            .coalesce(|line, hint| {
+                if line.width().saturating_add(gap.width()).saturating_add(hint.width()) <= width { Ok(iter::chain(line, iter::once(gap.clone())).chain(hint).collect()) } else { Err((line, hint)) }
+            })
+            .collect::<Text<'_>>();
     let [body, lower, bottom] =
-        Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(u16::try_from(footer.len()).unwrap_or(u16::MAX))])
+        Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(u16::try_from(footer.height()).unwrap_or(u16::MAX))])
             .areas(frame.area());
     program.view(frame, body);
     match pane {
@@ -72,5 +70,5 @@ where P: Program {
         ),
         None => {}
     }
-    frame.render_widget(Text::from(footer), bottom);
+    frame.render_widget(footer, bottom);
 }

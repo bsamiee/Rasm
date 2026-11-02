@@ -1,6 +1,7 @@
 use core::iter;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 
 use crate::view::Pane;
@@ -52,12 +53,8 @@ where K: Clone {
             Binding { code: KeyCode::End, modifiers: KeyModifiers::SHIFT, action: Action::Newest },
         ],
     )
-    .fold(Vec::new(), |mut kept: Vec<Binding<K>>, row| {
-        if kept.iter().all(|earlier| KeyEvent::from(earlier) != KeyEvent::from(&row)) {
-            kept.push(row);
-        }
-        kept
-    })
+    .unique_by(|row| KeyEvent::from(row))
+    .collect()
 }
 
 #[must_use]

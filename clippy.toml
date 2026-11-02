@@ -40,6 +40,7 @@ allowed-duplicate-crates = [
     "windows-sys",           # 0.52 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
+    "itertools",             # 0.14 under newest `prost-derive` 0.14.4 through `opentelemetry-otlp`, beside 0.15 under `clippy_utils` and `rasm-screen`
 ]
 
 # --- [BANS]

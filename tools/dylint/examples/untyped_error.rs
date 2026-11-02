@@ -17,6 +17,7 @@ use std::{
 };
 
 use anyhow::Context as _;
+use itertools::Itertools as _;
 use rmcp::{ErrorData, model::ErrorCode};
 use tokio::{sync::oneshot, task};
 
@@ -335,13 +336,15 @@ enum WrappedError {
 
 fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
 
+fn merged(values: &[u16]) -> Vec<u16> { values.iter().copied().coalesce(|left, right| if left == right { Ok(left) } else { Err((left, right)) }).collect() }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = "8080";
     let source: &dyn Source = &Port;
-    black_box(&(numbered(text), documented(text), messages(text), paired(text), wrapped(text)));
+    black_box(&(numbered(text), documented(text), messages(text), paired(text), wrapped(text), merged(&[1, 1, 2])));
     let ports = [
         spelled(text)?,
         borrowed(text)?,

@@ -127,7 +127,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let ExprKind::Match(scrutinee, arms, MatchSource::Normal) = expr.kind
             && let Some(source) = typeck.expr_ty_adjusted(scrutinee).peel_refs().ty_adt_def().filter(|adt| adt.is_enum())
             && arms.len() == source.variants().len()
-            && let Some(mapped) = arms.iter().map(|arm| matched(cx, arm, source)).collect::<Option<Vec<_>>>()
+            && let Some(mapped) = Iterator::try_collect::<Vec<_>>(&mut arms.iter().map(|arm| matched(cx, arm, source)))
             && let [first, rest @ ..] = &mapped
             && first.target.did() != source.did()
             && first.target.variants().len() == arms.len()
@@ -142,14 +142,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let Some(built) = typeck.expr_ty(expr).ty_adt_def().filter(|adt| adt.is_struct())
             && !assigned.is_empty()
             && assigned.len() == variant.fields.len()
-            && let Some(reads) = assigned
-                .iter()
-                .map(|&(field, value)| {
-                    let read = converted(cx, value);
-                    let ExprKind::Field(base, _) = read.kind else { return None };
-                    Some((field.did, accessed_field(typeck, read)?, base.res_local_id()?, typeck.expr_ty_adjusted(base).peel_refs(), typeck.expr_ty(value) != typeck.expr_ty(read)))
-                })
-                .collect::<Option<Vec<_>>>()
+            && let Some(reads) = Iterator::try_collect::<Vec<_>>(&mut assigned.iter().map(|&(field, value)| {
+                let read = converted(cx, value);
+                let ExprKind::Field(base, _) = read.kind else { return None };
+                Some((field.did, accessed_field(typeck, read)?, base.res_local_id()?, typeck.expr_ty_adjusted(base).peel_refs(), typeck.expr_ty(value) != typeck.expr_ty(read)))
+            }))
             && let [(_, _, binding, owner, _), rest @ ..] = &reads
             && rest.iter().all(|&(_, _, other_binding, other_owner, _)| other_binding == *binding && other_owner == *owner)
             && let Some(source) = owner.ty_adt_def().filter(|adt| adt.is_struct() && adt.did() != built.did())
