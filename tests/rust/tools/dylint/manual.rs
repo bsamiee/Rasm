@@ -191,9 +191,9 @@ fn manual_gen_block(found: &str) {
        |        ^^^^^^^^^
        |
     note: built here
-      --> tools/dylint/examples/manual_gen_block.rs:48:23
+      --> tools/dylint/examples/manual_gen_block.rs:64:23
        |
-    48 |     let counted: u8 = Countdown { left: 3 }.sum();
+    64 |     let counted: u8 = Countdown { left: 3 }.sum();
        |                       ^^^^^^^^^^^^^^^^^^^^^
        = help: replace `Countdown` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
        = note: `#[warn(manual_gen_block)]` on by default
@@ -205,9 +205,9 @@ fn manual_gen_block(found: &str) {
        |        ^^^^^^^
        |
     note: built here
-      --> tools/dylint/examples/manual_gen_block.rs:50:25
+      --> tools/dylint/examples/manual_gen_block.rs:66:25
        |
-    50 |     let restarted: u8 = Restart { left: 4 }.sum();
+    66 |     let restarted: u8 = Restart { left: 4 }.sum();
        |                         ^^^^^^^^^^^^^^^^^^^
        = help: replace `Restart` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
     ");

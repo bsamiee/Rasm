@@ -1,4 +1,4 @@
-#![feature(error_reporter, iterator_try_collect)]
+#![feature(error_reporter, iterator_try_collect, try_blocks_heterogeneous)]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
 use core::{error::Error, num::NonZero};
@@ -38,14 +38,12 @@ use tracing_subscriber::fmt::writer::{MakeWriterExt as _, OptionalWriter};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-cfg_select! {
-    unix => {
-        pub type Signals = stream::SelectAll<SignalStream>;
-    }
-    windows => {
-        pub type Signals = stream::SelectAll<CtrlCStream>;
-    }
-}
+pub type Signals = stream::SelectAll<
+    cfg_select! {
+        unix => SignalStream,
+        windows => CtrlCStream,
+    },
+>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -141,8 +139,8 @@ pub enum CommandError {
     Appender { directory: Utf8PathBuf, source: InitError },
     #[error("{}", settings::excerpt("cannot parse settings", Some(origin)))]
     Syntax { origin: settings::Origin, source: Box<de::Error> },
-    #[error("{}", settings::excerpt(&format!("cannot decode settings key `{}`", source.path()), origin.as_ref()))]
-    Decode { origin: Option<settings::Origin>, source: Box<serde_path_to_error::Error<de::Error>> },
+    #[error("{}", settings::excerpt(&format!("cannot decode settings key `{path}`"), origin.as_ref()))]
+    Decode { origin: Option<settings::Origin>, path: serde_path_to_error::Path, source: Box<de::Error> },
 }
 
 impl From<CommandError> for sysexits::ExitCode {
@@ -150,7 +148,7 @@ impl From<CommandError> for sysexits::ExitCode {
         match value {
             CommandError::Io { operation: _, source } | CommandError::File(source) => source.into(),
             CommandError::Appender { directory: _, source: _ } => Self::CantCreat,
-            CommandError::Syntax { origin: _, source: _ } | CommandError::Decode { origin: _, source: _ } => Self::Config,
+            CommandError::Syntax { origin: _, source: _ } | CommandError::Decode { origin: _, path: _, source: _ } => Self::Config,
         }
     }
 }
@@ -179,10 +177,11 @@ where
     let exited = |error: &clap::Error| printed(error, if error.use_stderr() { sysexits::ExitCode::Usage } else { sysexits::ExitCode::Ok });
     let reported = |error: CommandError| printed(&clap::Error::raw(ErrorKind::Io, format_args!("{}\n", Report::new(&error))).with_cmd(&command), error.into());
     let written = |directory: Utf8PathBuf| {
-        fs_err::create_dir_all(&directory)
-            .map_err(CommandError::File)
-            .and_then(|()| clap_mangen::generate_to(factory(), &directory).map_err(|source| CommandError::Io { operation: Operation::Manual(directory), source }))
-            .map_or_else(reported, |()| ExitCode::SUCCESS)
+        try bikeshed Result<(), CommandError> {
+            fs_err::create_dir_all(&directory).map_err(CommandError::File)?;
+            clap_mangen::generate_to(command.clone(), &directory).map_err(|source| CommandError::Io { operation: Operation::Manual(directory), source })?
+        }
+        .map_or_else(reported, |()| ExitCode::SUCCESS)
     };
     let failed = |operation: Operation| move |source: io::Error| NEVec::new(E::from(CommandError::Io { operation, source }));
     let Augmented { options: Options { log_directory, max_log_files, manual: Manual { manual: _ }, color, telemetry }, args } = match Augmented::<Options, A>::try_parse() {

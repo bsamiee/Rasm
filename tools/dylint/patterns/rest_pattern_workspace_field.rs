@@ -19,7 +19,7 @@ enum UnnamedFields {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(REST_PATTERN_WORKSPACE_FIELD: "`..` in struct and tuple-struct patterns covering accessible fields of workspace types outside a `name @` binding");
+lint!(REST_PATTERN_WORKSPACE_FIELD: "`..` in struct and tuple-struct patterns naming a field and covering accessible fields of workspace types outside a `name @` binding");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) {
@@ -27,13 +27,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let module = cx.tcx.parent_module(pat.hir_id);
             let accessible = |field: &FieldDef| field.vis.is_accessible_from(module, cx.tcx);
             match pat.kind {
-                PatKind::Struct(_, fields, Some(rest)) => {
+                PatKind::Struct(_, fields @ [_, ..], Some(rest)) => {
                     let unnamed =
                         variant.fields.iter().filter(|field| accessible(field) && fields.iter().all(|named| named.ident.name != field.name)).map(|field| format!("{}: _", field.name)).join(", ");
                     let whole = variant.fields.iter().all(accessible) && !variant.field_list_has_applicable_non_exhaustive();
                     (!unnamed.is_empty()).then(|| if whole { UnnamedFields::Named(rest, unnamed) } else { UnnamedFields::Named(rest.shrink_to_lo(), format!("{unnamed}, ")) })
                 }
-                PatKind::TupleStruct(_, fields, rest) => (rest.as_opt_usize().is_some() && fields.len() < variant.fields.len() && variant.fields.iter().all(accessible))
+                PatKind::TupleStruct(_, fields @ [_, ..], rest) => (rest.as_opt_usize().is_some() && fields.len() < variant.fields.len() && variant.fields.iter().all(accessible))
                     .then(|| UnnamedFields::Positional(iter::repeat_n("_", variant.fields.len().strict_sub(fields.len())).join(", "))),
                 _ => None,
             }

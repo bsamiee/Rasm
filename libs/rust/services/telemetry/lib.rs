@@ -271,9 +271,13 @@ impl Options {
             .filter_map(|(field, value)| Some((field.to_owned(), value?)))
             .collect::<HashMap<_, _>>();
         let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carried));
+        let restored = |hook: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync>| panic::set_hook(Box::new(move |info| hook(info)));
         let previous: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync> = panic::take_hook().into();
         let (chained, hooked) = (Arc::clone(&previous), (traces.clone(), metrics.clone(), logs.clone()));
-        let stopping = DropGuard::new((traces, metrics, logs), move |providers| settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
+        let stopping = DropGuard::new(((traces, metrics, logs), previous), move |(providers, hook)| {
+            restored(hook);
+            settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors));
+        });
         panic::set_hook(Box::new(move |info| {
             tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
             settled(Operation::Flush, &hooked).unwrap_or_else(|errors| reported(&errors));
@@ -283,8 +287,9 @@ impl Options {
             let _parent = parent.attach();
             work(handle).inspect_err(reported)
         };
-        panic::set_hook(Box::new(move |info| previous(info)));
-        let stopped = settled(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);
+        let (providers, hook) = DropGuard::dismiss(stopping);
+        restored(hook);
+        let stopped = settled(Operation::Shutdown, &providers).inspect_err(reported);
         match (worked, stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
             (Err(failures), _) => status(failures),

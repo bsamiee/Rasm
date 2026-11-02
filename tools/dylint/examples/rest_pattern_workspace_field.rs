@@ -76,6 +76,13 @@ const fn passed(gesture: Gesture) -> Option<Gesture> {
     }
 }
 
+const fn moving(gesture: Gesture) -> u8 {
+    match gesture {
+        Gesture::Drag { .. } | Gesture::Pinch(..) => 1,
+        Gesture::Tap => 0,
+    }
+}
+
 const fn external(range: Range<u8>) -> u8 {
     let Range { start, .. } = range;
     start
@@ -95,6 +102,7 @@ fn main() {
         token.secret(),
         external(0..1),
         passed(gesture),
+        moving(gesture),
         Gesture::Tap,
         Gesture::Pinch(0, 1),
     ));

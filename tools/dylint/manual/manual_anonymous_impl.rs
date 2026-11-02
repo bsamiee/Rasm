@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, paths::PathNS};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, paths::PathNS, sym};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_hir::{
@@ -29,7 +29,7 @@ pub(crate) struct Pass {
 lint! {
     Pass;
     MANUAL_FMT_FROM_FN: "structs built at one site with only `Display` or `Debug` impls",
-    MANUAL_GEN_BLOCK: "structs built at one site with only `Iterator` or `FusedIterator` impls",
+    MANUAL_GEN_BLOCK: "structs built at one site with only `Iterator` or `FusedIterator` impls, `next` their only method",
 }
 
 impl Pass {
@@ -92,6 +92,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && tcx.inherent_impls(structure).is_empty()
                 && owned.iter().any(|&(_, implementation)| !derived_impl(tcx, implementation.to_def_id()))
                 && let Ok(Some(&anonymous)) = owned.iter().map(|(implemented, _)| self.replaced.get(implemented)).all_equal_value()
+                && (anonymous == Anonymous::Formatter
+                    || owned.iter().all(|&(_, implementation)| tcx.associated_items(implementation.to_def_id()).in_definition_order().all(|item| !item.is_fn() || item.name() == sym::next)))
             {
                 let (name, traits) = (tcx.item_name(structure), owned.iter().map(|&(implemented, _)| format!("`{}`", tcx.item_name(implemented))).unique().join(", "));
                 let (lint, help) = match anonymous {

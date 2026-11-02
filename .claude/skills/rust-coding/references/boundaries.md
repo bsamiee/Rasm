@@ -14,7 +14,7 @@ pub struct Window(Range<Timestamp>);
 
 `Window` round-trips `{"start": .., "end": ..}` and rejects an unknown key or an end at or before its start. `Deref` reaches `Range` members (`window.contains(&now)`). Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`.
 
-Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. Programs driving a `serde_json::Deserializer` decode through `serde_path_to_error::deserialize`, then reject trailing input with `Deserializer::end`.
+Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. Programs driving a `serde_json::Deserializer` decode through `serde_path_to_error::deserialize`, then reject trailing input with `Deserializer::end`. A primitive, `str`, or `String` holds no field path and reads through `Value::as_str` or another `as_*`.
 
 ## [02]-[TAGGED_UNIONS]
 
@@ -103,7 +103,7 @@ pub struct Args {
 }
 ```
 
-Flags and variables derive from field names (`--token`, `TOKEN`), a variable a package or specification names takes its constant or literal (`env = EnvFilter::DEFAULT_ENV`, `env = "OTEL_PROPAGATORS"`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record holding it beside each program's `Args` implements `CommandFactory` and `FromArgMatches` and restores the program's `about` through `Resettable::from`. Default `_mut` methods of `FromArgMatches` route to the `&ArgMatches` pair and each derived part clones, and the record writes all four methods with the `&` pair cloning once into the `_mut` pair. Builder commands read clap command metadata from `clap::command!()`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
+Flags and variables derive from field names (`--token`, `TOKEN`), a variable a package or specification names takes its constant or literal (`env = EnvFilter::DEFAULT_ENV`, `env = "OTEL_PROPAGATORS"`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record generic over each program's `Args` implements `CommandFactory`, `FromArgMatches`, and an empty `Parser` supplying `try_parse`, and restores the program's `about` through `Resettable::from`. Hand-written `CommandFactory` and `FromArgMatches` impls exist for that generic record alone, and a program wrapping a child command derives `Parser` over `program: OsString` and a trailing `Vec<OsString>` under `trailing_var_arg` and `allow_hyphen_values`. Default `_mut` methods of `FromArgMatches` route to the `&ArgMatches` pair and each derived part clones, and the record writes all four methods with the `&` pair cloning once into the `_mut` pair. Builder commands read clap command metadata from `clap::command!()`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -134,30 +134,33 @@ where S: DeserializeOwned {
             NEVec::try_from_vec(errors).map_or(Validated::Good(Spanned::new(table.span(), DeValue::Table(table.into_inner()))), |failures| {
                 Validated::Fail(failures.into_nonempty_iter().map(|mut source| {
                     source.set_input(None);
-                    ServiceError::Syntax { layer: Arc::clone(layer), span: source.span(), source: Box::new(source) }
+                    ServiceError::Syntax { origin: Origin { layer: Arc::clone(layer), span: source.span() }, source: Box::new(source) }
                 }).collect())
             })
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
     serde_path_to_error::deserialize(ValueDeserializer::from(roots.iter().cloned().fold(Spanned::new(0..0, DeValue::Table(DeTable::new())), merged))).map_err(|error| {
-        let located = iter::zip(layers, &roots).rev().find_map(|(layer, root)| {
-            error
-                .path()
-                .iter()
-                .try_fold(root, |value, segment| match segment {
-                    Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
-                    Segment::Seq { index } => value.get_ref().get(*index),
-                    Segment::Unknown => None,
-                })
-                .map(|value| (Arc::clone(layer), value.span()))
-        });
-        NEVec::new(ServiceError::Settings { located, source: Box::new(error) })
+        let origin = iter::zip(layers, &roots)
+            .map(|(layer, root)| {
+                let spans = error.path().iter().scan(root, |value, segment| {
+                    *value = match segment {
+                        Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
+                        Segment::Seq { index } => value.get_ref().get(*index),
+                        Segment::Unknown => None,
+                    }?;
+                    Some(value.span())
+                });
+                (layer, spans.enumerate().last())
+            })
+            .max_by_key(|(_, deepest)| deepest.as_ref().map(|(depth, _)| *depth))
+            .map(|(layer, deepest)| Origin { layer: Arc::clone(layer), span: deepest.map(|(_, span)| span) });
+        NEVec::new(ServiceError::Settings { origin, source: Box::new(error) })
     })
 }
 ```
 
-`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, and a `Layer` holds one file's `path` and `text`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain`. Later layers replace values and merge tables key by key. `located` holds the last layer defining the failing path and its span, an empty path (a missing root field) reads the last layer's root, and `None` means no layer defines it. `Syntax` holds `span: Option<Range<usize>>`, and `Settings` holds `located: Option<(Arc<Layer>, Range<usize>)>`.
+`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key. A decode failure locates the layer holding the deepest prefix of its path, the later layer on a tie, and a key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that an empty stack leaves `None`.
 
 ## [06]-[ENTRY_POINT]
 
@@ -172,16 +175,17 @@ fn main() -> ExitCode {
 ```
 
 `read` joins every path's `Arc<Layer>` read through `Validated`, and `Defaults { .. }` keeps the `info` filter. `command::run` holds each process effect around the work:
-- `get_matches_mut` under `subcommand_required(false)` runs an `exclusive` process flag (`--manual`) before a required subcommand is checked
-- JSON lines write to `(move || OptionalWriter::from(journal.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
-- Failures before the subscriber starts are crate error variants (`Journal { directory, source }`), printed through `Command::error(..).print()`
+- `Parser::try_parse` parses once, and a failed parse reads `--manual` through `ignore_errors(true)`, `exclusive` conflicting with any set `env` variable
+- JSON lines write to `(move || OptionalWriter::from(appender.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
+- Failures before the subscriber starts are crate error variants (`Appender { directory, source }`), printed through `clap::Error::raw(<kind>, ..).with_cmd(&command)`
 - `.print().map_or_else(sysexits::ExitCode::from, |()| error.into()).into()` exits with the variant's status or the print failure's
 - Startup failures report through `dispatcher::with_default(&early, ..)`, a scoped `WARN` dispatch ahead of the global subscriber
 - `DropGuard::new(Runtime::new()?, Runtime::shutdown_background)` holds the runtime `block_on` reads, every path returning without waiting for blocked tasks
 - `panic::update_hook` ahead of `ratatui::try_init` restores terminal state after the init's restore and before the previous hook
-- `panic::set_hook` under `DropGuard::new(panic::take_hook(), panic::set_hook)` force-flushes each provider, and `panic = "abort"` runs no other flush
+- `panic::set_hook` force-flushes each provider, then calls the previous hook, `panic::take_hook()` held as an `Arc<dyn Fn(&PanicHookInfo) + Send + Sync>` the guard restores
 - Hooks record `info.payload_as_str()` and `info.location()`, a `%info` field renders both as text and layer `code.*` fields name the hook
-- `DropGuard` over the providers shuts them down on unwind, and `DropGuard::dismiss` returns them once the work commits for a reported shutdown
+- `DropGuard` over the providers and previous hook shuts them down and restores it on unwind, and `DropGuard::dismiss` returns both once the work commits
+- `panic = "abort"` runs no unwind release, and a hook held for process lifetime chains through `panic::update_hook` to drop the `WorkerGuard` an `Arc<nonpoison::Mutex<Option<WorkerGuard>>>` holds
 - Work returning `T: Termination` exits through `report()`
 
-Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Writer, encoder, and pager failures fold into one `Option<io::ErrorKind>`, and a `BrokenPipe` from a closed reader ends output as success. `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).
+Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Writer, encoder, and pager failures fold into one `Option<io::ErrorKind>` the exit match reads in its first arm (`error if let Some(kind) = io_error_kind(&error) => kind.into()`), and a `BrokenPipe` from a closed reader ends output as success. `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).

@@ -61,9 +61,7 @@ struct Meta<M>(M);
 impl<M> Extractor for Meta<M>
 where M: Deref<Target = MetaObject>
 {
-    fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).and_then(|value| serde_path_to_error::deserialize(value).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "trace context unread")).ok())
-    }
+    fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(Value::as_str) }
 
     fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
 }

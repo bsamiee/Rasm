@@ -4,7 +4,7 @@ use std::io::{self, IsTerminal as _, StdoutLock, Write as _};
 use anstream::{AutoStream, ColorChoice};
 use anstyle::{Effects, Style};
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table, presets};
-use csv::{ByteRecord, ReaderBuilder, Writer};
+use csv::{ByteRecord, IntoInnerError, ReaderBuilder, Writer};
 use minus::{Pager, hooks::Hook};
 use nonempty_collections::NEVec;
 use serde::Serialize;
@@ -61,11 +61,12 @@ where
             Sink::Records(out) => out.serialize(&value).map_err(|source| OutputError::Records { row, source }),
             Sink::Grid { table, header: style, paging: _ } => {
                 let mut record = Writer::from_writer(Vec::new());
-                let records = record
-                    .serialize(&value)
-                    .and_then(|()| record.into_inner().map_err(|failure| failure.into_error().into()))
-                    .and_then(|bytes| ReaderBuilder::new().has_headers(false).from_reader(bytes.as_slice()).into_byte_records().try_collect::<Vec<ByteRecord>>())
-                    .map_err(|source| OutputError::Records { row, source })?;
+                let records = try bikeshed Result<Vec<ByteRecord>, csv::Error> {
+                    record.serialize(&value)?;
+                    let bytes = record.into_inner().map_err(IntoInnerError::into_error)?;
+                    ReaderBuilder::new().has_headers(false).from_reader(bytes.as_slice()).into_byte_records().try_collect::<Vec<ByteRecord>>()?
+                }
+                .map_err(|source| OutputError::Records { row, source })?;
                 let Some((fields, names)) = records.split_last() else { return Ok(()) };
                 if let Some(names) = names.first()
                     && table.header().is_none()

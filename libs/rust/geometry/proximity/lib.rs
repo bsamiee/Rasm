@@ -1,4 +1,4 @@
-#![feature(default_field_values, trait_alias)]
+#![feature(control_flow_into_value, default_field_values, trait_alias)]
 
 use core::num::NonZero;
 

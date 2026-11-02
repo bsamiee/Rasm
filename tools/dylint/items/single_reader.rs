@@ -203,10 +203,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             {
                 let caller_name = tcx.item_name(caller);
                 let generic = |item: LocalDefId| tcx.generics_of(item).requires_monomorphization(tcx);
-                let form = if matches!(tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn) && generic(target) && generic(caller) && sites.iter().all(|&(reader, _)| reader != target) {
-                    "a closure over its generic parameters"
-                } else {
-                    "a nested item"
+                let form = match tcx.def_kind(target) {
+                    DefKind::Fn | DefKind::AssocFn if sites.iter().any(|&(reader, _)| reader == target) || generic(target) && !generic(caller) || tcx.is_const_fn(target.to_def_id()) =>
+                        "a nested `fn`",
+                    DefKind::Fn | DefKind::AssocFn => "a closure",
+                    _ => "a nested item",
                 };
                 span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), format!("`{name}` has one reader, `{caller_name}`"), |diag| {
                     diag.span_note(outside().map(|&(_, site)| site).collect::<Vec<_>>(), "read here");

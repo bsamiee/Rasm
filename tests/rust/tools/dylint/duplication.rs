@@ -113,15 +113,15 @@ fn duplicate_body(found: &str) {
         = help: delete `sum` and call `total` at each call site
 
     warning: `Iterator` impls for `Countdown` and `Repeated` have the same `next` body
-      --> tools/dylint/examples/manual_gen_block.rs:21:5
+      --> tools/dylint/examples/manual_gen_block.rs:25:5
        |
-    21 |     fn next(&mut self) -> Option<u8> {
+    25 |     fn next(&mut self) -> Option<u8> {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: repeated here
-      --> tools/dylint/examples/manual_gen_block.rs:39:5
+      --> tools/dylint/examples/manual_gen_block.rs:55:5
        |
-    39 |     fn next(&mut self) -> Option<u8> {
+    55 |     fn next(&mut self) -> Option<u8> {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: generate the `Iterator` impls from one `macro_rules!` over the implementing type
        = note: `#[warn(duplicate_body)]` on by default

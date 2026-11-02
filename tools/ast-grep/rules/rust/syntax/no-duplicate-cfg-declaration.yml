@@ -47,19 +47,31 @@ utils:
             - matches: value-shape
             - matches: impl-shape
             - matches: let-shape
+    selected-alias:
+        kind: identifier
+        follows: {regex: '^type$'}
+        inside:
+            kind: token_tree
+            inside: {kind: token_tree, inside: {kind: macro_invocation, has: {field: macro, regex: '^cfg_select$'}}}
 rule:
-    kind: 'function_item, function_signature_item, const_item, static_item, impl_item, let_declaration'
-    all:
-        - follows: {stopBy: &run {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: rust-cfg-attribute, pattern: $CFG}
-        - matches: declaration-shape
-        - precedes:
-            stopBy: end
-            pattern: $AGAIN
-            all:
-                - matches: declaration-shape
-                - follows: {stopBy: *run, matches: rust-cfg-attribute, not: {pattern: $CFG}}
+    any:
+        - kind: 'function_item, function_signature_item, const_item, static_item, impl_item, let_declaration'
+          all:
+            - follows: {stopBy: &run {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: rust-cfg-attribute, pattern: $CFG}
+            - matches: declaration-shape
+            - precedes:
+                stopBy: end
+                pattern: $AGAIN
+                all:
+                    - matches: declaration-shape
+                    - follows: {stopBy: *run, matches: rust-cfg-attribute, not: {pattern: $CFG}}
+        - kind: identifier
+          all:
+            - pattern: $NAME
+            - matches: selected-alias
+            - inside: {kind: token_tree, precedes: {stopBy: end, kind: token_tree, has: {pattern: $NAME, matches: selected-alias}}}
 labels:
     NAME: {style: primary, message: 'Declared under one `cfg`'}
     AGAIN: {style: secondary, message: 'Same declaration under another `cfg`'}
-message: '`$CFG` and another `cfg` each declare `$NAME`'
-note: 'Declare the item once and select differing values, statements, or members with `cfg_select!`'
+message: 'More than one `cfg` declares `$NAME`'
+note: 'Declare the item once with one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`)'

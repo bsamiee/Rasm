@@ -37,13 +37,13 @@ Function signatures are contracts, parameter types state every value a function 
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
 - Defaults sit on one options struct whose `default_field_values` state each, an optional input defaulting to `None` among them in place of a positional `Option` parameter, and a caller writes the fields it changes before `..`
-- Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
+- Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it, and a value an input already holds (a mesh's cached `local_aabb`) is read from it, never recomputed
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds recursion or a generic of its own
+- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds recursion, a generic of its own, or a `const fn`
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -89,7 +89,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Arms and closures of a combinator choosing a value (`map_or`, `map_or_else`, `Some(x).filter(p).unwrap_or_else(f)`) nest no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
-- Optional builder steps fold an `Option` into the value (`tint.into_iter().fold(style, Style::fg)`), and `None` returns it unchanged
+- Optional builder steps fold an `Option` into the value point-free (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`, and `None` returns it unchanged
 - `LazyCell` locals defer a value only some inputs read, and a value built lazily per element is a `OnceLock` in that element's tuple or record, never a parallel collection matched by index
 
 ### [02.1]-[PATTERN_MATCHING]
@@ -112,7 +112,7 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
 - `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
-- Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test
+- Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test, and `<[T; 1]>::try_from(items)` takes an owned single item, `Err` returning the `Vec` whole
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
 
 ### [02.2]-[RECURSION]
@@ -151,14 +151,14 @@ pub enum Delivery {
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
-- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1) becomes `None` where it enters (`Option<NonZero<u32>>`)
+- Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
 
 ### [03.2]-[CONSTRAINED_VALUES]
 
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
-- `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum
+- `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
 - `derive_more` derives `From`, `Into`, `AsRef`, and `Display` on a newtype with no invariant, `#[as_ref]` exposes a guarded record's field read-only
-- `NonZero<T>` holds a nonzero integer, `bounded_integer` a range of integers, `NotNan<f64>` an ordered float key
+- `NonZero<T>` holds a nonzero integer, a `NonZero` constant written as `const { NonZero::new(<value>).unwrap() }`, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
@@ -187,7 +187,7 @@ impl Account {
 ```
 
 - `Account` holds an `id` and a `balance`, and one signed `amount` states a credit and a debit alike
-- Struct update syntax (`..self`) copies the unchanged fields of the replaced state, a changed type parameter included
+- Struct update copies unchanged fields from a replaced state (`..self`, a changed type parameter included), a foreign default, or a foreign value (`..event`)
 - `&mut self` methods stay on a type whose purpose is an owned buffer (a builder, a parser cursor)
 
 Select collections by their most frequent operation:
@@ -248,14 +248,14 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target
-- Foreign trait methods fixing one error type (`FromArgMatches::from_arg_matches`) bind independent steps through `?` in one struct literal
+- Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
 - Errors from one traversed element name the element, its index or its key
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are a fieldless enum field on its variant, its `Display` derived from variant names, and a variant whose words differ from its name (`Shutdown` as `shut down`) takes its own `#[display(..)]`:
+Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are an enum field on its variant, fieldless but for an operation's own subject (`Export(Utf8PathBuf)` under `#[display("export into {_0}")]`), its `Display` derived from variant names, and a variant whose words differ from its name (`Shutdown` as `shut down`) takes its own `#[display(..)]`:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -275,7 +275,7 @@ pub enum LedgerError {
 }
 ```
 
-- Messages render from typed fields through `#[error]` and print no source, `Report::new(&error)` renders the chain
+- Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
 - Messages branching on a field render through `#[error("{}", fmt::from_fn(..))]`
 - Fields named `source` hold the foreign error a variant wraps
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
@@ -367,6 +367,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
+- Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
 
 Dependency structure and concurrency bound select the combinator:
@@ -409,21 +410,24 @@ Libraries return their own error, and the application composes each failure poli
 ## [07]-[NUMERICS]
 
 Numeric facts come from the type or package that states them:
-- Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect, `saturating_*` where clamping rules
+- Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
 - Tolerances are values a caller passes, and floats compare within them, a zero or default the callee defines reachable as `None`
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`
 - Operators state float, dual, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
+- Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair
 
 Roots, quadrature, factorizations, derivatives, quantiles, and optimization are package members:
 
-| [INDEX] | [PROBLEM]      | [MEMBER]                                 |
-| :-----: | :------------- | :--------------------------------------- |
-|  [01]   | Scalar root    | `argmin` `BrentRoot`                     |
-|  [02]   | Quadrature     | `GaussLegendre::integrate`               |
-|  [03]   | Factorization  | `faer` `svd`, `qr`, `partial_piv_lu`     |
-|  [04]   | Derivative     | `num_dual::first_derivative`, `gradient` |
-|  [05]   | Quantile       | `statrs` `OrderStatistics::quantile`     |
-|  [06]   | Linear program | `good_lp` over the `clarabel` solver     |
+| [INDEX] | [PROBLEM]         | [MEMBER]                                 |
+| :-----: | :---------------- | :--------------------------------------- |
+|  [01]   | Scalar root       | `argmin` `BrentRoot`                     |
+|  [02]   | Quadrature        | `GaussLegendre::integrate`               |
+|  [03]   | Factorization     | `faer` `svd`, `qr`, `partial_piv_lu`     |
+|  [04]   | Derivative        | `num_dual::first_derivative`, `gradient` |
+|  [05]   | Quantile          | `statrs` `OrderStatistics::quantile`     |
+|  [06]   | Linear program    | `good_lp` over the `highs` solver        |
+|  [07]   | Conic program     | `clarabel` `DefaultSolver`               |
+|  [08]   | Nonlinear program | `nlopt` `Nlopt::optimize`                |

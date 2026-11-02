@@ -275,6 +275,14 @@ fn cloned_command_matches(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: call `try_get_matches_from_mut(arguments)` on a mutable borrow of `command`
+
+    warning: `try_get_matches` consumes a clone of `command`
+      --> tools/dylint/examples/cloned_command_matches.rs:28:68
+       |
+    28 | fn ambient(command: &Command) -> Result<ArgMatches, clap::Error> { command.clone().try_get_matches() }
+       |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: parse once through `Parser::try_parse`
     ");
 }
 

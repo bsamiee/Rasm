@@ -3,7 +3,7 @@ use rustc_hir::{Expr, ExprKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{TyCtxt, TypeVisitableExt as _, print::with_forced_trimmed_paths};
 
-use crate::{expanded_externally, path};
+use crate::{expanded_externally, is_text, path};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ pub(crate) struct Pass {
     deserialize: Option<DefId>,
 }
 
-lint!(Pass; DECODE_WITHOUT_PATH: "`Deserialize::deserialize` calls on a concrete deserializer that track no field path");
+lint!(Pass; DECODE_WITHOUT_PATH: "`Deserialize::deserialize` calls into a type other than a primitive, `str`, or `String` on a concrete deserializer that track no field path");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { deserialize: path(tcx, PathNS::Value, "serde::de::Deserialize::deserialize") } }
@@ -24,6 +24,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && fn_def_id(cx, expr).is_some_and(|called| self.deserialize == Some(called))
             && let source = cx.typeck_results().expr_ty(deserializer)
             && !source.has_param()
+            && cx.typeck_results().node_args(callee.hir_id).types().next().is_some_and(|target| !target.peel_refs().is_primitive() && !is_text(cx, target))
         {
             let source = with_forced_trimmed_paths!(source.to_string());
             span_lint_hir_and_then(cx, DECODE_WITHOUT_PATH, expr.hir_id, callee.span, format!("`Deserialize::deserialize` decodes `{source}` without tracking the field path"), |diag| {

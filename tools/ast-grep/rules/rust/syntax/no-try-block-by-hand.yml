@@ -47,6 +47,7 @@ rule:
             - not: {inside: {kind: field_expression, field: value, inside: {matches: unit-step}}}
             - any:
                 - has: {field: function, has: {field: value, matches: unit-step}}
+                - inside: {kind: field_expression, field: value}
                 - inside: {kind: try_expression}
                 - inside: {stopBy: {kind: 'closure_expression, function_item'}, kind: try_block}
                 - all:

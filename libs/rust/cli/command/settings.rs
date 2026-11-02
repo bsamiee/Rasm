@@ -111,7 +111,7 @@ where S: DeserializeOwned {
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
     serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().map(Spanned::into_inner).fold(DeTable::new(), merged))))
-        .map_err(|source| NEVec::new(CommandError::Decode { origin: provenance.origin(source.path()), source: Box::new(source) }))
+        .map_err(|source| NEVec::new(CommandError::Decode { origin: provenance.origin(source.path()), path: source.path().clone(), source: Box::new(source.into_inner()) }))
         .map(|settings| (settings, provenance))
 }
 

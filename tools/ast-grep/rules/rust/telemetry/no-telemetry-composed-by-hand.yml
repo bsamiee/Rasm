@@ -60,4 +60,4 @@ rule:
             - inside: {kind: scoped_identifier}
             - inside: {kind: use_declaration, stopBy: end}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
-note: 'Run the process entry through `rasm_command::run`, and chain a hook onto the one before it through `panic::update_hook` calling its first parameter'
+note: 'Run process entry through `rasm_command::run`, and chain a hook held for process lifetime onto the previous hook through `panic::update_hook` calling its first parameter'

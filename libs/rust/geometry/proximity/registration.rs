@@ -91,12 +91,12 @@ pub fn register(
             converged: false,
         })
     };
-    match (NonZero::<usize>::MIN.saturating_add(1)..=iterations).try_fold(step(&initial, NonZero::<usize>::MIN)?, |previous, iteration| match step(&previous.pose, iteration) {
-        Err(error) => ControlFlow::Break(Err(error)),
-        Ok(next) if next.matched == previous.matched && (previous.rms - next.rms).abs() <= tolerance * previous.rms => ControlFlow::Break(Ok(Registration { converged: true, ..next })),
-        Ok(next) => ControlFlow::Continue(next),
-    }) {
-        ControlFlow::Break(outcome) => outcome,
-        ControlFlow::Continue(registration) => Ok(registration),
-    }
+    (const { NonZero::new(2).unwrap() }..=iterations)
+        .try_fold(step(&initial, NonZero::<usize>::MIN)?, |previous, iteration| match step(&previous.pose, iteration) {
+            Err(error) => ControlFlow::Break(Err(error)),
+            Ok(next) if next.matched == previous.matched && (previous.rms - next.rms).abs() <= tolerance * previous.rms => ControlFlow::Break(Ok(Registration { converged: true, ..next })),
+            Ok(next) => ControlFlow::Continue(next),
+        })
+        .map_continue(Ok)
+        .into_value()
 }

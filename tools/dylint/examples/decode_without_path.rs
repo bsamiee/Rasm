@@ -33,6 +33,8 @@ fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deseria
 
 fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
 
+fn text(value: &serde_json::Value) -> Result<&str, serde_json::Error> { <&str>::deserialize(value) }
+
 fn tracked(text: &str) -> Result<Wrapped, serde_path_to_error::Error<serde_json::Error>> { serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(text)) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -47,5 +49,6 @@ fn main() {
         }),
         converted(serde_json::Value::Null).map(read),
         tracked("{}").map(|Wrapped(port)| read(port)),
+        text(&serde_json::Value::Null).map(str::len),
     ));
 }

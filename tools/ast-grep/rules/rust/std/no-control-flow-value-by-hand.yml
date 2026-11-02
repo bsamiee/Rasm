@@ -18,8 +18,25 @@ utils:
     returning-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {any: [{matches: break-binding}, {matches: continue-binding}]}}]}
             - has: {field: value, kind: identifier, pattern: $VALUE}
+    other-arm:
+        kind: match_arm
+        all:
+            - has:
+                field: pattern
+                kind: match_pattern
+                all:
+                    - not: {has: {field: condition, pattern: $_}}
+                    - has: {kind: tuple_struct_pattern, all: [{has: {nthChild: 2, kind: identifier, pattern: $OTHER}}, {not: {has: {nthChild: 3}}}]}
+            - has:
+                field: value
+                any:
+                    - {kind: identifier, pattern: $OTHER}
+                    - kind: call_expression
+                      all:
+                          - has: {field: function, kind: 'identifier, scoped_identifier'}
+                          - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $OTHER}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
         - kind: or_pattern
@@ -31,7 +48,10 @@ rule:
         - kind: match_block
           all:
             - not: {has: {nthChild: 3}}
-            - has: {matches: returning-arm, has: {field: pattern, has: {matches: break-binding}}}
-            - has: {matches: returning-arm, has: {field: pattern, has: {matches: continue-binding}}}
-message: '`Break($VALUE)` and `Continue($VALUE)` patterns bind the payload both `ControlFlow` variants hold'
-note: 'Call `<control flow>.into_value()` (`#![feature(control_flow_into_value)]`), through `.map(ControlFlow::into_value)` under a `Result` or `Option`'
+            - has:
+                matches: returning-arm
+                any:
+                    - precedes: {stopBy: end, matches: other-arm}
+                    - follows: {stopBy: end, matches: other-arm}
+message: '`Break` and `Continue` arms return the value each `ControlFlow` variant holds'
+note: 'Call `<control flow>.into_value()` (`#![feature(control_flow_into_value)]`), after `map_continue` or `map_break` wraps one side''s value (`map_continue(Ok)`), through `.map(ControlFlow::into_value)` under a `Result` or `Option`'
