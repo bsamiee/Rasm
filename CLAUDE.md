@@ -10,6 +10,7 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
+- Host probes run through `tools/harnesses`, a probe that fails or falls short fixes its harness at the cause as general capability
 
 ## [01]-[LANGUAGE_STANDARDS]
 
