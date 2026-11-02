@@ -41,18 +41,21 @@ let modules: [Target] = [
         path: "libs/swift/macos/Processes",
     ),
     .target(
+        name: "AppleEvents",
+        dependencies: [
+            "Encoding", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "OrderedCollections", package: "swift-collections"),
+        ],
+        path: "libs/swift/macos/AppleEvents",
+    ),
+    .target(
         name: "Applications",
         dependencies: [
-            "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            "AppleEvents", "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
-    ),
-    .target(
-        name: "AppleEvents",
-        dependencies: ["Applications", "Encoding", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections")],
-        path: "libs/swift/macos/AppleEvents",
     ),
 ]
 let executables: [Target] = [

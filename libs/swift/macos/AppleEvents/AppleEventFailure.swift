@@ -22,6 +22,11 @@ public struct AppleEventFailure: CustomNSError, LocalizedError {
     public let subject: String
     public let reason: Reason
 
+    package init(subject: String, reason: Reason) {
+        self.subject = subject
+        self.reason = reason
+    }
+
     public var errorDescription: String? {
         switch reason {
             case .requiresRunning: "\(subject) has no OSAScriptingDefinition, open it to read its dictionary"

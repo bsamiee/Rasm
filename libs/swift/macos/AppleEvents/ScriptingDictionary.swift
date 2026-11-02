@@ -1,5 +1,5 @@
 import Carbon.OpenScripting
-import CasePaths
+import CasePathsCore
 public import CoreServices
 import Encoding
 public import Foundation
@@ -168,6 +168,16 @@ public final class ScriptingDictionary: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ScriptingDictionary {
+    // --- [DEFINITIONS]
+    public static func definition(of application: URL) throws(AppleEventFailure) -> Data {
+        var definition: Unmanaged<CFData>?
+        let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
+        guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else {
+            throw AppleEventFailure(subject: application.path(percentEncoded: false), reason: .osa(status))
+        }
+        return data as Data
+    }
+
     // --- [COMMANDS]
     public func command(_ query: String, taking arguments: Set<String>) throws(Unmatched) -> Command {
         let code: UInt64? = UInt64(sdef: query)
@@ -219,6 +229,13 @@ extension ScriptingDictionary {
             throw AggregateError(first: AppleEventFailure(subject: "\(command.name) (\(command.code.sdef))", reason: .activating))
         }
         return event
+    }
+
+    public func reply(to query: String, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
+        let command: Command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
+            .aggregated { miss in AppleEventFailure(subject: query, reason: .unmatched(miss)) }.get()
+        let event: NSAppleEventDescriptor = try event(command, arguments: arguments, target: target)
+        return AppleEventValue(try Result { () throws(AppleEventFailure) in try event.send() }.aggregated(\.self).get(), in: self)
     }
 
     func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {

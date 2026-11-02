@@ -1,6 +1,8 @@
 public import AppKit
+import AppleEvents
 import AsyncAlgorithms
 import Processes
+import Results
 import System
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -22,10 +24,27 @@ public struct Launch: ~Copyable, Sendable {
     }
 
     deinit {
-        if quits {
-            _ = try? NSAppleEventDescriptor(processIdentifier: instance.processIdentifier).coreEvent(kAEQuitApplication, declining: keyAESaveOptions)
-                .sendEvent(options: [.noReply, .neverInteract], timeout: NSAppleEventTimeOutDefault)
+        guard quits else { return }
+        let target: NSAppleEventDescriptor = NSAppleEventDescriptor(processIdentifier: instance.processIdentifier)
+        func closeDocuments(of application: URL) throws(AggregateError<AppleEventFailure>) {
+            let dictionary: ScriptingDictionary = try Result { () throws(AppleEventFailure) in try ScriptingDictionary(definition: ScriptingDictionary.definition(of: application)) }
+                .aggregated(\.self).get()
+            let location: String? = dictionary.declarations[.class, default: []].first { term in term.name == "document" }?.members
+                .first { member in member.name == "path" || !member.types.isDisjoint(with: fileTypes) }?.name
+            let every: AppleEventValue = .specifier(want: "document", form: .index, seld: .text("every"), from: .null)
+            guard case .list(let documents) = try dictionary.reply(to: "get", arguments: ["direct": every], target: target) else { return }
+            for document: AppleEventValue in documents.reversed() {
+                let reading: AppleEventValue? = location.map { property in .specifier(want: DescType(cProperty).sdef, form: .property, seld: .text(property), from: document) }
+                let saving: String =
+                    switch reading.flatMap({ reading in try? dictionary.reply(to: "get", arguments: ["direct": reading], target: target) }) {
+                        case .file, .text: "yes"
+                        case _: "no"
+                    }
+                _ = try dictionary.reply(to: "close", arguments: ["direct": document, "saving": .enumerator(saving)], target: target)
+            }
         }
+        _ = instance.bundleURL.map { application in try? closeDocuments(of: application) }
+        _ = try? target.coreEvent(kAEQuitApplication, setting: keyAESaveOptions, to: kAEYes).sendEvent(options: [.noReply, .neverInteract], timeout: NSAppleEventTimeOutDefault)
     }
 
     public consuming func detached() -> NSRunningApplication {
@@ -45,7 +64,7 @@ private let hostSettings: KeyValuePairs<String, [HostSetting]> = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSAppleEventDescriptor {
-    fileprivate func coreEvent(_ event: AEEventID, declining option: AEKeyword) -> NSAppleEventDescriptor {
+    fileprivate func coreEvent(_ event: AEEventID, setting option: AEKeyword, to value: OSType) -> NSAppleEventDescriptor {
         let core: NSAppleEventDescriptor = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
             eventID: event,
@@ -53,7 +72,7 @@ extension NSAppleEventDescriptor {
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
-        core.setParam(NSAppleEventDescriptor(enumCode: OSType(kAENo)), forKeyword: option)
+        core.setParam(NSAppleEventDescriptor(enumCode: value), forKeyword: option)
         return core
     }
 }
@@ -87,7 +106,7 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         if documents.isEmpty {
-            configuration.appleEvent = NSAppleEventDescriptor(applicationURL: url).coreEvent(kAEOpenApplication, declining: keyAERestoreAppState)
+            configuration.appleEvent = NSAppleEventDescriptor(applicationURL: url).coreEvent(kAEOpenApplication, setting: keyAERestoreAppState, to: kAENo)
         }
         do {
             let instance: NSRunningApplication =

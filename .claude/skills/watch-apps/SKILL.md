@@ -30,7 +30,8 @@ watch-apps launch <app> [--new] \
 - Names matching no app print a `fail` line, names matching apps of more than one bundle id a `fail` line listing them, and `watch` exits when no name resolves
 - `launch` of a bundle id installed at more than one path prints a `fail` line naming each path, pass one path as the name
 - `launch` reuses the instance running at the app's path unless `--new` is passed, and opens a new one hidden, unfocused, and without splash screen
-- `launch` prints state lines until the instance leaves `launching`, then exits on a reused one or quits a new one without saving when its starter exits or signals it
+- `launch` prints state lines until the instance leaves `launching`, then exits on a reused one or quits a new one when its starter exits or signals it
+- Quits save each document with a file and close each untitled one unsaved, asking nothing
 - `--document` opens each named file, an unreachable file fails the command before anything opens
 - Without `--document`, an AppKit app opens an untitled document with no restored windows and an Adobe app its Home screen, `make document` creating one
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest

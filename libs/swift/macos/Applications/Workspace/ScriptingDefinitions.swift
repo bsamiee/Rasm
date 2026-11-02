@@ -1,7 +1,6 @@
 import AppKit
-public import Applications
-import Carbon.OpenScripting
-import CasePaths
+public import AppleEvents
+import CasePathsCore
 public import Foundation
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -31,13 +30,9 @@ public actor ScriptingDefinitions {
 extension Installation {
     @concurrent
     public func scriptingDefinition() async throws(AppleEventFailure) -> Data {
-        let path: String = url.path(percentEncoded: false)
-        guard !NSWorkspace.shared.instances(of: runs).isEmpty || scriptingDefinitionFile != nil else { throw AppleEventFailure(subject: path, reason: .requiresRunning) }
-        return try await withTaskExecutorPreference(appleEvents) { () throws(AppleEventFailure) in
-            var definition: Unmanaged<CFData>?
-            let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(url as CFURL, 0, &definition)
-            guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else { throw AppleEventFailure(subject: path, reason: .osa(status)) }
-            return data as Data
+        guard !NSWorkspace.shared.instances(of: runs).isEmpty || scriptingDefinitionFile != nil else {
+            throw AppleEventFailure(subject: url.path(percentEncoded: false), reason: .requiresRunning)
         }
+        return try await withTaskExecutorPreference(appleEvents) { () throws(AppleEventFailure) in try ScriptingDictionary.definition(of: url) }
     }
 }

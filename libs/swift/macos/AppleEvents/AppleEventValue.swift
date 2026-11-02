@@ -1,4 +1,4 @@
-import CasePaths
+import CasePathsCore
 import CoreServices
 import Encoding
 public import Foundation
@@ -48,6 +48,10 @@ enum Ordinal: String, CaseIterable, Sendable {
         }
     }
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+public let fileTypes: Set<String> = ["file", "alias", "file specification"]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -227,7 +231,7 @@ extension AppleEventValue {
                         try NSAppleEventDescriptor(date: Result { try Date.ISO8601FormatStyle().parse(text) }.aggregated { error in AppleEventFailure(subject: text, reason: .host(error)) }.get())
                     default:
                         switch URL(string: text) {
-                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): NSAppleEventDescriptor(fileURL: url)
+                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: fileTypes): NSAppleEventDescriptor(fileURL: url)
                             case .some, .none: NSAppleEventDescriptor(string: text)
                         }
                 }
