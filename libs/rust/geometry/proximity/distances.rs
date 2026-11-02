@@ -8,7 +8,7 @@ use parry3d_f64::{
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 
-use crate::{Assembly, Distance, Placed, ProximityError};
+use crate::{Assembly, Distance, ProximityError};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,33 +24,32 @@ pub struct Projection {
 
 pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option<Distance>) -> Result<Vec<Option<Projection>>, NEVec<ProximityError>> {
     crate::bounded(points).map_err(NEVec::new)?;
-    let nearest = |target: Vector, max_cost: f64| {
-        assembly.bvh.find_best(
-            max_cost,
-            |node, _| node.aabb().distance_to_local_point(target, true),
-            |leaf, best| {
-                let element @ (_, pose, shape, _) = assembly.element(leaf)?;
-                shape.project_point_with_max_dist(pose, target, false, best).map(|projection| (projection.point.distance(target), (element, projection)))
-            },
-        )
-    };
+    let max_cost = max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up());
     points
         .par_iter()
         .enumerate()
         .map(|(index, &point)| {
             let target = Vector::from(point);
-            max_distance
-                .map_or_else(|| nearest(target, f64::INFINITY), |bound| nearest(target, bound.into_inner().next_up()))
-                .map(|(_, (distance, (element, projection)))| signed(index, element, target, distance, projection))
+            assembly
+                .bvh
+                .find_best(
+                    max_cost,
+                    |node, _| node.aabb().distance_to_local_point(target, true),
+                    |leaf, best| {
+                        let element @ (_, pose, shape) = assembly.element(leaf)?;
+                        shape.project_point_with_max_dist(pose, target, false, best).map(|projection| (projection.point.distance(target), (element, projection)))
+                    },
+                )
+                .map(|(_, (distance, ((element, pose, shape), projection)))| match shape.as_compound() {
+                    Some(compound) if compound.contains_point(pose, target) => Err(ProximityError::Compound { point: index, element }),
+                    Some(_) | None => Ok(signed(element, projection, distance, projection.is_inside)),
+                })
                 .transpose()
         })
         .collect::<Validated<Vec<_>, ProximityError>>()
         .ok()
 }
 
-pub(crate) fn signed(point: usize, (element, pose, shape, _): Placed<'_>, target: Vector, distance: f64, projection: PointProjection) -> Result<Projection, ProximityError> {
-    match shape.as_compound() {
-        Some(compound) if compound.contains_point(pose, target) => Err(ProximityError::Compound { point, element }),
-        Some(_) | None => Ok(Projection { element, subshape: projection.subshape, point: Point3::from(projection.point), distance: if projection.is_inside { -distance } else { distance } }),
-    }
+pub(crate) fn signed(element: usize, projection: PointProjection, distance: f64, inside: bool) -> Projection {
+    Projection { element, subshape: projection.subshape, point: Point3::from(projection.point), distance: if inside { -distance } else { distance } }
 }

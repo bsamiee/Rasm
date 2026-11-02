@@ -34,17 +34,24 @@ impl Cloud {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn nearest(cloud: &Cloud, queries: &[Point3<f64>], max_distance: Option<Distance>) -> Result<Vec<Option<Neighbor>>, ProximityError> {
-    max_distance.map_or_else(
-        || crate::bounded(queries).map(|()| cloud.0.query_batch(bytemuck::cast_slice(queries)).nearest_one::<SquaredEuclidean<f64>>().execute().into_iter().map(|item| Some(neighbor(item))).collect()),
-        |radius| neighbors(cloud, queries, Neighborhood::NearestWithin { max_qty: NonZero::<usize>::MIN, radius }).map(|groups| groups.into_iter().map(|group| group.into_iter().next()).collect()),
-    )
+pub fn nearest(cloud: &Cloud, queries: &[Point3<f64>]) -> Result<Vec<Neighbor>, ProximityError> {
+    crate::bounded(queries)?;
+    Ok(cloud.0.query_batch(bytemuck::cast_slice(queries)).nearest_one::<SquaredEuclidean<f64>>().execute().into_iter().map(neighbor).collect())
 }
 
 pub fn neighbors(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood) -> Result<Vec<Vec<Neighbor>>, ProximityError> {
     crate::bounded(queries)?;
+    Ok(search(cloud, queries, neighborhood))
+}
+
+pub fn normals(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood, toward: Option<Point3<f64>>) -> Result<Vec<Option<Unit<Vector3<f64>>>>, ProximityError> {
+    crate::bounded(queries.iter().chain(&toward))?;
+    Ok(search(cloud, queries, neighborhood).into_par_iter().map(|group| normal(&group, toward)).collect())
+}
+
+pub(crate) fn search(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood) -> Vec<Vec<Neighbor>> {
     let batch = cloud.0.query_batch(bytemuck::cast_slice(queries));
-    Ok(match neighborhood {
+    match neighborhood {
         Neighborhood::Nearest { max_qty } => batch.nearest_n::<SquaredEuclidean<f64>>(max_qty).execute(),
         Neighborhood::Within { radius } => batch.within::<SquaredEuclidean<f64>>(radius.into_inner().powi(2)).execute(),
         Neighborhood::NearestWithin { max_qty, radius } => batch.nearest_n::<SquaredEuclidean<f64>>(max_qty).within::<SquaredEuclidean<f64>>(radius.into_inner().powi(2)).execute(),
@@ -52,20 +59,18 @@ pub fn neighbors(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborh
     .into_nested_vec()
     .into_iter()
     .map(|group| group.into_iter().map(neighbor).collect())
-    .collect())
+    .collect()
 }
 
-pub fn normals(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood) -> Result<Vec<Option<Unit<Vector3<f64>>>>, ProximityError> {
-    Ok(neighbors(cloud, queries, neighborhood)?
-        .into_par_iter()
-        .map(|group| {
-            let centroid = group.iter().map(|neighbor| neighbor.point.coords).sum::<Vector3<f64>>() / nalgebra::convert::<usize, f64>(group.len());
-            let covariance = group.iter().map(|neighbor| (neighbor.point.coords - centroid) * (neighbor.point.coords - centroid).transpose()).sum::<Matrix3<f64>>();
-            let eigen = MatRef::from_column_major_slice(covariance.as_slice(), 3, 3).self_adjoint_eigen(Side::Lower).ok()?;
-            let values = eigen.S().column_vector();
-            (*values.get(1) > *values.get(2) * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| Unit::new_normalize(Vector3::from_fn(|row, _| *eigen.U().get(row, 0))))
-        })
-        .collect())
+pub(crate) fn normal(group: &[Neighbor], toward: Option<Point3<f64>>) -> Option<Unit<Vector3<f64>>> {
+    let centroid = group.iter().map(|neighbor| neighbor.point.coords).sum::<Vector3<f64>>() / nalgebra::convert::<usize, f64>(group.len());
+    let covariance = group.iter().map(|neighbor| (neighbor.point.coords - centroid) * (neighbor.point.coords - centroid).transpose()).sum::<Matrix3<f64>>();
+    let eigen = MatRef::from_column_major_slice(covariance.as_slice(), 3, 3).self_adjoint_eigen(Side::Lower).ok()?;
+    let values = eigen.S().column_vector();
+    (*values.get(1) > *values.get(2) * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
+        let normal = Unit::new_normalize(Vector3::from_fn(|row, _| *eigen.U().get(row, 0)));
+        if toward.is_some_and(|toward| (toward.coords - centroid).dot(&normal) < 0.0) { -normal } else { normal }
+    })
 }
 
 fn neighbor(QueryResultItem { point: (), item: (item, point), distance }: QueryResultItem<(), Item, f64>) -> Neighbor { QueryResultItem { point, item, distance: distance.sqrt() } }

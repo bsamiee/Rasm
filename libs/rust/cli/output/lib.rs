@@ -51,11 +51,8 @@ impl From<OutputError> for ExitCode {
     fn from(value: OutputError) -> Self {
         match value {
             OutputError::Write { source } | OutputError::Pager(MinusError::Draw(source)) | OutputError::Prompt(InquireError::IO(source)) => source.into(),
-            OutputError::Encode { row: _, source: _ }
-            | OutputError::Csv { row: _, source: _ }
-           
-            | OutputError::Column { row: _, name: _ }
-            | OutputError::Prompt(InquireError::Custom(_)) => Self::DataErr,
+            OutputError::Encode { row: _, source: _ } | OutputError::Csv { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Prompt(InquireError::Custom(_)) =>
+                Self::DataErr,
             OutputError::Pager(_) => Self::IoErr,
             OutputError::Prompt(InquireError::NotTTY) => Self::NoInput,
             OutputError::Prompt(InquireError::InvalidConfiguration(_)) => Self::Software,

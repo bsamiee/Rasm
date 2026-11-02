@@ -90,10 +90,13 @@ where
             _ => OutputError::Csv { row, source },
         }
     };
-    let celled = |Field { text, numeric }: &Field| Cell::new(escaped(text)).set_alignment(if *numeric { CellAlignment::Right } else { CellAlignment::Left });
+    let escaped = |text: &str, formatter: &mut fmt::Formatter<'_>| {
+        text.chars().try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
+    };
+    let celled = |Field { text, numeric }: &Field| Cell::new(fmt::from_fn(|formatter| escaped(text, formatter))).set_alignment(if *numeric { CellAlignment::Right } else { CellAlignment::Left });
     let titled = |name: &str, style: Style| {
         let colored = |color| painted(color, Color::AnsiValue, |r, g, b| Color::Rgb { r, g, b });
-        let cell = Cell::new(escaped(name)).add_attributes(
+        let cell = Cell::new(fmt::from_fn(|formatter| escaped(name, formatter))).add_attributes(
             [
                 (Effects::BOLD, Attribute::Bold),
                 (Effects::DIMMED, Attribute::Dim),
@@ -217,12 +220,7 @@ where
             Ok(Ok(())) => ControlFlow::Continue((sink, failures)),
             Ok(Err(error @ OutputError::Write { source: _ })) => ControlFlow::Break((failures, Err(error))),
             Ok(Err(
-                error @ (OutputError::Encode { row: _, source: _ }
-                | OutputError::Csv { row: _, source: _ }
-               
-                | OutputError::Column { row: _, name: _ }
-                | OutputError::Pager(_)
-                | OutputError::Prompt(_)),
+                error @ (OutputError::Encode { row: _, source: _ } | OutputError::Csv { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Pager(_) | OutputError::Prompt(_)),
             )) => {
                 failures.push(E::from(error));
                 ControlFlow::Continue((sink, failures))
@@ -237,10 +235,4 @@ where
     let (failures, ended) = flow.map_continue(|(sink, failures)| (failures, finished(sink, stopped))).into_value();
     let closed = |error: &OutputError| matches!(error, OutputError::Write { source } if source.kind() == io::ErrorKind::BrokenPipe);
     NEVec::try_from_vec(iter::chain(failures, ended.err().filter(|error| !closed(error)).map(E::from)).collect()).map_or(Ok(if stopped { ExitCode::TempFail } else { ExitCode::Ok }), Err)
-}
-
-fn escaped(text: &str) -> impl fmt::Display {
-    fmt::from_fn(move |formatter| {
-        text.chars().try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
-    })
 }
