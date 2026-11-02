@@ -30,7 +30,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 - **Scripts:** `.claude/workflows/{rust,typescript}.js`, with rules and target rows in the sibling `RUST.md` and `TYPESCRIPT.md`.
 - **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
 - **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
-- **Concurrency:** TypeScript rows on folders that share no files overlap, started at least 20 minutes apart, and commit together. Up to three Rust row runs and three `depth` runs overlap, on folders that share no logic, started at least 20 minutes apart, and overlapping runs commit together.
+- **Concurrency:** TypeScript rows on folders that share no files overlap, started at least 20 minutes apart, and commit together. Up to five Rust row runs and five `depth` runs overlap, on folders that share no logic and no depth run under a row that builds on it, started at least 10 minutes apart, and overlapping runs commit together.
 - **Base:** `HEAD` when a run starts. A line citation in the rules applies to its code wherever that code now sits.
 - **Watching:** follow a run in `/workflows`, read `.artifacts/workflows/<language>/<key>/PLAN.md` once the Plan phase writes it, and read the diff.
 

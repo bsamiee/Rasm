@@ -34,8 +34,8 @@ pub struct Fetch {
 pub async fn stack(client: &Client, fetch: &Fetch, main: Url) -> Result<NEVec<Layer>, NEVec<IfcError>> {
     let mut loaded = closure(client, fetch, NEVec::new(load(client, fetch, main, []).await.ok()?)).await?;
     let strength = {
-        let imports = loaded.iter().flat_map(|(importer, _, imports)| imports.iter().rev().map(move |(import, _)| (importer, import))).collect::<DiGraphMap<_, ()>>();
-        DfsPostOrder::new(&imports, &loaded.first().0).iter(&imports).cloned().collect::<IndexSet<_>>()
+        let graph = loaded.iter().flat_map(|(importer, _, imports)| imports.iter().rev().map(move |(import, _)| (importer, import))).collect::<DiGraphMap<_, ()>>();
+        DfsPostOrder::new(&graph, &loaded.first().0).iter(&graph).cloned().collect::<IndexSet<_>>()
     };
     loaded.sort_by_key(|(url, ..)| Reverse(strength.get_index_of(url)));
     Ok(loaded.into_nonempty_iter().map(|(_, layer, _)| layer).collect())

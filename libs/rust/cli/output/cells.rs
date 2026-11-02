@@ -4,10 +4,11 @@ use core::{
 };
 
 use indexmap::IndexMap;
-use serde::{Serialize, ser};
+use serde::{
+    Serialize,
+    ser::{self, Error as _},
+};
 use serde_json::ser::{CompactFormatter, Formatter as _};
-
-use crate::CellError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,7 +40,7 @@ enum Sequence<'row> {
 
 impl<'row> ser::Serializer for Column<'row> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
     type SerializeSeq = Sequence<'row>;
     type SerializeTuple = Sequence<'row>;
     type SerializeTupleStruct = Sequence<'row>;
@@ -125,7 +126,7 @@ impl<'row> ser::Serializer for Column<'row> {
 
 impl ser::SerializeMap for Record<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -133,7 +134,7 @@ impl ser::SerializeMap for Record<'_> {
         key.serialize(Column { path: None, row: &mut label })?;
         self.key = match label.fields.pop() {
             Some((_, Field { text, numeric: _ })) if label.fields.is_empty() => text,
-            Some(_) | None => return Err(CellError::CompoundKey),
+            Some(_) | None => return Err(serde_json::Error::custom("cannot name a column after a compound map key")),
         };
         Ok(())
     }
@@ -148,7 +149,7 @@ impl ser::SerializeMap for Record<'_> {
 
 impl ser::SerializeStruct for Record<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -160,7 +161,7 @@ impl ser::SerializeStruct for Record<'_> {
 
 impl ser::SerializeStructVariant for Record<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -172,7 +173,7 @@ impl ser::SerializeStructVariant for Record<'_> {
 
 impl ser::SerializeSeq for Sequence<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -183,8 +184,8 @@ impl ser::SerializeSeq for Sequence<'_> {
                 value.serialize(child(parent, &key))
             }
             Sequence::Json { parent: _, first, text } => {
-                CompactFormatter.begin_array_value(text, mem::replace(first, false))?;
-                Ok(serde_json::to_writer(&mut *text, value)?)
+                CompactFormatter.begin_array_value(text, mem::replace(first, false)).map_err(serde_json::Error::io)?;
+                serde_json::to_writer(&mut *text, value)
             }
         }
     }
@@ -193,8 +194,8 @@ impl ser::SerializeSeq for Sequence<'_> {
         match self {
             Sequence::Positional { parent: _, index: _ } => Ok(()),
             Sequence::Json { parent, first: _, mut text } => {
-                CompactFormatter.end_array(&mut text)?;
-                leaf(parent, String::from_utf8(text)?, false)
+                CompactFormatter.end_array(&mut text).map_err(serde_json::Error::io)?;
+                leaf(parent, String::from_utf8(text).map_err(serde_json::Error::custom)?, false)
             }
         }
     }
@@ -202,7 +203,7 @@ impl ser::SerializeSeq for Sequence<'_> {
 
 impl ser::SerializeTuple for Sequence<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -214,7 +215,7 @@ impl ser::SerializeTuple for Sequence<'_> {
 
 impl ser::SerializeTupleStruct for Sequence<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -226,7 +227,7 @@ impl ser::SerializeTupleStruct for Sequence<'_> {
 
 impl ser::SerializeTupleVariant for Sequence<'_> {
     type Ok = ();
-    type Error = CellError;
+    type Error = serde_json::Error;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -238,9 +239,9 @@ impl ser::SerializeTupleVariant for Sequence<'_> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn leaf(Column { path, row }: Column<'_>, text: impl Display, numeric: bool) -> Result<(), CellError> {
+fn leaf(Column { path, row }: Column<'_>, text: impl Display, numeric: bool) -> Result<(), serde_json::Error> {
     let mut written = String::new();
-    write!(written, "{text}")?;
+    write!(written, "{text}").map_err(serde_json::Error::custom)?;
     row.fields.insert(path.unwrap_or_default(), Field { text: written, numeric });
     Ok(())
 }
@@ -260,17 +261,17 @@ const fn record(column: Column<'_>) -> Record<'_> {
     Record { parent: column, key: String::new() }
 }
 
-fn sequence(column: Column<'_>) -> Result<Sequence<'_>, CellError> {
+fn sequence(column: Column<'_>) -> Result<Sequence<'_>, serde_json::Error> {
     if column.path.is_none() {
         Ok(Sequence::Positional { parent: column, index: 0 })
     } else {
         let mut text = Vec::new();
-        CompactFormatter.begin_array(&mut text)?;
+        CompactFormatter.begin_array(&mut text).map_err(serde_json::Error::io)?;
         Ok(Sequence::Json { parent: column, first: true, text })
     }
 }
 
-pub(crate) fn flattened(value: &impl Serialize) -> Result<Row, CellError> {
+pub(crate) fn flattened(value: &impl Serialize) -> Result<Row, serde_json::Error> {
     let mut row = Row::default();
     value.serialize(Column { path: None, row: &mut row })?;
     Ok(row)

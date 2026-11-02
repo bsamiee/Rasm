@@ -1,16 +1,16 @@
 #![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks_heterogeneous)]
 
+#[cfg(not(panic = "abort"))]
+use core::mem::DropGuard;
 use core::{fmt, future, iter, ops::ControlFlow, pin::pin, time::Duration};
+#[cfg(not(panic = "abort"))]
+use std::thread;
 use std::{
     error::Report,
     io::{self, IsTerminal as _, Write as _},
     panic, process,
     time::Instant,
 };
-#[cfg(not(panic = "abort"))]
-use core::mem::DropGuard;
-#[cfg(not(panic = "abort"))]
-use std::thread;
 
 use anstream::{AutoStream, ColorChoice};
 use clap::{CommandFactory, FromArgMatches, builder::Styles};

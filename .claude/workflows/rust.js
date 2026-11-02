@@ -1,7 +1,7 @@
 export const meta = {
   name: 'rust',
   description: 'Build or rebuild one Rust crate on RUST.md: its code, consumers, checks and workspace rows',
-  whenToUse: 'One run per RUST.md [03] row, args.key its [KEY]. Rust runs on rows that share no dependency may overlap when started at least 20 minutes apart, each once the rows its [AFTER] cell names have landed; overlapping runs commit together, since each edits Cargo.toml and Cargo.lock. One typescript run may go beside them.',
+  whenToUse: 'One run per RUST.md [03] row, args.key its [KEY]. Up to five Rust runs on rows that share no dependency overlap, started at least 10 minutes apart, each once the rows its [AFTER] cell names have landed; overlapping runs commit together, since each edits Cargo.toml and Cargo.lock. One typescript run may go beside them.',
   phases: [
     { title: 'Plan', detail: 'parallel survey into a brief, then the crate\'s shape from RUST.md, its catalog crates and its consumers, challenged into a package graph' },
     { title: 'Land', detail: 'package agents by disjoint files, each as the packages it reads land' },

@@ -17,6 +17,7 @@ const _ROOT = import.meta.dirname;
 const _HOSTED = /^adobe:/u;
 const _EXPERIMENTAL = { lazyBarrel: true };
 const _ENTRY = 'main.ts';
+const _MAIN = 'main.js';
 const _CORE = /^\d+\.\d+\.\d+/mu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -83,7 +84,7 @@ const released = (directory: string, { description }: { readonly description: st
         ),
     }).pipe(Effect.runSync);
 const uxp = (directory: string, { npm, manifest, daemon }: { readonly npm: { readonly description: string }; readonly manifest: Omit<Parameters<typeof Manifest.make>[0], 'id' | 'name' | 'version'>; readonly daemon: string }): UserConfig =>
-    bundled(directory, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, ...released(directory, npm), requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
+    bundled(directory, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, ...released(directory, npm), main: Option.some(_MAIN), requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
 const cep = (directory: string, { npm, host, daemon, manifest: fields }: { readonly npm: { readonly description: string }; readonly host: string; readonly daemon: string; readonly manifest: Omit<Parameters<typeof Extension.make>[0], 'id' | 'name' | 'version'> }): UserConfig => {
     const manifest = Extension.make({ ...fields, ...released(directory, npm) });
     const outDir = join(_ROOT, '.artifacts', relative(_ROOT, directory));
@@ -103,14 +104,14 @@ const cep = (directory: string, { npm, host, daemon, manifest: fields }: { reado
                 name: 'panel',
                 applyToEnvironment: ({ name }) => name === 'client',
                 generateBundle(this: Rolldown.PluginContext): void {
-                    this.emitFile({ type: 'asset', fileName: 'index.html', source: '<!doctype html><meta charset="utf-8"><script src="main.js"></script>\n' });
+                    this.emitFile({ type: 'asset', fileName: 'index.html', source: `<!doctype html><meta charset="utf-8"><script src="${_MAIN}"></script>\n` });
                     this.emitFile({ type: 'asset', fileName: 'CSXS/manifest.xml', source: manifest.xml({ main: 'index.html', script: 'host.jsx' }) });
                 },
             } satisfies Plugin,
         ],
     };
 };
-const script = (directory: string, { extension }: { readonly extension: string }): UserConfig => bundled(directory, { fileName: `main.${extension}`, source: "require('./main.js');\n" });
+const script = (directory: string, { extension }: { readonly extension: string }): UserConfig => bundled(directory, { fileName: `main.${extension}`, source: `require('./${_MAIN}');\n` });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -5,18 +5,17 @@ use clippy_utils::{
     diagnostics::span_lint_and_help,
     fn_def_id, get_expr_use_site, get_parent_expr_for_hir,
     macros::first_node_macro_backtrace,
-    paths::PathNS,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
     visitors::{for_each_expr_without_closures, for_each_local_use_after_expr},
 };
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_hir::{Expr, ExprKind, HirId, Mutability, Node, Pat, PatKind, def_id::DefId};
+use rustc_hir::{Expr, ExprKind, HirId, Mutability, Node, Pat, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, GenericArg, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt as _};
+use rustc_middle::ty::{self, GenericArg, Ty};
 
 use super::{body_output, untyped_kind};
-use crate::{expanded_externally, fn_item_value, impl_owner, is_error, is_text, path, pointee, result_parts, signature};
+use crate::{expanded_externally, fn_item_value, impl_owner, is_error, is_text, pointee, result_parts, signature};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,31 +28,11 @@ enum Sink {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-pub(crate) struct Pass {
-    custom: [Option<DefId>; 2],
-}
-
-lint!(Pass; STRINGIFIED_ERROR: "errors rendered to text that is stored, returned, or compared, and values rendered to text that is compared");
-
-impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { custom: ["serde::ser::Error::custom", "serde::de::Error::custom"].map(|named| path(tcx, PathNS::Value, named)) } }
-}
+lint!(STRINGIFIED_ERROR: "errors rendered to text that is stored, returned, or compared, and values rendered to text that is compared");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
-        let custom = |called: DefId, arguments: GenericArgsRef<'tcx>| (self.custom.contains(&Some(called)) && !arguments.type_at(0).has_param()).then(|| arguments.type_at(1));
-        if let Some(operand) = match (expr.kind, expanded_externally(cx, expr.span)) {
-            (ExprKind::Call(callee, [_]), false) => fn_def_id(cx, expr).and_then(|called| custom(called, typeck.node_args(callee.hir_id))),
-            (ExprKind::Path(_), false) => fn_item_value(cx, expr).and_then(|called| custom(called, typeck.node_args(expr.hir_id))),
-            _ => None,
-        }
-        .filter(|&operand| is_error(cx, operand))
-        {
-            let shown = pointee(cx, operand);
-            span_lint_and_help(cx, STRINGIFIED_ERROR, expr.span, format!("text of error `{shown}` is stored"), None, format!("hold `{shown}` as `#[source]` of a `thiserror` variant"));
-            return;
-        }
         let rendered = match (expr.kind, expanded_externally(cx, expr.span)) {
             (ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]), false) if fn_def_id(cx, expr).is_diag_item(cx, sym::to_string_method) =>
                 Some((expr.span, typeck.expr_ty(operand))),

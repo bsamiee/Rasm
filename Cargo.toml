@@ -193,14 +193,14 @@ zip               = { version = "9.2.2", default-features = false, features = ["
 zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
-argon2                   = "0.6.0"                                                                             # Password hashing in PHC strings
-aws-lc-rs                = { version = "1.19.0", features = ["prebuilt-nasm"] }                                # Digests, MACs, key derivation, AEAD, signatures, and key wrap
-crypto_box               = "0.9.1"                                                                             # NaCl public-key boxes
-rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }  # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
-rustls                   = "0.23.46"                                                                           # TLS stack with process-wide aws-lc-rs provider each binary installs
-rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
-sigstore                 = { version = "0.14.0", default-features = false, features = ["full", "rustls-tls"] } # Keyless signing and transparency-log verification, default `native-tls` links platform TLS beside rustls
-x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                   # X.509 certificate parsing and signature checks
+argon2                   = "0.6.0"                                                                                               # Password hashing in PHC strings
+aws-lc-rs                = { version = "1.19.0", default-features = false, features = ["aws-lc-sys", "alloc", "prebuilt-nasm"] } # Digests, MACs, key derivation, AEAD, signatures, and key wrap, default `ring-io` and `ring-sig-verify` add untrusted 0.7 beside 0.9
+crypto_box               = "0.9.1"                                                                                               # NaCl public-key boxes
+rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }                    # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
+rustls                   = "0.23.46"                                                                                             # TLS stack with process-wide aws-lc-rs provider each binary installs
+rustls-platform-verifier = "0.7.1"                                                                                               # Certificate verification through OS trust store
+sigstore                 = { version = "0.14.0", default-features = false, features = ["full", "rustls-tls"] }                   # Keyless signing and transparency-log verification, default `native-tls` links platform TLS beside rustls
+x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                                     # X.509 certificate parsing and signature checks
 
 # --- [AUTHENTICATION]
 httpsig       = { version = "0.0.26", features = ["rsa-signature"] }                                           # HTTP message signatures

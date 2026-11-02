@@ -1,7 +1,7 @@
 export const meta = {
   name: 'depth',
   description: 'Deepen one landed library folder in Rust, TypeScript or Python: lens readers, one adversarial lander, a diff review, then fix and check',
-  whenToUse: 'One run per committed library folder: args.language rust, typescript or python, args.key its path under libs/<language>/ (a RUST.md or TYPESCRIPT.md [03] [KEY] where one exists), args.base the commit it starts from. At most three at once beside the row runs, on folders sharing no logic with a running run, started at least 20 minutes apart. Its commit goes with any overlapping run, then that language\'s tune.',
+  whenToUse: 'One run per committed library folder: args.language rust, typescript or python, args.key its path under libs/<language>/ (a RUST.md or TYPESCRIPT.md [03] [KEY] where one exists), args.base the commit it starts from. At most five at once beside the row runs, on folders sharing no logic with a running run or a row building on them, started at least 10 minutes apart. Its commit goes with any overlapping run, then that language\'s tune.',
   phases: [
     { title: 'Read', detail: 'parallel readers, one lens each, over the folder, its consumers and its dependencies' },
     { title: 'Land', detail: 'one adversarial lander judges every finding and lands the accepted ones' },

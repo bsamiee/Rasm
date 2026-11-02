@@ -83,7 +83,7 @@ where
     }
     let terminal = io::stdout().is_terminal();
     let failed = |source| OutputError::Write { source };
-    let flattened = |row: usize, value: &R| cells::flattened(value).map_err(|source| OutputError::Cell { row, source });
+    let flattened = |row: usize, value: &R| cells::flattened(value).map_err(|source| OutputError::Encode { row, source });
     let recorded = |row| {
         move |source: csv::Error| match source.kind() {
             csv::ErrorKind::Io(failure) => OutputError::Write { source: io::Error::new(failure.kind(), source) },
@@ -219,7 +219,7 @@ where
             Ok(Err(
                 error @ (OutputError::Encode { row: _, source: _ }
                 | OutputError::Csv { row: _, source: _ }
-                | OutputError::Cell { row: _, source: _ }
+               
                 | OutputError::Column { row: _, name: _ }
                 | OutputError::Pager(_)
                 | OutputError::Prompt(_)),

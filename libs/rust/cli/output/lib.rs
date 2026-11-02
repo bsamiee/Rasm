@@ -1,7 +1,7 @@
 #![feature(control_flow_into_value, try_blocks_heterogeneous)]
 
-use core::{fmt, pin::pin};
-use std::{io, panic, process, string::FromUtf8Error};
+use core::pin::pin;
+use std::{io, panic, process};
 
 use anstream::{AutoStream, ColorChoice};
 use anstyle::{Ansi256Color, Color, Effects, Style};
@@ -19,7 +19,7 @@ use minus::MinusError;
 use nonempty_collections::NEVec;
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::{Defaults, Failure};
-use serde::{Serialize, ser};
+use serde::Serialize;
 use sysexits::ExitCode;
 use tokio::task;
 use tracing_indicatif::{
@@ -39,8 +39,6 @@ pub enum OutputError {
     Encode { row: usize, source: serde_json::Error },
     #[error("cannot write row {row} as CSV")]
     Csv { row: usize, source: csv::Error },
-    #[error("cannot split row {row} into cells")]
-    Cell { row: usize, source: CellError },
     #[error("cannot write row {row}, column `{name}` is outside the CSV header")]
     Column { row: usize, name: String },
     #[error(transparent)]
@@ -49,36 +47,13 @@ pub enum OutputError {
     Prompt(#[from] InquireError),
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CellError {
-    #[error("cannot name a column after a compound map key")]
-    CompoundKey,
-    #[error("cannot render a cell")]
-    Render(#[from] fmt::Error),
-    #[error("cannot encode a nested sequence")]
-    Sequence(#[from] io::Error),
-    #[error("cannot encode a nested element")]
-    Element(#[from] serde_json::Error),
-    #[error("nested sequence is not UTF-8")]
-    Text(#[from] FromUtf8Error),
-    #[error("{message}")]
-    Refused { message: String },
-}
-
-impl ser::Error for CellError {
-    fn custom<T>(msg: T) -> Self
-    where T: fmt::Display {
-        Self::Refused { message: msg.to_string() }
-    }
-}
-
 impl From<OutputError> for ExitCode {
     fn from(value: OutputError) -> Self {
         match value {
             OutputError::Write { source } | OutputError::Pager(MinusError::Draw(source)) | OutputError::Prompt(InquireError::IO(source)) => source.into(),
             OutputError::Encode { row: _, source: _ }
             | OutputError::Csv { row: _, source: _ }
-            | OutputError::Cell { row: _, source: _ }
+           
             | OutputError::Column { row: _, name: _ }
             | OutputError::Prompt(InquireError::Custom(_)) => Self::DataErr,
             OutputError::Pager(_) => Self::IoErr,
