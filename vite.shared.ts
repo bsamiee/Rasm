@@ -8,7 +8,7 @@ import { Manifest as Extension } from '@rasm/cep/manifest';
 import { Manifest } from '@rasm/uxp/manifest';
 import { transformSync } from '@swc/core';
 import compiler from '@vitejs/plugin-react';
-import { Array, Config, Effect, Option, Record, Schema, String } from 'effect';
+import { Array, Config, Effect, flow, Option, Record, Schema, String } from 'effect';
 import { parse } from 'smol-toml';
 import { defaultClientConditions, defaultServerConditions, type Plugin, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnObject } from 'vite';
 
@@ -74,7 +74,7 @@ const port = (daemon: string) =>
         Effect.flatMap(({ daemons }) => Effect.fromOption(Option.flatMap(Record.get(daemons, daemon), ({ port: held }) => Option.fromUndefinedOr(held)))),
         Effect.runSync,
     );
-const origin = (daemon: string) => Manifest.loopback(port(daemon));
+const origin = flow(port, Manifest.loopback);
 const released = (directory: string, { description }: { readonly description: string }) =>
     Effect.all({
         id: Effect.map(Config.String('PRODUCT_BUNDLE_IDENTIFIER'), (bundle) => `${bundle}.${basename(directory)}`),
@@ -153,7 +153,9 @@ const sea = (directory: string, { main, daemon, host }: { readonly main: string;
                     const chunks = Object.values(output).filter((file) => file.type === 'chunk' && file.isEntry);
                     const assets = Record.fromIterableWith(
                         Array.flatMap(Array.dedupe(chunks.flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds.filter((id) => isAbsolute(id)).map((id) => dirname(id)) : []))), (folder) =>
-                            Array.filter(readdirSync(folder, { withFileTypes: true }), (entry) => entry.isFile() && entry.name.endsWith('.wasm')).map((entry) => join(folder, entry.name)),
+                            readdirSync(folder, { withFileTypes: true })
+                                .filter((entry) => entry.isFile() && entry.name.endsWith('.wasm'))
+                                .map((entry) => join(folder, entry.name)),
                         ),
                         (file) => [basename(file), file],
                     );

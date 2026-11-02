@@ -7,6 +7,7 @@ import Foundation
 import JSONRPC
 import ServiceManagement
 import Sparkle
+import System
 import os
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -50,8 +51,8 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 enum Atelier {
     static func main() async {
         let logger: Logger = Logger(for: Self.self)
-        var input: stat = stat()
-        guard unsafe fstat(STDIN_FILENO, &input) == 0, [S_IFIFO, S_IFSOCK].contains(input.st_mode & S_IFMT) else {
+        let input: Result<Stat, Errno> = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }
+        guard case .success(let stat) = input, [FileType.fifo, .socket].contains(stat.type) else {
             do {
                 try register(bundle: .main)
             } catch {
@@ -87,7 +88,7 @@ enum Atelier {
     }
 
     static func register(bundle: Bundle) throws(ServerError) {
-        guard let identifier = bundle.bundleIdentifier else {
+        guard let identifier: String = bundle.bundleIdentifier else {
             throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .unidentified)
         }
         let plist: String = "\(identifier).server.plist"
@@ -98,7 +99,7 @@ enum Atelier {
         } catch {
             throw ServerError(subject: file.path(percentEncoded: false), reason: .unreadable(error))
         }
-        guard let executable = bundle.executablePath, agent.environment.values.contains(executable) else {
+        guard let executable: String = bundle.executablePath, agent.environment.values.contains(executable) else {
             throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .relocated(named: agent.environment.values.sorted()))
         }
         do {

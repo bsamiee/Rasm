@@ -8,7 +8,6 @@ import { output, stdout } from '#/eng/typescript/process';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ADOBE = 'Library/Application Support/Adobe';
-const INSTALLED = 'Installation Successful';
 const UNMATCHED = '-411';
 const SECTION = /\n\s*\n/u;
 const HEADER = /^\d+ extensions? installed for /u;
@@ -20,7 +19,7 @@ const Listing = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
         decode: SchemaGetter.transform((text: string) =>
             Array.map(text.split(SECTION).filter(String.isNonEmpty), (block) => {
-                const [header = '', , , ...rows] = block.trim().split('\n');
+                const [header, , , ...rows] = String.split(block.trim(), '\n');
                 return { product: header.replace(HEADER, ''), extensions: Array.map(rows, (row) => row.trim().split(COLUMN)) };
             }),
         ),
@@ -39,7 +38,7 @@ const install = Effect.fn('install')(function* (built: string, agent: string) {
     const { text } = yield* output(agent, ['--install', `${built}.ccx`]);
     yield* Effect.filterOrFail(
         Effect.succeed(text),
-        String.includes(INSTALLED),
+        String.includes('Installation Successful'),
         (answer) => new Cause.UnknownError(undefined, answer.includes(UNMATCHED) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `Adobe plugin installer refused ${manifest.name}. ${answer.trim()}`),
     );
     yield* fs.remove(path.join(home, ADOBE, 'CEP', 'extensions', manifest.id), { recursive: true, force: true });
