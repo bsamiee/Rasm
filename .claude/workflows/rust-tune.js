@@ -1,7 +1,7 @@
 export const meta = {
   name: 'rust-tune',
   description: 'Mine one committed Rust run into the Rust checks and skill',
-  whenToUse: 'Once per committed rust run, args.commit the commit holding the run and its review. It goes after that commit and before the next rust run starts landing, since both edit tools/dylint, tools/ast-grep/rules/rust, the workspace lint rows and the rust-coding skill; one typescript and one swift run may go beside it.',
+  whenToUse: 'Once per committed rust run, args.commit the commit holding the run and its review. It goes after that commit and before the next rust run starts landing, since both edit tools/dylint, tools/ast-grep/rules/rust, the workspace lint rows and the rust-coding skill; one typescript run may go beside it.',
   phases: [
     { title: 'Mine', detail: 'readers per code root, then a checks writer and a skill writer' },
     { title: 'Close', detail: 'clean prose and domain names over every changed rule and skill line, then every Rust check' },

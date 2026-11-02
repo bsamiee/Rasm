@@ -2,7 +2,7 @@
 
 ## [01]-[LANGUAGE_REBUILDS]
 
-Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the C# and Python code was rebuilt. Libraries hold general capability any future app composes, and each app holds its own content. The work reduces surface and raises capability: fewer constants, types, records and items, more derived and parameterized logic, every package used fully.
+Rebuild the Rust and TypeScript libraries and their consumers the way the C# and Python code was rebuilt. Libraries hold general capability any future app composes, and each app holds its own content. The work reduces surface and raises capability: fewer constants, types, records and items, more derived and parameterized logic, every package used fully.
 
 ### What a run produces
 
@@ -12,7 +12,7 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 - **Measured:** each run measures lines, declarations and exports per file at base and after (`git archive HEAD`, `loc`, `ast-grep outline`) and removes growth no capability requires before it ends.
 - **Parameters over declarations:** one parameterized declaration serves every variant, and a consumer reaches a variant through an argument.
 - **Derived values:** each value derives from the type, member or host query that owns it.
-- **Packages used whole:** Effect 4, rmcp, the catalog crates and the macOS SDK do their work through their own members, never a wrapper or hand logic.
+- **Packages used whole:** Effect 4, rmcp and the catalog crates do their work through their own members, never a wrapper or hand logic.
 - **One concept per file:** no `index.ts`, barrel, `main`, `lib` or `mod` file collects a package's logic, and no folder holds a single file.
 - **Crate roots:** a Rust crate root holds the crate's code beside its modules.
 - **Dependencies:** a package depends only on the packages whose members it calls, with no cycle.
@@ -21,13 +21,13 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 - **Errors:** TypeScript keeps one `Schema.TaggedError` per package with a `reason` literal, a `subject` and an optional `cause`.
   - Its error covers only failures no host error or `Unmatched` states.
   - `Unmatched`, `ReconcileError`, `InspectError` and `PreconditionFailed` are rebuilt to that form, and no near-copy enters.
-  - Rust and Swift follow the error forms of their skills.
+  - Rust follows the error forms of its skill.
 - **No anchoring:** a run designs from the row, the skill and the package sources, never from the shape of the current code.
 - **Base check:** after landing, the Check phase compares each rebuilt file with its version at the run's start and restores what that version did better.
 
 ### Running the workflows
 
-- **Scripts:** `.claude/workflows/{rust,swift,typescript}.js`, with rules and target rows in the sibling `RUST.md`, `SWIFT.md` and `TYPESCRIPT.md`.
+- **Scripts:** `.claude/workflows/{rust,typescript}.js`, with rules and target rows in the sibling `RUST.md` and `TYPESCRIPT.md`.
 - **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
 - **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
 - **Concurrency:** one TypeScript run at a time. Rust runs on rows that share no dependency overlap when started at least 20 minutes apart, and overlapping runs commit together.
@@ -36,8 +36,7 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 
 ### Order and watch points
 
-- **Swift:** `core`, then `macos/process`, then `macos/applications`.
-- **TypeScript:** `data/search` once Swift `core` lands, then rows that need it alone, `creative-cloud/automation` once Swift `macos/applications` lands, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
+- **TypeScript:** `data/search` first, then rows that need it alone, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
 - **Rust:** `services/telemetry`, `cli/command`, `services/daemon`, `services/mcp`, with `cli/output` and `cli/screen` after `cli/command`.
 - **Later Rust rows:** each starts once its `[AFTER]` rows have landed.
 - **Rust `services/telemetry`:** owns all of `libs/rust` for the move into categories. Read its plan before its Land phase goes far.
@@ -61,7 +60,6 @@ Once every RUST.md [03] row has landed, each crate gets a depth run so no crate 
 
 ### State on 2026-11-01
 
-- **Swift:** all three rows landed, with a close-out of the stopped Swift mine. The watch-apps session's test wave landed (df93a6e0a); its later uncommitted edits under libs/{swift,python,dotnet}, tests/{swift,python,dotnet}, tools/, the watch-apps skill, the manage-repo Swift reference, SWIFT.md and three Swift rule notes belong to another session. The Swift mine rerun waits until those paths are settled, then runs over the committed tree.
 - **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. `creative-cloud/indesign` is running; it gets a Check-only rerun under the depth adversaries before its commit, then `typescript-tune`. Next are `data/database`, `web/hosting`, `web/media` and `web/ui`, one at a time as the lane opens.
 - **SchemaTransformation pass:** landed. The same mining runs over the other Effect 4 members the TypeScript code restates by hand, where a member states the form.
 - **Quality bar for every language:** thread safety and performance hold as firmly as surface and depth; a gap a review finds (a lowered lint, a dropped `Send`, a starved future) is fixed at its root and the rule or skill line that let it through is corrected.

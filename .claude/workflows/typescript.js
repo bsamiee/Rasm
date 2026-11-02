@@ -1,7 +1,7 @@
 export const meta = {
   name: 'typescript',
   description: 'Rebuild one TypeScript package on TYPESCRIPT.md: its code, consumers, checks and catalog rows',
-  whenToUse: 'One run per TYPESCRIPT.md [03] row, args.key its [KEY]. TypeScript runs go one at a time, each once the rows its [AFTER] cell names have landed, since every run edits package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tools/ast-grep/rules/typescript and the manage-repo TypeScript reference; one rust and one swift run may go beside it.',
+  whenToUse: 'One run per TYPESCRIPT.md [03] row, args.key its [KEY]. TypeScript runs go one at a time, each once the rows its [AFTER] cell names have landed, since every run edits package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tools/ast-grep/rules/typescript and the manage-repo TypeScript reference; one rust run may go beside it.',
   phases: [
     { title: 'Plan', detail: 'parallel survey into a brief, then the package\'s shape from TYPESCRIPT.md, its catalog packages and its consumers, challenged into a package graph' },
     { title: 'Land', detail: 'package agents by disjoint files, each as the packages it reads land' },
