@@ -77,9 +77,10 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 ### Progress
 
-- **Planning:** the research and architecture workflow writes `docs/research/typescript-extension/` (map, six domain studies, ARCHITECTURE.md challenged twice in place, WORKFLOWS.md).
+- **Planning:** done. `docs/research/typescript-extension/` holds the map, six domain studies, ARCHITECTURE.md (nine rows, challenged twice in place) and WORKFLOWS.md (the one TYPESCRIPT.md edit, the `owned` keys, launch order and gates).
+- **Companion:** `.claude/workflows/typescript-tune.js` runs after each committed extension run, `args.key` its row and `args.commit` its commit, in the one TypeScript lane.
 - **Plugin studies:** the owner approved public sources, paid plugins (bought by the owner once their prices are reported) and Manzar on Windows. Trials and demos come through vendor accounts. Studies land in `docs/research/typescript-extension/studies/`, one binary decompiled at a time through Ghidra and Codex.
-- **Start:** the extension rows join TYPESCRIPT.md once the [01] TypeScript rows land and the architecture and studies are reviewed.
+- **Start:** once the last [01] TypeScript row lands, WORKFLOWS.md [02.1] and [03.1] land as one edit and `data/search` launches. InDesign's own bundles (ARCHITECTURE.md Study [01] to [05]) go through Ghidra after the plugin studies.
 
 ### Scope
 
