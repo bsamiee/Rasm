@@ -61,7 +61,7 @@ Once every RUST.md [03] row has landed, each crate gets a depth run so no crate 
 
 ### State on 2026-11-01
 
-- **Swift:** all three rows landed, with a close-out of the stopped Swift mine. A rerun of the Swift mine waits until the watch-apps session's Swift test wave lands.
+- **Swift:** all three rows landed, with a close-out of the stopped Swift mine. The watch-apps session's test wave landed (df93a6e0a); its later uncommitted edits under libs/{swift,python,dotnet}, tests/{swift,python,dotnet}, tools/, the watch-apps skill, the manage-repo Swift reference, SWIFT.md and three Swift rule notes belong to another session. The Swift mine rerun waits until those paths are settled, then runs over the committed tree.
 - **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. `creative-cloud/indesign` is running; it gets a Check-only rerun under the depth adversaries before its commit, then `typescript-tune`. Next are `data/database`, `web/hosting`, `web/media` and `web/ui`, one at a time as the lane opens.
 - **SchemaTransformation pass:** landed. The same mining runs over the other Effect 4 members the TypeScript code restates by hand, where a member states the form.
 - **Quality bar for every language:** thread safety and performance hold as firmly as surface and depth; a gap a review finds (a lowered lint, a dropped `Send`, a starved future) is fixed at its root and the rule or skill line that let it through is corrected.
