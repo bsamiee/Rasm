@@ -1,0 +1,41 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-network"
+version.workspace    = true
+edition.workspace    = true
+description          = "Network analysis over petgraph graphs: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["network-analysis", "centrality", "shortest-path", "maximum-flow", "community-detection"]
+categories           = ["algorithms", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon          = { workspace = true }
+thiserror      = { workspace = true }
+derive_more    = { workspace = true }
+indexmap       = { workspace = true }
+serde          = { workspace = true }
+nutype         = { workspace = true }
+ordered-float  = { workspace = true }
+nalgebra       = { workspace = true }
+leiden-rs      = { workspace = true }
+petgraph       = { workspace = true }
+rustworkx-core = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

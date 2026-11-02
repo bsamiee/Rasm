@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::DualVec"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_dual::Dual", "num_dual::DualVec"]
 arithmetic-side-effects-allowed-unary = ["nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -28,9 +28,9 @@ pub-underscore-fields-behavior = "AllPubFields"
 
 # --- [GRAPH]
 allowed-duplicate-crates = [
-    "syn",                   # 2 under proc macros not on `syn` 3 (`derive_more-impl`, `jiff-static`, `nalgebra-macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `zerocopy-derive`)
+    "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1 and under `nuts-derive` of newest `nuts-rs` 0.19.1, 2 under proc macros not on `syn` 3 (`derive_more-impl`, `enum_dispatch`, `jiff-static`, `nalgebra-macros`, `prost-derive`, `strum_macros`, `tracing-attributes`, `zerocopy-derive`)
     "getrandom",             # 0.2 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), 0.3 under `ahash`, `jsonschema`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, and `jobserver`
-    "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` beside 0.10 under rmcp `server-side-http`
+    "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace` and newest `leiden-rs` 0.8.1 beside 0.10 under rmcp `server-side-http` and newest `rustworkx-core` 0.18.1
     "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
@@ -41,16 +41,25 @@ allowed-duplicate-crates = [
     "windows-sys",           # 0.52 under newest `ring` 0.17.14 through the weak `ring?/alloc` of `rustls-webpki` (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
-    "itertools",             # 0.14 under newest `prost-derive` 0.14.4 through `opentelemetry-otlp`, beside 0.15 under `clippy_utils` and `rasm-screen`
     "rstar",                 # 0.8, 0.9, 0.10, 0.11, and 0.13 under newest `geo-types` 0.7.20 through the weak `rstar_0_*?/serde` of its `serde` feature (rust-clippy#16440), beside 0.12 under newest `geo` 0.33.1 and 0.13 under `parry3d-f64`
     "heapless",              # 0.6 and 0.7 under the weak `rstar` 0.8 to 0.11 copies of `geo-types` (rust-clippy#16440), beside 0.8 under `rstar` 0.12 and 0.13
     "hash32",                # 0.1 and 0.2 under the weak `heapless` 0.6 and 0.7 copies (rust-clippy#16440), beside 0.3 under `heapless` 0.8
     "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440)
-    "equator",               # 0.2 under newest `nano-gemm` 0.2.2, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
-    "equator-macro",         # 0.2 under `equator` 0.2 beside 0.6 under `equator` 0.6
-    "thiserror",             # 1 under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
+    "equator",               # 0.2 under newest `nano-gemm` 0.2.2 and 0.4 under newest `spindle` 0.2.6 and `aligned-vec` 0.6.4, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
+    "equator-macro",         # 0.2 and 0.4 under `equator` 0.2 and 0.4 beside 0.6 under `equator` 0.6
+    "thiserror",             # 1 under newest `clarabel` 0.11.1 and under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
     "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
+    "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry`
+    "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
+    "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2 beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
+    "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14
+    "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13
+    "brotli-decompressor",   # 5 under `brotli` 8 beside 6 under `brotli` 9
+    "alloc-stdlib",          # 0.2 under `brotli` 8 beside 0.3 under `brotli` 9
+    "alloc-no-stdlib",       # 2 under `alloc-stdlib` 0.2 beside 3 under `alloc-stdlib` 0.3
+    "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, and `arrow-json`
+    "schemars",              # 0.9 under newest `serde_with` 3.24.0 through the weak `schemars_0_9?/std` of its default `std` (rust-clippy#16440), beside 1 under `rmcp`, `bounded-integer`, and serde_with `schemars_1`
 ]
 
 # --- [BANS]

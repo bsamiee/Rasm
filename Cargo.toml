@@ -54,13 +54,13 @@ thiserror            = "2.0.21"                                    # Error enums
 validated            = { version = "1.0.0", features = ["rayon"] } # Applicative validation accumulating every independent error
 
 # --- [DERIVES]
-auto_impl    = "1.4.0"                                                                                                                                        # Capability traits implemented for references, Arc, and Box from one impl
-bon          = "3.10.3"                                                                                                                                       # Compile-time-checked builders for optional arguments
-derive-where = { version = "1.7.0", features = ["safe"] }                                                                                                     # Derives on generic and phantom-typed records without spurious bounds
-derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "debug", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Display and Debug derives on fieldless enums and opaque newtypes, conversion and constructor derives on invariant-free newtypes
-dynosaur     = "0.3.1"                                                                                                                                        # Dynamic dispatch over async capability traits swapped at composition
-o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                           # Field mappings between domain and contract records, default `syn1` builds syn 1 beside syn 2
-strum        = { version = "0.28.0", features = ["derive"] }                                                                                                  # Enum name tables, iteration, and discriminant enums
+auto_impl    = "1.4.0"                                                                                                                                                             # Capability traits implemented for references, Arc, and Box from one impl
+bon          = "3.10.3"                                                                                                                                                            # Compile-time-checked builders for optional arguments
+derive-where = { version = "1.7.0", features = ["safe"] }                                                                                                                          # Derives on generic and phantom-typed records without spurious bounds
+derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "debug", "deref", "constructor", "is_variant", "from_str", "as_ref", "add", "add_assign"] } # Display and Debug derives on fieldless enums and opaque newtypes, conversion and constructor derives on invariant-free newtypes, field-wise sums on records of quantities
+dynosaur     = "0.3.1"                                                                                                                                                             # Dynamic dispatch over async capability traits swapped at composition
+o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                                                # Field mappings between domain and contract records, default `syn1` builds syn 1 beside syn 2
+strum        = { version = "0.28.0", features = ["derive"] }                                                                                                                       # Enum name tables, iteration, and discriminant enums
 
 # --- [COLLECTIONS]
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
@@ -293,7 +293,7 @@ inquire              = { version = "0.9.4", features = ["editor"] }             
 minus                = { version = "5.8.0", features = ["static_output", "search"] }                                        # In-process pager for a grid taller than the terminal, `/` search
 ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache", "macros"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` 0.3 beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds nix 0.29 and thiserror 1 to the metadata clippy reads
 ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                                                 # Conversions between terminal styles and TUI styles
-ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }                      # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the workspace picks
+ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }                      # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the catalog
 ratatui-textarea     = "0.9.4"                                                                                              # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
 throbber-widgets-tui = "0.11.1"                                                                                             # Activity indicators of pending effects
 tracing-indicatif    = "0.3.14"                                                                                             # Progress bars driven by tracing spans
@@ -356,21 +356,22 @@ tokio-modbus = { version = "0.17.0", features = ["tcp-server", "rtu-server"] } #
 tokio-serial = "5.5.0"                                                         # Async serial ports
 
 # --- [COLUMNAR]
-adbc_core                  = "0.25.0"                                                                                           # Database access through ADBC returning record batches
-adbc_driver_manager        = "0.25.0"                                                                                           # ADBC drivers loaded from shared libraries
-arrow                      = { version = "59.3.2", features = ["ipc_compression", "canonical_extension_types", "prettyprint"] } # Columnar record batches, IPC under ZSTD, and canonical extension types carrying units, at the release DataFusion 55 and deltalake 1.1 link
-arrow-flight               = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                                    # Arrow Flight and Flight SQL
-datafusion                 = "55.2.0"                                                                                           # SQL query engine over Arrow and object stores
-datafusion-functions-json  = "0.55.6"                                                                                           # JSON path functions registered on DataFusion sessions
-datafusion-substrait       = "55.2.0"                                                                                           # DataFusion plans converted to and from Substrait
-datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                      # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
-deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                             # Delta Lake tables
-iceberg                    = "0.10.1"                                                                                           # Apache Iceberg tables
-iceberg-catalog-rest       = "0.10.1"                                                                                           # Iceberg REST catalogs
-parquet                    = { version = "59.3.2", features = ["object_store"] }                                                # Parquet files read and written as record batches over object stores
-polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] }         # Dataframes with lazy query engine
-serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                                    # Typed records encoded into and decoded from record batches, schema traced from the record type
-substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                                # Substrait plan model
+adbc_core                  = "0.25.0"                                                                                   # Database access through ADBC returning record batches
+adbc_driver_manager        = "0.25.0"                                                                                   # ADBC drivers loaded from shared libraries
+arrow                      = { version = "59.3.2", features = ["ipc_compression"] }                                     # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion 55 and deltalake 1.1 link, adding num-bigint 0.5 under arrow-buffer beside nalgebra's 0.4 and zstd 0.13 under arrow-ipc beside reqwest's 0.14
+arrow-flight               = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                            # Arrow Flight and Flight SQL
+arrow-schema               = { version = "59.3.2", features = ["canonical_extension_types"] }                           # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
+datafusion                 = "55.2.0"                                                                                   # SQL query engine over Arrow and object stores
+datafusion-functions-json  = "0.55.6"                                                                                   # JSON path functions registered on DataFusion sessions
+datafusion-substrait       = "55.2.0"                                                                                   # DataFusion plans converted to and from Substrait
+datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                              # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
+deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                     # Delta Lake tables
+iceberg                    = "0.10.1"                                                                                   # Apache Iceberg tables
+iceberg-catalog-rest       = "0.10.1"                                                                                   # Iceberg REST catalogs
+parquet                    = { version = "59.3.2", features = ["object_store", "arrow_canonical_extension_types"] }     # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion 55 and deltalake 1.1 link, its codecs adding brotli 8 and zstd 0.13 beside the 9 and 0.14 reqwest's compression takes
+polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] } # Dataframes with lazy query engine
+serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                            # Typed records encoded into and decoded from record batches against the schema a record states
+substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                        # Substrait plan model
 
 # --- [ARRAYS]
 hdf5-metno         = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
@@ -381,7 +382,7 @@ zarrs_icechunk     = { version = "0.6.0", default-features = false, features = [
 zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
-average        = { version = "0.17.0", default-features = false, features = ["std"] }                           # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
+average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                  # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
 csaps          = "0.5.0"                                                                                        # Cubic smoothing splines over samples and grids
 dashu          = "0.6.2"                                                                                        # Arbitrary-precision integers, rationals, and floats
 faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] } # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
@@ -411,23 +412,23 @@ realfft      = "3.5.1"                                     # Real-input FFT at h
 rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
-argmin      = "0.11.0"                                                                           # Brent root brackets, default `rand` adds rand 0.9 beside rand 0.10
-argmin-math = "0.5.1"                                                                            # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
-clarabel    = "0.11.1"                                                                           # Conic interior-point solves
-diffsol     = "0.18.0"                                                                           # ODE and DAE solvers with sensitivities
-fmi         = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] }       # FMU co-simulation and model exchange over FMI 2 and 3, default `ls-bus` adds the FMI 3 bus layer
-good_lp     = { version = "1.15.3", default-features = false, features = ["clarabel", "highs"] } # LP and MIP models over HiGHS and Clarabel, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
-kasuari     = "0.4.13"                                                                           # Cassowary constraint solving of layouts
-nlopt       = "0.8.1"                                                                            # Constrained local and global optimization
-nuts-rs     = "0.19.1"                                                                           # No-U-Turn sampling chains over a `CpuLogpFunc`
+argmin      = "0.11.0"                                                                     # Brent root brackets, default `rand` adds rand 0.9 beside rand 0.10
+argmin-math = "0.5.1"                                                                      # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
+clarabel    = "0.11.1"                                                                     # Conic interior-point solves over typed cone blocks, adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+diffsol     = "0.18.0"                                                                     # ODE and DAE solvers with sensitivities
+fmi         = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMU co-simulation and model exchange over FMI 2 and 3, default `ls-bus` adds the FMI 3 bus layer
+good_lp     = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS built through CMake and bindgen on libclang, bindgen adds itertools 0.13 beside the catalog's, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
+kasuari     = "0.4.13"                                                                     # Cassowary constraint solving of layouts
+nlopt       = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
+nuts-rs     = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
 dugong           = "0.9.3"                                                                           # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
 leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon", "petgraph"] } # Leiden community detection over petgraph graphs, default `cli` adds clap and `gryf` a second graph library
 manatee          = "0.9.3"                                                                           # Force-directed fCoSE layout with constraints, at the release merman-render links
-petgraph         = { version = "0.8.3", features = ["serde-1"] }                                     # Graph structures with incremental acyclic order, traversal, ordering, and shortest paths
+petgraph         = { version = "0.8.3", features = ["serde-1"] }                                     # Graph structures with incremental acyclic order, traversal, ordering, shortest paths, maximum flow, and spanning forests
 petgraph-graphml = "5.0.0"                                                                           # GraphML output of graphs
-rustworkx-core   = "0.18.1"                                                                          # Keyed topological order, DAG layers, cycle search, simple cycles, centrality, cuts, colorings, matchings, Steiner trees, and line graphs over petgraph
+rustworkx-core   = "0.18.1"                                                                          # Keyed topological order, DAG layers, cycle search, simple cycles, pruned Dijkstra visits, eigenvector centrality, connected components, biconnected blocks, minimum cuts, matchings, and Steiner trees over petgraph
 
 # --- [GEOMETRY]
 cavalier_contours = { version = "0.9.0", features = ["serde"] }                                           # Polyline offsets and booleans with arc segments
@@ -618,6 +619,9 @@ rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     #
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming the closing path, keyed order, layers, invalidation reach, change propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, critical path schedules
+rasm-optimize   = { path = "libs/rust/numerics/optimize", version = "1.0.0" }  # Optimization every Rasm numerics consumer composes: bounded nonlinear solves over a named space with vector constraints and global search, conic programs from typed cone blocks, allocation models, constrained Pareto ranking with crowding
+rasm-tables     = { path = "libs/rust/data/tables", version = "1.0.0" }        # Typed tables every Rasm data consumer composes: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink and source
+rasm-network    = { path = "libs/rust/graphs/network", version = "1.0.0" }     # Network analysis every Rasm consumer of a street, circulation or utility network composes: inbound and outbound catchment trees within a radius, heuristic routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness, eigenvector centrality, weak and strong components, biconnected blocks and minimum cuts, maximum flow with its cut, weighted matchings, spanning and Steiner trees, hierarchical and seeded Leiden communities
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

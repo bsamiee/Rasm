@@ -1,0 +1,45 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-tables"
+version.workspace    = true
+edition.workspace    = true
+description          = "Typed rows as Arrow columns: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink or source"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["arrow", "parquet", "tables", "records", "units"]
+categories           = ["encoding", "database"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+futures              = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+serde_with           = { workspace = true }
+jiff                 = { workspace = true }
+newtype-uuid         = { workspace = true }
+uuid                 = { workspace = true }
+arrow                = { workspace = true }
+arrow-schema         = { workspace = true }
+parquet              = { workspace = true }
+serde_arrow          = { workspace = true }
+uom                  = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
