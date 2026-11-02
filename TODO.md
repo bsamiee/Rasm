@@ -36,7 +36,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 
 ### Order and watch points
 
-- **TypeScript:** `data/search` first, then rows that need it alone, and `creative-cloud/indesign` after `uxp`, `automation` and `typography`.
+- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography`, `creative-cloud/automation` and `creative-cloud/indesign` landed. `data/database` is running; it is committed and tuned, then one pass gives a type and const naming one concept one shared name across the TypeScript code, where that case exists, and the skill and `TYPESCRIPT.md` are confirmed to state it. `web/media` and `web/ui` then run together, 20 minutes apart, since they import neither each other nor any shared portfolio file; they commit together and each is tuned. `web/hosting` follows alone, since it shares `vite.config.ts` with media and two portfolio files with ui. Atelier is rebuilt onto the new `@rasm/indesign` but the installed app predates it: it is reinstalled and checked live in InDesign.
 - **Rust:** nine rows landed: `services/telemetry`, `cli/command`, `cli/output`, `cli/screen`, `services/daemon`, `services/mcp`, `geometry/mesh`, `drawing/linework`, `numerics/stats`. `geometry/proximity`, `geospatial/site` and `graphs/dependency` are running, and 30 rows have not started. Depth runs start with `services/telemetry`, `drawing/linework` and `numerics/stats`, once `rust-tune` on 16b941624 is committed.
 - **Later Rust rows:** each starts once its `[AFTER]` rows have landed.
 - **Rust `services/telemetry`:** owns all of `libs/rust` for the move into categories. Read its plan before its Land phase goes far.
