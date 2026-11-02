@@ -96,7 +96,7 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 ### State
 
 - **Planning:** the first plan (map, six domain studies, ARCHITECTURE.md with nine rows, WORKFLOWS.md) is the base phase 5 rewrites.
-- **Owner's choices:** InPage's InDesign plugin ships only inside Windows desktop bundles ($225, $325 with Kasheeda, $650 with the full InPage Naskh) and its Mac build is not on sale; manzar.in still sells the old Windows tool for $60 through PayPal; six paid hasaninscripts scripts ($62) stopped at an hCaptcha.
+- **Owner's choices:** InPage's InDesign plugin ships only inside Windows desktop bundles ($225, $325 with Kasheeda, $650 with the full InPage Naskh) and its Mac build is not on sale; the owner chose the Quranic Publishing System 4.1 + Plugin ($650, Windows), and dropped manzar.in as unsupported after the merger. The owner bought the seven paid hasaninscripts scripts; they join the script decompile after its first run.
 
 ### Scope
 
