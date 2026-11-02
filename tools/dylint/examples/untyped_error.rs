@@ -18,8 +18,10 @@ use std::{
 
 use anyhow::Context as _;
 use itertools::Itertools as _;
+use nonempty_collections::NEVec;
 use rmcp::{ErrorData, model::ErrorCode};
 use tokio::{sync::oneshot, task};
+use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -347,6 +349,10 @@ fn recovered(reports: Vec<anyhow::Error>) -> Option<PortError> {
 
 fn annotated(report: anyhow::Error) -> ReportError { ReportError::Project(report.context("port")) }
 
+fn tallied(texts: &[&str]) -> Result<Vec<u16>, NEVec<(usize, ParseIntError)>> {
+    texts.iter().enumerate().map(|(index, text)| text.parse::<u16>().map_err(|source| (index, source))).collect::<Validated<Vec<_>, _>>().ok()
+}
+
 fn merged(values: &[u16]) -> Vec<u16> { values.iter().copied().coalesce(|left, right| if left == right { Ok(left) } else { Err((left, right)) }).collect() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -403,6 +409,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
         header(vec![1, 2, 3, 4]).map_or(0, |bytes| bytes.len()),
         rejected(&[text])?,
+        tallied(&[text]),
     ));
     let files = [
         loaded(Path::new("port"))?,

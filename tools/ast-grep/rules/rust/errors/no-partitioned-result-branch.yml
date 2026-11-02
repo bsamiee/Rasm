@@ -14,11 +14,11 @@ utils:
                     field: function
                     any:
                         - kind: field_expression
-                          has: {field: field, regex: '^partition_result$'}
+                          has: {field: field, regex: '^partition(_result|_map)?$'}
                         - kind: generic_function
-                          has: {field: function, kind: field_expression, has: {field: field, regex: '^partition_result$'}}
+                          has: {field: function, kind: field_expression, has: {field: field, regex: '^partition(_result|_map)?$'}}
                         - kind: scoped_identifier
-                          has: {field: name, regex: '^partition_result$'}
+                          has: {field: name, regex: '^partition(_result|_map)?$'}
     emptiness:
         any:
             - kind: call_expression
@@ -66,5 +66,5 @@ rule:
         - any:
             - follows: {stopBy: end, matches: partitioned}
             - inside: {stopBy: {kind: 'function_item, closure_expression'}, follows: {stopBy: end, matches: partitioned}}
-message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from `partition_result` for emptiness'
+message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from a partition for emptiness'
 note: 'Call `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error'

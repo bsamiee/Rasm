@@ -4,7 +4,7 @@
 name                 = "rasm-tables"
 version.workspace    = true
 edition.workspace    = true
-description          = "Typed rows as Arrow columns: row schemas with uuid keys, UTC instants and SI units, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups over any async sink or source"
+description          = "Typed rows as Arrow columns: fields derived from uuid key, UTC instant and unit-labeled quantity types, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns and children as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups narrowed to row groups and pages over any async sink or source"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["arrow", "parquet", "tables", "records", "units"]
@@ -25,8 +25,8 @@ bench   = false
 [dependencies]
 futures              = { workspace = true }
 nonempty-collections = { workspace = true }
-thiserror            = { workspace = true }
 validated            = { workspace = true }
+thiserror            = { workspace = true }
 itertools            = { workspace = true }
 serde                = { workspace = true }
 serde_with           = { workspace = true }

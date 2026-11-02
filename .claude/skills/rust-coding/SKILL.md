@@ -18,7 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values and methods that vary are parameters, a caller choosing among methods of one result (a percentile or BCa interval) rather than the callee fixing the costlier one, and kinds, keys, and states are typed values rather than strings
-- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name (`row_filter` for `with_row_filter`), or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a function the result it returns, a file its concept's
+- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a function the result it returns, a file its concept's
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories

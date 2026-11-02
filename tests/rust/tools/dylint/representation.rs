@@ -969,15 +969,15 @@ fn single_impl_trait(found: &str) {
         = help: replace `Handler` with `trait Handler = Fn(u32) -> u32;` under `#![feature(trait_alias)]` and call the bound in place of `handle`
 
     warning: trait `Source` is implemented only for `Port`
-       --> tools/dylint/examples/untyped_error.rs:29:1
+       --> tools/dylint/examples/untyped_error.rs:31:1
         |
-     29 | pub trait Source {
+     31 | pub trait Source {
         | ^^^^^^^^^^^^^^^^
         |
     note: `dyn Source` always holds `Port`
-       --> tools/dylint/examples/untyped_error.rs:357:18
+       --> tools/dylint/examples/untyped_error.rs:363:18
         |
-    357 |     let source: &dyn Source = &Port;
+    363 |     let source: &dyn Source = &Port;
         |                  ^^^^^^^^^^
         = help: replace `Source` with an inherent `impl Port` block
         = note: `#[warn(single_impl_trait)]` on by default

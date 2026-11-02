@@ -253,6 +253,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         if let Some((span, error)) = raised
             && let Some(untyped) = untyped_kind(cx, error)
+            && !(matches!(untyped, UntypedKind::Tuple) && error.tuple_fields().last().is_some_and(|&source| is_error(cx, source)))
             && !body_output(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)).and_then(|enclosing| result_parts(cx, enclosing)).is_some_and(|(_, enclosing)| same_type_modulo_regions(enclosing, error))
         {
             report(cx, expr.hir_id, span, error, untyped);

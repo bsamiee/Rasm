@@ -33,14 +33,15 @@ utils:
         kind: trait_item
         has: {kind: ERROR, regex: '^\w+\s*(<[^=]*>)?\s*=', follows: {regex: '^trait$'}}
     field-default:
-        kind: ERROR
         any:
-            - regex: '^='
+            - kind: ERROR
+              regex: '^='
               inside: {kind: field_declaration_list}
               follows: {kind: field_declaration}
-            - regex: '=$'
+            - kind: ERROR
+              regex: '=$'
               inside: {kind: field_declaration}
-            - inside: {kind: parameters, inside: {kind: function_type, inside: {kind: field_declaration, field: type, has: {kind: ERROR, regex: '=$'}}}}
+            - inside: {kind: parameters, stopBy: end, inside: {kind: function_type, inside: {kind: field_declaration, field: type, has: {kind: ERROR, regex: '=$'}}}}
     type-default:
         kind: ERROR
         has: {kind: trait_bounds}

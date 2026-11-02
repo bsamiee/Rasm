@@ -1,17 +1,17 @@
-#![feature(error_reporter)]
+#![feature(array_try_map, default_field_values, error_reporter, try_blocks_heterogeneous)]
 
-use core::{convert, time::Duration};
+use core::{iter, time::Duration};
 use std::{error::Report, fmt, sync::Arc};
 
 use arrow::{
-    array::new_null_array,
-    compute::{CastOptions, can_cast_types, cast_with_options},
-    datatypes::{DataType, Field, FieldRef, Schema, SchemaRef, TimeUnit},
+    array::{Array as _, ArrayRef, AsArray as _, MapArray, StructArray, make_array, new_null_array},
+    compute::{CastOptions, cast_with_options},
+    datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef, TimeUnit},
     error::ArrowError,
-    record_batch::{RecordBatch, RecordBatchOptions},
+    record_batch::RecordBatch,
 };
 use arrow_schema::extension::{ExtensionType, Uuid};
-use itertools::{Either, Itertools as _};
+use itertools::Itertools as _;
 use jiff::Timestamp;
 use newtype_uuid::{TypedUuid, TypedUuidKind};
 use nonempty_collections::NEVec;
@@ -19,7 +19,9 @@ use parquet::errors::ParquetError;
 use serde::{Deserializer, Serializer, de::DeserializeOwned};
 use serde_with::{Bytes, DeserializeAs, SerializeAs};
 use uom::{
-    si::{self, Dimension, SI, Unit},
+    Conversion,
+    num::Num,
+    si::{self, Dimension, Quantity, Unit as _},
     typenum::Integer,
 };
 use uuid::ClockSequence;
@@ -31,14 +33,60 @@ pub trait Record {
     fn schema() -> SchemaRef;
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Column {
-    Key,
-    Instant,
-    Quantity(Units),
+pub trait Column {
+    fn field(name: String) -> Field;
 }
+
+impl<K> Column for TypedUuid<K>
+where K: TypedUuidKind
+{
+    fn field(name: String) -> Field { Field::new(name, DataType::FixedSizeBinary(16), false).with_extension_type(Uuid) }
+}
+
+impl Column for Timestamp {
+    fn field(name: String) -> Field { Field::new(name, DataType::Timestamp(TimeUnit::Microsecond, Some(Arc::from("UTC"))), false) }
+}
+
+impl<D, U, V> Column for Quantity<D, U, V>
+where
+    D: Dimension + ?Sized,
+    U: si::Units<V> + ?Sized,
+    V: Num + Conversion<V>,
+{
+    fn field(name: String) -> Field {
+        let units = [
+            (<D::L as Integer>::I32, U::length::abbreviation()),
+            (<D::M as Integer>::I32, U::mass::abbreviation()),
+            (<D::T as Integer>::I32, U::time::abbreviation()),
+            (<D::I as Integer>::I32, U::electric_current::abbreviation()),
+            (<D::Th as Integer>::I32, U::thermodynamic_temperature::abbreviation()),
+            (<D::N as Integer>::I32, U::amount_of_substance::abbreviation()),
+            (<D::J as Integer>::I32, U::luminous_intensity::abbreviation()),
+        ]
+        .into_iter()
+        .filter(|&(exponent, _)| exponent != 0)
+        .format_with(" ", |(exponent, symbol), emit| match exponent {
+            1 => emit(&symbol),
+            ..=0 | 2.. => emit(&format_args!("{symbol}{exponent}")),
+        })
+        .to_string();
+        Field::new(name, DataType::Float64, false).with_extension_type(Units(if units.is_empty() { "1".to_owned() } else { units }))
+    }
+}
+
+impl<C> Column for Option<C>
+where C: Column
+{
+    fn field(name: String) -> Field { C::field(name).with_nullable(true) }
+}
+
+impl<C> Column for Vec<C>
+where C: Column
+{
+    fn field(name: String) -> Field { Field::new_list(name, C::field(Field::LIST_FIELD_DEFAULT_NAME.to_owned()), false) }
+}
+
+// --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Key;
@@ -63,33 +111,6 @@ where K: TypedUuidKind
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Units(String);
-
-impl Units {
-    #[must_use]
-    pub fn of<D>() -> Self
-    where D: Dimension + ?Sized {
-        let factors = [
-            (<D::L as Integer>::I32, <<SI<f64> as si::Units<f64>>::length as Unit>::abbreviation()),
-            (<D::M as Integer>::I32, <<SI<f64> as si::Units<f64>>::mass as Unit>::abbreviation()),
-            (<D::T as Integer>::I32, <<SI<f64> as si::Units<f64>>::time as Unit>::abbreviation()),
-            (<D::I as Integer>::I32, <<SI<f64> as si::Units<f64>>::electric_current as Unit>::abbreviation()),
-            (<D::Th as Integer>::I32, <<SI<f64> as si::Units<f64>>::thermodynamic_temperature as Unit>::abbreviation()),
-            (<D::N as Integer>::I32, <<SI<f64> as si::Units<f64>>::amount_of_substance as Unit>::abbreviation()),
-            (<D::J as Integer>::I32, <<SI<f64> as si::Units<f64>>::luminous_intensity as Unit>::abbreviation()),
-        ]
-        .into_iter()
-        .filter(|&(exponent, _)| exponent != 0);
-        Self(match factors.clone().next() {
-            None => "1".to_owned(),
-            Some(_) => factors
-                .format_with(" ", |(exponent, symbol), emit| match exponent {
-                    1 => emit(&symbol),
-                    ..=0 | 2.. => emit(&format_args!("{symbol}{exponent}")),
-                })
-                .to_string(),
-        })
-    }
-}
 
 impl ExtensionType for Units {
     const NAME: &'static str = "rasm.units";
@@ -121,51 +142,23 @@ impl ExtensionType for Units {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TablesError {
-    #[error("columns {} differ from the record schema", .columns.iter().map(|field| field.name()).format(", "))]
-    Schema { found: SchemaRef, columns: NEVec<FieldRef> },
-    #[error("column {} holds values its record type refuses", .column.name())]
-    Values { column: FieldRef, source: ArrowError },
-    #[error("columns refuse their record types{}", fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
-    Columns { errors: NEVec<Self> },
+    #[error("columns refuse their record types{}", fmt::from_fn(|formatter| .columns.iter().try_for_each(|(column, source)| write!(formatter, "\n{}: {}", column.name(), Report::new(source)))))]
+    Columns { found: SchemaRef, columns: NEVec<(FieldRef, ArrowError)> },
+    #[error("record holds no uuid key column {column}")]
+    KeyColumn { column: String },
     #[error("instant {at} precedes the Unix epoch a version 7 key encodes")]
     Key { at: Timestamp, source: jiff::Error },
     #[error(transparent)]
     Records(#[from] serde_arrow::Error),
-    #[error(transparent)]
-    Arrow(#[from] ArrowError),
     #[error(transparent)]
     Parquet(#[from] ParquetError),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn field(name: String, column: Column, nullable: bool) -> Field {
-    match column {
-        Column::Key => Field::new(name, DataType::FixedSizeBinary(16), nullable).with_extension_type(Uuid),
-        Column::Instant => Field::new(name, DataType::Timestamp(TimeUnit::Microsecond, Some(Arc::from("UTC"))), nullable),
-        Column::Quantity(units) => Field::new(name, DataType::Float64, nullable).with_extension_type(units),
-    }
-}
-
 pub fn decode<T>(batch: &RecordBatch) -> Result<Vec<T>, TablesError>
 where T: Record + DeserializeOwned {
-    let schema = T::schema();
-    let found = batch.project(&projection(&schema, batch.schema_ref())?)?;
-    let options = CastOptions { safe: false, ..CastOptions::default() };
-    let columns = schema
-        .fields()
-        .iter()
-        .map(|field| {
-            found
-                .column_by_name(field.name())
-                .map_or_else(|| Ok(new_null_array(field.data_type(), found.num_rows())), |column| cast_with_options(column, field.data_type(), &options))
-                .map_err(|source| TablesError::Values { column: Arc::clone(field), source })
-        })
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()
-        .map_err(|errors| TablesError::Columns { errors })?;
-    Ok(serde_arrow::from_record_batch(&RecordBatch::try_new_with_options(schema, columns, &RecordBatchOptions::new().with_row_count(Some(found.num_rows())))?)?)
+    rows(&T::schema(), batch)
 }
 
 pub fn key<K, C>(context: &C, at: Timestamp) -> Result<TypedUuid<K>, TablesError>
@@ -176,36 +169,82 @@ where
     Duration::try_from(at.as_duration()).map(|since| TypedUuid::new_v7(uuid::Timestamp::from_unix(context, since.as_secs(), since.subsec_nanos()))).map_err(|source| TablesError::Key { at, source })
 }
 
-fn projection(expected: &Schema, found: &SchemaRef) -> Result<Vec<usize>, TablesError> {
-    fn identical(expected: &Field, found: &Field) -> bool {
-        let [expected_extension, found_extension] = [expected, found].map(|side| (side.extension_type_name(), side.extension_type_metadata().filter(|metadata| !metadata.is_empty())));
-        expected_extension == found_extension && nested(expected.data_type(), found.data_type())
-    }
-    fn nested(expected: &DataType, found: &DataType) -> bool {
-        match (expected, found) {
-            (_, DataType::Dictionary(_, values)) => nested(expected, values),
-            (_, DataType::RunEndEncoded(_, values)) => nested(expected, values.data_type()),
-            (DataType::Struct(fields), DataType::Struct(columns)) => fields.iter().all(|field| columns.find(field.name()).is_some_and(|(_, column)| identical(field, column))),
-            (DataType::Union(fields, _), DataType::Union(columns, _)) =>
-                fields.iter().all(|(_, field)| columns.iter().find(|(_, column)| column.name() == field.name()).is_some_and(|(_, column)| identical(field, column))),
-            (
-                DataType::List(field) | DataType::LargeList(field) | DataType::ListView(field) | DataType::LargeListView(field) | DataType::FixedSizeList(field, _),
-                DataType::List(column) | DataType::LargeList(column) | DataType::ListView(column) | DataType::LargeListView(column) | DataType::FixedSizeList(column, _),
-            )
-            | (DataType::Map(field, _), DataType::Map(column, _)) => identical(field, column),
-            _ => can_cast_types(found, expected),
-        }
-    }
-    let (positions, refused): (Vec<_>, Vec<_>) = expected
+fn rows<T>(schema: &Schema, batch: &RecordBatch) -> Result<Vec<T>, TablesError>
+where T: DeserializeOwned {
+    let options = CastOptions { safe: false, ..CastOptions::default() };
+    let columns = schema
         .fields()
         .iter()
-        .filter_map(|field| match found.column_with_name(field.name()) {
-            Some((position, column)) if identical(field, column) => Some(Either::Left(position)),
-            None if field.is_nullable() => None,
-            Some(_) | None => Some(Either::Right(Arc::clone(field))),
+        .map(|field| {
+            column(batch.schema_ref().fields(), batch.columns(), batch.num_rows(), field, &options)
+                .and_then(|column| match (field.is_nullable(), column.logical_null_count()) {
+                    (true, _) | (false, 0) => Ok(column),
+                    (false, nulls) => Err(ArrowError::InvalidArgumentError(format!("required column holds nulls in {nulls} rows"))),
+                })
+                .map_err(|source| (Arc::clone(field), source))
         })
-        .partition_map(convert::identity);
-    NEVec::try_from_vec(refused).map_or(Ok(positions), |columns| Err(TablesError::Schema { found: Arc::clone(found), columns }))
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+        .map_err(|columns| TablesError::Columns { found: batch.schema(), columns })?;
+    Ok(serde_arrow::from_arrow(schema.fields(), &columns)?)
+}
+
+fn column(found: &Fields, columns: &[ArrayRef], rows: usize, expected: &Field, options: &CastOptions<'_>) -> Result<ArrayRef, ArrowError> {
+    fn conformed(array: &ArrayRef, found: &Field, expected: &Field, options: &CastOptions<'_>) -> Result<ArrayRef, ArrowError> {
+        let [into, from] = [expected, found].map(|side| (side.extension_type_name(), side.extension_type_metadata().filter(|metadata| !metadata.is_empty())));
+        let refused = || ArrowError::CastError(format!("{} does not conform to {}", array.data_type(), expected.data_type()));
+        match (expected.data_type(), array.data_type()) {
+            _ if into != from => Err(ArrowError::SchemaError(format!("extension {from:?} differs from the record's {into:?}"))),
+            (target, source) if target == source => Ok(Arc::clone(array)),
+            (_, DataType::Dictionary(_, values)) if values.is_nested() => conformed(&cast_with_options(array, values, options)?, found, expected, options),
+            (_, DataType::RunEndEncoded(_, values)) if values.data_type().is_nested() => conformed(&cast_with_options(array, values.data_type(), options)?, found, expected, options),
+            (DataType::Struct(fields), DataType::Struct(_)) => {
+                let structs = array.as_struct();
+                let columns = fields.iter().map(|field| column(structs.fields(), structs.columns(), structs.len(), field, options)).collect::<Result<Vec<_>, _>>()?;
+                Ok(Arc::new(StructArray::try_new_with_length(fields.clone(), columns, structs.nulls().cloned(), structs.len())?))
+            }
+            (DataType::Map(entries, sorted), DataType::Map(found_entries, order))
+                if sorted == order
+                    && let (DataType::Struct(fields), DataType::Struct(found_fields)) = (entries.data_type(), found_entries.data_type())
+                    && let ([key, value], [found_key, found_value]) = (&**fields, &**found_fields) =>
+            {
+                let maps = array.as_map();
+                let columns = vec![conformed(maps.keys(), found_key, key, options)?, conformed(maps.values(), found_value, value, options)?];
+                Ok(Arc::new(MapArray::try_new(
+                    Arc::clone(entries),
+                    maps.offsets().clone(),
+                    StructArray::try_new(fields.clone(), columns, maps.entries().nulls().cloned())?,
+                    maps.nulls().cloned(),
+                    *sorted,
+                )?))
+            }
+            (
+                DataType::List(item) | DataType::LargeList(item) | DataType::ListView(item) | DataType::LargeListView(item) | DataType::FixedSizeList(item, _),
+                source @ (DataType::List(found_item) | DataType::LargeList(found_item) | DataType::ListView(found_item) | DataType::LargeListView(found_item) | DataType::FixedSizeList(found_item, _)),
+            ) => {
+                let data = array.to_data();
+                let items = data.child_data().iter().map(|child| conformed(&make_array(child.clone()), found_item, item, options).map(|values| values.to_data())).collect::<Result<Vec<_>, _>>()?;
+                let listed = match source {
+                    DataType::LargeList(_) => DataType::LargeList(Arc::clone(item)),
+                    DataType::ListView(_) => DataType::ListView(Arc::clone(item)),
+                    DataType::LargeListView(_) => DataType::LargeListView(Arc::clone(item)),
+                    DataType::FixedSizeList(_, size) => DataType::FixedSizeList(Arc::clone(item), *size),
+                    _ => DataType::List(Arc::clone(item)),
+                };
+                cast_with_options(&make_array(data.into_builder().data_type(listed).child_data(items).build()?), expected.data_type(), options)
+            }
+            (_, source) if source.is_nested() => Err(refused()),
+            (DataType::List(item) | DataType::LargeList(item) | DataType::ListView(item) | DataType::LargeListView(item) | DataType::FixedSizeList(item, _), source)
+                if !source.is_null() && item.extension_type_name().is_some() =>
+                Err(refused()),
+            (target, _) => cast_with_options(array, target, options),
+        }
+    }
+    match iter::zip(found, columns).find(|(field, _)| field.name() == expected.name()) {
+        Some((field, array)) => conformed(array, field, expected, options),
+        None if expected.is_nullable() => Ok(new_null_array(expected.data_type(), rows)),
+        None => Err(ArrowError::SchemaError(format!("required column {} is absent", expected.name()))),
+    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
