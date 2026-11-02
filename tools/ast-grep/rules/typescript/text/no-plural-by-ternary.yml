@@ -14,12 +14,34 @@ utils:
             - all: [{has: {field: operator, regex: '^(<|>=)$'}}, {has: {field: left, matches: one}}]
     text:
         kind: string, template_string
+    category-select:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^select$'}
+                - has:
+                    field: object
+                    any:
+                        - pattern: new Intl.PluralRules($$$)
+                        - kind: identifier
+                          pattern: $RULES
+                          inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RULES}}, {has: {field: value, pattern: new Intl.PluralRules($$$)}}]}}
+    category-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+            - has: {kind: string}
+            - has: {matches: category-select}
 rule:
     kind: ternary_expression
     pattern: $TERNARY
-    all:
-        - has: {field: condition, matches: count-test}
-        - has: {field: consequence, matches: text}
-        - has: {field: alternative, matches: text}
-message: '`$TERNARY` picks a plural form by comparing a count with 1'
-note: 'Select the form by the category `new Intl.PluralRules(<locale>).select(<count>)` returns'
+    any:
+        - all:
+            - has: {field: condition, matches: count-test}
+            - has: {field: consequence, matches: text}
+            - has: {field: alternative, matches: text}
+        - has: {field: condition, matches: category-test}
+message: '`$TERNARY` picks a plural form by comparing a count or plural category with one value'
+note: 'Index forms by the category `new Intl.PluralRules(<locale>).select(<count>)` returns'

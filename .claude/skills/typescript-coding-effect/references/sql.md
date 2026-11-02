@@ -3,9 +3,9 @@
 ## [01]-[STATEMENTS]
 
 `` sql`...` `` returns a `Statement<A>` that is both an `Effect` of rows and a fragment, and statements nest unexecuted. Interpolated values bind as parameters:
-- `sql(name)` escapes an identifier, `sql.literal(text)` inserts raw SQL, and `sql.unsafe(text, params)` runs a whole raw statement
+- `sql(name)` escapes an identifier split on each dot, `sql.literal(text)` and a string `csv` part insert raw SQL, and `sql.unsafe` runs raw text
 - `sql.insert(rows).returning('*')`, `sql.update(row, omit)`, `sql.in(values)`, `sql.and(parts)`, and `sql.csv(parts)` build clauses, and `sql.insert` takes a non-empty list
-- `sql.onDialectOrElse({ pg, sqlite, orElse })` selects SQL per dialect, and `sql.driver` names the driver where drivers share a dialect
+- `sql.onDialect({ pg, sqlite, mysql, mssql, clickhouse })` fails in an unsupported dialect's arm, `sql.driver` naming drivers that share one
 - `.stream` returns rows as a `Stream`, `.values` positional rows, and `.compile()` the SQL text with its parameters
 - `sql.reactive(keys, query)` reruns a query as a `Stream` each time `keys` invalidate
 - `SqlClient.SafeIntegers` set `true` returns 64-bit integers as `bigint`
@@ -13,7 +13,7 @@
 ## [02]-[QUERIES]
 
 `SqlSchema` builds a function from a request schema to decoded rows, encoding the request and decoding each result:
-- `SqlSchema.findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state the result cardinality, `findOne` failing with `NoSuchElementError`
+- `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void` state row count, a one-row tuple restating `findOne` and its `NoSuchElementError`
 - `SqlModel.makeRepository(Model, { tableName, spanPrefix, idColumn })` derives `insert`, `update`, `findById`, and `delete` from a `Model.Class`, and `softDeleteColumn` filters reads and turns delete into a timestamp
 - `SqlModel.makeResolvers` returns the same operations as batched resolvers
 - `SqlResolver` batches key on the caller's transaction, and `SqlResolver.ordered` fails a batch with a row count differing from its request count

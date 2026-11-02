@@ -6,6 +6,7 @@ utils:
     key-position:
         any:
             - inside: {kind: subscript_expression, field: index}
+            - inside: {matches: typescript-expression-wrapper, inside: {kind: subscript_expression, field: index}}
             - inside: {kind: binary_expression, field: left, has: {field: operator, regex: '^in$'}}
             - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
               inside:
@@ -17,6 +18,11 @@ utils:
         kind: variable_declarator
         all:
             - has: {field: name, kind: identifier, pattern: $KEY}
+            - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $KEY, matches: key-position}}
+    tuple-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, kind: array_pattern, has: {kind: identifier, pattern: $KEY}}
             - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $KEY, matches: key-position}}
     record-declaration:
         kind: variable_declarator
@@ -40,6 +46,11 @@ rule:
             - matches: key-position
             - inside: {kind: variable_declarator, field: value, matches: key-declaration}
             - inside:
+                kind: array
+                any:
+                    - inside: {kind: variable_declarator, field: value, matches: tuple-declaration}
+                    - inside: {matches: typescript-expression-wrapper, inside: {kind: variable_declarator, field: value, matches: tuple-declaration}}
+            - inside:
                 kind: pair
                 field: value
                 inside:
@@ -48,4 +59,4 @@ rule:
                         - inside: {kind: variable_declarator, field: value, matches: record-declaration}
                         - inside: {matches: typescript-expression-wrapper, inside: {kind: variable_declarator, field: value, matches: record-declaration}}
 message: '`$NAME` assembles a member name from text'
-note: 'Read the member name from `$.dictionary.getClass(<class>)` rows, or select it with `Match.valueTags` where a tagged value decides it'
+note: 'Read member names from `$.dictionary.getClass(<class>)` rows, an `as const` table keyed by their deciding value, or `Match.valueTags` over a tagged value'

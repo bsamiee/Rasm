@@ -32,4 +32,4 @@ rule:
                 - has: {field: property, regex: '^(get|getAll)$'}
                 - has: {field: object, matches: held-params}
 message: '`$HAND` reads or builds search parameters by hand'
-note: 'Declare `Schema.fromURLSearchParams(<struct>)` at module scope, decode with `Schema.decodeOption` and encode with `Schema.encodeOption`'
+note: 'Decode request parameters through `HttpServerRequest.schemaSearchParams(<struct>)`, other parameters through a module-scope `Schema.fromURLSearchParams(<struct>)` with `Schema.decodeOption` and `Schema.encodeOption`'

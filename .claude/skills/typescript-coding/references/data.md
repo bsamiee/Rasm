@@ -8,9 +8,9 @@ Transitions take their input first and return a function from one state to the n
 const adjusted = (sku: Sku, delta: number) => HashMap.modifyAt(sku, flow(Option.match({ onNone: Function.constant(delta), onSome: Number.sum(delta) }), Quantity.makeOption));
 ```
 
-`Ref.update(cart, adjusted(sku, 1))` applies one change, and a fold from `HashMap.empty()` replays a log of changes:
+`Ref.update(reserved, adjusted(sku, 1))` applies one change to a warehouse's reservations, and a fold from `HashMap.empty()` replays a log of changes:
 - `modifyAt` maps the held `Option` to the stored one, inserting, updating, and removing in one function
-- Lines with a count `Quantity.makeOption` rejects leave the map, and an empty line has no representation
+- Skus with a count `Quantity.makeOption` rejects leave the map, and a zero reservation has no representation
 - `Equal.equals` and `Hash.hash` compare plain objects, arrays, `Map`, and `Set` by contents and class instances by class and fields, a `_tag` separating kinds
 - `Hash.hash` caches per object and a hashed value stays unchanged, `Equal.byReference(handle)` compares a host handle by identity
 - `Schema.toDifferJsonPatch(X)` states a change as JSON Patch for a peer or store, with `patch` decoding the result through `X`
@@ -76,8 +76,9 @@ Orders compose from the orders value modules export and sit on their type as a s
 const ranked = <const L extends readonly SchemaAST.LiteralValue[]>(schema: Schema.Literals<L>) => Order.mapInput(Number.Order, (value: L[number]) => schema.literals.indexOf(value));
 ```
 
-`Severity` lists its literals from lowest to highest, and `Ticket.order = Order.Struct({ severity: Order.flip(ranked(Severity)), opened: DateTime.Order })` sorts tickets most severe, then oldest, first:
-- `Order.Struct` compares fields in key order until one differs
-- `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` states equality by key for `Array.dedupeWith` and `Array.unionWith`
+`Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(ranked(Severity)), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
+- `Order.Struct` compares fields in key order until one differs, and `Order.mapInput(Order.Struct(...), f)` orders by a nested part
+- `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` builds one by key for a type lacking it (`URL` by `href`) as a static
+- `Array.containsWith`, `Array.dedupeWith`, `Array.unionWith`, and `Stream.changesWith` read an `Equivalence` in place of a hand `===` on a key
 - `Array.dedupe` and `HashSet` group through `Equal` and `Hash` in one pass, `Array.dedupeWith` compares each element with every kept one
-- `Struct.makeReducer` composes per-field reducers (`Number.ReducerSum`, `Duration.ReducerSum`), and `combineAll` folds states into one summary
+- `Struct.makeReducer` composes reducers (`Number.ReducerSum`, `Option.makeReducer(r)`, `Array.makeReducerConcat()`), `combineAll` folding states

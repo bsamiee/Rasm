@@ -1,11 +1,10 @@
+import { Record } from 'effect';
 import type { ReactNode } from 'react';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CustomProperties = ({ properties, children }: { properties: Readonly<Record<`--${string}`, number | string>>; children: (scope: { readonly 'data-properties': string }) => ReactNode }) => {
-    const declarations = Object.entries(properties)
-        .map((property) => property.join(':'))
-        .join(';');
+const CustomProperties = ({ properties, children }: { properties: Record.ReadonlyRecord<`--${string}`, number | string>; children: (scope: { readonly 'data-properties': string }) => ReactNode }) => {
+    const declarations = Record.collect(properties, (name, value) => `${name}:${value}`).join(';');
     const key = encodeURIComponent(declarations);
     return (
         <>

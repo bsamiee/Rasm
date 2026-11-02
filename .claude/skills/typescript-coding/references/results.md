@@ -13,6 +13,8 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 ```
 
 - `Effect.fromNullishOr` enters a nullable host value into the same chain
+- `Effect.fromOption` fails with `NoSuchElementError` itself, and an error rebuilt to add a message restates it
+- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field in place of a trip through `Option.fromUndefinedOr`
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
 - `Array.findFirst` with a function returning `Option` finds and maps in one pass
 - `Effect.transposeOption` runs an effect an `Option` holds and returns an effect of `Option`
@@ -77,3 +79,5 @@ const isolated = <A, E, R>(job: Effect.Effect<A, E, R>) => Effect.catchCauseIf(E
 - `Predicate.not(Cause.hasInterruptsOnly)` leaves an interrupted job's cause an interruption and logs nothing
 - `Effect.logError` attaches a cause argument to its log record
 - `Effect.catchDefect` stands at a boundary recovering defects alone, and typed errors stay for its caller
+- Steps no later step reads (a finalizer, a cleanup) log and discard through `Effect.ignore({ log, message })`, which keeps defects
+- `Effect.ignoreCause({ log })` discards a whole cause, interruption included, and a step a later one reads keeps its failure in `E`

@@ -6,6 +6,19 @@ import 'pdfjs-dist/web/pdf_viewer.css';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const resized = (container: HTMLDivElement) =>
+    Stream.callback<void>(
+        (queue) =>
+            Effect.acquireRelease(
+                Effect.sync(() => {
+                    const observer = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
+                    observer.observe(container);
+                    return observer;
+                }),
+                (observer) => Effect.sync(() => observer.disconnect()),
+            ),
+        { bufferSize: 1, strategy: 'sliding' },
+    );
 const pdfPage = Effect.fn('pdfPage')(function* (container: HTMLDivElement, document: PDFDocumentProxy, page: number) {
     const proxy = yield* Effect.tryPromise(() => document.getPage(page));
     const viewport = proxy.getViewport({ scale: 1 });
@@ -18,17 +31,7 @@ const pdfPage = Effect.fn('pdfPage')(function* (container: HTMLDivElement, docum
             }),
     );
     view.setPdfPage(proxy);
-    yield* Stream.callback(
-        (queue) => {
-            const observer = new ResizeObserver(() => Queue.offerUnsafe(queue, undefined));
-            observer.observe(container);
-            return Effect.ensuring(
-                Effect.never,
-                Effect.sync(() => observer.disconnect()),
-            );
-        },
-        { bufferSize: 1, strategy: 'sliding' },
-    ).pipe(
+    yield* resized(container).pipe(
         Stream.runForEach(() =>
             Effect.tryPromise(() => {
                 view.update({ scale: Math.min(container.clientWidth / viewport.width, container.clientHeight / viewport.height) / PixelsPerInch.PDF_TO_CSS_UNITS });

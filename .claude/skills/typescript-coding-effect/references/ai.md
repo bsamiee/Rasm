@@ -40,8 +40,9 @@ const Server = McpServer.layerHttp({
 `LedgerError` is the package error, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
 - Services a handler reads become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges and `Layer.provide` leaves in place
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
-- Middleware runs around `tools/call`, `resources/read`, `prompts/get`, and `completion/complete`, reading `{ method, target, payload, headers, sessionId }`, and its result type stays opaque
-- `m.layer` scopes middleware to the registrations it reaches, `McpServer.middleware(fn, { global: true })` covers the server, and `a.combine(b)` runs `b` outside `a`
+- Middleware runs around `tools/call`, `resources/read`, `prompts/get`, and `completion/complete`, reading `{ method, target, payload, headers, sessionId }` and keeping the handler's opaque result
+- `m.layer` scopes middleware to the registrations it reaches, and `a.combine(b)` runs `b` outside `a`
+- `McpServer.middleware(fn, { global: true })` is a layer covering every method, the one place for the span and metric around each request
 - `McpServer.visibility` hides registrations per caller from lists and calls, and `McpSchema.EnabledWhen` hides them per client profile
 - Middleware errors extend `McpSchema.McpErrorBase` with a code in `-32000` to `-32019` and reach the client as JSON-RPC errors
 - Declared `failure` errors reach the client as `isError` text, and undeclared failures and defects reach it as one generic message

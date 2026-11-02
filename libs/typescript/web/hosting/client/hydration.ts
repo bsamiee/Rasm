@@ -6,8 +6,8 @@ import type { Shell } from '#/rendering';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const hydratePage = Effect.fnUntraced(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, render: (value: S['Type']) => ReactNode) {
-    const [root, data] = yield* Effect.all([Effect.fromNullishOr(document.querySelector(`#${CSS.escape(shell.root)}`)), Effect.fromNullishOr(document.querySelector(`#${CSS.escape(shell.data)}`))]);
-    hydrateRoot(root, render(yield* Schema.decodeUnknownEffect(Schema.fromJsonString(shell.schema))(data.textContent)));
+    const [root, data] = yield* Effect.all([Effect.fromNullishOr(document.getElementById(shell.root)), Effect.fromNullishOr(document.getElementById(shell.data))]);
+    hydrateRoot(root, render(yield* Schema.decodeEffect(Schema.fromJsonString(shell.schema))(data.textContent)));
     data.remove();
 }, Effect.runSync);
 

@@ -36,6 +36,7 @@ const elements = {
             title: Schema.optionalKey(Schema.String),
             document: Schema.optionalKey(Schema.URL.annotate({ description: 'AXDocument file' })),
             edited: Schema.optionalKey(Schema.Boolean.annotate({ description: 'AXEdited of the close button' })),
+            minimized: Schema.optionalKey(Schema.Boolean),
             actions: Schema.Array(Schema.String),
             requiresAnswer: Schema.Boolean.annotate({ description: 'Sheet, modal, or system dialog' }),
             detail: Schema.optionalKey(
@@ -43,7 +44,6 @@ const elements = {
                     frame: Schema.optionalKey(Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'AXPosition and AXSize' })),
                     main: Schema.optionalKey(Schema.Boolean),
                     focused: Schema.optionalKey(Schema.Boolean),
-                    minimized: Schema.optionalKey(Schema.Boolean),
                     text: Schema.Array(Schema.String),
                     controls: Schema.Array(Control),
                     unreadable: Schema.Array(Schema.Struct({ reads: Schema.Array(Schema.String), role: Schema.optionalKey(Schema.String), label: Schema.optionalKey(Schema.String), error: Schema.Int.annotate({ description: 'AXError code' }) })),
@@ -59,7 +59,7 @@ const usage = {
         }),
     ),
 };
-const unresponsive = { process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Process status: a running thread, every thread sleeping, or stopped' }) };
+const unresponsive = { process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread run state: running, waiting, or stopped by a signal or debugger' }) };
 const exit = {
     status: Schema.optionalKey(Schema.Int),
     signal: Schema.optionalKey(Schema.Int),

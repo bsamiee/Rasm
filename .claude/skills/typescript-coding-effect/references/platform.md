@@ -51,6 +51,7 @@ Command.make(
 - `digest.digestHex(Digest.sha256, bytes)` returns lowercase hex
 - `Mac.key`, `Aead.key`, and `Signature.privateKey` import keys typed by algorithm, and `KeyFormat.decodePublic` reads `pem`, `jwk`, `spki`, or `pkcs8`
 - `mac.verify(key, tag, data)` compares in constant time, and `Mac.timingSafeEqual` compares held bytes
+- `Jwt.verifyWithKeySet(S, token, { issuer, audience, algorithms })` over `Jwks.layerRemote` decodes claims, needing `Signature` and `HttpClient`
 
 ## [05]-[ENCODING]
 

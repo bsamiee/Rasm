@@ -1,4 +1,4 @@
-import { Array, Data, Effect, Number, Option, Order, Predicate, Record, Schema, SchemaGetter } from 'effect';
+import { Array, Data, Effect, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import { Digest } from 'effect/crypto';
 import type { Face, NameEntry } from 'harfbuzzjs';
 import type { Tables } from '#/tables';
@@ -33,17 +33,18 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
         );
     };
 
-    named(id: keyof typeof Names.ids | number | undefined) {
-        const ids: ReadonlyArray<number | undefined> = Predicate.isString(id) ? Object.values(Names.ids[id]) : [id];
-        const records = ids.flatMap((each) => this.entries.filter(({ nameId }) => nameId === each));
-        return Array.findFirst(records, ({ nameId, language }) => Schema.decodeOption(Schema.NonEmptyString)(this.handle.getName(nameId, language)));
+    named(kind: keyof typeof Names.ids) {
+        return Array.findFirst(Object.values(Names.ids[kind]), (id: number) => this.byId(id));
+    }
+    byId(id: number) {
+        return Array.findFirst(this.entries, ({ nameId, language }) => (nameId === id ? Schema.decodeOption(Schema.NonEmptyString)(this.handle.getName(nameId, language)) : Option.none()));
     }
     get prefix() {
         return Option.orElse(this.named('prefix'), () => Option.map(this.named('family'), (family) => family.replaceAll(NON_ALPHANUMERIC, '')));
     }
     instance({ nameID, postscriptNameID }: (typeof Tables.Type)['fvar']['instance'][number]) {
-        const style = this.named(nameID);
-        const postscriptName = Option.firstSomeOf([Option.flatMap(postscriptNameID, (id) => this.named(id)), Option.map(Option.all([this.prefix, Option.map(style, (given) => given.replaceAll(NON_ALPHANUMERIC, ''))]), Array.join('-'))]);
+        const style = this.byId(nameID);
+        const postscriptName = Option.firstSomeOf([Option.flatMap(postscriptNameID, (id) => this.byId(id)), Option.map(Option.all([this.prefix, Option.map(style, (given) => given.replaceAll(NON_ALPHANUMERIC, ''))]), Array.join('-'))]);
         return {
             names: { postscriptName, fullName: Option.map(Option.all([this.named('family'), style]), Array.join(' ')), style },
             keys: Array.getSomes([postscriptName, Option.map(Option.all([this.named('postscriptName'), Option.map(style, (given) => given.replaceAll(' ', '-'))]), Array.join('_'))]),

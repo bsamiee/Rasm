@@ -8,9 +8,14 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts"
+        "./contract": "./contract.ts",
+        "./requests/execute-script": "./requests/execute-script.ts",
+        "./requests/font": "./requests/font.ts",
+        "./requests/render": "./requests/render.ts",
+        "./script": "./script.ts"
     },
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",

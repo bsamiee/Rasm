@@ -1,15 +1,15 @@
 import { Execute, Kind, Terms } from '@rasm/automation/apple-events';
 import { type Installation, Perform } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { ExecuteScript } from '@rasm/indesign';
+import { ExecuteScript } from '@rasm/indesign/requests/execute-script';
+import { Script } from '@rasm/indesign/script';
 import { Attachment } from '@rasm/mcp/content';
 import { registerResourceTemplate } from '@rasm/mcp/resource';
 import { Instructions } from '@rasm/mcp/server';
 import { registerRoutedTool } from '@rasm/mcp/tool';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Effect, Function, Option, Predicate, Schema, SchemaAST, SchemaGetter, Struct, SubscriptionRef } from 'effect';
+import { Array, Context, Effect, Function, Option, Predicate, Schema, SchemaAST, SchemaGetter, SchemaIssue, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { InDesignScript } from '#/indesign-script';
 import { instance, lookup, type routes } from '#/routes';
 import type { status } from '#/status';
 
@@ -17,15 +17,28 @@ import type { status } from '#/status';
 
 const Form = Schema.TaggedUnion({ Command: Execute.fields, Element: Perform.fields });
 const Dictionary = Schema.Struct({ application: McpSchema.param('application', Schema.String), kind: McpSchema.param('kind', Kind) });
+const Diagnostic = Schema.Struct({ message: Schema.String, startLine: Schema.Int });
+const Stripped = Schema.String.pipe(
+    Schema.decode({
+        decode: SchemaGetter.transformEffect<string, string>((code, options) => {
+            const [open, close] = ['async function body() {\n', '\n}'];
+            return Effect.try({
+                try: () => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length),
+                catch: (cause) => new SchemaIssue.InvalidValue({ expected: 'TypeScript function body', message: Option.getOrUndefined(Option.map(Schema.decodeUnknownOption(Diagnostic)(cause), ({ message, startLine }) => `line ${startLine - 1}: ${message}`)) }, code, options),
+            });
+        }),
+        encode: SchemaGetter.forbiddenEncoding,
+    }),
+);
 const Reply = Schema.Union([Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(ExecuteScript.Result, { decode: SchemaGetter.succeed({}), encode: SchemaGetter.forbiddenEncoding })), Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(ExecuteScript.Result)))]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const dictionaries = Effect.gen(function* () {
-    const [automation, indesignScript] = yield* Effect.all([Automation, InDesignScript]);
+    const [automation, script] = yield* Effect.all([Automation, Script]);
     const scriptable = (hosts: Predicate.Predicate<Installation>) => (row: Installation) => row.scriptable && !hosts(row);
-    const described = (given: string) => Effect.flatMap(indesignScript.hosts, (hosts) => lookup(scriptable(hosts))(Option.some(given)));
-    const completion = { application: () => Effect.zipWith(automation.installed, indesignScript.hosts, (rows, hosts) => rows.filter(scriptable(hosts)).map(Struct.get('name'))) };
+    const described = (given: string) => Effect.flatMap(script.hosts, (hosts) => lookup(scriptable(hosts))(Option.some(given)));
+    const completion = { application: () => Effect.zipWith(automation.installed, script.hosts, (rows, hosts) => rows.filter(scriptable(hosts)).map(Struct.get('name'))) };
     yield* registerResourceTemplate`adobe://dictionary/${Dictionary.fields.application}`({
         name: 'dictionary',
         description: SchemaAST.resolveDescription(Terms.ast),
@@ -53,7 +66,7 @@ const dictionaries = Effect.gen(function* () {
     });
 });
 const command = Effect.fnUntraced(function* ({ application }: Effect.Success<ReturnType<typeof routes>>, { reported, refused }: Effect.Success<typeof status>) {
-    const [automation, hosts] = yield* Effect.all([Automation, InDesignScript.use(Struct.get('hosts'))]);
+    const [automation, hosts] = yield* Effect.all([Automation, Script.use(Struct.get('hosts'))]);
     const tool = Tool.make('command', {
         description: 'Command runs outside InDesign, refused while a dialog requires an answer. Element runs Accessibility actions on status elements, an answer during launch can activate application',
         parameters: Schema.Struct({}),
@@ -62,7 +75,7 @@ const command = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
     yield* registerRoutedTool({
         ...application,
         fields: { ...application.fields, run: Form },
-        resolve: ({ run, application: given, pid }) => Effect.map(instance(lookup(Form.match(run, { Command: () => Predicate.not(hosts), Element: () => Function.constTrue }))(given), pid), (chosen) => ({ ...chosen, run })),
+        resolve: ({ run, application: given, pid }) => Effect.map(instance(Form.match(run, { Command: () => Predicate.not(hosts), Element: () => Function.constTrue }), given, pid), (chosen) => ({ ...chosen, run })),
         depends: ({ pid, run }) => Effect.succeed([Form.match(run, { Command: () => refused(pid), Element: () => reported(pid) })]),
     })(tool, (_, { pid, run }) =>
         Form.match(run, {
@@ -72,26 +85,22 @@ const command = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
     );
 });
 const executeScript = Effect.fnUntraced(function* ({ application }: Effect.Success<ReturnType<typeof routes>>) {
-    const [automation, indesignScript] = yield* Effect.all([Automation, InDesignScript]);
-    const hosts = yield* indesignScript.hosts;
+    const [automation, script] = yield* Effect.all([Automation, Script]);
+    const hosts = yield* script.hosts;
     const tool = Tool.make('execute_script', {
         description: 'Runs UXP JavaScript or type-stripped TypeScript in InDesign, dictionary script command elsewhere, host errors unchanged. ExtendScript alert, confirm, and prompt activate application',
         parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Function body returning result' }) }),
         success: ExecuteScript.Result,
     }).annotateMerge(
-        Context.make(
-            Instructions,
-            Array.map(Array.fromNullishOr(SchemaAST.resolveDescription(ExecuteScript.ast)), (text) => `execute_script: ${text}`),
-        ),
+        Context.make(Instructions, [
+            'execute_script: Scope holds app, referenced enumerations and DOM classes, and resolve(specifier)',
+            'Body runs synchronously in one undo step, a throw rolls it back and awaited work runs after the answer. Inspect reads File fields as paths',
+            'Results encode enumerators by name, objects as {type, specifier, name, valid}, collections as {type, specifier, length}. kind lists class members',
+        ]),
     );
-    yield* registerRoutedTool(application)(tool, ({ code }, { installation, pid }) => {
-        const [open, close] = ['async function body() {\n', '\n}'];
-        return hosts(installation)
-            ? Effect.scoped(
-                  Effect.flatMap(Effect.all([Effect.try({ try: () => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length), catch: (cause) => new Cause.UnknownError(cause, 'type strip') }), indesignScript.client(pid)]), ([source, call]) =>
-                      call('execute_script', { code: source }),
-                  ),
-              )
+    yield* registerRoutedTool(application)(tool, ({ code }, { installation, pid }) =>
+        hosts(installation)
+            ? Effect.scoped(Effect.flatMap(Effect.all([Schema.decodeEffect(Stripped)(code), script.client(pid)]), ([source, call]) => call('execute_script', { code: source })))
             : automation
                   .script({
                       pid,
@@ -111,8 +120,8 @@ const executeScript = Effect.fnUntraced(function* ({ application }: Effect.Succe
     return value === undefined ? "" : encodeURIComponent('{"result":' + encoded(value) + '}');
 }).call(this, "${encodeURIComponent(code)}")`,
                   })
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Reply)));
-    });
+                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Reply))),
+    );
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

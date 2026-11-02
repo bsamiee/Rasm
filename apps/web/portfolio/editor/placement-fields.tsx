@@ -7,6 +7,10 @@ import { descriptionLabel, sheetLabel } from '#/media/labels';
 import { type AssetCollection, ImageAsset, sheets } from '#/model/asset';
 import { type Placement, percentBounds } from '#/model/placement';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<typeof Placement.Type, { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof Placement.Type; assets: typeof AssetCollection.Type; onChange: (value: typeof Placement.Type) => void; entryId?: string }) => {
@@ -26,12 +30,7 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                         const cover = image.role === 'photograph' && image.framing.mode === 'cover' ? image.framing : undefined;
                         return (
                             <>
-                                <SelectField
-                                    label="Image use"
-                                    onChange={({ id }) => onChange({ ...image, role: id, framing: { mode: 'contain' } })}
-                                    options={Record.toEntries({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<typeof image.role, string>).map(([id, label]) => ({ id, label }))}
-                                    value={image.role}
-                                />
+                                <SelectField label="Image use" onChange={({ id }) => onChange({ ...image, role: id, framing: { mode: 'contain' } })} options={imageRoles} value={image.role} />
                                 {image.role === 'photograph' && (
                                     <>
                                         <SelectField

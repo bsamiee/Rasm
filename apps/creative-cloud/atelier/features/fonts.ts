@@ -1,6 +1,7 @@
 import { Automation } from '@rasm/automation/automation';
 import { AvailableFace } from '@rasm/automation/fonts';
-import { FontView } from '@rasm/indesign';
+import { FontView } from '@rasm/indesign/requests/font';
+import { Script } from '@rasm/indesign/script';
 import { registerResource } from '@rasm/mcp/resource';
 import { registerRoutedTool } from '@rasm/mcp/tool';
 import { Face } from '@rasm/typography/face';
@@ -8,7 +9,6 @@ import { Shaped } from '@rasm/typography/shaped';
 import type { Source } from '@rasm/typography/source';
 import { Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
-import { InDesignScript } from '#/indesign-script';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -19,10 +19,10 @@ const specimen = Schema.Struct({ face: Face, shaped: Shaped.annotate({ descripti
 
 const faces = Automation.use((automation) => registerResource({ uri: 'atelier://faces', name: 'faces', description: 'CoreText faces with file holding each', mimeType: 'application/json', schema: Schema.Array(AvailableFace), changes: Stream.empty, content: automation.faces() }));
 const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<ReturnType<typeof routes>>) {
-    const [automation, indesignScript, path, files] = yield* Effect.all([Automation, InDesignScript, Path.Path, FileSystem.FileSystem]);
-    const hosts = yield* indesignScript.hosts;
+    const [automation, script, path, files] = yield* Effect.all([Automation, Script, Path.Path, FileSystem.FileSystem]);
+    const hosts = yield* script.hosts;
     const tool = Tool.make('font', {
-        description: 'Shapes text in named face or instance. With application, returns InDesign font view',
+        description: 'Shapes text in named face or instance. With application or pid, returns InDesign font view',
         parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
                 ...Shaped.Run.fields,
@@ -35,7 +35,7 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
     const typeset = Effect.fnUntraced(function* ({ name, variations, size, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<{ readonly pid: number }>) {
         const shaped = (source: typeof Source.Type) => Effect.map(Face.open(source, { variations, size }), (face) => ({ face, shaped: Shaped.of(face, run) }));
         const native = Effect.fnUntraced(function* ({ pid }: { readonly pid: number }) {
-            const call = yield* indesignScript.client(pid);
+            const call = yield* script.client(pid);
             const { view, source } = yield* call('font', { name, text: run.text });
             return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, shaped)) };
         }, Effect.scoped);
@@ -47,8 +47,8 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
     });
     yield* registerRoutedTool({
         ...indesign,
-        fields: { application: Schema.OptionFromOptionalKey(listed(hosts).annotate({ description: 'InDesign that answers, CoreText when absent' })) },
-        resolve: ({ application }) => Effect.transposeOption(Option.map(application, (name) => indesign.resolve({ application: Option.some(name), pid: Option.none() }))),
+        fields: { ...indesign.fields, application: Schema.OptionFromOptionalKey(listed(hosts).annotate({ description: 'InDesign that answers, CoreText when absent without pid' })) },
+        resolve: (given) => (Option.isNone(given.application) && Option.isNone(given.pid) ? Effect.succeedNone : Effect.asSome(indesign.resolve(given))),
         depends: Option.match({ onNone: () => Effect.succeed([]), onSome: indesign.depends }),
     })(tool, typeset);
 });

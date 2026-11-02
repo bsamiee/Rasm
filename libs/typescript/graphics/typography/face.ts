@@ -94,7 +94,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const requested = { ...given, ...Record.fromIterableWith([...variations, ...Option.toArray(Option.map(size, (points) => new Variation('opsz', points)))], ({ tag, value }) => [tag, value]) };
         const axes = chosen.infos.map(({ tag, nameId, flags, min, default: fallback, max }) => ({
             tag,
-            name: chosen.names.named(nameId),
+            name: chosen.names.byId(nameId),
             min,
             default: fallback,
             max,

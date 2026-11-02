@@ -39,7 +39,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     };
     const jump = (entry: typeof Entry.Type) => {
         select(entry.id, selected(entry));
-        const section = document.querySelector(`#${CSS.escape(entry.id)}`);
+        const section = document.getElementById(entry.id);
         section?.querySelector('h3')?.focus({ preventScroll: true });
         section?.scrollIntoView();
     };
@@ -53,7 +53,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         });
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
         const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? '#top' : '#work';
-        const shown = current === undefined ? null : document.querySelector(`#${CSS.escape(current.id)}`);
+        const shown = current === undefined ? null : document.getElementById(current.id);
         const held = shown !== null && shown.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
         if (foreground && !held) {
             write('replaceState', entry === undefined ? page : fragment(entry.id, selected(entry)));
@@ -72,7 +72,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             return;
         }
         if (event === undefined || entry.id !== current?.id) {
-            document.querySelector(`#${CSS.escape(entry.id)}`)?.scrollIntoView({ behavior: 'instant' });
+            document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
         }
         write('replaceState', fragment(entry.id, (entry.compositions.find((item) => item.id === target?.composition) ?? entry.compositions[0])?.id));
     });

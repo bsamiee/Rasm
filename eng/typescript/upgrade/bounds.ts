@@ -22,15 +22,7 @@ const newest = Effect.fn('newest')(function* (url: string, parse: (tag: string) 
     return yield* Array.match(tags, { onEmpty: () => Effect.fail(NoRelease.make({ url })), onNonEmpty: (all) => Effect.succeed(Array.max(all, compare)) });
 });
 const scan = Effect.fn('scan')(function* <Id extends string, Single extends Schema.Struct.Fields>(rules: Record.ReadonlyRecord<Id, string>, single: Single, args: readonly string[]) {
-    const text = yield* stdout('ast-grep', [
-        'scan',
-        '--inline-rules',
-        Object.entries(rules)
-            .map(([id, rule]) => `{id: ${id}, severity: info, ${rule}}`)
-            .join('\n---\n'),
-        '--json=compact',
-        ...args,
-    ]);
+    const text = yield* stdout('ast-grep', ['scan', '--inline-rules', Record.collect(rules, (id, rule) => `{id: ${id}, severity: info, ${rule}}`).join('\n---\n'), '--json=compact', ...args]);
     return yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ file: Schema.String, ruleId: Schema.Literals(Record.keys(rules)), metaVariables: Schema.Struct({ single: Schema.Struct(single) }) }))))(text);
 });
 const splice = Effect.fn('splice')(function* (file: string, edits: ReadonlyArray<readonly [typeof Span.Type, string]>) {

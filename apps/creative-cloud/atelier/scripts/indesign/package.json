@@ -4,14 +4,12 @@
     "description": "Document model served to agents from inside the host",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
         "#/package.json": "./package.json"
     },
     "main": "main.ts",
     "dependencies": {
         "@rasm/indesign": "workspace:*",
-        "@rasm/uxp": "workspace:*",
-        "effect": "catalog:"
+        "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

@@ -33,6 +33,10 @@ utils:
               all:
                 - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.isArray$', matches: typescript-global-reference}
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bPredicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
         - kind: function_signature

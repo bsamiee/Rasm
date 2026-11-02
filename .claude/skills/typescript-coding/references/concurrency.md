@@ -52,6 +52,8 @@ const produced = <A, E, R>(produce: (emit: (value: A) => Effect.Effect<boolean>)
 - `Stream.share({ capacity, replay, idleTimeToLive })` multicasts a stream in hand, starting with its first consumer and ending after its last
 - `Stream.filterMap` with `Result.fromOption` keeps the elements a lookup finds
 - Sources a constructor states enter through it: `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, `paginate` for cursors
+- `Stream.peel(stream, Sink.head())` returns an `Option` of the first element beside a scoped stream of the rest, seeding state first
+- `flow(Effect.fn(body), Stream.unwrap)` returns a stream whose acquired resources release when the stream ends
 
 ## [03]-[SHARED_STATE]
 
@@ -94,6 +96,8 @@ const lineOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 - `RequestResolver.batchN` caps a batch at the host's limit, `setDelay` widens the window a batch collects over
 - Batches merge callers with different services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
 - Host state a view observes is a `SubscriptionRef` the host's events set, read through `Atom.subscriptionRef` or its `changes` stream
+- `changes` piped through `Stream.zipWithPrevious` diffs successive states, and `Stream.changesWith(eq)` drops states equal on a projection
+- `SubscriptionRef.modifyEffect` runs a host call and the transition it decides as one update
 - `Semaphore.withPermits(semaphore, n)` bounds a resource shared across operations, `concurrency` bounds one traversal
 - `Cache.makeWith` takes `timeToLive` as a function of each lookup's `Exit` and key
 

@@ -11,7 +11,7 @@ export const meta = {
 
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const RULES = `${REPO}/.claude/workflows/TYPESCRIPT.md`
-const ATELIER = ['apps/creative-cloud/atelier/features', 'apps/creative-cloud/atelier/main.ts', 'apps/creative-cloud/atelier/routes.ts', 'apps/creative-cloud/atelier/status.ts', 'apps/creative-cloud/atelier/indesign-script.ts', 'apps/creative-cloud/atelier/scripts', 'apps/creative-cloud/atelier/package.json']
+const ATELIER = ['apps/creative-cloud/atelier/features', 'apps/creative-cloud/atelier/main.ts', 'apps/creative-cloud/atelier/routes.ts', 'apps/creative-cloud/atelier/status.ts', 'apps/creative-cloud/atelier/scripts', 'apps/creative-cloud/atelier/package.json']
 const PORTFOLIO = ['apps/web/portfolio']
 const lib = (key, ...consumers) => [`libs/typescript/${key}`, `tests/typescript/libs/${key}`, ...consumers]
 const owned = {

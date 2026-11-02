@@ -34,7 +34,7 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
     yield* changes.pipe(
         Stream.mapEffect(() => SubscriptionRef.get(store)),
         Stream.flattenIterable,
-        Stream.mapEffect(([uri, [read]]) => observe(uri, read).pipe(Effect.catchNoSuchElement, Effect.catchCause(Effect.logError)), { concurrency: 'unbounded' }),
+        Stream.mapEffect(([uri, [read]]) => observe(uri, read).pipe(Effect.catchNoSuchElement, Effect.ignoreCause({ log: 'Error' })), { concurrency: 'unbounded' }),
         Stream.runDrain,
         Effect.forkScoped,
     );

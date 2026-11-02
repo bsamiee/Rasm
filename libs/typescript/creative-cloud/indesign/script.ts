@@ -1,15 +1,14 @@
 import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { Contract } from '@rasm/indesign';
-import { Context, Effect, Path } from 'effect';
+import { Context, Effect } from 'effect';
 import { RpcClient } from 'effect/rpc';
+import { Contract } from '#/contract';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class InDesignScript extends Context.Service<InDesignScript>()('@rasm/atelier/indesign-script/InDesignScript', {
-    make: Effect.fnUntraced(function* (executable: string) {
-        const [automation, path] = yield* Effect.all([Automation, Path.Path]);
-        const script = yield* path.toFileUrl(path.join(path.dirname(path.dirname(executable)), 'Resources', 'main.idjs'));
+class Script extends Context.Service<Script>()('@rasm/indesign/script', {
+    make: Effect.fnUntraced(function* (script: URL) {
+        const automation = yield* Automation;
         return {
             hosts: Effect.map(automation.applications({ toOpen: script }), (urls) => (row: Installation) => urls.some((url) => url.href === row.url.href)),
             client: (pid: number) =>
@@ -20,4 +19,4 @@ class InDesignScript extends Context.Service<InDesignScript>()('@rasm/atelier/in
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InDesignScript };
+export { Script };

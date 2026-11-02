@@ -337,17 +337,17 @@ const initialize = Effect.fn('initialize')(function* () {
             ),
         idleTimeToLive: '30 minutes',
     }).pipe(Scope.provide(scope));
-    const languages = new Map(servers.flatMap((entry) => Object.entries(entry[1].extensionToLanguage).map(([extension, languageId]) => [extension, { entry, languageId }] as const)));
+    const languages = new Map(servers.flatMap((entry) => Record.collect(entry[1].extensionToLanguage, (extension, languageId) => [extension, { entry, languageId }] as const)));
     const serve = Effect.fn('serve')(function* (file: string) {
         const [, language] = yield* Unmatched.single(languages, 'language server for extension', Option.some(extname(file)), ([extension]) => [extension]);
         const server = yield* RcMap.get(running, language.entry);
         return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };
     });
     const location = (uri: string, { start: { line, character } }: Range) => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
-    const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: [targets ?? []].flat().map((target) => ('targetUri' in target ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
+    const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: Array.ensure<Location | DefinitionLink>(targets ?? []).map((target) => ('targetUri' in target ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
     const point = (item: TextDocumentItem, { file, ...position }: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position });
     const flattened = (message: Diagnostic['message']) => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
-    const severities = new Map(Object.entries(DiagnosticSeverity).map(([name, value]) => [value, name.toLowerCase()]));
+    const severities = new Map(Record.collect(DiagnosticSeverity, (name, value) => [value, name.toLowerCase()] as const));
     yield* Effect.all(
         [
             registerTool(
@@ -390,7 +390,7 @@ const initialize = Effect.fn('initialize')(function* () {
                 Effect.fnUntraced(function* (position) {
                     const { server, item } = yield* serve(position.file);
                     const hover = yield* server.ask(HoverRequest.type, point(item, position));
-                    return { lines: [hover?.contents ?? []].flat().map((content) => (typeof content === 'string' ? content : content.value)) };
+                    return { lines: Array.ensure(hover?.contents ?? []).map((content) => (typeof content === 'string' ? content : content.value)) };
                 }, Effect.scoped),
             ),
         ],

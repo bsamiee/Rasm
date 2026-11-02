@@ -4,12 +4,26 @@ language: tsx
 severity: error
 rule:
     kind: call_expression
-    pattern: $UNION
-    all:
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
-        - any:
+    pattern: $CALL
+    any:
+        - all:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
+            - any:
+                - pattern: $S.Union([$X, $S.Array($X)])
+                - pattern: $S.Union([$S.Array($X), $X])
+        - pattern: '[$X].flat()'
+rewriters:
+    - id: schema
+      rule:
+        any:
             - pattern: $S.Union([$X, $S.Array($X)])
             - pattern: $S.Union([$S.Array($X), $X])
-fix: $S.ArrayEnsure($X)
-message: '`$UNION` decodes one `$X` or an array of `$X` into a union each reader normalizes'
-note: 'Call `Schema.ArrayEnsure(<schema>)`'
+      fix: $S.ArrayEnsure($X)
+    - id: value
+      rule: {pattern: '[$X].flat()'}
+      fix: Array.ensure($X)
+transform:
+    ENSURED: rewrite($CALL, rewriters=[schema, value])
+fix: $ENSURED
+message: '`$CALL` normalizes one `$X` or an array of `$X` by hand'
+note: 'Call `Schema.ArrayEnsure(<schema>)` to decode, `Array.ensure(<value>)` for a value'

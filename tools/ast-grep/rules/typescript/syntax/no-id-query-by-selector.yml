@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-id-query-by-selector
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^querySelector$'}
+                - has: {field: object, pattern: $DOCUMENT, regex: '^((globalThis|window|self)\.)?document$', matches: typescript-global-reference}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {nthChild: 2}}
+                - has:
+                    nthChild: 1
+                    any:
+                        - pattern: '`#${CSS.escape($ID)}`'
+                        - pattern: "'#' + CSS.escape($ID)"
+fix: $DOCUMENT.getElementById($ID)
+message: '`$CALL` escapes an id into a selector to find one element'
+note: 'Call `document.getElementById(<id>)` with the id unescaped'

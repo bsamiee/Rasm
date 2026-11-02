@@ -8,7 +8,8 @@ One `RpcGroup` of schema-typed procedures derives server handlers, clients, prot
 - Handlers return an `Effect` or a `Stream`, and `Rpc.fork` runs one outside the server's concurrency bound
 - `RpcServer.layerHttp({ group, path, protocol })` mounts on `HttpRouter`, and `layerProtocolStdio` and `layerProtocolSocketServer` serve other transports
 - `RpcClient.make(group)` returns `client.tag(payload)` methods, reading `RpcClient.Protocol` and `Scope`
-- `RpcClient.layerProtocolHttp({ url })` batches requests, and `layerProtocolSocket({ retryPolicy })` reconnects
+- `RpcClient.layerProtocolHttp({ url })` batches requests, and `layerProtocolSocket` reconnects forever by default
+- `retryPolicy: Schedule.recurs(0)` ends a socket client on its first error, and `pingInterval: Duration.infinity` sends no pings
 - `RpcSerialization.layerNdjson` frames streams and sockets, `layerJson` HTTP requests, and `layerJsonRpc` speaks JSON-RPC 2.0
 - `RpcMiddleware.Service` declares server middleware, and `RpcMiddleware.layerClient(M, f)` its client half
 - `RpcTest.makeClient(group)` runs a client against the handler layer in memory
@@ -33,7 +34,8 @@ class NotesClient extends AtomRpc.Service<NotesClient>()('@app/notes/NotesClient
 - `Atom.runtime(layer)` returns a runtime with `atom`, `fn`, `pull`, and `subscriptionRef` reading the layer's services
 - `runtime.fn` atoms restart on each write, `concurrent: true` keeping earlier calls, and writing `Atom.Reset` or `Atom.Interrupt` resets or cancels one
 - Atoms dispose when unmounted, `Atom.keepAlive` pins one, `Atom.setIdleTTL(d)` keeps one for a duration, and `Atom.family(key => atom)` memoizes by key
-- `Atom.swr({ staleTime })`, `Atom.withRefresh(d)`, `Atom.debounce`, and `Atom.optimistic` state refresh and optimistic policies
+- `Atom.swr({ staleTime })`, `withRefresh(d)`, `debounce`, `optimistic`, and `withEquality(eq)` state refresh, update, and notify policies
+- External stores enter an atom through `get.addFinalizer(store.subscribe(() => get.setSelf(store.getState())))` inside `Atom.make`
 - `Atom.kvs({ runtime, key, schema, defaultValue })` persists through a `KeyValueStore`, and `Atom.searchParam(name, schema)` binds a URL parameter
 - `AsyncResult.builder(result).onInitial(...).onSuccess(...).onErrorTag(...).render()` folds a result for a view, `Failure.previousSuccess` holding the last value
 - `useAtomValue`, `useAtomSet`, `useAtomSuspense`, and `useAtomRefresh` read atoms in React, and `RegistryProvider` with `HydrationBoundary` supplies server values

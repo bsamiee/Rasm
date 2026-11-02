@@ -2,7 +2,7 @@ import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Array, Cause, Config, Console, Effect, Exit, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Predicate, Result, Schedule, Schema, String, Struct, Tuple } from 'effect';
+import { Array, Cause, Config, Console, Effect, Exit, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schedule, Schema, String, Struct, Tuple } from 'effect';
 import { parse as parsePlist } from 'plist';
 import { parse as parseYaml } from 'yaml';
 import { stdout } from '#/eng/typescript/process';
@@ -210,7 +210,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
         ],
         { concurrency: 'unbounded' },
     ).pipe(Effect.map(flow(Array.flatten, Array.map(Struct.get('path')))));
-    const tasks = Object.values(graph.nodes).flatMap((node) => Object.entries(node.data.targets ?? {}).map(([target, definition]) => ({ node, target, definition })));
+    const tasks = Object.values(graph.nodes).flatMap((node) => Record.collect(node.data.targets ?? {}, (target, definition) => ({ node, target, definition })));
     const xcode = Schema.decodeUnknownOption(Schema.Struct({ env: Schema.Struct({ XCODE_DERIVED_DATA_PATH: Schema.String }) }));
     const retained = [
         ...launched.filter(({ Label: [, name] }) => agents.get(name) === true).flatMap(({ StandardOutPath, StandardErrorPath }) => Array.getSomes([StandardOutPath, StandardErrorPath])),

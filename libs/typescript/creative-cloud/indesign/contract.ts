@@ -1,29 +1,35 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Effect, Layer, Schema } from 'effect';
-import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
+import type { Manifest } from '@rasm/uxp/manifest';
+import { Effect, Layer, Option, Schema } from 'effect';
+import { Rpc, RpcGroup, RpcMiddleware, RpcServer } from 'effect/rpc';
 import { Model } from '#/dom/model';
-import { Reference } from '#/dom/reference';
+import { Reference } from '#/dom/specifier';
 import { Mutation, preserve } from '#/dom/transactions';
-import { Change } from '#/requests/change';
-import { Create } from '#/requests/create';
+import { InDesignError } from '#/error';
+import { Change, Create, Remove } from '#/requests/change';
 import { ExecuteScript } from '#/requests/execute-script';
 import { FindChange } from '#/requests/find-change';
 import { Font } from '#/requests/font';
 import { Inspect } from '#/requests/inspect';
-import { Invoke } from '#/requests/invoke';
 import { Kind } from '#/requests/kind';
-import { Menu } from '#/requests/menu';
+import { Invoke, Menu } from '#/requests/menu';
 import { Preflight } from '#/requests/preflight';
-import { Remove } from '#/requests/remove';
 import { Render } from '#/requests/render';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const manifest = {
+    host: { app: 'ID', minVersion: '18.5.0' },
+    requiredPermissions: { localFileSystem: Option.some('fullAccess') },
+} as const satisfies Pick<Parameters<typeof Manifest.make>[0], 'host' | 'requiredPermissions'>;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-const error = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+const error = Schema.Union([Unmatched, InDesignError, Schema.ErrorInstance()]);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@rasm/indesign/contract/ScriptPreferences', { error: Schema.ErrorInstance() }) {
+class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@rasm/indesign/contract/ScriptPreferences', { error: InDesignError }) {
     static readonly layer = Layer.effect(ScriptPreferences)(
         Effect.map(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => (effect, { payload }) => {
             const held = { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS };
@@ -65,7 +71,8 @@ const handlers = Layer.merge(
     }),
     ScriptPreferences.layer,
 );
+const server = (indesign: typeof import('adobe:indesign')) => RpcServer.layer(Contract).pipe(Layer.provide(handlers), Layer.provide(Layer.effect(Model, Model.make(indesign))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Contract, handlers, ScriptPreferences };
+export { Contract, manifest, server };

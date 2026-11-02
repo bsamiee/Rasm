@@ -13,25 +13,40 @@ utils:
             all:
                 - has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchEager|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|matchEffect)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
+    cause-handler:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^catchCause$'}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
     handler-argument:
         any:
             - inside: {kind: arguments, inside: {matches: failure-handler}}
             - inside: {kind: pair, field: value, not: {has: {field: key, regex: '^onSuccess$'}}, inside: {kind: object, inside: {kind: arguments, inside: {matches: failure-handler}}}}
+    cause-argument:
+        inside: {kind: arguments, inside: {matches: cause-handler}}
+    handler-parameter:
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $ERROR}
+            - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
     failure-callback:
         kind: arrow_function, function_expression
-        all:
-            - matches: handler-argument
-            - any:
-                - has: {field: parameter, kind: identifier, pattern: $ERROR}
-                - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
+        all: [{matches: handler-argument}, {matches: handler-parameter}]
+    cause-callback:
+        kind: arrow_function
+        all: [{matches: cause-argument}, {matches: handler-parameter}]
 rule:
     any:
         - pattern: $LOG
-          all: [{matches: log-member}, {matches: handler-argument}]
+          all: [{matches: log-member}, {any: [{matches: handler-argument}, {matches: cause-argument}]}]
         - kind: call_expression
           all:
             - has: {field: function, pattern: $LOG, matches: log-member}
-            - inside: {matches: failure-callback, stopBy: end}
+            - any:
+                - inside: {matches: failure-callback, stopBy: end}
+                - inside: {field: body, matches: cause-callback}
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
-message: '`$LOG` logs the failure as a message value'
-note: 'Log a cause through `tapCause(Effect.logError)` or `Effect.logError(<text>, Cause.fail(<error>))`, `Effect.ignore({ log: <level> })` to discard'
+message: '`$LOG` logs a failure inside a recovery handler'
+note: 'Log through `Effect.tapCause(Effect.logError)` before recovery, discard through `Effect.ignore({ log })` or `Effect.ignoreCause({ log })`'

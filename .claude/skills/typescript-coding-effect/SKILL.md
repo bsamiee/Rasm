@@ -67,5 +67,6 @@ const telemetry = (options: Parameters<typeof Otlp.layerFromConfig>[0]) =>
 - `References.LogToStderr` set `true` moves console loggers to stderr
 - `Effect.annotateLogs` covers one effect, `Effect.annotateLogsScoped` the rest of a scope, and `Effect.withLogSpan(label)` times each line
 - Spans take `{ attributes, links, parent, kind, sampled, level }`, and spans under `Tracer.MinimumTraceLevel` drop with their children
-- `Effect.track(metric)`, `trackDuration(timer)`, `trackErrors`, and `trackSuccesses` update a metric per execution
+- `HttpTraceContext.fromHeaders(headers)` reads a remote `parent` from the headers a request or protocol message holds
+- `Effect.track(metric)`, `trackDuration(timer)`, `trackErrors`, and `trackSuccesses` update a metric per run, `Metric.withAttributes` tagging it
 - `OtlpExporter.Flusher` drains logs, metrics, and traces before a short-lived host returns

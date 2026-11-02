@@ -67,7 +67,14 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
         const answer = (chunk: string | Uint8Array) => Effect.sync(() => host.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
         yield* Layer.launch(server).pipe(
             Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(host.args), stdin: Stream.encodeText(Stream.fromIterable(host.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
-            Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
+            Effect.catchCauseIf(
+                Predicate.not(Cause.hasInterruptsOnly),
+                flow(
+                    Cause.squash,
+                    Schema.encodeEffect(Schema.Defect()),
+                    Effect.flatMap((defect) => Option.match(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), { onNone: () => Effect.void, onSome: answer })),
+                ),
+            ),
         );
     }).pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly), logged), Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };

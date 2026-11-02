@@ -94,6 +94,7 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 - `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
 - Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
 - Host enums match with an arm per member once decoded
+- Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` test or `type !==` filter restating it
 - Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
 
 ### [03.2]-[RECURSION]
@@ -196,8 +197,9 @@ const status = Delivery.match({
 ## [06]-[EFFECTS]
 
 `Effect<A, E, R>` describes a program that succeeds with `A`, fails with `E`, reads services `R`, and performs nothing until a runtime runs it. Promises are eager, enter through `Effect.tryPromise`, and leave through a host runtime call:
-- `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, with `catch` building the package error around its cause
+- `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, with `catch` building the package error around its cause, or the `SchemaIssue` inside a decode, and a thrown non-`Error` value decoding through a schema for the message it carries
 - `Effect.callback` adapts a callback API, with registration receiving an `AbortSignal` and returning a cleanup effect
+- Listeners completing a `Deferred` the registering function awaits restate `Effect.callback`
 - `Effect.tryPromise` passes an `AbortSignal` that interruption aborts to a `try` declaring `(signal)`, a rest or defaulted parameter receives `undefined`
 
 ```ts
@@ -226,7 +228,8 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
 - `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
-- `Intl` formats numbers, dates, lists, and plurals for display
+- `Intl` formats numbers, dates, lists, and plurals for display, each formatter built once outside the function reading it
+- `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
 
 ## [08]-[MODULES]
 

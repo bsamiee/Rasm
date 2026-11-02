@@ -82,6 +82,7 @@
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
                         "noTernary": "off",
                         "useConsistentMemberAccessibility": { "level": "error", "options": { "accessibility": "none" } },
+                        "useDomQuerySelector": "off",
                         "useNamingConvention": "off",
                         "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } },
                         "useThisInClassMethods": { "level": "error", "options": { "ignoreOverrideMethods": true } }

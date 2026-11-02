@@ -89,7 +89,7 @@ const targets = {
                 ? {}
                 : {
                       mainModule: config.manifest.mainModule,
-                      modules: Record.toEntries(config.manifest.modules).map(([module, { type }]) => ({
+                      modules: Record.collect(config.manifest.modules, (module, { type }) => ({
                           name: module,
                           contentFile: path.join(bundleDir, module),
                           contentType: (
@@ -191,41 +191,50 @@ const targets = {
         );
         const owner = password(`${name}-owner`);
         const identity = container(`${name}-identity`, pull(`${name}-identity`, 'authelia/authelia:latest'), {
-            uploads: Record.toEntries({
-                '/config/configuration.yml': {
-                    authentication_backend: { password_reset: { disable: true }, file: { path: '/config/users.yml' } },
-                    access_control: {
-                        default_policy: 'bypass',
-                        rules: [
-                            { domain: sites, resources: [`^${contract.paths.signin}([?].*)?$`], policy: 'one_factor' },
-                            { domain: sites, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
-                        ],
+            uploads: Record.collect(
+                {
+                    '/config/configuration.yml': {
+                        authentication_backend: { password_reset: { disable: true }, file: { path: '/config/users.yml' } },
+                        access_control: {
+                            default_policy: 'bypass',
+                            rules: [
+                                { domain: sites, resources: [`^${contract.paths.signin}([?].*)?$`], policy: 'one_factor' },
+                                { domain: sites, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
+                            ],
+                        },
+                        session: { secret: password(`${name}-identity-session`).result, cookies: sites.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
+                        storage: { encryption_key: password(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
+                        notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
+                        ntp: { disable_startup_check: true },
                     },
-                    session: { secret: password(`${name}-identity-session`).result, cookies: sites.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
-                    storage: { encryption_key: password(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
-                    notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
-                    ntp: { disable_startup_check: true },
+                    '/config/users.yml': { users: { owner: { displayname: 'Owner', email, password: owner.bcryptHash } } },
                 },
-                '/config/users.yml': { users: { owner: { displayname: 'Owner', email, password: owner.bcryptHash } } },
-            }).map(([file, document]) => ({ file, content: jsonStringify(document) })),
+                (file, document) => ({ file, content: jsonStringify(document) }),
+            ),
             volumes: [volume(`${name}-identity`, '/var/lib/authelia')],
             wait: true,
         });
         const authelia = { handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${identity.name}:9091` }] };
-        const copies = Record.toEntries(Record.mapKeys({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }, (answer) => `{http.reverse_proxy.header.${answer}}`)).map(([answer, header]) => ({
-            match: [{ vars_regexp: { [answer]: { pattern: '.' } } }],
-            handle: [{ handler: 'headers', request: { set: { [header]: [answer] } } }],
-        }));
-        const redirects = Record.toEntries({
-            signin: { source: `{http.request.uri.query.${contract.returnTo}}`, input_regexp: '^(/.*)$', location: 'https://{http.request.host}{target}' },
-            signout: { source: '{http.request.uri.query}', input_regexp: `(?:^|&)${contract.returnTo}=((?:/|%2[Ff])[^&]*)`, location: 'https://auth.{http.request.host}/logout?rd=https://{http.request.host}{target}' },
-        }).map(([action, { source, input_regexp, location }]) => ({
-            match: [{ path: [contract.paths[action]] }],
-            handle: [
-                { handler: 'map', source, destinations: ['{target}'], mappings: [{ input_regexp, outputs: ['$1'] }], defaults: ['/'] },
-                { handler: 'static_response', status_code: 302, headers: { Location: [location] } },
-            ],
-        }));
+        const copies = Record.collect(
+            Record.mapKeys({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }, (answer) => `{http.reverse_proxy.header.${answer}}`),
+            (answer, header) => ({
+                match: [{ vars_regexp: { [answer]: { pattern: '.' } } }],
+                handle: [{ handler: 'headers', request: { set: { [header]: [answer] } } }],
+            }),
+        );
+        const redirects = Record.collect(
+            {
+                signin: { source: `{http.request.uri.query.${contract.returnTo}}`, input_regexp: '^(/.*)$', location: 'https://{http.request.host}{target}' },
+                signout: { source: '{http.request.uri.query}', input_regexp: `(?:^|&)${contract.returnTo}=((?:/|%2[Ff])[^&]*)`, location: 'https://auth.{http.request.host}/logout?rd=https://{http.request.host}{target}' },
+            },
+            (action, { source, input_regexp, location }) => ({
+                match: [{ path: [contract.paths[action]] }],
+                handle: [
+                    { handler: 'map', source, destinations: ['{target}'], mappings: [{ input_regexp, outputs: ['$1'] }], defaults: ['/'] },
+                    { handler: 'static_response', status_code: 302, headers: { Location: [location] } },
+                ],
+            }),
+        );
         const routes = [
             { match: [{ host: sites.map((site) => `auth.${site}`) }], handle: [authelia] },
             {

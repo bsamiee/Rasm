@@ -117,5 +117,6 @@ Raw routes are layers registered on `HttpRouter`, for answers a contract cannot 
 - `HttpMiddleware.xForwardedHeaders({ trustedProxies })` sets protocol, host, and remote address from trusted proxy hops
 - `HttpMiddleware.compression({ algorithms })` negotiates encodings, and `Cache-Control: no-transform` exempts a secret-bearing route
 - `HttpStaticServer.layer({ root, prefix, spa, cacheControl })` serves files with ranges and validators
+- `HttpServerResponse.raw(response)` passes a host-built web `Response` through `toWeb` unchanged, and `fromWeb` re-streams its body
 - `HttpStatus.fromLiteral('PreconditionFailed')` derives a status number, `Mime.getType(path)` a media type, and `Etag.toString` a header value
 - `HttpRouter.schemaPathParams(S)` and `HttpServerRequest.schemaSearchParams(S)` decode raw string records through `Schema.toCodecStringTree`

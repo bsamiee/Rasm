@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collect-by-entries
+language: tsx
+severity: error
+utils:
+    entries:
+        kind: call_expression
+        has: {field: function, pattern: $ENTRIES}
+        any:
+            - pattern: Object.entries($X)
+            - all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bRecord$'}, member: {regex: '^toEntries$'}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $X}}, {not: {has: {nthChild: 2}}}]}
+rule:
+    kind: call_expression
+    any:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: entries}}, {has: {field: property, regex: '^map$'}}]}
+        - all:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^map$'}}}}
+            - has: {field: arguments, has: {nthChild: 1, matches: entries}}
+message: '`$ENTRIES` pairs map into a list'
+note: 'Call `Record.collect(<record>, (<key>, <value>) => <element>)`, or `Record.mapEntries(<record>, <f>)` where the list rebuilds a record'

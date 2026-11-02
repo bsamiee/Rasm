@@ -62,7 +62,7 @@ languageInjections:
             - any:
                 - inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(?:^|=>\s*)sql(?:\s*<.*>)?$'}}
                 - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-                - {regex: '(?i)^`\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*[^\s`]|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())', not: {regex: '^`\s*[A-Z][a-z]'}}
+                - regex: '^`\s*(?:(?:ALTER|ANALYZE|ATTACH|BEGIN|COMMIT|CREATE|DELETE|DETACH|DROP|END|EXPLAIN|INSERT|PRAGMA|REINDEX|RELEASE|REPLACE|ROLLBACK|SAVEPOINT|SELECT|UPDATE|VACUUM|VALUES)\b(?:\s+[^\s`]|[^\s`:])|WITH\s+(?:RECURSIVE\b|\w+(?:\s*\([^)]*\))?\s+AS\s*\())'
             - not: {matches: postgres-scope}
       utils: &sql
         postgres-scope:
@@ -82,7 +82,7 @@ languageInjections:
                 not: {has: {kind: escape_sequence}}
                 any:
                     - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-                    - {regex: '(?i)^[''"]\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*[^\s''"]|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())', not: {regex: '^[''"]\s*[A-Z][a-z]'}}
+                    - regex: '^[''"]\s*(?:(?:ALTER|ANALYZE|ATTACH|BEGIN|COMMIT|CREATE|DELETE|DETACH|DROP|END|EXPLAIN|INSERT|PRAGMA|REINDEX|RELEASE|REPLACE|ROLLBACK|SAVEPOINT|SELECT|UPDATE|VACUUM|VALUES)\b(?:\s+[^\s''"]|[^\s''":])|WITH\s+(?:RECURSIVE\b|\w+(?:\s*\([^)]*\))?\s+AS\s*\())'
             - not: {matches: postgres-scope}
       utils: *sql
       injected: sql

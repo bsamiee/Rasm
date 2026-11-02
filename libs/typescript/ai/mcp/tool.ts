@@ -63,8 +63,8 @@ const registerRoutedTool =
                             Stream.filter(Option.isSome),
                             Stream.take(1),
                             Stream.mapEffect(({ value }) => refused([value])),
+                            Stream.catch(Stream.succeed),
                             Stream.runForEach((refusal) => ToolCall.use(({ respond }) => respond(refusal))),
-                            Effect.catchCause(Effect.logError),
                             Effect.forkScoped,
                         );
                         return yield* reported(dependencies)(run);

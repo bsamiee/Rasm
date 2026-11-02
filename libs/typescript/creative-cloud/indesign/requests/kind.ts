@@ -5,7 +5,7 @@ import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }, { description: 'Dictionary class and enumeration names, or one declaration' }) {
+class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }) {
     static readonly Result = Schema.TaggedUnion({
         Index: { classes: Schema.Array(Schema.String), enumerations: Schema.Array(Schema.String) },
         Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
@@ -31,11 +31,11 @@ class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')
                                 parents: Option.isSome(row) ? lineage(name) : Effect.succeed([]),
                                 fields: Effect.forEach(
                                     live.filter(([, { get }]) => get !== undefined),
-                                    ([key]) => Option.match(Record.get(fields, key), { onNone: () => undeclared(key), onSome: Effect.succeed }),
+                                    ([key]) => Option.match(Record.get(fields, key), { onNone: () => undeclared(Field, key), onSome: Effect.succeed }),
                                 ),
                                 methods: Effect.forEach(
                                     live.filter(([, { value: method }]) => Predicate.isFunction(method) && method !== type),
-                                    ([key]) => Option.match(Record.get(methods, key), { onNone: () => Effect.orDie(Schema.decodeEffect(Method)({ name: key, parameters: [] })), onSome: Effect.succeed }),
+                                    ([key]) => Option.match(Record.get(methods, key), { onNone: () => undeclared(Method, key), onSome: Effect.succeed }),
                                 ),
                             }),
                             (declared) => Kind.Result.cases.Class.make({ name, ...declared }),

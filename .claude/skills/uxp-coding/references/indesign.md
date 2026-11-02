@@ -14,7 +14,7 @@ InDesign holds its running object model as ExtendScript's `$.dictionary`, read t
 - Prototypes hold `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString` beside object model members
 - Aggregate `.properties` invokes nested getters before a failure can be isolated, and readers read each getter with its metadata
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
-- Encoders await storage getters, and an entry `url` can be a URL object that `String(entry.url)` serializes
+- Encoders refuse a promise a storage getter returns, and an entry `url` can be a URL object that `String(entry.url)` serializes
 - Modules a Node program imports for their schemas import `adobe:indesign` for types alone and read the module from a service inside effects
 
 ## [02]-[SPECIFIERS]
@@ -24,32 +24,74 @@ Collection members are specifiers that resolve at each member read, and an unmat
 ```ts
 import type { Document, InDesignDOMObject } from 'adobe:indesign';
 
-const IDENTIFIED = /(?<kind>[\w-]+)\[@id=\d+\]$/u;
-class Model extends Context.Service<Model, typeof import('adobe:indesign')>()('Model') {}
-const owning = <A>(member: keyof A & string) => <T>(value: T): value is T & A => Predicate.isObject(value) && Predicate.hasProperty(Object.getPrototypeOf(value), member);
+class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
+    make: (indesign: typeof import('adobe:indesign')) =>
+        Effect.sync(() => {
+            const model: typeof indesign = Object.create(indesign);
+            const exported = Array.map(Object.getOwnPropertyNames(indesign), (name): unknown => Reflect.get(indesign, name));
+            const owning = <A>(member: keyof A & string) => {
+                const owners = new Set(Array.flatMap(exported, (type) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? [type.prototype] : [])));
+                return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
+            };
+            return Object.assign(model, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier') });
+        }),
+}) {}
 const pageItem = (document: Document, id: number) => Option.flatMap(Option.liftPredicate(document.pageItems.itemByID(id), (found) => found.isValid), (found) => Array.head(found.getElements()));
-const located = (specifier: string) =>
-    Model.useSync(({ app, ScriptLanguage }) => {
-        const kind = (path: string): string | undefined => IDENTIFIED.exec(path)?.groups?.kind;
-        return Option.filter(
-            Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [specifier]))(),
-            (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] => Array.ensure<unknown>(found).every((each) => owning<InDesignDOMObject<unknown>>('toSpecifier')(each) && (kind(specifier) === undefined || kind(each.toSpecifier()) === kind(specifier))),
-        );
-    });
+const Container = Schema.String.check(Schema.isPattern(/(?:^|[^/])$/u));
+const Separator = Schema.Literals(['//', '/']);
+const Kind = Schema.String.check(Schema.isPattern(/^@?[a-z][\w-]*$/u));
+const Identified = Schema.TemplateLiteral(['[@id=', Schema.Int, ']']);
+const Selector = Schema.Union([Identified, Schema.TemplateLiteral(['[', Schema.Int, ']']), Schema.TemplateLiteral(['[@name="', Schema.String, '"]'])]);
+const Step = Schema.Struct({ container: Container, separator: Separator, kind: Kind, selector: Schema.OptionFromOptionalKey(Selector) });
+const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator, Kind, Selector]), Schema.TemplateLiteralParser([Container, Separator, Kind])]).pipe(
+    Schema.decodeTo(
+        Schema.toEncoded(Step),
+        SchemaTransformation.transform({
+            decode: ([container, separator, kind, selector]) => ({ container, separator, kind, ...(selector === undefined ? {} : { selector }) }),
+            encode: ({ container, separator, kind, selector }) => (selector === undefined ? ([container, separator, kind] as const) : ([container, separator, kind, selector] as const)),
+        }),
+    ),
+);
+class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ ...Step.fields, end: Schema.OptionFromOptionalKey(Step) }) {
+    static readonly Path = Schema.Union([Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']), Written]).pipe(
+        Schema.decodeTo(
+            Specifier,
+            SchemaTransformation.transform({
+                decode: (written) => (Array.isArray<typeof written>(written) ? { ...written[1], end: written[3] } : written),
+                encode: ({ end, ...start }: typeof Specifier.Encoded) => (end === undefined ? start : (['(', start, ' to ', end, ')'] as const)),
+            }),
+        ),
+    );
+    static readonly resolve = (specifier: Specifier) =>
+        Model.useSync(({ app, ScriptLanguage, host }) => {
+            const identified = ({ kind, selector, end }: Specifier): Option.Option<string> => Option.as(Option.filter(selector, (each) => Option.isNone(end) && Schema.is(Identified)(each)), kind);
+            const requested = identified(specifier);
+            return Option.filter(
+                Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [specifier.path]))(),
+                (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
+                    Array.ensure<unknown>(found).every((each) => host(each) && each.isValid && (Option.isNone(requested) || Equal.equals(Option.flatMap(Schema.decodeUnknownOption(Specifier.Path)(each.toSpecifier()), identified), requested))),
+            );
+        });
+
+    get path(): string {
+        const steps = Array.map([this, ...Option.toArray(this.end)], ({ container, separator, kind, selector }) => `${container}${separator}${kind}${Option.getOrElse(selector, () => '')}`);
+        return Option.match(this.end, { onNone: () => steps.join(''), onSome: () => `(${steps.join(' to ')})` });
+    }
+}
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object with a prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. The service's `owning` reads no getter and holds for an object whose own prototype is a module class prototype declaring the member: `toSpecifier` for a DOM object (`host`), `everyItem` for a collection. A test up the prototype chain (`Predicate.hasProperty`) holds wherever an ancestor prototype carries the name, `name` on any function or `Error`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into its container, separator, and last step, or the range `(<A> to <B>)` that `findText` hits, `textStyleRanges` members, and `itemByRange` return into two such steps of any kinds, and refuses text outside that grammar. `Specifier.resolve` passes the path to ExtendScript's `resolve` as an argument and compares the `kind` of a lone `[@id=<n>]` step. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
-| [INDEX] | [NEED]                     | [FORM]                                          | [REASON]                                       |
-| :-----: | :------------------------- | :---------------------------------------------- | :--------------------------------------------- |
-|  [01]   | Member by position or name | `item(index)`, negative from the end, or a name | `collection[index]` reads `undefined`          |
-|  [02]   | Every member as an array   | `everyItem().getElements()`                     | Collections have no iterator                   |
-|  [03]   | One field of every member  | `everyItem().<field>`, one call per field       | Array at any count, `properties` reads all     |
-|  [04]   | Same object across reads   | `equals`                                        | Repeated reads differ under `===`              |
-|  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`  | `item(index)` specifiers shift on insert       |
-|  [06]   | Address of a text range    | `toSpecifier()`, then `located`                 | `Character`, `Word`, `Paragraph` have no `id`  |
-|  [07]   | Style inside a group       | Specifier steps per group                       | Groups can repeat one style name               |
-|  [08]   | Active document            | `Effect.try` over `app.activeDocument`          | Throws while every open document is windowless |
+| [INDEX] | [NEED]                     | [FORM]                                                      | [REASON]                                       |
+| :-----: | :------------------------- | :---------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | Member by position or name | `item(index)`, negative from the end, or a name             | `collection[index]` reads `undefined`          |
+|  [02]   | Every member as an array   | `everyItem().getElements()`                                 | Collections have no iterator                   |
+|  [03]   | One field of every member  | `everyItem().<field>`, one call per field                   | Array at any count, `properties` reads all     |
+|  [04]   | Same object across reads   | `equals`                                                    | Repeated reads differ under `===`              |
+|  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`              | `item(index)` specifiers shift on insert       |
+|  [06]   | Address of a text range    | `toSpecifier()`, `Specifier.Path`, then `Specifier.resolve` | `Character`, `Word`, `Paragraph` have no `id`  |
+|  [07]   | Style inside a group       | Specifier steps per group                                   | Groups can repeat one style name               |
+|  [08]   | Active document            | `Effect.try` over `app.activeDocument`                      | Throws while every open document is windowless |
 
 - `app.panels` holds a member resolving to nothing, and its `item(<index>)` reads `undefined`
 - `everyItem()` or a range over `app.panels` reads `undefined` in UXP and throws in ExtendScript
@@ -58,13 +100,13 @@ const located = (specifier: string) =>
 - `resolve` of an `[@id=<n>]` step returns the object with that id whatever class the step names
 - Text specifiers are character spans that name another range after an edit before them, and `parentPage` reads `null` on the pasteboard
 - Parents discriminate on `constructorName` (`Character` for an anchored item, `Spread` or `MasterSpread` for a top-level one)
-- ExtendScript run through `doScript` keeps its own `scriptPreferences`, and reads and writes go through the object `located` returns
+- ExtendScript run through `doScript` keeps its own `scriptPreferences`, and reads and writes go through the object `Specifier.resolve` returns
 
 ## [03]-[FIELDS]
 
 Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the type a field's dictionary row declares. Enumeration fields take a member name or `{type, member}`, class fields `{type, specifier}` or a name in the document's collection of that class.
 
-Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a read-only member's object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, `isValid`.
+Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a read-only member's object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, and `valid`.
 
 - Enumeration members are the prototype keys holding an `Enumerator` whose `String` equals the key
 - Enumerators compare through `equals` (`Justification.CENTER_ALIGN.equals(value)`)
@@ -206,13 +248,13 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
 
 ## [07]-[EXPORT]
 
-Export reads app-wide preferences another script left, fails with no throw under `NEVER_INTERACT`, and writes nothing for an input it rejects. `rendered` holds every key export reads and decides success from the written bytes:
+Export reads app-wide preferences another script left, fails with no throw under `NEVER_INTERACT`, and writes nothing for an input it rejects. `rendered` holds the range, resolution, and bleed keys a page export reads and decides success from the written bytes:
 
 ```ts
 import type { Page } from 'adobe:indesign';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
-    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), temporary('render.png')]);
+    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), Model.temporary('render.png')]);
     const refused = (cause: unknown) => HostError.make({ step: `export of ${page.toSpecifier()}`, cause });
     yield* preserve(app.pngExportPreferences, {
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
@@ -226,7 +268,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
 }, Effect.scoped);
 ```
 
-`temporary` reads `Model` for a path under ExtendScript `Folder.temp`. Scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
+`Model.temporary` reads a path under ExtendScript `Folder.temp`. Scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -293,17 +335,12 @@ import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFile', pathOrDescriptor: path, cause }) });
-    return face.status.equals(FontStatus.INSTALLED)
-        ? Option.some(
-            yield* bytes(`file:${face.location}`).pipe(
-                Effect.catchIf(
-                    ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause),
-                    () => Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try({ try: () => face.createSubsetFont(characters, path), catch: (cause) => HostError.make({ step: path, cause }) }), bytes(`file:${path}`))),
-                ),
-            ),
-        )
-        : Option.none();
+    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFile', pathOrDescriptor: path, cause }) });
+    const subset = Model.temporary('font.otf').pipe(
+        Effect.tap((path) => Effect.try({ try: () => face.createSubsetFont(characters, path), catch: (cause) => HostError.make({ step: path, cause }) })),
+        Effect.flatMap(bytes),
+    );
+    return face.status.equals(FontStatus.INSTALLED) ? Option.some(yield* Effect.catchIf(bytes(face.location), ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => subset)) : Option.none();
 }, Effect.scoped);
 ```
 

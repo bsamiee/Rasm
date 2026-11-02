@@ -17,9 +17,16 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
     static readonly of = ({ handle, parsed, names }: { readonly handle: Face; readonly parsed: Font; readonly names: Names }) => {
         const defaultLanguage = 0xff_ff;
         return Layout.make({
-            features: Record.toEntries(
-                Array.groupBy([...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: names.named(handle.getFeatureNameIds(table, at)?.uiLabelNameId) }))), ...parsed.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() }))], Struct.get('tag')),
-            ).map(([tag, records]) => ({ tag, name: Option.firstSomeOf(records.map(Struct.get('name'))) })),
+            features: Record.collect(
+                Array.groupBy(
+                    [
+                        ...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: Option.flatMap(Option.fromUndefinedOr(handle.getFeatureNameIds(table, at)?.uiLabelNameId), (id) => names.byId(id)) }))),
+                        ...parsed.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() })),
+                    ],
+                    Struct.get('tag'),
+                ),
+                (tag, records) => ({ tag, name: Option.firstSomeOf(records.map(Struct.get('name'))) }),
+            ),
             languageSystems: LayoutTable.literals
                 .flatMap((table) => handle.getTableScriptTags(table).map((script, at) => ({ table, script, at })))
                 .flatMap(({ table, script, at }) =>
