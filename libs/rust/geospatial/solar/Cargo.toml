@@ -4,7 +4,7 @@
 name                 = "rasm-solar"
 version.workspace    = true
 edition.workspace    = true
-description          = "Where the sun stands seen from a site and what it reaches: SPA positions beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval at any horizon and the windows above an apparent elevation, Tregenza and Reinhart sky patches and the patch a direction falls in, incidence, sun hours and sky view through placed obstacles, and solar rights and collection envelopes"
+description          = "Sun positions, events and lit paths at a site, Tregenza and Reinhart sky patches, incidence, sun hours, sky view and solar envelopes"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["solar", "sun", "daylight", "sky", "envelope"]
@@ -23,16 +23,20 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-rayon             = { workspace = true }
-thiserror         = { workspace = true }
-itertools         = { workspace = true }
-jiff              = { workspace = true }
-nalgebra          = { workspace = true }
-ndarray           = { workspace = true }
-uom               = { workspace = true }
-solar-positioning = { workspace = true }
-rasm-proximity    = { workspace = true }
-rasm-site         = { workspace = true }
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+nutype               = { workspace = true }
+itertools            = { workspace = true }
+jiff                 = { workspace = true }
+nalgebra             = { workspace = true }
+ndarray              = { workspace = true }
+rstar                = { workspace = true }
+uom                  = { workspace = true }
+solar-positioning    = { workspace = true }
+rasm-proximity       = { workspace = true }
+rasm-site            = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -1,8 +1,14 @@
-use core::{borrow::Borrow, cmp::Ordering, iter, num::NonZero, ops::Bound};
+use core::{borrow::Borrow, hash::BuildHasher, iter, num::NonZero, ops::Bound};
+use std::collections::HashMap;
 
-use nalgebra::{Point3, Unit, UnitQuaternion, Vector3};
-use ndarray::{Array1, Array2, Axis, ShapeBuilder as _, Zip};
-use rasm_proximity::{Assembly, Distance, ProximityError, rays::occluded};
+use itertools::{Either, Itertools as _};
+use nalgebra::{Point3, UnitQuaternion, UnitVector3};
+use ndarray::{Array1, Array2, Axis, ShapeBuilder as _};
+use nonempty_collections::nev;
+use rasm_proximity::{
+    Assembly, Distance, ProximityError,
+    rays::{crossings, occluded},
+};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use uom::si::{
     f64::{Ratio, Time},
@@ -12,49 +18,94 @@ use uom::si::{
 };
 
 use crate::{
-    SolarError,
+    Input, SolarError,
     dome::{Patch, patches},
+    finite, refused,
 };
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+pub type Sensor = (Point3<f64>, UnitVector3<f64>);
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
+pub struct Transmittance(f64);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn incidence(assembly: &Assembly, offset: Distance, sensors: &[(Point3<f64>, Unit<Vector3<f64>>)], directions: &[Unit<Vector3<f64>>]) -> Result<Array2<f64>, SolarError> {
+pub fn incidence<S>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, sensors: &[Sensor], directions: &[UnitVector3<f64>]) -> Result<Array2<f64>, SolarError>
+where S: BuildHasher + Sync {
+    refused(directions.iter().positions(|direction| !finite(direction.as_slice())).map(Input::Direction))?;
     let mut matrix = Array2::zeros((sensors.len(), directions.len()).f());
-    matrix.axis_iter_mut(Axis(1)).into_par_iter().zip(directions).try_for_each(|(mut column, &direction)| cosines(assembly, offset, sensors, direction).map(|unshaded| column.assign(&unshaded)))?;
+    matrix.axis_iter_mut(Axis(1)).into_par_iter().zip(directions).try_for_each(|(mut column, &direction)| {
+        exposed(assembly, translucent, offset, sensors, direction).map(|values| iter::zip(&mut column, values).for_each(|(cell, (share, cosine))| *cell = share * cosine))
+    })?;
     Ok(matrix)
 }
 
-pub fn sun_hours<I>(assembly: &Assembly, offset: Distance, sensors: &[(Point3<f64>, Unit<Vector3<f64>>)], suns: I) -> Result<Array1<Time>, SolarError>
-where I: IntoIterator<Item: Borrow<(Unit<Vector3<f64>>, Time)>> {
-    let above =
-        suns.into_iter().map(|sun| *sun.borrow()).filter(|(direction, _)| direction.z.partial_cmp(&0.0).is_none_or(Ordering::is_gt)).map(|(direction, duration)| (direction, duration.get::<second>()));
-    Ok(accumulated(assembly, offset, sensors, above, |cosine| f64::from(cosine > 0.0))?.mapv(Time::new::<second>))
+pub fn sun_hours<S, I>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, sensors: &[Sensor], suns: I) -> Result<Array1<Time>, SolarError>
+where
+    S: BuildHasher + Sync,
+    I: IntoIterator<Item: Borrow<(UnitVector3<f64>, Time)>>,
+{
+    let checked = suns.into_iter().enumerate().map(|(index, sun)| match *sun.borrow() {
+        (direction, _) if !finite(direction.as_slice()) => Err(SolarError::Refused { inputs: nev![Input::Sun(index)] }),
+        (_, duration) if !(duration.is_finite() && duration.get::<second>() >= 0.0) => Err(SolarError::Refused { inputs: nev![Input::Duration(index)] }),
+        (direction, duration) => Ok((direction, duration.get::<second>())),
+    });
+    Ok(accumulated(assembly, translucent, offset, sensors, checked, |cosine| f64::from(cosine > 0.0))?.mapv(Time::new::<second>))
 }
 
-pub fn sky_view(assembly: &Assembly, offset: Distance, subdivision: NonZero<u8>, sensors: &[(Point3<f64>, Unit<Vector3<f64>>)]) -> Result<Array1<Ratio>, SolarError> {
-    let dome = patches(subdivision, UnitQuaternion::identity()).into_iter().map(|Patch { direction, solid_angle }| (direction, solid_angle.get::<steradian>())).collect::<Vec<_>>();
-    let hemisphere = dome.iter().fold(0.0, |sum, (direction, steradians)| direction.z.mul_add(*steradians, sum));
-    Ok(accumulated(assembly, offset, sensors, dome, |cosine| cosine)?.mapv(|projected| Ratio::new::<ratio>(projected / hemisphere)))
+pub fn sky_view<S>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, subdivision: NonZero<u8>, sensors: &[Sensor]) -> Result<Array1<Ratio>, SolarError>
+where S: BuildHasher + Sync {
+    let sky = patches(subdivision, UnitQuaternion::identity())
+        .into_iter()
+        .filter(|patch| patch.direction.z > 0.0)
+        .map(|Patch { direction, solid_angle }| (direction, solid_angle.get::<steradian>()))
+        .collect::<Vec<_>>();
+    let hemisphere = sky.iter().fold(0.0, |sum, (direction, steradians)| direction.z.mul_add(*steradians, sum));
+    Ok(accumulated(assembly, translucent, offset, sensors, sky.into_iter().map(Ok), |cosine| cosine)?.mapv(|projected| Ratio::new::<ratio>(projected / hemisphere)))
 }
 
-fn accumulated(
+fn accumulated<S>(
     assembly: &Assembly,
+    translucent: &HashMap<usize, Transmittance, S>,
     offset: Distance,
-    sensors: &[(Point3<f64>, Unit<Vector3<f64>>)],
-    weights: impl IntoIterator<Item = (Unit<Vector3<f64>>, f64)>,
+    sensors: &[Sensor],
+    weights: impl IntoIterator<Item = Result<(UnitVector3<f64>, f64), SolarError>>,
     response: impl Fn(f64) -> f64,
-) -> Result<Array1<f64>, ProximityError> {
-    weights.into_iter().try_fold(Array1::zeros(sensors.len()), |mut total, (direction, weight)| {
-        cosines(assembly, offset, sensors, direction).map(|unshaded| {
-            Zip::from(&mut total).and(&unshaded).for_each(|sum, &cosine| *sum = response(cosine).mul_add(weight, *sum));
-            total
-        })
+) -> Result<Array1<f64>, SolarError>
+where
+    S: BuildHasher + Sync,
+{
+    weights.into_iter().try_fold(Array1::zeros(sensors.len()), |mut total, weighted| {
+        let (direction, weight) = weighted?;
+        if direction.z > 0.0 {
+            iter::zip(&mut total, exposed(assembly, translucent, offset, sensors, direction)?).for_each(|(sum, (share, cosine))| *sum = (response(cosine) * share).mul_add(weight, *sum));
+        }
+        Ok(total)
     })
 }
 
-fn cosines(assembly: &Assembly, offset: Distance, sensors: &[(Point3<f64>, Unit<Vector3<f64>>)], direction: Unit<Vector3<f64>>) -> Result<Array1<f64>, ProximityError> {
-    let (facing, empty) = ((Bound::Unbounded, Bound::Unbounded), (Bound::Included(offset), Bound::Excluded(offset)));
-    let cosines = sensors.iter().map(|(_, normal)| normal.dot(&direction)).collect::<Vec<_>>();
-    occluded(assembly, sensors.par_iter().zip(&cosines).map(|(&(point, normal), &cosine)| (point + normal.into_inner() * offset.into_inner(), direction, if cosine > 0.0 { facing } else { empty })))
-        .map(|shaded| iter::zip(cosines, shaded).map(|(cosine, shaded)| if shaded { 0.0 } else { cosine.max(0.0) }).collect::<Array1<_>>())
+fn exposed<S>(
+    assembly: &Assembly,
+    translucent: &HashMap<usize, Transmittance, S>,
+    offset: Distance,
+    sensors: &[Sensor],
+    direction: UnitVector3<f64>,
+) -> Result<impl Iterator<Item = (f64, f64)>, ProximityError>
+where
+    S: BuildHasher + Sync,
+{
+    let rays = sensors.par_iter().map(|&(point, normal)| {
+        let reach = if normal.dot(&direction) > 0.0 { (Bound::Unbounded, Bound::Unbounded) } else { (Bound::Included(offset), Bound::Excluded(offset)) };
+        (point + normal.into_inner() * offset.into_inner(), direction, reach)
+    });
+    let shares = if translucent.is_empty() {
+        Either::Left(occluded(assembly, rays)?.into_iter().map(|shaded| f64::from(!shaded)))
+    } else {
+        Either::Right(crossings(assembly, rays)?.into_iter().map(|hits| hits.iter().map(|hit| translucent.get(&hit.element).map_or_default(|transmittance| **transmittance)).product::<f64>()))
+    };
+    Ok(shares.zip(sensors.iter().map(move |(_, normal)| normal.dot(&direction).max(0.0))))
 }

@@ -439,7 +439,7 @@ Numeric facts come from the type or package that states them:
 - Tolerances on a measure in the caller's units are relative to it (a residual change against the previous residual)
 - Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
-- Quantities enter and leave through `uom` at a signature, a coordinate pair one validated type reading out each, the kernel between them on `f64` with each unit conversion (a Celsius offset) read from `uom`, and a length compared with a coordinate stated in its frame
+- Quantities cross a signature as `uom` values in the frame of what they meet, a coordinate pair one validated type, the `f64` kernel converting by it
 - Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`
 - Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
