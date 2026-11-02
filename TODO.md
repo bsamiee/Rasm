@@ -88,19 +88,10 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
   4. Illustrator harness returns: the paused ScribeDOOR-for-Illustrator proofs, then Acrobat and Photoshop harnesses, then `harness-depth` per host.
   5. Every TypeScript run has landed: `typescript-sweep`, then its tune.
   6. Decompile runs finish: the Ghidra product migration, then the extension phases in TODO [02] order.
-- **Findings ledger:** every investigation's full report sits in `.artifacts/workflows/findings/` and lands whole, each item fixed or refuted with a reason:
-  - `typescript-processes.md` and `typescript-config.md`: an agent is landing them now; the `tools/harnesses` tsconfig rows land once the harness run commits.
-  - `ghidra-scripts.md` and `ghidra-usage.md`: the skill rebuild is in progress; the product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) lands once the decompile runs finish, including a native `BitmapsOverlap` hook for InPage kerning frames (budgets up to 15,625 s from 16 emulated pixel tests per second).
-  - `launch.md`: one launch path in `libs/swift/macos` `Launch.swift` once Atelier commits.
-  - Rebuilt-module gap: the harness's first live InDesign batch found the stroke family's 4 pt bottom-edge case reading 4 in InDesign against 1 from the rebuilt module; the product's next proof round through the harness fixes the rebuild.
-  - Product proof runners: 78 `run-26.applescript`/`run-27.applescript` copies under `docs/research/applications/adobe/extensions/*/proof/harness` drive InDesign directly; they set the interaction level off now and are deleted once every proof runs through `tools/harnesses/indesign` (after Atelier commits and the harness state format is fixed).
-  - Command mining for function hooks: lands with the miner's report, rewriting raw `tsc`, `--skip-nx-cache`, `timeout`, literal `analyzeHeadless` and raw app launches into their repository forms.
-  - C# analyzer gaps (`Canvases.cs` and other conditionally compiled sources): an agent is landing them, the `tools/harnesses/rhino` findings once the harness run commits.
-- **Harness state format:** `tools/harnesses` fails on Atelier's new automation state (`SchemaError: Missing key …state.running.status`); it is fixed once Atelier commits, before any further InDesign proof.
-- **Grid Calculator host proof:** zero functions proven in InDesign; the demo is licensed and the stale agent documents are closed, so its next proof round runs through the harness.
-- **ScribeDOOR deadline:** about 88 functions proven and none in InDesign, with the trial ending around 8 November; its InDesign-facing families go first, and its welcome dialog needs the owner's click per launch.
-- **Stray commit:** six Atelier files landed inside `387a9b607`; the rest commit with Atelier.
-- **Host crashes:** InDesign 2027 Beta crashed under the old-style script proofs; every proof moves onto the harness-owned, launch-hidden host.
+- **Open findings:** reports sit in `.artifacts/workflows/findings/`; the TypeScript config, launch, function-hook, C# analyzer and Ghidra skill reports have landed.
+  - Ghidra product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) once the decompile runs finish.
+  - Stroke rebuild gap: the harness's first live InDesign batch read the stroke family's 4 pt bottom-edge case as 4 in InDesign against 1 from the rebuilt module; the product's next proof round fixes the rebuild.
+  - Grid Calculator and ScribeDOOR host proofs run through the harness once the proof move lands; ScribeDOOR's InDesign-facing families go first, with its trial ending around 8 November and its welcome dialog needing the owner's click per launch.
 
 ### Done
 
