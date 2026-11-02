@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -46,8 +46,8 @@ allowed-duplicate-crates = [
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
     "rstar",                 # 0.8, 0.9, 0.10, 0.11, and 0.13 under newest `geo-types` 0.7.20 through the weak `rstar_0_*?/serde` of its `serde` feature (rust-clippy#16440), beside 0.12 under newest `geo` 0.33.1 and 0.13 under `parry3d-f64`
-    "heapless",              # 0.6 and 0.7 under the weak `rstar` 0.8 to 0.11 copies of `geo-types` (rust-clippy#16440), beside 0.8 under `rstar` 0.12 and 0.13
-    "hash32",                # 0.1 and 0.2 under the weak `heapless` 0.6 and 0.7 copies (rust-clippy#16440), beside 0.3 under `heapless` 0.8
+    "heapless",              # 0.6 and 0.7 under the weak `rstar` 0.8 to 0.11 copies of `geo-types` (rust-clippy#16440), beside 0.8 under `rstar` 0.12 and 0.13 and 0.9 under `thermalcomfort` 4.6.2
+    "hash32",                # 0.1 and 0.2 under the weak `heapless` 0.6 and 0.7 copies (rust-clippy#16440), beside 0.3 under `heapless` 0.8 and 0.9
     "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440)
     "equator",               # 0.2 under newest `nano-gemm` 0.2.2 and 0.4 under newest `spindle` 0.2.6 and `aligned-vec` 0.6.4, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
     "equator-macro",         # 0.2 and 0.4 under `equator` 0.2 and 0.4 beside 0.6 under `equator` 0.6
@@ -57,7 +57,11 @@ allowed-duplicate-crates = [
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
     "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
-    "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2 beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
+    "zip",                   # 8 under newest `fmi` 0.8.0 beside 9, the catalog row, under `rasm-ifc` and `office_oxide` of `pdf_oxide`
+    "constant_time_eq",      # 0.4 under the default `aes-crypto` of `zip` 8 beside 0.6 under `zip` 9 `aes-crypto`
+    "lzma-rust2",            # 0.16 under the default `lzma` and `xz` of `zip` 8 beside 0.23 under `zip` 9 `lzma` and `xz`
+    "typed-path",            # 0.12 under `zip` 8 beside 0.13 under `zip` 9
+    "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `zip` 9 `zstd` and `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
     "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14
     "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13
     "brotli-decompressor",   # 5 under `brotli` 8 beside 6 under `brotli` 9
@@ -84,11 +88,13 @@ allowed-duplicate-crates = [
     "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
     "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` beside 0.42 under `merman-render`
     "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
-    "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and both `vello_common` copies beside 1 under `hayro-jbig2` 0.3
+    "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and both `vello_common` copies beside 1 under `hayro-jbig2` 0.3 and `hayro-jpeg2000` 0.4
     "vello_common",          # 0.0.8 under `vello_cpu` 0.0.8 of `hayro` 0.7, which `typst-render` and `typst-svg` take, beside 0.0.9 under `glifo` 0.1.1 of that `vello_cpu`
     "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 beside 0.4 under `hayro-jbig2` 0.3
+    "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 beside 0.4 under `grib` 0.20.2
     "approx",                # 0.3 under `alga` 0.9.3, the default of `sprs` 0.11.6 under newest `csaps` 0.5.0, beside 0.5 under `nalgebra`, `simba`, `num-dual`, `statrs`, `parry3d-f64`, `geo-types`, `glam`, `glamx` and `palette`
     "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-spectra` and `rasm-analysis`
+    "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, and `tracing-subscriber` beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` and `fidget-shapes` take under newest `fidget` 0.5.1
 ]
 
 # --- [BANS]

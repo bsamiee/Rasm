@@ -1,0 +1,38 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-implicit"
+version.workspace    = true
+edition.workspace    = true
+description          = "Implicit fields at nalgebra signatures over fidget: trees relative to an f64 origin with recentring, value and gradient sampling at world points across a caller thread pool, triply periodic minimal surface lattices at a unit cell, shell walls between two constant or graded level sets, and JIT octree meshing over a world domain at a bounded depth into a parry triangle mesh, refusing a field not finite in the domain"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["implicit", "sdf", "lattice", "meshing", "geometry"]
+categories           = ["graphics", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon           = { workspace = true }
+thiserror       = { workspace = true }
+derive-where    = { workspace = true }
+bounded-integer = { workspace = true }
+nutype          = { workspace = true }
+nalgebra        = { workspace = true }
+fidget          = { workspace = true }
+parry3d-f64     = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

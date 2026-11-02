@@ -36,17 +36,17 @@ Function signatures are contracts, parameter types state every value a function 
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
-- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent, and a default tree-sitter-rust parses no form of (a struct literal) an `Option` field
+- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent, and a default tree-sitter-rust parses no form of (a struct literal) or no const context builds (a fidget `CancelToken`) an `Option` field the body resolves (`unwrap_or_default`)
 - Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
 - Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
 - Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed
 - Values describing an output (a resampled rate) derive from the output produced, never from the request it rounds
-- Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
+- Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from its owner (a type, a member, a clap `Arg`)
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion
+- Helpers one function reads are closures inside it, a nested `fn` holding its own generic, a `const fn`, a return borrowing a parameter, or self-recursion, and a rule several functions read is one private `fn` each calls, never an inline copy per function
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -120,7 +120,7 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 - Matches over a workspace enum list every variant, a new variant then fails each match that must handle it
 - Arms read what their own pattern binds, a nested match re-reading a value its outer arm narrowed lists variants that never reach it
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
-- Struct patterns name every field, and `field: _` marks a field the arm ignores
+- Struct patterns name every field, and `field: _` marks a field the arm ignores, `{ .. }` standing only for a foreign struct whose fields are private and zero-sized
 - `if let` guards bind from a second refutable pattern inside an arm, deref patterns (`#![feature(deref_patterns)]` in the crate root) match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
 - Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test, and `<[T; 1]>::try_from(items)` takes an owned single item, `Err` returning the `Vec` whole, an owned `Vec` or `String` matched directly under `deref_patterns`, never through `as_slice` or `as_str`
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
@@ -159,7 +159,7 @@ pub enum Delivery {
 - Data every variant shares sits in a struct beside a field holding the enum, variants sharing fields are one variant over an enum of the rest
 - Variants differing only by a tag are one struct keyed by a fieldless enum, and fields named per key (`early_start`, `late_start`) one `EnumMap`
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it, and `Option` fields read only together (`address.zip(port)`) one `Option` of a record
-- Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), each side holding the value a consumer reads (a station along both paths) in place of a package record's raw fields, `Result` holding failure alone
+- Shapes a package enum states take that enum (`EitherOrBoth` for one side or both, `Either` for a plain choice), each side holding the value a consumer reads (a station along both paths) in place of a package record's raw fields, `Result` holding failure alone, a refused input ignored with a warning included
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
 - Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1, an empty name) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
@@ -167,7 +167,7 @@ pub enum Delivery {
 ### [03.2]-[CONSTRAINED_VALUES]
 
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
-- `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
+- `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`, and a value whose consumers read a quantity derived from the input (a unit cell's phase map from its edge vectors) is a struct holding the derived quantity, its constructor computing and testing it once, never a nutype over the input each consumer derives again
 - `derive_more` `#[as_ref]` exposes each field of a guarded record read-only, a result flag beside them included, never one `pub` field among guarded ones, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
 - `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context as `NonZero::new(<value>).unwrap()`, a default field value (where tree-sitter-rust parses no method call) as the by-path `NonZero::<T>::saturating_add(NonZero::<T>::MIN, <value - 1>)`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`), a method on a package constant as `<value>` read inside `const { .. }`, under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
@@ -182,7 +182,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 ### [03.3]-[OWNERSHIP]
 
 Ownership states who decides a value's lifetime:
-- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` over the element the body reads (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
+- Functions storing an argument or moving it into a by-value callee take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` over the element the body reads (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
 - Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`, or the shared handle a dependency states for the concept (linebender_resource_handle `FontData` over font bytes and collection index)
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Steps only some inputs take return `Cow<'_, T>`, the untouched path borrowing its input
@@ -263,7 +263,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target, each refused element of one batch
-- Files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`, and a `NonEmptyIterator` (`nonempty_collections::iter::once(head).chain(rest)`) collects `Result<NEVec<U>, E>` through `FromNonEmptyIterator`, `NEVec` holding no `FromIterator`
+- `try_collect` takes `#![feature(iterator_try_collect)]` in the crate root, and files importing `Itertools` write `collect::<Result<Vec<U>, E>>()` or `collect::<Option<_>>()`, a `try_collect` call there resolving to `Itertools::try_collect`, and a `NonEmptyIterator` (`nonempty_collections::iter::once(head).chain(rest)`) collects `Result<NEVec<U>, E>` through `FromNonEmptyIterator`, `NEVec` holding no `FromIterator`
 - `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
@@ -297,7 +297,7 @@ pub enum LedgerError {
 - Absent message fields render as what absence means (a package default)
 - Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
-- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
+- Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, one zero-sized (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`, and one holding a value (`TryFromIntError` its kind) is the `source` field of a variant naming the caller's subject
 - Boundaries `map_err` a foreign error into its source's one variant, an operation field naming the operation and the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
@@ -346,6 +346,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 - Bounds repeated across signatures or crates are one trait alias over the traits each body reads or its totality needs, members restated across traits (an error type, a default `serve`) one supertrait each extends, a crate-private trait with one implementor is that type's inherent `impl`
 - Foreign trait implementations write required methods and each default their type or a forwarded inner type answers differently, other defaults stand
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
+- Traits a generic function reads to choose a fallible foreign call state only what differs per implementation (an evaluator type, a tape, an input seed, an output widening), the generic function making the call and mapping its error once, and their impls for foreign types sit beside the trait in its section
 - Text one site renders is a `fmt::from_fn` closure in place of a struct holding only a `Display` impl
 - Parameters take the target type, callers convert with `.into()` at the call site
 
@@ -374,10 +375,12 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [05]   | One value per variant or combination    | `enum_map::Enum`                                                          |
 |  [06]   | Checked newtype and its error           | `nutype`                                                                  |
 |  [07]   | Conversions of an unchecked newtype     | `derive_more` `From`, `Into`, `AsRef`, `Display`                          |
-|  [08]   | Traits adding no bound on a generic     | `derive_where`, `skip` or `skip_inner` for fields lacking the trait       |
+|  [08]   | Traits adding no bound on a generic     | `derive_where` for a generic no field holds, `skip` per field lacking it  |
 |  [09]   | `Debug` over a foreign field lacking it | `derive_more` `Debug`, `#[debug(skip)]`                                   |
 |  [10]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                           |
 |  [11]   | Field mapping between domain and wire   | `o2o`                                                                     |
+
+Records holding field defaults under `default_field_values` derive `Debug` through `derive_where` with `skip` on each foreign field lacking it, since derive_more 2.1 parses no field default.
 
 ## [06]-[EFFECTS]
 
@@ -388,7 +391,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - `tokio::select!` races futures, each branch producing its value, `biased;` ranking branches ready together, `OptionFuture` disabling an absent future
 - Blocking or CPU-bound work runs on `spawn_blocking` or the `rayon` thread pool, a runtime worker runs futures alone
 - Futures a blocking thread drives through `executor::block_on` race the cancellation signal as awaited futures do
-- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws)
+- Acquisition and release pair in one scope through `Drop` or `mem::DropGuard`, and `DropGuard::dismiss` returns the value once the work commits, a release whose failure the outcome reads running on the dismissed value, the scope ending before a later phase reads the release (a boxed stream dropping its spans' progress bars before a summary draws)
 - Independent releases each run and join their failures through `Validated`, a `?` between them skips every later release
 - Blocking releases run concurrently under `thread::scope` through `Builder::spawn_scoped`, a refused spawn joining `Validated` as one more failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
