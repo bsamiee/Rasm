@@ -1,4 +1,4 @@
-use core::{future::ready, iter, mem, num::NonZero, time::Duration};
+use core::{future::ready, iter, mem, num::NonZero, pin::pin, time::Duration};
 use std::{
     collections::BTreeMap,
     sync::{Arc, nonpoison::Mutex},
@@ -6,17 +6,21 @@ use std::{
 
 use arc_swap::ArcSwapOption;
 use derive_where::derive_where;
-use futures::{FutureExt as _, StreamExt as _, future};
-use itertools::Itertools as _;
+use futures::{
+    FutureExt as _, StreamExt as _, TryFuture, TryFutureExt as _,
+    future::{self, BoxFuture},
+};
+use itertools::{Either, Itertools as _};
 use rasm_telemetry::Handle;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     handler::server::{prompt::PromptContext, router::prompt::PromptRouter, tool::ToolRouter},
     model::{
-        CallToolRequestParams, CallToolResponse, CancelTaskParams, CompleteRequestMethod, CompleteRequestParams, CompleteResult, CompletionInfo, Cursor, GetPromptRequestMethod,
-        GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskResult, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
-        PromptListChangedNotification, PromptReference, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Reference, ResourceListChangedNotification,
-        ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig, Tool, ToolListChangedNotification, UpdateTaskParams,
+        ArgumentInfo, CallToolRequestParams, CallToolResponse, CancelTaskParams, CompleteRequestMethod, CompleteRequestParams, CompleteResult, CompletionContext, CompletionInfo, Cursor,
+        GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskResult, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult,
+        PaginatedRequestParams, PromptListChangedNotification, PromptReference, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Reference,
+        ResourceListChangedNotification, ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig, Tool, ToolListChangedNotification,
+        UpdateTaskParams,
     },
     service::RequestContext,
     task_manager::TaskManager,
@@ -26,10 +30,8 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use validated::Validated;
 
 use self::{
-    completions::CompletionRouter,
-    executions::Ledger,
     resources::{ResourceRouter, Resources},
-    tools::Running,
+    tools::{Ledger, Parked},
 };
 use crate::{Endpoint, Failure, McpError, Notifier, host::Host, internal};
 
@@ -41,16 +43,35 @@ pub trait App: Clone + Send + Sync + 'static {
     fn serve(self, _: Registry<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }
 
+trait Completer<A> = Fn(A, ArgumentInfo, Option<CompletionContext>) -> BoxFuture<'static, Result<Vec<String>, ErrorData>> + Send + Sync;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub instructions: Option<String> = None,
-    pub page: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023),
+    pub page: NonZero<usize> = NonZero::new(1024).unwrap(),
     pub retention: Duration = Duration::from_hours(1),
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
+#[derive_where(Debug, Default)]
+pub struct CompletionRouter<A> {
+    #[derive_where(skip(Debug))]
+    prompts: BTreeMap<String, Box<dyn Completer<A>>>,
+}
+
+impl<A> CompletionRouter<A>
+where A: 'static
+{
+    #[must_use]
+    pub fn prompt<Q>(mut self, name: impl Into<String>, complete: impl Fn(A, ArgumentInfo, Option<CompletionContext>) -> Q + Send + Sync + 'static) -> Self
+    where Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static {
+        self.prompts.insert(name.into(), completer(complete));
+        self
+    }
+}
 
 #[derive_where(Clone, Debug)]
 pub struct Registry<A> {
@@ -71,21 +92,29 @@ where A: App
 {
     pub fn tools(&self, mut router: ToolRouter<A>) -> Result<(), McpError> {
         router.map = mem::take(&mut router.map).into_values().map(tools::validated).collect::<Validated<_, _>>().ok().map_err(|errors| McpError::Declarations { errors })?;
+        let notifier = self.notifier.clone();
+        router.set_notifier(move || notifier.notify(ToolListChangedNotification::default()));
         self.tools.store(Some(Arc::new(router)));
         self.notifier.notify(ToolListChangedNotification::default());
         Ok(())
     }
 
     pub fn enable(&self, tool: &str) {
-        self.switched(tool, |router| {
-            router.enable_route(tool);
-        });
+        drop(self.tools.rcu(|held| {
+            held.as_deref().cloned().map(|mut router| {
+                router.enable_route(tool);
+                Arc::new(router)
+            })
+        }));
     }
 
     pub fn disable(&self, tool: &str) {
-        self.switched(tool, |router| {
-            router.disable_route(tool.to_owned());
-        });
+        drop(self.tools.rcu(|held| {
+            held.as_deref().cloned().map(|mut router| {
+                router.disable_route(tool.to_owned());
+                Arc::new(router)
+            })
+        }));
     }
 
     pub fn prompts(&self, router: PromptRouter<A>) {
@@ -99,27 +128,22 @@ where A: App
         Ok(())
     }
 
-    pub fn completions(&self, router: CompletionRouter<A>) { self.completions.store(Some(Arc::new(router))); }
+    pub fn completions(&self, router: CompletionRouter<A>) -> Result<(), McpError> {
+        let prompts = self.prompts.load();
+        router
+            .prompts
+            .keys()
+            .map(|prompt| prompts.as_deref().is_some_and(|declared| declared.has_route(prompt)).ok_or_else(|| McpError::Completion { prompt: prompt.clone() }))
+            .collect::<Validated<Vec<()>, _>>()
+            .ok()
+            .map_err(|errors| McpError::Declarations { errors })?;
+        self.completions.store(Some(Arc::new(router)));
+        Ok(())
+    }
 
     pub fn resources_list_changed(&self) { self.notifier.notify(ResourceListChangedNotification::default()); }
 
     pub fn resource_updated(&self, uri: impl Into<String>) { self.notifier.notify(ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri.into()))); }
-
-    fn switched(&self, tool: &str, switch: impl Fn(&mut ToolRouter<A>)) {
-        let mut changed = false;
-        self.tools.rcu(|held| {
-            held.as_deref().map(|router| {
-                let mut router = router.clone();
-                let visible = router.has_route(tool);
-                switch(&mut router);
-                changed = visible != router.has_route(tool);
-                Arc::new(router)
-            })
-        });
-        if changed {
-            self.notifier.notify(ToolListChangedNotification::default());
-        }
-    }
 }
 
 #[derive_where(Debug)]
@@ -131,7 +155,7 @@ pub struct Server<A> {
     page: NonZero<usize>,
     retention: Duration,
     #[derive_where(skip)]
-    parked: Arc<Mutex<BTreeMap<String, Running>>>,
+    parked: Arc<Mutex<Parked>>,
     tracker: TaskTracker,
     halted: CancellationToken,
     #[derive_where(skip)]
@@ -157,7 +181,7 @@ where A: App
                 .enable_tool_list_changed()
                 .enable_tasks()
                 .build();
-            capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some());
+            capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some() || registry.resources.load().is_some());
             capabilities.tools = capabilities.tools.filter(|_| registry.tools.load().is_some());
             capabilities.extensions = capabilities.extensions.filter(|_| registry.tools.load().is_some());
             capabilities.prompts = capabilities.prompts.filter(|_| registry.prompts.load().is_some());
@@ -174,10 +198,13 @@ where A: App
     fn get_info(&self) -> ServerConfig { self.info.clone() }
 
     async fn complete(&self, request: CompleteRequestParams, _: RequestContext<RoleServer>) -> Result<CompleteResult, ErrorData> {
-        let completions = self.registry.completions.load_full().ok_or_else(ErrorData::method_not_found::<CompleteRequestMethod>)?;
+        self.info.capabilities.completions.is_some().ok_or_else(ErrorData::method_not_found::<CompleteRequestMethod>)?;
+        let (completions, resources) = (self.registry.completions.load_full(), self.registry.resources.load_full());
         let completer = match &request.r#ref {
-            Reference::Prompt(PromptReference { name, .. }) => completions.prompts.get(name),
-            Reference::Resource(ResourceTemplateReference { uri, .. }) => completions.resources.get(uri),
+            Reference::Prompt(PromptReference { name, .. }) => completions.as_deref().and_then(|router| router.prompts.get(name)),
+            Reference::Resource(ResourceTemplateReference { uri, .. }) => resources.as_deref().and_then(|resources| {
+                resources.templates.binary_search_by(|(template, _)| template.uri_template.as_str().cmp(uri)).ok().and_then(|index| resources.templates.get(index)).map(|(_, complete)| complete)
+            }),
             _ => None,
         };
         let values = match completer {
@@ -196,7 +223,8 @@ where A: App
 
     fn list_tools(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send {
         let tools = self.registry.tools.load().as_deref().map_or_default(ToolRouter::list_all);
-        let (tools, next_cursor) = paged(following(&tools, request.and_then(|params| params.cursor).as_deref(), |tool| &tool.name).cloned(), self.page, |tool| &tool.name);
+        let skipped = following(&tools, request.and_then(|params| params.cursor).as_deref(), |tool| &tool.name);
+        let (tools, next_cursor) = paged(tools.into_iter().skip(skipped), self.page, |tool| &tool.name);
         ready(Ok(ListToolsResult { next_cursor, ..ListToolsResult::with_all_items(tools) }))
     }
 
@@ -207,7 +235,8 @@ where A: App
 
     fn list_prompts(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListPromptsResult, ErrorData>> + Send {
         let prompts = self.registry.prompts.load().as_deref().map_or_default(PromptRouter::list_all);
-        let (prompts, next_cursor) = paged(following(&prompts, request.and_then(|params| params.cursor).as_deref(), |prompt| &prompt.name).cloned(), self.page, |prompt| &prompt.name);
+        let skipped = following(&prompts, request.and_then(|params| params.cursor).as_deref(), |prompt| &prompt.name);
+        let (prompts, next_cursor) = paged(prompts.into_iter().skip(skipped), self.page, |prompt| &prompt.name);
         ready(Ok(ListPromptsResult { next_cursor, ..ListPromptsResult::with_all_items(prompts) }))
     }
 
@@ -217,13 +246,14 @@ where A: App
         let listed =
             future::join_all(registered.iter().flat_map(|resources| &resources.lists).map(|list| list(self.app.clone(), after.clone(), limit))).await.into_iter().collect::<Validated<Vec<_>, _>>();
         let listed = listed.ok().map_err(|errors| serde_json::to_value(&errors).map_or_else(internal, |data| ErrorData { data: Some(data), ..errors.first().clone() }))?;
-        let declared = registered.as_deref().map_or_default(|resources| following(&resources.declared, after.as_deref(), |resource| &resource.uri).take(limit.get()).cloned().collect_vec());
-        let rows = iter::once(declared.into_iter())
-            .chain(
-                listed
-                    .into_iter()
-                    .map(|rows| rows.into_iter().filter(|resource| after.as_deref().is_none_or(|after| resource.uri.as_str() > after)).sorted_unstable_by(|left, right| left.uri.cmp(&right.uri))),
-            )
+        let declared = registered
+            .as_deref()
+            .into_iter()
+            .flat_map(|resources| resources.declared.iter().skip(following(&resources.declared, after.as_deref(), |(resource, _)| &resource.uri)).map(|(resource, _)| resource.clone()));
+        let rows = iter::once(Either::Left(declared))
+            .chain(listed.into_iter().map(|rows| {
+                Either::Right(rows.into_iter().filter(|resource| after.as_deref().is_none_or(|after| resource.uri.as_str() > after)).sorted_unstable_by(|left, right| left.uri.cmp(&right.uri)))
+            }))
             .kmerge_by(|left, right| left.uri < right.uri)
             .dedup_by(|left, right| left.uri == right.uri);
         let (resources, next_cursor) = paged(rows, self.page, |resource| &resource.uri);
@@ -233,8 +263,8 @@ where A: App
     fn list_resource_templates(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListResourceTemplatesResult, ErrorData>> + Send {
         let registered = self.registry.resources.load();
         let templates = registered.as_deref().map_or(&[][..], |resources| &resources.templates);
-        let (templates, next_cursor) =
-            paged(following(templates, request.and_then(|params| params.cursor).as_deref(), |template| &template.uri_template).cloned(), self.page, |template| &template.uri_template);
+        let skipped = following(templates, request.and_then(|params| params.cursor).as_deref(), |(template, _)| &template.uri_template);
+        let (templates, next_cursor) = paged(templates.iter().skip(skipped).map(|(template, _)| template.clone()), self.page, |template| &template.uri_template);
         ready(Ok(ListResourceTemplatesResult { next_cursor, ..ListResourceTemplatesResult::with_all_items(templates) }))
     }
 
@@ -277,15 +307,24 @@ where A: App
             tracker.close();
             tracker.wait().await;
         };
-        future::join(served, drained).map(|(served, ())| served)
+        async move {
+            match future::select(pin!(served), pin!(drained)).await {
+                future::Either::Left((Err(error), _)) => Err(error),
+                future::Either::Left((Ok(()), drained)) => drained.map(Ok).await,
+                future::Either::Right(((), served)) => served.await,
+            }
+        }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn following<'rows, T>(rows: &'rows [T], cursor: Option<&str>, key: impl Fn(&T) -> &str) -> impl Iterator<Item = &'rows T> {
-    rows.iter().skip(cursor.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)))
+fn completer<A, Q>(complete: impl Fn(A, ArgumentInfo, Option<CompletionContext>) -> Q + Send + Sync + 'static) -> Box<dyn Completer<A>>
+where Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static {
+    Box::new(move |app, argument, context| complete(app, argument, context).map_err(Into::into).boxed())
 }
+
+fn following<T>(rows: &[T], cursor: Option<&str>, key: impl Fn(&T) -> &str) -> usize { cursor.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)) }
 
 fn paged<T>(rows: impl IntoIterator<Item = T>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
     let mut rows = rows.into_iter().peekable();
@@ -296,8 +335,5 @@ fn paged<T>(rows: impl IntoIterator<Item = T>, page: NonZero<usize>, key: impl F
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod completions;
-pub mod elicitation;
-pub mod executions;
 pub mod resources;
 pub mod tools;

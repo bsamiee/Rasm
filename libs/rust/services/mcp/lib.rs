@@ -31,8 +31,6 @@ use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::WatchStream;
 use tokio_util::sync::CancellationToken;
 
-use self::server::elicitation::Unanswered;
-
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait Failure = rasm_telemetry::Failure + Send + Sync + 'static;
@@ -127,6 +125,21 @@ pub struct Update {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, derive_more::Display)]
+#[serde(rename_all = "lowercase")]
+pub enum Unanswered {
+    #[display("user declined to answer, continue without answer")]
+    Declined,
+    #[display("user cancelled question, call again to ask again")]
+    Cancelled,
+    #[display("user answer is empty, call again to ask again")]
+    Empty,
+    #[display("client cannot ask user, ask in conversation and pass answer as arguments")]
+    Unsupported,
+    #[display("call ended before user answered, call again")]
+    Abandoned,
+}
+
 #[derive(Debug, Serialize, thiserror::Error)]
 #[serde(tag = "_tag")]
 pub enum McpError {
@@ -136,7 +149,7 @@ pub enum McpError {
         #[serde(skip)]
         source: matchit::InsertError,
     },
-    #[error("resource template {template} expression {expression} has no reverse match")]
+    #[error("resource template {template} expression {{{expression}}} cannot route, use {{x}}, {{/x}}, {{.x}}, a final {{+x}}, {{?x}} or {{&x}}")]
     Template { template: String, expression: String },
     #[error("cannot compile tool {tool} input schema")]
     Schema {
@@ -146,6 +159,8 @@ pub enum McpError {
     },
     #[error("tool name {tool} breaks MCP tool name format")]
     ToolName { tool: Cow<'static, str> },
+    #[error("completion names undeclared prompt {prompt}, register prompt before its completion")]
+    Completion { prompt: String },
     #[error("{count} declarations failed{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Declarations {
         #[serde(skip)]
@@ -214,6 +229,7 @@ impl From<McpError> for ErrorData {
             | McpError::Template { template: _, expression: _ }
             | McpError::Schema { tool: _, source: _ }
             | McpError::ToolName { tool: _ }
+            | McpError::Completion { prompt: _ }
             | McpError::Declarations { errors: _ }
             | McpError::Stopping
             | McpError::Elicitation { reason: _ }
@@ -224,7 +240,7 @@ impl From<McpError> for ErrorData {
             | McpError::Handshake { source: _ }
             | McpError::Ended => ErrorCode::INTERNAL_ERROR,
         };
-        serde_json::to_value(&value).map_or_else(internal, |data| Self::new(code, Report::new(&value).to_string(), Some(data)))
+        Self { code, ..server::tools::ToolError(value).into() }
     }
 }
 
@@ -240,6 +256,7 @@ impl From<McpError> for sysexits::ExitCode {
             | McpError::Template { template: _, expression: _ }
             | McpError::Schema { tool: _, source: _ }
             | McpError::ToolName { tool: _ }
+            | McpError::Completion { prompt: _ }
             | McpError::Arguments { tool: _, violations: _ }
             | McpError::ResourceNotFound { uri: _ }
             | McpError::Encoding { uri: _, source: _ }
@@ -277,7 +294,7 @@ impl Progress {
         });
     }
 
-    fn relay<F>(&self, context: &RequestContext<RoleServer>, call: F) -> impl Future<Output = F::Output> + Send
+    pub fn relay<F>(&self, context: &RequestContext<RoleServer>, call: F) -> impl Future<Output = F::Output> + Send
     where F: Future<Output: Send> + Send {
         let peer = context.peer.clone();
         let updates = stream::iter(context.meta.get_progress_token().map(|token| {

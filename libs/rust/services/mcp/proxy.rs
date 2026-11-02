@@ -9,20 +9,20 @@ use futures::{
 };
 use opentelemetry::{Context, global};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use process_wrap::tokio::CommandWrap;
 #[cfg(windows)]
 use process_wrap::tokio::JobObject;
 #[cfg(unix)]
 use process_wrap::tokio::ProcessGroup;
+use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use rmcp::{
     ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, ServerHandler, Service, ServiceError,
     handler::client::progress::ProgressDispatcher,
     model::{
         CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientCapabilities, ClientConfig, ClientRequest, ClientResult, CompleteRequest,
         CompleteRequestParams, CompleteResult, CustomRequest, CustomResult, GetMeta as _, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetPromptResult, GetTaskParams, GetTaskRequest,
-        GetTaskResult, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult,
-        MetaObject, PaginatedRequestParams, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, RequestMetaObject, ResultType, ServerConfig,
-        ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
+        GetTaskResult, Implementation, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest,
+        ListToolsResult, MetaObject, PaginatedRequestParams, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, RequestMetaObject, ResultType,
+        ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
     },
     service::{ClientInitializeError, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
     transport::{IntoTransport, TokioChildProcess},
@@ -81,8 +81,9 @@ impl Proxy {
     pub async fn spawn(mut command: Command, host: Host) -> Result<Self, McpError> {
         let program = command.as_std().get_program().to_owned();
         command.envs(rasm_telemetry::environment(&Context::current()));
+        let Host { identity, filter: _, notifier } = host;
         let mut wrapped = CommandWrap::from(command);
-        wrapped.wrap(cfg_select! {
+        wrapped.wrap(KillOnDrop).wrap(cfg_select! {
             unix => ProcessGroup::leader(),
             windows => JobObject,
         });
@@ -92,7 +93,7 @@ impl Proxy {
                 SplitStream::new(BufReader::new(stderr).split(b'\n')).map_ok(|line| tracing::info!(target: "upstream", message = %String::from_utf8_lossy(line.trim_ascii_end()))).try_collect::<()>();
             AbortOnDropHandle::new(tokio::spawn(logged.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot read upstream stderr"))))
         });
-        match Self::connect(transport, host).await {
+        match Self::connect(transport, identity, notifier).await {
             Ok(proxy) => Ok(Self { _stderr: stderr, ..proxy }),
             Err(error) => {
                 if let Some(Err(failure)) = OptionFuture::from(stderr).await {
@@ -103,12 +104,11 @@ impl Proxy {
         }
     }
 
-    pub async fn connect<T, E, A>(transport: T, host: Host) -> Result<Self, McpError>
+    pub async fn connect<T, E, A>(transport: T, identity: Implementation, notifier: Notifier) -> Result<Self, McpError>
     where
         T: IntoTransport<RoleClient, E, A>,
         E: Error + Send + Sync + 'static,
     {
-        let Host { identity, filter: _, notifier } = host;
         let (progress, tools, stop) = (ProgressDispatcher::new(), Arc::<Tools>::default(), CancellationToken::new());
         let upstream = Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), notifier: notifier.clone(), progress: progress.clone() };
         let lifecycle = ClientLifecycleMode::Auto {
@@ -232,9 +232,12 @@ impl Endpoint for Proxy {
             let changed = notifications.filter(|received| ready(matches!(received, Ok(ServerNotification::ToolListChangedNotification(_)) | Err(BroadcastStreamRecvError::Lagged(_)))));
             stream::once(ready(()))
                 .chain(changed.map(drop))
-                .for_each(async |()| match peer.list_all_tools().await {
-                    Ok(listed) => tools.store(Arc::new(listed.into_iter().map(|tool| (tool.name.clone(), tool)).collect())),
-                    Err(error) => tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot list upstream tools"),
+                .for_each(async |()| {
+                    tools.store(Arc::default());
+                    match peer.list_all_tools().await {
+                        Ok(listed) => tools.store(Arc::new(listed.into_iter().map(|tool| (tool.name.clone(), tool)).collect())),
+                        Err(error) => tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot list upstream tools"),
+                    }
                 })
                 .await;
         }

@@ -7,7 +7,7 @@ use futures::{FutureExt as _, Stream, StreamExt as _, TryFuture, TryFutureExt as
 use itertools::Itertools as _;
 use rmcp::{
     ErrorData, Json,
-    model::{Resource, ResourceContents, ResourceTemplate},
+    model::{ArgumentInfo, CompletionContext, Resource, ResourceContents, ResourceTemplate},
     transport::common::http_header::JSON_MIME_TYPE,
 };
 use serde::{Serialize, de::DeserializeOwned};
@@ -15,7 +15,7 @@ use serde_urlencoded::Deserializer;
 use tokio_stream::wrappers::WatchStream;
 use validated::Validated;
 
-use super::Registry;
+use super::{Completer, Registry, completer};
 use crate::{McpError, internal};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -60,6 +60,8 @@ pub(super) trait Routed<A, T> = Fn(A, String, String) -> Result<T, McpError> + S
 
 pub(super) trait List<A> = Fn(A, Option<String>, NonZero<usize>) -> BoxFuture<'static, Result<Vec<Resource>, ErrorData>> + Send + Sync;
 
+pub(super) type Template<A> = (ResourceTemplate, Box<dyn Completer<A>>);
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 pub(super) struct Route<A> {
@@ -80,7 +82,7 @@ pub struct ResourceRouter<A> {
     #[derive_where(skip(Debug))]
     resources: Vec<(Resource, Route<A>)>,
     #[derive_where(skip(Debug))]
-    templates: Vec<(ResourceTemplate, Route<A>)>,
+    templates: Vec<(Template<A>, Route<A>)>,
     #[derive_where(skip(Debug))]
     lists: Vec<Box<dyn List<A>>>,
 }
@@ -117,52 +119,61 @@ where A: 'static
     }
 
     #[must_use]
-    pub fn template<P, R, S>(mut self, template: ResourceTemplate, read: impl Fn(A, P) -> R + Send + Sync + 'static, watch: impl Fn(A, P) -> S + Send + Sync + 'static) -> Self
+    pub fn template<P, R, S, Q>(
+        mut self,
+        template: ResourceTemplate,
+        read: impl Fn(A, P) -> R + Send + Sync + 'static,
+        watch: impl Fn(A, P) -> S + Send + Sync + 'static,
+        complete: impl Fn(A, ArgumentInfo, Option<CompletionContext>) -> Q + Send + Sync + 'static,
+    ) -> Self
     where
         P: DeserializeOwned + 'static,
         R: Future<Output: IntoResourceContents> + Send + 'static,
         S: Stream<Item = ()> + Send + 'static,
+        Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static,
     {
         let decoded = |uri: &str, variables: &str| {
             serde_path_to_error::deserialize(Deserializer::new(form_urlencoded::parse(variables.as_bytes()))).map_err(|source| McpError::Variables { uri: uri.to_owned(), source })
         };
         let routed = route(template.mime_type.clone(), decoded, read, watch);
-        self.templates.push((template, routed));
+        self.templates.push(((template, completer(complete)), routed));
         self
     }
 }
 
 pub(super) struct Resources<A> {
-    uris: matchit::Router<Route<A>>,
     patterns: matchit::Router<(Route<A>, Query)>,
     pub(super) lists: Vec<Box<dyn List<A>>>,
-    pub(super) declared: Box<[Resource]>,
-    pub(super) templates: Box<[ResourceTemplate]>,
+    pub(super) declared: Box<[(Resource, Route<A>)]>,
+    pub(super) templates: Box<[Template<A>]>,
 }
 
 impl<A> TryFrom<ResourceRouter<A>> for Resources<A> {
     type Error = McpError;
 
     fn try_from(ResourceRouter { resources, templates, lists }: ResourceRouter<A>) -> Result<Self, McpError> {
-        fn inserted<V>(router: &mut matchit::Router<V>, pattern: String, value: V) -> Result<(), McpError> { router.insert(&pattern, value).map_err(|source| McpError::Route { pattern, source }) }
-        let (mut uris, mut patterns) = (matchit::Router::new(), matchit::Router::new());
-        let resources = resources
-            .into_iter()
-            .map(|(resource, route)| {
-                inserted(&mut uris, resource.uri.chars().flat_map(|character| iter::once(character).chain(matches!(character, '{' | '}').then_some(character))).collect(), route).map(|()| resource)
-            })
-            .collect::<Validated<Vec<_>, _>>();
+        let mut patterns = matchit::Router::new();
+        let declared = resources.into_iter().sorted_unstable_by(|(left, _), (right, _)| left.uri.cmp(&right.uri)).collect::<Box<[_]>>();
+        let distinct = declared
+            .iter()
+            .tuple_windows()
+            .filter(|((left, _), (right, _))| left.uri == right.uri)
+            .map(|(_, (resource, _))| Err(McpError::Route { pattern: resource.uri.clone(), source: matchit::InsertError::Conflict { with: resource.uri.clone() } }))
+            .collect::<Validated<Vec<()>, _>>();
         let templates = templates
             .into_iter()
-            .map(|(template, route)| translated(&template.uri_template).and_then(|(pattern, query)| inserted(&mut patterns, pattern, (route, query))).map(|()| template))
+            .map(|((template, complete), route)| {
+                translated(&template.uri_template)
+                    .and_then(|(pattern, query)| patterns.insert(&pattern, (route, query)).map_err(|source| McpError::Route { pattern, source }))
+                    .map(|()| (template, complete))
+            })
             .collect::<Validated<Vec<_>, _>>();
-        resources
-            .map2(templates, |resources, templates| Self {
-                uris,
+        distinct
+            .map2(templates, |_, templates| Self {
                 patterns,
                 lists,
-                declared: resources.into_iter().sorted_unstable_by(|left, right| left.uri.cmp(&right.uri)).collect(),
-                templates: templates.into_iter().sorted_unstable_by(|left, right| left.uri_template.cmp(&right.uri_template)).collect(),
+                declared,
+                templates: templates.into_iter().sorted_unstable_by(|(left, _), (right, _)| left.uri_template.cmp(&right.uri_template)).collect(),
             })
             .ok()
             .map_err(|errors| McpError::Declarations { errors })
@@ -171,24 +182,23 @@ impl<A> TryFrom<ResourceRouter<A>> for Resources<A> {
 
 impl<A> Resources<A> {
     pub(super) fn routed(&self, uri: &str) -> Result<(&Route<A>, String), McpError> {
-        match self.uris.at(uri) {
-            Ok(matchit::Match { value, params: _ }) => Ok((value, String::new())),
-            Err(matchit::MatchError::NotFound) => {
-                let not_found = || McpError::ResourceNotFound { uri: uri.to_owned() };
-                let (path, query) = uri.split_once('?').unwrap_or((uri, ""));
-                let matchit::Match { value: (route, Query { variables, literals }), params } = self.patterns.at(path).map_err(|matchit::MatchError::NotFound| not_found())?;
-                let pairs = form_urlencoded::parse(query.as_bytes()).collect::<Vec<_>>();
-                literals.iter().all(|(name, value)| pairs.iter().any(|(held, given)| (&**held, &**given) == (name.as_str(), value.as_str()))).ok_or_else(not_found)?;
-                params
-                    .iter()
-                    .map(|(name, variable)| percent_encoding::percent_decode_str(variable).decode_utf8().map(|decoded| (name, decoded)))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(|decoded| {
-                        let queried = pairs.iter().filter(|(name, _)| variables.iter().any(|variable| variable == name));
-                        (route, form_urlencoded::Serializer::new(String::new()).extend_pairs(decoded).extend_pairs(queried).finish())
-                    })
-                    .map_err(|source| McpError::Encoding { uri: uri.to_owned(), source })
-            }
+        if let Some((_, route)) = self.declared.binary_search_by(|(resource, _)| resource.uri.as_str().cmp(uri)).ok().and_then(|index| self.declared.get(index)) {
+            Ok((route, String::new()))
+        } else {
+            let not_found = || McpError::ResourceNotFound { uri: uri.to_owned() };
+            let (path, query) = uri.split_once('?').unwrap_or((uri, ""));
+            let matchit::Match { value: (route, Query { variables, literals }), params } = self.patterns.at(path).map_err(|matchit::MatchError::NotFound| not_found())?;
+            let pairs = form_urlencoded::parse(query.as_bytes()).collect::<Vec<_>>();
+            literals.iter().all(|(name, value)| pairs.iter().any(|(held, given)| (&**held, &**given) == (name.as_str(), value.as_str()))).ok_or_else(not_found)?;
+            params
+                .iter()
+                .map(|(name, variable)| percent_encoding::percent_decode_str(variable).decode_utf8().map(|decoded| (name, decoded)))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|decoded| {
+                    let queried = pairs.iter().filter(|(name, _)| variables.iter().any(|variable| variable == name));
+                    (route, form_urlencoded::Serializer::new(String::new()).extend_pairs(decoded).extend_pairs(queried).finish())
+                })
+                .map_err(|source| McpError::Encoding { uri: uri.to_owned(), source })
         }
     }
 }
