@@ -30,7 +30,7 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 - **Scripts:** `.claude/workflows/{rust,typescript}.js`, with rules and target rows in the sibling `RUST.md` and `TYPESCRIPT.md`.
 - **Skills:** each run loads `Skill(<language>-coding)` and its companions first, and fixes a skill where a run finds a stronger form.
 - **Rows:** one run per `[03]` row, with `args.key` set to its `[KEY]`, started after the rows its `[AFTER]` cell names have landed.
-- **Concurrency:** one TypeScript run at a time. Up to seven Rust runs overlap once `script-decompile` returns (three until then), on rows that share no logic, category or dependency row, started at least 20 minutes apart, and overlapping runs commit together.
+- **Concurrency:** one TypeScript run at a time. Up to three Rust row runs and three `rust-depth` runs overlap, on crates that share no logic, started at least 20 minutes apart, and overlapping runs commit together.
 - **Base:** `HEAD` when a run starts. A line citation in the rules applies to its code wherever that code now sits.
 - **Watching:** follow a run in `/workflows`, read `.artifacts/workflows/<language>/<key>/PLAN.md` once the Plan phase writes it, and read the diff.
 
@@ -54,8 +54,8 @@ Rebuild the Rust and TypeScript libraries and their consumers the way the C# and
 
 ### Rust depth passes
 
-Once every RUST.md [03] row has landed, each crate gets a depth run so no crate stays surface level:
-- **Script:** `.claude/workflows/rust-depth.js`, written then with rust.js's Basis, Sources and Check unchanged, one run per crate in RUST.md row order, staggered like the rows.
+Depth runs follow behind the rows, so no crate stays surface level: each committed row gets one, up to three at once, on crates that share no logic with a running row.
+- **Script:** `.claude/workflows/rust-depth.js`, with rust.js's Basis, Sources and Check, one run per crate in RUST.md row order, staggered like the rows, then its commit and `rust-tune`. `services/telemetry`, `cli/command` and `cli/output` go first, since they landed before the depth adversary existed.
 - **Passes:** three adversaries in sequence, each rewriting the crate and its consumers in place. The first adds the capability its domain and its dependencies' full member sets state that the crate lacks or exposes shallowly. The second replaces hand logic, wrappers, forwarders and restated types with dependency members and derives each value from its owner. The third rebuilds the whole crate from the ground up in its strongest form.
 - **Growth:** an export enters only for an operation a consumer could not perform before, stated per item in `surface.md`. No re-export, alias, convenience overload or variant a parameter already serves.
 
