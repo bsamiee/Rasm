@@ -33,8 +33,9 @@ watch-apps launch <app> [--new] [--hides] \
 - `--document` opens each named file, an unreachable file fails the command before anything opens, without one the app opens no document window
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
 - `--hides` launches a new instance hidden and hides it again once launched when `--document` shows its windows, a running instance stays as it is
-- `--new` on a running app setting `LSMultipleInstancesProhibited` prints a `fail` line and opens nothing
-- `--new` restores the first instance's documents unless `--arguments -ApplePersistenceIgnoreState --arguments YES` follows it
+- `--new` serves apps running one instance per document (Blender), a document app opens files in its running instance through `--document`
+- `--new` fails naming the running pid on an installation setting `LSMultipleInstancesProhibited` or whose new instance `watch` saw exit at its check
+- `--arguments -ApplePersistenceIgnoreState --arguments YES` stops `--new` restoring an AppKit app's documents, Blender opens `YES` as a file
 - Apps holding one instance by their own check show an alert in the new instance, which reads `responding` with a `requiresAnswer` element, then `exited`
 - Apps can activate and unhide themselves once launched or once a press answers a launch dialog, an argument stopping activation goes through `--arguments`
 - Apps supporting automatic termination can quit a hidden instance that shows no window

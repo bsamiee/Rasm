@@ -173,10 +173,11 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
-        func ownSingleInstanceCheckShowsAlertThenExits() async throws {
+        func ownSingleInstanceCheckExitRefusesNextNewInstance() async throws {
             let fixture: Fixture = try Fixture()
             let settings: Settings = Settings(scenario: .singleInstance, status: 3)
             let first: Int32 = try await launch(fixture, settings).pid
+            defer { UserDefaults(suiteName: "watch-apps")?.removeObject(forKey: fixture.bundle.resolvingSymlinksInPath().path(percentEncoded: false)) }
             let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let refused: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, settings, flags: ["--new"], running: [first])
@@ -187,8 +188,23 @@ extension Integration {
                 return refused.pid
             }
             let last: WatchAppsLine? = watched.lines.last?.line
+            let again: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["launch", fixture.identifier, "--new"],
+                as: WatchAppsLine.self,
+            )
+            let reason: String = try #require(again.lines.first?.entry.fail)
+            let read: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["read", fixture.identifier],
+                as: WatchAppsLine.self,
+            )
             expectNoDifference(last?.entry.instances?[watched.outcome]?.exited.map(Ended.init), Ended(status: 3))
             expectNoDifference(last?.entry.instances?[first]?.phase, .responding)
+            expectNoDifference(again.lines.map(\.key), [fixture.identifier])
+            expectNoDifference(again.status, .exited(1))
+            #expect(reason.contains("pid \(first)") && reason.contains("--document"), "reason \(reason) names running pid and --document")
+            expectNoDifference(pids(in: read.lines), [[first]])
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

@@ -59,6 +59,21 @@ extension Installation {
         return try Unmatched.single(Array(found.elements), subject: "installed application", query: name, candidates: []) { application in application.key }.map(\.value)
             .mapError { miss in ApplicationFailure(subject: name, reason: .unmatched(miss)) }.get()
     }
+
+    var keepsOneInstance: Bool { multipleInstancesProhibited || UserDefaults.standard.bool(forKey: url.path(percentEncoded: false)) }
+
+    func refusedInstance(in states: OrderedDictionary<NSRunningApplication, InstanceState>, responded: Swift.Set<NSRunningApplication>) -> Bool {
+        let own: OrderedDictionary<NSRunningApplication, InstanceState> = states.filter { instance, _ in runs(instance) }
+        return own.values.contains { state in state.is(\.running) }
+            && own.contains { instance, state in state.is(\.exited) && !responded.contains(instance) }
+    }
+}
+
+extension InstanceState {
+    var answersNothing: Bool {
+        guard case .running(.responding(let elements), _) = self else { return false }
+        return !elements.isEmpty && !elements.contains(where: \.requiresAnswer)
+    }
 }
 
 extension NSWorkspace {
@@ -201,9 +216,16 @@ struct Watch: AsyncParsableCommand {
                         output.yield(("system", line))
                     }
                 }
-                for id: String in applications.keys {
+                for (id, copies): (key: String, value: [Installation]) in applications {
                     group.addTask {
-                        for await states: OrderedDictionary<NSRunningApplication, InstanceState> in await NSWorkspace.shared.instanceStates(of: id) { output.yield((id, .states(states))) }
+                        var responded: Swift.Set<NSRunningApplication> = []
+                        for await states: OrderedDictionary<NSRunningApplication, InstanceState> in await NSWorkspace.shared.instanceStates(of: id) {
+                            output.yield((id, .states(states)))
+                            responded.formUnion(states.filter { _, state in state.answersNothing }.keys)
+                            for refusing: Installation in copies where refusing.refusedInstance(in: states, responded: responded) {
+                                UserDefaults.standard.set(true, forKey: refusing.url.path(percentEncoded: false))
+                            }
+                        }
                     }
                 }
                 group.addTask {
@@ -266,14 +288,24 @@ struct Launch: AsyncParsableCommand {
 
     @MainActor
     func launch(_ id: String, among copies: [Installation], output: AsyncStream<(key: String, line: Line)>.Continuation) async {
-        let running: Swift.Set<pid_t> = Swift.Set(NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }.map(\.processIdentifier))
+        let running: [NSRunningApplication] = NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }
         let launched: Result<NSRunningApplication, ApplicationFailure> = await Result { () async throws(ApplicationFailure) in
+            let installation: Installation = try Installation.single(of: id, among: copies)
+            let kept: [NSRunningApplication] = new && installation.keepsOneInstance ? running.filter(installation.runs) : []
+            guard kept.isEmpty else {
+                throw ApplicationFailure(
+                    subject: installation.url.path(percentEncoded: false),
+                    reason: .absent(
+                        "second instance beside pid \(kept.map { instance in String(instance.processIdentifier) }.joined(separator: ", ")), open files there with --document or drive it through its scripting"
+                    ),
+                )
+            }
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
             configuration.createsNewApplicationInstance = new
             configuration.hides = hides
             configuration.arguments = arguments
             configuration.environment = Dictionary(environment) { _, last in last }
-            return try await NSWorkspace.shared.launch(Installation.single(of: id, among: copies), opening: document, configuration: configuration)
+            return try await NSWorkspace.shared.launch(installation, opening: document, configuration: configuration)
         }
         switch launched {
             case .success(let instance):
@@ -281,7 +313,7 @@ struct Launch: AsyncParsableCommand {
                     output.yield((id, .states([instance: state])))
                     guard case .running(.launching, _) = state else { break }
                 }
-                if hides, !document.isEmpty, !running.contains(instance.processIdentifier) { instance.hide() }
+                if hides, !document.isEmpty, !running.contains(instance) { instance.hide() }
             case .failure(let failure): output.yield((id, .fail(failure.localizedDescription)))
         }
     }
