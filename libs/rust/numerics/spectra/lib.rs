@@ -4,15 +4,18 @@ use core::{fmt, num::NonZero, range::RangeInclusive};
 
 use biquad::Errors;
 use ndarray::Array1;
-use uom::si::{
-    f64::{Frequency, Time},
-    frequency::hertz,
-    time::second,
+use uom::{
+    fmt::DisplayStyle::Abbreviation,
+    si::{
+        f64::{Frequency, Time},
+        frequency::hertz,
+        time::second,
+    },
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(predicate = |rate: &Frequency| rate.is_finite() && rate.get::<hertz>() > 0.0), derive(Debug, Clone, Copy, PartialEq, Deref))]
+#[nutype::nutype(validate(predicate = |rate: &Frequency| rate.is_normal() && rate.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, Deref))]
 pub struct Rate(Frequency);
 
 #[nutype::nutype(validate(with = finite, error = SpectraError), derive(Debug, Clone, PartialEq, Deref))]
@@ -44,19 +47,19 @@ pub enum SpectraError {
     Bins { axis: usize, expected: usize, found: usize },
     #[error("a segment of {segment} samples estimates no power over {samples} samples")]
     Segment { segment: NonZero<usize>, samples: usize },
-    #[error("data at {} Hz and kernel at {} Hz differ in sample rate", data.get::<hertz>(), kernel.get::<hertz>())]
+    #[error("data at {} and kernel at {} differ in sample rate", data.into_format_args(hertz, Abbreviation), kernel.into_format_args(hertz, Abbreviation))]
     Rates { data: Rate, kernel: Rate },
-    #[error("stage {stage}: {}", fmt::from_fn(|formatter| match refusal {
-        Errors::OutsideNyquist => write!(formatter, "{} Hz lies at or above the Nyquist frequency of {} Hz", f0.get::<hertz>(), rate.get::<hertz>() / 2.0),
-        Errors::NegativeFrequency => write!(formatter, "{} Hz is no positive frequency", f0.get::<hertz>()),
-        Errors::NegativeQ => write!(formatter, "Q at {} Hz is not positive", f0.get::<hertz>()),
+    #[error("stage {stage}: {}", fmt::from_fn(|formatter| match (refusal, f0.into_format_args(hertz, Abbreviation)) {
+        (Errors::OutsideNyquist, f0) => write!(formatter, "{f0} lies at or above the Nyquist frequency of a {} sample rate", rate.into_format_args(hertz, Abbreviation)),
+        (Errors::NegativeFrequency, f0) => write!(formatter, "{f0} is no positive frequency"),
+        (Errors::NegativeQ, f0) => write!(formatter, "Q at {f0} is not positive"),
     }))]
     Filter { stage: usize, f0: Frequency, rate: Rate, refusal: Errors },
-    #[error("stage {stage} designs a section at {} Hz whose coefficients are not finite", f0.get::<hertz>())]
+    #[error("stage {stage} designs a section at {} whose coefficients are not finite", f0.into_format_args(hertz, Abbreviation))]
     Section { stage: usize, f0: Frequency },
     #[error("impulse response holds no energy")]
     Silent,
-    #[error("early time {} s leaves no energy on one side of the split", early.get::<second>())]
+    #[error("early time {} leaves no energy on one side of the split", early.into_format_args(second, Abbreviation))]
     Split { early: Time },
     #[error(transparent)]
     Convolution(#[from] ndarray_conv::Error<1>),

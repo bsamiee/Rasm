@@ -57,12 +57,12 @@ const spawned = Effect.fn('spawned')(function* (command: string, args: readonly 
 }, Effect.scoped);
 const Launch = Effect.fn('Launch')(function* (spec: Launch) {
     const flags = [...(spec.fresh === true ? ['--new'] : []), ...(spec.documents ?? []).map((file) => `--document=${file}`), ...(spec.arguments ?? []).map((value) => `--arguments=${value}`), ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`)];
-    const states = yield* Stream.runCollect(Stream.takeUntil(yield* rows(['launch', spec.app, ...flags]), ({ state }) => !State.guards.Launching(state)));
+    const states = yield* Stream.runCollect(Stream.takeUntil(yield* rows(['launch', spec.app, ...flags]), ({ state }) => !State.guards.Launching(state) && (!State.guards.Exited(state) || settled(state))));
     return yield* Option.match(
-        Option.filter(Array.last(states), ({ state }) => !State.isAnyOf(['Launching', 'Exited'])(state)),
+        Option.filter(Array.last(states), ({ state }) => !State.guards.Launching(state)),
         {
             onNone: () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}` }, subject: spec.app }),
-            onSome: ({ pid, identifier }) => Effect.succeed({ pid, identifier, launched: states.some(({ state }) => State.guards.Launching(state)) }),
+            onSome: (row) => Effect.succeed({ ...row, launched: states.some(({ state }) => State.guards.Launching(state)) }),
         },
     );
 });

@@ -5,7 +5,7 @@ import { HttpApiError } from 'effect/http-api';
 import type { ObjectStore } from 'partial-content';
 import { r2Store, r2UploadStore } from 'partial-content/r2';
 import { type SweepingWriteStore, s3Store, s3UploadStore } from 'partial-content/s3';
-import { isUploadOverrunError } from 'partial-content/upload';
+import { isUploadDestinationConflictError, isUploadOverrunError } from 'partial-content/upload';
 import { serveObject as serve } from 'partial-content/web';
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -33,7 +33,10 @@ const createUpload = Effect.fn('createUpload')(function* (object: { readonly key
                     () => HttpApiError.BadRequest.make(),
                 ),
             );
-            yield* Effect.tryPromise((signal) => uploads.completeUpload(uploadToken, { now, expectedLength: object.size, signal }));
+            yield* Effect.tryPromise({
+                try: (signal) => uploads.completeUpload(uploadToken, { now, expectedLength: object.size, signal }),
+                catch: (error) => (isUploadDestinationConflictError(error) ? HttpApiError.Conflict.make() : new Cause.UnknownError(error)),
+            });
         }),
     };
 });
