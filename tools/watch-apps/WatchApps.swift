@@ -59,21 +59,6 @@ extension Installation {
         return try Unmatched.single(Array(found.elements), subject: "installed application", query: name, candidates: []) { application in application.key }.map(\.value)
             .mapError { miss in ApplicationFailure(subject: name, reason: .unmatched(miss)) }.get()
     }
-
-    var keepsOneInstance: Bool { multipleInstancesProhibited || UserDefaults.standard.bool(forKey: url.path(percentEncoded: false)) }
-
-    func refusedInstance(in states: OrderedDictionary<NSRunningApplication, InstanceState>, responded: Swift.Set<NSRunningApplication>) -> Bool {
-        let own: OrderedDictionary<NSRunningApplication, InstanceState> = states.filter { instance, _ in runs(instance) }
-        return own.values.contains { state in state.is(\.running) }
-            && own.contains { instance, state in state.is(\.exited) && !responded.contains(instance) }
-    }
-}
-
-extension InstanceState {
-    var answersNothing: Bool {
-        guard case .running(.responding(let elements), _) = self else { return false }
-        return !elements.isEmpty && !elements.contains(where: \.requiresAnswer)
-    }
 }
 
 extension NSWorkspace {
@@ -216,15 +201,10 @@ struct Watch: AsyncParsableCommand {
                         output.yield(("system", line))
                     }
                 }
-                for (id, copies): (key: String, value: [Installation]) in applications {
+                for id: String in applications.keys {
                     group.addTask {
-                        var responded: Swift.Set<NSRunningApplication> = []
                         for await states: OrderedDictionary<NSRunningApplication, InstanceState> in await NSWorkspace.shared.instanceStates(of: id) {
                             output.yield((id, .states(states)))
-                            responded.formUnion(states.filter { _, state in state.answersNothing }.keys)
-                            for refusing: Installation in copies where refusing.refusedInstance(in: states, responded: responded) {
-                                UserDefaults.standard.set(true, forKey: refusing.url.path(percentEncoded: false))
-                            }
                         }
                     }
                 }
@@ -243,16 +223,14 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Opens each application in background and prints its state until it leaves launching. Document windows open only for --document files"
+        abstract:
+            "Opens each application hidden without activation and prints its state until it leaves launching, then holds an instance it created until the starting process exits or a signal ends it, and quits that instance"
     )
 
     @OptionGroup var installed: Installed
 
     @Flag(help: "Opens another instance when one runs")
     var new: Bool = false
-
-    @Flag(help: "Opens new instance hidden with windows and dialogs off screen")
-    var hides: Bool = false
 
     @Option(
         help: ArgumentHelp("File to open, one per flag", valueName: "path"),

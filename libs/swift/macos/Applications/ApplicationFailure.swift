@@ -19,8 +19,6 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case activating
         case disabled
         case refused(AXError)
-        case hiddenAgent
-        case multipleInstancesProhibited
         case process(Errno)
         case host(any Error)
         case cancelled(CancellationError)
@@ -48,8 +46,6 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .activating: "\(subject) not sent, raising a window takes focus from the frontmost app"
             case .disabled: "\(subject) not sent to disabled element"
             case .refused(let error): "\(subject) refused with AXError \(error.rawValue)"
-            case .hiddenAgent: "LSUIElement agent \(subject) cannot unhide, open it without hiding"
-            case .multipleInstancesProhibited: "\(subject) declares LSMultipleInstancesProhibited and an instance runs, open it without a new instance"
             case .process(let error): "Process \(subject): \(error.description)"
             case .host(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
@@ -65,7 +61,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .unanswered, .unreadable, .absent, .activating, .disabled, .refused, .hiddenAgent, .multipleInstancesProhibited, .cancelled: [:]
+            case .untrusted, .unanswered, .unreadable, .absent, .activating, .disabled, .refused, .cancelled: [:]
         }
     }
 }

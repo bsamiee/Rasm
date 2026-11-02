@@ -29,7 +29,6 @@ import util.CollectionUtils;
 import java.io.StringWriter;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +38,7 @@ import java.util.SequencedMap;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -47,6 +47,10 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Decompile extends GhidraScript {
+    // --- [CACHE]
+
+    private final Map<Function, List<Function>> callers = new ConcurrentHashMap<>();
+
     // --- [ROLES]
 
     @FunctionalInterface
@@ -205,8 +209,6 @@ public class Decompile extends GhidraScript {
     }
 
     // --- [SELECTION]
-
-    private final Map<Function, List<Function>> callers = new HashMap<>();
 
     private List<Function> callersOf(Function function) {
         return callers.computeIfAbsent(

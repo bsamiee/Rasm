@@ -200,7 +200,7 @@ public class CallSites extends GhidraScript {
                                                     Call.read(callees, entry.getKey(), decompiled);
                                             case Report.Failure<DecompileResults>(String cause) ->
                                                     Stream.of(
-                                                            new Report.Failure<Call>(
+                                                            new Report.Failure<>(
                                                                     "%s at %s: %s"
                                                                             .formatted(
                                                                                     entry.getKey()

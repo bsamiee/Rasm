@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -17,6 +18,13 @@ public final class Report {
     // --- [RESULTS]
 
     public sealed interface Result<T> permits Success, Failure {
+        default <R> Result<R> map(Function<? super T, ? extends R> mapper) {
+            return switch (this) {
+                case Success<T>(T value) -> new Success<>(mapper.apply(value));
+                case Failure<T>(String cause) -> new Failure<>(cause);
+            };
+        }
+
         default Stream<T> values() {
             return switch (this) {
                 case Success<T>(T value) -> Stream.of(value);
@@ -35,6 +43,14 @@ public final class Report {
     public record Success<T>(T value) implements Result<T> {}
 
     public record Failure<T>(String cause) implements Result<T> {}
+
+    public static <T> Result<List<T>> all(Stream<Result<T>> results) {
+        List<Result<T>> collected = results.toList();
+        List<String> failures = collected.stream().flatMap(Result::failures).toList();
+        return failures.isEmpty()
+                ? new Success<>(collected.stream().flatMap(Result::values).toList())
+                : new Failure<>(String.join("\n", failures));
+    }
 
     // --- [SECTIONS]
 

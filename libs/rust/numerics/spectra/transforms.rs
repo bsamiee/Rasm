@@ -8,6 +8,15 @@ use uom::si::{f64::Frequency, frequency::hertz};
 
 use crate::{Band, Rate, Series, SpectraError};
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Bins {
+    Half,
+    Full,
+    Cosine,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PLANES]
@@ -67,18 +76,20 @@ where
                 (0, _) => current,
                 (1, FftDirection::Forward) => CowArray::from(current.mapv(|sample| 2.0 * sample)),
                 (1, FftDirection::Inverse) => CowArray::from(current.mapv(|sample| sample / 2.0)),
-                (2.., FftDirection::Forward) => {
-                    let mut output = Array::zeros(shape);
-                    nddct2_par(&current, &mut output, &DctHandler::new(len), axis.index());
-                    CowArray::from(output)
-                }
-                (2.., FftDirection::Inverse) => {
-                    let mut output = Array::zeros(shape);
-                    let handler = DctHandler::new(len).normalization(Normalization::Custom(|lane: &mut [f64]| {
-                        let count = convert::<usize, f64>(lane.len());
-                        lane.iter_mut().for_each(|sample| *sample /= count);
-                    }));
-                    nddct3_par(&current, &mut output, &handler, axis.index());
+                (2.., _) => {
+                    let (handler, mut output) = (DctHandler::new(len), Array::zeros(shape));
+                    match direction {
+                        FftDirection::Forward => nddct2_par(&current, &mut output, &handler, axis.index()),
+                        FftDirection::Inverse => nddct3_par(
+                            &current,
+                            &mut output,
+                            &handler.normalization(Normalization::Custom(|lane: &mut [f64]| {
+                                let count = convert::<usize, f64>(lane.len());
+                                ArrayViewMut1::from(lane).mapv_inplace(|sample| sample / count);
+                            })),
+                            axis.index(),
+                        ),
+                    }
                     CowArray::from(output)
                 }
             })
@@ -86,10 +97,10 @@ where
         .map(ArrayBase::into_owned)
 }
 
-fn shaped<D>(mut shape: D, axis: Axis, len: impl FnOnce(usize) -> usize) -> Result<(usize, D), SpectraError>
+fn shaped<D>(mut shape: D, Axis(axis): Axis, len: impl FnOnce(usize) -> usize) -> Result<(usize, D), SpectraError>
 where D: Dimension {
     let dimensions = shape.ndim();
-    let slot = shape.slice_mut().get_mut(axis.index()).ok_or(SpectraError::Axis { axis: axis.index(), dimensions })?;
+    let slot = shape.slice_mut().get_mut(axis).ok_or(SpectraError::Axis { axis, dimensions })?;
     let found = *slot;
     *slot = len(found);
     Ok((found, shape))
@@ -122,7 +133,12 @@ pub fn zoom(series: &Series, band: Band, bins: NonZero<usize>) -> Array1<Complex
 }
 
 #[must_use]
-pub fn frequencies(rate: Rate, len: NonZero<usize>) -> Array1<Frequency> {
-    let spacing = rate.get::<hertz>() / convert::<usize, f64>(len.get());
-    Array1::from_shape_fn(len.get().strict_div(2).strict_add(1), |bin| Frequency::new::<hertz>(convert::<usize, f64>(bin) * spacing))
+pub fn frequencies(rate: Rate, len: NonZero<usize>, bins: Bins) -> Array1<Frequency> {
+    let (rate, count) = (rate.get::<hertz>(), convert::<usize, f64>(len.get()));
+    let (size, spacing, wrap) = match bins {
+        Bins::Half => (len.get().strict_div(2).strict_add(1), rate / count, len.get()),
+        Bins::Full => (len.get(), rate / count, len.get().div_ceil(2)),
+        Bins::Cosine => (len.get(), rate / (2.0 * count), len.get()),
+    };
+    Array1::from_shape_fn(size, |bin| Frequency::new::<hertz>(spacing * (convert::<usize, f64>(bin) - if bin < wrap { 0.0 } else { count })))
 }

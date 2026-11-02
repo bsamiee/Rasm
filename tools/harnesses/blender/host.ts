@@ -1,12 +1,12 @@
 import { constants } from 'node:os';
 import process from 'node:process';
 import { State } from '@rasm/automation/applications';
-import { Array, Data, Duration, Effect, Equal, Fiber, FileSystem, Filter, identity, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Schema, Stream, String, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Data, Duration, Effect, Equal, Fiber, FileSystem, Filter, identity, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Schema, type Scope, Stream, String, SubscriptionRef, UndefinedOr } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { Batch, Engine, Entry, HostCase, Outcome, type Results, Session } from '#/blender/contract';
 import { Vector } from '#/cases';
 import { HarnessError } from '#/error';
-import { crashed, type Exited, sampled, watch } from '#/instance';
+import { crashed, type Exited, Launch, sampled, settled, watch } from '#/instance';
 import type { Answered } from '#/results';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -22,21 +22,36 @@ interface Install {
     readonly executable: string;
     readonly version: string;
 }
+type States = SubscriptionRef.SubscriptionRef<Option.Option<typeof State.Type>>;
 interface Watched {
-    readonly handle: ChildProcessSpawner.ChildProcessHandle;
-    readonly states: SubscriptionRef.SubscriptionRef<Option.Option<typeof State.Type>>;
+    readonly pid: number;
+    readonly states: States;
     readonly limit: Duration.Duration;
     readonly results: string;
 }
+interface Started {
+    readonly pid: number;
+    readonly exited: Effect.Effect<Exited, HarnessError>;
+    readonly early: Effect.Effect<string, PlatformError.PlatformError, FileSystem.FileSystem>;
+    readonly halted: Effect.Effect<void, PlatformError.PlatformError>;
+}
 interface Mode {
-    readonly flags: readonly string[];
-    readonly trailing: readonly string[];
-    readonly ended: (watched: Watched) => (error: PlatformError.PlatformError) => Effect.Effect<Exited>;
+    readonly started: (
+        install: Install,
+        args: readonly string[],
+        environment: Record.ReadonlyRecord<string, string>,
+        states: States,
+        stderr: string,
+    ) => Effect.Effect<Started, HarnessError | PlatformError.PlatformError | Schema.SchemaError, Scope.Scope | ChildProcessSpawner.ChildProcessSpawner>;
     readonly stalled: (watched: Watched) => Effect.Effect<'busy' | 'blocked', HarnessError | PlatformError.PlatformError, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner>;
 }
 interface Hosted {
     readonly host: typeof HostCase.Type;
     readonly presses: readonly string[];
+}
+interface Paging {
+    readonly remaining: readonly Hosted[];
+    readonly asked: Option.Option<string>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -176,23 +191,7 @@ const answering = (install: Install, hosted: readonly Hosted[], results: string,
             { discard: true },
         );
     });
-const filed = ({ states, limit }: Watched) =>
-    Effect.fnUntraced(function* () {
-        const report = yield* Effect.timeoutOption(
-            SubscriptionRef.changes(states).pipe(
-                Stream.filterMap(Filter.fromPredicateOption(identity)),
-                Stream.filter((state): state is Exited => State.guards.Exited(state) && (state.report !== undefined || state.reportFailure !== undefined)),
-                Stream.runHead,
-            ),
-            limit,
-        );
-        const last = Option.filter(yield* SubscriptionRef.get(states), State.guards.Exited);
-        return Option.getOrElse(
-            Option.orElse(Option.flatten(report), () => last),
-            (): Exited => ({ _tag: 'Exited' }),
-        );
-    });
-const signalled = () => (error: PlatformError.PlatformError) =>
+const signalled = (error: PlatformError.PlatformError) =>
     Effect.succeed<Exited>({
         _tag: 'Exited',
         ...Option.match(
@@ -200,17 +199,41 @@ const signalled = () => (error: PlatformError.PlatformError) =>
             { onNone: () => ({}), onSome: (signal) => ({ signal }) },
         ),
     });
-const unresponsive = ({ handle, states, limit }: Watched) =>
+const background = Effect.fnUntraced(function* (install: Install, args: readonly string[], environment: Record.ReadonlyRecord<string, string>) {
+    const handle = yield* ChildProcess.make(install.executable, ['--background', ...args], { stdin: 'ignore', env: environment, extendEnv: true });
+    const early = yield* Effect.forkScoped(Stream.mkString(Stream.decodeText(handle.all)));
+    return {
+        pid: handle.pid,
+        exited: Effect.matchEffect(handle.exitCode, { onSuccess: (status) => Effect.succeed<Exited>({ _tag: 'Exited', status }), onFailure: signalled }),
+        early: Fiber.join(early),
+        halted: Effect.asVoid(handle.kill({ killSignal: 'SIGKILL' })),
+    } satisfies Started;
+});
+const launched = Effect.fnUntraced(function* (install: Install, args: readonly string[], environment: Record.ReadonlyRecord<string, string>, states: States, stderr: string) {
+    const { pid } = yield* Launch({ app: install.path, fresh: true, arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment });
+    return {
+        pid,
+        exited: SubscriptionRef.changes(states).pipe(
+            Stream.filterMap(Filter.fromPredicateOption(identity)),
+            Stream.filter(settled),
+            Stream.runHead,
+            Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended before the instance exited' }, subject: `process ${pid}` }))),
+        ),
+        early: Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readFileString(stderr)),
+        halted: Effect.void,
+    } satisfies Started;
+});
+const unresponsive = ({ pid, states, limit }: Watched) =>
     SubscriptionRef.changes(states).pipe(
         Stream.filterMap(Filter.fromPredicateOption(identity)),
         Stream.changesWith((left, right) => left._tag === right._tag && (!(State.guards.Unresponsive(left) && State.guards.Unresponsive(right)) || left.process === right.process)),
         Stream.switchMap((state) => (State.guards.Unresponsive(state) ? Stream.fromEffect(Effect.as(Effect.sleep(limit), state)) : Stream.empty)),
         Stream.filter(State.guards.Unresponsive),
         Stream.runHead,
-        Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${handle.pid}` }))),
+        Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${pid}` }))),
         Effect.map(({ process: run }) => (run === 'running' ? 'busy' : 'blocked')),
     );
-const quiet = ({ handle, limit, results }: Watched) =>
+const quiet = ({ pid, limit, results }: Watched) =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         yield* fs.watch(results).pipe(
@@ -219,22 +242,22 @@ const quiet = ({ handle, limit, results }: Watched) =>
             Stream.switchMap(() => Stream.fromEffect(Effect.sleep(limit))),
             Stream.runHead,
         );
-        return (yield* output('ps', ['-o', 'stat=', '-p', `${handle.pid}`])).startsWith(RUNNING) ? 'busy' : 'blocked';
+        return (yield* output('ps', ['-o', 'stat=', '-p', `${pid}`])).startsWith(RUNNING) ? 'busy' : 'blocked';
     });
-const hang = Effect.fn('hang')(function* (handle: ChildProcessSpawner.ChildProcessHandle, stderr: string, captures: string, stalled: Effect.Effect<'busy' | 'blocked', HarnessError | PlatformError.PlatformError, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner>) {
+const hang = Effect.fn('hang')(function* (started: Started, stderr: string, captures: string, stalled: Effect.Effect<'busy' | 'blocked', HarnessError | PlatformError.PlatformError, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const cpu = yield* stalled;
     yield* fs.makeDirectory(captures, { recursive: true });
     const offset = (yield* fs.readFileString(stderr)).length;
-    yield* Effect.sync(() => process.kill(handle.pid, 'SIGUSR1'));
-    const sample = yield* sampled(handle.pid, path.join(captures, `${handle.pid}.sample.txt`));
-    yield* handle.kill({ killSignal: 'SIGKILL' });
+    yield* Effect.sync(() => process.kill(started.pid, 'SIGUSR1'));
+    const sample = yield* sampled(started.pid, path.join(captures, `${started.pid}.sample.txt`));
+    yield* started.halted;
     const python = (yield* fs.readFileString(stderr)).slice(offset);
     return End.Hung({ cpu, sample, python });
 });
 const Modes = {
-    headless: { flags: ['--background'], trailing: [], ended: signalled, stalled: quiet },
-    windowed: { flags: ['--no-window-focus', '--enable-event-simulate'], trailing: ['-ApplePersistenceIgnoreState', 'YES'], ended: filed, stalled: unresponsive },
+    headless: { started: background, stalled: quiet },
+    windowed: { started: launched, stalled: unresponsive },
 } as const satisfies Record.ReadonlyRecord<string, Mode>;
 const windowed = ({ precondition, confirms, files }: typeof HostCase.Type) => precondition.window !== undefined || precondition.area !== undefined || confirms.length > 0 || files.length > 0;
 
@@ -255,27 +278,23 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
     yield* Effect.all([fs.makeDirectory(profile), fs.writeFileString(written.results, ''), Effect.flatMap(Schema.encodeEffect(Encoded)(written), (text) => fs.writeFileString(file, text))]);
     const states = yield* SubscriptionRef.make(Option.none<typeof State.Type>());
     const [notes, done] = yield* Effect.all([Ref.make<readonly (readonly [Option.Option<string>, typeof Answered.Type])[]>([]), Ref.make<ReadonlySet<string>>(new Set())]);
-    const handle = yield* ChildProcess.make(
-        install.executable,
-        [...mode.flags, '--log-file', written.log, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', path.join(import.meta.dirname, 'engine.py'), '--', file, ...mode.trailing],
-        {
-            stdin: 'ignore',
-            env: { TMPDIR: run, BLENDER_USER_RESOURCES: profile },
-            extendEnv: true,
-        },
+    const started = yield* mode.started(
+        install,
+        ['--log-file', written.log, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', path.join(import.meta.dirname, 'engine.py'), '--', file],
+        { TMPDIR: run, BLENDER_USER_RESOURCES: profile },
+        states,
+        written.stderr,
     );
-    const subject = `${install.identifier} ${handle.pid}`;
-    const watched = { handle, states, limit, results: written.results };
-    const early = yield* Effect.forkScoped(Stream.mkString(Stream.decodeText(handle.all)));
+    const subject = `${install.identifier} ${started.pid}`;
     const watching = Effect.andThen(
-        Stream.runForEach(watch([install.identifier], handle.pid), ({ identifier, state }) => Effect.andThen(identifier === install.identifier ? SubscriptionRef.set(states, Option.some(state)) : Effect.void, answering(install, hosted, written.results, notes, done, crashes)(identifier, state))),
+        Stream.runForEach(watch([install.identifier], started.pid), ({ identifier, state }) => Effect.andThen(identifier === install.identifier ? SubscriptionRef.set(states, Option.some(state)) : Effect.void, answering(install, hosted, written.results, notes, done, crashes)(identifier, state))),
         HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended before the instance exited' }, subject }),
     );
     const end = yield* Effect.raceFirst(
         watching,
         Effect.raceFirst(
-            Effect.map(Effect.matchEffect(handle.exitCode, { onSuccess: (status) => Effect.succeed<Exited>({ _tag: 'Exited', status }), onFailure: mode.ended(watched) }), (state) => End.Exited({ state })),
-            hang(handle, written.stderr, captures, mode.stalled(watched)),
+            Effect.map(started.exited, (state) => End.Exited({ state })),
+            hang(started, written.stderr, captures, mode.stalled({ pid: started.pid, states, limit, results: written.results })),
         ),
     );
     const rows = yield* entries(written.results);
@@ -290,7 +309,7 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
         Exited: ({ state }) => Effect.map(crashed(state), (crash) => ({ crashed: crash, backtraces })),
         Hung: ({ cpu, sample, python }) => Effect.succeed({ hung: { cpu, sample }, stacks: python, backtraces }),
     });
-    const lost = Option.map(flight, (name) => Outcome.make({ name, completion: { _tag: 'Failed', reason: `process ${handle.pid} ${End.$match(end, { Exited: () => 'ended', Hung: ({ cpu }) => `hung ${cpu}` })}` }, ...interrupted }));
+    const lost = Option.map(flight, (name) => Outcome.make({ name, completion: { _tag: 'Failed', reason: `process ${started.pid} ${End.$match(end, { Exited: () => 'ended', Hung: ({ cpu }) => `hung ${cpu}` })}` }, ...interrupted }));
     const placed = Option.isNone(flight) && finished.length < hosted.length ? Array.matchRight(finished, { onEmpty: () => finished, onNonEmpty: (init, last) => [...init, { ...last, ...interrupted }] }) : finished;
     const outcomes = [...placed, ...Option.toArray(lost)];
     const answered = yield* Ref.get(notes);
@@ -301,7 +320,7 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
         ),
     );
     const reported = Option.map(Array.findFirst(rows, Entry.guards.Host), ({ host }) => host);
-    yield* outcomes.length === 0 && (hosted.length > 0 || Option.isNone(reported)) ? Effect.flatMap(Fiber.join(early), (text) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `ended before any case: ${JSON.stringify(interrupted)} ${text}` }, subject })) : Effect.void;
+    yield* outcomes.length === 0 && (hosted.length > 0 || Option.isNone(reported)) ? Effect.flatMap(started.early, (text) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `ended before any case: ${JSON.stringify(interrupted)} ${text}` }, subject })) : Effect.void;
     const reached = new Set(outcomes.map(({ name }) => name));
     return {
         host: reported,
@@ -310,7 +329,7 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
         rest: hosted.filter(({ host: held }) => !reached.has(held.name)),
     };
 }, Effect.scoped);
-const paged = <P extends { readonly rest: readonly Hosted[] }>(page: P) => [[page], Option.map(Option.liftPredicate(page.rest, Array.isReadonlyArrayNonEmpty), (rest) => ({ remaining: rest, asked: Option.none<string>() }))] as const;
+const paged = <P extends { readonly rest: readonly Hosted[] }>(page: P) => [[page], Option.map(Option.liftPredicate(page.rest, Array.isReadonlyArrayNonEmpty), (rest): Paging => ({ remaining: rest, asked: Option.none() }))] as const;
 const execute = Effect.fn('execute')(function* (install: Install, hosted: readonly Hosted[], limit: Duration.Duration, captures: string, dictionary: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const folder = yield* fs.makeTempDirectoryScoped({ prefix: 'blender-harness-' });
@@ -324,9 +343,10 @@ const execute = Effect.fn('execute')(function* (install: Install, hosted: readon
         { onEmpty: () => [{ mode: Modes.headless, items: [] }], onNonEmpty: identity },
     );
     const pages = (
-        yield* Effect.forEach(groups, ({ mode, items }, index) =>
-            Stream.runCollect(Stream.paginate({ remaining: items, asked: index === 0 ? dictionary : Option.none<string>() }, ({ remaining, asked }) => Effect.map(session(install, mode, folder, remaining, asked, limit, captures, crashes), paged))),
-        )
+        yield* Effect.forEach(groups, ({ mode, items }, index) => {
+            const start: Paging = { remaining: items, asked: index === 0 ? dictionary : Option.none() };
+            return Stream.runCollect(Stream.paginate(start, ({ remaining, asked }) => Effect.map(session(install, mode, folder, remaining, asked, limit, captures, crashes), paged)));
+        })
     ).flat();
     return {
         application: install.name,

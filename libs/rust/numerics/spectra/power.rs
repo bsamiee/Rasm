@@ -2,7 +2,7 @@ use core::num::NonZero;
 
 use apodize::{blackman_iter, hamming_iter, hanning_iter, nuttall_iter, triangular_iter};
 use nalgebra::convert;
-use ndarray::{Array1, Array2, Axis, Zip, s};
+use ndarray::{Array1, Array2, Axis, Slice, Zip};
 use rustfft::num_complex::Complex;
 use uom::si::frequency::hertz;
 
@@ -42,7 +42,7 @@ pub fn estimate(series: &Series, welch: Welch) -> Result<Array1<f64>, SpectraErr
     let Welch { segment, hop, taper, scaling } = welch;
     let (length, samples) = (segment.get(), series.samples.len());
     (2..=samples).contains(&length).ok_or(SpectraError::Segment { segment, samples })?;
-    let hop = hop.unwrap_or(segment.div_ceil(const { NonZero::new(2).unwrap() }));
+    let hop = hop.unwrap_or_else(|| segment.div_ceil(const { NonZero::new(2).unwrap() }));
     let periodic = length.strict_add(1);
     let weights = match taper {
         Taper::Rectangular => Array1::ones(periodic),
@@ -52,7 +52,7 @@ pub fn estimate(series: &Series, welch: Welch) -> Result<Array1<f64>, SpectraErr
         Taper::BlackmanHarris => Array1::from_iter(blackman_iter(periodic)),
         Taper::Nuttall => Array1::from_iter(nuttall_iter(periodic)),
     }
-    .slice_move(s![..length]);
+    .slice_axis_move(Axis(0), Slice::from(..length));
     let count = samples.strict_sub(length).strict_div(hop.get()).strict_add(1);
     let mut frames = Array2::zeros((count, length));
     let width = convert::<usize, f64>(length);

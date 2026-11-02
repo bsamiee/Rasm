@@ -1,18 +1,17 @@
 import { createHash } from 'node:crypto';
-import { constants } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { type Installation, State } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
-import { Array, Data, Deferred, Duration, Effect, FileSystem, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Result, Schedule, Schema, Stream, String as Text, UndefinedOr } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { Array, Data, Deferred, Duration, Effect, FileSystem, Match, Number, Option, Order, Path, type PlatformError, Record, Ref, Result, Schema, Stream, String as Text, UndefinedOr } from 'effect';
+import { ChildProcess } from 'effect/process';
 import { Batch, Call, Probe, Vector } from '#/cases';
 import { HarnessError } from '#/error';
 import { ENGINES, Encoded, Engine, fields, Header, HostCase, Outcome, Recorded, Reply, Survey } from '#/indesign/contract';
 import { engineOf, merged, type precondition } from '#/indesign/precondition';
 import uxpscript from '#/indesign/uxpscript/script.config';
-import { crashed, type Exited, launch, lock, owner, sampled, watch } from '#/instance';
+import { crashed, type Exited, Launch, lock, owner, sampled, settled, watch } from '#/instance';
 import { type Answered, type Hang, results } from '#/results';
 import { bury } from '#/values';
 
@@ -52,7 +51,7 @@ interface Session {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORTER = { identifier: 'com.adobe.crashreporter', key: 'always_never_send', never: '2' } as const;
+const REPORTER = 'com.adobe.crashreporter';
 const RECORD = /^(?<index>\d+)\.(?<kind>json|started)$/u;
 const JSXBIN = /(?<quote>["'])(?<literal>@JSXBIN@(?:\\.|(?!\k<quote>)[^\\])*)\k<quote>/su;
 const BYTE_ORDER_MARK = /^﻿/u;
@@ -68,7 +67,6 @@ const VERSIONS = new Intl.Collator('en', { numeric: true });
 const PRESSED_FIRST = ['AXCancelButton', 'CancelButton', 'AXDefaultButton', 'OKButton'] as const;
 const DISMISS = 'Ignore';
 const XMP = 'META-INF/metadata.xml';
-const CORE = ['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -327,7 +325,6 @@ const fault = (limit: Duration.Duration, message: string, verdict: Option.Option
             Lost: ({ because }) => Effect.succeed({ completion: { _tag: 'Failed' as const, reason: because } }),
         }),
     });
-const settled = (exit: Exited) => exit.status !== undefined || exit.report !== undefined || exit.reportFailure !== undefined || (exit.signal !== undefined && !CORE.some((name) => constants.signals[name] === exit.signal));
 const pressable = (element: Element, label: Option.Option<string>, system: boolean): Option.Option<Control> => {
     const pressing = (element.detail?.controls ?? []).filter(({ actions }) => actions.includes('AXPress'));
     const labeled = (text: string) => Array.findFirst(pressing, (control) => control.label === text);
@@ -339,7 +336,7 @@ const watcher = (chosen: Installation, session: Session) =>
     Effect.fn('watcher')(function* (row: { readonly identifier: string; readonly pid: number; readonly state: typeof State.Type }) {
         const automation = yield* Automation;
         const running = Effect.flatMap(Ref.get(session.records), (folder) => Option.match(folder, { onNone: () => Effect.succeedNone, onSome: (held) => Effect.map(recorded(held), ({ running: at }) => at) }));
-        const ours = row.identifier === chosen.identifier || (row.identifier === REPORTER.identifier && (yield* Effect.orElseSucceed(owner(row.pid), () => '')).startsWith(session.app));
+        const ours = row.identifier === chosen.identifier || (row.identifier === REPORTER && (yield* Effect.orElseSucceed(owner(row.pid), () => '')).startsWith(session.app));
         const answer = Effect.fnUntraced(function* (element: Element) {
             const system = !ours;
             const shown = [element.title ?? '', ...(element.detail?.text ?? [])].join(' ');
@@ -407,10 +404,9 @@ const sent = Effect.fn('sent')(function* (engine: typeof Engine.Type, pid: numbe
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${engine} batch` }) : Effect.succeed(answer);
 });
 const acquired = Effect.fn('acquired')(function* (chosen: Installation) {
-    const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+    const path = yield* Path.Path;
     const app = yield* path.fromFileUrl(chosen.url);
-    const instance = yield* launch({ app });
-    yield* spawner.exitCode(ChildProcess.make('defaults', ['write', REPORTER.identifier, REPORTER.key, '-int', REPORTER.never]));
+    const instance = yield* Launch({ app });
     yield* lock(chosen.identifier, instance.pid);
     const listed = yield* Effect.orElseSucceed(Stream.runCollect(Stream.splitLines(Stream.decodeText(Stream.unwrap(Effect.map(ChildProcess.make('lsof', ['-Fn', '-p', String(instance.pid)], { stdin: 'ignore', stderr: 'ignore' }), (handle) => handle.stdout))))), () => []);
     const session: Session = {
@@ -425,9 +421,9 @@ const acquired = Effect.fn('acquired')(function* (chosen: Installation) {
         log: Array.findFirst(listed, (line) => LOG.test(line)).pipe(Option.flatMap((line) => Option.fromNullishOr(LOG.exec(line)?.groups?.file))),
     };
     const lost = (because: string) => Deferred.succeed(session.verdict, Verdict.Lost({ because }));
-    yield* Effect.forkScoped(Stream.runForEach(watch([chosen.identifier, REPORTER.identifier], instance.pid), watcher(chosen, session)).pipe(Effect.matchEffect({ onFailure: (error) => lost(error.message), onSuccess: () => lost('watch-apps watch ended') })));
+    yield* Effect.forkScoped(Stream.runForEach(watch([chosen.identifier, REPORTER], instance.pid), watcher(chosen, session)).pipe(Effect.matchEffect({ onFailure: (error) => lost(error.message), onSuccess: () => lost('watch-apps watch ended') })));
     return session;
-}, Effect.scoped);
+});
 const batchIn = (session: Session, engine: typeof Engine.Type, batch: Omit<typeof Encoded.Type, 'records'>, presses: readonly (readonly string[])[], folders: readonly string[], limit: Duration.Duration) =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -468,13 +464,6 @@ const surveyIn = Effect.fn('surveyIn')(function* (session: Session, label: strin
     const header = yield* Effect.fromResult(reply);
     return yield* Effect.fromOption(Option.fromUndefinedOr(header.survey), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'survey reply holds no survey' }, subject: `process ${session.pid}` }));
 });
-const reporting = (app: string) =>
-    Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
-        Effect.repeat(
-            Effect.map(spawner.exitCode(ChildProcess.make('pgrep', ['-f', `${app}/Contents/Frameworks/AdobeCrashReporter`])), (code) => code === 0),
-            { schedule: Schedule.spaced(Duration.seconds(1)), until: (alive) => !alive },
-        ),
-    );
 const execute = Effect.fn('execute')(function* <P extends Plan>(
     chosen: Installation,
     label: string,
@@ -526,7 +515,6 @@ const execute = Effect.fn('execute')(function* <P extends Plan>(
                         (parts) => [Outcome.make({ name, answered: on(ended), logs: ran.logs(ended), ...parts })],
                     ),
             });
-            yield* relaunch ? reporting(session.app) : Effect.void;
             const step = { ...base, header: Result.getSuccess(ran.reply), answered: ran.notes.filter(([at]) => Option.isNone(at)).map(([, note]) => note), outcomes: [...kept, ...interrupted, ...unsent] } satisfies Step;
             return [[step], Option.liftPredicate<Held>({ survey: Option.some(survey), plan: Option.some(plan), rest: Option.some(remaining) }, () => relaunch)] as const;
         }).pipe(Effect.scoped);

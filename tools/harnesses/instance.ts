@@ -1,4 +1,4 @@
-import { tmpdir } from 'node:os';
+import { constants, tmpdir } from 'node:os';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
@@ -18,11 +18,16 @@ interface Launch {
     readonly environment?: Record.ReadonlyRecord<string, string>;
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const CORE = ['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Instances = Schema.Record(Schema.String, Schema.Record(Schema.String, State));
 const Failure = Schema.Record(Schema.String, Schema.Struct({ fail: Schema.Struct({ reason: Schema.String }) }));
-const Line = Schema.fromJsonString(Schema.toCodecJson(Schema.Union([Instances, Failure])));
+const System = Schema.Struct({ system: Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical']) }) });
+const Line = Schema.fromJsonString(Schema.toCodecJson(Schema.Union([Instances, Failure, System])));
 const Ips = Schema.fromJsonString(
     Schema.Struct({
         exception: Schema.optionalKey(Schema.Struct({ type: Schema.String, signal: Schema.optionalKey(Schema.String) })),
@@ -34,32 +39,31 @@ const Ips = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decoded = (text: string): Effect.Effect<readonly { readonly identifier: string; readonly pid: number; readonly state: typeof State.Type }[], HarnessError> =>
-    Option.match(Schema.decodeOption(Line)(text), {
-        onNone: () => Effect.succeed([]),
-        onSome: (line) =>
-            Schema.is(Failure)(line)
-                ? Effect.flatMap(
-                      Effect.fromOption(Array.head(Record.toEntries(line)), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: text }, subject: 'watch-apps' })),
-                      ([key, { fail }]) => HarnessError.make({ reason: { _tag: 'Unavailable', because: fail.reason }, subject: key }),
-                  )
-                : Effect.succeed(Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat()),
-    });
+const decoded = Effect.fn('decoded')(function* (text: string) {
+    const line = yield* Schema.decodeEffect(Line)(text);
+    return Schema.is(System)(line)
+        ? []
+        : Schema.is(Failure)(line)
+          ? yield* Effect.flatMap(
+                Effect.fromOption(Array.head(Record.toEntries(line)), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: text }, subject: 'watch-apps' })),
+                ([key, { fail }]) => HarnessError.make({ reason: { _tag: 'Unavailable', because: fail.reason }, subject: key }),
+            )
+          : Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat();
+});
+const rows = (command: readonly string[]) => Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.mapEffect(decoded), Stream.flattenIterable));
 const spawned = Effect.fn('spawned')(function* (command: string, args: readonly string[]) {
     const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore', stderr: 'inherit' });
     const [lines, code] = yield* Effect.all([Stream.runCollect(Stream.splitLines(Stream.decodeText(handle.stdout))), handle.exitCode], { concurrency: 'unbounded' });
     return { lines, code };
 }, Effect.scoped);
-const launch = Effect.fn('launch')(function* (spec: Launch) {
+const Launch = Effect.fn('Launch')(function* (spec: Launch) {
     const flags = [...(spec.fresh === true ? ['--new'] : []), ...(spec.documents ?? []).flatMap((file) => ['--document', file]), ...(spec.arguments ?? []).flatMap((value) => ['--arguments', value]), ...Record.collect(spec.environment ?? {}, (name, value) => ['--environment', `${name}=${value}`]).flat()];
-    const { lines, code } = yield* spawned('watch-apps', ['launch', spec.app, '--hides', ...flags]);
-    const states = (yield* Effect.forEach(lines, decoded)).flat();
-    const last = Array.last(states.filter(({ state }) => !State.isAnyOf(['Exited'])(state)));
+    const states = yield* Stream.runCollect(Stream.takeUntil(yield* rows(['launch', spec.app, ...flags]), ({ state }) => !State.guards.Launching(state)));
     return yield* Option.match(
-        Option.filter(last, () => code === 0),
+        Option.filter(Array.last(states), ({ state }) => !State.isAnyOf(['Launching', 'Exited'])(state)),
         {
-            onNone: () => HarnessError.make({ reason: { _tag: 'Unavailable', because: lines.join('\n') }, subject: spec.app }),
-            onSome: ({ pid, identifier }) => Effect.succeed({ pid, identifier, launched: states.some(({ state }) => State.isAnyOf(['Launching'])(state)) }),
+            onNone: () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}` }, subject: spec.app }),
+            onSome: ({ pid, identifier }) => Effect.succeed({ pid, identifier, launched: states.some(({ state }) => State.guards.Launching(state)) }),
         },
     );
 });
@@ -74,17 +78,8 @@ const lock = Effect.fn('lock')(function* (identifier: string, pid: number) {
     });
     yield* Effect.acquireRelease(acquired, () => Effect.orDie(fs.remove(file)));
 });
-const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) =>
-    Stream.unwrap(
-        Effect.map(ChildProcess.make('watch-apps', ['watch', ...names], { stdin: 'ignore', stderr: 'inherit' }), (handle) =>
-            handle.stdout.pipe(
-                Stream.decodeText,
-                Stream.splitLines,
-                Stream.mapEffect(decoded),
-                Stream.flatMap((rows) => Stream.fromIterable(rows.filter((row) => row.identifier !== names[0] || row.pid === pid))),
-            ),
-        ),
-    );
+const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
+const settled = (state: typeof State.Type): state is Exited => State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !CORE.some((name) => constants.signals[name] === state.signal)));
 const owner = Effect.fn('owner')(function* (pid: number) {
     const { lines } = yield* spawned('ps', ['-o', 'command=', '-p', String(pid)]);
     return lines.join(' ').trim();
@@ -118,4 +113,4 @@ const sampled = Effect.fn('sampled')(function* (pid: number, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashed, type Exited, type Launch, launch, lock, owner, sampled, watch };
+export { crashed, type Exited, Launch, lock, owner, sampled, settled, watch };

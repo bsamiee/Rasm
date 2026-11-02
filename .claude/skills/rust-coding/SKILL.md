@@ -74,7 +74,7 @@ Select the form by the call site:
 
 ## [02]-[EXPRESSIONS]
 
-Blocks, `if`, `match`, and `loop` are expressions. A function body is one expression where the work allows, and a returned value is one struct literal that sets each field at creation:
+Blocks, `if`, `match`, and `loop` are expressions. A function body is one expression where the work allows, a chain already of the return type standing as that expression rather than inside `Ok(..?)`, and a returned value is one struct literal that sets each field at creation:
 
 ```rust
 #[must_use]
@@ -83,7 +83,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 }
 ```
 
-- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`) in place of a `fold`, and `fold` holds a reduction no member names
+- Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), and `fold` holds a reduction no member names
 - Adjacent pairs (`array_windows`, `map_windows`) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
 - Arms and closures of a combinator choosing a value (`map_or`, `map_or_else`, `unwrap_or_else`, `Some(x).filter(p).unwrap_or_else(f)`) nest no decision
@@ -282,7 +282,7 @@ pub enum LedgerError {
 - Messages branching on a field render through `#[error("{}", fmt::from_fn(..))]`
 - Fields named `source` hold the foreign error a variant wraps
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
-- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
+- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`

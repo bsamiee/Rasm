@@ -35,13 +35,11 @@ public final class Arguments {
         }
 
         public <T> List<T> values(Stream<Report.Result<T>> results) {
-            List<Report.Result<T>> collected = results.toList();
-            List<String> failures = collected.stream().flatMap(Report.Result::failures).toList();
-            if (!failures.isEmpty()) {
-                throw new IllegalArgumentException(
-                        String.join("\n", failures) + "\n" + text());
-            }
-            return collected.stream().flatMap(Report.Result::values).toList();
+            return switch (Report.all(results)) {
+                case Report.Success<List<T>>(List<T> values) -> values;
+                case Report.Failure<List<T>>(String cause) ->
+                        throw new IllegalArgumentException(cause + "\n" + text());
+            };
         }
 
         public <T> Stream<Report.Result<T>> require(boolean present, String noun) {
@@ -59,7 +57,7 @@ public final class Arguments {
                                                     argument ->
                                                             new Report.Success<>(
                                                                     Path.of(argument))),
-                                    require(args.length > 0, "output path")))
+                                    require(args.length > 0, form.split(" ", 2)[0])))
                     .getFirst();
         }
 
@@ -225,22 +223,6 @@ public final class Arguments {
             return prefix + placeholder;
         }
 
-        static Report.Result<Operand> resolve(String seed, Program program) {
-            Seed form =
-                    Arrays.stream(values())
-                            .filter(each -> seed.startsWith(each.prefix))
-                            .findFirst()
-                            .orElseThrow();
-            return switch (form.find(seed.substring(form.prefix.length()), program)) {
-                case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
-                        new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
-                case Report.Success<List<Function>>(List<Function> found) ->
-                        new Report.Success<>(new SeedMatch(found));
-                case Report.Failure<List<Function>>(String cause) ->
-                        new Report.Failure<>("Seed `%s` %s".formatted(seed, cause));
-            };
-        }
-
         private static List<Function> named(Predicate<String> test, Program program) {
             return Functions.internal(program)
                     .filter(
@@ -278,6 +260,21 @@ public final class Arguments {
 
     // --- [PARSING]
 
+    public static Report.Result<List<Function>> functions(String seed, Program program) {
+        Seed form =
+                Arrays.stream(Seed.values())
+                        .filter(each -> seed.startsWith(each.prefix))
+                        .findFirst()
+                        .orElseThrow();
+        return switch (form.find(seed.substring(form.prefix.length()), program)) {
+            case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
+                    new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
+            case Report.Success<List<Function>> found -> found;
+            case Report.Failure<List<Function>>(String cause) ->
+                    new Report.Failure<>("Seed `%s` %s".formatted(seed, cause));
+        };
+    }
+
     public static Request parse(
             String script, String[] args, Set<Setting> accepted, Program program) {
         Usage usage =
@@ -308,9 +305,12 @@ public final class Arguments {
                                                                                         accepted))
                                                                 .orElseGet(
                                                                         () ->
-                                                                                Seed.resolve(
-                                                                                        argument,
-                                                                                        program))),
+                                                                                functions(
+                                                                                                argument,
+                                                                                                program)
+                                                                                        .map(
+                                                                                                SeedMatch
+                                                                                                        ::new))),
                                 usage.require(
                                         arguments.stream()
                                                 .map(Setting::of)

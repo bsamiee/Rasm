@@ -296,8 +296,8 @@ const scripts = ({ system: { home }, script: { commands } }: Call): readonly str
 
 // --- [POLL]
 
-const polls = ({ request: { tool }, script: { commands } }: Call): readonly string[] =>
-    tool === 'Monitor'
+const polls = ({ request: { background }, script: { commands } }: Call): readonly string[] =>
+    background
         ? []
         : commands.flatMap(({ looped, invocations: chain }) => {
               const last = chain.at(-1);
@@ -371,7 +371,7 @@ const launched = (command: Command): Option<Launch> => {
             if (first === undefined || names.some((name) => EXPANDS.test(name))) {
                 return none;
             }
-            return some(other ? outside(first, program) : { kind: 'launch', names, flags: [], environment: false });
+            return other ? none : some({ kind: 'launch', names, flags: [], environment: false });
         }
         default:
             return none;

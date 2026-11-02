@@ -15,7 +15,6 @@
     <ItemGroup Label="Batch">
         <Compile Include="$(HarnessCases)" Condition="'$(HarnessCases)' != ''" />
         <Compile Include="$(HarnessRebuilt)" Condition="'$(HarnessRebuilt)' != ''" />
-        <Compile Remove="Canvases.cs" Condition="'$(HarnessCanvas)' == ''" />
         <Reference Include="$(HarnessPlugIn)" Private="false" Condition="'$(HarnessPlugIn)' != ''" />
         <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" ExcludeAssets="contentfiles" Condition="'$(HarnessPlugIn)' != ''" />
         <Publicize Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(HarnessPlugIn)'))" Condition="'$(HarnessPlugIn)' != ''" />
@@ -29,7 +28,7 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="ReferenceGrasshopper" AfterTargets="ReferenceRhinoInstall" Condition="'$(HarnessCanvas)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+    <Target Name="ReferenceGrasshopper" AfterTargets="ReferenceRhinoInstall" Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
         <PropertyGroup>
             <_InstallGrasshopper>$(_RhinoResourcesDir)ManagedPlugIns/Grasshopper2Plugin.rhp</_InstallGrasshopper>
         </PropertyGroup>

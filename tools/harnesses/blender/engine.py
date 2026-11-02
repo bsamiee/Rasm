@@ -1,4 +1,4 @@
-"""Runs a harness batch to its end in a background Blender, else one case step per timer pass in a hidden Blender it then quits."""
+"""Runs a harness batch to its end in a background Blender, else one case step per timer pass in a windowed Blender it then quits."""
 
 from array import array
 import ast
@@ -6,8 +6,6 @@ import base64
 from collections import deque
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import ExitStack
-import ctypes
-import ctypes.util
 from dataclasses import dataclass
 import faulthandler
 from functools import cache, partial, reduce
@@ -79,20 +77,10 @@ SPECIAL: Mapping[str, float] = {"NaN": math.nan, "Infinity": math.inf, "-Infinit
 TAGS: Mapping[str, str] = {repr(special): tag for tag, special in SPECIAL.items()}
 SAFE = 2**sys.float_info.mant_dig - 1
 REPOSITORY = "harness"
-PROHIBITED = 2
 LOGGED = re.compile(r"^\S+\s+(?P<category>\S+)\s+\| (?P<message>.*)$")
 COLUMNS: Mapping[str, str] = {"FLOAT": "d", "INT": "i", "BOOLEAN": "b"}
 UPDATED = "is_updated_"
 FLAGS = tuple(prop.identifier.removeprefix(UPDATED) for prop in bpy.types.DepsgraphUpdate.bl_rna.properties if prop.identifier.startswith(UPDATED))
-RUNTIME: Mapping[str, tuple[type, list[type]]] = {
-    "objc_getClass": (ctypes.c_void_p, [ctypes.c_char_p]),
-    "object_getClass": (ctypes.c_void_p, [ctypes.c_void_p]),
-    "sel_registerName": (ctypes.c_void_p, [ctypes.c_char_p]),
-    "class_getInstanceMethod": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_void_p]),
-    "method_getImplementation": (ctypes.c_void_p, [ctypes.c_void_p]),
-    "method_getTypeEncoding": (ctypes.c_char_p, [ctypes.c_void_p]),
-    "class_replaceMethod": (ctypes.c_void_p, [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p]),
-}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -250,42 +238,6 @@ def jobs() -> tuple[str, ...]:
         kinds: tuple[str, ...] = ast.literal_eval(str(error).rpartition(" not found in ")[2])
         return kinds
     return ()
-
-
-@cache
-def runtime() -> ctypes.CDLL:
-    """Returns the Objective-C runtime with the signatures the engine calls."""
-    objc = ctypes.CDLL(ctypes.util.find_library("objc"))
-    for name, (result, arguments) in RUNTIME.items():
-        function = getattr(objc, name)
-        function.restype, function.argtypes = result, arguments
-    return objc
-
-
-def application() -> int:
-    """Returns the shared `NSApplication`."""
-    objc = runtime()
-    send = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
-    shared: int = send(objc.objc_getClass(b"NSApplication"), objc.sel_registerName(b"sharedApplication"))
-    return shared
-
-
-def inert() -> None:
-    """Replaces `activateIgnoringOtherApps:` on the application's class with `-[NSObject self]`, which reads its receiver alone, so no window Blender raises activates it."""
-    objc, shared = runtime(), application()
-    owner, selector = objc.object_getClass(shared), objc.sel_registerName(b"activateIgnoringOtherApps:")
-    nothing = objc.method_getImplementation(objc.class_getInstanceMethod(objc.objc_getClass(b"NSObject"), objc.sel_registerName(b"self")))
-    objc.class_replaceMethod(owner, selector, nothing, objc.method_getTypeEncoding(objc.class_getInstanceMethod(owner, selector)))
-
-
-def concealed() -> None:
-    """Hides Blender and makes it a background-only application, so a window a case left behind leaves the screen."""
-    objc = runtime()
-    send = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
-    policy = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long)(("objc_msgSend", objc))
-    shared = application()
-    send(shared, objc.sel_registerName(b"hide:"), None)
-    policy(shared, objc.sel_registerName(b"setActivationPolicy:"), PROHIBITED)
 
 
 def owned() -> Path:
@@ -1149,7 +1101,7 @@ def stepping(steps: Generator[None], /) -> float | None:
 
 
 def main() -> None:
-    """Moves process output into the session's files, dumps Python stacks on SIGUSR1, and records depsgraph updates, then runs the batch to its end in a background run, else keeps Blender inactive and hidden and steps the batch on a persistent timer."""
+    """Moves process output into the session's files, dumps Python stacks on SIGUSR1, and records depsgraph updates, then runs the batch to its end in a background run, else steps the batch on a persistent timer."""
     session: Session = json.loads(Path(sys.argv[sys.argv.index("--") + 1]).read_text(encoding="utf-8"))
     for descriptor, name in ((1, session["stdout"]), (2, session["stderr"])):
         os.dup2(os.open(name, os.O_WRONLY | os.O_CREAT | os.O_APPEND), descriptor)
@@ -1176,8 +1128,6 @@ def main() -> None:
         gpu.init()
         deque(steps, maxlen=0)
     else:
-        inert()
-        concealed()
         bpy.app.timers.register(partial(stepping, quitted(steps)), persistent=True)
 
 

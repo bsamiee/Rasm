@@ -14,8 +14,6 @@ private let phrasings: [(reason: ApplicationFailure.Reason, phrases: [String])] 
     (.refused(.actionUnsupported), [subject, String(AXError.actionUnsupported.rawValue)]),
     (.absent("on-screen window"), [subject, "on-screen window"]),
     (.unanswered(.perform(element: Data([1, 2, 3]), action: kAXPressAction)), [subject, "can have run"]),
-    (.multipleInstancesProhibited, [subject, "LSMultipleInstancesProhibited"]),
-    (.hiddenAgent, [subject, "LSUIElement"]),
     (.untrusted, ["Accessibility"]),
 ]
 private let causes: [(reason: ApplicationFailure.Reason, cause: any Error)] = [

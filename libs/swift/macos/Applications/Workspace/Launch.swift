@@ -1,41 +1,89 @@
 public import AppKit
 import AsyncAlgorithms
-import Carbon.OpenScripting
 import Processes
 import System
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+private enum HostSetting {
+    case argument(String)
+    case preference(domain: String?, key: String, path: [String] = [], value: Int)
+}
+
+public struct Launch: ~Copyable, Sendable {
+    public let instance: NSRunningApplication
+    public let created: Bool
+
+    deinit {
+        if created { _ = instance.terminate() }
+    }
+
+    public consuming func detached() -> NSRunningApplication {
+        let instance: NSRunningApplication = instance
+        discard self
+        return instance
+    }
+}
+
+// --- [TABLES] --------------------------------------------------------------------------
+
+private let hostSettings: KeyValuePairs<String, [HostSetting]> = [
+    "com.mcneel.rhinoceros": [.argument("-nosplash")],
+    "com.adobe.Acrobat": [.preference(domain: nil, key: "DC", path: ["ShowSplashScreen"], value: 0)],
+    "com.adobe.": [.preference(domain: "com.adobe.crashreporter", key: "always_never_send", value: 2)],
+]
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+private func nested(_ value: Int, at path: ArraySlice<String>, in dictionary: [String: Any]) -> Any {
+    guard let key: String = path.first else { return value }
+    var updated: [String: Any] = dictionary
+    updated[key] = nested(value, at: path.dropFirst(), in: dictionary[key] as? [String: Any] ?? [:])
+    return updated
+}
 
 extension NSWorkspace {
     public func launch(
         _ installation: Installation,
         opening documents: [URL] = [],
         configuration: sending OpenConfiguration = OpenConfiguration(),
-    ) async throws(ApplicationFailure) -> NSRunningApplication {
+    ) async throws(ApplicationFailure) -> Launch {
         let url: URL = installation.url
-        let path: String = url.path(percentEncoded: false)
+        let running: [NSRunningApplication] = runningApplications.filter(installation.runs)
+        let creating: Bool = configuration.createsNewApplicationInstance || running.isEmpty
+        if let reused: NSRunningApplication = running.first, !creating, documents.isEmpty { return Launch(instance: reused, created: false) }
+        let settings: [HostSetting] = creating ? hostSettings.filter { prefix, _ in installation.identifier.hasPrefix(prefix) }.flatMap(\.value) : []
+        for setting: HostSetting in settings {
+            switch setting {
+                case .argument(let argument): configuration.arguments.append(argument)
+                case .preference(let domain, let key, let path, let value):
+                    let defaults: UserDefaults? = UserDefaults(suiteName: domain ?? installation.identifier)
+                    defaults?.set(nested(value, at: path[...], in: defaults?.dictionary(forKey: key) ?? [:]), forKey: key)
+            }
+        }
         configuration.activates = false
+        configuration.hides = creating && !installation.agent
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
-        guard !(installation.agent && configuration.hides) else { throw ApplicationFailure(subject: path, reason: .hiddenAgent) }
-        guard !(installation.multipleInstancesProhibited && configuration.createsNewApplicationInstance && runningApplications.contains(where: installation.runs)) else {
-            throw ApplicationFailure(subject: path, reason: .multipleInstancesProhibited)
-        }
-        configuration.appleEvent =
-            documents.isEmpty
-            ? NSAppleEventDescriptor(
-                eventClass: AEEventClass(kASAppleScriptSuite),
-                eventID: AEEventID(kASLaunchEvent),
+        if documents.isEmpty {
+            let opening: NSAppleEventDescriptor = NSAppleEventDescriptor(
+                eventClass: AEEventClass(kCoreEventClass),
+                eventID: AEEventID(kAEOpenApplication),
                 targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
                 returnID: AEReturnID(kAutoGenerateReturnID),
                 transactionID: AETransactionID(kAnyTransactionID),
-            ) : nil
+            )
+            opening.setParam(NSAppleEventDescriptor(enumCode: OSType(kAENo)), forKeyword: AEKeyword(keyAERestoreAppState))
+            configuration.appleEvent = opening
+        }
         do {
-            return try await documents.isEmpty
+            let instance: NSRunningApplication =
+                try await documents.isEmpty
                 ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
+            return Launch(instance: instance, created: !running.contains(instance))
         } catch {
-            throw ApplicationFailure(subject: "Launch Services open \(path)", reason: .host(error))
+            throw ApplicationFailure(subject: "Launch Services open \(url.path(percentEncoded: false))", reason: .host(error))
         }
     }
 }

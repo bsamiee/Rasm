@@ -70,7 +70,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 ### Queue
 
 - **Rust rows:** `numerics/spectra`, `interchange/ifc`, `drawing/annotation`, `numerics/analysis`, `graphs/layout`, then the rest in RUST.md order, up to three at once.
-- **Rust depth:** `cli/output`, `cli/screen`, `services/mcp`, `geometry/proximity`, `geospatial/site`, `graphs/dependency`, `numerics/optimize`, `graphs/network`, `data/tables`, then each row as it lands, up to three at once.
+- **Rust depth:** `documents/typeset` first (a density near 1e6 px/pt passes the pixmap bound and aborts on allocation: the density takes a validated bound from page size and pixel budget inside the crate), `cli/output`, `cli/screen`, `services/mcp`, `geometry/proximity`, `geospatial/site`, `graphs/dependency`, `numerics/optimize`, `graphs/network`, `data/tables`, then each row as it lands, up to three at once.
 - **Rust tune:** after each group of commits, before the next landing.
 - **TypeScript:** after Atelier commits, `typescript-tune` for `web/media` then `web/ui` (with knip), then `web/hosting`. Once the harness run has also committed and nothing else edits TypeScript, `typescript-sweep` rebuilds every TypeScript project in place: one export per concept with operations as statics, near-duplicate schemas and types across `creative-cloud` stated once at their owner, stringly forms derived, Effect 4 at full depth, agent-facing prose cleaned, and no code moved or extracted without becoming stronger. Its tune follows.
 - **Folder guidance:** the `guidance` workflow once Atelier and the running rows have landed.

@@ -6,7 +6,7 @@ import effect from 'effect/package.json' with { type: 'json' };
 import { HarnessError } from '#/error';
 import { facts, statements } from '#/facts';
 import { Completion } from '#/results';
-import { Batch, chosen, Engine, execute, type Hosted, type Install, installs, Mode, type Outcome, prepare, Results, reporting } from '#/rhino/host';
+import { Batch, Engine, execute, type Hosted, Install, Mode, type Outcome, prepare, Results } from '#/rhino/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ const run = Command.make(
         Effect.gen(function* () {
             const path = yield* Path.Path;
             const [file, root] = [path.resolve(cases), path.resolve(folder)];
-            const [batch, search, picked] = yield* Effect.all([decoded(file), statements(stated), Effect.flatMap(installs, (rows) => chosen(rows, keys))]);
+            const [batch, search, picked] = yield* Effect.all([decoded(file), statements(stated), Effect.flatMap(Install.all, (rows) => Install.chosen(rows, keys))]);
             yield* Effect.forEach(picked, (install) => asked(install, root, file, batch, only, limit, index, search), { discard: true });
         }),
 );
@@ -148,7 +148,7 @@ const compared = Command.make('compare', { product, cases: casesFile, release: F
         const [file, root] = [path.resolve(cases), path.resolve(folder)];
         const stem = yield* stemOf(file, release);
         const recorded = yield* Effect.flatMap(fs.readFileString(`${stem}.results.json`), Schema.decodeEffect(Results));
-        const install = yield* reporting(yield* installs, recorded.identifier, recorded.version);
+        const install = yield* Install.reporting(yield* Install.all, recorded.identifier, recorded.version);
         const batch = yield* decoded(file);
         const module = yield* Effect.fromOption(
             Option.map(Option.fromUndefinedOr(batch.module), (held) => path.join(root, held)),

@@ -1,24 +1,15 @@
-import { constants } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
 import { Array, Data, Deferred, Duration, Effect, FileSystem, Match, Option, Order, Path, type PlatformError, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { Batch as KitBatch, Call as KitCall, Probe as KitProbe, Run as KitRun } from '#/cases';
 import { HarnessError } from '#/error';
-import { watch } from '#/instance';
+import { type Exited, Launch, settled, watch } from '#/instance';
 import { type Answered, outcome, results } from '#/results';
 import { merged, precondition } from '#/rhino/precondition';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Install {
-    readonly path: string;
-    readonly bundle: string;
-    readonly version: string;
-    readonly name: string;
-    readonly executable: string;
-    readonly languages: readonly string[];
-}
 type Case = (typeof Batch.Type)['cases'][number];
 type Decoded = ReturnType<typeof precondition>['Type'];
 type Placed = Exclude<Decoded, { readonly application: true }>;
@@ -58,7 +49,6 @@ interface Dialog {
 }
 type Element = Extract<typeof State.Type, { readonly _tag: 'Responding' }>['elements'][number];
 type Control = NonNullable<Element['detail']>['controls'][number];
-type Exited = Extract<typeof State.Type, { readonly _tag: 'Exited' }>;
 type Hung = typeof fields.hung.Type & {};
 type End = Data.TaggedEnum<{ Closed: Record.ReadonlyRecord<never, never>; Blocked: { readonly reason: string }; Crashed: { readonly exit: Exited }; Hung: Hung }>;
 interface Watched {
@@ -67,7 +57,6 @@ interface Watched {
     readonly key: string;
     readonly states: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>;
     readonly progress: SubscriptionRef.SubscriptionRef<Progress>;
-    readonly companions: Ref.Ref<ReadonlySet<number>>;
     readonly limit: Duration.Duration;
     readonly captures: string;
 }
@@ -84,7 +73,6 @@ const PREFIX = 'com.mcneel.rhinoceros.';
 const HOST = new RegExp(`^${PREFIX.replaceAll('.', String.raw`\.`)}\\d+$`, 'u');
 const LOCALIZATION = /^(?<code>.+)\.lproj$/u;
 const RESOURCES = ['Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'] as const;
-const CORE = ['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const;
 const ENTRY = { type: 'Batch', method: 'Run' } as const;
 const HARNESS = 'RASM_HARNESS';
 const LINE = /\r?\n/u;
@@ -178,7 +166,6 @@ const fields = {
             termination: Schema.optionalKey(Schema.Json),
             frames: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Faulting thread frames of the crash report' })),
             logged: Schema.optionalKey(Schema.String.annotate({ description: 'RhinoCode process log, the fatal exception Logger.DumpLogs wrote' })),
-            output: Schema.optionalKey(Schema.String.annotate({ description: 'Instance standard output and error file' })),
         }),
     ),
     hung: Schema.optionalKey(Schema.Struct({ cpu: Schema.Literals(['busy', 'blocked']), sample: Schema.String, stack: Schema.optionalKey(Schema.String.annotate({ description: 'dotnet-stack report of every managed thread' })) })),
@@ -244,7 +231,6 @@ const Sarif = Schema.fromJsonString(
 );
 const Encoded = Schema.fromJsonString(Schema.Unknown);
 const Harnessed = Schema.fromJsonString(Schema.Array(Schema.String));
-const byVersion = Order.mapInput(Array.makeOrder(Order.Number), ({ version }: Install) => version.split('.').map(Number));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -261,33 +247,36 @@ const output = Effect.fn('output')(function* (command: string, args: readonly st
 const lines = (text: string) => text.split(LINE).filter((line) => line.length > 0);
 const present = <K extends string, A>(key: K, value: Option.Option<A>) => Option.match(value, { onNone: () => ({}), onSome: (held) => Record.singleton(key, held) });
 const plist = (bundle: string) => Effect.flatMap(Path.Path, (path) => Effect.flatMap(output('plutil', ['-convert', 'json', '-o', '-', path.join(bundle, 'Contents', 'Info.plist')]), Schema.decodeEffect(Info)));
-const identify = Effect.fn('identify')(function* (bundle: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const info = yield* plist(bundle);
-    const localized = Array.getSomes((yield* fs.readDirectory(path.join(bundle, ...RESOURCES))).map((name) => Option.fromNullishOr(LOCALIZATION.exec(name)?.groups?.code)));
-    return { path: bundle, bundle: info.CFBundleIdentifier, version: info.CFBundleVersion, name: info.CFBundleName, executable: path.join(bundle, 'Contents', 'MacOS', info.CFBundleExecutable), languages: localized.filter((code) => code !== 'Base') } satisfies Install;
-});
-const installs = Effect.gen(function* () {
-    const found = yield* Effect.forEach(lines(yield* output('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`])), identify);
-    return Array.sort(
-        found.filter(({ bundle }) => HOST.test(bundle)),
-        byVersion,
-    );
-});
-const listed = (rows: readonly Install[]) => rows.map(({ path, bundle, version }) => `${path} ${bundle} ${version}`).join(', ');
-const chosen = (rows: readonly Install[], keys: readonly string[]) =>
-    Effect.fromOption(
-        Array.match(
-            rows.filter((row) => keys.length === 0 || keys.some((key) => [row.bundle, row.name, row.path].includes(key) || row.version.startsWith(key))),
-            { onEmpty: Option.none, onNonEmpty: Option.some },
-        ),
-        () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `installs are ${listed(rows)}` }, subject: keys.join(', ') }),
-    );
-const reporting = (rows: readonly Install[], identifier: string, version: string) =>
-    Effect.fromOption(
-        Array.findFirst(rows, (row) => row.bundle === identifier && row.version === version),
-        () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `no install reports it, installs are ${listed(rows)}` }, subject: `${identifier} ${version}` }),
-    );
+class Install extends Data.Class<{ readonly path: string; readonly bundle: string; readonly version: string; readonly name: string; readonly executable: string; readonly languages: readonly string[] }> {
+    static readonly identify = Effect.fn('Install.identify')(function* (bundle: string) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const info = yield* plist(bundle);
+        const localized = Array.getSomes((yield* fs.readDirectory(path.join(bundle, ...RESOURCES))).map((name) => Option.fromNullishOr(LOCALIZATION.exec(name)?.groups?.code)));
+        return new Install({ path: bundle, bundle: info.CFBundleIdentifier, version: info.CFBundleVersion, name: info.CFBundleName, executable: path.join(bundle, 'Contents', 'MacOS', info.CFBundleExecutable), languages: localized.filter((code) => code !== 'Base') });
+    });
+    static readonly byVersion = Order.mapInput(Array.makeOrder(Order.Number), ({ version }: Install) => version.split('.').map(Number));
+    static readonly all = Effect.gen(function* () {
+        const found = yield* Effect.forEach(lines(yield* output('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`])), Install.identify);
+        return Array.sort(
+            found.filter(({ bundle }) => HOST.test(bundle)),
+            Install.byVersion,
+        );
+    });
+    static readonly listed = (rows: readonly Install[]) => rows.map(({ path, bundle, version }) => `${path} ${bundle} ${version}`).join(', ');
+    static readonly chosen = (rows: readonly Install[], keys: readonly string[]) =>
+        Effect.fromOption(
+            Array.match(
+                rows.filter((row) => keys.length === 0 || keys.some((key) => [row.bundle, row.name, row.path].includes(key) || row.version.startsWith(key))),
+                { onEmpty: Option.none, onNonEmpty: Option.some },
+            ),
+            () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `installs are ${Install.listed(rows)}` }, subject: keys.join(', ') }),
+        );
+    static readonly reporting = (rows: readonly Install[], identifier: string, version: string) =>
+        Effect.fromOption(
+            Array.findFirst(rows, (row) => row.bundle === identifier && row.version === version),
+            () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `no install reports it, installs are ${Install.listed(rows)}` }, subject: `${identifier} ${version}` }),
+        );
+}
 
 // --- [PREPARE]
 const located = (decoded: Decoded, product: string, join: (...parts: readonly string[]) => string): { readonly source: object; readonly placed: Option.Option<Placed> } =>
@@ -390,7 +379,7 @@ const program = (rows: readonly Hosted[]) => {
     const blocks = rows.map((row) => entry(row).join('\n').split('\n'));
     const ends = blocks.reduce<readonly number[]>((held, block) => held.concat((held.at(-1) ?? head.length) + block.length), []);
     const spans = ends.map((end, index) => [end - (blocks[index]?.length ?? 0) + 1, end] as const);
-    return { text: [...head, ...blocks.flat(), rows.some(({ canvas }) => canvas) ? '    ], static () => new Rasm.Harnesses.Rhino.Canvases());' : '    ]);', '}', ''].join('\n'), spans };
+    return { text: [...head, ...blocks.flat(), '    ], static () => new Rasm.Harnesses.Rhino.Canvases());', '}', ''].join('\n'), spans };
 };
 const build = (install: Install, folder: string, rows: readonly Hosted[], mode: Mode, plugin: Option.Option<string>): Effect.Effect<Built, HarnessError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> =>
     Effect.gen(function* () {
@@ -404,7 +393,6 @@ const build = (install: Install, folder: string, rows: readonly Hosted[], mode: 
             `-p:HarnessCases=${cases}`,
             `-p:ArtifactsPath=${path.join(folder, 'artifacts')}`,
             `-p:ErrorLog=${log}%2Cversion=2.1`,
-            ...(rows.some(({ canvas }) => canvas) ? ['-p:HarnessCanvas=true'] : []),
             ...(Mode.$is('Compare')(mode) ? [`-p:HarnessRebuilt=${mode.module}`] : []),
             ...Option.toArray(Option.map(plugin, (file) => `-p:HarnessPlugIn=${file}`)),
         ];
@@ -468,7 +456,6 @@ const stateOf = <S extends typeof State.Type>(states: SubscriptionRef.Subscripti
         Stream.runHead,
         Effect.flatMap(Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended before the state' }, subject: key }))),
     );
-const settled = (state: typeof State.Type): state is Exited => State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !CORE.some((name) => constants.signals[name] === state.signal)));
 const parent = Effect.fn('parent')(function* (pid: number) {
     return Number((yield* spawned('ps', ['-o', 'ppid=', '-p', String(pid)])).text.trim());
 });
@@ -509,7 +496,6 @@ const answering = Effect.fn('answering')(function* (install: Install, names: rea
         const companion = row.identifier !== install.bundle && names.includes(row.identifier);
         const decided = !companion || (known ?? (yield* parent(row.pid)) === watched.pid);
         yield* Ref.update(owners, (held) => new Map([...held, [row.pid, decided]]));
-        yield* companion && decided ? Ref.update(watched.companions, (held) => new Set([...held, row.pid])) : Effect.void;
         return decided;
     });
     const answer = Effect.fn('answer')(function* ({ element, system }: { readonly element: Element; readonly system: boolean }) {
@@ -623,7 +609,7 @@ const stalled = Effect.fn('stalled')(function* (watched: Watched) {
 // --- [OUTCOMES]
 const typed = ({ type, signal, subtype }: NonNullable<(typeof Ips.Type)['exception']>) => [type, signal, subtype].filter((part) => part !== undefined).join(' ');
 const framesOf = ({ faultingThread, threads, usedImages }: typeof Ips.Type) => Option.map(Array.get(threads ?? [], faultingThread ?? 0), ({ frames }) => frames.map(({ imageIndex, imageOffset, symbol }) => `${usedImages?.[imageIndex]?.name ?? imageIndex} ${symbol ?? `+${imageOffset}`}`));
-const crashOf = Effect.fn('crashOf')(function* (exit: Exited, entries: Entries, pid: number, console: string) {
+const crashOf = Effect.fn('crashOf')(function* (exit: Exited, entries: Entries, pid: number) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const since = sinceStart(entries);
     const exception = Option.orElse(
@@ -659,16 +645,15 @@ const crashOf = Effect.fn('crashOf')(function* (exit: Exited, entries: Entries, 
         ),
         ...present('frames', Option.flatMap(decoded, framesOf)),
         ...present('logged', logged),
-        output: console,
     };
 });
-const interrupted = Effect.fn('interrupted')(function* (end: End, entries: Entries, name: string, pid: number, console: string) {
+const interrupted = Effect.fn('interrupted')(function* (end: End, entries: Entries, name: string, pid: number) {
     const base = { name, leaked: [], answered: [] } as const;
     return yield* End.$match(end, {
         Closed: () => Effect.succeed<typeof Outcome.Type>({ ...base, completion: { _tag: 'Failed', reason: 'batch closed before the case finished' } }),
         Blocked: ({ reason }) => Effect.succeed<typeof Outcome.Type>({ ...base, completion: { _tag: 'Failed', reason } }),
         Hung: (hung) => Effect.succeed<typeof Outcome.Type>({ ...base, completion: { _tag: 'Failed', reason: `hung ${hung.cpu}` }, hung: Struct.omit(hung, ['_tag']) }),
-        Crashed: ({ exit }) => Effect.map(crashOf(exit, entries, pid, console), (crashed): typeof Outcome.Type => ({ ...base, completion: { _tag: 'Failed', reason: 'crashed' }, crashed })),
+        Crashed: ({ exit }) => Effect.map(crashOf(exit, entries, pid), (crashed): typeof Outcome.Type => ({ ...base, completion: { _tag: 'Failed', reason: 'crashed' }, crashed })),
     });
 });
 const headerOf = (entries: Entries) => ({
@@ -689,21 +674,15 @@ const session = Effect.fn('session')(function* (install: Install, companions: re
     const home = yield* fs.makeTempDirectoryScoped({ directory: folder, prefix: 'session-' });
     const journal = path.join(home, 'journal.jsonl');
     yield* fs.writeFileString(journal, '');
-    const handle = yield* ChildProcess.make(install.executable, ['-nosplash', `-runscript=_-ScriptEditor _Run "${path.join(folder, 'loader.cs')}"`], {
-        env: { [HARNESS]: yield* Schema.encodeEffect(Harnessed)([built.assembly, journal, captures, built.batch, ...remaining.map(String)]) },
-        extendEnv: true,
-        stdin: 'ignore',
-        stdout: 'pipe',
-        stderr: 'pipe',
-        forceKillAfter: limit,
+    const { pid } = yield* Launch({
+        app: install.path,
+        fresh: true,
+        arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${path.join(folder, 'loader.cs')}"`],
+        environment: { [HARNESS]: yield* Schema.encodeEffect(Harnessed)([built.assembly, journal, captures, built.batch, ...remaining.map(String)]) },
     });
-    const { pid } = handle;
-    const console = path.join(captures, `${pid}.console.txt`);
-    yield* Effect.forkScoped(Stream.run(handle.all, fs.sink(console)));
     const names = [install.bundle, ...companions] as const;
     const key = keyOf({ identifier: install.bundle, pid });
-    const watched: Watched = { pid, journal, key, states: yield* watching(names, pid), progress: yield* SubscriptionRef.make<Progress>({ entries: [], cancelled: new Set() }), companions: yield* Ref.make<ReadonlySet<number>>(new Set()), limit, captures };
-    yield* Effect.addFinalizer(() => Effect.flatMap(Ref.get(watched.companions), (pids) => (pids.size === 0 ? Effect.void : Effect.asVoid(Effect.orDie(spawned('kill', ['-TERM', ...Array.fromIterable(pids).map(String)]))))));
+    const watched: Watched = { pid, journal, key, states: yield* watching(names, pid), progress: yield* SubscriptionRef.make<Progress>({ entries: [], cancelled: new Set() }), limit, captures };
     const blocked = yield* Deferred.make<string>();
     const alerts = (held: readonly Dialog[]) => held.filter(({ system }) => system).length;
     const seen = alerts(yield* SubscriptionRef.get(dialogs));
@@ -738,7 +717,7 @@ const session = Effect.fn('session')(function* (install: Install, companions: re
             Array.map(([, text]: readonly [string, string]) => text),
         );
     const finished = entries.filter(Entry.guards.Finished).map(({ outcome: held }) => ({ ...held, answered: [], ...present('cancelled', left(held.name)) }));
-    const flight = yield* Option.match(flightOf(entries), { onNone: () => Effect.succeed([]), onSome: (name) => Effect.map(interrupted(end, entries, name, pid, console), Array.of) });
+    const flight = yield* Option.match(flightOf(entries), { onNone: () => Effect.succeed([]), onSome: (name) => Effect.map(interrupted(end, entries, name, pid), Array.of) });
     return {
         finished: [...finished, ...flight],
         failed: Option.firstSomeOf([
@@ -794,4 +773,4 @@ const execute = Effect.fn('execute')(function* (install: Install, rows: readonly
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Batch, chosen, Engine, execute, type Hosted, type Install, installs, Mode, Outcome, prepare, Results, reporting };
+export { Batch, Engine, execute, type Hosted, Install, Mode, Outcome, prepare, Results };

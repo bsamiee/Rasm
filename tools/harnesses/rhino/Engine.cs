@@ -480,13 +480,12 @@ public static class Engine {
     };
 
     // --- [BATCH]
-    public static void Run(string[] args, ImmutableArray<Expressions> codes, Func<ICanvases>? canvases = null) {
+    public static void Run(string[] args, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) {
         (string stream, string captures, Rows batch) = (args[0], Directory.CreateDirectory(args[1]).FullName, JsonSerializer.Deserialize<Rows>(File.ReadAllText(args[2]), Data) ?? throw new JsonException($"{args[2]} holds no batch"));
         using Journal journal = new(stream);
         using FileSystemWatcher cancels = new(Path.GetDirectoryName(Path.GetFullPath(stream)) ?? Directory.GetCurrentDirectory(), $"{Path.GetFileName(stream)}.cancel") { EnableRaisingEvents = true };
         cancels.Created += Cancelled;
         cancels.Changed += Cancelled;
-        NSApplication.SharedApplication.Hide(NSApplication.SharedApplication);
         Recorder recorder = new(journal);
         Lazy<Fin<ICanvases>> surface = new(() => Surface(canvases));
         recorder.Attach();
@@ -538,9 +537,8 @@ public static class Engine {
         NSApplication.SharedApplication.PostEvent(NSEvent.OtherEvent(NSEventType.ApplicationDefined, CoreGraphics.CGPoint.Empty, flags, time, window, context: null, subtype, data, data), atStart: true);
     }
 
-    private static Fin<ICanvases> Surface(Func<ICanvases>? canvases) =>
-        canvases is null ? Error.New("batch built without a canvas case references no Grasshopper 2")
-        : PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")) ? Lift(canvases) : Error.New("Grasshopper2 plug-in did not load");
+    private static Fin<ICanvases> Surface(Func<ICanvases> canvases) =>
+        PlugIn.LoadPlugIn(PlugIn.IdFromName("Grasshopper2")) ? Lift(canvases) : Error.New("Grasshopper2 plug-in did not load");
 
     // --- [CASES]
     private static (Outcome Outcome, ImmutableArray<uint> Opened) Execute(Case @case, Expressions code, int index, string captures, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases) {

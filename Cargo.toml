@@ -509,7 +509,7 @@ libvips           = "2.3.0"                                                     
 nom-exif          = "3.8.0"                                                                                                # EXIF and QuickTime metadata
 opencv            = "0.101.1"                                                                                              # Image processing, camera calibration, feature matching, and video
 oxipng            = "10.2.1"                                                                                               # Lossless PNG optimization
-png               = "0.18.1"                                                                                               # PNG encoding failures typst-render pixmaps report through tiny-skia's png-format, at the release tiny-skia links
+png               = "0.18.1"                                                                                               # PNG encoding of typst-render pixmaps with their sRGB intent and pixel density, at the release tiny-skia links
 tiff              = { version = "0.11.3", features = ["zstd"] }                                                            # TIFF and DNG containers with tag access and multi-page image sequences
 turbojpeg         = "1.5.1"                                                                                                # JPEG encode and decode through libjpeg-turbo
 
