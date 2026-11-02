@@ -92,7 +92,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 - **Open findings:** reports sit in `.artifacts/workflows/findings/`; the TypeScript config, launch, function-hook, C# analyzer and Ghidra skill reports have landed.
   - Ghidra product migration (`.artifacts/workflows/ghidra/MIGRATION.md`) once the decompile runs finish.
   - Stroke rebuild gap: the harness's first live InDesign batch read the stroke family's 4 pt bottom-edge case as 4 in InDesign against 1 from the rebuilt module; the product's next proof round fixes the rebuild.
-  - Grid Calculator and ScribeDOOR host proofs run through the harness once the proof move lands; ScribeDOOR's InDesign-facing families go first, with its trial ending around 8 November and its welcome dialog needing the owner's click per launch.
+  - Proof loops stop once a round changes neither the binary nor the host count, so InPage (binary-complete, Windows-only) goes to its study and ScribeDOOR keeps its rounds while they progress, its trial ending around 8 November. Once the plugin run reaches its studies, one targeted pass each proves through `tools/harnesses/indesign` the Grid Calculator host-write functions on a fresh hidden InDesign 2026 and the 131 preferences host-write functions on the 2027 Beta.
 
 ### Done
 
