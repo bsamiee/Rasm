@@ -8,8 +8,12 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./pg": "./pg.ts"
+        "./catalog": "./catalog.ts",
+        "./column": "./column.ts",
+        "./finding": "./finding.ts",
+        "./pg": "./pg.ts",
+        "./relation": "./relation.ts",
+        "./transaction": "./transaction.ts"
     },
     "dependencies": {
         "@effect/sql-d1": "catalog:",

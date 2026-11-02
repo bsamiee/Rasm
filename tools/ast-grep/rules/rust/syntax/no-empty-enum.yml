@@ -2,9 +2,44 @@
 id: no-empty-enum
 language: rust
 severity: error
+utils:
+    named:
+        kind: type_identifier
+        pattern: $NAME
+    entity-kind:
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                stopBy: end
+                kind: impl_item
+                all: [{has: {field: trait, regex: '(^|::)TypedUuidKind$'}}, {has: {field: type, matches: named}}]
+    state-marker:
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: generic_type
+                      all: [{has: {field: type, regex: '(^|::)PhantomData$'}}, {has: {field: type_arguments, has: {stopBy: end, matches: named}}}]
+                    - kind: impl_item
+                      all: [{not: {has: {field: trait, regex: '.'}}}, {has: {field: type, kind: generic_type, has: {field: type_arguments, has: {stopBy: end, matches: named}}}}]
 rule:
     kind: enum_item
-    has: {field: name, pattern: $NAME}
-    not: {has: {field: body, has: {kind: enum_variant}}}
-message: '`$NAME` declares no variant and stands in for the never type `!`'
-note: 'Write `!` (`#![feature(never_type)]`), a kind marker comes from the crate macro that declares its kind'
+    all:
+        - not: {has: {field: body, has: {kind: enum_variant}}}
+        - has: {field: name, pattern: $NAME}
+        - any:
+            - pattern: $KIND
+              matches: entity-kind
+            - pattern: $STATE
+              all: [{not: {matches: entity-kind}}, {matches: state-marker}]
+            - pattern: $NEVER
+              not: {any: [{matches: entity-kind}, {matches: state-marker}]}
+transform:
+    KIND_TEXT: {replace: {source: $KIND, replace: '(?s)^.*?\benum\s+(\w+).*$', by: '`$1` declares an entity kind by hand, one `impl_typed_uuid_kinds!` row derives it with its tag and `Uuid` alias'}}
+    STATE_TEXT: {replace: {source: $STATE, replace: '(?s)^.*?\benum\s+(\w+).*$', by: '`$1` marks a typestate state with no variant, a state record holding that state''s data marks it'}}
+    NEVER_TEXT: {replace: {source: $NEVER, replace: '(?s)^.*?\benum\s+(\w+).*$', by: '`$1` declares no variant and stands in for the never type `!`'}}
+message: '$KIND_TEXT$STATE_TEXT$NEVER_TEXT'
+note: 'Write `!` for a value that cannot exist, a state record for a typestate state, and an `impl_typed_uuid_kinds!` row for an entity kind'

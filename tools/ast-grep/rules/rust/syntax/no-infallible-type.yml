@@ -2,13 +2,35 @@
 id: no-infallible-type
 language: rust
 severity: error
+utils:
+    alias-name:
+        any:
+            - regex: '^Infallible$'
+            - regex: '^Never$'
+              any:
+                - inside: {kind: 'scoped_identifier, scoped_type_identifier', field: name, has: {field: path, regex: '(^|::)never$'}}
+                - inside: {kind: use_list, stopBy: end, inside: {kind: scoped_use_list, has: {field: path, regex: '(^|::)never$'}}}
+    alias-path:
+        any:
+            - {kind: identifier, matches: alias-name}
+            - {kind: scoped_identifier, has: {field: name, matches: alias-name}}
+    imported-alias:
+        any:
+            - kind: use_as_clause
+              all: [{has: {field: alias, pattern: $TYPE}}, {has: {field: path, matches: alias-path}}]
+            - kind: identifier
+              all: [{pattern: $TYPE}, {matches: alias-name}, {not: {inside: {kind: use_as_clause, stopBy: {kind: use_declaration}}}}]
 rule:
-    any:
-        - kind: type_identifier
-          regex: '^Infallible$'
-          not: {inside: {kind: scoped_type_identifier}}
-        - kind: scoped_type_identifier
-          regex: '^((::)?(std|core)::)?convert::Infallible$'
+    all:
+        - pattern: $TYPE
+        - any:
+            - kind: type_identifier
+              not: {inside: {kind: scoped_type_identifier}}
+              any:
+                - regex: '^Infallible$'
+                - inside: {kind: 'source_file, declaration_list, block', stopBy: end, has: {kind: use_declaration, has: {stopBy: end, matches: imported-alias}}}
+            - kind: scoped_type_identifier
+              has: {field: name, matches: alias-name}
 fix: '!'
-message: '`Infallible` stands in for the never type `!`'
-note: 'Write `!` (`#![feature(never_type)]`) and delete the unused `Infallible` import'
+message: '`$TYPE` aliases the never type `!`'
+note: 'Write `!` and delete the import the alias leaves unused'

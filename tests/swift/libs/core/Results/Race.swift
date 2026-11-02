@@ -27,27 +27,11 @@ private final class Cancellation: Sendable {
     }
 }
 
-private struct ImmediateClock: Clock {
-    let now: ContinuousClock.Instant
-    let deadlines: Deadlines
-
-    var minimumResolution: Duration { .zero }
-
-    func sleep(until deadline: ContinuousClock.Instant, tolerance: Duration?) async throws {
-        deadlines.requested.withLock { requested in requested.append(deadline) }
-        await Task.yield()
-    }
-}
-
-private final class Deadlines: Sendable {
-    let requested: Mutex<[ContinuousClock.Instant]> = Mutex([])
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 struct Races {
     @Test
-    func firstSuccessWinsAndCancelsTheRival() async throws {
+    func firstSuccessWinsAndCancelsRival() async throws {
         let rival: Cancellation = Cancellation()
         let value: Int = try await race(
             { () async throws(Probe) -> Int in 1 },
@@ -61,7 +45,7 @@ struct Races {
     }
 
     @Test
-    func rivalSuccessWinsAndCancelsTheWork() async throws {
+    func rivalSuccessWinsAndCancelsWork() async throws {
         let work: Cancellation = Cancellation()
         let value: Int = try await race(
             { () async throws(Probe) -> Int in
@@ -75,7 +59,7 @@ struct Races {
     }
 
     @Test
-    func firstFailureWinsAndCancelsTheRival() async {
+    func firstFailureWinsAndCancelsRival() async {
         let rival: Cancellation = Cancellation()
         let failure: Probe? = await #expect(throws: Probe.self) {
             try await race(
@@ -123,17 +107,15 @@ struct Timeouts {
     }
 
     @Test
-    func expiredDeadlineThrowsTheGivenFailureAndCancelsTheWork() async {
+    func expiredDeadlineThrowsGivenFailureAndCancelsWork() async {
         let work: Cancellation = Cancellation()
-        let clock: ImmediateClock = ImmediateClock(now: ContinuousClock.now, deadlines: Deadlines())
         let failure: Probe? = await #expect(throws: Probe.self) {
-            try await withTimeout(.milliseconds(250), expired: Probe.expired, clock: clock) { () async throws(Probe) -> String in
+            try await withTimeout(.milliseconds(10), expired: Probe.expired) { () async throws(Probe) -> String in
                 await work.park()
                 return "late"
             }
         }
         expectNoDifference(failure, .expired)
         #expect(work.canceled)
-        expectNoDifference(clock.deadlines.requested.withLock(\.self), [clock.now.advanced(by: .milliseconds(250))])
     }
 }

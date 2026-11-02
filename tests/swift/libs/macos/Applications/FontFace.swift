@@ -11,12 +11,12 @@ struct FontFaces {
     @Test
     func everyAvailableFaceResolvesByItsPostscriptName() throws {
         let faces: [FontFace] = FontFace.available()
-        try #require(faces.contains { face in face.postscriptName == "Helvetica-Bold" }, "the system catalog lists Helvetica-Bold")
-        let bearers: [String: [FontFace]] = Dictionary(grouping: faces, by: \.postscriptName)
-        let unresolved: [String] = bearers.compactMap { name, bearing in
+        try #require(faces.contains { face in face.postscriptName == "Helvetica-Bold" }, "system font catalog lists Helvetica-Bold")
+        let byName: [String: [FontFace]] = Dictionary(grouping: faces, by: \.postscriptName)
+        let unresolved: [String] = byName.compactMap { name, sharing in
             let resolved: Result<FontFace, Unmatched> = Result { () throws(Unmatched) in try FontFace(named: name) }
             return switch resolved {
-                case .success(let face) where bearing.contains(face): nil
+                case .success(let face) where sharing.contains(face): nil
                 case .success, .failure: name
             }
         }
@@ -25,7 +25,7 @@ struct FontFaces {
     }
 
     @Test
-    func systemFaceCarriesItsCatalogFacts() throws {
+    func systemFaceHoldsItsCatalogFacts() throws {
         let face: FontFace = try FontFace(named: "Helvetica-Bold")
         let expected: JSONValue = try json(
             #"{"postscriptName":"Helvetica-Bold","family":"Helvetica","style":"Bold","displayName":"Helvetica Bold","file":"file:///System/Library/Fonts/Helvetica.ttc"}"#

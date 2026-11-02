@@ -27,7 +27,7 @@ private let malformed: [String] = [
 
 struct ElementActions {
     @Test
-    func actionEncodesTheWirePerformShapeAndRoundTrips() async {
+    func actionEncodesWirePerformShapeAndRoundTrips() async {
         await propertyCheck(input: action) { action in
             let expected: JSONValue =
                 switch action {

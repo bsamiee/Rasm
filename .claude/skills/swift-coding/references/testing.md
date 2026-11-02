@@ -68,6 +68,6 @@ Resources a test reads come from a trait: a `SuiteTrait & TestTrait & TestScopin
 |  [03]   | `builtProduct(named:)`            | URL of a built executable, `TestFailure` when absent                                              |
 |  [04]   | `jsonLines(of:arguments:as:)`     | Decoded output lines, termination status, and standard error of a built executable                |
 
-- Suites pass a library step to a trait as a function value (`answering:` presses a crash alert's button through `Applications`)
+- Suites pass a library step to a trait as a function value
 - Fixture executables under `tests/swift/fixtures/<name>` read their scenario from launch arguments a `Settings` value writes and exit with their owner process
 - Tests that crash a fixture instance await its exited state, and teardown finds its crash report

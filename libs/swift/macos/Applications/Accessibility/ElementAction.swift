@@ -7,8 +7,6 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
     case perform(element: Data, action: String)
     case set(element: Data, value: String)
 
-    static let activating: Set<String> = [kAXRaiseAction]
-
     public var element: Data {
         switch self {
             case .perform(let element, _), .set(let element, _): element
@@ -29,7 +27,7 @@ extension ElementAction {
     @concurrent
     public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            let absent: ApplicationFailure = ApplicationFailure(subject: "Application", reason: .absent("open element \(element.base64EncodedString())"))
+            let absent: ApplicationFailure = ApplicationFailure(subject: "element \(element.base64EncodedString())", reason: .absent("open window"))
             guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
             let read: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXWindowAttribute, kAXEnabledAttribute])
             let window: AXUIElement? = read[kAXRoleAttribute] as? String == kAXWindowRole ? node : read[kAXWindowAttribute].flatMap(AXUIElement.checked)
@@ -39,7 +37,7 @@ extension ElementAction {
             guard open != false else { throw absent }
             let outcome: AXError =
                 switch (self, read[kAXEnabledAttribute] as? Bool) {
-                    case (.perform(_, let action), _) where Self.activating.contains(action): throw ApplicationFailure(subject: description, reason: .activating)
+                    case (.perform(_, kAXRaiseAction), _): throw ApplicationFailure(subject: description, reason: .activating)
                     case (.perform, false): throw ApplicationFailure(subject: description, reason: .disabled)
                     case (.perform(_, let action), _): AXUIElementPerformAction(node, action as CFString)
                     case (.set(_, let value), _): try node.write(value as CFString, to: kAXValueAttribute)

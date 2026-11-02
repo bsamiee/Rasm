@@ -5,15 +5,11 @@ import Subprocess
 import System
 import Testing
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-typealias GatedExecution = Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 func child<Value: Sendable>(
     running script: String,
-    _ body: (_ process: pid_t, _ firstLine: String, _ execution: GatedExecution) async throws -> Value,
+    _ body: (_ process: pid_t, _ firstLine: String, _ execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>) async throws -> Value,
 ) async throws -> (value: Value, status: TerminationStatus) {
     let result: ExecutionResult<Value, SequenceOutput, DiscardedOutput> = try await Subprocess.run(
         Configuration(executable: .path("/bin/sh"), arguments: ["-c", script], platformOptions: .session()),

@@ -2,6 +2,7 @@ import AppKit
 import Applications
 import CasePaths
 import CustomDump
+import Subprocess
 import TestSupport
 import Testing
 
@@ -12,8 +13,8 @@ import Testing
 extension Integration {
     @Suite
     struct Launches {
-        @Test(.application(FixtureApplication.self, launches: false, answering: answerCrashAlert))
-        func launchReusesTheRunningInstanceUnlessANewOneIsAsked() async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func launchReusesRunningInstanceUnlessNewOneIsAsked() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
             let first: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(Settings(hidden: true)))
@@ -30,8 +31,8 @@ extension Integration {
             expectNoDifference(installed, [installation])
         }
 
-        @Test(.application(FixtureApplication.self, launches: false, answering: answerCrashAlert))
-        func hiddenLaunchOfAnAgentIsRefusedAndOpensNothing() async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func hiddenLaunchOfAgentIsRefusedAndOpensNothing() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) {
@@ -42,7 +43,7 @@ extension Integration {
             expectNoDifference(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier), [])
         }
 
-        @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular, answering: answerCrashAlert))
+        @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
         func hiddenLaunchStaysReadableButHasNoWindowToCapture() async throws {
             try checkAccessibilityTrust()
             let installation: Installation = try installation()
@@ -56,7 +57,7 @@ extension Integration {
             #expect(absent, "hidden capture failed \(failure.reason)")
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, multipleInstancesProhibited: true, answering: answerCrashAlert))
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, multipleInstancesProhibited: true))
         func prohibitedNewInstanceIsRefusedAndOpensNothing() async throws {
             let (installation, instance): (Installation, NSRunningApplication) = try await launched()
             #expect(installation.multipleInstancesProhibited, "bundle declares LSMultipleInstancesProhibited")
@@ -68,18 +69,23 @@ extension Integration {
             expectNoDifference(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier), [instance.processIdentifier])
         }
 
-        @Test(.application(FixtureApplication.self, launches: false, answering: answerCrashAlert))
-        func selfEnforcedSingleInstanceAlertsInTheNewInstanceThenExits() async throws {
-            let refusing: Settings = Settings(scenario: .singleInstance, hidden: true, duration: .seconds(3), status: 3)
+        @Test(.application(FixtureApplication.self, launches: false))
+        func selfEnforcedSingleInstanceAlertsInNewInstanceThenExits() async throws {
+            let refusing: Settings = Settings(scenario: .singleInstance, hidden: true, status: 3)
             let (installation, first): (Installation, NSRunningApplication) = try await launched(refusing)
             let second: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(refusing, new: true))
-            let seen: [Observed] = try await observe(second, within: .seconds(20), until: { _ in false })
-            let kinds: [String] = summaries(seen)
-            expectNoDifference(Array(kinds.drop { kind in kind == "launching" }), ["responding", "exited status 3"])
-            let asked: Element? = seen.lazy.flatMap(\.state.elements).first(where: \.requiresAnswer)
-            let alert: Element = try #require(asked)
+            let asked: [Observed] = try await observe(second, within: .seconds(20), until: { seen in seen.last?.state.asking != nil })
+            let alert: Element = try #require(asked.last?.state.asking)
             let refused: Bool = alert.detail?.text.contains("Another instance is running") == true
             #expect(refused, "alert text \(alert.detail?.text ?? [])")
+            let ok: Control = try #require(alert.detail?.controls.first { control in control.identifier == "action-button-1" })
+            let answered: [Observed] = try await observe(
+                second,
+                within: .seconds(20),
+                until: { _ in false },
+                acting: { try await ElementAction.perform(element: ok.id, action: kAXPressAction).perform() },
+            )
+            expectNoDifference(phases(answered).last, .exited(.exited(3)))
             let remaining: [Element] = try await read(first)
             expectNoDifference(remaining.filter(\.requiresAnswer).map(\.role), [])
         }

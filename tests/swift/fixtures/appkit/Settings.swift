@@ -20,9 +20,7 @@ public enum Scenario: String, CaseIterable, Sendable {
     case hangBusy
     case hangQuiet
     case stop
-    case signal
     case fault
-    case trap
     case abort
     case exit
     case helper
@@ -31,8 +29,8 @@ public enum Scenario: String, CaseIterable, Sendable {
     public var atLaunch: Bool {
         switch self {
             case .slowLaunch, .launchModal, .singleInstance: true
-            case .window, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .signal, .fault, .trap,
-                .abort, .exit, .helper, .terminate:
+            case .window, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .fault, .abort, .exit, .helper,
+                .terminate:
                 false
         }
     }

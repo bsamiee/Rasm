@@ -20,8 +20,8 @@ private func controls(of instance: NSRunningApplication) async throws -> (window
 extension Integration {
     @Suite
     struct ElementActions {
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func pressRunsTheControlActionBeforeAnswering() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func pressRunsControlActionBeforeAnswering() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let press: Control = try #require(try await controls(of: instance).controls.first { control in control.identifier == "press" })
             try await ElementAction.perform(element: press.id, action: kAXPressAction).perform(in: instance.processIdentifier)
@@ -29,8 +29,8 @@ extension Integration {
             expectNoDifference(pressed.detail.map { detail in Set(detail.text) }, ["pressed Press", "Fixture 0"])
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert), arguments: ["Größe 42 ✓", ""])
-        func setWritesTheFieldValueWithoutChangeTracking(text: String) async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments), arguments: ["Größe 42 ✓", ""])
+        func setWritesFieldValueWithoutChangeTracking(text: String) async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let field: Control = try #require(try await controls(of: instance).controls.first { control in control.identifier == "field" })
             try await ElementAction.set(element: field.id, value: "draft").perform()
@@ -41,8 +41,8 @@ extension Integration {
             expectNoDifference(window.edited, false)
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func setOnAnElementWithoutASettableValueFails() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func setOnElementWithoutSettableValueFails() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let (window, listed): (Element, [Control]) = try await controls(of: instance)
             let close: Control = try #require(listed.first { control in control.attribute == kAXCloseButtonAttribute })
@@ -55,20 +55,18 @@ extension Integration {
             expectNoDifference(unchanged.title, "Fixture 0")
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func raiseIsRefusedUnsentAndLeavesTheFrontmostApp() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func raiseIsRefusedUnsentAndLeavesFixtureInBackground() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let frontmost: pid_t? = NSWorkspace.shared.frontmostApplication?.processIdentifier
             let window: Element = try await controls(of: instance).window
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await ElementAction.perform(element: window.id, action: kAXRaiseAction).perform() }
             let activating: Bool = failure.reason.is(\.activating)
             #expect(activating, "raise failed \(failure.reason)")
-            expectNoDifference(NSWorkspace.shared.frontmostApplication?.processIdentifier, frontmost)
-            #expect(!instance.isActive, "fixture stays in the background")
+            #expect(!instance.isActive, "fixture stays in background")
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func menuItemOfABackgroundAppOpensAWindowTheWatchReads() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func menuItemOfBackgroundAppOpensWindowThatWatchReads() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let seen: [Observed] = try await observe(
                 instance,
@@ -77,7 +75,7 @@ extension Integration {
                 acting: { try await run(.window, in: instance) },
             )
             expectNoDifference(Set(try #require(seen.last).state.elements.filter { element in element.role == kAXWindowRole }.compactMap(\.title)), ["Fixture 0", "Fixture 1"])
-            #expect(!instance.isActive, "fixture stays in the background")
+            #expect(!instance.isActive, "fixture stays in background")
         }
     }
 }

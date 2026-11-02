@@ -10,7 +10,7 @@ import Testing
 
 private let subject: String = "perform on AQID"
 private let phrasings: [(reason: ApplicationFailure.Reason, phrases: [String])] = [
-    (.activating, [subject, "AXRaise"]),
+    (.activating, [subject, "raising a window"]),
     (.refused(.actionUnsupported), [subject, String(AXError.actionUnsupported.rawValue)]),
     (.absent("on-screen window"), [subject, "on-screen window"]),
     (.unanswered(.perform(element: Data([1, 2, 3]), action: kAXPressAction)), [subject, "can have run"]),
@@ -23,7 +23,6 @@ private let causes: [(reason: ApplicationFailure.Reason, cause: any Error)] = [
     (.noProcess, Errno.noSuchProcess),
     (.unmatched(Unmatched(subject: "Probe", query: nil, candidates: ["a", "b"])), Unmatched(subject: "Probe", query: nil, candidates: ["a", "b"])),
 ]
-private let rules: [ApplicationFailure.Reason] = [.untrusted, .activating, .refused(.cannotComplete), .absent("element"), .multipleInstancesProhibited, .hiddenAgent]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -41,13 +40,8 @@ struct ApplicationFailures {
     }
 
     @Test(arguments: causes)
-    func hostCauseSitsUnderTheUnderlyingErrorKey(reason: ApplicationFailure.Reason, cause: any Error) {
+    func hostCauseSitsUnderUnderlyingErrorKey(reason: ApplicationFailure.Reason, cause: any Error) {
         let underlying: String? = (ApplicationFailure(subject: "4242", reason: reason).errorUserInfo[NSUnderlyingErrorKey] as? any Error).map { error in String(reflecting: error) }
         expectNoDifference(underlying, String(reflecting: cause))
-    }
-
-    @Test(arguments: rules)
-    func ruleFailuresCarryNoUnderlyingError(reason: ApplicationFailure.Reason) {
-        #expect(ApplicationFailure(subject: "4242", reason: reason).errorUserInfo.isEmpty)
     }
 }

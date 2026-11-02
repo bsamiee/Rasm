@@ -10,10 +10,6 @@ import Results
 import ScreenCaptureKit
 import System
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-typealias Output = AsyncStream<(key: String, line: Line)>.Continuation
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let messagingTimeout: Duration = .seconds(1)
@@ -87,15 +83,16 @@ struct WatchApps: AsyncParsableCommand {
             try checkAccessibilityTrust()
             AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
             if var asynchronous: any AsyncParsableCommand = command as? any AsyncParsableCommand { try await asynchronous.run() } else { try command.run() }
+        } catch let error where exitCode(for: error) == .success {
+            exit(withError: error)
         } catch {
-            guard exitCode(for: error) != .success else { exit(withError: error) }
-            do { try await run { output in output.yield((ProcessInfo.processInfo.processName, .fail(message(for: error)))) } } catch { exit(withError: error) }
+            await run { output in output.yield((ProcessInfo.processInfo.processName, .fail(message(for: error)))) }
         }
     }
 
     @MainActor
-    static func run(_ work: @escaping @MainActor (Output) async -> Void) async throws {
-        let (lines, output): (AsyncStream<(key: String, line: Line)>, Output) = AsyncStream.makeStream()
+    static func run(_ work: @escaping @MainActor (AsyncStream<(key: String, line: Line)>.Continuation) async -> Void) async -> Never {
+        let (lines, output): (AsyncStream<(key: String, line: Line)>, AsyncStream<(key: String, line: Line)>.Continuation) = AsyncStream.makeStream()
         let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
         parent.setEventHandler { output.finish() }
         parent.activate()
@@ -106,20 +103,24 @@ struct WatchApps: AsyncParsableCommand {
             await work(output)
             output.finish()
         }()
-        let written: (failed: Bool, printed: [String: Data]) = try await lines.reduce(into: (false, [:])) { @MainActor written, entry in
-            let data: Data = try encoder.encodeLine([entry.key: entry.line])
-            written.failed = written.failed || entry.line.is(\.fail)
-            if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
+        do {
+            let written: (failed: Bool, printed: [String: Data]) = try await lines.reduce(into: (false, [:])) { @MainActor written, entry in
+                let data: Data = try encoder.encodeLine([entry.key: entry.line])
+                written.failed = written.failed || entry.line.is(\.fail)
+                if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
+            }
+            exit(withError: written.failed ? ExitCode.failure : nil)
+        } catch {
+            exit(withError: error)
         }
-        exit(withError: written.failed ? ExitCode.failure : nil)
     }
 
     @MainActor
     static func run(
         _ names: [String],
-        _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, Output) async -> Void,
-    ) async throws {
-        try await run { output in
+        _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, AsyncStream<(key: String, line: Line)>.Continuation) async -> Void,
+    ) async -> Never {
+        await run { output in
             let found: [(name: String, application: Result<[Installation], ApplicationFailure>)] = await Array(
                 OrderedSet(names).async.map { name in (name, await Result { () async throws(ApplicationFailure) in try await Installation.application(named: name) }) }
             )
@@ -139,7 +140,7 @@ struct Installed: ParsableArguments {
 struct Instance: ParsableArguments {
     @OptionGroup var installed: Installed
 
-    @Option(parsing: .unconditional, help: "Process ID of the one instance to read")
+    @Option(parsing: .unconditional, help: "Process ID of one running instance")
     var pid: pid_t?
 
     func validate() throws(ValidationError) {
@@ -148,8 +149,8 @@ struct Instance: ParsableArguments {
 
     func each<Value>(
         of applications: some Collection<String>,
-        output: Output,
-        _ read: @escaping @Sendable (NSRunningApplication) async -> Result<Value, ApplicationFailure>,
+        output: AsyncStream<(key: String, line: Line)>.Continuation,
+        _ read: @escaping @Sendable (_ id: String, _ instance: NSRunningApplication) async -> Result<Value, ApplicationFailure>,
         as line: (OrderedDictionary<NSRunningApplication, Value>) -> Line,
     ) async {
         for id: String in applications {
@@ -166,12 +167,12 @@ struct Instance: ParsableArguments {
                 } ?? .success(running)
             switch chosen {
                 case .success(let chosen):
-                    let reads: [(NSRunningApplication, Result<Value, ApplicationFailure>)] = await Array(chosen.async.map { instance in (instance, await read(instance)) })
+                    let reads: [(NSRunningApplication, Result<Value, ApplicationFailure>)] = await Array(chosen.async.map { instance in (instance, await read(id, instance)) })
                     let values: OrderedDictionary<NSRunningApplication, Value> = OrderedDictionary(
                         uniqueKeysWithValues: reads.compactMap { instance, read in read[case: \.success].map { value in (instance, value) } }
                     )
                     for failure: ApplicationFailure in reads.compactMap({ _, read in read[case: \.failure] }) { output.yield((id, .fail(failure.localizedDescription))) }
-                    if !values.isEmpty || values.count == reads.count { output.yield((id, line(values))) }
+                    if !values.isEmpty || reads.isEmpty { output.yield((id, line(values))) }
                 case .failure(let miss): output.yield((id, .fail(miss.localizedDescription)))
             }
         }
@@ -186,7 +187,7 @@ struct Watch: AsyncParsableCommand {
     @OptionGroup var installed: Installed
 
     func run() async throws {
-        try await WatchApps.run(installed.names) { applications, output in
+        await WatchApps.run(installed.names) { applications, output in
             guard !applications.isEmpty else { return }
             let names: [String] = Array(OrderedSet(applications.values.joined().map(\.name)))
             await withDiscardingTaskGroup { group in
@@ -232,29 +233,29 @@ struct Launch: AsyncParsableCommand {
     var hides: Bool = false
 
     @Option(
-        help: "File to open, one per flag",
+        help: ArgumentHelp("File to open, one per flag", valueName: "path"),
         transform: { path in
             let file: URL = URL(filePath: path)
-            do { _ = try file.checkResourceIsReachable() } catch { throw ValidationError("\(path) is no reachable file: \(error.localizedDescription)") }
+            do { _ = try file.checkResourceIsReachable() } catch { throw ValidationError("\(path) is unreachable: \(error.localizedDescription)") }
             return file
         },
     )
     var document: [URL] = []
 
-    @Option(parsing: .unconditionalSingleValue, help: "Command-line argument of new instance, one per flag")
+    @Option(parsing: .unconditionalSingleValue, help: ArgumentHelp("Command-line argument of new instance, one per flag", valueName: "argument"))
     var arguments: [String] = []
 
     @Option(
         help: "NAME=VALUE environment variable of new instance, one per flag",
         transform: { entry in
-            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) is no NAME=VALUE variable") }
+            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) lacks =") }
             return (String(entry[..<split]), String(entry[entry.index(after: split)...]))
         },
     )
     var environment: [(String, String)] = []
 
     func run() async throws {
-        try await WatchApps.run(installed.names) { applications, output in
+        await WatchApps.run(installed.names) { applications, output in
             await withDiscardingTaskGroup { group in
                 for (id, copies): (key: String, value: [Installation]) in applications {
                     group.addTask { await launch(id, among: copies, output: output) }
@@ -264,7 +265,7 @@ struct Launch: AsyncParsableCommand {
     }
 
     @MainActor
-    func launch(_ id: String, among copies: [Installation], output: Output) async {
+    func launch(_ id: String, among copies: [Installation], output: AsyncStream<(key: String, line: Line)>.Continuation) async {
         let running: Swift.Set<pid_t> = Swift.Set(NSWorkspace.shared.instances { instance in instance.bundleIdentifier == id }.map(\.processIdentifier))
         let launched: Result<NSRunningApplication, ApplicationFailure> = await Result { () async throws(ApplicationFailure) in
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
@@ -294,8 +295,8 @@ struct Read: AsyncParsableCommand {
     @OptionGroup var instance: Instance
 
     func run() async throws {
-        try await WatchApps.run(instance.installed.names) { applications, output in
-            await instance.each(of: applications.keys, output: output, { running in .success(await running.state(walking: { _ in true })) }, as: Line.states)
+        await WatchApps.run(instance.installed.names) { applications, output in
+            await instance.each(of: applications.keys, output: output, { _, running in .success(await running.state(walking: { _ in true })) }, as: Line.states)
         }
     }
 }
@@ -311,26 +312,26 @@ struct Capture: AsyncParsableCommand {
     var window: CGWindowID?
 
     @Option(
-        help: "Longest side in pixels, smaller captures keep native size",
+        help: ArgumentHelp("Longest side in pixels, smaller captures keep native size", valueName: "pixels"),
         transform: { pixels in
-            guard let side: Int = Int(pixels), side > 0 else { throw ValidationError("\(pixels) is no positive pixel count") }
+            guard let side: Int = Int(pixels), side > 0 else { throw ValidationError("\(pixels) is not a positive integer") }
             return side
         },
     )
     var longestSide: Int?
 
     func run() async throws {
-        try await WatchApps.run(instance.installed.names) { applications, output in
+        await WatchApps.run(instance.installed.names) { applications, output in
             await instance.each(of: applications.keys, output: output, capture, as: Line.captured)
         }
     }
 
-    func capture(_ running: NSRunningApplication) async -> Result<Screenshot, ApplicationFailure> {
+    func capture(_ id: String, _ running: NSRunningApplication) async -> Result<Screenshot, ApplicationFailure> {
         await Result { () async throws(ApplicationFailure) in
             let (shot, windows): (SCScreenshotOutput, [CGWindowID]) = try await running.screenshot(of: window, longestSide: longestSide)
             guard let image: CGImage = shot.sdrImage else { throw ApplicationFailure(subject: "capture of process \(running.processIdentifier)", reason: .absent("SDR image")) }
             let data: Data = try image.data(as: .png)
-            let file: URL = captures.appending(component: "\(running.bundleIdentifier ?? "")-\(running.processIdentifier).png")
+            let file: URL = captures.appending(component: ([id, String(running.processIdentifier)] + windows.map(String.init)).joined(separator: "-") + ".png")
             do {
                 try FileManager.default.createDirectory(at: captures, withIntermediateDirectories: true)
                 try data.write(to: file, options: .atomic)
@@ -346,14 +347,14 @@ struct Target: ParsableArguments {
     @Argument(
         help: "Element ID from read or watch line",
         transform: { id in
-            guard let element: Data = Data(base64Encoded: id), !element.isEmpty else { throw ValidationError("\(id) is no element ID") }
+            guard let element: Data = Data(base64Encoded: id), !element.isEmpty else { throw ValidationError("\(id) is not base64") }
             return element
         },
     )
-    var element: Data
+    var id: Data
 
-    func run(_ action: ElementAction) async throws {
-        try await WatchApps.run { output in
+    func run(_ action: ElementAction) async {
+        await WatchApps.run { output in
             if case .failure(let failure) = await Result(catching: { () async throws(ApplicationFailure) in try await action.perform() }) {
                 output.yield((action.element.base64EncodedString(), .fail(failure.localizedDescription)))
             }
@@ -372,7 +373,7 @@ struct Perform: AsyncParsableCommand {
     var action: String
 
     func run() async throws {
-        try await target.run(.perform(element: target.element, action: action))
+        await target.run(.perform(element: target.id, action: action))
     }
 }
 
@@ -387,6 +388,6 @@ struct Set: AsyncParsableCommand {
     var value: String
 
     func run() async throws {
-        try await target.run(.set(element: target.element, value: value))
+        await target.run(.set(element: target.id, value: value))
     }
 }

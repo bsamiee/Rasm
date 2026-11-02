@@ -37,7 +37,7 @@ struct LenientValues {
     }
 
     @Test
-    func wireRoundTripKeepsTheSpelling() async {
+    func wireRoundTripKeepsSpelling() async {
         let spellings: [String] = ["pro", "max-5x", "team", "", "\u{2028}", "Pro "]
         await propertyCheck(input: Gen.oneOf(Gen.element(of: spellings).compactMap(\.self), Gen.letterOrNumber.string(of: 0...8))) { text in
             let lenient: Lenient<Tier> = Lenient(rawValue: text)

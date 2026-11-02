@@ -36,7 +36,7 @@ private func delays(_ backoff: Backoff, seed: UInt64 = 1) -> [Duration] {
 
 struct Backoffs {
     @Test
-    func delaysGrowGeometricallyFromTheBase() {
+    func delaysGrowGeometricallyFromBase() {
         expectNoDifference(delays(Backoff(count: 5, base: .milliseconds(100))), [.milliseconds(100), .milliseconds(200), .milliseconds(400), .milliseconds(800), .milliseconds(1600)])
         expectNoDifference(delays(Backoff(count: 4, base: .seconds(1), growth: 1)), Array(repeating: .seconds(1), count: 4))
     }
@@ -55,7 +55,7 @@ struct Backoffs {
     }
 
     @Test
-    func jitterStretchesEachDelayWithinItsBoundsAndStaysUnderTheCap() async {
+    func jitterStretchesEachDelayWithinItsBoundsAndStaysUnderCap() async {
         let schedules: Generator<Schedule, some Sequence & SendableMetatype> = zip(
             Gen.int(in: 1...16),
             Gen.int64(in: 1...2_000),

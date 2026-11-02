@@ -1,6 +1,6 @@
 import { NodeCrypto, NodeRuntime } from '@effect/platform-node';
 import { SqliteClient } from '@effect/sql-sqlite-node';
-import { store } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
 import { s3 } from '@rasm/hosting';
 import { server } from '@rasm/hosting/node';
 import { Layer } from 'effect';
@@ -13,7 +13,7 @@ import { catalog } from '#/server/store/catalog';
 server(config.worker({ mode: 'production', isPreview: false }), (env) => ({
     routes: app(env.OWNER_EMAIL),
     services: Layer.mergeAll(
-        store(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })),
+        Catalog.layer(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })),
         s3(env.BUCKET),
         NodeCrypto.layer,
     ),

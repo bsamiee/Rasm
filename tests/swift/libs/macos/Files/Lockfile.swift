@@ -8,7 +8,7 @@ import Testing
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-private final class Ledger: Sendable {
+private final class Transitions: Sendable {
     let entries: Mutex<[String]> = Mutex([])
 
     func record(_ entry: String) {
@@ -42,52 +42,10 @@ private enum LockOutcome: LockFailure {
     }
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-private final class ManualClock: Clock, Sendable {
-    typealias Instant = ContinuousClock.Instant
-
-    let sleeps: AsyncStream<Void>
-    private let slept: AsyncStream<Void>.Continuation
-    private let state: Mutex<(now: Instant, sleepers: [UUID: (deadline: Instant, wake: CheckedContinuation<Void, any Error>)])> = Mutex((.now, [:]))
-
-    init() {
-        (sleeps, slept) = AsyncStream.makeStream()
-    }
-
-    var now: Instant { state.withLock(\.now) }
-
-    var minimumResolution: Duration { .zero }
-
-    func sleep(until deadline: Instant, tolerance: Duration?) async throws {
-        let id: UUID = UUID()
-        let cancel: @Sendable () -> Void = { [self] in state.withLock { state in state.sleepers.removeValue(forKey: id) }?.wake.resume(throwing: CancellationError()) }
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (wake: CheckedContinuation<Void, any Error>) in
-                state.withLock { state in state.sleepers[id] = (deadline, wake) }
-                slept.yield()
-                if Task.isCancelled { cancel() }
-                advance(by: .zero)
-            }
-        } onCancel: {
-            cancel()
-        }
-    }
-
-    func advance(by duration: Duration) {
-        let due: [CheckedContinuation<Void, any Error>] = state.withLock { state in
-            state.now = state.now.advanced(by: duration)
-            let now: Instant = state.now
-            return state.sleepers.filter { _, sleeper in sleeper.deadline <= now }.keys.compactMap { id in state.sleepers.removeValue(forKey: id)?.wake }
-        }
-        for wake: CheckedContinuation<Void, any Error> in due { wake.resume() }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func lockPath(_ name: String = "state.json.lock") throws -> URL {
-    try canonicalDirectory().appending(path: name)
+    try #require(TestDirectory.current).appending(path: name)
 }
 
 private func holdsDirectory(at url: URL) throws -> Bool {
@@ -101,7 +59,7 @@ private func touch(_ url: URL, at date: Date) throws {
     try target.setResourceValues(values)
 }
 
-private func plantLock(at url: URL, age: Duration) throws {
+private func createLock(at url: URL, age: Duration) throws {
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
     try touch(url, at: Date(timeIntervalSinceNow: -(age / .seconds(1))))
 }
@@ -111,7 +69,7 @@ private func plantLock(at url: URL, age: Duration) throws {
 @Suite(.testDirectory, .timeLimit(.minutes(1)))
 struct Lockfiles {
     @Test
-    func holdsADirectoryAtTheLockPathOnlyWhileTheBodyRuns() async throws {
+    func holdsDirectoryAtLockPathOnlyWhileBodyRuns() async throws {
         let lock: URL = try lockPath()
         let held: Bool = try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Result<Bool, any Error> in Result { try holdsDirectory(at: lock) } }.get()
         #expect(held)
@@ -119,7 +77,7 @@ struct Lockfiles {
     }
 
     @Test
-    func heldLockFailsASecondHolderWithoutRetry() async throws {
+    func heldLockFailsSecondHolderWithoutRetry() async throws {
         let lock: URL = try lockPath()
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Int in
@@ -145,21 +103,21 @@ struct Lockfiles {
     @Test
     func contendingHoldersRunOneAtATime() async throws {
         let lock: URL = try lockPath()
-        let ledger: Ledger = Ledger()
+        let transitions: Transitions = Transitions()
         let retry: Backoff = Backoff(count: 400, base: .milliseconds(5), growth: 1, jitter: 1)
         try await withThrowingTaskGroup(of: Void.self) { group in
             for holder: Int in 0..<8 {
                 group.addTask {
                     try await Lockfile.withLocks([Lockfile(lock, retry: retry)]) { () throws(LockOutcome) in
-                        ledger.record("enter \(holder)")
+                        transitions.record("enter \(holder)")
                         await Task.yield()
-                        ledger.record("leave \(holder)")
+                        transitions.record("leave \(holder)")
                     }
                 }
             }
             try await group.waitForAll()
         }
-        let entries: [String] = ledger.entries.withLock(\.self)
+        let entries: [String] = transitions.entries.withLock(\.self)
         let alternating: [String] = entries.indices.map { index in index.isMultiple(of: 2) ? entries[index] : "leave" + entries[index - 1].dropFirst(5) }
         let entered: Set<String> = Set(entries.filter { entry in entry.hasPrefix("enter") })
         expectNoDifference(entries, alternating)
@@ -171,7 +129,7 @@ struct Lockfiles {
     @Test
     func staleLockIsTakenOver() async throws {
         let lock: URL = try lockPath()
-        try plantLock(at: lock, age: .seconds(60))
+        try createLock(at: lock, age: .seconds(60))
         let value: Int = try await Lockfile.withLocks([Lockfile(lock, stale: .seconds(10))]) { () throws(LockOutcome) -> Int in 7 }
         expectNoDifference(value, 7)
         #expect(try !holdsDirectory(at: lock))
@@ -180,7 +138,7 @@ struct Lockfiles {
     @Test
     func staleThresholdBelowTwoSecondsCountsAsTwoSeconds() async throws {
         let lock: URL = try lockPath()
-        try plantLock(at: lock, age: .milliseconds(500))
+        try createLock(at: lock, age: .milliseconds(500))
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks([Lockfile(lock, stale: .zero)]) { () throws(LockOutcome) -> Int in 1 }
         }
@@ -189,20 +147,15 @@ struct Lockfiles {
     }
 
     @Test
-    func heartbeatAdvancesTheModificationDateWhileHeld() async throws {
+    func heartbeatAdvancesModificationDateWhileHeld() async throws {
         let lock: URL = try lockPath()
-        let clock: ManualClock = ManualClock()
-        let reads: [Result<Date?, any Error>] = try await Lockfile.withLocks([Lockfile(lock, stale: .seconds(2))], clock: clock) {
-            () throws(LockOutcome) -> [Result<Date?, any Error>] in
-            func modified(_ url: URL) throws -> Date? {
-                try URL(filePath: url.path(percentEncoded: false)).resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-            }
-            var sleeps: AsyncStream<Void>.Iterator = clock.sleeps.makeAsyncIterator()
-            await sleeps.next()
-            let first: Result<Date?, any Error> = Result { try modified(lock) }
-            clock.advance(by: .seconds(1))
-            await sleeps.next()
-            return [first, Result { try modified(lock) }]
+        let modified: @Sendable () throws -> Date? = {
+            try URL(filePath: lock.path(percentEncoded: false)).resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        }
+        let reads: [Result<Date?, any Error>] = try await Lockfile.withLocks([Lockfile(lock, stale: .seconds(2))]) { () throws(LockOutcome) -> [Result<Date?, any Error>] in
+            let first: Result<Date?, any Error> = Result { try modified() }
+            _ = await FileEvent.events(of: lock).dropFirst().first { _ in true }
+            return [first, Result { try modified() }]
         }
         let dates: [Date] = try reads.compactMap { read in try read.get() }
         expectNoDifference(dates.count, 2)
@@ -211,7 +164,7 @@ struct Lockfiles {
     }
 
     @Test
-    func changedModificationDateCompromisesTheLockAndCancelsTheBody() async throws {
+    func changedModificationDateCompromisesLockAndCancelsBody() async throws {
         let lock: URL = try lockPath()
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks([Lockfile(lock, stale: .seconds(2))]) { () throws(LockOutcome) -> Int in
@@ -224,7 +177,7 @@ struct Lockfiles {
     }
 
     @Test
-    func bodyFailurePropagatesAndReleasesTheLock() async throws {
+    func bodyFailurePropagatesAndReleasesLock() async throws {
         let lock: URL = try lockPath()
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Int in throw .body(7) }
@@ -234,7 +187,7 @@ struct Lockfiles {
     }
 
     @Test
-    func canceledRetryWaitThrowsTheCancelledCase() async throws {
+    func canceledRetryWaitThrowsCancelledCase() async throws {
         let lock: URL = try lockPath()
         let retry: Backoff = Backoff(count: 100, base: .seconds(1), growth: 1)
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
@@ -259,9 +212,9 @@ struct Lockfiles {
     }
 
     @Test
-    func oneHeldLockReleasesTheOthersAlreadyAcquired() async throws {
+    func oneHeldLockReleasesOthersAlreadyAcquired() async throws {
         let locks: [URL] = try ["a.lock", "b.lock", "c.lock"].map(lockPath)
-        try plantLock(at: locks[1], age: .zero)
+        try createLock(at: locks[1], age: .zero)
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks(locks.map { lock in Lockfile(lock) }) { () throws(LockOutcome) -> Int in 1 }
         }

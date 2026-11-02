@@ -26,7 +26,7 @@ Claude stores are Claude Code config directories, each with an account file and 
 - Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
 - Refresh holds the three locks on its store, re-reads it, and adopts any token another process wrote
 - Switch holds the three locks on every store it touches and runs no `claude` child or HTTP request inside
-- Switch records its target after reading every store it moves, a failed move and launch settle a recorded switch
+- Switch records its target after reading every store it moves, a failed move and launch finish a recorded switch
 - Outside sign-ins replace the shared credential, Relay saves the credential its last selection read into the outgoing private store
 - Token endpoint returns 429 to User-Agents other than Claude Code's and axios's, requests send the installed `claude` version's
 - `/api/oauth/usage` allows one read per account every 3 to 5 minutes, each account holds its next permitted read time

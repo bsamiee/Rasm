@@ -18,8 +18,8 @@ private let bundles: [(info: [String: any Sendable], line: String, prohibited: B
         #"{"identifier":"dev.rasm.installation.full","name":"Full","version":"1.2.3","scriptable":true,"scriptingDefinitionFile":"Full.sdef","agent":true}"#, true,
     ),
     (
-        ["CFBundleIdentifier": "dev.rasm.installation.bare", "CFBundleName": "Bare"],
-        #"{"identifier":"dev.rasm.installation.bare","name":"Bare","scriptable":false,"agent":false}"#, false,
+        ["CFBundleIdentifier": "dev.rasm.installation.defaults", "CFBundleName": "Defaults"],
+        #"{"identifier":"dev.rasm.installation.defaults","name":"Defaults","scriptable":false,"agent":false}"#, false,
     ),
     (
         ["CFBundleIdentifier": "dev.rasm.installation.spelled", "CFBundleName": "Spelled", "NSAppleScriptEnabled": "Yes", "OSAScriptingDefinition": "Spelled.sdef"],
@@ -53,7 +53,7 @@ struct Installations {
         .testDirectory,
         arguments: bundles,
     )
-    func installationReadsTheBundleInfo(info: [String: any Sendable], line: String, prohibited: Bool) throws {
+    func installationReadsBundleInfo(info: [String: any Sendable], line: String, prohibited: Bool) throws {
         let name: String = try #require(info["CFBundleName"] as? String)
         let url: URL = try bundle(named: name, in: "Applications", info: info)
         let installation: Installation = try Installation(at: url)
@@ -73,11 +73,11 @@ struct Installations {
         let directory: URL = try #require(TestDirectory.current).appending(component: "Empty.app", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let failure: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try Installation(at: directory) }
-        #expect(failure.subject.contains("Empty.app"), "subject \(failure.subject) names the rejected folder")
+        #expect(failure.subject.contains("Empty.app"), "subject \(failure.subject) names rejected folder")
     }
 
     @Test(.testDirectory)
-    func singleInstallationOfAnIdentifierResolvesAndAmbiguityNamesEachPath() throws {
+    func singleInstallationOfIdentifierResolvesAndAmbiguityNamesEachPath() throws {
         let info: [String: Any] = ["CFBundleIdentifier": "dev.rasm.installation.twice", "CFBundleName": "Twice"]
         let first: Installation = try Installation(at: try bundle(named: "Twice", in: "First", info: info))
         let second: Installation = try Installation(at: try bundle(named: "Twice", in: "Second", info: info))
@@ -86,7 +86,7 @@ struct Installations {
         let missing: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try Installation.single(of: "dev.rasm.installation.twice", among: [other]) }
         let absent: Unmatched = try #require(missing.reason[case: \.unmatched])
         let named: Bool = absent.subject.hasSuffix("dev.rasm.installation.twice")
-        #expect(named, "subject \(absent.subject) names the identifier")
+        #expect(named, "subject \(absent.subject) names identifier")
         let ambiguous: ApplicationFailure = try #require(throws: ApplicationFailure.self) {
             try Installation.single(of: "dev.rasm.installation.twice", among: [first, second, other])
         }

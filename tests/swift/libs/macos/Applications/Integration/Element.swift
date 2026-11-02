@@ -9,6 +9,10 @@ import Testing
 
 @testable import AppKitFixture
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let alertControls: Set<String> = ["action-button-1", "action-button-2"]
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func actions(of controls: [Control]) -> [String] {
@@ -19,11 +23,11 @@ private func titled(_ title: String, in elements: [Element]) throws -> Element {
     try #require(elements.first { element in element.title == title }, "window \(title) in \(elements.compactMap(\.title))")
 }
 
-private func answered(_ instance: NSRunningApplication, by scenario: Scenario) async throws -> Element {
+private func asked(_ instance: NSRunningApplication, by scenario: Scenario, showing controls: Set<String>) async throws -> Element {
     let seen: [Observed] = try await observe(
         instance,
         within: .seconds(15),
-        until: { seen in seen.last?.state.elements.contains(where: \.requiresAnswer) == true },
+        until: { seen in controls.isSubset(of: seen.last?.state.asking?.detail?.controls.compactMap(\.identifier) ?? []) },
         acting: { try await run(scenario, in: instance) },
     )
     return try #require(seen.last?.state.asking)
@@ -44,8 +48,8 @@ private func dismissed(_ instance: NSRunningApplication, pressing control: Contr
 extension Integration {
     @Suite
     struct Elements {
-        @Test(.application(FixtureApplication.self, launches: false, answering: answerCrashAlert))
-        func windowCarriesItsDocumentEditedStateAndControls() async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func windowHoldsItsDocumentEditedStateAndControls() async throws {
             let document: URL = URL.libraryDirectory.appending(component: "Rasm Applications Document.txt")
             let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings(document: document, hidden: true))
             let elements: [Element] = try await read(instance)
@@ -55,7 +59,7 @@ extension Integration {
             let hiddenSubrole: Bool = [kAXStandardWindowSubrole, kAXDialogSubrole].contains(window.subrole)
             #expect(hiddenSubrole, "hidden window subrole \(window.subrole ?? "absent")")
             let numbered: Bool = window.window != nil
-            #expect(numbered, "a window carries its CoreGraphics window number")
+            #expect(numbered, "window holds its CoreGraphics window number")
             let detail: Element.Detail = try #require(window.detail)
             expectNoDifference(detail.frame?.size.width, 400)
             expectNoDifference(Set(detail.text), ["idle", "Fixture 0"])
@@ -76,8 +80,8 @@ extension Integration {
             expectNoDifference(try shape(edited, dropping: ["id", "window", "detail", "modal", "subrole"]), try json(outline.replacing(#""edited":false"#, with: #""edited":true"#)))
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func popUpButtonListsTheItemsOfTheMenuItOpens() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func popUpButtonListsItemsOfMenuItOpens() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let window: Element = try titled("Fixture 0", in: try await read(instance))
             let popUp: Control = try #require(window.detail?.controls.first { control in control.role == kAXPopUpButtonRole })
@@ -88,8 +92,8 @@ extension Integration {
             try await ElementAction.perform(element: try #require(open?.items?.first).id, action: kAXCancelAction).perform()
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func menuBarListsLabeledItemsWithoutTheAppleMenu() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func menuBarListsLabeledItemsWithoutAppleMenu() async throws {
             let (installation, instance): (Installation, NSRunningApplication) = try await launched()
             let elements: [Element] = try await read(instance)
             let bar: Element = try #require(elements.first { element in element.role == kAXMenuBarRole })
@@ -105,10 +109,10 @@ extension Integration {
             #expect(quits, "application menu offers Quit")
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func sheetAlertRequiresAnAnswerAndItsIdsGoStaleOnceClosed() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func sheetAlertRequiresAnswerAndItsIdsGoStaleOnceClosed() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let sheet: Element = try await answered(instance, by: .sheet)
+            let sheet: Element = try await asked(instance, by: .sheet, showing: alertControls)
             expectNoDifference(try shape(sheet), try json(#"{"role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"requiresAnswer":true}"#))
             expectNoDifference(sheet.detail?.text, ["Sheet alert", "sheet"])
             expectNoDifference(try sheet.detail.map { detail in Set(try detail.controls.map { control in try shape(control) }) }, try alertButtons())
@@ -119,10 +123,10 @@ extension Integration {
             #expect(absent, "stale id failed \(stale.reason): \(stale.localizedDescription)")
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func appModalAlertRequiresAnAnswerUntilPressed() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func appModalAlertRequiresAnswerUntilPressed() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let modal: Element = try await answered(instance, by: .modal)
+            let modal: Element = try await asked(instance, by: .modal, showing: alertControls)
             expectNoDifference(
                 try shape(modal),
                 try json(#"{"role":"AXWindow","subrole":"AXDialog","modal":true,"identifier":"_NS:87","description":"alert","minimized":false,"actions":[],"requiresAnswer":true}"#),
@@ -132,10 +136,10 @@ extension Integration {
             try await dismissed(instance, pressing: try #require(modal.detail?.controls.first { control in control.identifier == "action-button-1" }))
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func savePanelSheetNamesItsButtonsWithoutDefaultOrCancelAttributes() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let sheet: Element = try await answered(instance, by: .saveSheet)
+            let sheet: Element = try await asked(instance, by: .saveSheet, showing: ["OKButton", "CancelButton"])
             expectNoDifference(try shape(sheet, dropping: ["id", "window", "detail", "description"]), try json(#"{"role":"AXSheet","identifier":"save-panel","actions":[],"requiresAnswer":true}"#))
             let buttons: [Control] = try #require(sheet.detail?.controls.filter { control in ["OKButton", "CancelButton"].contains(control.identifier) })
             expectNoDifference(Set(buttons.compactMap(\.identifier)), ["OKButton", "CancelButton"])
@@ -143,31 +147,32 @@ extension Integration {
             try await dismissed(instance, pressing: try #require(buttons.first { control in control.identifier == "CancelButton" }))
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func systemDialogSubroleRequiresAnAnswer() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func systemDialogSubroleRequiresAnswer() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            try await run(.systemDialog, in: instance)
-            let dialog: Element = try titled("System dialog", in: try await read(instance))
+            let dialog: Element = try await asked(instance, by: .systemDialog, showing: ["dismiss"])
             expectNoDifference(
                 try shape(dialog, dropping: ["id", "window", "detail", "modal"]),
                 try json(#"{"role":"AXWindow","subrole":"AXSystemDialog","title":"System dialog","minimized":false,"actions":[],"requiresAnswer":true}"#),
             )
-            let dismiss: Control = try #require(dialog.detail?.controls.first { control in control.label == "Dismiss" })
-            try await ElementAction.perform(element: dismiss.id, action: kAXPressAction).perform()
-            let remaining: [Element] = try await read(instance)
-            expectNoDifference(remaining.filter(\.requiresAnswer).map(\.role), [])
+            try await dismissed(instance, pressing: try #require(dialog.detail?.controls.first { control in control.identifier == "dismiss" }))
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func floatingPanelRequiresNoAnswer() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            try await run(.floatingPanel, in: instance)
-            let panel: Element = try titled("Floating panel", in: try await read(instance))
+            let seen: [Observed] = try await observe(
+                instance,
+                within: .seconds(15),
+                until: { seen in seen.last?.state.elements.contains { element in element.title == "Floating panel" } == true },
+                acting: { try await run(.floatingPanel, in: instance) },
+            )
+            let panel: Element = try titled("Floating panel", in: try #require(seen.last).state.elements)
             let line: String = #"{"role":"AXWindow","subrole":"AXFloatingWindow","title":"Floating panel","minimized":false,"actions":[],"requiresAnswer":false}"#
             expectNoDifference(try shape(panel, dropping: ["id", "window", "detail", "modal"]), try json(line))
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func tableWalkReadsItsVisibleRowsAlone() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             try await run(.table, in: instance)

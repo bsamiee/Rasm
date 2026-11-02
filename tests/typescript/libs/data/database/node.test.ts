@@ -4,7 +4,6 @@ import { SqliteClient } from '@effect/sql-sqlite-node';
 import { describe, inject, it, layer } from '@effect/vitest';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
-import type { transforms } from '@rasm/database';
 import { parsers } from '@rasm/database/pg';
 import { Effect, FileSystem, Layer, Path } from 'effect';
 import { cases } from '#/tests/typescript/libs/data/database/cases';
@@ -19,7 +18,7 @@ declare module 'vitest' {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const plans = { directory: [inject('artifacts'), 'sql', 'postgres'], separator: /[^a-z0-9]+/gu };
+const plans = [inject('artifacts'), 'sql', 'postgres'] as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -33,7 +32,7 @@ layer(
     Layer.effectDiscard(
         Effect.gen(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const folder = path.join(...plans.directory);
+            const folder = path.join(...plans);
             yield* fs.remove(folder, { recursive: true, force: true });
             yield* fs.makeDirectory(folder, { recursive: true });
         }),
@@ -41,11 +40,11 @@ layer(
 )('pglite', (methods) =>
     cases(
         methods,
-        (options: typeof transforms) => PgliteClient.layer({ dataDir: 'memory://', extensions: { pg_trgm, unaccent }, ...options, parsers }),
+        (options) => PgliteClient.layer({ dataDir: 'memory://', extensions: { pg_trgm, unaccent }, ...options, parsers }),
         Effect.fnUntraced(function* (title, { preamble, statements, concurrent }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const text = ['BEGIN', ...preamble, ...statements, 'COMMIT', ...concurrent].map((statement) => `${statement};\n`).join('');
-            yield* fs.writeFileString(path.join(...plans.directory, `${title.toLowerCase().replaceAll(plans.separator, '-')}.sql`), text, { flag: 'a' });
-        }, Effect.orDie),
+            yield* fs.writeFileString(path.join(...plans, `${title.toLowerCase().replaceAll(/[^a-z0-9]+/gu, '-')}.sql`), text, { flag: 'a' });
+        }),
     ),
 );

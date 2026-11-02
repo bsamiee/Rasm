@@ -1,3 +1,4 @@
+import CasePaths
 import CustomDump
 import Foundation
 import Subprocess
@@ -9,7 +10,7 @@ import WatchAppsWire
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension HostSession {
+extension Integration {
     struct Resolution {
         @Test(.application(FixtureApplication.self, launches: false))
         func displayNameResolvesToLinesKeyedByBundleID() async throws {
@@ -50,7 +51,7 @@ extension HostSession {
                     )
                     let failures: [WatchAppsLine] = refused.lines.filter { line in line.key != "system" }
                     expectNoDifference(failures.map(\.key), [first.name])
-                    let reason: String = try #require(failures.first?.reason)
+                    let reason: String = try #require(failures.first?.entry.fail)
                     let unlisted: [String] = [first.identifier, second.identifier].filter { identifier in !reason.contains(identifier) }
                     expectNoDifference(unlisted, [], "\(reason)")
                     expectNoDifference(refused.status, .exited(1))
@@ -65,17 +66,17 @@ extension HostSession {
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
-        func unknownNameFailsWhileWatchFollowsTheOthers() async throws {
+        func unknownNameFailsWhileWatchFollowsOthers() async throws {
             let fixture: Fixture = try Fixture()
             let absent: String = "dev.rasm.absent.\(fixture.identifier)"
             let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([absent, fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 return pid
             }
             let transcript: [WatchAppsLine] = watched.lines.map(\.line)
-            let failed: [Bool] = transcript.filter { line in line.key == absent }.map { line in line.reason != nil }
+            let failed: [Bool] = transcript.filter { line in line.key == absent }.map { line in line.entry.fail != nil }
             let start: WatchAppsLine.Entry? = transcript.first { line in line.key == fixture.identifier }?.entry
             let end: [Phase] = phases(of: watched.outcome, in: Array(transcript.suffix(1)))
             expectNoDifference(failed, [true])

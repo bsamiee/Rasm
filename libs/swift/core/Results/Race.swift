@@ -25,7 +25,7 @@ private func race<Value: Sendable, Failure: Error>(
         group.addTask(name: "rival") { await rival() }
         defer { group.cancelAll() }
         for await case let outcome? in group { return outcome }
-        preconditionFailure("A group holding the work yields its outcome")
+        preconditionFailure("Task group ended without a work outcome")
     }
     .get()
 }

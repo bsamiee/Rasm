@@ -113,7 +113,7 @@ extension AXUIElement {
     func actionNames() throws(ApplicationFailure) -> [String] {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
-            case .success: (names as? [String] ?? []).filter { action in !ElementAction.activating.contains(action) }
+            case .success: (names as? [String] ?? []).filter { action in action != kAXRaiseAction }
             case .failure, .invalidUIElement: []
             case let error: throw failure(error, reading: ["AXUIElementCopyActionNames"])
         }

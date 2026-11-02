@@ -9,6 +9,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
     private struct Header: Decodable {
         let bugType: String
         let bundleID: String?
+        let isSimulated: Int?
     }
 
     private struct Body: Decodable {
@@ -32,7 +33,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let header: Header = try decoder.decode(Header.self, from: data.prefix { byte in byte != UInt8(ascii: "\n") })
-        guard header.bugType == "309" else { return nil }
+        guard header.bugType == "309", header.isSimulated != 1 else { return nil }
         let body: Body = try decoder.decode(Body.self, from: data.drop { byte in byte != UInt8(ascii: "\n") }.dropFirst())
         self.url = url
         pid = body.pid
@@ -64,12 +65,8 @@ extension CrashReport {
         return await Result { () async throws(ApplicationFailure) in
             try await withTimeout(limit, expired: ApplicationFailure(subject: subject, reason: .absent("crash report within \(limit)")), clock: clock) { () async throws(ApplicationFailure) in
                 for await change: Result<[FileEvent], FileFailure> in FileEvent.events(of: directory) {
-                    let files: [URL] =
-                        switch change {
-                            case .success(let batch) where batch.isEmpty: listing(directory, since: launch).files
-                            case .success(let batch): batch.map(\.url).filter { url in url.pathExtension == "ips" && !url.lastPathComponent.hasPrefix(".") }
-                            case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
-                        }
+                    if case .failure(let failure) = change { throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure)) }
+                    let files: [URL] = listing(directory, since: launch).files
                     if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }
                 }
                 throw ApplicationFailure(subject: "crash report of \(subject)", reason: .cancelled(CancellationError()))

@@ -1,4 +1,5 @@
 import AppKit
+import CasePaths
 import CustomDump
 import ImageIO
 import Subprocess
@@ -25,10 +26,12 @@ private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) asy
         arguments: ["capture", fixture.identifier, "--pid", String(pid)] + flags,
         as: WatchAppsLine.self,
     )
-    let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.instances)
+    let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.entry.instances)
     let capture: WatchAppsLine.Capture = try #require(instances[pid]?.captured)
     let temporary: String = try #require(ProcessInfo.processInfo.environment["TMPDIR"])
-    let expected: String = URL(filePath: temporary).appending(components: "watch-apps", "\(fixture.identifier)-\(pid).png").resolvingSymlinksInPath().path(percentEncoded: false)
+    let parts: [String] = [fixture.identifier, String(pid)] + capture.windows.map { window in String(window) }
+    let named: String = parts.joined(separator: "-") + ".png"
+    let expected: String = URL(filePath: temporary).appending(components: "watch-apps", named).resolvingSymlinksInPath().path(percentEncoded: false)
     let file: URL = URL(filePath: capture.file)
     let written: String = file.resolvingSymlinksInPath().path(percentEncoded: false)
     let source: CGImageSource = try #require(CGImageSourceCreateWithURL(file as CFURL, nil))
@@ -72,7 +75,7 @@ private func mismatches(in bitmap: NSBitmapImageRep, cell: NSRect, below bar: CG
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension HostSession {
+extension Integration {
     struct Captures {
         @MainActor
         @Test(.application(FixtureApplication.self, launches: false))
@@ -80,7 +83,7 @@ extension HostSession {
             let fixture: Fixture = try Fixture()
             let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.swatch, in: fixture, pid: pid)
                 _ = try await lines.next { line in line.elements(of: pid)?.titled("Swatch") != nil }
                 return pid
@@ -128,7 +131,7 @@ extension HostSession {
             _ = try await watching([fixture.identifier], within: .seconds(15)) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 try await perform(quit)
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .exited }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
             }
         }
 
@@ -146,7 +149,7 @@ extension HostSession {
             let fixture: Fixture = try Fixture()
             let pid: Int32 = try await launch(fixture).pid
             _ = try await watching([fixture.identifier], within: .seconds(10)) { lines in
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.minimize, in: fixture, pid: pid)
                 _ = try await lines.next { line in line.elements(of: pid)?.titled("Fixture 0")?.subrole != "AXStandardWindow" }
             }

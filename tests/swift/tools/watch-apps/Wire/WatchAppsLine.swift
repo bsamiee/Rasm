@@ -1,3 +1,4 @@
+public import CasePaths
 public import CoreGraphics
 public import Foundation
 
@@ -17,6 +18,8 @@ private struct FieldKey: CodingKey {
 }
 
 public struct WatchAppsLine: Decodable, Equatable, Sendable {
+    @CasePathable
+    @dynamicMemberLookup
     public enum Entry: Equatable, Sendable {
         case fail(reason: String)
         case system(memory: MemoryPressure, thermal: ThermalState)
@@ -107,10 +110,10 @@ extension WatchAppsLine {
     }
 
     public struct Unreadable: Decodable, Equatable, Sendable {
-        public let reads: String?
+        public let reads: [String]
         public let role: String?
         public let label: String?
-        public let error: Scalar?
+        public let error: Int32
     }
 
     public struct Detail: Decodable, Equatable, Sendable {
@@ -145,6 +148,8 @@ extension WatchAppsLine {
         public let threads: Int
     }
 
+    @CasePathable
+    @dynamicMemberLookup
     public enum Status: Decodable, Equatable, Sendable {
         case launching
         case responding(elements: [Element])
@@ -197,6 +202,8 @@ extension WatchAppsLine {
         public let windows: [Int]
     }
 
+    @CasePathable
+    @dynamicMemberLookup
     public enum Instance: Decodable, Equatable, Sendable {
         case running(Running)
         case failed(reason: String)

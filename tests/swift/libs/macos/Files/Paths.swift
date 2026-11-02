@@ -8,10 +8,6 @@ import Testing
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-func canonicalDirectory() throws -> URL {
-    try #require(TestDirectory.current).canonical()
-}
-
 private func kernelPath(of url: URL) throws -> String {
     let descriptor: FileDescriptor = try FileDescriptor.open(FilePath(url.path(percentEncoded: false)), .readOnly)
     return try descriptor.closeAfter {
@@ -29,15 +25,15 @@ private func kernelPath(of url: URL) throws -> String {
 @Suite(.testDirectory)
 struct CanonicalPaths {
     @Test
-    func resolvesTheTemporaryDirectoryToTheKernelPath() throws {
+    func resolvesTemporaryDirectoryToKernelPath() throws {
         let canonical: String = try URL.temporaryDirectory.canonical().path(percentEncoded: false)
         expectNoDifference(canonical, try kernelPath(of: URL.temporaryDirectory))
         #expect(!URL.temporaryDirectory.path(percentEncoded: false).hasPrefix(canonical))
     }
 
     @Test
-    func resolvesEveryLinkInAChainAndEachDotDotComponent() throws {
-        let directory: URL = try canonicalDirectory()
+    func resolvesEveryLinkInChainAndEachDotDotComponent() throws {
+        let directory: URL = try #require(TestDirectory.current)
         let target: URL = directory.appending(path: "Café Menu.txt")
         try Data("menu".utf8).write(to: target)
         try FileManager.default.createDirectory(at: directory.appending(path: "nested"), withIntermediateDirectories: false)
@@ -50,8 +46,8 @@ struct CanonicalPaths {
     }
 
     @Test
-    func canonicalPathIsAFixedPoint() throws {
-        let directory: URL = try canonicalDirectory()
+    func canonicalPathIsFixedPoint() throws {
+        let directory: URL = try #require(TestDirectory.current).canonical()
         expectNoDifference(try directory.canonical().path(percentEncoded: false), directory.path(percentEncoded: false))
         let temporary: URL = try URL.temporaryDirectory.canonical()
         expectNoDifference(try temporary.canonical().path(percentEncoded: false), temporary.path(percentEncoded: false))
@@ -59,13 +55,13 @@ struct CanonicalPaths {
 
     @Test
     func missingPathThrowsNoSuchFile() throws {
-        let missing: URL = try canonicalDirectory().appending(path: "absent/child")
+        let missing: URL = try #require(TestDirectory.current).appending(path: "absent/child")
         #expect(throws: Errno.noSuchFileOrDirectory) { try missing.canonical() }
     }
 
     @Test
     func danglingLinkThrowsNoSuchFile() throws {
-        let link: URL = try canonicalDirectory().appending(path: "dangling")
+        let link: URL = try #require(TestDirectory.current).appending(path: "dangling")
         try FileManager.default.createSymbolicLink(atPath: link.path(percentEncoded: false), withDestinationPath: "nowhere")
         #expect(throws: Errno.noSuchFileOrDirectory) { try link.canonical() }
     }
@@ -75,7 +71,7 @@ struct CanonicalPaths {
 struct PresentReads {
     @Test
     func missingFileReadsAsNil() throws {
-        let missing: URL = try canonicalDirectory().appending(path: "absent.json")
+        let missing: URL = try #require(TestDirectory.current).appending(path: "absent.json")
         expectNoDifference(try ifPresent { try Data(contentsOf: missing) }, nil)
         expectNoDifference(try ifPresent { try FileManager.default.attributesOfItem(atPath: missing.path(percentEncoded: false)).count }, nil)
         expectNoDifference(try ifPresent { try FileManager.default.contentsOfDirectory(at: missing, includingPropertiesForKeys: nil) }, nil)
@@ -85,14 +81,14 @@ struct PresentReads {
 
     @Test
     func presentFileReadsItsValue() throws {
-        let file: URL = try canonicalDirectory().appending(path: "present.json")
+        let file: URL = try #require(TestDirectory.current).appending(path: "present.json")
         try Data("{}".utf8).write(to: file)
         expectNoDifference(try ifPresent { try Data(contentsOf: file) }, Data("{}".utf8))
     }
 
     @Test
     func otherFailuresPropagateUnchanged() throws {
-        let file: URL = try canonicalDirectory().appending(path: "locked.json")
+        let file: URL = try #require(TestDirectory.current).appending(path: "locked.json")
         try Data("{}".utf8).write(to: file)
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path(percentEncoded: false))
         let denied: CocoaError? = #expect(throws: CocoaError.self) { try ifPresent { try Data(contentsOf: file) } }

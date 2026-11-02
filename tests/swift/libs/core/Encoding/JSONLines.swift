@@ -45,7 +45,7 @@ struct JSONLines {
     }
 
     @Test
-    func splitMatchesTheReferenceOverArbitraryBytes() async {
+    func splitMatchesReferenceOverArbitraryBytes() async {
         await propertyCheck(input: Gen.element(of: lineBytes).compactMap(\.self).array(of: 0...24).array(of: 0...10), Gen.bool) { pieces, terminated in
             let content: [UInt8] = Array(pieces.joined(separator: [0x0A])) + (terminated ? [0x0A] : [])
             let split: [[UInt8]] = content.split(separator: 0x0A, omittingEmptySubsequences: false).map(Array.init)
@@ -66,7 +66,7 @@ struct JSONLines {
     }
 
     @Test
-    func encodeLineAppendsOneLineFeedToTheEncoderOutput() async {
+    func encodeLineAppendsOneLineFeedToEncoderOutput() async {
         let encoder: JSONEncoder = sortedEncoder()
         await propertyCheck(input: jsonValues()) { value in
             let line: Data = try encoder.encodeLine(value)
@@ -76,7 +76,7 @@ struct JSONLines {
     }
 
     @Test
-    func deliversCompleteLinesThenTheUpstreamFailure() async throws {
+    func deliversCompleteLinesThenUpstreamFailure() async throws {
         let (stream, continuation): (AsyncThrowingStream<UInt8, any Error>, AsyncThrowingStream<UInt8, any Error>.Continuation) = AsyncThrowingStream<UInt8, any Error>.makeStream()
         for byte: UInt8 in Array("a\nb\nc".utf8) { continuation.yield(byte) }
         continuation.finish(throwing: Interruption.closed)

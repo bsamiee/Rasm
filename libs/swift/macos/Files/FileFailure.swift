@@ -25,7 +25,7 @@ public struct FileFailure: CustomNSError, LocalizedError {
             case .unwatched: "FSEvents stream on \(subject) failed to start"
             case .held: "\(subject) is held"
             case .compromised: "\(subject) changed while held"
-            case .filesystem(let error): "File operation on \(subject) failed. \(error.localizedDescription)"
+            case .filesystem(let error): "\(subject): \(error.localizedDescription)"
         }
     }
 

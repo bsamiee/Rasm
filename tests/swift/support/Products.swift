@@ -32,7 +32,7 @@ public func jsonLines<Line: Decodable>(
     let result: (standardOutput: String, status: TerminationStatus, standardError: String) = try await output(of: executable, arguments: arguments, limit: limit)
     let decoder: JSONDecoder = JSONDecoder()
     do {
-        let lines: [Line] = try result.standardOutput.split(whereSeparator: \.isNewline).map { line in try decoder.decode(Line.self, from: Data(line.utf8)) }
+        let lines: [Line] = try result.standardOutput.split(separator: "\n").map { line in try decoder.decode(Line.self, from: Data(line.utf8)) }
         return (lines, result.status, result.standardError)
     } catch let failure as DecodingError {
         throw TestFailure(subject: ([executable.description] + arguments).joined(separator: " "), reason: .undecodable(failure))

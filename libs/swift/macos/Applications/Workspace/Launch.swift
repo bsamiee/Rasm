@@ -1,6 +1,8 @@
 public import AppKit
+import AsyncAlgorithms
 import Carbon.OpenScripting
-import Combine
+import Processes
+import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -40,11 +42,16 @@ extension NSWorkspace {
 
 extension NSRunningApplication {
     public func finishedLaunching() async throws(ApplicationFailure) {
-        let finished: Bool? = await publisher(for: \.isFinishedLaunching).combineLatest(publisher(for: \.isTerminated)).compactMap { done, gone in done || gone ? done : nil }
-            .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values.first { _ in true }
-        switch finished {
-            case true?: return
-            case false?: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
+        let (launches, launch): (AsyncStream<Result<Bool, Errno>>, AsyncStream<Result<Bool, Errno>>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingOldest(1))
+        let observation: NSKeyValueObservation = observe(\.isFinishedLaunching, options: [.initial, .new]) { _, change in
+            if change.newValue == true { launch.yield(.success(true)) }
+        }
+        defer { observation.invalidate() }
+        let exits: some AsyncSequence<Result<Bool, Errno>, Never> & Sendable = termination(of: processIdentifier).map { exit in exit.map { _ in false } }
+        switch await merge(launches, exits).first(where: { _ in true }) {
+            case .success(true): return
+            case .success(false): throw ApplicationFailure(.noSuchProcess, process: processIdentifier)
+            case .failure(let error): throw ApplicationFailure(error, process: processIdentifier)
             case nil: throw ApplicationFailure(subject: "launch of process \(processIdentifier)", reason: .cancelled(CancellationError()))
         }
     }

@@ -14,6 +14,11 @@ public struct ExitDetail: OptionSet, Sendable {
     public init(rawValue: Int32) { self.rawValue = rawValue }
 }
 
+public struct ProcessExit: Equatable, Sendable {
+    public let status: TerminationStatus
+    public let detail: ExitDetail
+}
+
 extension TerminationStatus {
     init(waitStatus status: Int32) {
         self = status & _WSTOPPED == 0 ? .exited(status >> 8 & 0xff) : .signaled(status & _WSTOPPED)
@@ -22,7 +27,7 @@ extension TerminationStatus {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func termination(of process: pid_t) -> AsyncStream<Result<(status: TerminationStatus, detail: ExitDetail), Errno>> {
+public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Errno>> {
     AsyncStream { continuation in
         let registered: Result<FileHandle, Errno> = Result { () throws(Errno) in
             let descriptor: Int32 = kqueue()
@@ -48,7 +53,7 @@ public func termination(of process: pid_t) -> AsyncStream<Result<(status: Termin
                     guard read != 0 else { return }
                     let data: Int32 = Int32(truncatingIfNeeded: unsafe exited.data)
                     continuation.yield(
-                        read < 0 ? .failure(Errno(rawValue: errno)) : .success((status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
+                        read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
                     )
                     continuation.finish()
                 }

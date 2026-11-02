@@ -56,7 +56,7 @@ struct ResourceUsages {
     }
 
     @Test
-    func footprintGrowsByTheMemoryAChildHolds() async throws {
+    func footprintGrowsByMemoryChildHolds() async throws {
         let plain: Int = try await footprint(running: "true")
         let holding: Int = try await footprint(running: "held=$(/usr/bin/head -c 50000000 /dev/zero | /usr/bin/tr '\\0' a); [ ${#held} -eq 50000000 ]")
         #expect(holding - plain >= 50_000_000, "plain \(plain), holding \(holding)")

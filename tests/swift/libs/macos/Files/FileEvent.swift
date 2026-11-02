@@ -28,8 +28,8 @@ private struct Change: Equatable {
 @Suite(.testDirectory, .timeLimit(.minutes(1)))
 struct FileEvents {
     @Test
-    func reportsTheWatchedFileAloneWithItsFlags() async throws {
-        let directory: URL = try canonicalDirectory()
+    func reportsWatchedFileAloneWithItsFlags() async throws {
+        let directory: URL = try #require(TestDirectory.current)
         let file: URL = directory.appending(path: "watched.json")
         var paths: Set<String> = []
         var steps: [String] = []
@@ -60,8 +60,8 @@ struct FileEvents {
     }
 
     @Test
-    func presenceStartsFromTheCurrentStateAndFollowsCreationAndRemoval() async throws {
-        let file: URL = try canonicalDirectory().appending(path: "presence.json")
+    func presenceStartsFromCurrentStateAndFollowsCreationAndRemoval() async throws {
+        let file: URL = try #require(TestDirectory.current).appending(path: "presence.json")
         var observed: [Bool] = []
         for await presence: Result<Bool, FileFailure> in FileEvent.presence(of: file) {
             let present: Bool = try presence.get()
@@ -79,8 +79,8 @@ struct FileEvents {
     }
 
     @Test
-    func presenceOfAnExistingFileStartsTrue() async throws {
-        let file: URL = try canonicalDirectory().appending(path: "present.json")
+    func presenceOfExistingFileStartsTrue() async throws {
+        let file: URL = try #require(TestDirectory.current).appending(path: "present.json")
         try Data("{}".utf8).write(to: file)
         var observed: [Bool] = []
         for await presence: Result<Bool, FileFailure> in FileEvent.presence(of: file) {

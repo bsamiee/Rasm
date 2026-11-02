@@ -17,7 +17,7 @@ private let thermalSpellings: [(state: ProcessInfo.ThermalState, spelling: Strin
 
 struct SystemPressures {
     @Test
-    func currentReadsTheKernelLevelAndTheThermalState() async throws {
+    func currentReadsKernelLevelAndThermalState() async throws {
         func kernelPressureLevel() async throws -> UInt {
             let result: ExecutionResult<Void, StringOutput<UTF8>, DiscardedOutput> = try await Subprocess.run(
                 Configuration(executable: .path("/usr/sbin/sysctl"), arguments: ["-n", "kern.memorystatus_vm_pressure_level"], platformOptions: .session()),
@@ -30,13 +30,13 @@ struct SystemPressures {
         let level: UInt = try await kernelPressureLevel()
         let thermal: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
         let pressure: SystemPressure = try SystemPressure.current()
-        try #require(level == (try await kernelPressureLevel()), "kernel level changed during the read")
+        try #require(level == (try await kernelPressureLevel()), "kernel level changed during read")
         expectNoDifference(pressure.memory, DispatchSource.MemoryPressureEvent(rawValue: level))
         expectNoDifference(pressure.thermal, thermal)
     }
 
     @Test(arguments: memorySpellings, thermalSpellings)
-    func wireSpellsMemoryAndThermalAsTheReadersDecode(
+    func wireSpellsMemoryAndThermalAsReadersDecode(
         memory: (level: UInt, spelling: String),
         thermal: (state: ProcessInfo.ThermalState, spelling: String),
     )

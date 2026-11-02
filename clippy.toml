@@ -48,6 +48,9 @@ allowed-duplicate-crates = [
     "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440)
     "equator",               # 0.2 under newest `nano-gemm` 0.2.2, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
     "equator-macro",         # 0.2 under `equator` 0.2 beside 0.6 under `equator` 0.6
+    "thiserror",             # 1 under `sysctl` 0.6, which the `std` feature of newest `gemm-common` 0.19.0 under `faer` takes on Apple targets, beside 2 under every Rasm crate
+    "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
+    "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
 ]
 
 # --- [BANS]

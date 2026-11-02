@@ -1,5 +1,4 @@
 public import AppKit
-import Combine
 public import Foundation
 import Subprocess
 import System
@@ -13,6 +12,7 @@ private struct ReportHeader: Decodable {
 
 public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     @TaskLocal public static var current: URL?
+    @TaskLocal public static var instance: NSRunningApplication?
 
     let product: String
     let named: String?
@@ -20,7 +20,6 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     let launches: Bool
     let activationPolicy: NSApplication.ActivationPolicy
     let multipleInstancesProhibited: Bool
-    let answering: @Sendable (_ name: String) async -> Void
 
     public var isRecursive: Bool { true }
 
@@ -33,18 +32,12 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             .appending(components: "Shared", identifier, directoryHint: .isDirectory)
         let bundle: URL = folder.appending(component: "\(name).app", directoryHint: .isDirectory)
         func succeed(_ executable: Executable, _ arguments: [String]) async throws {
-            let result: ExecutionResult<Void, DiscardedOutput, StringOutput<UTF8>> = try await Subprocess.run(
-                executable,
-                arguments: Arguments(arguments),
-                platformOptions: session(),
-                output: .discarded,
-                error: .string(limit: 1 << 16),
-            )
-            guard result.terminationStatus.isSuccess else {
-                throw TestFailure(subject: "\(executable) \(arguments.joined(separator: " "))", reason: .exited(result.terminationStatus, standardError: result.standardError))
+            let result: (standardOutput: String, status: TerminationStatus, standardError: String) = try await output(of: executable, arguments: arguments)
+            guard result.status.isSuccess else {
+                throw TestFailure(subject: "\(executable) \(arguments.joined(separator: " "))", reason: .exited(result.status, standardError: result.standardError))
             }
         }
-        func assemble() async throws {
+        func assemble() async throws -> NSRunningApplication? {
             let executable: URL = bundle.appending(components: "Contents", "MacOS", process)
             try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: builtProduct(named: product), to: executable)
@@ -56,19 +49,23 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             try await succeed(.name("codesign"), ["--sign", "-", "--force", bundle.path(percentEncoded: false)])
             let registered: OSStatus = LSRegisterURL(bundle as CFURL, true)
             guard registered == noErr else { throw TestFailure(subject: "register \(bundle.path(percentEncoded: false))", reason: .refused(registered)) }
-            guard launches else { return }
+            guard launches else { return nil }
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
             configuration.activates = false
             configuration.addsToRecentItems = false
             configuration.hides = activationPolicy != .regular
             configuration.arguments = arguments
-            let _: NSRunningApplication = try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
+            return try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
         }
         func stop() async {
-            let running: [NSRunningApplication] = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
-            for instance: NSRunningApplication in running { instance.forceTerminate() }
-            for instance: NSRunningApplication in running {
-                _ = await instance.publisher(for: \.isTerminated).buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values.first(where: \.self)
+            for instance: NSRunningApplication in NSRunningApplication.runningApplications(withBundleIdentifier: identifier) {
+                instance.forceTerminate()
+                let (terminated, terminate): (AsyncStream<Never>, AsyncStream<Never>.Continuation) = AsyncStream.makeStream()
+                let observation: NSKeyValueObservation = instance.observe(\.isTerminated, options: [.initial]) { observed, _ in
+                    if observed.isTerminated { terminate.finish() }
+                }
+                for await _: Never in terminated {}
+                observation.invalidate()
             }
         }
         func entries(of directory: URL) -> [URL] {
@@ -83,8 +80,8 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             }
         }
         let tested: Result<Void, any Error> = await Result {
-            try await assemble()
-            try await Self.$current.withValue(bundle) { try await function() }
+            let launched: NSRunningApplication? = try await assemble()
+            try await Self.$current.withValue(bundle) { try await Self.$instance.withValue(launched) { try await function() } }
         }
         await withTaskCancellationShield {
             await stop()
@@ -94,7 +91,6 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
                 let header: ReportHeader? = try? decoder.decode(ReportHeader.self, from: report.prefix { byte in byte != UInt8(ascii: "\n") })
                 return header?.bundleID == identifier
             }
-            if !crashes.isEmpty { await answering(name) }
             remove(crashes)
             UserDefaults.standard.removePersistentDomain(forName: identifier)
             let length: Int = confstr(_CS_DARWIN_USER_CACHE_DIR, nil, 0)
@@ -126,7 +122,6 @@ extension Trait where Self == TestApplication {
         launches: Bool = true,
         activationPolicy: NSApplication.ActivationPolicy = .accessory,
         multipleInstancesProhibited: Bool = false,
-        answering alerts: @escaping @Sendable (_ name: String) async -> Void = { _ in },
     ) -> Self {
         let product: String = String(String(reflecting: entry).prefix { character in character != "." })
         return Self(
@@ -136,7 +131,6 @@ extension Trait where Self == TestApplication {
             launches: launches,
             activationPolicy: activationPolicy,
             multipleInstancesProhibited: multipleInstancesProhibited,
-            answering: alerts,
         )
     }
 }

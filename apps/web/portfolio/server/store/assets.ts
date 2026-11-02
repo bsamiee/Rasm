@@ -1,4 +1,4 @@
-import { atomic } from '@rasm/database';
+import { atomic } from '@rasm/database/transaction';
 import { unavailable } from '@rasm/hosting';
 import { Array, Data, Effect, Schema, Struct } from 'effect';
 import { HttpApiError } from 'effect/http-api';
@@ -11,7 +11,10 @@ import { assets, bookkeeping, references, UploadAttempt } from '#/server/store/c
 
 type Release = Data.TaggedEnum<{ Abandon: { readonly assetId: string; readonly attemptId: string }; Discard: { readonly assetId: string }; Delete: { readonly assetId: string } }>;
 const Release = Data.taggedEnum<Release>();
-const AssetRead = Schema.Struct({ id: assets.fields.id, width: Schema.OptionFromNullOr(Schema.Finite) });
+const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Finite) });
+const AssetObject = Schema.Struct({ mime: Schema.String, published: Schema.BooleanFromBit, objectKey: Schema.String });
+const UploadRow = assets.schema.mapFields(Struct.pick(['id', 'body']));
+const UploadKey = assets.schema.mapFields(Struct.pick(['objectKey']));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -20,11 +23,11 @@ const readAsset = Effect.fn('readAsset')(
     (request: typeof AssetRead.Type) =>
         SqlSchema.findOne({
             Request: AssetRead,
-            Result: Schema.Struct({ mime: Schema.String, published: Schema.BooleanFromBit, objectKey: Schema.String }),
+            Result: AssetObject,
             execute: ({ id, width }) =>
                 SqlClient.SqlClient.use(
                     (sql) => sql`SELECT COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, concat_ws('/', a.${sql('objectKey')}, r.value ->> '$.width') AS ${sql('objectKey')},
-                        EXISTS (SELECT 1 FROM (${references(sql, sql.literal('documents'))}) WHERE state = 'published' AND asset_id = a.id) AS published
+                        EXISTS (SELECT 1 FROM (${references(sql)}) WHERE state = 'published' AND asset_id = a.id) AS published
                     FROM (SELECT ${id} AS id, ${width} AS width) q JOIN assets a ON a.id = q.id LEFT JOIN json_each(a.body, '$.renditions') r ON r.value ->> '$.width' = q.width
                     WHERE a.available AND q.width IS r.value ->> '$.width'`,
                 ),
@@ -41,13 +44,13 @@ const readPendingUploads = SqlClient.SqlClient.use(
 const beginUpload = Effect.fn('beginUpload')(
     ({ id, ...metadata }: typeof Asset.Type, attemptId: string, keys: readonly string[]) =>
         SqlSchema.findOne({
-            Request: assets.mapFields(Struct.pick(['id', 'body'])),
-            Result: assets.mapFields(Struct.pick(['objectKey'])),
+            Request: UploadRow,
+            Result: UploadKey,
             execute: (row) =>
                 SqlClient.SqlClient.use(
                     (sql) => sql`INSERT INTO assets (id, body) VALUES (${row.id}, ${row.body})
                     ON CONFLICT (id) DO UPDATE SET body = CASE WHEN assets.${sql('objectKey')} IS NULL THEN json_insert(assets.body, '$.uploads[#]', excluded.body -> '$.uploads[0]') ELSE assets.body END
-                    WHERE json_remove(assets.body, ${sql.literal(bookkeeping)}) = json_remove(excluded.body, ${sql.literal(bookkeeping)}) AND assets.removing IS NOT TRUE
+                    WHERE json_remove(assets.body, ${bookkeeping}) = json_remove(excluded.body, ${bookkeeping}) AND assets.removing IS NOT TRUE
                     RETURNING ${sql('objectKey')}`,
                 ),
         })({ id, body: { ...metadata, uploads: [{ id: attemptId, discard: false, objects: keys.map((key) => ({ key })) } satisfies typeof UploadAttempt.Encoded] } }),
@@ -97,7 +100,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
                 Discard: () => atomic([discard(pending), sql`SELECT (${objects()}) AS objects`]),
                 Delete: ({ assetId }) =>
                     atomic([
-                        sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql, sql.literal('documents'))}) WHERE asset_id = assets.id)`,
+                        sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`,
                         discard(sql`removing IS TRUE`),
                         sql`SELECT (${objects()}) AS objects WHERE NOT EXISTS (SELECT 1 FROM assets WHERE id = ${assetId} AND removing IS NOT TRUE)`,
                     ]),

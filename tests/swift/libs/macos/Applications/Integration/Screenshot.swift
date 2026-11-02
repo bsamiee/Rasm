@@ -84,10 +84,10 @@ private func dismiss(_ swatch: Element) async throws {
 extension Integration {
     @Suite
     struct Screenshots {
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func windowCaptureHoldsTheSwatchGridAtItsFrameAndColors() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func windowCaptureHoldsSwatchGridAtItsFrameAndColors() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            try #require(CGPreflightScreenCaptureAccess(), "capture needs the Screen Recording grant")
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
             let element: Element = try await swatch(of: instance)
             let window: CGWindowID = try #require(element.window)
             let frame: CGRect = try #require(element.detail?.frame)
@@ -121,10 +121,10 @@ extension Integration {
             try await dismiss(element)
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert), arguments: [100, 213, 4096])
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments), arguments: [100, 213, 4096])
         func longestSideScalesDownExactlyAndNeverUp(longestSide: Int) async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            try #require(CGPreflightScreenCaptureAccess(), "capture needs the Screen Recording grant")
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
             let element: Element = try await swatch(of: instance)
             let window: CGWindowID = try #require(element.window)
             let native: CGImage = try #require(try await instance.screenshot(of: window).output.sdrImage)
@@ -150,10 +150,10 @@ extension Integration {
             try await dismiss(element)
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments, answering: answerCrashAlert))
-        func applicationCaptureHoldsTheOnScreenWindowsAlone() async throws {
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func applicationCaptureHoldsOnScreenWindowsAlone() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            try #require(CGPreflightScreenCaptureAccess(), "capture needs the Screen Recording grant")
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
             let numbered: CGWindowID? = try await read(instance).first { element in element.title == "Fixture 0" }?.window
             let ordered: CGWindowID = try #require(numbered)
             let element: Element = try await swatch(of: instance)

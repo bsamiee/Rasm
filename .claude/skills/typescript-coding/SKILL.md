@@ -46,7 +46,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters with a dominant value take a default, callers state what varies
 - Declarations read once sit inline at their use, a value read twice or a number Biome's `noMagicNumbers` refuses is a `const` named for its fact
-- Schemas declare at module scope, the parser cache keys on each schema's AST
+- Schemas declare at module scope, the parser cache keys on each schema's AST, and a function built from them (`SqlSchema.findOne`) builds inside the `Effect.fn` body whose parameters type the trailing steps
 
 ## [02]-[FUNCTIONS]
 
@@ -144,7 +144,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 ```
 
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
-- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, and a decode of a value the program encoded dies through `Effect.orDie`
+- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, a decode of a value the program encoded dies through `Effect.orDie`, and every other failure (a file write, a query) stays typed
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]

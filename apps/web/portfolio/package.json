@@ -11,8 +11,7 @@
         "#/*.config": "./*.config.ts"
     },
     "exports": {
-        "./package.json": "./package.json",
-        "./server": "./server/index.ts"
+        "./package.json": "./package.json"
     },
     "dependencies": {
         "@effect/atom-react": "catalog:",
@@ -32,7 +31,6 @@
         "embla-carousel-react": "catalog:",
         "lucide-react": "catalog:",
         "motion": "catalog:",
-        "partial-content": "catalog:",
         "pdfjs-dist": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
@@ -44,7 +42,6 @@
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
-        "@effect/vitest": "catalog:",
         "@openai/sites-vite-plugin": "catalog:",
         "@rasm/test-support": "workspace:*",
         "@storybook/react-vite": "catalog:",

@@ -58,11 +58,11 @@ actor ClaudeClient: ProviderClient {
         await Result { () async throws(ClaudeFailure) in
             let content: ClaudeStoreContent = try await identified(shared.read(), in: shared)
             let identity: AccountIdentity? = if let held: ClaudeCredential = content[case: \.credential] { held.identity } else { try shared.identity() }
-            if let selected, let parked: ClaudeCredential = lastCredential, parked.identity.isSameAccount(as: selected.identity),
-                !(identity.map(parked.identity.isSameAccount(as:)) ?? false)
+            if let selected, let saved: ClaudeCredential = lastCredential, saved.identity.isSameAccount(as: selected.identity),
+                !(identity.map(saved.identity.isSameAccount(as:)) ?? false)
             {
                 let store: ClaudeCredentialStore = privateStore(selected.id)
-                try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(parked, over: store.readItem()) }
+                try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(saved, over: store.readItem()) }
                 logger.notice("Saved account \(selected.id, privacy: .public) credential to private store after outside sign-in")
             }
             lastCredential = content[case: \.credential]
@@ -91,12 +91,12 @@ actor ClaudeClient: ProviderClient {
 
     func completePendingSwitch(_ pending: ClaudePendingSwitch) async -> Result<Void, ProviderError> {
         await Result { () async throws(ClaudeFailure) in
-            try await ClaudeLock.withLock(directories: ([shared] + pending.copies.map(privateStore)).map(\.directory)) { () async throws(ClaudeFailure) in try await self.settle(pending) }
+            try await ClaudeLock.withLock(directories: ([shared] + pending.copies.map(privateStore)).map(\.directory)) { () async throws(ClaudeFailure) in try await self.finish(pending) }
         }
         .mapError(ProviderError.init(failure:))
     }
 
-    private nonisolated func settle(_ pending: ClaudePendingSwitch) async throws(ClaudeFailure) {
+    private nonisolated func finish(_ pending: ClaudePendingSwitch) async throws(ClaudeFailure) {
         let current: String? = try await shared.read().token?.accessToken
         for id: UUID in pending.copies {
             let copy: ClaudeCredentialStore = privateStore(id)
@@ -115,34 +115,36 @@ actor ClaudeClient: ProviderClient {
         outgoing: Account?,
     ) async -> Result<AccountIdentity, ProviderError> {
         let incoming: ClaudeCredentialStore = privateStore(account.id)
-        let parking: ClaudeCredentialStore? = outgoing.map { outgoing in privateStore(outgoing.id) }
+        let outgoingStore: ClaudeCredentialStore? = outgoing.map { outgoing in privateStore(outgoing.id) }
         let pending: ClaudePendingSwitch = ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id)
         return await Result { () async throws(ClaudeFailure) in
             for store: ClaudeCredentialStore in [shared, incoming] where try store.identity() == nil {
                 _ = try await identified(store.read(), in: store)
             }
             let last: ClaudeCredential? = lastCredential
-            let credential: ClaudeCredential = try await ClaudeLock.withLock(directories: [shared, incoming, parking].compactMap(\.self).map(\.directory)) {
+            let credential: ClaudeCredential = try await ClaudeLock.withLock(directories: [shared, incoming, outgoingStore].compactMap(\.self).map(\.directory)) {
                 () async throws(ClaudeFailure) in
                 let current: ClaudeStoreContent = try await self.shared.read()
                 let stored: ClaudeCredential? = try await incoming.read()[case: \.credential]
                 let selected: ClaudeCredential? = current[case: \.credential].flatMap { held in held.identity.isSameAccount(as: account.identity) ? held : nil }
-                let parked: ClaudeCredential? = outgoing.flatMap { outgoing in
+                let outgoingCredential: ClaudeCredential? = outgoing.flatMap { outgoing in
                     [current[case: \.credential], last].lazy.compactMap(\.self).first { held in held.identity.isSameAccount(as: outgoing.identity) }
                 }
                 guard let entering: ClaudeCredential = selected ?? stored, entering.identity.isSameAccount(as: account.identity) else { throw .signInRequired }
-                guard current.token.map({ token in [selected, parked].contains { held in held?.token.accessToken == token.accessToken } }) ?? true else { throw .accountChanged }
+                guard current.token.map({ token in [selected, outgoingCredential].contains { held in held?.token.accessToken == token.accessToken } }) ?? true else { throw .accountChanged }
                 let sharedItem: JSONDocument<ClaudeCredentialItem>? = try await self.shared.readItem()
-                let parkingItem: JSONDocument<ClaudeCredentialItem>? = try await parking?.readItem()
+                let outgoingItem: JSONDocument<ClaudeCredentialItem>? = try await outgoingStore?.readItem()
                 try self.writePendingSwitch(pending)
                 let moved: Result<Void, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in
-                    if let parked { try await parking?.write(parked, over: parkingItem) }
+                    if let outgoingCredential { try await outgoingStore?.write(outgoingCredential, over: outgoingItem) }
                     if selected == nil { try await self.shared.write(entering, over: sharedItem) }
                     try await incoming.deleteItem()
                     try self.writePendingSwitch(nil)
                 }
-                if case .failure(let error) = moved { throw error.releasing(await Result { () async throws(ClaudeFailure) in try await self.settle(pending) }) }
-                self.logger.notice("Switched to account \(account.id, privacy: .public), outgoing saved \(parked != nil, privacy: .public), live item replaced \(selected == nil, privacy: .public)")
+                if case .failure(let error) = moved { throw error.releasing(await Result { () async throws(ClaudeFailure) in try await self.finish(pending) }) }
+                self.logger.notice(
+                    "Switched to account \(account.id, privacy: .public), outgoing saved \(outgoingCredential != nil, privacy: .public), live item replaced \(selected == nil, privacy: .public)"
+                )
                 return entering
             }
             lastCredential = credential

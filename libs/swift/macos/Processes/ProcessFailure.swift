@@ -22,11 +22,11 @@ public struct ProcessFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch reason {
             case .subprocess(let error): "\(subject) \(error.description)"
-            case .io(let error): "\(subject) I/O failed. \(error.localizedDescription)"
+            case .io(let error): "\(subject) I/O failed: \(error.localizedDescription)"
             case .exit(.exited(let code)): "\(subject) exited with status \(code)"
             case .exit(.signaled(let signal)): "\(subject) terminated by signal \(signal)"
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
-            case .cancelled: "\(subject) was canceled"
+            case .cancelled: "\(subject) canceled"
             case .unlisted: "getpwuid found no user database entry for \(subject)"
             case .markerNotFound: "Login shell \(subject) printed no environment"
         }

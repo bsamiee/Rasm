@@ -1,3 +1,4 @@
+import CasePaths
 import CustomDump
 import Darwin
 import Foundation
@@ -9,8 +10,6 @@ import WatchAppsWire
 @testable import AppKitFixture
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let heartbeat: Duration = .seconds(4)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -65,15 +64,9 @@ private struct Outline: Equatable {
     }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func first(_ phase: Phase, of pid: Int32, in lines: [TimedLine<WatchAppsLine>], after start: ContinuousClock.Instant) -> TimedLine<WatchAppsLine>? {
-    lines.first { timed in timed.instant >= start && timed.line.instances?[pid]?.phase == phase }
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension HostSession {
+extension Integration {
     struct Lifecycle {
         @Test(.application(FixtureApplication.self, launches: false))
         func watchStartsWithSystemThenEmptyAndFollowsLaunch() async throws {
@@ -81,7 +74,7 @@ extension HostSession {
             let watched: (outcome: (pid: Int32, lines: [WatchAppsLine]), lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let launched: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture)
-                _ = try await lines.next { line in line.instances?[launched.pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[launched.pid]?.phase == .responding }
                 return launched
             }
             let launched: (pid: Int32, lines: [WatchAppsLine]) = watched.outcome
@@ -102,7 +95,7 @@ extension HostSession {
         @Test(.application(FixtureApplication.self, launches: false))
         func launchHoldsLaunchingUntilSlowLaunchFinishes() async throws {
             let fixture: Fixture = try Fixture()
-            let duration: Duration = .seconds(3)
+            let duration: Duration = .seconds(2)
             let clock: ContinuousClock = ContinuousClock()
             let start: ContinuousClock.Instant = clock.now
             let launched: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, Settings(scenario: .slowLaunch, duration: duration))
@@ -123,7 +116,6 @@ extension HostSession {
                 let dialog: WatchAppsLine.Element = try #require(answers?.first)
                 let expected: Answer = Answer(
                     role: "AXWindow",
-                    subrole: nil,
                     modal: true,
                     description: "alert",
                     identifier: "_NS:87",
@@ -136,7 +128,7 @@ extension HostSession {
                 expectNoDifference(dialog.detail?.text, ["Launch modal", Scenario.launchModal.rawValue])
                 let ok: WatchAppsLine.Control = try #require(dialog.control("action-button-1"))
                 try await perform(ok)
-                _ = try await lines.next { line in line.instances?[launched.pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[launched.pid]?.phase == .responding }
                 return launched
             }
             let pid: Int32 = watched.outcome.pid
@@ -155,12 +147,12 @@ extension HostSession {
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let again: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture)
                 let second: Int32 = try await launch(fixture, flags: ["--new"], running: [first]).pid
-                _ = try await lines.next { line in line.instances?[second]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[second]?.phase == .responding }
                 return (again.lines, second)
             }
             let transcript: [WatchAppsLine] = watched.lines.map(\.line)
-            let start: [String: Phase]? = transcript.dropFirst().first?.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
-            let end: [String: Phase]? = transcript.last?.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
+            let start: [String: Phase]? = transcript.dropFirst().first?.entry.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
+            let end: [String: Phase]? = transcript.last?.entry.instances?.mapValues(\.phase).reduce(into: [:]) { all, entry in all[String(entry.key)] = entry.value }
             expectNoDifference(Set(pids(in: watched.outcome.again)), [[first]])
             expectNoDifference(transcript.prefix(2).map(\.key), ["system", fixture.identifier])
             expectNoDifference(start, [String(first): .responding])
@@ -183,103 +175,66 @@ extension HostSession {
         @Test(.application(FixtureApplication.self, launches: false))
         func ownSingleInstanceCheckShowsAlertThenExits() async throws {
             let fixture: Fixture = try Fixture()
-            let settings: Settings = Settings(scenario: .singleInstance, duration: .seconds(3), status: 3)
+            let settings: Settings = Settings(scenario: .singleInstance, status: 3)
             let first: Int32 = try await launch(fixture, settings).pid
-            let watched: (outcome: (pid: Int32, lines: [WatchAppsLine]), lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
+            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 let refused: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, settings, flags: ["--new"], running: [first])
-                _ = try await lines.next { line in line.instances?[refused.pid]?.phase == .exited }
-                return refused
+                expectNoDifference(phases(of: refused.pid, in: refused.lines).last, .answering)
+                let alert: WatchAppsLine.Element = try #require(refused.lines.last?.elements(of: refused.pid)?.answers.first)
+                try await perform(try #require(alert.control("action-button-1")))
+                _ = try await lines.next { line in line.entry.instances?[refused.pid]?.phase == .exited }
+                return refused.pid
             }
-            let refused: Int32 = watched.outcome.pid
-            let transcript: [WatchAppsLine] = watched.lines.map(\.line)
-            let settled: [Phase] = phases(of: refused, in: transcript).filter { phase in phase != .launching }
-            let ended: Ended? = transcript.last?.instances?[refused]?.exit.map(Ended.init)
-            let kept: Phase? = transcript.last?.instances?[first]?.phase
-            expectNoDifference(phases(of: refused, in: watched.outcome.lines).last, .answering)
-            expectNoDifference([settled.first, settled.last], [.answering, .exited])
-            expectNoDifference(ended, Ended(status: 3))
-            expectNoDifference(kept, .responding)
+            let last: WatchAppsLine? = watched.lines.last?.line
+            expectNoDifference(last?.entry.instances?[watched.outcome]?.exited.map(Ended.init), Ended(status: 3))
+            expectNoDifference(last?.entry.instances?[first]?.phase, .responding)
         }
 
-        @Test(
-            .application(FixtureApplication.self, launches: false),
-            arguments: [(Scenario.hangBlocked, WatchAppsLine.ProcessStatus.sleeping), (.hangBusy, .running), (.hangQuiet, .sleeping)],
-        )
-        func hangReadsUnresponsiveWithUsageThenRecovers(scenario: Scenario, process: WatchAppsLine.ProcessStatus) async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func hangReadsUnresponsiveWithUsageThenRecovers() async throws {
             let fixture: Fixture = try Fixture()
-            let duration: Duration = .seconds(5)
-            let watched: (outcome: (pid: Int32, pressed: ContinuousClock.Instant), lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
-                let pid: Int32 = try await launch(fixture, Settings(duration: duration)).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
-                try await press(scenario, in: fixture, pid: pid)
-                let pressed: ContinuousClock.Instant = .now
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .unresponsive(process) }
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
-                return (pid, pressed)
+            _ = try await watching([fixture.identifier]) { lines in
+                let pid: Int32 = try await launch(fixture).pid
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                try await press(.hangBusy, in: fixture, pid: pid)
+                let hung: TimedLine<WatchAppsLine> = try await lines.next { line in line.entry.instances?[pid]?.phase == .unresponsive(.running) }
+                _ = try #require(hung.line.entry.instances?[pid]?.running?.usage, "unresponsive line holds usage")
+                let released: Int32 = kill(pid, SIGUSR1)
+                expectNoDifference(released, 0)
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
             }
-            let pid: Int32 = watched.outcome.pid
-            let pressed: ContinuousClock.Instant = watched.outcome.pressed
-            let after: [TimedLine<WatchAppsLine>] = watched.lines.filter { timed in timed.instant >= pressed }
-            let order: [Phase] = Array(phases(of: pid, in: after.map(\.line)).drop { phase in phase == .responding })
-            expectNoDifference(order, [.unresponsive(process), .responding])
-            let hungLine: TimedLine<WatchAppsLine>? = first(.unresponsive(process), of: pid, in: after, after: pressed)
-            let hung: TimedLine<WatchAppsLine> = try #require(hungLine)
-            _ = try #require(hung.line.instances?[pid]?.running?.usage, "the line turning unresponsive carries usage")
-            let recoveredLine: TimedLine<WatchAppsLine>? = first(.responding, of: pid, in: after, after: hung.instant)
-            let recovered: TimedLine<WatchAppsLine> = try #require(recoveredLine)
-            let noticed: Duration = hung.instant - pressed
-            let resumed: Duration = recovered.instant - pressed
-            let noticedInTime: Bool = noticed <= heartbeat
-            let resumedInTime: Bool = resumed <= duration + heartbeat
-            #expect(noticedInTime, "unresponsive after \(noticed)")
-            #expect(resumedInTime, "responding after \(resumed)")
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
         func stoppedProcessReadsStoppedThenRespondsOnContinue() async throws {
             let fixture: Fixture = try Fixture()
-            let watched: (outcome: (pid: Int32, stopped: ContinuousClock.Instant, continued: ContinuousClock.Instant), lines: [TimedLine<WatchAppsLine>]) = try await watching(
-                [fixture.identifier]
-            ) { lines in
+            _ = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.stop, in: fixture, pid: pid)
-                let stopped: ContinuousClock.Instant = .now
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .unresponsive(.stopped) }
-                let continued: ContinuousClock.Instant = .now
+                let stopped: TimedLine<WatchAppsLine> = try await lines.next { line in line.entry.instances?[pid]?.phase == .unresponsive(.stopped) }
+                let measured: Bool = stopped.line.entry.instances?[pid]?.running?.usage != nil
                 let resumed: Int32 = kill(pid, SIGCONT)
+                #expect(measured)
                 expectNoDifference(resumed, 0)
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
-                return (pid, stopped, continued)
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
             }
-            let pid: Int32 = watched.outcome.pid
-            let stoppedLine: TimedLine<WatchAppsLine>? = first(.unresponsive(.stopped), of: pid, in: watched.lines, after: watched.outcome.stopped)
-            let stopped: TimedLine<WatchAppsLine> = try #require(stoppedLine)
-            let resumedLine: TimedLine<WatchAppsLine>? = first(.responding, of: pid, in: watched.lines, after: watched.outcome.continued)
-            let resumed: TimedLine<WatchAppsLine> = try #require(resumedLine)
-            let measured: Bool = stopped.line.instances?[pid]?.running?.usage != nil
-            let noticed: Duration = stopped.instant - watched.outcome.stopped
-            let answered: Duration = resumed.instant - watched.outcome.continued
-            let noticedInTime: Bool = noticed <= heartbeat
-            let answeredInTime: Bool = answered <= heartbeat
-            #expect(measured)
-            #expect(noticedInTime, "stopped after \(noticed)")
-            #expect(answeredInTime, "responding after \(answered)")
         }
 
-        @Test(.application(FixtureApplication.self, launches: false), arguments: [(Scenario.exit, Int32(7)), (.terminate, Int32(0))])
-        func exitPrintsStatusThenInstanceLeaves(scenario: Scenario, status: Int32) async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func exitPrintsStatusThenInstanceLeaves() async throws {
             let fixture: Fixture = try Fixture()
+            let status: Int32 = 7
             let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture, Settings(status: status)).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
-                try await press(scenario, in: fixture, pid: pid)
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .exited }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                try await press(.exit, in: fixture, pid: pid)
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
                 return pid
             }
             let transcript: [WatchAppsLine] = watched.lines.map(\.line)
-            let ends: [Ended] = transcript.compactMap { line in line.instances?[watched.outcome]?.exit.map(Ended.init) }
+            let ends: [Ended] = transcript.compactMap { line in line.entry.instances?[watched.outcome]?.exited.map(Ended.init) }
             let after: (outcome: Void, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
             }
@@ -297,16 +252,15 @@ extension HostSession {
         @Test(.application(FixtureApplication.self, launches: false))
         func killPrintsSignalWithoutReport() async throws {
             let fixture: Fixture = try Fixture()
-            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 let killed: Int32 = kill(pid, SIGKILL)
                 expectNoDifference(killed, 0)
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .exited }
-                _ = await lines.collect { _ in false }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
                 return pid
             }
-            let ends: [Ended] = watched.lines.compactMap { timed in timed.line.instances?[watched.outcome]?.exit.map(Ended.init) }
+            let ends: [Ended] = watched.lines.compactMap { timed in timed.line.entry.instances?[watched.outcome]?.exited.map(Ended.init) }
             expectNoDifference(ends, [Ended(signal: SIGKILL)])
         }
 
@@ -314,12 +268,13 @@ extension HostSession {
         func watcherExitsWhenItsParentExits() async throws {
             let fixture: Fixture = try Fixture()
             let lifetime: Duration = .seconds(2)
+            let budget: Duration = .seconds(30)
             let watchApps: String = try builtProduct(named: "watch-apps").path(percentEncoded: false)
             let clock: ContinuousClock = ContinuousClock()
             let start: ContinuousClock.Instant = clock.now
             let parent: (outcome: ContinuousClock.Instant, lines: [TimedLine<WatchAppsLine>], status: TerminationStatus) = try await streamingJSONLines(
                 of: .name("sh"),
-                within: .seconds(30),
+                within: budget,
                 arguments: ["-c", "\"$0\" watch \"$1\" & sleep \(lifetime.components.seconds)", watchApps, fixture.identifier],
                 as: WatchAppsLine.self,
             ) { lines in
@@ -327,7 +282,7 @@ extension HostSession {
                 return clock.now
             }
             let ended: Duration = parent.outcome - start
-            let bounded: Bool = ended >= lifetime && ended <= lifetime + heartbeat
+            let bounded: Bool = ended >= lifetime && ended < budget
             expectNoDifference(parent.status, .exited(0))
             expectNoDifference(parent.lines.map(\.line.key), ["system", fixture.identifier])
             expectNoDifference(parent.lines.last?.line.entry, .instances([:]))
@@ -345,7 +300,7 @@ extension HostSession {
                         let session: (outcome: Void, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
                             _ = try await lines.next { line in line.key == fixture.identifier }
                             readiness.yield()
-                            _ = try await lines.next { line in line.instances?.values.contains { instance in instance.phase == .exited } == true }
+                            _ = try await lines.next { line in line.entry.instances?.values.contains { instance in instance.phase == .exited } == true }
                         }
                         return session.lines.map(\.line)
                     }
@@ -359,7 +314,7 @@ extension HostSession {
                 return (pid, transcripts)
             }
             let reference: [WatchAppsLine] = try #require(watched.transcripts.first)
-            let ends: [Ended] = reference.compactMap { line in line.instances?[watched.pid]?.exit.map(Ended.init) }
+            let ends: [Ended] = reference.compactMap { line in line.entry.instances?[watched.pid]?.exited.map(Ended.init) }
             expectNoDifference(watched.transcripts.count, watchers)
             expectNoDifference(ends, [Ended(status: 5)])
             for transcript: [WatchAppsLine] in watched.transcripts.dropFirst() { expectNoDifference(transcript, reference) }

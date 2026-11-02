@@ -1,0 +1,769 @@
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+var harness = (function () {
+    var realApp = app;
+    var RealFile = File;
+    var RealFolder = Folder;
+
+    // --- [FILES]
+    function read(path) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        if (!file.open("r")) { throw new Error("cannot read " + path); }
+        var text = file.read();
+        file.close();
+        return text;
+    }
+    function write(path, text) {
+        var file = new RealFile(path);
+        file.encoding = "UTF-8";
+        file.open("w");
+        file.write(text);
+        file.close();
+    }
+
+    // --- [CODEC]
+    function exponent(value) {
+        var mantissa = Math.abs(value);
+        var power = 0;
+        while (mantissa >= 9007199254740992) { mantissa /= 2; power += 1; }
+        while (mantissa !== Math.floor(mantissa)) { mantissa *= 2; power -= 1; }
+        return (value < 0 ? "-" : "") + String(mantissa) + "p" + power;
+    }
+    function number(value) {
+        if (isNaN(value)) { return '{"$":"NaN"}'; }
+        if (!isFinite(value)) { return '{"$":"' + (value > 0 ? "Infinity" : "-Infinity") + '"}'; }
+        if (value === 0 && 1 / value < 0) { return '{"$":"-0"}'; }
+        return Number(String(value)) === value ? String(value) : '{"$":"' + exponent(value) + '"}';
+    }
+    function quote(text) {
+        var out = '"';
+        for (var i = 0; i < text.length; i++) {
+            var code = text.charCodeAt(i);
+            var ch = text.charAt(i);
+            out += ch === '"' ? '\\"' : ch === "\\" ? "\\\\" : code < 32 || code > 126 ? "\\u" + ("000" + code.toString(16)).slice(-4) : ch;
+        }
+        return out + '"';
+    }
+    function json(value, depth) {
+        depth = depth || 0;
+        if (depth > 12) { return '"<deep>"'; }
+        if (value === undefined) { return '{"$":"undefined"}'; }
+        if (value === null) { return "null"; }
+        var kind = typeof value;
+        if (kind === "number") { return number(value); }
+        if (kind === "boolean") { return String(value); }
+        if (kind === "string") { return quote(value); }
+        if (kind === "function") { return '"<function>"'; }
+        if (value instanceof Array) {
+            var items = [];
+            for (var i = 0; i < value.length; i++) { items.push(json(value[i], depth + 1)); }
+            return "[" + items.join(",") + "]";
+        }
+        if (value.constructor === Object) {
+            var parts = [];
+            for (var key in value) { if (value.hasOwnProperty(key)) { parts.push(quote(key) + ":" + json(value[key], depth + 1)); } }
+            return "{" + parts.join(",") + "}";
+        }
+        return quote(String(value));
+    }
+    function located(path) {
+        var parts = path.split(".");
+        var at = $.global;
+        for (var i = 0; i < parts.length; i++) { at = at[parts[i]]; }
+        return at;
+    }
+    function revive(value) {
+        if (value instanceof Array) {
+            var list = [];
+            for (var i = 0; i < value.length; i++) { list.push(revive(value[i])); }
+            return list;
+        }
+        if (value === null || typeof value !== "object") { return value; }
+        var count = 0;
+        for (var probe in value) { if (value.hasOwnProperty(probe)) { count += 1; } }
+        if (count === 1 && value.hasOwnProperty("$")) {
+            var tag = String(value.$);
+            var scaled = /^(-?\d+)p(-?\d+)$/.exec(tag);
+            return tag === "undefined" ? undefined : tag === "NaN" ? NaN : tag === "Infinity" ? Infinity : tag === "-Infinity" ? -Infinity : tag === "-0" ? -0 : scaled ? Number(scaled[1]) * Math.pow(2, Number(scaled[2])) : tag.indexOf("enum:") === 0 ? located(tag.slice(5)) : tag;
+        }
+        var object = {};
+        for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = revive(value[key]); } }
+        return object;
+    }
+
+    // --- [SCRIPTUI]
+    function run(handler, target, event) {
+        if (typeof handler === "function") { return handler.call(target, event); }
+    }
+    function ListItem(list, text, index) {
+        this.type = "item";
+        this.text = String(text);
+        this.index = index;
+        this.parent = list;
+        this.selected = false;
+        this.checked = false;
+        this.image = null;
+    }
+    ListItem.prototype.valueOf = function () { return this.index; };
+    ListItem.prototype.toString = function () { return this.text; };
+
+    var graphics = {
+        newPen: function () { return {}; }, newBrush: function () { return {}; }, newPath: function () {}, moveto: function () {}, lineto: function () {}, rectPath: function () {}, ellipsePath: function () {}, strokePath: function () {}, fillPath: function () {}, drawOSControl: function () {}, drawString: function () {}, drawFocusRing: function () {}, measureString: function () { return [100, 20]; }, drawImage: function () {}, closePath: function () {},
+        PenType: { SOLID_COLOR: 0, THEME_COLOR: 1 }, BrushType: { SOLID_COLOR: 0, THEME_COLOR: 1 },
+        font: { name: "Helvetica", size: 12, style: "Regular" }, foregroundColor: {}, backgroundColor: {}, disabledForegroundColor: {}, disabledBackgroundColor: {}
+    };
+    var kinds = { edittext: 1, statictext: 1, button: 1, iconbutton: 1, checkbox: 1, radiobutton: 1, dropdownlist: 2, listbox: 2, treeview: 2, group: 3, panel: 4, tabbedpanel: 4, tab: 4, slider: 5, scrollbar: 5, progressbar: 6, image: 7, flashplayer: 7, customboundedvalue: 5, custombutton: 1, customview: 7, item: 1, node: 2 };
+    function typeName(type) { return String(type).toLowerCase(); }
+
+    function Control(type, parent, session) {
+        this.type = typeName(type);
+        this.parent = parent;
+        this.session = session;
+        this.children = [];
+        this.properties = {};
+        this.enabled = true;
+        this.visible = true;
+        this.active = false;
+        this.helpTip = "";
+        this.text = "";
+        this.title = "";
+        this.name = "";
+        this.value = this.type === "checkbox" || this.type === "radiobutton" ? false : 0;
+        this.minvalue = 0;
+        this.maxvalue = 100;
+        this.size = [100, 20];
+        this.preferredSize = [-1, -1];
+        this.preferredSize.width = -1; this.preferredSize.height = -1;
+        this.minimumSize = [0, 0];
+        this.minimumSize.width = 0; this.minimumSize.height = 0;
+        this.maximumSize = [4096, 4096];
+        this.maximumSize.width = 4096; this.maximumSize.height = 4096;
+        this.size.width = 100; this.size.height = 20;
+        this.location = [0, 0];
+        this.location.x = 0; this.location.y = 0;
+        this.bounds = [0, 0, 100, 20];
+        this.bounds.left = 0; this.bounds.top = 0; this.bounds.right = 100; this.bounds.bottom = 20; this.bounds.width = 100; this.bounds.height = 20;
+        this.frameBounds = this.bounds;
+        this.windowBounds = this.bounds;
+        this.alignment = null;
+        this.alignChildren = null;
+        this.orientation = "column";
+        this.margins = 0;
+        this.spacing = 0;
+        this.indent = 0;
+        this.graphics = graphics;
+        this.window = parent ? parent.window : this;
+        var self = this;
+        this.layout = { layout: function () {}, resize: function () {}, margins: 0, spacing: 0 };
+        if (kinds[this.type] === 2) {
+            this.items = [];
+            this.selection = null;
+            var onSelection = function (key, previous, next) {
+                var item = next === null || next === undefined ? null : typeof next === "number" ? self.items[next] || null : next;
+                self.unwatch("selection");
+                self.selection = item;
+                if (item && item !== previous) { run(self.onChange, self); }
+                self.watch("selection", onSelection);
+                return item;
+            };
+            this.watch("selection", onSelection);
+        }
+        session.controls.push(this);
+    }
+    Control.prototype.add = function (type) {
+        var text = String(type);
+        var args = arguments;
+        if (text.indexOf("{") >= 0) { return resource(text, this, this.session); }
+        var child = new Control(type, this, this.session);
+        if (child.type === "item") {
+            var item = new ListItem(this, args[1], this.items.length);
+            this.items.push(item);
+            return item;
+        }
+        this.children.push(child);
+        var kind = kinds[child.type];
+        var props;
+        if (kind === 1) {
+            child.text = args[2] === undefined ? "" : String(args[2]);
+            props = args[3];
+        } else if (kind === 2) {
+            var items = args[2];
+            if (items instanceof Array) {
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i] === "-") { child.items.push(new ListItem(child, "-", child.items.length)); } else { child.items.push(new ListItem(child, items[i], child.items.length)); }
+                }
+            } else if (items && items.items instanceof Array) {
+                props = items;
+                for (var j = 0; j < items.items.length; j++) { child.items.push(new ListItem(child, items.items[j], child.items.length)); }
+            }
+            props = props || args[3];
+            if (props && props.items instanceof Array && !child.items.length) {
+                for (var k = 0; k < props.items.length; k++) { child.items.push(new ListItem(child, props.items[k], k)); }
+            }
+        } else if (kind === 3) {
+            props = args[2];
+        } else if (kind === 4) {
+            child.text = args[2] === undefined ? "" : String(args[2]);
+            props = args[3];
+        } else if (kind === 5) {
+            child.value = args[2] === undefined ? 0 : args[2];
+            child.minvalue = args[3] === undefined ? 0 : args[3];
+            child.maxvalue = args[4] === undefined ? 100 : args[4];
+            props = args[5];
+        } else if (kind === 6) {
+            child.value = args[2] === undefined ? 0 : args[2];
+            child.maxvalue = args[3] === undefined ? 100 : args[3];
+        } else if (kind === 7) {
+            props = args[3];
+        }
+        apply(child, props);
+        return child;
+    };
+    function apply(control, props) {
+        if (!props) { return; }
+        control.properties = props;
+        for (var key in props) {
+            if (key === "items" && control.items) { continue; }
+            if (key === "properties") { apply(control, props[key]); continue; }
+            control[key] = props[key];
+        }
+    }
+    Control.prototype.remove = function (target) {
+        var list = this.items && (typeof target === "number" || target instanceof ListItem) ? this.items : this.children;
+        var index = typeof target === "number" ? target : -1;
+        for (var i = 0; index < 0 && i < list.length; i++) { if (list[i] === target) { index = i; } }
+        if (index >= 0) { list.splice(index, 1); }
+        if (list === this.items) { for (var j = 0; j < list.length; j++) { list[j].index = j; } }
+    };
+    Control.prototype.removeAll = function () { if (this.items) { this.items = []; this.selection = null; } };
+    Control.prototype.find = function (text) {
+        for (var i = 0; this.items && i < this.items.length; i++) { if (this.items[i].text === text) { return this.items[i]; } }
+        return null;
+    };
+    Control.prototype.findElement = function (name) {
+        for (var i = 0; i < this.session.controls.length; i++) {
+            var control = this.session.controls[i];
+            if (control.window === this.window && control.name === name) { return control; }
+        }
+        return null;
+    };
+    Control.prototype.show = function () { this.visible = true; return showWindow(this); };
+    Control.prototype.hide = function () { this.visible = false; };
+    Control.prototype.close = function (value) {
+        this.closedWith = value === undefined ? 1 : value;
+        this.closed = true;
+        run(this.onClose, this);
+        return this.closedWith;
+    };
+    Control.prototype.center = function () {};
+    Control.prototype.notify = function (event) {
+        var name = event || (this.type === "button" || this.type === "checkbox" || this.type === "radiobutton" || this.type === "iconbutton" ? "onClick" : "onChange");
+        if (name === "onClick" && this.type === "radiobutton") { this.value = true; }
+        if (name === "onClick" && this.type === "checkbox") { this.value = !this.value; }
+        return run(this[name], this);
+    };
+    Control.prototype.addEventListener = function (name, handler) {
+        this.listeners = this.listeners || {};
+        (this.listeners[name] = this.listeners[name] || []).push(handler);
+        return handler;
+    };
+    Control.prototype.removeEventListener = function () { return true; };
+    Control.prototype.dispatchEvent = function () { return true; };
+    Control.prototype.toString = function () { return "[" + this.type + " " + this.text + "]"; };
+
+    function resource(spec, parent, session) {
+        var body = spec.replace(/^\s+/, "");
+        var headed = /^(\w+)\s*\{/.exec(body);
+        if (!headed) { throw new Error("resource " + spec.slice(0, 40)); }
+        var literal = body.slice(headed[1].length).replace(/(\w+)\s*:\s*(\w+)\s*\{/g, function (all, key, type) {
+            return kinds[typeName(type)] ? key + ": {__type:'" + type + "'," : all;
+        }).replace(/,\s*\}/g, "}");
+        var tree = eval("(" + literal + ")");
+        return build(headed[1], tree, parent, session);
+    }
+    function build(type, tree, parent, session) {
+        var control = new Control(type, parent, session);
+        if (parent) { parent.children.push(control); }
+        for (var key in tree) {
+            var value = tree[key];
+            if (key === "__type") { continue; }
+            if (value !== null && typeof value === "object" && value.__type) {
+                var child = build(value.__type, value, control, session);
+                child.name = key;
+                control[key] = child;
+            } else if (key === "properties") {
+                apply(control, value);
+            } else if (key === "items" && control.items) {
+                for (var i = 0; i < value.length; i++) { control.items.push(new ListItem(control, value[i], i)); }
+            } else {
+                control[key] = value;
+            }
+        }
+        return control;
+    }
+
+    function match(session, root, key) {
+        var parts = /^(\w+)#(\d+)$/.exec(key);
+        var counter = 0;
+        for (var i = 0; i < session.controls.length; i++) {
+            var control = session.controls[i];
+            if (control.window !== root) { continue; }
+            if (parts) {
+                if (control.type === parts[1]) {
+                    if (counter === Number(parts[2])) { return control; }
+                    counter++;
+                }
+            } else if (control.name === key || control.text === key || control.title === key) {
+                return control;
+            }
+        }
+        throw new Error("no control " + key + " in " + root.text);
+    }
+    function fill(session, root, fields) {
+        for (var key in fields) {
+            var control = match(session, root, key);
+            var value = fields[key];
+            if (control.items) {
+                control.selection = typeof value === "number" ? value : control.find(value);
+            } else if (control.type === "checkbox" || control.type === "radiobutton") {
+                control.value = value;
+                run(control.onClick, control);
+            } else if (kinds[control.type] === 5) {
+                control.value = value;
+                run(control.onChanging, control);
+                run(control.onChange, control);
+            } else {
+                control.text = String(value);
+                run(control.onChanging, control);
+                run(control.onChange, control);
+            }
+        }
+    }
+    function press(session, root, key) {
+        var control = match(session, root, key);
+        var cancel = control.name === "cancel" || control.text === "Cancel";
+        if (typeof control.onClick === "function") {
+            control.onClick.call(control);
+            return root.closed ? root.closedWith : cancel ? 2 : 1;
+        }
+        return cancel ? 2 : 1;
+    }
+    function tree(session, root) {
+        var rows = [];
+        for (var i = 0; i < session.controls.length; i++) {
+            var control = session.controls[i];
+            if (control.window !== root || control === root || kinds[control.type] === 3) { continue; }
+            var row = { type: control.type, text: control.text, name: control.name };
+            if (control.items) {
+                row.items = [];
+                for (var j = 0; j < control.items.length; j++) { row.items.push(control.items[j].text); }
+                row.selection = control.selection ? control.selection.index : null;
+            } else if (control.type === "checkbox" || control.type === "radiobutton" || kinds[control.type] === 5) {
+                row.value = control.value;
+            }
+            rows.push(row);
+        }
+        return rows;
+    }
+    function showWindow(control) {
+        var session = control.session;
+        if (control.parent) { return; }
+        var answer = session.windowAnswers[session.windowShown] || {};
+        session.windowShown++;
+        session.record.windows.push({ title: control.text, type: control.type, tree: tree(session, control) });
+        run(control.onShow, control);
+        if (control.type === "palette" && !answer.now) {
+            session.palettes.push({ window: control, answer: answer });
+            return 0;
+        }
+        return answerWindow(session, control, answer);
+    }
+    function answerWindow(session, control, answer) {
+        var result = answer.answer === undefined ? 1 : answer.answer;
+        if (answer.fields) { fill(session, control, answer.fields); }
+        if (answer.act) { answer.act(control, session); }
+        if (answer.presses) {
+            for (var i = 0; i < answer.presses.length; i++) { result = press(session, control, answer.presses[i]); }
+        } else if (answer.press) {
+            result = press(session, control, answer.press);
+        }
+        session.record.windows[session.record.windows.length - 1].filled = tree(session, control);
+        return control.closed ? control.closedWith : result;
+    }
+    function fakeWindow(session) {
+        function Window(type, title) {
+            var text = String(type);
+            var root;
+            if (text.indexOf("{") >= 0) {
+                root = resource(text, null, session);
+            } else {
+                root = new Control(type, null, session);
+                root.text = title === undefined ? "" : String(title);
+                apply(root, arguments[3]);
+            }
+            session.record.created.push({ type: root.type, title: root.text });
+            return root;
+        }
+        Window.alert = function (message) { session.record.alerts.push(String(message)); };
+        Window.confirm = function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
+        Window.prompt = function (message, value) { session.record.prompts.push(String(message)); return next(session.prompts, value); };
+        Window.find = function () { return null; };
+        Window.update = function () {};
+        Window.frameworkName = "fake";
+        Window.version = "fake";
+        return Window;
+    }
+    function next(queue, fallback) { return queue && queue.length ? queue.shift() : fallback; }
+
+    // --- [DIALOGS]
+    var valueMember = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
+    var containers = ["dialogColumns", "dialogRows", "borderPanels", "enablingGroups", "radiobuttonGroups"];
+    var widgets = ["staticTexts", "textEditboxes", "measurementEditboxes", "integerEditboxes", "realEditboxes", "percentEditboxes", "angleEditboxes", "comboboxes", "integerComboboxes", "realComboboxes", "percentComboboxes", "angleComboboxes", "measurementComboboxes", "dropdowns", "checkboxControls", "radiobuttonControls"];
+    function collection(kind, owner, dialog) {
+        var list = [];
+        list.kind = kind;
+        list.add = function (props) {
+            var made = makeNode(kind, owner, dialog);
+            props = props || {};
+            for (var key in props) { made[key] = props[key]; }
+            if (kind === "radiobuttonControls" && props && props.checkedState === true) { owner.selectedButton = list.length; }
+            list.push(made);
+            dialog.flat.push({ kind: kind, node: made });
+            return made;
+        };
+        list.item = function (index) { return list[index]; };
+        list.firstItem = function () { return list[0]; };
+        list.lastItem = function () { return list[list.length - 1]; };
+        list.everyItem = function () { return { getElements: function () { return list.slice(0); } }; };
+        return list;
+    }
+    function makeNode(kind, owner, dialog) {
+        var node = { parent: owner, isValid: true, kind: kind, destroy: function () { node.isValid = false; }, staticLabel: "", editContents: "", editValue: 0, selectedIndex: 0, stringList: [], checkedState: false, selectedButton: 0, minWidth: 0, minimumValue: 0, maximumValue: 0, smallNudge: 1, largeNudge: 10 };
+        var i;
+        for (i = 0; i < containers.length; i++) { node[containers[i]] = collection(containers[i], node, dialog || node); }
+        for (i = 0; i < widgets.length; i++) { node[widgets[i]] = collection(widgets[i], node, dialog || node); }
+        if (kind === "enablingGroups") { node.checkedState = true; }
+        return node;
+    }
+    function fakeDialogs(session) {
+        var list = [];
+        list.add = function (props) {
+            var dialog = makeNode("dialog", realApp, null);
+            dialog.flat = [];
+            var i;
+            for (i = 0; i < containers.length; i++) { dialog[containers[i]] = collection(containers[i], dialog, dialog); }
+            for (i = 0; i < widgets.length; i++) { dialog[widgets[i]] = collection(widgets[i], dialog, dialog); }
+            dialog.name = "";
+            dialog.canCancel = true;
+            dialog.label = "";
+            props = props || {};
+            for (var key in props) { dialog[key] = props[key]; }
+            dialog.show = function () {
+                var answer = session.dialogAnswers[session.dialogShown] || {};
+                session.dialogShown++;
+                var values = answer.fields || {};
+                var counters = {};
+                var before = [];
+                for (var i = 0; i < dialog.flat.length; i++) {
+                    var row = dialog.flat[i];
+                    var member = valueMember[row.kind];
+                    var seen = counters[row.kind] || 0;
+                    counters[row.kind] = seen + 1;
+                    var rowKey = row.kind + "#" + seen;
+                    if (row.kind === "staticTexts") { before.push({ key: rowKey, label: row.node.staticLabel }); continue; }
+                    if (row.kind === "radiobuttonControls") { before.push({ key: rowKey, label: row.node.staticLabel, checked: row.node.checkedState }); continue; }
+                    before.push({ key: rowKey, label: row.node.staticLabel, list: row.kind === "dropdowns" ? row.node.stringList : undefined, value: member ? row.node[member] : undefined });
+                    if (member === "editValue" && row.node.editContents === "") { row.node.editContents = String(row.node.editValue); }
+                    if (values[rowKey] !== undefined) {
+                        row.node[member] = values[rowKey];
+                        if (member === "editValue") { row.node.editContents = String(values[rowKey]); }
+                    }
+                }
+                session.record.dialogs.push({ name: dialog.name, controls: before });
+                return answer.answer === undefined ? true : answer.answer;
+            };
+            list.push(dialog);
+            return dialog;
+        };
+        list.item = function (index) { return list[index]; };
+        return list;
+    }
+
+    // --- [APP]
+    var liveMembers = ["activeBook", "activeScript"];
+    function fakeDocuments(session) {
+        var list = [];
+        function sync() {
+            for (var i = 0; i < session.documents.length; i++) { list[i] = session.documents[i]; }
+            list.length = session.documents.length;
+        }
+        list.add = function (showing, preset, properties) {
+            var made = typeof showing === "object" && showing !== null ? realApp.documents.add(false, undefined, showing) : realApp.documents.add(false, preset, properties);
+            session.documents.push(made);
+            sync();
+            return made;
+        };
+        list.item = function (index) { return typeof index === "number" ? list[index] : list.itemByName(index); };
+        list.itemByName = function (name) { for (var i = 0; i < list.length; i++) { if (list[i].name === name) { return list[i]; } } return realApp.documents.itemByName("\u0000"); };
+        list.itemByID = function (id) { for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } } return realApp.documents.itemByID(-1); };
+        list.firstItem = function () { return list[0]; };
+        list.lastItem = function () { return list[list.length - 1]; };
+        list.sync = sync;
+        sync();
+        return list;
+    }
+    function fakeMenus(session) {
+        var menu = {
+            submenus: { item: function () { return menu; }, itemByName: function () { return menu; } },
+            menuItems: { item: function (name) { return { name: name, isValid: true }; }, itemByName: function (name) { return { name: name, isValid: true }; }, add: function (action) { session.record.menus.push({ added: action && action.title }); return {}; } },
+            menuSeparators: { add: function () { return {}; } },
+            isValid: true
+        };
+        var actions = {
+            add: function (title) {
+                var action = { title: title, name: title, enabled: true, checked: false, isValid: true, listeners: {} };
+                action.addEventListener = function (type, handler) { action.listeners[type] = handler; return {}; };
+                action.remove = function () { action.isValid = false; };
+                session.actions.push(action);
+                return action;
+            },
+            itemByName: function () { return { isValid: false }; },
+            everyItem: function () { return { getElements: function () { return session.actions.slice(0); } }; }
+        };
+        return { scriptMenuActions: actions, menus: { item: function () { return menu; }, itemByName: function () { return menu; } } };
+    }
+    function fakeApp(session) {
+        var fake = {};
+        var reflected = realApp.reflect;
+        var skip = { dialogs: 1, reflect: 1, parent: 1, properties: 1, activeScript: 1, activeDocument: 1, selection: 1, activeWindow: 1, documents: 1, layoutWindows: 1, windows: 1, select: 1, open: 1 };
+        var i;
+        function refresh() {
+            for (var r = 0; r < liveMembers.length; r++) {
+                try { fake[liveMembers[r]] = realApp[liveMembers[r]]; } catch (error) { delete fake[liveMembers[r]]; }
+            }
+            fake.documents.sync();
+        }
+        for (i = 0; i < reflected.properties.length; i++) {
+            var name = reflected.properties[i].name;
+            if (name === "__proto__" || skip[name] === 1) { continue; }
+            try { fake[name] = realApp[name]; } catch (error) {}
+        }
+        for (i = 0; i < reflected.methods.length; i++) {
+            (function (method) {
+                if (method === "toSource" || method === "toSpecifier" || skip[method] === 1) { return; }
+                fake[method] = function () {
+                    var result = realApp[method].apply(realApp, arguments);
+                    refresh();
+                    return result;
+                };
+            })(reflected.methods[i].name);
+        }
+        fake.dialogs = fakeDialogs(session);
+        fake.documents = fakeDocuments(session);
+        fake.activeDocument = session.documents[0];
+        fake.selection = session.selection;
+        fake.layoutWindows = session.documents.length ? session.documents[0].layoutWindows : [];
+        fake.windows = fake.layoutWindows;
+        fake.select = function (items) {
+            fake.selection = items instanceof Array ? items : items === NothingEnum.NOTHING || items === undefined ? [] : [items];
+            return fake.selection;
+        };
+        fake.open = function (file, showing, options) {
+            var opened = realApp.open(file, false, options);
+            session.documents.push(opened);
+            fake.documents.sync();
+            return opened;
+        };
+        if (session.menus) {
+            var menus = fakeMenus(session);
+            fake.scriptMenuActions = menus.scriptMenuActions;
+            fake.menus = menus.menus;
+        }
+        refresh();
+        return fake;
+    }
+
+    // --- [PRECONDITION]
+    function given(expression) { return new Function("doc", "app", "made", "return (" + expression + ");"); }
+    function expanded(key, expression, doc, made) {
+        var at = expression.indexOf("[*]");
+        if (at < 0) { return [[key, expression]]; }
+        var count = given(expression.slice(0, at))(doc, realApp, made).length;
+        var rows = [];
+        var spread = key.indexOf("[*]") >= 0;
+        for (var i = 0; i < count; i++) { rows.push([spread ? key.split("[*]").join("[" + i + "]") : key, expression.split("[*]").join("[" + i + "]")]); }
+        return spread ? rows : [[key, rows]];
+    }
+    function evaluated(row, doc, made) {
+        if (!(row[1] instanceof Array)) { return given(row[1])(doc, realApp, made); }
+        var values = [];
+        for (var i = 0; i < row[1].length; i++) { values.push(given(row[1][i][1])(doc, realApp, made)); }
+        return values;
+    }
+    function assign(target, value, doc, made) {
+        var rows = expanded(target, target, doc, made);
+        var flat = rows.length === 1 && rows[0][1] instanceof Array ? rows[0][1] : rows;
+        for (var i = 0; i < flat.length; i++) {
+            var path = flat[i][1];
+            var dot = path.lastIndexOf(".");
+            given(path.slice(0, dot))(doc, realApp, made)[path.slice(dot + 1)] = revive(value);
+        }
+    }
+    function units(doc, wanted) {
+        var both = typeof wanted === "string" ? { script: wanted, horizontal: wanted, vertical: wanted } : wanted;
+        if (both.script) { realApp.scriptPreferences.measurementUnit = MeasurementUnits[both.script]; }
+        if (both.horizontal) { doc.viewPreferences.horizontalMeasurementUnits = MeasurementUnits[both.horizontal]; }
+        if (both.vertical) { doc.viewPreferences.verticalMeasurementUnits = MeasurementUnits[both.vertical]; }
+    }
+    function prepare(doc, condition, made) {
+        var i;
+        var labels = condition.labels || {};
+        for (var label in labels) { if (labels.hasOwnProperty(label)) { doc.insertLabel(label, labels[label]); } }
+        if (condition.units) { units(doc, condition.units); }
+        var sets = condition.set || [];
+        for (i = 0; i < sets.length; i++) { assign(sets[i][0], sets[i][1], doc, made); }
+        var adds = condition.add || [];
+        for (i = 0; i < adds.length; i++) { made[adds[i].as] = given(adds[i].to)(doc, realApp, made)[adds[i].kind].add(revive(adds[i].properties || {})); }
+        var steps = condition.steps || [];
+        for (i = 0; i < steps.length; i++) { new Function("doc", "app", "made", steps[i])(doc, realApp, made); }
+        var selected = [];
+        var picks = condition.select || [];
+        for (i = 0; i < picks.length; i++) { selected.push(given(picks[i])(doc, realApp, made)); }
+        return selected;
+    }
+    function reads(doc, wanted, made) {
+        var unit = realApp.scriptPreferences.measurementUnit;
+        realApp.scriptPreferences.measurementUnit = MeasurementUnits.POINTS;
+        var state = {};
+        var failed = {};
+        for (var key in wanted) {
+            if (!wanted.hasOwnProperty(key)) { continue; }
+            try {
+                var rows = expanded(key, wanted[key], doc, made);
+                for (var i = 0; i < rows.length; i++) {
+                    try { state[rows[i][0]] = evaluated(rows[i], doc, made); } catch (inner) { failed[rows[i][0]] = String(inner.message); }
+                }
+            } catch (error) { failed[key] = String(error.message); }
+        }
+        realApp.scriptPreferences.measurementUnit = unit;
+        return { state: state, failed: failed };
+    }
+
+    // --- [SOURCE]
+    function expandIncludes(source, dir, depth) {
+        var paths = [dir];
+        var pathMatch = /^[ \t]*(?:\/\/[ \t]*@|#)includepath[ \t]+["']([^"']*)["']/m.exec(source);
+        if (pathMatch) {
+            var parts = pathMatch[1].split(";");
+            for (var p = 0; p < parts.length; p++) { paths.push(dir + "/" + parts[p]); }
+        }
+        return source.replace(/^[ \t]*(?:\/\/[ \t]*@|#)include[ \t]+["']([^"']+)["'][ \t;]*$/gm, function (all, name) {
+            for (var i = 0; i < paths.length; i++) {
+                var file = new RealFile(paths[i] + "/" + name);
+                if (file.exists) { return depth < 8 ? expandIncludes(read(file.fsName), file.parent.fsName, depth + 1) : read(file.fsName); }
+            }
+            throw new Error("include not found: " + name);
+        });
+    }
+    function prepared(item) {
+        if (item.code !== undefined) { return item.code; }
+        var file = new RealFile(item.script);
+        var source = expandIncludes(read(file.fsName), file.parent.fsName, 0).split("$.fileName").join(quote(file.fsName)).replace(/^[ \t]*#(target|targetengine|include|strict|script)[^\n\r]*/gm, "");
+        if (!item.lines) { return source; }
+        var lines = source.split(/\r\n|\r|\n/);
+        var kept = [];
+        for (var i = 0; i < item.lines.length; i++) { kept.push(lines.slice(item.lines[i][0] - 1, item.lines[i][1]).join("\n")); }
+        return kept.join("\n");
+    }
+    function body(item) {
+        return item.kind === "probe" ? "(function (doc, made) { return (" + item.evaluate + "); })(arguments[9][0], arguments[9][1])" : item.kind === "call" ? prepared(item) + "\n;(" + item.call + ").apply(null, arguments[9]);" : prepared(item);
+    }
+
+    // --- [RUN]
+    function Exited() {}
+    function scoped(Window, alert, confirm, prompt, app, File, Folder, exit) { return eval(arguments[8]); }
+    function fakeFile(session) {
+        function File(path) { return path === undefined ? new RealFile() : new RealFile(path); }
+        File.fs = RealFile.fs;
+        File.encode = RealFile.encode;
+        File.decode = RealFile.decode;
+        File.isEncodingAvailable = RealFile.isEncodingAvailable;
+        File.openDialog = function () { session.record.files.push("open"); return next(session.files, null); };
+        File.saveDialog = function () { session.record.files.push("save"); return next(session.files, null); };
+        return File;
+    }
+    function fakeFolder(session) {
+        function Folder(path) { return path === undefined ? new RealFolder() : new RealFolder(path); }
+        Folder.selectDialog = function () { session.record.files.push("folder"); return next(session.files, null); };
+        Folder.current = RealFolder.current; Folder.desktop = RealFolder.desktop; Folder.myDocuments = RealFolder.myDocuments; Folder.temp = RealFolder.temp; Folder.userData = RealFolder.userData; Folder.appData = RealFolder.appData; Folder.commonFiles = RealFolder.commonFiles; Folder.startup = RealFolder.startup; Folder.system = RealFolder.system; Folder.trash = RealFolder.trash; Folder.fs = RealFolder.fs; Folder.encode = RealFolder.encode; Folder.decode = RealFolder.decode;
+        return Folder;
+    }
+    function docIds() {
+        var ids = {};
+        for (var i = 0; i < realApp.documents.length; i++) { ids[realApp.documents[i].id] = true; }
+        return ids;
+    }
+    function sessionFor(item) {
+        return { controls: [], palettes: [], actions: [], documents: [], selection: [], windowShown: 0, dialogShown: 0, menus: item.precondition.menus === true, windowAnswers: item.windows || [], dialogAnswers: item.dialogs || [], confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alertTitles: [], alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], created: [], files: [], menus: [] } };
+    }
+    function runCase(item, product) {
+        var session = sessionFor(item);
+        var result = { name: item.name, ran: false };
+        var known = docIds();
+        var level = realApp.scriptPreferences.userInteractionLevel;
+        var unit = realApp.scriptPreferences.measurementUnit;
+        var active = realApp.documents.length ? realApp.activeDocument.id : null;
+        var made = {};
+        var condition = item.precondition;
+        realApp.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+        try {
+            var doc = condition.open ? realApp.open(new RealFile(product + "/" + condition.open), false) : realApp.documents.add(false, undefined, revive(condition.document || {}));
+            session.documents.push(doc);
+            session.selection = prepare(doc, condition, made);
+            result.before = reads(doc, item.read || {}, made).state;
+            var fake = fakeApp(session);
+            var value;
+            try {
+                value = scoped(fakeWindow(session), function (message, title) { if (session.exited) { return; } session.record.alerts.push(String(message)); session.record.alertTitles.push(title === undefined ? null : String(title)); }, function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); }, function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); }, fake, fakeFile(session), fakeFolder(session), function () { session.exited = true; throw new Exited(); }, body(item), item.kind === "probe" ? [doc, made] : revive(item.args || []));
+                for (var p = 0; p < session.palettes.length; p++) { answerWindow(session, session.palettes[p].window, session.palettes[p].answer); }
+                for (var a = 0; a < session.actions.length; a++) {
+                    var handler = session.actions[a].listeners.onInvoke;
+                    session.record.menus.push({ title: session.actions[a].title, invoked: typeof handler === "function" });
+                    if (typeof handler === "function") { handler.call(session.actions[a], { eventType: "onInvoke" }); }
+                }
+                result.ran = true;
+            } catch (error) {
+                result.ran = error instanceof Exited || session.exited === true;
+                if (result.ran) { result.exited = true; } else { result.thrown = String(error.name) + ": " + String(error.message) + (error.line ? " at line " + error.line : ""); }
+            }
+            if (item.kind !== "run") { result.value = value; }
+            var after = reads(doc, item.read || {}, made);
+            result.read = after.state;
+            result.readFailed = after.failed;
+        } catch (outer) {
+            result.failed = String(outer.message) + (outer.line ? " at line " + outer.line : "");
+        }
+        var record = session.record;
+        result.alerts = record.alerts; result.alertTitles = record.alertTitles; result.confirms = record.confirms; result.prompts = record.prompts; result.windows = record.windows; result.dialogs = record.dialogs; result.files = record.files; result.menus = record.menus;
+        for (var d = realApp.documents.length - 1; d >= 0; d--) {
+            var open = realApp.documents[d];
+            if (!known[open.id]) { open.close(SaveOptions.NO); }
+        }
+        realApp.scriptPreferences.userInteractionLevel = level;
+        realApp.scriptPreferences.measurementUnit = unit;
+        if (active !== null && realApp.documents.length && realApp.activeDocument.id !== active) { realApp.activeDocument = realApp.documents.itemByID(active); }
+        return result;
+    }
+    return function (batchPath, resultPath) {
+        var output = { application: realApp.name, version: realApp.version, engine: "extendscript", cases: [] };
+        try {
+            var batch = eval("(" + read(batchPath) + ")");
+            for (var i = 0; i < batch.cases.length; i++) { output.cases.push(runCase(batch.cases[i], batch.product)); }
+        } catch (error) {
+            output.failed = String(error.message) + (error.line ? " at line " + error.line : "");
+        }
+        write(resultPath, json(output));
+        return output.cases.length + " cases" + (output.failed ? ", failed: " + output.failed : "");
+    };
+})();

@@ -47,6 +47,7 @@ extension Installation {
             }
             return listed
         }
+        if name.hasPrefix("/") { return [try Self(at: URL(filePath: name, directoryHint: .isDirectory))] }
         let registered: [Self] = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).compactMap { url in
             Result { () throws(ApplicationFailure) in try Self(at: url) }[case: \.success]
         }

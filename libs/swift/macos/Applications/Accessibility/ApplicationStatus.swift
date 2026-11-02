@@ -5,10 +5,6 @@ public import CasePaths
 public import Processes
 import Synchronization
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-typealias Windows = (count: Int, focused: Data?)
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
@@ -47,11 +43,15 @@ final class Observer {
     nonisolated func register() throws(ApplicationFailure) {
         let element: AXUIElement = AXUIElementCreateApplication(instance.processIdentifier)
         try observed.withLock { observed throws(ApplicationFailure) in
-            while let notification: String = observed.unregistered.first {
+            observed.unregistered = try observed.unregistered.map { notification throws(ApplicationFailure) -> String? in
                 let added: AXError = unsafe AXObserverAddNotification(observed.observer, element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
-                guard ![.apiDisabled, .cannotComplete].contains(added) else { throw element.failure(added, reading: [notification]) }
-                observed.unregistered.removeFirst()
+                return switch added {
+                    case .success, .notificationAlreadyRegistered, .notificationUnsupported: nil
+                    case .apiDisabled, .cannotComplete: throw element.failure(added, reading: [notification])
+                    default: notification
+                }
             }
+            .compactMap(\.self)
         }
     }
 
@@ -66,11 +66,9 @@ final class Observer {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension AXUIElement {
-    func windows() throws(ApplicationFailure) -> Windows {
-        var count: CFIndex = 0
-        let counted: AXError = unsafe AXUIElementGetAttributeValueCount(self, kAXWindowsAttribute as CFString, &count)
-        guard [.success, .noValue, .attributeUnsupported].contains(counted) else { throw failure(counted, reading: [kAXWindowsAttribute]) }
-        return (counted == .success ? count : 0, try element(kAXFocusedWindowAttribute)?.token)
+    func windows() throws(ApplicationFailure) -> [Data?] {
+        let read: [String: CFTypeRef] = try values([kAXWindowsAttribute, kAXFocusedWindowAttribute])
+        return (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(Self.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(Self.checked)?.token]
     }
 }
 
@@ -83,16 +81,16 @@ extension NSRunningApplication {
     func status(
         walking walked: @Sendable (Element) -> Bool,
         observer: Result<Observer, ApplicationFailure>? = nil,
-        after last: (elements: [Element], windows: Windows)? = nil,
-    ) async -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: Windows?) {
+        after last: (elements: [Element], windows: [Data?])? = nil,
+    ) async -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: [Data?]?) {
         await withTaskExecutorPreference(accessibility) {
-            let read: Result<(status: ApplicationStatus, windows: Windows?), ApplicationFailure> = Result { () throws(ApplicationFailure) in
-                let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
+            let read: Result<(status: ApplicationStatus, windows: [Data?]?), ApplicationFailure> = Result { () throws(ApplicationFailure) in
                 guard try processStatus() != .stopped else { return (.unresponsive(process: .stopped), nil) }
-                let windows: Windows = try application.windows()
+                try observer?.get().register()
+                let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
+                let windows: [Data?] = try application.windows()
                 if let last, last.windows == windows { return (.responding(elements: last.elements), windows) }
                 let elements: [Element] = try application.candidates().map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
-                try observer?.get().register()
                 return (isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? .responding(elements: elements) : .launching, windows)
             }
             let status: Result<ApplicationStatus, ApplicationFailure> = read.map(\.status).flatMapError { failure in
@@ -116,8 +114,8 @@ extension NSRunningApplication {
         let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, notifications: notifications, ticks: tick) }
         let reason: @Sendable (ApplicationFailure) -> PartialCaseKeyPath<ApplicationFailure.Reason> = { failure in ApplicationFailure.Reason.allCasePaths[failure.reason] }
         return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: interval, clock: clock).map { _ in true })
-            .reductions((status: Result<ApplicationStatus, ApplicationFailure>.success(.launching), windows: Windows?.none)) { last, beat in
-                let seen: (elements: [Element], windows: Windows)? =
+            .reductions((status: Result<ApplicationStatus, ApplicationFailure>.success(.launching), windows: [Data?]?.none)) { last, beat in
+                let seen: (elements: [Element], windows: [Data?])? =
                     switch (beat, last.status, last.windows) {
                         case (true, .success(.responding(let elements)), .some(let windows)): (elements, windows)
                         case (_, _, _): nil

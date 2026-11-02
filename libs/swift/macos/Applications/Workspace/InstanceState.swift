@@ -8,7 +8,7 @@ public import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS].map(TerminationStatus.signaled))
+private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ extension InstanceState: Encodable {
 
 extension NSRunningApplication {
     var usage: ResourceUsage? {
-        Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) }[case: \.success]
+        try? ResourceUsage(of: processIdentifier)
     }
 
     func state(of status: Result<ApplicationStatus, ApplicationFailure>, sampling sampled: Bool) -> InstanceState {
@@ -77,7 +77,7 @@ extension NSRunningApplication {
     ) -> some AsyncSequence<InstanceState, Never> {
         AsyncStream { continuation in
             let following: Task<Void, Never> = Task {
-                let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno>? = await withDiscardingTaskGroup { lifetime in
+                let exit: Result<ProcessExit, Errno>? = await withDiscardingTaskGroup { lifetime in
                     lifetime.addTask {
                         for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: walked, notifications: notifications, polling: interval, clock: clock)
                         where !Task.isCancelled {
@@ -87,11 +87,13 @@ extension NSRunningApplication {
                     defer { lifetime.cancelAll() }
                     return await termination(of: self.processIdentifier).first { _ in true }
                 }
-                guard let exit: Result<(status: TerminationStatus, detail: ExitDetail), Errno> else { return continuation.finish() }
+                guard let exit: Result<ProcessExit, Errno> else { return continuation.finish() }
                 let status: Result<TerminationStatus, Errno> = exit.map(\.status)
                 continuation.yield(.exited(status, report: nil))
-                if case .success(let (status, detail)) = exit, detail.contains(.csError) || reportingSignals.contains(status) {
-                    continuation.yield(.exited(.success(status), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: limit, clock: clock)))
+                if case .success(let ended) = exit, ended.detail.contains(.csError) || reportingSignals.contains(ended.status) {
+                    continuation.yield(
+                        .exited(.success(ended.status), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: limit, clock: clock))
+                    )
                 }
                 continuation.finish()
             }
@@ -141,7 +143,7 @@ extension NSWorkspace {
         return chain(
             (initial.isEmpty ? [OrderedDictionary()] : []).async,
             changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
-                held.states.removeAll { _, state in state.is(\.exited) }
+                if held.waiting.isEmpty { held.states.removeAll { _, state in state.is(\.exited) } }
                 held.states[next.instance] = next.state
                 held.waiting.remove(next.instance)
             }

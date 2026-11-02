@@ -1,4 +1,5 @@
 import AppKit
+import CasePaths
 import CustomDump
 import Subprocess
 import TestSupport
@@ -43,7 +44,7 @@ private struct Placed: Equatable {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension HostSession {
+extension Integration {
     struct Reading {
         @MainActor
         @Test(.application(FixtureApplication.self, launches: false))
@@ -56,9 +57,9 @@ extension HostSession {
                 arguments: ["read", fixture.identifier],
                 as: WatchAppsLine.self,
             )
-            let instances: [Int32: WatchAppsLine.Instance] = try #require(read.lines.first?.instances)
-            _ = try #require(instances[pid]?.running?.usage, "read lines carry usage")
-            let elements: [WatchAppsLine.Element] = try #require(instances[pid]?.elements)
+            let instances: [Int32: WatchAppsLine.Instance] = try #require(read.lines.first?.entry.instances)
+            _ = try #require(instances[pid]?.running?.usage, "read lines hold usage")
+            let elements: [WatchAppsLine.Element] = try #require(instances[pid]?.running?.status.responding)
             let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
             let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: windowSize), styleMask: style).size
             let windows: [WatchAppsLine.Element] = elements.filter { element in element.role == "AXWindow" }

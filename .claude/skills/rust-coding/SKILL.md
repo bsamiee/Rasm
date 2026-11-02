@@ -128,7 +128,7 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`).
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`), and a removed alias leaves its target written at each use, never a package alias of another instantiation in its place.
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 

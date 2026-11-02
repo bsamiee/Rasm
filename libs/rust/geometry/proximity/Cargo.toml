@@ -1,0 +1,42 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-proximity"
+version.workspace    = true
+edition.workspace    = true
+description          = "Proximity over point clouds and placed parry shapes at nalgebra signatures: k-d tree batches, clashes under a clearance with nesting, signed point deviations, first-hit and any-hit ray batches, containment, rigid fits and ICP registration"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["proximity", "collision", "raycast", "kd-tree", "registration"]
+categories           = ["graphics", "mathematics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+faer                 = { workspace = true }
+glamx                = { workspace = true }
+nalgebra             = { workspace = true }
+kiddo                = { workspace = true }
+parry3d-f64          = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

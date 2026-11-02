@@ -1,17 +1,19 @@
+import AsyncAlgorithms
 import CasePaths
 import CustomDump
 import Darwin
 import Foundation
-import Processes
 import Subprocess
 import System
 import TestSupport
 import Testing
 
+@testable import Processes
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 @concurrent
-private func terminations(listedIn fifo: URL) async throws -> [[Result<Exit, Errno>]] {
+private func terminations(listedIn fifo: URL) async throws -> [[Result<ProcessExit, Errno>]] {
     let handle: FileHandle = try FileHandle(forReadingFrom: fifo)
     let data: Data? = try handle.readToEnd()
     let text: String? = String(bytes: try #require(data), encoding: .utf8)
@@ -19,9 +21,9 @@ private func terminations(listedIn fifo: URL) async throws -> [[Result<Exit, Err
     let processes: [pid_t] = fields.compactMap { field in pid_t(field) }
     let listed: Bool = processes.count == 2
     try #require(listed, "listed \(fields)")
-    let parent: Terminations = termination(of: processes[0])
-    let child: Terminations = termination(of: processes[1])
-    return [await elements(of: parent), await elements(of: child)]
+    let parent: AsyncStream<Result<ProcessExit, Errno>> = termination(of: processes[0])
+    let child: AsyncStream<Result<ProcessExit, Errno>> = termination(of: processes[1])
+    return [await Array(parent), await Array(child)]
 }
 
 private func shell(_ script: String) -> Configuration {
@@ -34,14 +36,14 @@ private func shell(_ script: String) -> Configuration {
 struct Sessions {
     @Test
     func runCapturesOutputErrorAndInput() async throws {
-        let result: ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>> = try await shell("/bin/cat; echo oops >&2").run(
+        let result: ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>> = try await shell("/bin/cat; echo warning >&2").run(
             output: .string(limit: 1024),
             within: .seconds(30),
             input: .string("line one\nline two\n"),
             error: .string(limit: 1024),
         )
         expectNoDifference(result.standardOutput, "line one\nline two\n")
-        expectNoDifference(result.standardError, "oops\n")
+        expectNoDifference(result.standardError, "warning\n")
         expectNoDifference(result.terminationStatus, .exited(0))
     }
 
@@ -54,34 +56,34 @@ struct Sessions {
     }
 
     @Test
-    func nonzeroExitThrowsTheExitStatus() async throws {
+    func nonzeroExitThrowsExitStatus() async throws {
         let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell("exit 3").run(output: .discarded, within: .seconds(30)) }
         expectNoDifference(failure.reason[case: \.exit], .exited(3))
     }
 
     @Test
-    func signalThrowsTheSignalStatus() async throws {
+    func signalThrowsSignalStatus() async throws {
         let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell("kill -TERM $$").run(output: .discarded, within: .seconds(30)) }
         expectNoDifference(failure.reason[case: \.exit], .signaled(SIGTERM))
     }
 
     @Test
-    func missingExecutableThrowsTheSubprocessError() async throws {
+    func missingExecutableThrowsSubprocessError() async throws {
         let configuration: Configuration = Configuration(executable: .path("/nonexistent/rasm-tool"), platformOptions: .session())
         let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await configuration.run(output: .discarded, within: .seconds(30)) }
         expectNoDifference(failure.reason[case: \.subprocess]?.code, .executableNotFound)
     }
 
     @Test(.testDirectory)
-    func timeoutThrowsTimedOutAndTerminatesTheWholeSession() async throws {
+    func timeoutThrowsTimedOutAndTerminatesWholeSession() async throws {
         let fifo: URL = try #require(TestDirectory.current).appending(path: "processes")
         try #require(unsafe mkfifo(fifo.path(percentEncoded: false), 0o600) == 0)
-        async let observed: [[Result<Exit, Errno>]] = terminations(listedIn: fifo)
+        async let observed: [[Result<ProcessExit, Errno>]] = terminations(listedIn: fifo)
         let script: String = "/bin/sleep 600 & echo $$ $! > '\(fifo.path(percentEncoded: false))'; wait"
         let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell(script).run(output: .discarded, within: .seconds(2)) }
         expectNoDifference(failure.reason[case: \.timedOut], .seconds(2))
-        let terminated: Result<Exit, Errno> = .success(Exit(status: .signaled(SIGTERM), detail: []))
-        let terminations: [[Result<Exit, Errno>]] = try await observed
+        let terminated: Result<ProcessExit, Errno> = .success(ProcessExit(status: .signaled(SIGTERM), detail: []))
+        let terminations: [[Result<ProcessExit, Errno>]] = try await observed
         expectNoDifference(terminations, [[terminated], [terminated]])
     }
 

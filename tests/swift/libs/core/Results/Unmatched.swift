@@ -1,3 +1,4 @@
+import CasePaths
 import CustomDump
 import Encoding
 import Foundation
@@ -22,15 +23,6 @@ private final class Evaluations: Sendable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension Result {
-    fileprivate var failure: Failure? {
-        switch self {
-            case .success: nil
-            case .failure(let error): error
-        }
-    }
-}
 
 private func single(_ windows: [Window], query: String?, evaluations: Evaluations) -> Result<Window, Unmatched> {
     Unmatched.single(windows, subject: "window", query: query, candidates: evaluations.candidates(), named: \.title)
@@ -58,9 +50,9 @@ struct UnmatchedQueries {
     }
 
     @Test
-    func noMatchFailsWithTheSubjectAndTheCallerCandidates() throws {
+    func noMatchFailsWithSubjectAndCallerCandidates() throws {
         let evaluations: Evaluations = Evaluations()
-        let failure: Unmatched = try #require(single([], query: "Sent", evaluations: evaluations).failure)
+        let failure: Unmatched = try #require(single([], query: "Sent", evaluations: evaluations)[case: \.failure])
         expectNoDifference(failure.subject, "window")
         expectNoDifference(failure.query, "Sent")
         expectNoDifference(failure.candidates, ["Inbox", "Drafts"])
@@ -71,7 +63,7 @@ struct UnmatchedQueries {
     func manyMatchesFailAsAmbiguousListingEachMatchName() throws {
         let evaluations: Evaluations = Evaluations()
         let matches: [Window] = [Window(id: 1, title: "Inbox"), Window(id: 2, title: "Inbox — Archive"), Window(id: 3, title: "Inbox")]
-        let failure: Unmatched = try #require(single(matches, query: "Inbox", evaluations: evaluations).failure)
+        let failure: Unmatched = try #require(single(matches, query: "Inbox", evaluations: evaluations)[case: \.failure])
         expectNoDifference(failure.subject, "single window")
         expectNoDifference(failure.query, "Inbox")
         expectNoDifference(failure.candidates, ["Inbox", "Inbox — Archive", "Inbox"])
@@ -81,7 +73,6 @@ struct UnmatchedQueries {
     @Test
     func wireHoldsSubjectQueryAndCandidates() throws {
         let unmatched: Unmatched = Unmatched(subject: "single window", query: "Inbox", candidates: ["Inbox", "Drafts"])
-        expectNoDifference(Unmatched.tag, "Unmatched")
         expectNoDifference(
             try wire(unmatched),
             .object(["subject": .string("single window"), "query": .string("Inbox"), "candidates": .array([.string("Inbox"), .string("Drafts")])]),
@@ -89,7 +80,7 @@ struct UnmatchedQueries {
     }
 
     @Test
-    func wireOmitsAnAbsentQueryKey() throws {
+    func wireOmitsAbsentQueryKey() throws {
         let unmatched: Unmatched = Unmatched(subject: "window", query: nil, candidates: [])
         expectNoDifference(try wire(unmatched), .object(["subject": .string("window"), "candidates": .array([])]))
     }

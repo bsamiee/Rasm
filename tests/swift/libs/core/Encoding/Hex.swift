@@ -6,7 +6,7 @@ import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let foreignDigits: [Character] = ["\u{FF10}", "\u{FF11}", "\u{FF21}", "\u{FF41}", "\u{0660}", "\u{06F3}", "\u{0966}", "\u{00B9}", "\u{2460}", "g", "G", "x", " ", "-", "\u{0301}"]
+private let nonHexCharacters: [Character] = ["\u{FF10}", "\u{FF11}", "\u{FF21}", "\u{FF41}", "\u{0660}", "\u{06F3}", "\u{0966}", "\u{00B9}", "\u{2460}", "g", "G", "x", " ", "-", "\u{0301}"]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -46,11 +46,11 @@ struct Hex {
     }
 
     @Test
-    func rejectsOneForeignCharacterAnywhere() async {
-        await propertyCheck(input: Gen.uint8().array(of: 1...64), Gen.element(of: foreignDigits).compactMap(\.self), Gen.int(in: 0...127)) { bytes, foreign, position in
+    func rejectsOneNonHexCharacterAnywhere() async {
+        await propertyCheck(input: Gen.uint8().array(of: 1...64), Gen.element(of: nonHexCharacters).compactMap(\.self), Gen.int(in: 0...127)) { bytes, character, position in
             let digits: [Character] = Array(bytes.hexEncoded())
             let index: Int = position % digits.count
-            let text: String = String(digits[..<index]) + String(foreign) + String(digits[(index + 1)...])
+            let text: String = String(digits[..<index]) + String(character) + String(digits[(index + 1)...])
             expectNoDifference([UInt8](hexEncoded: text), nil, "\(text.debugDescription)")
         }
     }

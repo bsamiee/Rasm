@@ -37,9 +37,9 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
 - Placement references derive through one query over stored documents and the incoming draft
 - Draft and published documents each store one JSON body and a revision
-- `Revision` encodes draft revisions as strong ETags, a write with a stale `If-Match` revision fails with `PreconditionFailed`
+- `Revision` encodes draft revisions as strong ETags, a write with a stale `If-Match` revision fails with `PreconditionFailed` unless the stored draft already holds its body, which answers with the stored revision
 - One `atomic` batch upserts
-- `partial-content` evaluates HTTP preconditions and ranges for media reads
+- `@rasm/hosting` `serveObject` evaluates HTTP preconditions and ranges for media reads
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
 - Media reads serve assets placed in published work to anyone, every other asset to the owner alone
@@ -114,9 +114,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `@rasm/database` tables, with statements over them in `server/store/<aggregate>.ts`:
-- `@rasm/database` `store` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
-- Queries name a multi-word column through `sql('objectKey')` or a table method
+[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them in `server/store/<aggregate>.ts`:
+- `@rasm/database` `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
+- `catalog` retires `reconcile_revision` and excludes `_cf_` from reconcile
+- Queries name a multi-word column through `sql('objectKey')` or a `Relation` static
 - With older and newer builds on one database, queries name every column and new required columns carry a default
 
 Asset availability is the `assets` VIRTUAL column `available`, declared over `objectKey` and `removing`, and document and asset reads, the draft save, the release sweep, and the pending-upload listing read it

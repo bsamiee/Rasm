@@ -425,9 +425,9 @@ nuts-rs     = "0.19.1"                                                          
 dugong           = "0.9.3"                                                                           # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
 leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon", "petgraph"] } # Leiden community detection over petgraph graphs, default `cli` adds clap and `gryf` a second graph library
 manatee          = "0.9.3"                                                                           # Force-directed fCoSE layout with constraints, at the release merman-render links
-petgraph         = { version = "0.8.3", features = ["serde-1", "rayon"] }                            # Graph structures with traversal, ordering, and shortest paths
+petgraph         = { version = "0.8.3", features = ["serde-1"] }                                     # Graph structures with incremental acyclic order, traversal, ordering, and shortest paths
 petgraph-graphml = "5.0.0"                                                                           # GraphML output of graphs
-rustworkx-core   = "0.18.1"                                                                          # Centrality, DAG layers and longest paths, cuts, colorings, matchings, Steiner trees, and line graphs over petgraph
+rustworkx-core   = "0.18.1"                                                                          # Keyed topological order, DAG layers, cycle search, simple cycles, centrality, cuts, colorings, matchings, Steiner trees, and line graphs over petgraph
 
 # --- [GEOMETRY]
 cavalier_contours = { version = "0.9.0", features = ["serde"] }                                           # Polyline offsets and booleans with arc segments
@@ -435,10 +435,10 @@ curvo             = "0.3.3"                                                     
 fidget            = { version = "0.5.1", default-features = false, features = ["jit", "mesh", "shapes"] } # Implicit surfaces built from shape trees, JIT-evaluated and meshed by octree, default `gui`, `rhai`, `wgpu`, and `raster` add UI, scripting, GPU, and raster stacks
 jagua-rs          = { version = "1.1.0", features = ["spp"] }                                             # Collision detection inside 2D irregular nesting
 k                 = "0.32.0"                                                                              # Forward and inverse kinematics of serial chains
-kiddo             = { version = "6.3.0", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest-neighbor queries built in parallel, default `fixed` adds fixed-point coordinates
+kiddo             = { version = "6.3.0", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest and radius queries in parallel batches, default `fixed` adds fixed-point coordinates
 manifold-rust     = { version = "0.19.2", features = ["parallel"] }                                       # Manifold solids with booleans, extrusion, revolution, slicing, and decomposition
 meshopt           = "0.7.0"                                                                               # Mesh simplification, vertex cache optimization, and EXT_meshopt_compression buffers
-parry3d-f64       = { version = "0.31.1", features = ["parallel"] }                                       # 3D distances, intersections, ray casts, and contacts over f64 shapes
+parry3d-f64       = "0.31.1"                                                                              # 3D contacts, ray casts, point projections, bounding volume hierarchies, mesh splits, convex decomposition, voxelization and mass properties over f64 shapes
 rapier3d-f64      = { version = "0.36.1", features = ["parallel"] }                                       # Rigid-body dynamics
 spade             = "2.15.1"                                                                              # Constrained Delaunay triangulation and Voronoi duals
 urdf-rs           = "0.10.0"                                                                              # URDF robot descriptions
@@ -477,14 +477,14 @@ h3o               = { version = "0.11.0", features = ["geo"] }                  
 kml               = "0.15.0"                                                                                                                                                                  # KML and KMZ, default `zip` turns on zip `time` beside jiff
 osmpbf            = "0.3.8"                                                                                                                                                                   # OpenStreetMap PBF extracts
 pmtiles           = { version = "0.26.0", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                                        # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links object_store 0.14 beside DataFusion's
-proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                                       # CRS transforms with PROJ database, `Transform` over geo-types geometries
+proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                                       # CRS transforms over a static PROJ with its database embedded, a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
 rstar             = "0.13.0"                                                                                                                                                                  # R*-tree envelope and nearest queries
 shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                                           # Shapefiles
 solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                                       # SPA and Grena solar positions and events, default `chrono` adds chrono beside jiff
 stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                                                # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
 stac-io           = "0.3.5"                                                                                                                                                                   # STAC reads, writes, and API searches
 thermalcomfort    = { version = "4.6.2", features = ["std"] }                                                                                                                                 # PMV, UTCI, adaptive comfort, and psychrometrics
-tzf-rs            = { version = "2.1.4", default-features = false, features = ["bundled"] }                                                                                                   # Time zones from coordinates, default `clap` adds a CLI
+tzf-rs            = { version = "2.2.0", default-features = false, features = ["bundled"] }                                                                                                   # Time zones from coordinates, default `clap` adds a CLI
 
 # --- [COLOR]
 color       = { version = "0.3.3", features = ["serde"] }                  # CSS color parsing, serialization, interpolation, and gamut mapping
@@ -606,15 +606,18 @@ tracing-test           = "0.2.6"                                                
 wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
 
 # --- [MEMBERS]
-rasm-telemetry = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
-rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
-rasm-output    = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
-rasm-screen    = { path = "libs/rust/cli/screen", version = "1.0.0" }         # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view
-rasm-daemon    = { path = "libs/rust/services/daemon", version = "1.0.0" }    # Served process every Rasm daemon runs: listen row, bind and bound address, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain on the command's signals
-rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP host on `rasm-daemon`: endpoint sessions with telemetry and drain, routed app servers with tasks, elicitation and a cancelled-call ledger, and the upstream proxy `rasm-mcp-bridge` serves
-rasm-mesh      = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      # Solids every Rasm geometry consumer composes: mesh import with winding repair, extrusion, revolution, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, reduction, refinement, decomposition, measures
-rasm-stats     = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
-rasm-linework  = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
+rasm-telemetry  = { path = "libs/rust/services/telemetry", version = "1.0.0" } # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, panic flush, exit status
+rasm-command    = { path = "libs/rust/cli/command", version = "1.0.0" }        # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
+rasm-output     = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
+rasm-screen     = { path = "libs/rust/cli/screen", version = "1.0.0" }         # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view
+rasm-daemon     = { path = "libs/rust/services/daemon", version = "1.0.0" }    # Served process every Rasm daemon runs: listen row, bind and bound address, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain on the command's signals
+rasm-mcp        = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP host on `rasm-daemon`: endpoint sessions with telemetry and drain, routed app servers with tasks, elicitation and a cancelled-call ledger, and the upstream proxy `rasm-mcp-bridge` serves
+rasm-mesh       = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      # Solids every Rasm geometry consumer composes: mesh import with winding repair, extrusion, revolution, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, reduction, refinement, decomposition, measures
+rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } # Proximity every Rasm geometry consumer composes: placed-shape assemblies, clashes under a clearance, signed deviations, first-hit and any-hit ray batches, containment, k-d tree neighbours, rigid fits and ICP registration
+rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
+rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
+rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
+rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming the closing path, keyed order, layers, invalidation reach, transitive reduction, condensation, simple cycles, tearing, critical path schedules
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

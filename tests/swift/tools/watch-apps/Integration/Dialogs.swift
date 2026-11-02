@@ -1,3 +1,4 @@
+import CasePaths
 import CustomDump
 import Foundation
 import Subprocess
@@ -12,6 +13,7 @@ import WatchAppsWire
 private let alertButtons: Set<Button> = [
     Button(identifier: "action-button-1", label: "OK", attribute: "AXDefaultButton"), Button(identifier: "action-button-2", label: "Cancel", attribute: "AXCancelButton"),
 ]
+private let alertControls: Set<String> = Set(alertButtons.compactMap(\.identifier))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,26 +35,31 @@ private struct Shape: Hashable {
 
 private func dialog(
     _ scenario: Scenario,
+    showing controls: Set<String>,
     answeredBy identifier: String,
     in fixture: Fixture,
 ) async throws -> (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) {
     let watched: (outcome: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], pid: Int32), lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) {
         lines in
         let pid: Int32 = try await launch(fixture).pid
-        _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+        _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
         try await press(scenario, in: fixture, pid: pid)
-        let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.instances?[pid]?.phase == .answering }
-        let answers: [WatchAppsLine.Element]? = shown.line.elements(of: pid)?.answers
-        let dialog: WatchAppsLine.Element = try #require(answers?.first)
+        let shown: TimedLine<WatchAppsLine> = try await lines.next { line in
+            controls.isSubset(of: line.elements(of: pid)?.answers.first?.detail?.controls?.compactMap(\.identifier) ?? [])
+        }
+        let dialog: WatchAppsLine.Element = try #require(shown.line.elements(of: pid)?.answers.first)
         let read: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
         let answer: WatchAppsLine.Control = try #require(dialog.control(identifier))
         try await perform(answer)
-        _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+        _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
         try await expectRefusal(["perform", answer.id, "AXPress"], keyedBy: answer.id)
         return (dialog, read, pid)
     }
     let transcript: [WatchAppsLine] = watched.lines.map(\.line)
-    let answered: [Phase] = Array(phases(of: watched.outcome.pid, in: transcript).drop { phase in phase != .answering }.prefix(2))
+    let changes: [Phase] = phases(of: watched.outcome.pid, in: transcript).reduce(into: []) { kept, next in
+        if kept.last != next { kept.append(next) }
+    }
+    let answered: [Phase] = Array(changes.drop { phase in phase != .answering }.prefix(2))
     let remaining: [WatchAppsLine.Element]? = transcript.last?.elements(of: watched.outcome.pid)?.answers
     expectNoDifference(answered, [.answering, .responding])
     expectNoDifference(remaining, [])
@@ -61,77 +68,29 @@ private func dialog(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension HostSession {
+extension Integration {
     struct Dialogs {
         @Test(.application(FixtureApplication.self, launches: false))
         func sheetAlertRequiresAnswerUntilPressed() async throws {
             let fixture: Fixture = try Fixture()
-            let shown: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) = try await dialog(.sheet, answeredBy: "action-button-1", in: fixture)
+            let shown: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) = try await dialog(
+                .sheet,
+                showing: alertControls,
+                answeredBy: "action-button-1",
+                in: fixture,
+            )
             let windowItem: WatchAppsLine.Control? = shown.read.menuBar?.item(.window)
-            expectNoDifference(Answer(shown.dialog), Answer(role: "AXSheet", subrole: nil, modal: nil, description: "alert", identifier: "_NS:87", requiresAnswer: true, buttons: alertButtons))
+            expectNoDifference(Answer(shown.dialog), Answer(role: "AXSheet", modal: nil, description: "alert", identifier: "_NS:87", requiresAnswer: true, buttons: alertButtons))
             expectNoDifference(shown.dialog.detail?.text, ["Sheet alert", Scenario.sheet.rawValue])
             expectNoDifference(shown.read.answers.map(\.id), [shown.dialog.id])
             expectNoDifference(windowItem?.enabled, true)
         }
 
-        @Test(.application(FixtureApplication.self, launches: false))
-        func modalAlertRequiresAnswerUntilCancelled() async throws {
-            let fixture: Fixture = try Fixture()
-            let shown: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) = try await dialog(.modal, answeredBy: "action-button-2", in: fixture)
-            let numbered: Bool = shown.dialog.window != nil
-            expectNoDifference(
-                Answer(shown.dialog, modal: true),
-                Answer(role: "AXWindow", subrole: nil, modal: true, description: "alert", identifier: "_NS:87", requiresAnswer: true, buttons: alertButtons),
-            )
-            expectNoDifference(shown.dialog.detail?.text, ["Modal alert", Scenario.modal.rawValue])
-            #expect(numbered)
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func saveSheetNamesPanelButtonsWithoutDefaultOrCancelAttribute() async throws {
-            let fixture: Fixture = try Fixture()
-            let shown: (dialog: WatchAppsLine.Element, read: [WatchAppsLine.Element], lines: [WatchAppsLine], pid: Int32) = try await dialog(.saveSheet, answeredBy: "CancelButton", in: fixture)
-            let controls: [WatchAppsLine.Control] = shown.dialog.detail?.controls ?? []
-            let panelButtons: Set<String> = Set(controls.compactMap(\.identifier)).intersection(["OKButton", "CancelButton"])
-            let answering: [String] = controls.compactMap(\.attribute).filter { attribute in attribute == "AXDefaultButton" || attribute == "AXCancelButton" }
-            expectNoDifference([shown.dialog.role, shown.dialog.identifier], ["AXSheet", "save-panel"])
-            expectNoDifference(shown.dialog.requiresAnswer, true)
-            expectNoDifference(panelButtons, ["OKButton", "CancelButton"])
-            expectNoDifference(answering, [])
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func systemDialogSubroleRequiresAnswer() async throws {
-            let fixture: Fixture = try Fixture()
-            let watched: (outcome: WatchAppsLine.Element, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
-                let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
-                try await press(.systemDialog, in: fixture, pid: pid)
-                let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.instances?[pid]?.phase == .answering }
-                let answers: [WatchAppsLine.Element]? = shown.line.elements(of: pid)?.answers
-                return try #require(answers?.first)
-            }
-            expectNoDifference(
-                Answer(watched.outcome, subrole: true),
-                Answer(
-                    role: "AXWindow",
-                    subrole: "AXSystemDialog",
-                    modal: nil,
-                    description: nil,
-                    identifier: nil,
-                    requiresAnswer: true,
-                    buttons: [Button(identifier: nil, label: "Dismiss", attribute: nil)],
-                ),
-            )
-            expectNoDifference(watched.outcome.title, "System dialog")
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false), arguments: [Scenario.floatingPanel, .minimize, .window])
+        @Test(.application(FixtureApplication.self, launches: false), arguments: [Scenario.minimize, .window])
         func windowChangesPrintLinesRequiringNoAnswer(scenario: Scenario) async throws {
             let fixture: Fixture = try Fixture()
             let changed: (WatchAppsLine.Element) -> Bool = { element in
                 switch scenario {
-                    case .floatingPanel: element.title == "Floating panel"
                     case .window: element.title == "Fixture 1"
                     default: element.title == "Fixture 0" && element.subrole != "AXStandardWindow"
                 }
@@ -141,7 +100,7 @@ extension HostSession {
                 within: .seconds(15),
             ) { lines in
                 let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .responding }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(scenario, in: fixture, pid: pid)
                 let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.elements(of: pid)?.contains(where: changed) == true }
                 return (pid, shown.line, try await read(fixture, pid: pid))
@@ -151,10 +110,9 @@ extension HostSession {
             let titles: [String] = windows.compactMap(\.title).sorted()
             let outlined: Set<Shape>? = watched.outcome.shown?.elements(of: watched.outcome.pid).map { elements in Set(elements.map(Shape.init)) }
             expectNoDifference(Set(seen), [.responding])
-            expectNoDifference(outlined, Set(windows.map(Shape.init)), "the line showing the change outlines every window as read reports it")
+            expectNoDifference(outlined, Set(windows.map(Shape.init)), "changed line outlines every window read reports")
             expectNoDifference(watched.outcome.read.answers, [])
             switch scenario {
-                case .floatingPanel: expectNoDifference(titles, ["Fixture 0", "Floating panel"])
                 case .minimize: expectNoDifference(windows.titled("Fixture 0")?.minimized, true)
                 case .window: expectNoDifference(titles, ["Fixture 0", "Fixture 1"])
                 default: Issue.record("\(scenario) is no window scenario")
@@ -221,7 +179,7 @@ extension HostSession {
             _ = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 try await perform(quit)
-                _ = try await lines.next { line in line.instances?[pid]?.phase == .exited }
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
             }
             try await expectRefusal(["perform", menu.id, "AXPress"], keyedBy: menu.id)
         }

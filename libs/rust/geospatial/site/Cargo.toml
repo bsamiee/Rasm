@@ -1,0 +1,40 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-site"
+version.workspace    = true
+edition.workspace    = true
+description          = "Where a site is and how its coordinates convert: validated latitude, longitude and elevation, time zone lookup, parcel boundaries with geodesic measures, coordinate reference systems with PROJ transformations, grid convergence and scale, and site frames anchored to a grid"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["geospatial", "crs", "georeference", "proj", "site"]
+categories           = ["science::geo"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+thiserror   = { workspace = true }
+derive_more = { workspace = true }
+nutype      = { workspace = true }
+jiff        = { workspace = true }
+nalgebra    = { workspace = true }
+uom         = { workspace = true }
+geo         = { workspace = true }
+geo-types   = { workspace = true }
+proj        = { workspace = true }
+tzf-rs      = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

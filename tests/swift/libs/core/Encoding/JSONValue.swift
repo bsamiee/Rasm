@@ -48,7 +48,7 @@ private struct Record: Codable, Equatable {
     let absent: String?
     let table: [String: Int]
     let link: URL
-    let payload: Data
+    let bytes: Data
     let instant: Date
     let extra: JSONValue
 }
@@ -149,7 +149,7 @@ struct JSONValues {
     }
 
     @Test
-    func holdsIntegersAboveTwoToThe53rdAsTheNearestDouble() throws {
+    func holdsIntegersAboveTwoToThe53rdAsNearestDouble() throws {
         expectNoDifference(try parsed("9007199254740993"), .number(9_007_199_254_740_992))
         expectNoDifference(try parsed("-9007199254740993"), .number(-9_007_199_254_740_992))
         expectNoDifference(try parsed("18446744073709551617"), .number(18_446_744_073_709_551_616))
@@ -178,7 +178,7 @@ struct JSONValues {
     }
 
     @Test
-    func keepsTheSignOfNegativeZero() throws {
+    func keepsSignOfNegativeZero() throws {
         let decoded: JSONValue = try parsed("-0")
         let sign: FloatingPointSign? =
             switch decoded {
@@ -220,7 +220,7 @@ struct JSONValues {
 
 struct JSONValueDecoding {
     @Test
-    func decodesWhatJSONDecoderDecodesFromTheSameText() async throws {
+    func decodesWhatJSONDecoderDecodesFromSameText() async throws {
         let encoder: JSONEncoder = sortedEncoder()
         let records: Generator<Record, some Sequence & SendableMetatype> = zip(
             zip(Gen.int(in: -9_007_199_254_740_992...9_007_199_254_740_992), Gen.int8(), Gen.uint32(), Gen.double(in: -1e12...1e12)),
@@ -242,7 +242,7 @@ struct JSONValueDecoding {
                 absent: nil,
                 table: Dictionary(parts.2.1.enumerated().map { index, count in ("k\(index)", count) }, uniquingKeysWith: { first, _ in first }),
                 link: URL(string: "https://example.com/\(parts.2.1.count)?q=\(parts.1.0)") ?? URL(filePath: "/"),
-                payload: Data(parts.2.2),
+                bytes: Data(parts.2.2),
                 instant: Date(timeIntervalSinceReferenceDate: parts.2.3),
                 extra: parts.3,
             )
@@ -253,6 +253,17 @@ struct JSONValueDecoding {
             let value: JSONValue = try JSONDecoder().decode(JSONValue.self, from: encoded)
             expectNoDifference(try value.decode(Record.self), reference)
         }
+    }
+
+    @Test(arguments: mismatches)
+    func failsWithJSONDecoderErrorKindAndPath(text: String, expected: String) throws {
+        let data: Data = Data(text.utf8)
+        let reference: DecodingError = try #require(throws: DecodingError.self) { try JSONDecoder().decode(Inner.self, from: data) }
+        let value: JSONValue = try JSONDecoder().decode(JSONValue.self, from: data)
+        let failure: DecodingError = try #require(throws: DecodingError.self) { try value.decode(Inner.self) }
+        expectNoDifference(kind(reference), expected)
+        expectNoDifference(kind(failure), kind(reference))
+        expectNoDifference(codingPath(failure), codingPath(reference))
     }
 
     @Test
@@ -275,19 +286,8 @@ struct JSONValueDecoding {
         expectNoDifference(try JSONValue.number(4_294_967_295).decode(UInt32.self), 4_294_967_295)
     }
 
-    @Test(arguments: mismatches)
-    func failsWithJSONDecoderErrorKindAndPath(text: String, expected: String) throws {
-        let data: Data = Data(text.utf8)
-        let reference: DecodingError = try #require(throws: DecodingError.self) { try JSONDecoder().decode(Inner.self, from: data) }
-        let value: JSONValue = try JSONDecoder().decode(JSONValue.self, from: data)
-        let failure: DecodingError = try #require(throws: DecodingError.self) { try value.decode(Inner.self) }
-        expectNoDifference(kind(reference), expected)
-        expectNoDifference(kind(failure), kind(reference))
-        expectNoDifference(codingPath(failure), codingPath(reference))
-    }
-
     @Test
-    func rejectsValuesTheTargetTypeCannotHoldExactly() {
+    func rejectsValuesTargetTypeCannotHoldExactly() {
         #expect(throws: DecodingError.self) { try JSONValue.number(3.5).decode(Int.self) }
         #expect(throws: DecodingError.self) { try JSONValue.number(300).decode(Int8.self) }
         #expect(throws: DecodingError.self) { try JSONValue.number(-1).decode(UInt.self) }

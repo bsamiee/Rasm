@@ -10,7 +10,7 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct LoginShells {
     @Test
-    func environmentHoldsTheUserHomeAndTheSystemPath() async throws {
+    func environmentHoldsUserHomeAndSystemPath() async throws {
         let environment: [Environment.Key: String] = try await loginShellEnvironment(within: .seconds(30))
         expectNoDifference(environment["HOME"].map { home in URL(filePath: home, directoryHint: .isDirectory).path(percentEncoded: false) }, URL.homeDirectory.path(percentEncoded: false))
         let path: [Substring] = try #require(environment["PATH"]).split(separator: ":")

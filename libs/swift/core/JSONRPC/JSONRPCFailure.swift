@@ -24,7 +24,7 @@ public struct JSONRPCFailure: CustomNSError, LocalizedError {
             case .unencodable: "Unencodable \(subject) message"
             case .refused(let error): "\(subject) error \(error.code) \(error.message)"
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
-            case .cancelled: "\(subject) was canceled"
+            case .cancelled: "\(subject) canceled"
         }
     }
 

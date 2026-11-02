@@ -24,12 +24,7 @@ extension ProcessStatus {
             case (SZOMB, _): throw .noSuchProcess
             case (_, true):
                 let main: UInt64 = try information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)
-                self =
-                    switch try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_run_state {
-                        case TH_STATE_RUNNING: .running
-                        case TH_STATE_STOPPED: .stopped
-                        case _: .sleeping
-                    }
+                self = try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_run_state == TH_STATE_RUNNING ? .running : .sleeping
             case (_, false): self = try information(of: process, PROC_PIDTASKINFO, proc_taskinfo()).pti_numrunning > 0 ? .running : .sleeping
         }
     }

@@ -37,14 +37,14 @@ struct JSONDocuments {
     }
 
     @Test
-    func reencodesAnUnchangedDocumentToTheSameObject() throws {
+    func reencodesUnchangedDocumentToSameObject() throws {
         let original: Data = Data(account.utf8)
         let document: JSONDocument<Account> = try JSONDecoder().decode(JSONDocument<Account>.self, from: original)
         expectNoDifference(try value(of: sortedEncoder().encode(document)), try value(of: original))
     }
 
     @Test
-    func replacesKnownFieldsAndKeepsTheRest() throws {
+    func replacesKnownFieldsAndKeepsRest() throws {
         let document: JSONDocument<Account> = try JSONDecoder().decode(JSONDocument<Account>.self, from: Data(account.utf8))
         let edited: JSONDocument<Account> = JSONDocument(fields: document.fields, known: Account(name: "grace", plan: "max"))
         let expected: Data = Data(#"{"name":"grace","plan":"max","mcpOAuth":{"server":{"token":"t","expires":[1,2]}},"version":3,"flags":null}"#.utf8)
@@ -52,7 +52,7 @@ struct JSONDocuments {
     }
 
     @Test
-    func knowsOnlyTheFieldsItsTypeDeclares() throws {
+    func knowsOnlyFieldsItsTypeDeclares() throws {
         let document: JSONDocument<Plan> = try JSONDecoder().decode(JSONDocument<Plan>.self, from: Data(account.utf8))
         let edited: JSONDocument<Plan> = JSONDocument(fields: document.fields, known: Plan(plan: "team"))
         let expected: Data = Data(#"{"name":"ada","plan":"team","mcpOAuth":{"server":{"token":"t","expires":[1,2]}},"version":3,"flags":null}"#.utf8)

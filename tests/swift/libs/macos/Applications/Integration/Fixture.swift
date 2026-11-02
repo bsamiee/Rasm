@@ -4,7 +4,6 @@ import CasePaths
 import CustomDump
 import Encoding
 import Foundation
-import OrderedCollections
 import Processes
 import Results
 import Subprocess
@@ -27,6 +26,17 @@ struct Observed: Sendable {
     let state: InstanceState
 }
 
+@CasePathable
+enum Phase: Equatable, Sendable {
+    case launching
+    case responding
+    case unresponsive(ProcessStatus)
+    case failed
+    case exited(TerminationStatus)
+    case reported(TerminationStatus, exception: String?)
+    case unread
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 final class Timeline: Sendable {
@@ -35,34 +45,8 @@ final class Timeline: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-@Sendable
-func answerCrashAlert(naming name: String) async {
-    let pressed: Result<Void, TestFailure> = await Result { () async throws(TestFailure) in
-        try await withTimeout(.seconds(20), expired: TestFailure(subject: "crash alert naming \(name)", reason: .missing)) { () async throws(TestFailure) in
-            for await prompt: (host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>) in await NSWorkspace.shared.systemPrompts(
-                naming: [name],
-                notifications: [kAXWindowCreatedNotification],
-                polling: heartbeat,
-            ) {
-                let buttons: [Control] = prompt.prompts.values.flatMap(\.elements).compactMap(\.detail).flatMap(\.controls).filter { control in
-                    control.identifier == "action-button-2"
-                }
-                for button: Control in buttons {
-                    do { try await ElementAction.perform(element: button.id, action: kAXPressAction).perform() } catch { Issue.record(error) }
-                }
-                guard buttons.isEmpty else { return }
-            }
-        }
-    }
-    if case .failure(let failure) = pressed { Issue.record(failure) }
-}
-
 func installation() throws -> Installation {
     try Installation(at: try #require(TestApplication.current))
-}
-
-func instance(of installation: Installation) throws -> NSRunningApplication {
-    try #require(NSWorkspace.shared.instances(of: installation.runs).first)
 }
 
 func configuration(_ settings: Settings, new: Bool = false, hides: Bool = false) -> NSWorkspace.OpenConfiguration {
@@ -76,7 +60,7 @@ func configuration(_ settings: Settings, new: Bool = false, hides: Bool = false)
 func launched() async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
-    let instance: NSRunningApplication = try instance(of: installation)
+    let instance: NSRunningApplication = try #require(TestApplication.instance)
     try await instance.finishedLaunching()
     expectNoDifference(instance.activationPolicy, .accessory)
     return (installation, instance)
@@ -93,7 +77,7 @@ func launched(_ settings: Settings) async throws -> (installation: Installation,
 
 func read(_ instance: NSRunningApplication) async throws -> [Element] {
     let state: InstanceState = await instance.state { _ in true }
-    return try #require(state[case: \.running]?.0[case: \.responding], "read \(line(state))")
+    return try #require(state[case: \.running]?.0[case: \.responding], "read \(state.phase)")
 }
 
 func menu(_ title: String, in elements: [Element]) throws -> [Control] {
@@ -104,11 +88,6 @@ func menu(_ title: String, in elements: [Element]) throws -> [Control] {
 func run(_ scenario: Scenario, in instance: NSRunningApplication) async throws {
     let item: Control = try #require(try menu("Scenario", in: try await read(instance)).first { item in item.label == scenario.rawValue })
     try await ElementAction.perform(element: item.id, action: kAXPressAction).perform()
-}
-
-func expectElapsed(_ elapsed: Duration, in bounds: ClosedRange<Duration>, _ event: String, sourceLocation: SourceLocation = #_sourceLocation) {
-    let bounded: Bool = bounds.contains(elapsed)
-    #expect(bounded, "\(event) after \(elapsed), outside \(bounds)", sourceLocation: sourceLocation)
 }
 
 func json(_ text: String) throws -> JSONValue {
@@ -130,42 +109,8 @@ func alertButtons() throws -> Set<JSONValue> {
     ]
 }
 
-func line(_ state: InstanceState) -> String {
-    let encoded: Result<Data, any Error> = Result { try JSONEncoder().encodeLine(state) }
-    return switch encoded.map({ data in String(bytes: data, encoding: .utf8) }) {
-        case .success(.some(let text)): text
-        case .success(.none): summary(state)
-        case .failure(let error): "\(summary(state)): \(error)"
-    }
-}
-
-func summary(of status: Result<TerminationStatus, Errno>) -> String {
-    switch status {
-        case .success(.exited(let code)): "status \(code)"
-        case .success(.signaled(let signal)): "signal \(signal)"
-        case .failure(let error): "statusFailure \(error.description)"
-    }
-}
-
-func summary(of report: Result<CrashReport, ApplicationFailure>) -> String {
-    switch report {
-        case .success(let report): "report \(report.exception ?? "none")"
-        case .failure: "reportFailure"
-    }
-}
-
-func summary(_ state: InstanceState) -> String {
-    switch state {
-        case .running(.launching, _): "launching"
-        case .running(.responding, _): "responding"
-        case .running(.unresponsive(let process), _): "unresponsive \(process.rawValue)"
-        case .failed(let failure): "failed \(failure.localizedDescription)"
-        case .exited(let status, let report): (["exited", summary(of: status)] + [report.map(summary)].compactMap(\.self)).joined(separator: " ")
-    }
-}
-
-func summaries(_ seen: [Observed]) -> [String] {
-    seen.map { observed in summary(observed.state) }.reduce(into: []) { kept, next in
+func phases(_ seen: [Observed]) -> [Phase] {
+    seen.map(\.state.phase).reduce(into: []) { kept, next in
         if kept.last != next { kept.append(next) }
     }
 }
@@ -195,7 +140,7 @@ func observe(
         }
     }
     let seen: [Observed] = timeline.entries.withLock(\.self)
-    try finished.mapError { failure in TestFailure(subject: "\(failure.subject) after\n\(seen.map { observed in line(observed.state) }.joined(separator: "\n"))", reason: failure.reason) }.get()
+    try finished.mapError { failure in TestFailure(subject: "\(failure.subject) after \(phases(seen))", reason: failure.reason) }.get()
     return seen
 }
 
@@ -205,6 +150,19 @@ extension InstanceState {
     var usage: ResourceUsage? { self[case: \.running]?.usage }
 
     var asking: Element? { elements.first(where: \.requiresAnswer) }
+
+    var phase: Phase {
+        switch self {
+            case .running(.launching, _): .launching
+            case .running(.responding, _): .responding
+            case .running(.unresponsive(let process), _): .unresponsive(process)
+            case .failed: .failed
+            case .exited(.failure, _): .unread
+            case .exited(.success(let status), .none): .exited(status)
+            case .exited(.success(let status), .some(.success(let report))): .reported(status, exception: report.exception)
+            case .exited(.success(let status), .some(.failure)): .reported(status, exception: nil)
+        }
+    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

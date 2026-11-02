@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import CustomDump
 import Darwin
 import Foundation
@@ -12,13 +13,12 @@ private let statuses: [String: ProcessStatus] = ["R": .running, "S": .sleeping, 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func expectStatusMatchesProcessState(of process: pid_t) async throws {
-    let before: String = try await processState(of: process)
-    let status: ProcessStatus = try ProcessStatus(of: process)
-    let after: String = try await processState(of: process)
-    let agreed: Bool = before == after
-    try #require(agreed, "ps read \(before) then \(after)")
-    expectNoDifference(status, statuses[before])
+private func settled(_ process: pid_t, reading expected: ProcessStatus) async throws {
+    for await _: ContinuousClock.Instant in AsyncTimerSequence(interval: .milliseconds(10), clock: .continuous) {
+        guard try ProcessStatus(of: process) != expected else { break }
+    }
+    let state: String = try await processState(of: process)
+    expectNoDifference(statuses[state], expected)
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -28,8 +28,7 @@ struct ProcessStatuses {
     @Test
     func blockedReaderIsSleeping() async throws {
         _ = try await child(running: "echo ready; exec /bin/cat") { process, _, execution in
-            try await expectStatusMatchesProcessState(of: process)
-            expectNoDifference(try ProcessStatus(of: process), .sleeping)
+            try await settled(process, reading: .sleeping)
             try execution.send(signal: .kill)
         }
     }
@@ -37,8 +36,7 @@ struct ProcessStatuses {
     @Test
     func busyLoopIsRunning() async throws {
         _ = try await child(running: "echo ready; while :; do :; done") { process, _, execution in
-            try await expectStatusMatchesProcessState(of: process)
-            expectNoDifference(try ProcessStatus(of: process), .running)
+            try await settled(process, reading: .running)
             try execution.send(signal: .kill)
         }
     }
@@ -48,8 +46,7 @@ struct ProcessStatuses {
         _ = try await child(running: "echo ready; read _") { process, _, execution in
             try execution.send(signal: .suspend)
             _ = await stopStatus(of: process)
-            try await expectStatusMatchesProcessState(of: process)
-            expectNoDifference(try ProcessStatus(of: process), .stopped)
+            try await settled(process, reading: .stopped)
             try execution.send(signal: .resume)
             try await execution.standardInputWriter.finish()
         }
@@ -67,7 +64,7 @@ struct ProcessStatuses {
     }
 
     @Test
-    func wireSpellsEachStatusAsTheReadersDecode() throws {
+    func wireSpellsEachStatusAsReadersDecode() throws {
         let encoder: JSONEncoder = JSONEncoder()
         let spellings: [String?] = try [ProcessStatus.running, .sleeping, .stopped].map { status in String(bytes: try encoder.encode(status), encoding: .utf8) }
         expectNoDifference(spellings, [#""running""#, #""sleeping""#, #""stopped""#])

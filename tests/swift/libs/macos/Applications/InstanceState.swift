@@ -48,25 +48,25 @@ private let statuses: [ApplicationStatus] = [.launching, .responding(elements: [
 
 struct InstanceStates {
     @Test(arguments: lines)
-    func stateEncodesTheWireStateShape(state: InstanceState, line: String) throws {
+    func stateEncodesWireStateShape(state: InstanceState, line: String) throws {
         expectNoDifference(try wire(state), try json(line))
     }
 
     @Test
-    func failedStateCarriesTheFailureText() throws {
+    func failedStateHoldsFailureText() throws {
         let failure: ApplicationFailure = ApplicationFailure(subject: "Probe", reason: .untrusted)
         let expected: JSONValue = .object(["failed": .object(["reason": .string(try #require(failure.errorDescription))])])
         expectNoDifference(try wire(InstanceState.failed(failure)), expected)
     }
 
     @Test
-    func exitedStateCarriesItsReportOrTheReportFailure() throws {
-        let report: CrashReport = try #require(CrashReport.reports(for: "dev.rasm.reports.alpha", in: crashReports).reports.first { report in report.pid == 4242 })
+    func exitedStateHoldsItsReportOrReportFailure() throws {
+        let report: CrashReport = try #require(CrashReport.reports(for: "dev.rasm.reports.application", in: crashReports).reports.first { report in report.pid == 4242 })
         let failure: ApplicationFailure = ApplicationFailure(subject: "process 4242", reason: .absent("crash report"))
-        let url: String = crashReports.appending(component: "Alpha-2026-11-01-120000.ips").absoluteString
+        let url: String = crashReports.appending(component: "Application-2026-11-01-120000.ips").absoluteString
         expectNoDifference(
             try wire(InstanceState.exited(.success(.signaled(11)), report: .success(report))),
-            try json(#"{"exited":{"signal":11,"report":{"url":"\#(url)","pid":4242,"bundleIdentifier":"dev.rasm.reports.alpha","exception":"EXC_BAD_ACCESS"}}}"#),
+            try json(#"{"exited":{"signal":11,"report":{"url":"\#(url)","pid":4242,"bundleIdentifier":"dev.rasm.reports.application","exception":"EXC_BAD_ACCESS"}}}"#),
         )
         expectNoDifference(
             try wire(InstanceState.exited(.success(.signaled(11)), report: .failure(failure))),
@@ -75,7 +75,7 @@ struct InstanceStates {
     }
 
     @Test(arguments: statuses)
-    func usageSitsBesideTheStatus(status: ApplicationStatus) throws {
+    func usageSitsBesideStatus(status: ApplicationStatus) throws {
         let usage: ResourceUsage = try ResourceUsage(of: getpid())
         let encoded: JSONValue = try wire(InstanceState.running(status, usage: usage))
         let expectedUsage: JSONValue = .object([

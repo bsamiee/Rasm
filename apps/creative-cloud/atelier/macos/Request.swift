@@ -10,8 +10,6 @@ import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let walked: @Sendable (Element) -> Bool = \.requiresAnswer
-
 let notifications: Set<String> = [
     kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
     kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
@@ -104,7 +102,7 @@ enum Request: Decodable, Sendable {
                 return await .stream(
                     NSWorkspace.shared.instanceStates(
                         of: { instance in instance.bundleIdentifier?.hasPrefix(adobePrefix) == true },
-                        walking: walked,
+                        walking: \.requiresAnswer,
                         notifications: notifications,
                         polling: messagingTimeout,
                     )
@@ -115,7 +113,7 @@ enum Request: Decodable, Sendable {
             case .applications(let file):
                 return .value(NSWorkspace.shared.urlsForApplications(toOpen: file))
             case .status(let pid):
-                return try await .value(running(pid).instance.state(walking: walked))
+                return try await .value(running(pid).instance.state(walking: \.requiresAnswer))
             case .launch(let url):
                 let instance: NSRunningApplication = try await NSWorkspace.shared.launch(adobeInstallation(at: url))
                 try await instance.finishedLaunching()

@@ -1,5 +1,6 @@
 import AppKit
 import Subprocess
+import Synchronization
 import System
 import os
 
@@ -9,6 +10,21 @@ let windowSize: NSSize = NSSize(width: 400, height: 300)
 let rowHeight: CGFloat = 20
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
+private final class Hang: Sendable {
+    let released: Atomic<Bool> = Atomic(false)
+    let waiting: DispatchSemaphore = DispatchSemaphore(value: 0)
+    let release: any DispatchSourceSignal = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .global())
+
+    init() {
+        signal(SIGUSR1, SIG_IGN)
+        release.setEventHandler { @Sendable [self] in
+            released.store(true, ordering: .relaxed)
+            waiting.signal()
+        }
+        release.activate()
+    }
+}
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource {
@@ -87,7 +103,9 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             panel.hidesOnDeactivate = false
             panel.isReleasedWhenClosed = false
             subrole.map(panel.setAccessibilitySubrole)
-            panel.contentView = NSButton(title: "Dismiss", target: panel, action: #selector(NSWindow.orderOut(_:)))
+            let dismiss: NSButton = NSButton(title: "Dismiss", target: panel, action: #selector(NSWindow.orderOut(_:)))
+            dismiss.setAccessibilityIdentifier("dismiss")
+            panel.contentView = dismiss
             panel.orderFront(nil)
             return panel
         }
@@ -135,7 +153,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             }
             released.wait()
         }
-        func hang(titled title: String, _ work: @escaping @MainActor () -> Void) {
+        func deferred(titled title: String, _ work: @escaping @MainActor () -> Void) {
             windows.first?.title = title
             Task { @MainActor in work() }
         }
@@ -148,13 +166,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
                 let others: [NSRunningApplication] = (Bundle.main.bundleIdentifier.map(NSRunningApplication.runningApplications(withBundleIdentifier:)) ?? [])
                     .filter { instance in instance.processIdentifier != getpid() }
                 guard !others.isEmpty else { return }
-                let refusal: NSAlert = alert("Another instance is running")
-                let expiry: Task<Void, Never> = Task { @MainActor in
-                    _ = await Result { try await Task.sleep(for: duration) }
-                    NSApp.abortModal()
-                }
-                logger.notice("Instance refused with response \(refusal.runModal().rawValue, privacy: .public)")
-                expiry.cancel()
+                logger.notice("Instance refused with response \(alert("Another instance is running").runModal().rawValue, privacy: .public)")
                 exit(settings.status)
             case .window: windows.append(window(windows.count))
             case .swatch: windows.append(swatch())
@@ -166,17 +178,17 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             case .floatingPanel: windows.append(panel("Floating panel", style: [.titled, .utilityWindow], level: .modalPanel))
             case .edited: windows.first?.isDocumentEdited = true
             case .minimize: windows.first?.miniaturize(nil)
-            case .hangBlocked: hang(titled: "Blocked") { block(for: duration) }
+            case .hangBlocked:
+                let held: Hang = Hang()
+                deferred(titled: "Blocked") { held.waiting.wait() }
             case .hangBusy:
-                hang(titled: "Busy") {
-                    let deadline: ContinuousClock.Instant = .now + duration
-                    while ContinuousClock.now < deadline {}
+                let held: Hang = Hang()
+                deferred(titled: "Busy") {
+                    while !held.released.load(ordering: .relaxed) {}
                 }
-            case .hangQuiet: block(for: duration)
+            case .hangQuiet: Hang().waiting.wait()
             case .stop: raise(SIGSTOP)
-            case .signal: raise(SIGSEGV)
             case .fault: unsafe UnsafeMutablePointer<Int>(bitPattern: 8).unsafelyUnwrapped.pointee = 1
-            case .trap: fatalError("Scenario \(scenario.rawValue) traps")
             case .abort: abort()
             case .exit: exit(settings.status)
             case .helper: helpers.append(helper())
