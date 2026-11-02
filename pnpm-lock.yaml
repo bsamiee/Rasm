@@ -2501,6 +2501,19 @@ importers:
         specifier: 'catalog:'
         version: 26.6.6
 
+  tools/harnesses:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.1
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+
 packages:
 
   '@adobe-uxp-types/photoshop@0.1.8':

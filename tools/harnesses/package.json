@@ -1,0 +1,14 @@
+{
+    "name": "@rasm/harnesses",
+    "private": true,
+    "description": "Host proof harnesses running original scripts against recorded cases",
+    "type": "module",
+    "imports": { "#/*": "./*.ts" },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    }
+}

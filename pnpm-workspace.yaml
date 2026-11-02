@@ -4,6 +4,7 @@ packages:
     - 'apps/**'
     - 'tests/typescript/*'
     - 'plugins/*'
+    - 'tools/harnesses'
 catalogMode: strict
 saveExact: true
 packageImportMethod: hardlink

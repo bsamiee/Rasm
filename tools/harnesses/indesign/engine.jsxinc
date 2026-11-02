@@ -41,7 +41,7 @@ var harness = (function () {
         for (var i = 0; i < text.length; i++) {
             var code = text.charCodeAt(i);
             var ch = text.charAt(i);
-            out += ch === '"' ? '\\"' : ch === "\\" ? "\\\\" : code < 32 || code > 126 ? "\\u" + ("000" + code.toString(16)).slice(-4) : ch;
+            if (ch === '"' || ch === "\\") { out += "\\" + ch; } else if (code < 32 || code > 126) { out += "\\u" + ("000" + code.toString(16)).slice(-4); } else { out += ch; }
         }
         return out + '"';
     }
@@ -533,10 +533,25 @@ var harness = (function () {
         };
         return { scriptMenuActions: actions, menus: { item: function () { return menu; }, itemByName: function () { return menu; } } };
     }
+    function fakePreferences() {
+        var real = realApp.scriptPreferences;
+        var held = {};
+        var members = real.reflect.properties;
+        for (var i = 0; i < members.length; i++) {
+            var name = members[i].name;
+            if (name === "__proto__" || name === "parent" || name === "properties" || name === "reflect") { continue; }
+            try { held[name] = real[name]; } catch (error) {}
+            held.watch(name, function (key, previous, next) {
+                if (key !== "userInteractionLevel") { real[key] = next; }
+                return next;
+            });
+        }
+        return held;
+    }
     function fakeApp(session) {
         var fake = {};
         var reflected = realApp.reflect;
-        var skip = { dialogs: 1, reflect: 1, parent: 1, properties: 1, activeScript: 1, activeDocument: 1, selection: 1, activeWindow: 1, documents: 1, layoutWindows: 1, windows: 1, select: 1, open: 1 };
+        var skip = { dialogs: 1, reflect: 1, parent: 1, properties: 1, activeScript: 1, activeDocument: 1, selection: 1, activeWindow: 1, documents: 1, layoutWindows: 1, windows: 1, select: 1, open: 1, scriptPreferences: 1 };
         var i;
         function refresh() {
             for (var r = 0; r < liveMembers.length; r++) {
@@ -560,6 +575,7 @@ var harness = (function () {
             })(reflected.methods[i].name);
         }
         fake.dialogs = fakeDialogs(session);
+        fake.scriptPreferences = fakePreferences();
         fake.documents = fakeDocuments(session);
         fake.activeDocument = session.documents[0];
         fake.selection = session.selection;
@@ -568,6 +584,12 @@ var harness = (function () {
         fake.select = function (items) {
             fake.selection = items instanceof Array ? items : items === NothingEnum.NOTHING || items === undefined ? [] : [items];
             return fake.selection;
+        };
+        fake.doScript = function (script, language, withArguments) {
+            if (typeof script === "function") { return realApp.doScript.apply(realApp, arguments); }
+            if (language === ScriptLanguage.UXPSCRIPT || language === ScriptLanguage.APPLESCRIPT_LANGUAGE) { throw new Error("doScript in " + String(language) + " runs outside the harness shadow"); }
+            var code = script instanceof RealFile ? prepared({ script: script.fsName }) : String(script);
+            return session.evaluate(code, withArguments || []);
         };
         fake.open = function (file, showing, options) {
             var opened = realApp.open(file, false, options);
@@ -668,6 +690,7 @@ var harness = (function () {
     }
     function prepared(item) {
         if (item.code !== undefined) { return item.code; }
+        if (item.script === undefined) { return ""; }
         var file = new RealFile(item.script);
         var source = expandIncludes(read(file.fsName), file.parent.fsName, 0).split("$.fileName").join(quote(file.fsName)).replace(/^[ \t]*#(target|targetengine|include|strict|script)[^\n\r]*/gm, "");
         if (!item.lines) { return source; }
@@ -677,7 +700,9 @@ var harness = (function () {
         return kept.join("\n");
     }
     function body(item) {
-        return item.kind === "probe" ? "(function (doc, made) { return (" + item.evaluate + "); })(arguments[9][0], arguments[9][1])" : item.kind === "call" ? prepared(item) + "\n;(" + item.call + ").apply(null, arguments[9]);" : prepared(item);
+        if (item.kind === "probe") { return "(function (doc, made) { return (" + item.evaluate + "); })(arguments[9][0], arguments[9][1])"; }
+        if (item.kind === "call") { return prepared(item) + "\n;(" + item.call + ").apply(null, arguments[9]);"; }
+        return prepared(item);
     }
 
     // --- [RUN]
@@ -724,8 +749,10 @@ var harness = (function () {
             result.before = reads(doc, item.read || {}, made).state;
             var fake = fakeApp(session);
             var value;
+            var shadows = [fakeWindow(session), function (message, title) { if (session.exited) { return; } session.record.alerts.push(String(message)); session.record.alertTitles.push(title === undefined ? null : String(title)); }, function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); }, function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); }, fake, fakeFile(session), fakeFolder(session), function () { session.exited = true; throw new Exited(); }];
+            session.evaluate = function (code, extra) { return scoped.apply(null, shadows.concat([code, extra])); };
             try {
-                value = scoped(fakeWindow(session), function (message, title) { if (session.exited) { return; } session.record.alerts.push(String(message)); session.record.alertTitles.push(title === undefined ? null : String(title)); }, function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); }, function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); }, fake, fakeFile(session), fakeFolder(session), function () { session.exited = true; throw new Exited(); }, body(item), item.kind === "probe" ? [doc, made] : revive(item.args || []));
+                value = session.evaluate(body(item), item.kind === "probe" ? [doc, made] : revive(item.args || []));
                 for (var p = 0; p < session.palettes.length; p++) { answerWindow(session, session.palettes[p].window, session.palettes[p].answer); }
                 for (var a = 0; a < session.actions.length; a++) {
                     var handler = session.actions[a].listeners.onInvoke;

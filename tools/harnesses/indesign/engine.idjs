@@ -1,0 +1,236 @@
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const harness = (batchPath, resultPath) => {
+    const real = require("indesign");
+    const fs = require("fs");
+    const { app } = real;
+
+    // --- [CODEC]
+    const bury = (value) => {
+        if (value === undefined) return { $: "undefined" };
+        if (typeof value === "number") return Number.isFinite(value) ? (Object.is(value, -0) ? { $: "-0" } : value) : { $: String(value) };
+        if (Array.isArray(value)) return value.map(bury);
+        if (value !== null && typeof value === "object") return value.constructor === Object ? Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, bury(inner)])) : String(value);
+        if (typeof value === "function") return "<function>";
+        return value;
+    };
+    const located = (path) => path.split(".").reduce((at, key) => at[key], real);
+    const revive = (value) => {
+        if (Array.isArray(value)) return value.map(revive);
+        if (value === null || typeof value !== "object") return value;
+        const keys = Object.keys(value);
+        if (keys.length === 1 && keys[0] === "$") {
+            const tag = String(value.$);
+            const scaled = /^(-?\d+)p(-?\d+)$/.exec(tag);
+            const special = { undefined: undefined, NaN: Number.NaN, Infinity: Number.POSITIVE_INFINITY, "-Infinity": Number.NEGATIVE_INFINITY, "-0": -0 };
+            if (tag in special) return special[tag];
+            if (scaled) return Number(scaled[1]) * 2 ** Number(scaled[2]);
+            return tag.startsWith("enum:") ? located(tag.slice(5)) : tag;
+        }
+        return Object.fromEntries(keys.map((key) => [key, revive(value[key])]));
+    };
+    const next = (queue, fallback) => (queue.length ? queue.shift() : fallback);
+
+    // --- [DIALOGS]
+    const valueMember = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
+    const containers = ["dialogColumns", "dialogRows", "borderPanels", "enablingGroups", "radiobuttonGroups"];
+    const widgets = ["staticTexts", "textEditboxes", "measurementEditboxes", "integerEditboxes", "realEditboxes", "percentEditboxes", "angleEditboxes", "comboboxes", "integerComboboxes", "realComboboxes", "percentComboboxes", "angleComboboxes", "measurementComboboxes", "dropdowns", "checkboxControls", "radiobuttonControls"];
+    const collection = (kind, owner, dialog) => {
+        const list = [];
+        list.add = (props = {}) => {
+            const made = node(kind, owner, dialog);
+            Object.assign(made, props);
+            if (kind === "radiobuttonControls" && props.checkedState === true) owner.selectedButton = list.length;
+            list.push(made);
+            dialog.flat.push({ kind, node: made });
+            return made;
+        };
+        list.item = (index) => list[index];
+        list.firstItem = () => list[0];
+        list.lastItem = () => list[list.length - 1];
+        return list;
+    };
+    const node = (kind, owner, dialog) => {
+        const made = { parent: owner, isValid: true, kind, staticLabel: "", editContents: "", editValue: 0, selectedIndex: 0, stringList: [], checkedState: kind === "enablingGroups", selectedButton: 0, minWidth: 0, destroy() { made.isValid = false; } };
+        for (const name of [...containers, ...widgets]) made[name] = collection(name, made, dialog ?? made);
+        return made;
+    };
+    const fakeDialogs = (session) => {
+        const list = [];
+        list.add = (props = {}) => {
+            const dialog = { flat: [] };
+            Object.assign(dialog, node("dialog", app, dialog), { name: "", canCancel: true }, props);
+            for (const name of [...containers, ...widgets]) dialog[name] = collection(name, dialog, dialog);
+            dialog.show = () => {
+                const answer = session.dialogs[session.dialogShown] ?? {};
+                session.dialogShown += 1;
+                const counts = {};
+                const controls = dialog.flat.map((row) => {
+                    const seen = counts[row.kind] ?? 0;
+                    counts[row.kind] = seen + 1;
+                    const key = `${row.kind}#${seen}`;
+                    const member = valueMember[row.kind];
+                    const shown = { key, label: row.node.staticLabel, value: member ? row.node[member] : undefined };
+                    if (member && answer.fields?.[key] !== undefined) row.node[member] = answer.fields[key];
+                    return shown;
+                });
+                session.record.dialogs.push({ name: dialog.name, controls });
+                return answer.answer === undefined ? true : answer.answer;
+            };
+            list.push(dialog);
+            return dialog;
+        };
+        list.item = (index) => list[index];
+        return list;
+    };
+
+    // --- [APP]
+    const fakeDocuments = (session) => ({
+        get length() { return session.documents.length; },
+        item: (index) => (typeof index === "number" ? session.documents[index] : session.documents.find((doc) => doc.name === index)),
+        itemByID: (id) => session.documents.find((doc) => doc.id === id),
+        firstItem: () => session.documents[0],
+        lastItem: () => session.documents[session.documents.length - 1],
+        add: (...args) => {
+            const made = typeof args[0] === "object" && args[0] !== null ? app.documents.add(false, undefined, args[0]) : app.documents.add(false, args[1], args[2]);
+            session.documents.push(made);
+            return made;
+        },
+    });
+    const fakeApp = (session) => {
+        const documents = fakeDocuments(session);
+        const owned = {
+            dialogs: fakeDialogs(session),
+            documents,
+            activeDocument: session.documents[0],
+            activeWindow: undefined,
+            scriptPreferences: new Proxy(app.scriptPreferences, {
+                get: (target, key) => (typeof target[key] === "function" ? target[key].bind(target) : target[key]),
+                set: (target, key, value) => {
+                    if (key !== "userInteractionLevel") target[key] = value;
+                    return true;
+                },
+            }),
+            layoutWindows: session.documents[0].layoutWindows,
+            windows: session.documents[0].layoutWindows,
+            select: (items) => { session.selection = Array.isArray(items) ? items : items === real.NothingEnum.nothing || items === undefined ? [] : [items]; return session.selection; },
+            open: (file, showing, options) => { const opened = app.open(file, false, options); session.documents.push(opened); return opened; },
+        };
+        return new Proxy(app, {
+            get(target, key) {
+                if (key === "selection") return session.selection;
+                if (key in owned) return owned[key];
+                const value = target[key];
+                return typeof value === "function" ? value.bind(target) : value;
+            },
+            set(target, key, value) {
+                if (key === "selection") session.selection = Array.isArray(value) ? value : [value];
+                else target[key] = value;
+                return true;
+            },
+        });
+    };
+    const fakeRequire = (session) => (name) => (name === "indesign" ? new Proxy(real, { get: (target, key) => (key === "app" ? session.fake : target[key]) }) : require(name));
+
+    // --- [PRECONDITION]
+    const given = (expression) => new Function("doc", "app", "made", `return (${expression});`);
+    const expanded = (key, expression, doc, made) => {
+        const at = expression.indexOf("[*]");
+        if (at < 0) return [[key, expression]];
+        const count = given(expression.slice(0, at))(doc, app, made).length;
+        const rows = Array.from({ length: count }, (_, index) => [key.split("[*]").join(`[${index}]`), expression.split("[*]").join(`[${index}]`)]);
+        return key.includes("[*]") ? rows : [[key, rows]];
+    };
+    const evaluated = ([, expression], doc, made) => (Array.isArray(expression) ? expression.map(([, inner]) => given(inner)(doc, app, made)) : given(expression)(doc, app, made));
+    const assign = (target, value, doc, made) => {
+        const rows = expanded(target, target, doc, made);
+        const flat = rows.length === 1 && Array.isArray(rows[0][1]) ? rows[0][1] : rows;
+        for (const [, path] of flat) {
+            const dot = path.lastIndexOf(".");
+            given(path.slice(0, dot))(doc, app, made)[path.slice(dot + 1)] = revive(value);
+        }
+    };
+    const units = (doc, wanted) => {
+        const both = typeof wanted === "string" ? { script: wanted, horizontal: wanted, vertical: wanted } : wanted;
+        if (both.script) app.scriptPreferences.measurementUnit = real.MeasurementUnits[both.script];
+        if (both.horizontal) doc.viewPreferences.horizontalMeasurementUnits = real.MeasurementUnits[both.horizontal];
+        if (both.vertical) doc.viewPreferences.verticalMeasurementUnits = real.MeasurementUnits[both.vertical];
+    };
+    const prepare = (doc, condition, made) => {
+        for (const [label, value] of Object.entries(condition.labels ?? {})) doc.insertLabel(label, value);
+        if (condition.units) units(doc, condition.units);
+        for (const [target, value] of condition.set ?? []) assign(target, value, doc, made);
+        for (const row of condition.add ?? []) made[row.as] = given(row.to)(doc, app, made)[row.kind].add(revive(row.properties ?? {}));
+        for (const step of condition.steps ?? []) new Function("doc", "app", "made", step)(doc, app, made);
+        return (condition.select ?? []).map((pick) => given(pick)(doc, app, made));
+    };
+    const reads = (doc, wanted, made) => {
+        const unit = app.scriptPreferences.measurementUnit;
+        app.scriptPreferences.measurementUnit = real.MeasurementUnits.points;
+        const state = {};
+        const failed = {};
+        for (const [key, expression] of Object.entries(wanted)) {
+            try {
+                for (const row of expanded(key, expression, doc, made)) {
+                    try { state[row[0]] = evaluated(row, doc, made); } catch (error) { failed[row[0]] = String(error?.message ?? error); }
+                }
+            } catch (error) { failed[key] = String(error?.message ?? error); }
+        }
+        app.scriptPreferences.measurementUnit = unit;
+        return { state, failed };
+    };
+
+    // --- [RUN]
+    function scoped(Window, alert, confirm, prompt, require) { return eval(arguments[5]); }
+    const body = (item) => {
+        if (item.kind === "probe") return `((doc, made) => (${item.evaluate}))(arguments[6][0], arguments[6][1])`;
+        const code = item.code ?? "";
+        const source = item.lines ? item.lines.map(([from, to]) => code.split(/\r\n|\r|\n/).slice(from - 1, to).join("\n")).join("\n") : code;
+        return item.kind === "call" ? `${source}\n;(${item.call}).apply(null, arguments[6]);` : source;
+    };
+    const runCase = (item, product) => {
+        const session = { documents: [], selection: [], dialogShown: 0, dialogs: item.dialogs ?? [], confirms: [...(item.confirms ?? [])], prompts: [...(item.prompts ?? [])], record: { alerts: [], alertTitles: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [] } };
+        const result = { name: item.name, ran: false };
+        const known = new Set(Array.from({ length: app.documents.length }, (_, index) => app.documents.item(index).id));
+        const level = app.scriptPreferences.userInteractionLevel;
+        const unit = app.scriptPreferences.measurementUnit;
+        const condition = item.precondition;
+        const made = {};
+        app.scriptPreferences.userInteractionLevel = real.UserInteractionLevels.neverInteract;
+        try {
+            const doc = condition.open ? app.open(`${product}/${condition.open}`, false) : app.documents.add(false, undefined, revive(condition.document ?? {}));
+            session.documents.push(doc);
+            session.selection = prepare(doc, condition, made);
+            result.before = reads(doc, item.read ?? {}, made).state;
+            session.fake = fakeApp(session);
+            try {
+                const value = scoped(undefined, (message, title) => { session.record.alerts.push(String(message)); session.record.alertTitles.push(title === undefined ? null : String(title)); }, (message) => { session.record.confirms.push(String(message)); return next(session.confirms, true); }, (message, initial) => { session.record.prompts.push(String(message)); return next(session.prompts, initial); }, fakeRequire(session), body(item), item.kind === "probe" ? [doc, made] : revive(item.args ?? []));
+                if (item.kind !== "run") result.value = value;
+                result.ran = true;
+            } catch (error) {
+                result.thrown = `${error?.name ?? "Error"}: ${error?.message ?? error}`;
+            }
+            const after = reads(doc, item.read ?? {}, made);
+            result.read = after.state;
+            result.readFailed = after.failed;
+        } catch (error) {
+            result.failed = String(error?.message ?? error);
+        }
+        Object.assign(result, session.record);
+        for (let index = app.documents.length - 1; index >= 0; index -= 1) {
+            const open = app.documents.item(index);
+            if (!known.has(open.id)) open.close(real.SaveOptions.no);
+        }
+        app.scriptPreferences.userInteractionLevel = level;
+        app.scriptPreferences.measurementUnit = unit;
+        return result;
+    };
+    const output = { application: app.name, version: app.version, engine: "uxpscript", cases: [] };
+    try {
+        const batch = JSON.parse(fs.readFileSync(batchPath, "utf-8"));
+        for (const item of batch.cases) output.cases.push(runCase(item, batch.product));
+    } catch (error) {
+        output.failed = String(error?.message ?? error);
+    }
+    fs.writeFileSync(resultPath, JSON.stringify(bury(output)));
+};
