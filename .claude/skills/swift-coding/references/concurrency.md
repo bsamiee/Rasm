@@ -21,8 +21,6 @@ func frequencies(of text: String) async -> [Substring: Int] {
 }
 ```
 
-`load` suspends on the main actor while `frequencies` runs on the global executor, then resumes on the main actor to assign.
-
 - Nonisolated async functions and closures run on their caller's actor, and a main-actor method passes them non-`Sendable` values
 - Conformances of a `@MainActor` type are isolated to the main actor, and its requirement implementations read its state directly
 - `isolated deinit` releases actor or main-actor state on its executor
@@ -36,7 +34,7 @@ Non-`Sendable` values cross isolation once the compiler proves the sender keeps 
 
 ## [02]-[TASK_HIERARCHY]
 
-Child tasks belong to the scope that starts them: the scope returns after every child finishes, and cancelling it cancels every child. A count the input decides is a task group, its width a parameter:
+Child tasks belong to the scope that starts them: the scope returns after every child finishes, and cancelling it cancels every child. Task group width is a parameter:
 
 ```swift
 func values<Key: Hashable & Sendable, Value: Sendable>(
@@ -63,7 +61,7 @@ func values<Key: Hashable & Sendable, Value: Sendable>(
 
 Each finished read starts the next pending key, and at most `width` reads run at once. Children return values, and the parent alone writes the dictionary. A typed read passes `Result` as `Value`.
 
-- `async let` binds a fixed count of steps with different result types, and one never awaited is cancelled and awaited at scope exit
+- `async let` steps take different result types, and one never awaited is cancelled and awaited at scope exit
 - `Task.immediate` runs on the caller's actor up to its first suspension, the form for a synchronous event handler that starts async work
 
 ## [03]-[DEADLINES]
@@ -88,7 +86,7 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
 }
 ```
 
-`expired` is the caller's deadline failure, and the call throws one typed failure for both outcomes. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, a group never ends with nothing left, and a fallback outcome naming `expired` reports a timeout that never happened.
+`expired` is the caller's deadline failure. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, a group never ends with nothing left, and a fallback outcome naming `expired` reports a timeout that never happened.
 
 - Steps with a budget of their own and no deadline handed down (one child process, one request) take a `Duration` and sleep `for:` it
 - Rivals that end only by failing (a lease heartbeat) return `Never`, and a closure calling one fills the `Value` slot of a two-child race

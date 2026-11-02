@@ -16,7 +16,7 @@ Suites are Swift Testing types, and the fact a test checks selects the assertion
 
 ## [01]-[SUITES]
 
-Suites are structs of `@Test` functions named for the behavior they check, and each test runs on a fresh suite instance:
+Suites hold `@Test` functions named for the behavior they check, and each test runs on a fresh suite instance:
 - `init() async throws` sets up per-test state, and `deinit` of a `final class` or `~Copyable` suite tears it down
 - Tests and parameterized cases run in parallel under `swift test`, and `.serialized` orders one suite's subtree while sibling suites keep running
 - Tests sharing Accessibility focus, the frontmost application, or screen capture sit under one serialized top-level suite

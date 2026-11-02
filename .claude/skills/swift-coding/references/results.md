@@ -44,10 +44,9 @@ func traverse<Input, Value, Element>(_ inputs: some Sequence<Input>, _ transform
 }
 ```
 
-- `init?` in an extension keeps the memberwise `init(first:remaining:)`, and no value states an empty aggregate
+- `init?` in an extension keeps the memberwise `init(first:remaining:)`
 - `Element` needs `Sendable` alone, and `aggregated { failure in (field: <name>, failure) }` keys each rejection to its input
-- `Error` bridging holds where `Element` is an error, and a reader of the bridged `NSError` finds every element under `NSMultipleUnderlyingErrorsKey`
-- `combine` and `traverse` return `Result`, `traverse` nests inside `combine`, and the caller converts once through `get()`, each leaf lifting its failure through `aggregated(\.self)`
+- Callers convert a `combine` result once through `get()`
 - Pack iteration collects every failure in one pass, and CasePaths makes `Result` case-pathable for `[case: \.failure]`
 - Swift 6.4 crashes in IRGen on `[case:]` over a `Result` whose `Success` is a concrete tuple type, and such a site reads the case through `if case` or `switch` until a release compiles it
 
@@ -74,7 +73,7 @@ struct Spread: Sendable {
 
 ## [03]-[WORKFLOWS]
 
-Dependent steps run in sequence, and the first throw ends the workflow. Workflows behind validation lift the dependent steps' error into a one-element aggregate:
+Workflows behind validation lift the dependent steps' error into a one-element aggregate:
 
 ```swift
 func freeCollateral(lots: Int, legs: [String], in book: Book, posted: Decimal) throws(AggregateError<OrderError>) -> Decimal {

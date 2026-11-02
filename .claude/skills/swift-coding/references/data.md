@@ -32,7 +32,7 @@ enum Connection: Equatable, Sendable {
 ```
 
 - Last arm lists each state with a wildcard event in place of `default`
-- Rejections return `nil`, and the caller holds the state and the event that name the rejection
+- Callers hold the state and event that name a rejection
 - `events.reductions(Connection.idle) { state, event in state.applying(event) ?? state }.removeDuplicates()` streams accepted states
 
 ## [02]-[GRAPH_WALKS]
@@ -102,4 +102,4 @@ let evaluated: Double = try expression.fold(
 let rendered: String = expression.fold(number: \.description, variable: \.self, apply: { op, left, right in "(\(left) \(op.rawValue) \(right))" })
 ```
 
-`expression` is an `Expression` and `bindings` a `[String: Double]`. `Operator` holds its symbol as raw value and arithmetic in `callAsFunction`. New operators add one case and one arm and change no interpretation. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluated` stops at the first unbound variable and names it, `rendered` infers `Never` and takes no `try`.
+`expression` is an `Expression` and `bindings` a `[String: Double]`. New operators add one case and one arm and change no interpretation. Local functions capture non-escaping replacements a closure cannot, and `walk` recurses without passing them again. `fold` throws what its replacements throw: `evaluated` stops at the first unbound variable and names it, `rendered` infers `Never` and takes no `try`.

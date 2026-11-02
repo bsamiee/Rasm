@@ -20,7 +20,7 @@ struct OpenFile: ~Copyable {
 }
 ```
 
-Callers acquire through the memberwise init (`try OpenFile(descriptor: .open(path, .readOnly))`) and call host members on `descriptor`. `OrderError.Reason.failed(any Error)` holds the cause the untyped `close()` throws. `discard self` accepts trivially destroyed stored properties alone, and the owner stores its handle and nothing else:
+Callers acquire through the memberwise init (`try OpenFile(descriptor: .open(path, .readOnly))`) and call host members on `descriptor`. `OrderError.Reason.failed(any Error)` holds the cause the untyped `close()` throws. `discard self` accepts trivially destroyed stored properties alone:
 - Generic code suppresses implicit `Copyable` (`<Value: ~Copyable>`), and generic types are `Copyable` where their parameter is (`Optional`, `Result`)
 - `FileDescriptor.closeAfter` scopes a descriptor one call reads, a noncopyable owner holds one that outlives the call
 
@@ -87,7 +87,7 @@ let levels: [Int16] = values(in: frame.bytes)
 
 ## [04]-[SYNCHRONIZED_STATE]
 
-State that synchronous code updates from concurrent tasks sits in a `Mutex`. `Mutex` and `Atomic` bind to `let` alone, as a stored `let` of a `final class: Sendable` or a global `let` for process-wide state. Each update is a function over `inout` state that `withLock` runs as one critical section, and an actor method or local `var` runs the same function:
+`Mutex` and `Atomic` bind to `let` alone, as a stored `let` of a `final class: Sendable` or a global `let` for process-wide state. Each update is a function over `inout` state that `withLock` runs as one critical section, and an actor method or local `var` runs the same function:
 
 ```swift
 func debit(_ amount: Decimal, from account: Account.ID, in balances: inout [Account.ID: Decimal]) throws(OrderError) {

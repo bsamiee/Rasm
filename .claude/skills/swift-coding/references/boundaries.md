@@ -46,7 +46,7 @@ enum Event: Decodable, Sendable {
 }
 ```
 
-- `Line(from: decoder)` reads `Line` fields beside `kind`, and the hand-written `Event.init(from:)` reads the discriminator alone
+- `Line(from: decoder)` reads `Line` fields beside `kind`
 - `unknown(kind:)` keeps a case a newer producer sends as data, and every switch over `Event` handles it
 
 ## [02]-[PATHS]
@@ -111,7 +111,7 @@ let revisions: [String] = try await log.reduceLines(into: []) { hashes, hash in 
 
 ## [04]-[COMMAND_LINES]
 
-Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, and the parser builds arguments through `ExpressibleByArgument`. `RawRepresentable` types over an `ExpressibleByArgument` raw value conform in an empty extension, and one rule rejects wire values and arguments:
+Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, and the parser builds arguments through `ExpressibleByArgument`. `RawRepresentable` types over an `ExpressibleByArgument` raw value conform in an empty extension:
 
 ```swift
 extension Bounded: ExpressibleByArgument {}

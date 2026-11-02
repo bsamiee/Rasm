@@ -42,7 +42,7 @@ func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [K
 
 ## [04]-[DEPENDENCIES]
 
-Libraries own their host calls, take each value an application decides as a defaulted parameter, and build host configuration inside. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
+Libraries own their host calls and take each value an application decides as a defaulted parameter. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
 
 ```swift
 protocol Store<Record>: Sendable {

@@ -5,16 +5,16 @@ description: "Use when writing or reviewing Swift, covering functional design wi
 
 # [SWIFT_CODING]
 
-Code uses each module's types wherever they state a value, as part of the language:
+Code uses each module's types wherever they state a value:
 - Toolchain: standard library, Swift Concurrency, `Observation`, `Synchronization`, `System`
 - Packages: `Collections`, `AsyncAlgorithms`, `CasePaths`, `Subprocess`, `ArgumentParser`
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
-- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from domain vocabulary and members of the packages in use, a file takes the name of the concept it holds, and no name is coined
+- Packages and hosts are used directly through what they provide
+- Every type, export, and helper inside and outside each module states something nothing else does
+- Values that vary are parameters
+- Names come from domain vocabulary and members of the packages in use, and a file takes the name of the concept it holds
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
@@ -142,7 +142,7 @@ enum Plan: CaseIterable, Comparable, Sendable {
 }
 ```
 
-- Higher plans hold every lower plan's features through `<=`, and a feature gate reads `plan >= required`, a new case takes its seats from its position
+- Feature gates read `plan >= required`, and a new case takes its seats from its position
 - Optional properties stand where absence is a state consumers read, a value with a usual default holds that default
 
 Choose collections by their most frequent operation:
@@ -171,15 +171,15 @@ Each state a consumer inspects is a distinct case. Counting a type's values (str
 
 One form serves one concern:
 
-| [INDEX] | [FORM]                         | [CONCERN]                                                         |
-| :-----: | :----------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `T?`                           | Absence with no reason                                            |
-|  [02]   | `throws(E) -> T`               | Expected failure of a step, `try` binds and the first throw stops |
-|  [03]   | `async throws(E) -> T`         | Expected failure of a step that suspends                          |
-|  [04]   | `Result<T, E>`                 | Outcome stored, collected, or handed to a callback as a value     |
-|  [05]   | `Result<T, AggregateError<E>>` | Every failure of independent steps, at least one                  |
-|  [06]   | `some AsyncSequence<T, E>`     | Values over time with one failure that ends the sequence          |
-|  [07]   | `Task<Result<T, E>, Never>`    | Work started now and joined later, its typed outcome a value      |
+| [INDEX] | [FORM]                         | [CONCERN]                                                     |
+| :-----: | :----------------------------- | :------------------------------------------------------------ |
+|  [01]   | `T?`                           | Absence with no reason                                        |
+|  [02]   | `throws(E) -> T`               | Expected failure of a step                                    |
+|  [03]   | `async throws(E) -> T`         | Expected failure of a step that suspends                      |
+|  [04]   | `Result<T, E>`                 | Outcome stored, collected, or handed to a callback as a value |
+|  [05]   | `Result<T, AggregateError<E>>` | Every failure of independent steps, at least one              |
+|  [06]   | `some AsyncSequence<T, E>`     | Values over time with one failure that ends the sequence      |
+|  [07]   | `Task<Result<T, E>, Never>`    | Work started now and joined later, its typed outcome a value  |
 
 ### [04.1]-[COMPOSITION]
 
@@ -226,7 +226,7 @@ struct OrderError: LocalizedError, CustomNSError {
 }
 ```
 
-- `localizedDescription`, ArgumentParser, and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
+- `localizedDescription` and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
 - `Error` refines `Sendable`, every reason fact is `Sendable`, and a cause crosses tasks whole
 - Reason cases name the rule, and a case holds a fact only where some of its failures have one (a shortfall, a host cause)
 - Subjects name the rejected value as the caller wrote it with the facts its reason reads (`"debit 120 against 100"`)
@@ -234,7 +234,7 @@ struct OrderError: LocalizedError, CustomNSError {
 - Host calls convert at the call, `do` holds the host call alone and its `catch` throws the module error
 - Fallbacks answering one failure catch its pattern (`catch DecodingError.typeMismatch`, `catch let error where error.reason.is(\.missing)`), the rest propagate
 - `CancellationError` passes through as the cancelled outcome
-- Consumers classify by `reason`, one case through `is(\.<case>)` and every case through an exhaustive `switch`
+- Consumers classify by `reason`
 
 ## [05]-[OWNERSHIP]
 
@@ -265,7 +265,7 @@ Child tasks follow the shape of the work, and each child returns its typed `Resu
 
 ## [07]-[STREAMS]
 
-Values over time are `some AsyncSequence<Element, Failure>` in signatures. Delivery shape selects source and operator:
+Delivery shape selects source and operator:
 
 | [INDEX] | [DELIVERY]                            | [FORM]                                               |
 | :-----: | :------------------------------------ | :--------------------------------------------------- |
@@ -279,7 +279,7 @@ Values over time are `some AsyncSequence<Element, Failure>` in signatures. Deliv
 |  [08]   | Consumers sharing one source          | `share(bufferingPolicy:)`                            |
 |  [09]   | Lines of a child process              | `strings(separatedBy:bufferingPolicy:)`              |
 
-Request-response work and one-shot waits stay an `async throws(E)` function, and a stream holds values a consumer reads in order. One-shot waits whose typed failure has no cancelled case (`Errno`) are a one-element stream, and a cancelled consumer ends it with no element.
+Request-response work and one-shot waits stay an `async throws(E)` function. One-shot waits whose typed failure has no cancelled case (`Errno`) are a one-element stream, and a cancelled consumer ends it with no element.
 
 ## [08]-[BOUNDARIES]
 

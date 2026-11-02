@@ -36,11 +36,11 @@ func total(of url: URL, price: (String) throws(OrderError) -> Decimal) async thr
 }
 ```
 
-`mapError` types the failure `URL.lines` throws untyped, and a fold over a typed failure is one `for try await` loop throwing that failure.
+`mapError` types the failure `URL.lines` throws untyped.
 
-- Non-throwing `map`, `filter`, `prefix`, and AsyncAlgorithms operators keep `Failure`, a throwing transform closure widens it to `any Error`
+- Operators with a non-throwing closure keep `Failure`, a throwing transform closure widens it to `any Error`
 - Sources failing only at start throw from the call and return an `AsyncStream`, `AsyncThrowingStream.makeStream` fixes `Failure` to `any Error`
-- `Failure` ends the sequence, and one element's failure in a source that continues is an element: `map` to `Result<T, E>` over a `Never` failure
+- One element's failure in a source that continues is an element: `map` to `Result<T, E>` over a `Never` failure
 - Any source of `merge`, `combineLatest`, or `zip` that fails cancels the others and ends the joined sequence with its failure
 
 ## [03]-[OPERATORS]

@@ -45,11 +45,11 @@ extension Optional: Costed where Wrapped: Costed {
 }
 ```
 
-`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. `.zero` from `AdditiveArithmetic` prices an empty array and an absent value at nothing in every cost type. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. `@MainActor` types mark a conformance read off the main actor `nonisolated` (`final class Draft: nonisolated Decodable`). Nonisolated witnesses only initialize the type or read a struct's stored properties.
+`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. `@MainActor` types mark a conformance read off the main actor `nonisolated` (`final class Draft: nonisolated Decodable`). Nonisolated witnesses only initialize the type or read a struct's stored properties.
 
 ## [04]-[PARAMETER_PACKS]
 
-Parameter packs state a list of types of any length with each element's type kept, and one declaration serves every arity. Key paths as pack arguments project rows into typed tuples, each column type inferred from its key path:
+Key paths as pack arguments project rows into typed tuples, each column type inferred from its key path:
 
 ```swift
 func projected<Row, each Value>(_ rows: [Row], _ fields: repeat KeyPath<Row, each Value>) -> [(repeat each Value)] {
