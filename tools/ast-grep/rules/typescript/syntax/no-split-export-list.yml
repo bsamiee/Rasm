@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-export-list
+language: tsx
+severity: error
+utils:
+    local-export-list:
+        all:
+            - kind: export_statement
+            - has: {kind: export_clause}
+            - not: {has: {field: source, kind: string}}
+rule:
+    all:
+        - matches: local-export-list
+        - follows: {matches: local-export-list, stopBy: end}
+message: 'A second export list splits the module surface'
+note: 'List every export in one `export { .. }`, a type marked inline as `type Name`'

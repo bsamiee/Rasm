@@ -83,6 +83,7 @@
                         "noTernary": "off",
                         "useConsistentMemberAccessibility": { "level": "error", "options": { "accessibility": "none" } },
                         "useDomQuerySelector": "off",
+                        "useExportType": { "level": "error", "options": { "style": "inlineType" } },
                         "useNamingConvention": "off",
                         "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } },
                         "useThisInClassMethods": { "level": "error", "options": { "ignoreOverrideMethods": true } }
