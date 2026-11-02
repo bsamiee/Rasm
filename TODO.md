@@ -27,10 +27,10 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 ### State
 
 - **TypeScript:** all fourteen `[03]` rows landed.
-- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, tables, linework, annotation, typeset, ifc.
-- **Rust rows running:** `numerics/dynamics`, `geometry/implicit`, `drawing/views`, `documents/pdf`, `geospatial/weather`.
+- **Rust rows landed:** telemetry, command, output, screen, daemon, mcp, mesh, proximity, planar, implicit, site, solar, dependency, network, layout, optimize, stats, analysis, spectra, tables, linework, annotation, typeset, ifc.
+- **Rust rows stopped, to resume:** `numerics/dynamics`, `drawing/views`, `documents/pdf`, `geospatial/weather`.
 - **Rust rows left:** form, sheets, workbooks, cad, facets, scene, pointcloud, terrain, features, energy, daylight, query, lake, fields.
-- **Depth running:** `cli` over its three crates.
+- **Depth stopped, to resume:** `cli` over its three crates.
 
 ### Queue
 
@@ -72,11 +72,13 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### State
 
-- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `plugin-finish` (Grid Calculator, ScribeDOOR), `proof-move` (the six script domains, each ending with its distill), the InPage distill, and `font-foundry`.
+- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `font-foundry`, and the adversarial review of the InPage landing.
+- **InPage landing:** library code committed (`3c293ca22`), plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`; its Atelier section stands as uncommitted drafts until the harness session commits.
+- **InPage depth pass, on the owner's signal:** after the review, one agent reads the plan, the distilled logic and the [02] method for missed capability, higher-order capability that ripples through the code (4 to 5 agents ideating), and fuller use of Effect 4 and each package; it cuts surface, stringly forms, nesting and hand logic, adversaries read any growth, then clean-prose agents rename files, members and messages over everything modified.
 - **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
-- **Next proofs:** the second script decompile (seven paid hasaninscripts scripts, V-Justify, Kashida) and ScribeDOOR for Illustrator start on it.
+- **Next proofs:** host cases written and not run (second script decompile, Grid Calculator, ScribeDOOR, script domains) and ScribeDOOR for Illustrator run on it; ScribeDOOR's trial ends around 8 November.
 - **InPage:** 164 functions binary-proven over 1494 cases; the plug-in is Windows-only, so host proof is impossible. Its distill carries the typesetting logic (nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, the Quran glossary) for Persian and Arabic over any installed font, reading what each font states; Urdu-only forms stay out.
-- **Distilled:** the fifteen grids products.
+- **Distilled:** 61 products; pages (23 left), styles (20), right-to-left (8) and tables (3) wait on host proofs.
 - **Fonts:** `font-foundry` studies the InPage set through Perso-Arabic typography and font engineering, tosses South Asian and junk faces, rebuilds each kept family to foundry grade and publishes to research and the drive, tossed families into `Rejected/`. Then every font in the drive's `01.Fonts/00.Paid Premium Fonts` and `01.Fonts/01.Premium Fonts` is added through Typeface (`/Applications/Typeface-beta.app`).
 - **Owner's choices:** InPage plug-in 2.2 for InDesign 2026 and a macOS build join the decompile when they arrive. No Apple Developer Program for now.
 
