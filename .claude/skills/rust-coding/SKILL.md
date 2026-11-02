@@ -36,7 +36,7 @@ Function signatures are contracts, parameter types state every value a function 
 - Async callbacks take `impl AsyncFn(A) -> B`, a closure returning its callee's future (`|id| fetch(id)`) or an `async` closure holding more work supplies it
 - Bounds sit in a `where` clause, argument-position `impl Trait` stays for a parameter no other position names
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic, each caller passing the value from where it holds it
-- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent
+- Defaults sit on one options struct under `default_field_values`, an optional input taking an `Option` field unless its type's default means absent, and a default tree-sitter-rust parses no form of (a struct literal) an `Option` field
 - Values and types differing per platform or build configuration (`panic = "abort"`) are one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`), an element, variant, or arm one platform alone holds takes `#[cfg]` on itself, and a share, lock, import, or nightly feature only one configuration reads sits under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
@@ -122,7 +122,7 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
 - `if let` guards bind from a second refutable pattern inside an arm, deref patterns (`#![feature(deref_patterns)]` in the crate root) match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
-- Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test, and `<[T; 1]>::try_from(items)` takes an owned single item, `Err` returning the `Vec` whole
+- Slice patterns state each length and bind what it holds (`[] => .., [origin, ..] => ..`) in place of `first`, `split_last`, or a length test, and `<[T; 1]>::try_from(items)` takes an owned single item, `Err` returning the `Vec` whole, an owned `Vec` or `String` matched directly under `deref_patterns`, never through `as_slice` or `as_str`
 - Interpret an external value once near its source into an enum or an `Option`, then match the typed result
 
 ### [02.2]-[RECURSION]
@@ -169,7 +169,7 @@ pub enum Delivery {
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
 - `derive_more` `#[as_ref]` exposes each field of a guarded record read-only, a result flag beside them included, never one `pub` field among guarded ones, `#[as_ref(T)]` the `T` inside an `Arc<T>` field, `#[as_mut]` a field its owner replaces
-- `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context as `NonZero::new(<value>).unwrap()`, a default field value (where tree-sitter-rust parses no method call) as the by-path `NonZero::<T>::saturating_add(NonZero::<T>::MIN, <value - 1>)`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
+- `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context as `NonZero::new(<value>).unwrap()`, a default field value (where tree-sitter-rust parses no method call) as the by-path `NonZero::<T>::saturating_add(NonZero::<T>::MIN, <value - 1>)`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`), a method on a package constant as `<value>` read inside `const { .. }`, under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
@@ -440,7 +440,7 @@ Numeric facts come from the type or package that states them:
 - Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities cross a signature as `uom` values in the frame of what they meet, a coordinate pair one validated type, the `f64` kernel converting by it
-- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`
+- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`, and arithmetic generic over `uom` quantities bounds `Quantity<D, SI<f64>, f64>` with `D::Kind: marker::Add` or `marker::Sub`
 - Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair

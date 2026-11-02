@@ -1,14 +1,13 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values)]
+#![feature(const_result_trait_fn, const_trait_impl, default_field_values, error_reporter, float_conversions)]
 
-use core::{borrow::Borrow, f64::consts::FRAC_1_SQRT_2};
-use std::sync::Arc;
+use core::{borrow::Borrow, f64::consts::FRAC_1_SQRT_2, fmt};
+use std::{error::Report, sync::Arc};
 
-use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Circle, Line, PathEl, Point, Shape as _, Triangle, Vec2};
 use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{NEVec, nev};
-use parlance::FontFamily;
-use rasm_linework::{Color, Element, FontSize, FontStyle, FontWeight, FontWidth, LineworkError, Opacity, Path, Pen, Placement, Region, Tolerance, Width, regions};
+use parlance::{FontFamily, ParseFontFamilyError};
+use rasm_linework::{Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, Path, Pen, Placement, Region, Tolerance, Width, regions};
 use skrifa::ScaleError;
 use uom::si::{angle::radian, f64::Angle};
 use validated::Validated;
@@ -22,11 +21,31 @@ pub enum Arrowhead {
     Open,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+pub enum Lookup {
+    Family,
+    Slot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+pub enum Defect {
+    #[display("holds no readable font")]
+    Unreadable,
+    #[display("was never registered")]
+    Unregistered,
+    #[display("declares no positive capital height")]
+    Capless,
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
+
+#[nutype::nutype(validate(predicate = |angle| angle.is_normal() && angle.is_sign_positive() && *angle < Angle::HALF_TURN), derive(Debug, Clone, Copy, PartialEq))]
+pub struct Aperture(Angle);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Head {
-    Arrow { angle: Angle, arrowhead: Arrowhead },
+    Arrow { angle: Aperture, arrowhead: Arrowhead },
     Oblique,
     Dot,
     Origin,
@@ -42,8 +61,8 @@ pub struct Terminator {
 pub struct Lettering {
     pub family: FontFamily<'static>,
     pub size: FontSize,
-    pub weight: FontWeight = FontWeight::try_new(parlance::FontWeight::NORMAL.value()).ok().unwrap(),
-    pub width: FontWidth = FontWidth::try_new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap(),
+    pub weight: FontWeight = FontWeight::try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap(),
+    pub width: FontWidth = FontWidth::try_new(const { parlance::FontWidth::NORMAL.ratio() }).ok().unwrap(),
     pub style: FontStyle = FontStyle::Normal,
     pub color: Color,
     pub opacity: Opacity = Opacity::OPAQUE,
@@ -72,7 +91,7 @@ pub enum Annotation {
     Mark(marks::Mark),
     Symbol(symbols::Instance),
     Legend(legends::Legend),
-    Table(tables::Table),
+    Table(Box<tables::Table>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,21 +110,21 @@ pub enum AnnotationError {
     Svg(#[from] usvg::Error),
     #[error("font {position} holds no face")]
     Font { position: usize },
-    #[error("family {0} holds no registered face")]
-    Family(Arc<str>),
-    #[error("font holds no readable face at index {0}")]
-    Face(u32),
+    #[error("font family list {list} fails to parse")]
+    Stack { list: Arc<str>, source: ParseFontFamilyError },
+    #[error("no {lookup} named {name}")]
+    Unknown { lookup: Lookup, name: Arc<str> },
+    #[error("face {index} {defect}")]
+    Face { index: u32, defect: Defect },
     #[error("glyph {glyph} draws no outline")]
     Outline { glyph: u32, source: ScaleError },
     #[error("geometry spans no length or direction")]
     Degenerate,
-    #[error("symbol paint {0} lies outside the linework model")]
+    #[error("{0} lies outside the linework model")]
     Unsupported(symbols::Feature),
-    #[error("symbol holds no text slot {0}")]
-    Slot(Arc<str>),
-    #[error("cell at row {row}, column {column} spans past the last column")]
+    #[error("cell at row {row}, column {column} spans columns the table lacks or another cell holds")]
     Cell { row: usize, column: usize },
-    #[error("item {index}: {}", errors.iter().format("; "))]
+    #[error("item {index} failed{}", fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Item { index: usize, errors: NEVec<Self> },
 }
 
@@ -130,39 +149,44 @@ where I: IntoIterator<Item: Borrow<Annotation>> {
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
-    let mask = match drawn.as_slice() {
-        [] => Region::default(),
-        [first, rest @ ..] => regions::boolean(&first.mask, rest.iter().map(|graphics| &graphics.mask), BinaryOp::Union, style.tolerance).map_err(|error| nev![AnnotationError::from(error)])?,
-    };
+    let mask = regions::boolean(&Region::default(), drawn.iter().map(|graphics| &graphics.mask), BinaryOp::Union, style.tolerance).map_err(|error| nev![AnnotationError::from(error)])?;
     Ok(Graphics { elements: drawn.into_iter().flat_map(|graphics| graphics.elements).collect(), mask })
 }
 
-pub(crate) fn terminated(style: &Style, tip: Point, toward: Vec2) -> Result<Element, AnnotationError> {
-    let frame = (toward.is_finite() && toward != Vec2::ZERO).then(|| Affine::rotate(toward.atan2()).then_translate(tip.to_vec2())).ok_or(AnnotationError::Degenerate)?;
+pub(crate) fn stroked(shape: BezPath, pen: &Pen, linetype: Option<Linetype>) -> Result<Element, AnnotationError> {
+    Path::try_new(shape).map(|path| Element::Stroke { path, pen: pen.clone(), linetype }).map_err(|error| LineworkError::from(error).into())
+}
+
+fn terminated(style: &Style, tip: Point, toward: Vec2) -> Result<Element, AnnotationError> {
+    (toward.is_finite() && toward != Vec2::ZERO).ok_or(AnnotationError::Degenerate)?;
+    let frame = Affine::rotate(toward.atan2()).then_translate(tip.to_vec2());
     let Terminator { size, head } = style.terminator;
     let length = size.into_inner();
     let tolerance = style.tolerance.into_inner();
-    let filled = |shape: BezPath| Region::new(&(frame * shape), FillRule::NonZero, style.tolerance).map(|region| Element::Fill { region, color: style.pen.color.clone(), opacity: style.pen.opacity });
-    let stroked = |shape: BezPath| Path::try_new(frame * shape).map(|path| Element::Stroke { path, pen: style.pen.clone(), linetype: None }).map_err(LineworkError::from);
-    let disc = Circle::new(Point::ORIGIN, length * 0.5);
+    let filled = |shape: BezPath| {
+        Region::new(&(frame * shape), FillRule::NonZero, style.tolerance)
+            .map(|region| Element::Fill { region, color: style.pen.color.clone(), opacity: style.pen.opacity })
+            .map_err(AnnotationError::from)
+    };
+    let outlined = |shape: BezPath| stroked(frame * shape, &style.pen, None);
+    let disc = || Circle::new(Point::ORIGIN, length * 0.5).to_path(tolerance);
     match head {
         Head::Arrow { angle, arrowhead } => {
-            let spread = length * (angle.get::<radian>() * 0.5).tan();
+            let spread = length * (angle.into_inner().get::<radian>() * 0.5).tan();
             let [left, right] = [Point::new(-length, spread), Point::new(-length, -spread)];
             match arrowhead {
                 Arrowhead::Filled => filled(Triangle::new(Point::ORIGIN, left, right).to_path(tolerance)),
-                Arrowhead::Closed => stroked(Triangle::new(Point::ORIGIN, left, right).to_path(tolerance)),
-                Arrowhead::Open => stroked(BezPath::from_vec(vec![PathEl::MoveTo(left), PathEl::LineTo(Point::ORIGIN), PathEl::LineTo(right)])),
+                Arrowhead::Closed => outlined(Triangle::new(Point::ORIGIN, left, right).to_path(tolerance)),
+                Arrowhead::Open => outlined(BezPath::from_vec(vec![PathEl::MoveTo(left), PathEl::LineTo(Point::ORIGIN), PathEl::LineTo(right)])),
             }
         }
         Head::Oblique => {
             let reach = length * 0.5 * FRAC_1_SQRT_2;
-            stroked(Line::new((-reach, reach), (reach, -reach)).to_path(tolerance))
+            outlined(Line::new((-reach, reach), (reach, -reach)).to_path(tolerance))
         }
-        Head::Dot => filled(disc.to_path(tolerance)),
-        Head::Origin => stroked(disc.to_path(tolerance)),
+        Head::Dot => filled(disc()),
+        Head::Origin => outlined(disc()),
     }
-    .map_err(AnnotationError::from)
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
