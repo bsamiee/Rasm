@@ -23,6 +23,7 @@ Code reaches each catalog package through its members at the version `pnpm-lock.
 ## [02]-[LAYOUT]
 
 13. `package.json` `sideEffects` lists CSS files alone
+14. Types and `const` values naming one concept share one name under one `export { Engine }`, `erasableSyntaxOnly` refuses a `namespace` (TS1294)
 
 ## [03]-[TARGETS]
 
