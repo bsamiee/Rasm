@@ -55,7 +55,7 @@ Pictures come from the source that draws current state:
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
-2. With no listener, use the `watch-apps` skill to open a new Blender with `PYTHONPYCACHEPREFIX`, `--no-window-focus`, and `--python-use-system-env`
+2. With no listener, use the `watch-apps` skill to open a new Blender with `PYTHONPYCACHEPREFIX` and `--python-use-system-env`
 3. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
 4. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
 5. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
@@ -74,7 +74,7 @@ result = {"closed": closed}
 ```
 
 Script-driven task GUIs run a runner script:
-- `python -m eng.python.blender run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
+- `python -m eng.python.blender run <name> -- --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
@@ -188,5 +188,5 @@ Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, 
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
-- `open` starts macOS GUI runs as their own launchd job, which Dock quit signals whole
+- `watch-apps launch --new` starts macOS GUI runs, quitting Blender when `run` ends
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

@@ -36,19 +36,5 @@
         "cf": "catalog:",
         "testcontainers": "catalog:",
         "vitest": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "test": {
-                "options": {
-                    "args": [ "--project=!s3" ]
-                }
-            },
-            "test:integration": {
-                "options": {
-                    "args": [ "--project=s3" ]
-                }
-            }
-        }
     }
 }

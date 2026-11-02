@@ -138,7 +138,7 @@ extension Integration {
         @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
         func hiddenInstancePrintsFailInPlaceOfEntry() async throws {
             let fixture: Fixture = try Fixture()
-            let pid: Int32 = try await launch(fixture, flags: ["--hides"]).pid
+            let pid: Int32 = try await launch(fixture).pid
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             expectNoDifference(elements.titled("Fixture 0")?.minimized, false)
             try await expectRefusal(["capture", fixture.identifier], keyedBy: fixture.identifier)

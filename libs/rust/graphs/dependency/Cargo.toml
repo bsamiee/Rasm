@@ -4,7 +4,7 @@
 name                 = "rasm-dependency"
 version.workspace    = true
 edition.workspace    = true
-description          = "Evaluation graphs: cycle refusal naming the closing path, keyed topological order, layers, invalidation reach, change propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, and critical path schedules"
+description          = "Evaluation graphs: cycle refusal naming every closing path, whole input rewiring, keyed topological order, layers, invalidation reach, dependency-driven propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, and deadline-bounded critical path schedules"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["dependency-graph", "topological-sort", "invalidation", "critical-path", "scheduling"]
@@ -23,9 +23,10 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-thiserror      = { workspace = true }
-petgraph       = { workspace = true }
-rustworkx-core = { workspace = true }
+thiserror            = { workspace = true }
+nonempty-collections = { workspace = true }
+petgraph             = { workspace = true }
+rustworkx-core       = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

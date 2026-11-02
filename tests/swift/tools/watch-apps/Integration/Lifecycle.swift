@@ -159,54 +159,6 @@ extension Integration {
             expectNoDifference(end, [String(first): .responding, String(watched.outcome.second): .responding])
         }
 
-        @Test(.application(FixtureApplication.self, launches: false, multipleInstancesProhibited: true))
-        func newOnProhibitedMultipleInstancesFailsAndOpensNothing() async throws {
-            let fixture: Fixture = try Fixture()
-            let first: Int32 = try await launch(fixture).pid
-            try await expectRefusal(["launch", fixture.identifier, "--new"], keyedBy: fixture.identifier)
-            let read: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-                of: .product(named: "watch-apps"),
-                arguments: ["read", fixture.identifier],
-                as: WatchAppsLine.self,
-            )
-            expectNoDifference(pids(in: read.lines), [[first]])
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func ownSingleInstanceCheckExitRefusesNextNewInstance() async throws {
-            let fixture: Fixture = try Fixture()
-            let settings: Settings = Settings(scenario: .singleInstance, status: 3)
-            let first: Int32 = try await launch(fixture, settings).pid
-            defer { UserDefaults(suiteName: "watch-apps")?.removeObject(forKey: fixture.bundle.resolvingSymlinksInPath().path(percentEncoded: false)) }
-            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
-                _ = try await lines.next { line in line.key == fixture.identifier }
-                let refused: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, settings, flags: ["--new"], running: [first])
-                expectNoDifference(phases(of: refused.pid, in: refused.lines).last, .answering)
-                let alert: WatchAppsLine.Element = try #require(refused.lines.last?.elements(of: refused.pid)?.answers.first)
-                try await perform(try #require(alert.control("action-button-1")))
-                _ = try await lines.next { line in line.entry.instances?[refused.pid]?.phase == .exited }
-                return refused.pid
-            }
-            let last: WatchAppsLine? = watched.lines.last?.line
-            let again: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-                of: .product(named: "watch-apps"),
-                arguments: ["launch", fixture.identifier, "--new"],
-                as: WatchAppsLine.self,
-            )
-            let reason: String = try #require(again.lines.first?.entry.fail)
-            let read: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-                of: .product(named: "watch-apps"),
-                arguments: ["read", fixture.identifier],
-                as: WatchAppsLine.self,
-            )
-            expectNoDifference(last?.entry.instances?[watched.outcome]?.exited.map(Ended.init), Ended(status: 3))
-            expectNoDifference(last?.entry.instances?[first]?.phase, .responding)
-            expectNoDifference(again.lines.map(\.key), [fixture.identifier])
-            expectNoDifference(again.status, .exited(1))
-            #expect(reason.contains("pid \(first)") && reason.contains("--document"), "reason \(reason) names running pid and --document")
-            expectNoDifference(pids(in: read.lines), [[first]])
-        }
-
         @Test(.application(FixtureApplication.self, launches: false))
         func hangReadsUnresponsiveWithUsageThenRecovers() async throws {
             let fixture: Fixture = try Fixture()

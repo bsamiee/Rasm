@@ -17,6 +17,7 @@
         <exclude name="AtLeastOneConstructor" />
         <exclude name="CommentDefaultAccessModifier" />
         <exclude name="LocalVariableCouldBeFinal" />
+        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock" />
         <exclude name="LongVariable" />
         <exclude name="MethodArgumentCouldBeFinal" />
         <exclude name="NoPackage" />

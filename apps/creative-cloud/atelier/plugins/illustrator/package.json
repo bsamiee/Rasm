@@ -7,7 +7,6 @@
     "imports": {
         "#/package.json": "./package.json"
     },
-    "main": "main.ts",
     "dependencies": {
         "@rasm/cep": "workspace:*",
         "@rasm/illustrator": "workspace:*"

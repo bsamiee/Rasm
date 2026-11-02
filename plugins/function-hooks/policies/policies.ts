@@ -1,18 +1,13 @@
-import { all, bind, type Fault, map, none, type Option, ok, type Result, some, toArray } from '../composition.ts';
-import { parse, printed, type Script } from './command.ts';
-import { declared, firstOperand, type Invocation, informational, invocations, OPTION, operands, option, placed, waits, within } from './invocation.ts';
+import { none, type Option, some, toArray } from '../composition.ts';
+import { type Command, parse, printed, type Script, spliced, type Word } from './command.ts';
+import { declared, firstOperand, type Invocation, informational, invocations, operands, option, optional, placed, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Tool = 'Bash' | 'Monitor';
-type Command = Script['commands'][number];
-type Word = Command['words'][number];
 type Decision =
     | { readonly kind: 'deny'; readonly reason: string }
     | { readonly kind: 'allow' }
     | { readonly kind: 'rewrite'; readonly command: string; readonly notice: Option<string>; readonly timeout: Option<number>; readonly background: boolean };
-type Launch = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'launch'; readonly names: readonly string[]; readonly flags: readonly string[]; readonly environment: boolean };
-type Targets = Readonly<Record<string, { readonly options?: { readonly command?: string; readonly commands?: readonly (string | { readonly command: string })[] }; readonly dependsOn?: readonly (string | { readonly target: string })[] }>>;
 
 interface System {
     readonly run: (argv: Invocation, init: { readonly cwd: string; readonly stdin: string }) => Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }>;
@@ -23,7 +18,6 @@ interface System {
     readonly home: Option<string>;
 }
 interface Request {
-    readonly tool: Tool;
     readonly background: boolean;
     readonly timeout: Option<number>;
 }
@@ -31,7 +25,18 @@ interface Call {
     readonly system: System;
     readonly script: Script;
     readonly project: string;
-    readonly request: Request;
+    readonly request: Option<Request>;
+}
+interface Launch {
+    readonly program: string;
+    readonly start: Word;
+    readonly app: string;
+    readonly flags: readonly string[];
+    readonly foreign: readonly string[];
+}
+interface Target {
+    readonly options?: { readonly command?: string; readonly commands?: readonly (string | { readonly command: string })[] };
+    readonly dependsOn?: readonly (string | { readonly target: string })[];
 }
 interface Change {
     readonly start: number;
@@ -39,10 +44,6 @@ interface Change {
     readonly text: string;
     readonly notice: Option<string>;
     readonly timeout: Option<number>;
-}
-interface Segment {
-    readonly invocation: Invocation;
-    readonly words: readonly Word[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -52,25 +53,17 @@ const BRANCH = 'creates branch. Work on current branch';
 const UNPLACED = 'runs after unresolved directory change. Run cd to named directory first';
 const ALIAS = 'defines alias that can hide refused subcommand';
 const OVERWRITES = 'overwrites working-tree files. Edit files';
-const INLINE = 'runs inline program. Edit with Edit or sd, run installed tools by name';
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
 const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
 const NAMED = /[\p{L}\p{N}]/u;
 const SAFE = /^[\w@%+=:,./-]+$/u;
 const DURATION = /^(?<amount>\d+(?:\.\d+)?)(?<unit>[smhd]?)$/u;
-const APP = /(?<name>[^/]+?)(?:\.app)?\/*$/u;
-const BUNDLE = /\/(?<name>[^/]+)\.app\/Contents\/MacOS\/[^/]+$/u;
-const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<verb>activate|launch|run|reopen))?$/u;
+const BUNDLE = /^(?<bundle>\/Applications\/.+?\.app)\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
+const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<verb>\w+))?$/u;
 const VERB = /^(?:activate|launch|run|reopen)$/u;
 const CHECKER = /^(?:lint|format|typecheck):(?<tool>[^:]+)/u;
 const CACHED = /^(?:check|typecheck(?::.+)?)$/u;
-const UNITS: Readonly<Record<string, number>> = { '': 1000, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
-const LOGS: Readonly<Record<string, string>> = { '-log': 'ghidra.log', '-scriptlog': 'ghidra-script.log' };
-const EZA: Readonly<Record<string, string>> = { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' };
-const UNCACHED = ['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'];
-const OPENS = ['-a', '-b', '-n', '-g', '-j', '-F', '--env'];
-const FOREGROUND: Request = { tool: 'Bash', background: false, timeout: none };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -78,10 +71,15 @@ const FOREGROUND: Request = { tool: 'Bash', background: false, timeout: none };
 
 const quote = (word: string): string => (SAFE.test(word) ? word : `'${word.replaceAll("'", String.raw`'\''`)}'`);
 
-const assigned = ({ words, invocations: chain }: Command): readonly Word[] => words.slice(0, words.length - chain.reduce((sum, { length }) => sum + length, 0));
+const items = (program: string, [head, ...rest]: readonly Word[]): readonly { readonly words: readonly Word[]; readonly names: readonly string[] }[] => {
+    if (head === undefined || head.text === '--') {
+        return [];
+    }
+    const { names, taken } = optional(declared(program), head.text) ? option(declared(program), head.text) : { names: [], taken: 0 };
+    return [{ words: [head, ...rest.slice(0, taken)], names }, ...items(program, rest.slice(taken))];
+};
 
-const segments = (command: Command): readonly Segment[] =>
-    command.invocations.reduce<{ readonly at: number; readonly parts: readonly Segment[] }>(({ at, parts }, invocation) => ({ at: at + invocation.length, parts: [...parts, { invocation, words: command.words.slice(at, at + invocation.length) }] }), { at: assigned(command).length, parts: [] }).parts;
+const edit = (start: number, end: number, text: string, notice: Option<string> = none, timeout: Option<number> = none): Change => ({ start, end, text, notice, timeout });
 
 // --- [DELETE]
 
@@ -277,160 +275,178 @@ const detached = ({ script: { commands, background } }: Call): readonly string[]
 
 const stdin = ({ script: { commands } }: Call): readonly string[] => commands.flatMap(({ fed, words, invocations: chain }) => (!fed && chain.some(waits) ? [`${words.map(({ text }) => text).join(' ')} waits on unfed standard input. Pass file or pipe input`] : []));
 
+
 // --- [INLINE]
 
-const inline = ({ script: { commands } }: Call): readonly string[] =>
-    commands.flatMap(({ fed, invocations: chain }) =>
-        chain.flatMap((invocation) => {
-            const [program] = invocation;
-            const { code } = declared(program);
-            return code !== undefined && (operands(invocation).options.some((name) => code.includes(name)) || (fed && waits(invocation))) ? [`${program} ${INLINE}`] : [];
-        }),
-    );
-
-const scripts = ({ system: { home }, script: { commands } }: Call): readonly string[] =>
-    commands.flatMap(({ invocations: chain, cwd }, index) => {
+const inline = ({ system: { home }, script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ fed, invocations: chain, cwd }, index) => {
         const written = new Set(commands.slice(0, index).flatMap((writer) => writer.written.flatMap((path) => toArray(placed(path, writer.cwd, home)))));
-        return chain.flatMap((invocation) => (declared(invocation[0]).code !== undefined && operands(invocation).inputs.some((word) => toArray(placed(word, cwd, home)).some((path) => written.has(path))) ? [`${invocation[0]} ${INLINE}`] : []));
+        const ran = (word: string): boolean => toArray(placed(word, cwd, home)).some((path) => written.has(path));
+        return chain.flatMap((invocation) => {
+            const [program] = invocation;
+            const { code, shell } = declared(program);
+            const { options, inputs } = operands(invocation);
+            const inlined = code !== undefined && (options.some((name) => code.includes(name)) || (fed && waits(invocation)));
+            return inlined || ((code ?? shell) !== undefined && inputs.some(ran)) ? [`${program} runs inline program. Edit with Edit or sd, run installed tools by name`] : [];
+        });
     });
 
 // --- [POLL]
 
-const polls = ({ request: { background }, script: { commands } }: Call): readonly string[] =>
-    background
-        ? []
-        : commands.flatMap(({ looped, invocations: chain }) => {
-              const last = chain.at(-1);
-              if (looped && chain.some(([program]) => program === 'sleep')) {
-                  return ['Loop polls with sleep. Run until-loop in Monitor'];
-              }
-              return last?.[0] === 'caffeinate' && operands(last).options.includes('-t') ? ['caffeinate -t holds call open. Wait in Monitor or on task notification'] : [];
-          });
+const polls = ({ request, script: { commands } }: Call): readonly string[] =>
+    toArray(request)
+        .flatMap(({ background }) => (background ? [] : commands))
+        .flatMap(({ looped, invocations: chain }) => [
+            ...(looped && chain.some(([program]) => program === 'sleep') ? ['Loop polls with sleep. Run until-loop in Monitor'] : []),
+            ...chain.slice(-1).flatMap((last) => (last[0] === 'caffeinate' && operands(last).options.includes('-t') ? ['caffeinate -t holds call open. Wait in Monitor or on task notification'] : [])),
+        ]);
 
 // --- [LAUNCH]
 
-const launched = (command: Command): Option<Launch> => {
-    const last = command.invocations.at(-1);
-    const [head] = segments(command).at(-1)?.words ?? [];
-    if (last === undefined || head === undefined) {
+const opened = (head: Word, args: readonly Word[]): Option<Launch> => {
+    const cut = args.findIndex(({ text }) => text === '--args');
+    const listed = items('open', cut < 0 ? args : args.slice(0, cut));
+    const valued = (flag: string): readonly Word[] => listed.flatMap(({ names, words: [, value] }) => (value !== undefined && names.includes(flag) ? [value] : []));
+    const loose = listed.flatMap(({ names, words: [word] }) => (names.length === 0 && word !== undefined ? [word] : []));
+    const [app] = [...valued('-a'), ...valued('-b'), ...loose.filter(({ text }) => text.endsWith('.app'))];
+    const documents = loose.filter((word) => word !== app);
+    const names = listed.flatMap((item) => item.names);
+    return app === undefined || documents.some(({ text }) => URL.canParse(text))
+        ? none
+        : some({
+              program: 'open',
+              start: head,
+              app: app.raw,
+              foreign: names.filter((name) => !['-a', '-b', '-n', '-g', '-j', '-F', '--env'].includes(name)),
+              flags: [...(names.includes('-n') ? ['--new'] : []), ...documents.map(({ raw }) => `--document ${raw}`), ...valued('--env').map(({ raw }) => `--environment=${raw}`), ...args.slice(cut < 0 ? args.length : cut + 1).map(({ raw }) => `--arguments=${raw}`)],
+          });
+};
+
+const told = (head: Word, invocation: Invocation): Option<Launch> => {
+    const { values, inputs } = operands(invocation);
+    const lines = values.flatMap(([name, value]) => (name === '-e' ? value.split('\n') : [])).map((line) => line.trim());
+    const groups = lines.map((line) => TELL.exec(line)?.groups);
+    const apps = [...new Set(groups.flatMap((group) => (group?.app === undefined ? [] : [group.app])))];
+    const plain = lines.every((line, at) => (groups[at] === undefined ? line === '' || line === 'end tell' || VERB.test(line) : groups[at]?.verb === undefined || VERB.test(groups[at]?.verb ?? '')));
+    return inputs.length > 0 || apps.length === 0 || !plain || !lines.some((line, at) => VERB.test(groups[at]?.verb ?? line)) ? none : some({ program: 'osascript', start: head, app: apps.map(quote).join(' '), flags: [], foreign: [] });
+};
+
+const bundled = async (system: System, invocation: Invocation, { assigned, words: [head, ...args] }: Command['parts'][number]): Promise<Option<Launch>> => {
+    const [program] = invocation;
+    const groups = head === undefined ? undefined : BUNDLE.exec(head.text)?.groups;
+    if (head === undefined || groups?.bundle === undefined || informational(program, operands(invocation).options) || declared(program).headless?.some((name) => invocation.includes(name)) === true) {
         return none;
     }
-    const [program, ...args] = last;
-    const outside = (name: string, form: string): Launch => ({ kind: 'deny', reason: `${form} launches ${name} outside watch-apps. Run watch-apps launch ${quote(name)} --hides` });
-    const windowless = (app: string, given: readonly string[]): boolean => informational(app, operands([app, ...given]).options) || declared(app).headless?.some((name) => given.includes(name)) === true;
-    const bundle = BUNDLE.exec(head.text)?.groups?.name;
-    if (bundle !== undefined) {
-        return windowless(program, args) ? none : some({ kind: 'launch', names: [bundle], flags: args.map((arg) => `--arguments=${quote(arg)}`), environment: true });
+    const info = await printed<{ readonly CFBundleExecutable?: string; readonly CFBundleIdentifier?: string }>(system, ['plutil', '-convert', 'json', '-o', '-', `${groups.bundle}/Contents/Info.plist`], system.plugin);
+    return info.kind === 'ok' && info.value.CFBundleIdentifier !== undefined && info.value.CFBundleExecutable === groups.executable
+        ? some({ program, start: assigned[0] ?? head, app: info.value.CFBundleIdentifier, flags: [...args.map(({ raw }) => `--arguments=${raw}`), ...assigned.map(({ raw }) => `--environment=${raw}`)], foreign: [] })
+        : none;
+};
+
+const launching = async ({ system }: Call, { invocations: chain, parts }: Command): Promise<Option<Launch>> => {
+    const last = chain.at(-1);
+    const part = parts.at(-1);
+    const [head, ...args] = part?.words ?? [];
+    if (last === undefined || part === undefined || head === undefined) {
+        return none;
     }
-    switch (program) {
-        case 'open': {
-            const cut = args.indexOf('--args');
-            const given = cut < 0 ? [] : args.slice(cut + 1);
-            const { options, values, inputs } = operands(['open', ...(cut < 0 ? args : args.slice(0, cut))]);
-            const [app, ...more] = values.flatMap(([name, value]) => (name === '-a' ? [APP.exec(value)?.groups?.name ?? value] : name === '-b' ? [value] : []));
-            if (app === undefined || windowless(app, given)) {
-                return none;
-            }
-            const foreign = options.filter((name) => !OPENS.includes(name));
-            return some(
-                foreign.length > 0 || more.length > 0
-                    ? outside(app, ['open', ...foreign].join(' '))
-                    : {
-                          kind: 'launch',
-                          names: [app],
-                          flags: [...(options.includes('-n') ? ['--new'] : []), ...inputs.map((path) => `--document=${quote(path)}`), ...given.map((arg) => `--arguments=${quote(arg)}`), ...values.flatMap(([name, value]) => (name === '--env' ? [`--environment=${quote(value)}`] : []))],
-                          environment: false,
-                      },
-            );
-        }
-        case 'osascript': {
-            const { values, inputs } = operands(last);
-            if (inputs.length > 0 || values.some(([name, value]) => name === '-l' && value !== 'AppleScript')) {
-                return none;
-            }
-            const { launches, other } = values
-                .flatMap(([name, value]) => (name === '-e' ? value.split('\n') : []))
-                .map((line) => line.trim())
-                .filter((line) => line !== '')
-                .reduce<{ readonly blocks: readonly string[]; readonly launches: readonly string[]; readonly other: boolean }>(
-                    (state, line) => {
-                        const told = TELL.exec(line)?.groups;
-                        const [block] = state.blocks;
-                        if (told?.app !== undefined) {
-                            return told.verb === undefined ? { ...state, blocks: [told.app, ...state.blocks] } : { ...state, launches: [...state.launches, told.app] };
-                        }
-                        if (line === 'end tell') {
-                            return { ...state, blocks: state.blocks.slice(1) };
-                        }
-                        return VERB.test(line) && block !== undefined ? { ...state, launches: [...state.launches, block] } : { ...state, other: true };
-                    },
-                    { blocks: [], launches: [], other: false },
-                );
-            const names = [...new Set(launches)];
-            const [first] = names;
-            if (first === undefined || names.some((name) => EXPANDS.test(name))) {
-                return none;
-            }
-            return other ? none : some({ kind: 'launch', names, flags: [], environment: false });
-        }
+    switch (last[0]) {
+        case 'open':
+            return opened(head, args);
+        case 'osascript':
+            return told(head, last);
         default:
-            return none;
+            return bundled(system, last, part);
     }
 };
 
-const launches = ({ script: { commands } }: Call): readonly string[] =>
-    commands.flatMap((command) =>
-        toArray(launched(command)).flatMap((launch) => {
-            if (launch.kind === 'deny') {
-                return [launch.reason];
-            }
-            const [name = ''] = launch.names;
-            return command.nested || [...launch.names, ...launch.flags].some((word) => EXPANDS.test(word)) ? [`${command.invocations.at(-1)?.[0]} launches ${name} outside watch-apps. Run watch-apps launch ${quote(name)} --hides`] : [];
-        }),
-    );
+const launches = async (call: Call): Promise<readonly string[]> =>
+    (
+        await Promise.all(
+            call.script.commands.map(async (command) =>
+                toArray(await launching(call, command)).flatMap(({ program, app, foreign }) => (command.nested || foreign.length > 0 ? [`${[program, ...foreign].join(' ')} launches ${app} outside watch-apps. Run watch-apps launch ${app} --hides`] : [])),
+            ),
+        )
+    ).flat();
 
 // --- [REWRITE]
 
-const edit = (start: number, end: number, text: string, notice: Option<string> = none, timeout: Option<number> = none): Change => ({ start, end, text, notice, timeout });
+const milliseconds = (amount: string): Option<number> => {
+    const groups = DURATION.exec(amount)?.groups;
+    const value = Number(groups?.value) * 1000 * 60 ** 'smh'.indexOf(String(groups?.unit));
+    return value > 0 ? some(value) : none;
+};
 
-const timed = (parts: readonly Segment[]): readonly Change[] =>
-    parts.flatMap(({ invocation, words: [first] }, index) => {
-        const next = parts[index + 1]?.words[0];
-        const [amount = ''] = operands(invocation).leading;
-        const groups = invocation[0] === 'timeout' ? DURATION.exec(amount)?.groups : undefined;
-        const scale = UNITS[groups?.unit ?? ''];
-        return first === undefined || next === undefined || groups?.amount === undefined || scale === undefined ? [] : [edit(first.span.start, next.span.start, '', some(`timeout ${amount} became call timeout`), some(Number(groups.amount) * scale))];
-    });
-
-const without = (program: string, words: readonly Word[], table: Readonly<Record<string, string>>): readonly Change[] => {
-    const stop = words.findIndex(({ text }) => text === '--');
-    return words.slice(0, stop < 0 ? words.length : stop).flatMap(({ text, span }) => {
-        const { names, joined } = OPTION.test(text) ? option(declared(program), text) : { names: [], joined: [] };
-        const kept = names.flatMap((name) => {
-            const replacement = table[name] ?? name;
-            return replacement === '' ? [] : [replacement];
-        });
-        const [first] = kept;
-        if (kept.join(' ') === names.join(' ')) {
-            return [];
-        }
-        if (first === undefined) {
-            return [edit(span.start - 1, span.end, '', some(`${program} dropped ${text}`))];
-        }
-        const replaced = first.startsWith('--') ? `${first}${joined.map((value) => `=${value}`).join('')}` : `-${kept.map((name) => name.slice(1)).join('')}${joined.join('')}`;
-        return [edit(span.start, span.end, replaced, some(`${program} took ${replaced} for ${text}`))];
+const timed = ({ request }: Call, { invocations: chain, parts }: Command): readonly Change[] => {
+    const applied = toArray(request).some(({ background, timeout }) => !background && timeout.kind === 'none');
+    return chain.flatMap((invocation, at) => {
+        const [from] = parts[at]?.words ?? [];
+        const [to] = [...(parts[at + 1]?.assigned ?? []), ...(parts[at + 1]?.words ?? [])];
+        const [amount] = operands(invocation).leading;
+        const limit = invocation[0] === 'timeout' && amount !== undefined ? milliseconds(amount) : none;
+        return from === undefined || to === undefined || limit.kind === 'none' ? [] : [edit(from.span.start, to.span.start, '', some(applied ? `timeout ${amount} became call timeout` : `timeout ${amount} removed, call keeps its timeout`), applied ? limit : none)];
     });
 };
 
-const finals = ({ system: { root, home } }: Call, { cwd }: Command, { invocation, words }: Segment): readonly Change[] => {
+const respelled = (program: string, words: readonly Word[], table: Readonly<Record<string, string>>, reason = ''): readonly Change[] =>
+    items(program, words).flatMap(({ words: [head, ...taken], names }) => {
+        const kept = names.map((name) => table[name] ?? name).filter((name) => name !== '');
+        const [first] = kept;
+        if (head === undefined || kept.join(' ') === names.join(' ')) {
+            return [];
+        }
+        if (first === undefined) {
+            return [edit(head.span.start - 1, (taken.at(-1) ?? head).span.end, '', some(`${program} dropped ${head.text}${reason}`))];
+        }
+        const { joined } = option(declared(program), head.text);
+        const text = first.startsWith('--') ? [first, ...joined].join('=') : `-${kept.map((name) => name.slice(1)).join('')}${joined.join('')}`;
+        return [edit(head.span.start, head.span.end, text, some(`${program} took ${text} for ${head.text}`))];
+    });
+
+const dashed = (words: readonly Word[]): readonly Change[] => {
+    const [word] = items('sd', words).flatMap(({ names, words: [first] }) => (names.length === 0 && first?.text.startsWith('-') === true ? [first] : []));
+    return word === undefined || words.some(({ text }) => text === '--') ? [] : [edit(word.span.start, word.span.start, '-- ', some(`sd took -- before ${word.raw}`))];
+};
+
+const uncached = (invocation: Invocation, words: readonly Word[]): readonly Change[] => {
+    const { inputs, values } = operands(invocation);
+    const listed = values.flatMap(([name, value]) => (['-t', '--targets', '--target'].includes(name) ? value.split(',') : []));
+    const targets = inputs[0] === 'run' ? inputs.slice(1, 2).filter((word) => word.includes(':')).map((word) => word.slice(word.indexOf(':') + 1)) : [...listed, ...inputs.slice(0, listed.length === 0 ? 1 : 0)];
+    return targets.length > 0 && targets.every((target) => CACHED.test(target))
+        ? respelled(
+              'nx',
+              words,
+              Object.fromEntries(['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'].map((name) => [name, ''])),
+              `, ${targets.join(' ')} inputs hash every source`,
+          )
+        : [];
+};
+
+const logged = (root: string, words: readonly Word[]): readonly Change[] =>
+    (
+        [
+            ['-log', 'ghidra.log'],
+            ['-scriptlog', 'ghidra-script.log'],
+        ] as const
+    ).flatMap(([flag, file]) => {
+        const log = quote(`${root}/.artifacts/logs/${file}`);
+        const at = words.findIndex(({ text }) => text === flag);
+        const [value, tail] = [words[at + 1], words.at(-1)];
+        const notice = some('analyzeHeadless logs to .artifacts/logs');
+        if (at < 0) {
+            return tail === undefined ? [] : [edit(tail.span.end, tail.span.end, ` ${flag} ${log}`, notice)];
+        }
+        return value === undefined || value.raw === log ? [] : [edit(value.span.start, value.span.end, log, notice)];
+    });
+
+const finals = ({ system: { root } }: Call, invocation: Invocation, words: readonly Word[]): readonly Change[] => {
     const [program] = invocation;
     const [head, ...rest] = words;
-    const end = words.at(-1)?.span.end;
-    if (head === undefined || end === undefined) {
+    const { options, leading } = operands(invocation);
+    const given = (names: readonly string[]): boolean => informational(program, options) || names.some((name) => options.includes(name));
+    if (head === undefined) {
         return [];
     }
-    const { options, leading, inputs, values } = operands(invocation);
-    const given = (names: readonly string[]): boolean => informational(program, options) || names.some((name) => options.includes(name));
     switch (program) {
         case 'fd':
             return given(['-H', '--hidden', '--no-hidden', '-u', '--unrestricted']) ? [] : [edit(head.span.end, head.span.end, ' --hidden')];
@@ -439,14 +455,10 @@ const finals = ({ system: { root, home } }: Call, { cwd }: Command, { invocation
         case 'sd': {
             const [find] = leading;
             const breaks = find !== undefined && (find.includes('\n') || (!given(['-F', '--fixed-strings']) && BREAK.test(find)));
-            const dashed = rest.some(({ text }) => text === '--') ? undefined : rest.find(({ text }) => text.startsWith('-') && leading.includes(text));
-            return [
-                ...(breaks && !given(['-A', '--across']) ? [edit(head.span.end, head.span.end, ' -A')] : []),
-                ...(dashed === undefined ? [] : [edit(dashed.span.start, dashed.span.start, '-- ', some(`sd took -- before ${quote(dashed.text)}`))]),
-            ];
+            return [...(breaks && !given(['-A', '--across']) ? [edit(head.span.end, head.span.end, ' -A')] : []), ...dashed(rest)];
         }
         case 'tree':
-            return without(program, rest, EZA);
+            return respelled(program, rest, { '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first' });
         case 'refurb': {
             const text = 'python -m tools.refurb';
             return [edit(head.span.start, head.span.end, text, some(`refurb ran as ${text} over mypy cache`))];
@@ -455,27 +467,10 @@ const finals = ({ system: { root, home } }: Call, { cwd }: Command, { invocation
             const subcommand = words[firstOperand(invocation, 1)];
             return subcommand?.text === 'launch' && !options.includes('--hides') ? [edit(subcommand.span.end, subcommand.span.end, ' --hides', some('watch-apps launch took --hides'))] : [];
         }
-        case 'nx': {
-            const stop = rest.findIndex(({ text }) => text === '--');
-            const before = rest.slice(0, stop < 0 ? rest.length : stop);
-            const [subcommand, first = ''] = inputs;
-            const targets = subcommand === 'run' ? (first.includes(':') ? [first.slice(first.indexOf(':') + 1)] : []) : subcommand === 'run-many' || subcommand === 'affected' ? values.flatMap(([name, value]) => (['-t', '--targets', '--target'].includes(name) ? value.split(',') : [])) : toArray(subcommand === undefined ? none : some(subcommand));
-            const dropped = before.filter(({ text }) => UNCACHED.includes(text.split('=')[0] ?? text));
-            return targets.length > 0 && targets.every((target) => CACHED.test(target)) ? dropped.map(({ text, span }) => edit(span.start - 1, span.end, '', some(`nx dropped ${text}, ${targets.join(' ')} inputs hash every source`))) : [];
-        }
+        case 'nx':
+            return uncached(invocation, rest);
         case 'analyzeHeadless':
-            return root.kind === 'none'
-                ? []
-                : Object.entries(LOGS).flatMap(([flag, file]) => {
-                      const log = `${root.value}/.artifacts/logs/${file}`;
-                      const at = rest.findIndex(({ text }) => text === flag);
-                      const value = rest[at + 1];
-                      const notice = some('analyzeHeadless logs to .artifacts/logs');
-                      if (at < 0) {
-                          return [edit(end, end, ` ${flag} ${quote(log)}`, notice)];
-                      }
-                      return value === undefined || toArray(placed(value.text, cwd, home)).includes(log) ? [] : [edit(value.span.start, value.span.end, quote(log), notice)];
-                  });
+            return root.kind === 'none' || informational(program, options) ? [] : logged(root.value, rest);
         default:
             return [];
     }
@@ -483,176 +478,136 @@ const finals = ({ system: { root, home } }: Call, { cwd }: Command, { invocation
 
 // --- [TARGET]
 
-const forwarded = (program: string, words: readonly Word[], dropped: ReadonlySet<string>, subcommand: boolean): readonly { readonly word: Word; readonly operand: boolean }[] =>
-    words.reduce<{ readonly skip: number; readonly carry: number; readonly subcommand: boolean; readonly kept: readonly { readonly word: Word; readonly operand: boolean }[] }>(
-        (state, word) => {
-            if (state.skip > 0) {
-                return { ...state, skip: state.skip - 1 };
-            }
-            if (state.carry > 0) {
-                return { ...state, carry: state.carry - 1, kept: [...state.kept, { word, operand: false }] };
-            }
-            if (OPTION.test(word.text)) {
-                const { names, taken } = option(declared(program), word.text);
-                return names.every((name) => dropped.has(name)) ? { ...state, skip: taken } : { ...state, carry: taken, kept: [...state.kept, { word, operand: false }] };
-            }
-            return state.subcommand ? { ...state, subcommand: false } : { ...state, kept: [...state.kept, { word, operand: true }] };
-        },
-        { skip: 0, carry: 0, subcommand, kept: [] },
-    ).kept;
+const keyed = (invocation: Invocation): ReadonlySet<string> => {
+    const { options, values } = operands(invocation);
+    return new Set([...options, ...values.map(([name, value]) => `${name}=${value}`)]);
+};
 
-const checker = async ({ system }: Call, { cwd }: Command, { invocation, words }: Segment, raw: (span: Word['span']) => string): Promise<Result<Option<string>>> => {
-    const [program] = invocation;
-    const row = declared(program).targets;
-    const { options, inputs, values } = operands(invocation);
-    const { root, home } = system;
-    if (row === undefined || root.kind === 'none' || cwd.kind === 'none' || !within(cwd.value, root.value) || informational(program, options) || words.some(({ text }) => text === '--')) {
-        return ok(none);
-    }
-    const relative = (path: string): string => (path === root.value ? '.' : path.slice(root.value.length + 1));
-    const owned = (): Option<string> => {
-        const [value, ...more] = row.project === 'owner' ? values.flatMap(([name, given]) => (row.selects.includes(name) ? [given] : [])) : [];
-        if (row.project === 'root') {
-            return some('.');
-        }
-        if (more.length > 0 || (row.names === 'path' && inputs.length > 0)) {
-            return none;
-        }
-        if (row.names === 'project') {
-            return some(value ?? relative(cwd.value));
-        }
-        const [place] = toArray(placed(value ?? '.', cwd, home)).filter((path) => within(path, root.value));
-        const leaf = place?.slice(place.lastIndexOf('/') + 1) ?? '';
-        if (place === undefined || (leaf.includes('.') && leaf !== 'tsconfig.json')) {
-            return none;
-        }
-        return some(relative(leaf.includes('.') ? place.slice(0, place.lastIndexOf('/')) : place));
+const grouped = (graph: Readonly<Record<string, Target>>, target: string): string => {
+    const parent = target.split(':').slice(0, 2).join(':');
+    const forwards = (entry: string | { readonly target: string }): boolean => {
+        const named = typeof entry === 'string' ? entry : entry.target;
+        return named === target || (named.endsWith('*') && target.startsWith(named.slice(0, -1)));
     };
-    const pattern = owned();
-    if (pattern.kind === 'none') {
-        return ok(none);
+    return graph[parent]?.dependsOn?.some(forwards) === true ? parent : target;
+};
+
+const rebased = (word: Word, cwd: string, root: string, home: Option<string>): Option<string> => {
+    const [place] = word.unbounded || EXPANDS.test(word.raw) ? [] : toArray(placed(word.text, some(cwd), home)).filter((path) => within(path, root));
+    return place === undefined ? none : some(quote(place.slice(root.length + 1) || '.'));
+};
+
+const owner = async ({ system, project }: Call, selectors: readonly string[], invocation: Invocation, cwd: string, root: string): Promise<Option<string>> => {
+    const [value, ...more] = operands(invocation).values.flatMap(([name, given]) => (selectors.includes(name) ? [given] : []));
+    const [place] = toArray(placed(value ?? '.', some(cwd), system.home)).filter((path) => within(path, root));
+    const leaf = place?.slice(place.lastIndexOf('/') + 1);
+    if (selectors.length === 0) {
+        return some(project);
     }
-    const nx = <A>(...args: readonly string[]) => printed<A>(system, ['mise', 'exec', '--', 'nx', ...args], root.value);
-    return bind(await nx<readonly string[]>('show', 'projects', '--json', '-p', pattern.value), async ([name, ...others]) => {
-        if (name === undefined || others.length > 0) {
-            return ok(none);
-        }
-        return bind(await nx<{ readonly targets: Targets }>('show', 'project', name, '--json'), async ({ targets }) => {
-            const [subcommand] = inputs;
-            const listed = Object.entries(targets).flatMap(([target, { options: given }]) => {
-                const tool = CHECKER.exec(target)?.groups?.tool;
-                const texts = [given?.command, ...(given?.commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))].filter((text) => text !== undefined);
-                return tool === program || tool === subcommand ? texts.map((text) => ({ target, text })) : [];
-            });
-            const parsed = all(await Promise.all(listed.map(async ({ target, text }) => map(await parse(system, text), ({ commands }) => ({ target, commands })))));
-            return map(parsed, (scripts) => {
-                const runs = scripts.flatMap(({ target, commands }) =>
-                    commands.flatMap(({ invocations: chain }) => chain.slice(-1).flatMap((ran) => (ran[0] === program && operands(ran).inputs[0] === subcommand ? [{ target, options: new Set(operands(ran).options) }] : []))),
-                );
-                const union = new Set(runs.flatMap(({ options: names }) => [...names]));
-                const selecting = new Set(options.filter((name) => union.has(name)));
-                const fitting = runs.filter(({ options: names }) => [...selecting].every((name) => names.has(name)));
-                const fewest = Math.min(...fitting.map(({ options: names }) => names.size));
-                const parent = (target: string): string => {
-                    const grouped = target.split(':').slice(0, 2).join(':');
-                    return targets[grouped]?.dependsOn?.some((entry) => {
-                        const named = typeof entry === 'string' ? entry : entry.target;
-                        return named === target || (named.endsWith(':*') && target.startsWith(named.slice(0, -1)));
-                    }) === true
-                        ? grouped
-                        : target;
-                };
-                const [chosen, ...ambiguous] = [...new Set(fitting.filter(({ options: names }) => names.size === fewest).map(({ target }) => parent(target)))];
-                if (chosen === undefined || ambiguous.length > 0) {
-                    return none;
-                }
-                const kept = forwarded(program, words.slice(1), new Set([...selecting, ...(row.project === 'owner' ? row.selects : [])]), subcommand !== undefined);
-                const moved = row.project === 'root' && cwd.value !== root.value;
-                const rebased = kept.map(({ word, operand }) => (operand && moved ? toArray(placed(word.text, cwd, home)).filter((path) => within(path, root.value)).map((path) => quote(relative(path))) : [raw(word.span)]));
-                if ((!runs.some(({ target }) => target === chosen) && kept.some(({ operand }) => !operand)) || rebased.some((texts) => texts.length === 0)) {
-                    return none;
-                }
-                const passed = [...rebased.flat(), ...(moved && !kept.some(({ operand }) => operand) ? [quote(relative(cwd.value))] : [])];
-                return some(`nx run ${name}:${chosen}${passed.length > 0 ? ` -- ${passed.join(' ')}` : ''}`);
-            });
-        });
+    if (more.length > 0 || (value === undefined && place === undefined)) {
+        return none;
+    }
+    const present = place !== undefined && (await system.exists(place));
+    const pattern = present ? (leaf === 'tsconfig.json' ? place.slice(0, place.lastIndexOf('/')) : place).slice(root.length + 1) || '.' : value;
+    const found = pattern === undefined || (present && leaf !== 'tsconfig.json' && (leaf?.lastIndexOf('.') ?? 0) > 0) ? undefined : await printed<readonly string[]>(system, ['mise', 'exec', '--', 'nx', 'show', 'projects', '--json', '-p', pattern], root);
+    const [name, ...others] = found?.kind === 'ok' ? found.value : [];
+    return name === undefined || others.length > 0 ? none : some(name);
+};
+
+const runs = async ({ system }: Call, graph: Readonly<Record<string, Target>>, program: string, subcommand: string | undefined) => {
+    const listed = Object.entries(graph).flatMap(([target, { options }]) => {
+        const tool = CHECKER.exec(target)?.groups?.tool;
+        const texts = [options?.command, ...(options?.commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))];
+        return tool === program || tool === subcommand ? texts.flatMap((text) => (text === undefined ? [] : [{ target, text }])) : [];
     });
+    const parsed = await Promise.all(listed.map(async ({ target, text }) => ({ target, script: await parse(system, text) })));
+    return parsed.flatMap(({ target, script }) => (script.kind === 'ok' ? script.value.commands.flatMap(({ invocations: chain }) => chain.slice(-1)).filter((ran) => ran[0] === program && operands(ran).inputs[0] === subcommand).map((ran) => ({ target, keys: keyed(ran) })) : []));
+};
+
+const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation, words: readonly Word[]): Promise<Option<{ readonly run: string; readonly passed: readonly string[] }>> => {
+    const [program] = invocation;
+    const selectors = declared(program).targets;
+    const { root, home } = call.system;
+    const { options, inputs } = operands(invocation);
+    if (selectors === undefined || root.kind === 'none' || cwd.kind === 'none' || !within(cwd.value, root.value) || fed || informational(program, options) || words.some(({ text }) => text === '--')) {
+        return none;
+    }
+    const name = await owner(call, selectors, invocation, cwd.value, root.value);
+    const project = name.kind === 'none' ? undefined : await printed<{ readonly targets: Readonly<Record<string, Target>> }>(call.system, ['mise', 'exec', '--', 'nx', 'show', 'project', name.value, '--json'], root.value);
+    if (name.kind === 'none' || project?.kind !== 'ok') {
+        return none;
+    }
+    const [subcommand] = inputs;
+    const found = await runs(call, project.value.targets, program, subcommand);
+    const known = new Set(found.flatMap(({ keys }) => [...keys]).map((key) => key.split('=')[0]));
+    const wanted = [...keyed(invocation)].filter((key) => known.has(key.split('=')[0]));
+    const fitting = found.filter(({ keys }) => wanted.every((key) => keys.has(key)));
+    const fewest = Math.min(...fitting.map(({ keys }) => keys.size));
+    const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => grouped(project.value.targets, ran.target)))];
+    const listed = items(program, words.slice(1));
+    const first = listed.findIndex(({ names }) => names.length === 0);
+    const kept = listed.filter(({ names }, at) => (names.length === 0 ? subcommand === undefined || at !== first : !names.every((given) => known.has(given) || selectors.includes(given))));
+    const moved = selectors.length === 0 && cwd.value !== root.value;
+    const flagged = kept.some(({ names }) => names.length > 0);
+    const passed = kept.flatMap((item) => item.words).map((word) => (moved ? rebased(word, cwd.value, root.value, home) : some(word.raw)));
+    if (target === undefined || others.length > 0 || (!found.some((ran) => ran.target === target) && (wanted.length > 0 || flagged)) || (moved && flagged) || passed.some(({ kind }) => kind === 'none')) {
+        return none;
+    }
+    return some({ run: `${name.value}:${target}`, passed: [...passed.flatMap(toArray), ...(moved && passed.length === 0 ? [quote(cwd.value.slice(root.value.length + 1))] : [])] });
 };
 
 // --- [DECISION]
 
 const unrun = (detail: string): string => `function-hooks policy did not run. ${detail}`;
 
-const faulted = (lead: string, faults: readonly Fault[]): Decision => ({
-    kind: 'deny',
-    reason: `${lead}. ${faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}`,
-});
+const rewrites = async (call: Call, command: Command): Promise<readonly Change[]> => {
+    const last = command.invocations.at(-1);
+    const words = command.parts.at(-1)?.words ?? [];
+    const [head] = words;
+    const tail = words.at(-1);
+    if (command.nested || last === undefined || head === undefined || tail === undefined) {
+        return [];
+    }
+    const timing = timed(call, command);
+    const launch = await launching(call, command);
+    if (launch.kind === 'some') {
+        const { program, start, app, flags } = launch.value;
+        return [...timing, edit(start.span.start, tail.span.end, ['watch-apps launch', app, '--hides', ...flags].join(' '), some(`${program} became watch-apps launch ${app}`))];
+    }
+    const found = await checker(call, command, last, words);
+    if (found.kind === 'some') {
+        const { run, passed } = found.value;
+        return [...timing, edit(head.span.start, tail.span.end, [`nx run ${run}`, ...(passed.length > 0 ? ['--', ...passed] : [])].join(' '), some(`${last[0]} ran as nx run ${run}`))];
+    }
+    return [...timing, ...finals(call, last, words)];
+};
 
-const changes = async (call: Call, raw: (span: Word['span']) => string): Promise<Result<readonly Change[]>> =>
-    map(
-        all(
-            await Promise.all(
-                call.script.commands
-                    .filter(({ nested }) => !nested)
-                    .map(async (command): Promise<Result<readonly Change[]>> => {
-                        const parts = segments(command);
-                        const last = parts.at(-1);
-                        const head = parts.find(({ invocation: [program] }) => program !== 'timeout');
-                        const [start] = head?.words ?? [];
-                        const end = last?.words.at(-1);
-                        if (last === undefined || head === undefined || start === undefined || end === undefined) {
-                            return ok([]);
-                        }
-                        const timing = timed(parts);
-                        const launch = launched(command);
-                        if (launch.kind === 'some' && launch.value.kind === 'launch') {
-                            const { names, flags, environment } = launch.value;
-                            const prefix = environment && parts[0] === head ? assigned(command) : [];
-                            const text = ['watch-apps', 'launch', ...names.map(quote), '--hides', ...flags, ...prefix.map(({ text: pair }) => `--environment=${quote(pair)}`)].join(' ');
-                            return ok([...timing, edit((prefix[0] ?? start).span.start, end.span.end, text, some(`${last.invocation[0]} became watch-apps launch ${names.join(' ')}`))]);
-                        }
-                        return map(await checker(call, command, last, raw), (found) => [
-                            ...timing,
-                            ...(found.kind === 'some' ? [edit(start.span.start, end.span.end, found.value, some(`${last.invocation[0]} ran as ${found.value.split(' -- ')[0]}`))] : finals(call, command, last)),
-                        ]);
-                    }),
-            ),
-        ),
-        (lists) => lists.flat(),
-    );
-
-const commandDecision = async (system: System, command: string, project: string, request: Request = FOREGROUND): Promise<Decision> => {
+const commandDecision = async (system: System, command: string, project: string, request: Option<Request> = none): Promise<Decision> => {
     const parsed = await parse(system, command);
     if (parsed.kind === 'fault') {
-        return faulted('Command not parsed', parsed.faults);
+        return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project, request };
-    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, scripts, polls, launches, detached].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, launches, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }
-    const bytes = new TextEncoder().encode(command);
-    const decoder = new TextDecoder();
-    const edited = await changes(call, ({ start, end }) => decoder.decode(bytes.subarray(start, end)));
-    if (edited.kind === 'fault') {
-        return faulted('Command not judged', edited.faults);
-    }
-    const background = request.tool === 'Bash' && !request.background && parsed.value.commands.some(({ invocations: chain }) => chain.some(([program]) => program === 'analyzeHeadless'));
-    if (edited.value.length === 0 && !background) {
-        return { kind: 'allow' };
-    }
-    const sorted = edited.value.toSorted((left, right) => left.start - right.start);
-    const notices = [...new Set([...sorted.flatMap(({ notice }) => toArray(notice)), ...(background ? ['analyzeHeadless runs in background, completion notice follows'] : [])])];
-    const timeouts = sorted.flatMap(({ timeout }) => toArray(timeout));
-    return {
-        kind: 'rewrite',
-        command: [...sorted.map(({ start, text }, index) => `${decoder.decode(bytes.subarray(sorted[index - 1]?.end, start))}${text}`), decoder.decode(bytes.subarray(sorted.at(-1)?.end))].join(''),
-        notice: notices.length === 0 ? none : some(notices.join('. ')),
-        timeout: timeouts.length === 0 ? none : some(Math.max(...toArray(request.timeout), timeouts.reduce((sum, value) => sum + value, 0))),
-        background,
-    };
+    const changes = (await Promise.all(parsed.value.commands.map((each) => rewrites(call, each)))).flat();
+    const background =
+        toArray(request).some((given) => !given.background) && parsed.value.commands.some(({ nested, invocations: chain }) => !nested && chain.some((invocation) => invocation[0] === 'analyzeHeadless' && !informational(invocation[0], operands(invocation).options)));
+    const notices = [...new Set([...changes.flatMap(({ notice }) => toArray(notice)), ...(background ? ['analyzeHeadless runs in background, completion notice follows'] : [])])];
+    const timeouts = changes.flatMap(({ timeout }) => toArray(timeout));
+    return changes.length === 0 && !background
+        ? { kind: 'allow' }
+        : {
+              kind: 'rewrite',
+              command: spliced(new TextEncoder().encode(command), 0, changes),
+              notice: notices.length === 0 ? none : some(notices.join('. ')),
+              timeout: timeouts.length === 0 ? none : some(timeouts.reduce((sum, value) => sum + value, 0)),
+              background,
+          };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { commandDecision, type Request, type System, unrun, WORKTREE };
+export { commandDecision, type System, unrun, WORKTREE };

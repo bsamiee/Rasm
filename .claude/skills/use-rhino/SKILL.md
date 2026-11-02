@@ -52,9 +52,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 Sessions open on:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
-2. Document of the work, one case:
-    - New work: an open untitled, unmodified document, else `spawn_slot` opens one without a splash screen on the default template
-    - Existing work: use the `watch-apps` skill to open the file in Rhino
+2. New work takes an open untitled, unmodified document, else one `spawn_slot` opens
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it

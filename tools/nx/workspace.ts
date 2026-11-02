@@ -1,11 +1,12 @@
 import { layer as nodeSpawner } from '@effect/platform-node/NodeChildProcessSpawner';
 import { layer as nodeFileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerPosix } from '@effect/platform-node/NodePath';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type Tree } from '@nx/devkit';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseToml } from 'smol-toml';
+import { parseSync } from 'vite';
 import { parse as parseYaml } from 'yaml';
 import { stdout } from '#/eng/typescript/process';
 
@@ -22,6 +23,9 @@ const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const TESTS = 'tests';
+const ENTRY = 'main.ts';
+const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
+const POSTGRES_CLIENT = '@effect/sql-pg';
 const DEPLOYMENT_ROWS = {
     'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
     '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
@@ -108,8 +112,16 @@ const XcodeProject = Parsed('JSON', parseJson).pipe(
     ),
 );
 const XcodeFolder = Schema.Struct({ kind: Schema.Literal('folder'), path: Schema.String });
-const TsConfig = Parsed('JSON', parseJson).pipe(Schema.decodeTo(Schema.Struct({ extends: Schema.ArrayEnsure(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })));
-const PackageName = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
+const TsConfig = Parsed('JSON', parseJson).pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            extends: Schema.ArrayEnsure(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            compilerOptions: Schema.Struct({ typeRoots: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+        }),
+    ),
+);
+const Package = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }));
+const Hooks = Parsed('JSON', parseJson).pipe(Schema.decodeTo(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
 const MSBuildProject = Parsed('MSBuild XML', (text) => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text)).pipe(
     Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })),
 );
@@ -200,10 +212,14 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyprojec
         : {};
 });
 const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map((suite) => `{workspaceRoot}/${suite}/**/*`)] } });
+const suitePath = (path: Path.Path, language: string, dir: string) => path.join(TESTS, language, ...dir.split(path.sep).filter((segment) => segment !== language));
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
-    const path = yield* Path.Path;
-    const suite = path.join(TESTS, language, ...dir.split(path.sep).filter((segment) => segment !== language));
+    const suite = suitePath(yield* Path.Path, language, dir);
     return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
+});
+const containerTests = Effect.fnUntraced(function* (dir: string, root: string) {
+    const tests = yield* glob(root, [`${suitePath(yield* Path.Path, 'typescript', dir)}/**/*.test.{ts,tsx}`]);
+    return yield* Effect.filter(tests, (test) => Effect.map(decode(Schema.String, root, test), (text) => parseSync(test, text).module.staticImports.some(({ moduleRequest }) => CONTAINERS.test(moduleRequest.value))), { concurrency: 'unbounded' });
 });
 const attachedSuites = <Suite extends { readonly name: string }>(suites: readonly Suite[], module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Array.findFirst(suites, ({ name }) => name === `${module}${suffix}`)));
 const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
@@ -304,7 +320,7 @@ const markers = {
                 .filter(Schema.is(XcodeFolder))
                 .map((folder) => path.relative('.artifacts', path.join(root, folder.path)))
                 .filter((source) => !source.startsWith('..')),
-            (source) => Effect.map(decode(PackageName, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
+            (source) => Effect.map(decode(Package, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
         );
         const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
         const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) } };
@@ -315,16 +331,36 @@ const markers = {
         const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
         return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets };
     }),
-    'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root }) {
+    'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root, configFiles }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const folders = [...dir.split(path.sep).map((_, at, segments) => segments.slice(0, segments.length - at).join(path.sep)), '.'];
         const owner = yield* Effect.flatMap(
             Effect.findFirst(folders, (folder) => fs.exists(path.join(root, folder, 'package.json'))),
             Effect.fromOption,
         );
-        const [suite, configs] = yield* Effect.all([suiteInputs('typescript', dir, root), extendedConfigs(root, file)], { concurrency: 'unbounded' });
-        const named = owner === dir ? {} : { name: path.join((yield* decode(PackageName, root, path.join(owner, 'package.json'))).name, path.relative(owner, dir)) };
-        return { ...suite, ...named, tags: ['language:typescript'], targets: { 'typecheck:tsc': { inputs: configs.map((config) => `{workspaceRoot}/${config}`) }, check: {} } };
+        const [suite, configs, { compilerOptions }, manifest, containers, entries] = yield* Effect.all(
+            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), decode(Package, root, path.join(owner, 'package.json')), containerTests(dir, root), glob(root, [`${dir}/*/${ENTRY}`])],
+            { concurrency: 'unbounded' },
+        );
+        const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
+        const runs = entries.flatMap((entry) => {
+            const folder = path.dirname(entry);
+            const nested = configFiles.filter((config) => config.startsWith(`${folder}${path.sep}`));
+            return nested.some((config) => path.dirname(config) === folder) ? [] : [[path.basename(folder), { command: `node ${entry}`, ...(nested.length > 0 ? { dependsOn: [{ projects: [`directory:${folder}/**`], target: 'build' }] } : {}) }] as const];
+        });
+        const split = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
+        return {
+            ...suite,
+            ...named,
+            tags: ['language:typescript'],
+            targets: {
+                'typecheck:tsc': { inputs: [...configs.map((config) => `{workspaceRoot}/${config}`), ...compilerOptions.typeRoots.map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.join(dir, typeRoot)}/**/*.d.ts`, includeIgnored: true }))] },
+                check: {},
+                ...Object.fromEntries(runs),
+                ...split,
+                ...(owner === dir && Record.has(manifest.dependencies, POSTGRES_CLIENT) ? { 'lint:squawk': {} } : {}),
+            },
+        };
     }),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
@@ -332,6 +368,11 @@ const markers = {
     'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
     '.storybook/main.ts': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), targets: { storybook: {} } })),
+    'hooks/hooks.json': Effect.fnUntraced(function* ({ dir }, { file, root }) {
+        const [path, text] = yield* Effect.all([Path.Path, decode(Schema.String, root, file)]);
+        yield* Effect.fromOption(Schema.decodeOption(Hooks)(text));
+        return { root: path.dirname(dir), tags: ['host:claude'] };
+    }),
 } as const satisfies Record<string, (file: Path.Path.Parsed, workspace: Workspace & { readonly file: string; readonly configFiles: readonly string[] }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>>;
 const infer = Effect.fnUntraced(
     function* (file: string, workspace: Workspace, configFiles: readonly string[]) {
@@ -529,17 +570,21 @@ const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceR
 
 const runtime = ManagedRuntime.make(Layer.provideMerge(nodeSpawner, Layer.merge(nodeFileSystem, layerPosix)));
 const rendered = Effect.catchCause((cause: Cause.Cause<unknown>) => Effect.die(new Error(Cause.pretty(cause))));
-const createNodes: CreateNodes = [
+const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfiguration> }> = [
     `{${PYPROJECT},${SWIFT_MANIFEST},*/**/{${Object.keys(markers).join(',')}}}`,
     (files, options, context) =>
         runtime.runPromise(
             Effect.scoped(
                 Effect.gen(function* () {
-                    const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(context.workspaceRoot)]);
+                    const [path, workspace, { name }] = yield* Effect.all([Path.Path, openWorkspace(context.workspaceRoot), decode(Package, context.workspaceRoot, 'package.json')]);
                     const roots = { [PYPROJECT]: pythonVersions, [SWIFT_MANIFEST]: swiftModules };
                     const node = (file: string) => Option.match(Record.get(file)(roots), { onNone: () => infer(file, workspace, files), onSome: (root) => root(workspace) });
                     const inferred = yield* Effect.promise(() => createNodesFromFiles((file) => runtime.runPromise(rendered(node(file))), files, options, context));
-                    return [...inferred, ...(yield* workspace.crates).flatMap(({ manifest, metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))).map((nx) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const))];
+                    return [
+                        ...inferred,
+                        ...(yield* workspace.crates).flatMap(({ manifest, metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))).map((nx) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const)),
+                        ...Option.toArray(Option.fromUndefinedOr(options)).map(({ root }) => ['nx.json', { projects: { '.': { root: '.', name, targets: root } } }] as const),
+                    ];
                 }),
             ),
         ),

@@ -14,7 +14,7 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint, jd
 - `pmd check` runs on the mise `java` row's JDK and takes files or directories
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
 - Host API checks that need resolved types are XPath rules in `.config/pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
-- PMD tags a `-SNAPSHOT` development build after each release
+- PMD tags a `-SNAPSHOT` prerelease after each release, the mise row at `latest` skips it
 
 ## [03]-[LANGUAGE_SERVER]
 

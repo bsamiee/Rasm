@@ -192,7 +192,7 @@ public class CallSites extends GhidraScript {
                 Functions.decompile(currentProgram, callers, request.settings(), monitor)
                         .entrySet()
                         .stream()
-                        .flatMap(
+                        .<Report.Result<Call>>flatMap(
                                 entry ->
                                         switch (entry.getValue()) {
                                             case Report.Success<DecompileResults>(

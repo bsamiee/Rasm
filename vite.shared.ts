@@ -15,6 +15,7 @@ import { defaultClientConditions, defaultServerConditions, type Plugin, type Plu
 const _ROOT = import.meta.dirname;
 const _HOSTED = /^adobe:/u;
 const _EXPERIMENTAL = { lazyBarrel: true };
+const _ENTRY = 'main.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -31,7 +32,7 @@ const worker =
         ],
     });
 
-const bundled = (directory: string, main: string, asset: { readonly fileName: string; readonly source: string }): UserConfig => {
+const bundled = (directory: string, asset: { readonly fileName: string; readonly source: string }): UserConfig => {
     const load = createRequire(import.meta.url);
     const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
     return {
@@ -40,7 +41,7 @@ const bundled = (directory: string, main: string, asset: { readonly fileName: st
             outDir: join(_ROOT, '.artifacts', relative(_ROOT, directory)),
             emptyOutDir: true,
             rolldownOptions: {
-                input: { main },
+                input: { main: join(directory, _ENTRY) },
                 platform: 'neutral',
                 experimental: _EXPERIMENTAL,
                 transform: {
@@ -70,16 +71,16 @@ const origin = (daemon: string) =>
         Effect.map(Manifest.loopback),
         Effect.runSync,
     );
-const uxp = (directory: string, { main, manifest, daemon }: { readonly main: string; readonly manifest: Manifest; readonly daemon: string }): UserConfig =>
-    bundled(directory, main, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
-const cep = (directory: string, { main, host, daemon, manifest }: { readonly main: string; readonly host: string; readonly daemon: string; readonly manifest: Extension }): UserConfig => {
+const uxp = (directory: string, { manifest, daemon }: { readonly manifest: Manifest; readonly daemon: string }): UserConfig =>
+    bundled(directory, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
+const cep = (directory: string, { host, daemon, manifest }: { readonly host: string; readonly daemon: string; readonly manifest: Extension }): UserConfig => {
     const outDir = join(_ROOT, '.artifacts', relative(_ROOT, directory));
     const bundle = (input: Record<string, string>, platform: 'browser' | 'neutral', output: Rolldown.OutputOptions) =>
         ({ consumer: 'client', build: { outDir, emptyOutDir: false, minify: platform === 'browser', rolldownOptions: { input, platform, preserveEntrySignatures: 'exports-only', experimental: _EXPERIMENTAL, output: { format: 'iife', codeSplitting: false, ...output } } } }) as const;
     return {
         builder: {},
         define: { 'import.meta.env.LINK_ORIGIN': JSON.stringify(origin(daemon)) },
-        environments: { client: bundle({ main }, 'browser', { entryFileNames: '[name].js' }), host: bundle({ host }, 'neutral', { name: 'handle', exports: 'default', entryFileNames: '[name].jsx' }) },
+        environments: { client: bundle({ main: join(directory, _ENTRY) }, 'browser', { entryFileNames: '[name].js' }), host: bundle({ host }, 'neutral', { name: 'handle', exports: 'default', entryFileNames: '[name].jsx' }) },
         plugins: [
             {
                 name: 'extendscript',
@@ -97,7 +98,7 @@ const cep = (directory: string, { main, host, daemon, manifest }: { readonly mai
         ],
     };
 };
-const script = (directory: string, { main, extension }: { readonly main: string; readonly extension: string }): UserConfig => bundled(directory, main, { fileName: `main.${extension}`, source: "require('./main.js');\n" });
+const script = (directory: string, { extension }: { readonly extension: string }): UserConfig => bundled(directory, { fileName: `main.${extension}`, source: "require('./main.js');\n" });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

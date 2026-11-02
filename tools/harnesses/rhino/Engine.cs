@@ -402,30 +402,27 @@ internal static class Languages {
 }
 
 internal static class Settings {
-    private static readonly ImmutableArray<(string Name, MethodInfo Current, MethodInfo Update)> Pairs = [
-        .. ImmutableArray.Create(
-                typeof(AppearanceSettings), typeof(ChooseOneObjectSettings), typeof(CursorTooltipSettings), typeof(FileSettings), typeof(GeneralSettings), typeof(GumballSettings),
-                typeof(ModelAidSettings), typeof(OpenGLSettings), typeof(SelectionFilterSettings), typeof(SmartTrackSettings), typeof(SoftTransformSettings), typeof(ViewSettings))
-            .Select(static type => type.GetMethod(nameof(ModelAidSettings.GetCurrentState), BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes))
-            .OfType<MethodInfo>()
-            .Select(static current => (current, update: current.DeclaringType?.GetMethod(nameof(ModelAidSettings.UpdateFromState), BindingFlags.Public | BindingFlags.Static, [current.ReturnType])))
-            .Where(static pair => pair.update is not null)
-            .Select(static pair => (pair.current.DeclaringType?.Name ?? pair.current.ReturnType.Name, pair.current, pair.update!)),
-    ];
+    public static FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> Snapshot() =>
+        Entries(PersistentSettings.RhinoAppSettings, []).ToFrozenDictionary(static entry => string.Join('/', entry.Keys), StringComparer.Ordinal);
 
-    public static ImmutableArray<(int Index, object State, string Text)> Snapshot() =>
-        [.. Pairs.Select(static (pair, index) => pair.Current.Invoke(obj: null, parameters: null) is { } state ? (index, state, JsonSerializer.Serialize(state, state.GetType(), Engine.Data)) : throw new InvalidOperationException($"{pair.Name} answered no state"))];
-
-    public static (ImmutableArray<string> Restored, ImmutableArray<string> Leaked) Restore(ImmutableArray<(int Index, object State, string Text)> before) {
-        ImmutableArray<(string Name, bool Held)> changed = [
-            .. before.Zip(Snapshot()).Where(static pair => !string.Equals(pair.First.Text, pair.Second.Text, StringComparison.Ordinal)).Select(static pair => {
-                (string name, _, MethodInfo update) = Pairs[pair.First.Index];
-                _ = update.Invoke(null, [pair.First.State]);
-                return (name, string.Equals(Snapshot()[pair.First.Index].Text, pair.First.Text, StringComparison.Ordinal));
-            }),
-        ];
-        return ([.. changed.Where(static pair => pair.Held).Select(static pair => pair.Name)], [.. changed.Where(static pair => !pair.Held).Select(static pair => pair.Name)]);
+    public static (ImmutableArray<string> Restored, ImmutableArray<string> Leaked) Restore(FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> before) {
+        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> after = Snapshot();
+        ImmutableArray<string> changed = [.. before.Keys.Union(after.Keys, StringComparer.Ordinal).Where(path => !Same(before, after, path)).Order(StringComparer.Ordinal)];
+        foreach ((ImmutableArray<string> keys, string value) in changed.Where(before.ContainsKey).Select(path => before[path]))
+            _ = Child(keys[..^1]).Iter(settings => settings.SetString(keys[^1], value));
+        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> restored = Snapshot();
+        return ([.. changed.Where(path => Same(before, restored, path))], [.. changed.Where(path => !Same(before, restored, path))]);
     }
+
+    private static bool Same(FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> left, FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> right, string path) =>
+        string.Equals(left.GetValueOrDefault(path).Value, right.GetValueOrDefault(path).Value, StringComparison.Ordinal);
+
+    private static Option<PersistentSettings> Child(ImmutableArray<string> keys) =>
+        keys.Aggregate(Some(PersistentSettings.RhinoAppSettings), static (held, key) => held.Bind(settings => settings.TryGetChild(key, out PersistentSettings child) ? Some(child) : None));
+
+    private static IEnumerable<(ImmutableArray<string> Keys, string Value)> Entries(PersistentSettings settings, ImmutableArray<string> parent) =>
+        settings.Keys.SelectMany(key => settings.TryGetString(key, out string value) ? [(parent.Add(key), value)] : Enumerable.Empty<(ImmutableArray<string>, string)>())
+            .Concat(settings.ChildKeys.SelectMany(key => settings.TryGetChild(key, out PersistentSettings child) ? Entries(child, parent.Add(key)) : []));
 }
 
 internal static class Documents {
@@ -543,7 +540,7 @@ public static class Engine {
     // --- [CASES]
     private static (Outcome Outcome, ImmutableArray<uint> Opened) Execute(Case @case, Expressions code, int index, string captures, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases) {
         uint[] open = [.. RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber)];
-        ImmutableArray<(int Index, object State, string Text)> settings = Settings.Snapshot();
+        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> settings = Settings.Snapshot();
         Option<RhinoDoc> held = None;
         Option<(ICanvases Canvases, object Document, object? Prior)> canvas = None;
         TextWriter[] streams = [Console.Out, Console.Error];

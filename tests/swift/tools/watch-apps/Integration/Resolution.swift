@@ -26,13 +26,8 @@ extension Integration {
                 expectNoDifference(read.lines.map(\.entry), [.instances([:])])
                 expectNoDifference(read.status, .exited(0))
             }
-            let launched: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-                of: .product(named: "watch-apps"),
-                arguments: ["launch", fixture.name] + Settings().arguments.flatMap { argument in ["--arguments", argument] },
-                as: WatchAppsLine.self,
-            )
+            let launched: (pid: Int32, lines: [WatchAppsLine]) = try await launch(fixture, named: fixture.name)
             expectNoDifference(Set(launched.lines.map(\.key)), [fixture.identifier])
-            expectNoDifference(launched.status, .exited(0))
         }
 
         @Test(.application(FixtureApplication.self, named: "AppKitFixture shared \(UUID().uuidString.prefix(8))", launches: false), .timeLimit(.minutes(1)))

@@ -32,36 +32,5 @@
         "cf": "catalog:",
         "testcontainers": "catalog:",
         "vitest": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "test": {
-                "options": {
-                    "args": [ "--project=!postgres" ]
-                },
-                "outputs": [ "...", "{workspaceRoot}/.artifacts/sql/postgres" ]
-            },
-            "test:integration": {
-                "options": {
-                    "args": [ "--project=postgres" ]
-                }
-            },
-            "lint:squawk": {
-                "command": "squawk --config .config/squawk.toml '.artifacts/sql/postgres/*.sql'",
-                "dependsOn": [ "test" ],
-                "inputs": [
-                    "{workspaceRoot}/.config/squawk.toml",
-                    {
-                        "dependentTasksOutputFiles": "**/*.sql"
-                    },
-                    {
-                        "externalDependencies": []
-                    },
-                    {
-                        "runtime": "squawk --version"
-                    }
-                ]
-            }
-        }
     }
 }

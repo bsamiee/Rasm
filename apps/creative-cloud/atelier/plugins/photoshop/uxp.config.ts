@@ -6,7 +6,6 @@ import { uxp } from '../../../../../vite.shared.ts';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default uxp(import.meta.dirname, {
-    main: npm.main,
     daemon: 'atelier',
     manifest: Manifest.make({
         id: 'app.rasm.atelier.photoshop',

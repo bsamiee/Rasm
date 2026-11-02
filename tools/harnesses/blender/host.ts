@@ -36,13 +36,7 @@ interface Started {
     readonly halted: Effect.Effect<void, PlatformError.PlatformError>;
 }
 interface Mode {
-    readonly started: (
-        install: Install,
-        args: readonly string[],
-        environment: Record.ReadonlyRecord<string, string>,
-        states: States,
-        stderr: string,
-    ) => Effect.Effect<Started, HarnessError | PlatformError.PlatformError | Schema.SchemaError, Scope.Scope | ChildProcessSpawner.ChildProcessSpawner>;
+    readonly started: (install: Install, args: readonly string[], environment: Record.ReadonlyRecord<string, string>, states: States, stderr: string) => Effect.Effect<Started, HarnessError | PlatformError.PlatformError | Schema.SchemaError, Scope.Scope | ChildProcessSpawner.ChildProcessSpawner>;
     readonly stalled: (watched: Watched) => Effect.Effect<'busy' | 'blocked', HarnessError | PlatformError.PlatformError, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner>;
 }
 interface Hosted {
@@ -195,7 +189,7 @@ const signalled = (error: PlatformError.PlatformError) =>
     Effect.succeed<Exited>({
         _tag: 'Exited',
         ...Option.match(
-            Option.flatMap(Option.fromNullishOr(SIGNAL.exec(error.message)?.groups?.['name']), (name) => Record.get(SIGNALS, name)),
+            Option.flatMap(Option.fromNullishOr(SIGNAL.exec(error.message)?.groups?.name), (name) => Record.get(SIGNALS, name)),
             { onNone: () => ({}), onSome: (signal) => ({ signal }) },
         ),
     });
@@ -278,13 +272,7 @@ const session = Effect.fn('session')(function* (install: Install, mode: Mode, fo
     yield* Effect.all([fs.makeDirectory(profile), fs.writeFileString(written.results, ''), Effect.flatMap(Schema.encodeEffect(Encoded)(written), (text) => fs.writeFileString(file, text))]);
     const states = yield* SubscriptionRef.make(Option.none<typeof State.Type>());
     const [notes, done] = yield* Effect.all([Ref.make<readonly (readonly [Option.Option<string>, typeof Answered.Type])[]>([]), Ref.make<ReadonlySet<string>>(new Set())]);
-    const started = yield* mode.started(
-        install,
-        ['--log-file', written.log, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', path.join(import.meta.dirname, 'engine.py'), '--', file],
-        { TMPDIR: run, BLENDER_USER_RESOURCES: profile },
-        states,
-        written.stderr,
-    );
+    const started = yield* mode.started(install, ['--log-file', written.log, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', path.join(import.meta.dirname, 'engine.py'), '--', file], { TMPDIR: run, BLENDER_USER_RESOURCES: profile }, states, written.stderr);
     const subject = `${install.identifier} ${started.pid}`;
     const watching = Effect.andThen(
         Stream.runForEach(watch([install.identifier], started.pid), ({ identifier, state }) => Effect.andThen(identifier === install.identifier ? SubscriptionRef.set(states, Option.some(state)) : Effect.void, answering(install, hosted, written.results, notes, done, crashes)(identifier, state))),
@@ -334,7 +322,10 @@ const execute = Effect.fn('execute')(function* (install: Install, hosted: readon
     const fs = yield* FileSystem.FileSystem;
     const folder = yield* fs.makeTempDirectoryScoped({ prefix: 'blender-harness-' });
     const crashes = yield* Ref.make(0);
-    const [shown, headless] = Array.partition(hosted, Filter.fromPredicate(({ host }: Hosted) => windowed(host)));
+    const [shown, headless] = Array.partition(
+        hosted,
+        Filter.fromPredicate(({ host }: Hosted) => windowed(host)),
+    );
     const groups = Array.match(
         [
             { mode: Modes.headless, items: headless },
@@ -342,12 +333,10 @@ const execute = Effect.fn('execute')(function* (install: Install, hosted: readon
         ].filter(({ items }) => items.length > 0),
         { onEmpty: () => [{ mode: Modes.headless, items: [] }], onNonEmpty: identity },
     );
-    const pages = (
-        yield* Effect.forEach(groups, ({ mode, items }, index) => {
-            const start: Paging = { remaining: items, asked: index === 0 ? dictionary : Option.none() };
-            return Stream.runCollect(Stream.paginate(start, ({ remaining, asked }) => Effect.map(session(install, mode, folder, remaining, asked, limit, captures, crashes), paged)));
-        })
-    ).flat();
+    const pages = (yield* Effect.forEach(groups, ({ mode, items }, index) => {
+        const start: Paging = { remaining: items, asked: index === 0 ? dictionary : Option.none() };
+        return Stream.runCollect(Stream.paginate(start, ({ remaining, asked }) => Effect.map(session(install, mode, folder, remaining, asked, limit, captures, crashes), paged)));
+    })).flat();
     return {
         application: install.name,
         identifier: install.identifier,

@@ -1,20 +1,21 @@
-use core::{convert::identity, f64::consts::PI, iter, num::NonZero};
+use core::{f64::consts::TAU, iter, num::NonZero};
 
 use nalgebra::convert;
-use ndarray::{Array, Array1, ArrayBase, ArrayViewMut1, Axis, CowArray, Data, Dimension};
+use ndarray::{Array, Array1, ArrayBase, ArrayViewMut1, Axis, CowArray, Data, Dimension, Zip};
 use ndrustfft::{DctHandler, FftHandler, Normalization, R2cFftHandler, nddct2_par, nddct3_par, ndfft_par, ndfft_r2c_par, ndifft_par, ndifft_r2c_par};
 use rustfft::{FftDirection, FftPlanner, num_complex::Complex};
 use uom::si::{f64::Frequency, frequency::hertz};
 
-use crate::{Band, Rate, Series, SpectraError};
+use crate::{Band, Rate, SpectraError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Bins {
     Half,
     Full,
     Cosine,
+    Zoom(Band),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -26,18 +27,7 @@ where
     S: Data<Elem = Complex<f64>>,
     D: Dimension,
 {
-    axes.into_iter()
-        .try_fold(CowArray::from(input), |current, axis| {
-            shaped(current.raw_dim(), axis, identity).map(|(len, shape)| {
-                let (handler, mut output) = (FftHandler::new(len), Array::zeros(shape));
-                match direction {
-                    FftDirection::Forward => ndfft_par(&current, &mut output, &handler, axis.index()),
-                    FftDirection::Inverse => ndifft_par(&current, &mut output, &handler, axis.index()),
-                }
-                CowArray::from(output)
-            })
-        })
-        .map(ArrayBase::into_owned)
+    checked(input.ndim(), axes).map(|axes| complex(CowArray::from(input), &axes, direction))
 }
 
 pub fn spectrum<S, D>(input: &ArrayBase<S, D>, half: Axis, axes: impl IntoIterator<Item = Axis>) -> Result<Array<Complex<f64>, D>, SpectraError>
@@ -46,9 +36,10 @@ where
     D: Dimension,
 {
     let (len, shape) = shaped(input.raw_dim(), half, |count| count.strict_div(2).strict_add(1))?;
+    let axes = checked(input.ndim(), axes)?;
     let mut output = Array::zeros(shape);
     ndfft_r2c_par(input, &mut output, &R2cFftHandler::new(len), half.index());
-    fourier(&output, axes, FftDirection::Forward)
+    Ok(complex(CowArray::from(output), &axes, FftDirection::Forward))
 }
 
 pub fn signal<S, D>(input: &ArrayBase<S, D>, half: Axis, len: usize, axes: impl IntoIterator<Item = Axis>) -> Result<Array<f64, D>, SpectraError>
@@ -57,11 +48,11 @@ where
     D: Dimension,
 {
     let (found, shape) = shaped(input.raw_dim(), half, |_| len)?;
+    let axes = checked(input.ndim(), axes)?;
     let expected = len.strict_div(2).strict_add(1);
     (found == expected).ok_or(SpectraError::Bins { axis: half.index(), expected, found })?;
-    let bins = fourier(input, axes, FftDirection::Inverse)?;
     let mut output = Array::zeros(shape);
-    ndifft_r2c_par(&bins, &mut output, &R2cFftHandler::new(len), half.index());
+    ndifft_r2c_par(&complex(CowArray::from(input), &axes, FftDirection::Inverse), &mut output, &R2cFftHandler::new(len), half.index());
     Ok(output)
 }
 
@@ -70,14 +61,14 @@ where
     S: Data<Elem = f64>,
     D: Dimension,
 {
-    axes.into_iter()
-        .try_fold(CowArray::from(input), |current, axis| {
-            shaped(current.raw_dim(), axis, identity).map(|(len, shape)| match (len, direction) {
+    checked(input.ndim(), axes).map(|axes| {
+        axes.into_iter()
+            .fold(CowArray::from(input), |current, axis| match (current.len_of(axis), direction) {
                 (0, _) => current,
                 (1, FftDirection::Forward) => CowArray::from(current.mapv(|sample| 2.0 * sample)),
                 (1, FftDirection::Inverse) => CowArray::from(current.mapv(|sample| sample / 2.0)),
-                (2.., _) => {
-                    let (handler, mut output) = (DctHandler::new(len), Array::zeros(shape));
+                (len @ 2.., _) => {
+                    let (handler, mut output) = (DctHandler::new(len), Array::zeros(current.raw_dim()));
                     match direction {
                         FftDirection::Forward => nddct2_par(&current, &mut output, &handler, axis.index()),
                         FftDirection::Inverse => nddct3_par(
@@ -93,8 +84,63 @@ where
                     CowArray::from(output)
                 }
             })
+            .into_owned()
+    })
+}
+
+pub fn zoom<S, D>(input: &ArrayBase<S, D>, axis: Axis, rate: Rate, band: Band, bins: NonZero<usize>) -> Result<Array<Complex<f64>, D>, SpectraError>
+where
+    S: Data<Elem: Copy + Sync + Into<Complex<f64>>>,
+    D: Dimension,
+{
+    let (count, shape) = shaped(input.raw_dim(), axis, |_| bins.get())?;
+    let (rate, start) = (rate.get::<hertz>(), band.start.get::<hertz>());
+    let (sweep, size) = (pitch(band, bins) / (2.0 * rate), count.max(1).strict_add(bins.get()).strict_sub(1).next_power_of_two());
+    let turns = |coefficient: f64, value: f64| {
+        let product = coefficient * value;
+        product.rem_euclid(1.0) + coefficient.mul_add(value, -product)
+    };
+    let square = |index: usize| turns(sweep, convert::<usize, f64>(index.strict_mul(index)));
+    let chirp = |index: usize| Complex::cis(TAU * square(index));
+    let mut planner = FftPlanner::new();
+    let [forward, inverse] = [FftDirection::Forward, FftDirection::Inverse].map(|direction| planner.plan_fft(size, direction));
+    let scratch_len = forward.get_inplace_scratch_len().max(inverse.get_inplace_scratch_len());
+    let mut kernel = Vec::from_fn(size, |index| match size.strict_sub(index) {
+        _ if index < bins.get() => chirp(index),
+        back if back < count => chirp(back),
+        _ => Complex::ZERO,
+    });
+    forward.process(&mut kernel);
+    let entry = Vec::from_fn(count, |index| Complex::cis(-TAU * (square(index) + turns(start / rate, convert::<usize, f64>(index)))));
+    let exit = Vec::from_fn(bins.get(), |index| chirp(index).conj().unscale(convert::<usize, f64>(size)));
+    let mut output = Array::zeros(shape);
+    Zip::from(input.lanes(axis)).and(output.lanes_mut(axis)).par_for_each(|lane, mut out| {
+        let (mut values, mut scratch) = (vec![Complex::ZERO; size], vec![Complex::ZERO; scratch_len]);
+        iter::zip(&mut values, iter::zip(lane, &entry)).for_each(|(value, (&sample, &weight))| *value = sample.into() * weight);
+        forward.process_with_scratch(&mut values, &mut scratch);
+        iter::zip(&mut values, &kernel).for_each(|(value, &weight)| *value *= weight);
+        inverse.process_with_scratch(&mut values, &mut scratch);
+        iter::zip(&mut out, iter::zip(&values, &exit)).for_each(|(value, (&sum, &weight))| *value = sum * weight);
+    });
+    Ok(output)
+}
+
+fn complex<D>(input: CowArray<'_, Complex<f64>, D>, axes: &[Axis], direction: FftDirection) -> Array<Complex<f64>, D>
+where D: Dimension {
+    axes.iter()
+        .fold(input, |current, &axis| {
+            let (handler, mut output) = (FftHandler::new(current.len_of(axis)), Array::zeros(current.raw_dim()));
+            match direction {
+                FftDirection::Forward => ndfft_par(&current, &mut output, &handler, axis.index()),
+                FftDirection::Inverse => ndifft_par(&current, &mut output, &handler, axis.index()),
+            }
+            CowArray::from(output)
         })
-        .map(ArrayBase::into_owned)
+        .into_owned()
+}
+
+fn checked(dimensions: usize, axes: impl IntoIterator<Item = Axis>) -> Result<Vec<Axis>, SpectraError> {
+    axes.into_iter().map(|Axis(axis)| (axis < dimensions).then_some(Axis(axis)).ok_or(SpectraError::Axis { axis, dimensions })).collect()
 }
 
 fn shaped<D>(mut shape: D, Axis(axis): Axis, len: impl FnOnce(usize) -> usize) -> Result<(usize, D), SpectraError>
@@ -106,39 +152,23 @@ where D: Dimension {
     Ok((found, shape))
 }
 
-// --- [SERIES]
-
-#[must_use]
-pub fn zoom(series: &Series, band: Band, bins: NonZero<usize>) -> Array1<Complex<f64>> {
-    let [rate, start, last] = [series.rate.get::<hertz>(), band.start.get::<hertz>(), band.last.get::<hertz>()];
-    let step = NonZero::new(bins.get().strict_sub(1)).map_or_default(|intervals| (last - start) / convert::<usize, f64>(intervals.get()));
-    let len = series.samples.len().strict_add(bins.get()).strict_sub(1);
-    let chirp = |index: usize| Complex::cis(PI * step / rate * convert::<usize, f64>(index).powi(2));
-    let mut planner = FftPlanner::new();
-    let [forward, inverse] = [FftDirection::Forward, FftDirection::Inverse].map(|direction| planner.plan_fft(len, direction));
-    let mut scratch = vec![Complex::ZERO; forward.get_inplace_scratch_len().max(inverse.get_inplace_scratch_len())];
-    let mut weighted = Vec::from_fn(len, |index| {
-        series.samples.get(index).map_or(Complex::ZERO, |&sample| {
-            let position = convert::<usize, f64>(index);
-            Complex::cis(-PI / rate * position * step.mul_add(position, 2.0 * start)).scale(sample)
-        })
-    });
-    let mut kernel = Vec::from_fn(len, |index| chirp(if index < bins.get() { index } else { len.strict_sub(index) }));
-    forward.process_with_scratch(&mut weighted, &mut scratch);
-    forward.process_with_scratch(&mut kernel, &mut scratch);
-    iter::zip(&mut weighted, &kernel).for_each(|(value, &weight)| *value *= weight);
-    inverse.process_with_scratch(&mut weighted, &mut scratch);
-    let scale = convert::<usize, f64>(len);
-    weighted.into_iter().take(bins.get()).enumerate().map(|(index, value)| chirp(index).conj() * value / scale).collect()
-}
+// --- [BINS]
 
 #[must_use]
 pub fn frequencies(rate: Rate, len: NonZero<usize>, bins: Bins) -> Array1<Frequency> {
     let (rate, count) = (rate.get::<hertz>(), convert::<usize, f64>(len.get()));
-    let (size, spacing, wrap) = match bins {
-        Bins::Half => (len.get().strict_div(2).strict_add(1), rate / count, len.get()),
-        Bins::Full => (len.get(), rate / count, len.get().div_ceil(2)),
-        Bins::Cosine => (len.get(), rate / (2.0 * count), len.get()),
+    let (size, origin, spacing, wrap) = match bins {
+        Bins::Half => (len.get().strict_div(2).strict_add(1), 0.0, rate / count, len),
+        Bins::Full => (len.get(), 0.0, rate / count, len.div_ceil(const { NonZero::new(2).unwrap() })),
+        Bins::Cosine => (len.get(), 0.0, rate / (2.0 * count), len),
+        Bins::Zoom(band) => (len.get(), band.start.get::<hertz>(), pitch(band, len), len),
     };
-    Array1::from_shape_fn(size, |bin| Frequency::new::<hertz>(spacing * (convert::<usize, f64>(bin) - if bin < wrap { 0.0 } else { count })))
+    Array1::from_shape_fn(size, |bin| {
+        let folded = bin.strict_div(wrap.get()).strict_mul(len.get());
+        Frequency::new::<hertz>(spacing.mul_add(convert::<usize, f64>(bin) - convert::<usize, f64>(folded), origin))
+    })
+}
+
+fn pitch(band: Band, bins: NonZero<usize>) -> f64 {
+    NonZero::new(bins.get().strict_sub(1)).map_or_default(|intervals| (band.last.get::<hertz>() - band.start.get::<hertz>()) / convert::<usize, f64>(intervals.get()))
 }

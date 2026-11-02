@@ -1,5 +1,5 @@
 import { all, bind, fault, map, none, type Option, ok, type Result, some } from '../composition.ts';
-import { declared, type Invocation, invocations, operands, placed, unquoted, waits } from './invocation.ts';
+import { declared, type Invocation, invocations, operands, placed, staged, unquoted, waits } from './invocation.ts';
 import type { System } from './policies.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,9 +8,16 @@ interface Span {
     readonly start: number;
     readonly end: number;
 }
+interface Word {
+    readonly text: string;
+    readonly raw: string;
+    readonly span: Span;
+    readonly unbounded: boolean;
+}
 interface Command {
-    readonly words: readonly { readonly text: string; readonly span: Span; readonly unbounded: boolean }[];
+    readonly words: readonly Word[];
     readonly invocations: readonly Invocation[];
+    readonly parts: readonly { readonly assigned: readonly Word[]; readonly words: readonly Word[] }[];
     readonly cwd: Option<string>;
     readonly fed: boolean;
     readonly looped: boolean;
@@ -30,7 +37,7 @@ type Hit = Capture &
     (
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture; readonly SCOPE?: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
         | { readonly ruleId: 'operand' | 'heredoc' | 'herestring' | 'written'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
-        | { readonly ruleId: 'assignment' | 'expansion'; readonly metaVariables: { readonly single: { readonly SCOPE?: Capture } } }
+        | { readonly ruleId: 'assignment' | 'rebinding' | 'expansion'; readonly metaVariables: { readonly single: { readonly SCOPE?: Capture } } }
         | { readonly ruleId: 'fed' | 'looped' | 'unbounded' | 'background' }
     );
 
@@ -38,7 +45,8 @@ type Hit = Capture &
 
 const WORD = /^(?!\d*[<>](?!\()|&>)./su;
 const STACK = /^(?:-|[+-]\d+)$/u;
-const LITERAL = /^(?:[\w./~@%+:,=-]*|'[\w./~@%+:,=-]*'|"[\w./~@%+:,=-]*")$/u;
+const NAME = /^[A-Za-z_]\w*/u;
+const LITERAL = /^(?:[\w./~@%+:,=-]+|'[\w./~@%+:,=-]+'|"[\w./~@%+:,=-]+")$/u;
 const REFERENCE = /^\$\{?(?<name>\w+)\}?$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -59,33 +67,40 @@ const decoded = <A>(program: string, output: string): Result<A> => {
 
 const printed = async <A>(system: System, argv: Invocation, cwd: string): Promise<Result<A>> => bind(await exited(system, argv, { cwd, stdin: '' }), (output) => decoded<A>(argv[0], output));
 
+const spliced = (source: Uint8Array, base: number, edits: readonly (Span & { readonly text: string })[]): string => {
+    const decoder = new TextDecoder();
+    const sorted = edits.toSorted((left, right) => left.start - right.start);
+    const between = (start: number, end?: number): string => decoder.decode(source.subarray(start - base, end === undefined ? undefined : end - base));
+    return [...sorted.map(({ start, text }, index) => `${between(sorted[index - 1]?.end ?? base, start)}${text}`), between(sorted.at(-1)?.end ?? base)].join('');
+};
+
+const inside = (outer: Capture | undefined, { range: { byteOffset } }: Capture): boolean => outer === undefined || (byteOffset.start >= outer.range.byteOffset.start && byteOffset.end <= outer.range.byteOffset.end);
+
+const resolver = (hits: readonly Hit[], source: Uint8Array): ((capture: Capture) => string) => {
+    const bindings = hits.flatMap((hit) => {
+        if (hit.ruleId !== 'assignment' && hit.ruleId !== 'rebinding') {
+            return [];
+        }
+        const [name] = NAME.exec(hit.text) ?? [];
+        const value = hit.text.slice((name?.length ?? 0) + 1);
+        return name === undefined ? [] : [{ name, end: hit.range.byteOffset.end, scope: hit.metaVariables.single.SCOPE, value: hit.ruleId === 'assignment' && hit.text[name.length] === '=' && LITERAL.test(value) ? some(unquoted(value)) : none }];
+    });
+    const references = hits.flatMap((hit) => {
+        const name = hit.ruleId === 'expansion' ? REFERENCE.exec(hit.text)?.groups?.name : undefined;
+        const [bound, ...more] = bindings.filter((binding) => binding.name === name && inside(binding.scope, hit));
+        return bound?.value.kind === 'some' && more.length === 0 && bound.end <= hit.range.byteOffset.start ? [{ ...hit.range.byteOffset, text: bound.value.value }] : [];
+    });
+    return ({ range: { byteOffset } }) => unquoted(spliced(source.subarray(byteOffset.start, byteOffset.end), byteOffset.start, references.filter(({ start, end }) => start >= byteOffset.start && end <= byteOffset.end)));
+};
+
 const parse = async (system: System, command: string): Promise<Result<Script>> => {
     const scripted = async (scan: Invocation, source: string, context: Pick<Command, 'cwd' | 'fed' | 'looped' | 'nested'>): Promise<Result<Script>> =>
         bind(
             bind(await exited(system, scan, { cwd: system.plugin, stdin: source }), (output) => decoded<readonly Hit[]>(scan[0], output)),
             async (hits) => {
                 const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
-                const inside = (outer: Capture | undefined, { range: { byteOffset } }: Capture): boolean => outer === undefined || (byteOffset.start >= outer.range.byteOffset.start && byteOffset.end <= outer.range.byteOffset.end);
                 const unbounded = new Set(sorted.flatMap((hit) => (hit.ruleId === 'unbounded' ? [hit.range.byteOffset.start] : [])));
-                const bindings = sorted.flatMap((hit) => {
-                    if (hit.ruleId !== 'assignment') {
-                        return [];
-                    }
-                    const cut = hit.text.indexOf('=');
-                    const value = hit.text.slice(cut + 1);
-                    return [{ hit, name: cut < 0 ? hit.text : hit.text.slice(0, cut), value: cut >= 0 && LITERAL.test(value) ? some(unquoted(value)) : none }];
-                });
-                const references = sorted.flatMap((hit) => {
-                    const name = hit.ruleId === 'expansion' ? REFERENCE.exec(hit.text)?.groups?.name : undefined;
-                    const bound = bindings.findLast((binding) => binding.name === name && binding.hit.range.byteOffset.end <= hit.range.byteOffset.start && inside(binding.hit.metaVariables.single.SCOPE, hit));
-                    return bound?.value.kind === 'some' ? [{ span: hit.range.byteOffset, value: bound.value.value }] : [];
-                });
-                const resolved = ({ text, range: { byteOffset } }: Capture): string => {
-                    const parts = references.filter(({ span }) => span.start >= byteOffset.start && span.end <= byteOffset.end);
-                    const bytes = new TextEncoder().encode(text);
-                    const slice = (start: number, end?: number) => new TextDecoder().decode(bytes.subarray(start - byteOffset.start, end === undefined ? undefined : end - byteOffset.start));
-                    return unquoted([...parts.map(({ span, value }, index) => `${slice(parts[index - 1]?.span.end ?? byteOffset.start, span.start)}${value}`), slice(parts.at(-1)?.span.end ?? byteOffset.start)].join(''));
-                };
+                const resolved = resolver(sorted, new TextEncoder().encode(source));
                 const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' || hit.ruleId === 'written' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
                     .values()
                     .flatMap((own) => {
@@ -95,17 +110,16 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                         }
                         const words = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')]
                             .filter(({ text }) => WORD.test(text))
-                            .map((capture) => ({ text: resolved(capture), span: capture.range.byteOffset, unbounded: unbounded.has(capture.range.byteOffset.start) }));
+                            .map((capture) => ({ text: resolved(capture), raw: capture.text, span: capture.range.byteOffset, unbounded: unbounded.has(capture.range.byteOffset.start) }));
                         const chain = invocations(words.map(({ text }) => text));
+                        const [given] = own.filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring').slice(-1);
                         return [
                             {
                                 hit,
                                 words,
                                 invocations: chain,
-                                stdin: own
-                                    .filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring')
-                                    .slice(-1)
-                                    .map((given) => (given.ruleId === 'herestring' ? unquoted(given.text) : given.text)),
+                                parts: staged(words, chain),
+                                stdin: given === undefined ? [] : [given.ruleId === 'herestring' ? resolved(given) : given.text],
                                 targets: chain
                                     .filter(([program]) => declared(program).chdir !== undefined)
                                     .slice(0, 1)
@@ -123,7 +137,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                     cwd: owned
                         .filter(({ hit }) => hit.range.byteOffset.end <= part.hit.range.byteOffset.start && inside(hit.metaVariables.single.SCOPE, part.hit))
                         .flatMap(({ targets }) => targets)
-                        .reduce((folder, target) => (target === undefined || STACK.test(target) ? none : placed(target, folder, system.home)), context.cwd),
+                        .reduce((folder, target) => (target === undefined || target.includes('$') || STACK.test(target) ? none : placed(target, folder, system.home)), context.cwd),
                 }));
                 const inner = all(
                     await Promise.all(
@@ -155,6 +169,12 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
     const scope = {
         scope: { kind: 'program, subshell, command_substitution, process_substitution, pipeline' },
         scoped: { any: [{ inside: { stopBy: { matches: 'scope' }, kind: 'program' } }, { inside: { stopBy: { matches: 'scope' }, matches: 'scope', not: { kind: 'program' }, pattern: '$SCOPE' } }] },
+        guarded: {
+            any: [
+                { inside: { stopBy: { matches: 'scope' }, kind: 'if_statement, case_statement, while_statement, for_statement, c_style_for_statement, function_definition' } },
+                { nthChild: { position: 1, reverse: true }, inside: { kind: 'list' } },
+            ],
+        },
     };
     const scanner = [
         'scan',
@@ -168,11 +188,23 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
             { id: 'operand', utils: owner, rule: { kind: value, follows: { kind: value }, inside: { kind: 'file_redirect', matches: 'owner' } } },
             { id: 'heredoc', utils: owner, rule: { kind: 'heredoc_body', inside: { kind: 'heredoc_redirect', matches: 'owner' } } },
             { id: 'herestring', utils: owner, rule: { kind: value, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
-            { id: 'written', utils: owner, rule: { kind: value, inside: { kind: 'file_redirect', field: 'destination', regex: '^(?:1?>|&>)', matches: 'owner', inside: { kind: 'redirected_statement', has: { kind: 'heredoc_redirect' } } } } },
             {
-                id: 'assignment',
+                id: 'written',
+                utils: owner,
+                rule: { kind: value, inside: { kind: 'file_redirect', field: 'destination', regex: '^(?:1?>|&>)', matches: 'owner', inside: { stopBy: { kind: 'redirected_statement' }, kind: 'redirected_statement', has: { kind: 'heredoc_redirect' } } } },
+            },
+            { id: 'assignment', utils: scope, rule: { kind: 'variable_assignment', not: { any: [{ inside: { kind: 'command, c_style_for_statement' } }, { matches: 'guarded' }] }, matches: 'scoped' } },
+            {
+                id: 'rebinding',
                 utils: scope,
-                rule: { any: [{ kind: 'variable_assignment', not: { inside: { kind: 'command, c_style_for_statement' } } }, { kind: 'variable_name', inside: { kind: 'for_statement', field: 'variable' } }], matches: 'scoped' },
+                rule: {
+                    any: [
+                        { kind: 'variable_assignment', matches: 'guarded', not: { inside: { kind: 'command' } } },
+                        { kind: 'variable_name', inside: { kind: 'for_statement, unset_command' } },
+                        { kind: 'word', regex: String.raw`^[A-Za-z_]\w*$`, inside: { kind: 'command', has: { kind: 'command_name', regex: '^(?:read|readarray|mapfile|getopts|printf)$' } } },
+                    ],
+                    matches: 'scoped',
+                },
             },
             { id: 'expansion', utils: scope, rule: { kind: 'simple_expansion, expansion', regex: String.raw`^\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})$`, matches: 'scoped' } },
             { id: 'looped', rule: { kind: 'command', inside: { stopBy: 'end', kind: 'while_statement, for_statement, c_style_for_statement' } } },
@@ -181,14 +213,14 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                 utils: {
                     input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
                     tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list, pipeline, negated_command', matches: 'tail' } }] },
-                    stage: {
+                    piped: {
                         any: [
-                            { matches: 'tail' },
                             { inside: { kind: 'pipeline' }, not: { nthChild: 1 } },
-                            { nthChild: 1, inside: { kind: 'list, pipeline, negated_command', matches: 'stage' } },
+                            { nthChild: 1, inside: { kind: 'list, pipeline, negated_command', matches: 'piped' } },
                             { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } },
                         ],
                     },
+                    stage: { any: [{ matches: 'tail' }, { matches: 'piped' }] },
                 },
                 rule: { kind: 'command', any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] },
             },
@@ -215,4 +247,4 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { parse, printed, type Script };
+export { type Command, parse, printed, type Script, spliced, type Word };

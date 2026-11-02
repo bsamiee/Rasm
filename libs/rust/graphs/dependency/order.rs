@@ -1,25 +1,53 @@
-use petgraph::{Direction, stable_graph::NodeIndex, visit::NodeIndexable};
-use rustworkx_core::{
-    dag_algo::{self, TopologicalSortError, lexicographical_topological_sort},
-    err::LayersError,
-};
+use std::collections::HashMap;
 
-use crate::{Dependencies, DependencyError, cycle};
+use petgraph::{
+    Direction,
+    algo::tred::{dag_to_toposorted_adjacency_list, dag_transitive_reduction_closure},
+    graph::{DefaultIx, DiGraph},
+    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
+    visit::EdgeRef as _,
+};
+use rustworkx_core::dag_algo::{TopologicalSortError, lexicographical_topological_sort};
+
+use crate::{DependencyError, Evaluation, cycles};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn topological<G, K>(graph: G, mut key: impl FnMut(NodeIndex) -> K) -> Result<Vec<NodeIndex>, DependencyError>
-where
-    G: Dependencies,
-    K: Ord,
-{
-    let sequence = lexicographical_topological_sort(graph, |node| Ok::<K, !>(key(node)), false, None).map_err(|TopologicalSortError::CycleOrBadInitialState| cycle(graph, None))?;
-    (sequence.len() == graph.node_count()).then_some(sequence).ok_or_else(|| cycle(graph, None))
+pub fn topological<N, E, K>(graph: &StableDiGraph<N, E>, mut key: impl FnMut(NodeIndex) -> K) -> Result<Vec<NodeIndex>, DependencyError>
+where K: Ord {
+    match lexicographical_topological_sort(graph, |node| Ok::<K, !>(key(node)), false, None) {
+        Ok(sequence) if sequence.len() == graph.node_count() => Ok(sequence),
+        Ok(_) | Err(TopologicalSortError::CycleOrBadInitialState) => Err(DependencyError::Cycle { paths: cycles(graph, None) }),
+    }
 }
 
-pub fn layers<G>(graph: G) -> Result<Vec<Vec<NodeIndex>>, DependencyError>
-where G: Dependencies + NodeIndexable {
-    let sources = graph.node_identifiers().filter(|&node| graph.neighbors_directed(node, Direction::Incoming).next().is_none()).collect();
-    let layered = dag_algo::layers(graph, sources).filter(|layer| !layer.as_ref().is_ok_and(Vec::is_empty)).try_collect::<Vec<_>>().map_err(|LayersError(_)| cycle(graph, None))?;
-    (layered.iter().map(Vec::len).sum::<usize>() == graph.node_count()).then_some(layered).ok_or_else(|| cycle(graph, None))
+#[must_use]
+pub fn layers<N, E>(graph: &Evaluation<N, E>) -> Vec<Vec<NodeIndex>> {
+    let (_, layered) = graph.nodes_iter().fold((HashMap::new(), Vec::<Vec<NodeIndex>>::new()), |(mut depth, mut layered), node| {
+        let level = graph.neighbors_directed(node, Direction::Incoming).filter_map(|source| depth.get(&source).copied()).max().map_or_default(|level: usize| level.strict_add(1));
+        depth.insert(node, level);
+        match layered.get_mut(level) {
+            Some(layer) => layer.push(node),
+            None => layered.push(vec![node]),
+        }
+        (depth, layered)
+    });
+    layered
+}
+
+#[must_use]
+pub fn redundant<N, E>(graph: &Evaluation<N, E>) -> Vec<EdgeIndex> {
+    let compact = DiGraph::from(graph.map(|node, _| node, |edge, _| edge));
+    let mut sequence = compact.node_indices().collect::<Vec<_>>();
+    sequence.sort_by_key(|&node| compact.node_weight(node).map(|&stable| graph.get_position(stable)));
+    let (ordered, ranks) = dag_to_toposorted_adjacency_list::<_, DefaultIx>(&compact, &sequence);
+    let (reduction, _) = dag_transitive_reduction_closure(&ordered);
+    compact
+        .edge_references()
+        .filter(|edge| {
+            compact.find_edge(edge.source(), edge.target()) != Some(edge.id())
+                || ranks.get(edge.source().index()).zip(ranks.get(edge.target().index())).is_some_and(|(&source, &target)| !reduction.contains_edge(source, target))
+        })
+        .map(|edge| *edge.weight())
+        .collect()
 }

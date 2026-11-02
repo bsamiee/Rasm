@@ -6,7 +6,112 @@
         { "plugin": "@nx/vitest", "include": [ "**/vitest.config.ts" ], "exclude": [ "vitest.config.ts" ], "options": { "testMode": "run" } },
         { "plugin": "@nx/playwright/plugin", "options": { "ciTargetName": "" } },
         { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "run": false, "watch": false } },
-        { "plugin": "./tools/nx/workspace.ts" }
+        {
+            "plugin": "./tools/nx/workspace.ts",
+            "options": {
+                "root": {
+                    "restore": {
+                        "options": { "args": [ "Workspace.slnx" ] },
+                        "outputs": [ "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*", "!{workspaceRoot}/.artifacts/dotnet/obj/*.cs/*", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/restore.binlog" ]
+                    },
+                    "grammar": {
+                        "executor": "nx:run-commands",
+                        "options": {
+                            "commands": [
+                                "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
+                                "tree-sitter generate --output .cache/ast-grep/sql/src tools/ast-grep/grammars/sql/grammar.js",
+                                "cp node_modules/tree-sitter-sqlite3/src/scanner.c .cache/ast-grep/sql/src/scanner.c",
+                                "tree-sitter build --output .cache/ast-grep/sql.so .cache/ast-grep/sql",
+                                "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift",
+                                "tree-sitter generate --output .cache/ast-grep/csharp/src tools/ast-grep/grammars/csharp/grammar.js",
+                                "cp node_modules/tree-sitter-c-sharp/src/scanner.c .cache/ast-grep/csharp/src/scanner.c",
+                                "tree-sitter build --output .cache/ast-grep/csharp.so .cache/ast-grep/csharp"
+                            ],
+                            "parallel": false
+                        },
+                        "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/**/grammar.js", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift", "tree-sitter-c-sharp" ] }, { "runtime": "tree-sitter --version" }, { "runtime": "node --version" } ],
+                        "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so", "{workspaceRoot}/.cache/ast-grep/csharp", "{workspaceRoot}/.cache/ast-grep/csharp.so" ],
+                        "cache": true
+                    },
+                    "outline": {
+                        "command": "ast-grep outline --custom-languages allow --color never --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml --outline-rules tools/ast-grep/outline/rust.yml",
+                        "dependsOn": [ "grammar" ]
+                    },
+                    "typecheck": { "dependsOn": [ "typecheck:*" ] },
+                    "typecheck:tsc": {},
+                    "typecheck:swift": { "command": "swift build --build-tests --disable-automatic-resolution", "parallelism": false },
+                    "typecheck:javac": {
+                        "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"",
+                        "inputs": [ "javaFiles", { "externalDependencies": [] }, { "env": "JAVA_HOME" }, { "env": "GHIDRA_INSTALL_DIR" } ],
+                        "outputs": [ "{workspaceRoot}/.cache/javac" ]
+                    },
+                    "lint": { "dependsOn": [ "lint:*" ] },
+                    "lint:dotnet-format": {
+                        "options": { "args": [ "Workspace.slnx", "--no-restore", "--verify-no-changes" ] },
+                        "dependsOn": [ "restore" ],
+                        "inputs": [ "dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}" ],
+                        "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/lint-dotnet-format.binlog" ]
+                    },
+                    "lint:ruff": { "dependsOn": [ { "target": "lint:ruff:*", "params": "forward" } ] },
+                    "lint:ruff:check": { "command": "ruff check" },
+                    "lint:ruff:format": { "command": "ruff format --check" },
+                    "lint:deptry": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python apps", "inputs": [ "python", "pythonFiles" ] },
+                    "lint:biome": {
+                        "command": "biome check --error-on-warnings",
+                        "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]
+                    },
+                    "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rust", "rustFiles", "{workspaceRoot}/**/Cargo.toml", "{workspaceRoot}/rustfmt.toml" ] },
+                    "lint:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format lint --strict --parallel", "inputs": [ "swiftFiles", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
+                    "lint:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet" },
+                    "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*", "{workspaceRoot}/eng/typescript/process.ts" ] },
+                    "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ] },
+                    "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
+                    "lint:pmd": {
+                        "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \".cache/javac:$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
+                        "dependsOn": [ "typecheck:javac" ],
+                        "inputs": [ "javaFiles", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" }, { "env": "JAVA_HOME" } ],
+                        "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
+                    },
+                    "lint:tombi": { "dependsOn": [ { "target": "lint:tombi:*", "params": "forward" } ] },
+                    "lint:tombi:lint": { "command": "tombi lint --error-on-warnings" },
+                    "lint:tombi:format": { "command": "tombi format --check" },
+                    "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "python", "yamlFiles" ] },
+                    "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
+                    "lint:actionlint": {
+                        "command": "actionlint",
+                        "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ]
+                    },
+                    "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "shellFiles", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
+                    "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "inputs": [ "shellFiles", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
+                    "format": { "executor": "./:format", "dependsOn": [ "format:dotnet-format", { "projects": [ "tag:language:dotnet" ], "target": "format" } ], "parallelism": false },
+                    "format:files": { "executor": "./:format" },
+                    "format:dotnet-format": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "restore" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/format-dotnet-format.binlog" ] },
+                    "format:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check --fix", "ruff format" ], "parallel": false }, "metadata": { "extensions": [ ".py", ".pyi", ".pyw", ".ipynb" ] } },
+                    "format:biome": { "command": "biome check --write --error-on-warnings --no-errors-on-unmatched", "metadata": { "extensions": null } },
+                    "format:rustfmt": { "command": "cargo fmt", "configurations": { "files": { "command": "rustfmt" } }, "metadata": { "extensions": [ ".rs" ] } },
+                    "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } }, "metadata": { "extensions": [ ".swift" ] } },
+                    "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } }, "metadata": { "extensions": [ ".swift" ] } },
+                    "format:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec xcrun xcprojformatter --update", "configurations": { "files": { "command": "find {args} -exec xcrun xcprojformatter --update {} ';'" } }, "metadata": { "extensions": [ ".xcproj" ] } },
+                    "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } }, "metadata": { "extensions": [ ".java" ] } },
+                    "format:tombi": { "command": "tombi format", "metadata": { "extensions": [ ".toml" ] } },
+                    "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml", "configurations": { "files": { "command": "yamlfmt -conf .config/yamlfmt.yaml" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
+                    "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
+                    "check": { "dependsOn": [ "lint", "typecheck", "test" ] },
+                    "upgrade": { "command": "node eng/typescript/upgrade/main.ts", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:swiftpm" ], "target": "upgrade:swiftpm" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },
+                    "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
+                    "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade" ], "parallel": false } },
+                    "upgrade:typescript": { "executor": "nx:run-commands", "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never --reject typescript,tree-sitter-swift", "node eng/typescript/upgrade/typescript.ts", "pnpm install" ], "parallel": false }, "parallelism": false },
+                    "upgrade:rust": { "executor": "nx:run-commands", "options": { "commands": [ "cargo upgrade --incompatible", "cargo update", "tombi format Cargo.toml" ], "parallel": false } },
+                    "upgrade:swift": { "executor": "nx:run-commands", "options": { "commands": [ "node eng/typescript/upgrade/swift.ts", "swift package update" ], "parallel": false }, "dependsOn": [ "grammar" ], "parallelism": false },
+                    "upgrade:actions": { "command": "actions-up --yes --style preserve --min-age 0" },
+                    "upgrade:docker": { "command": "mise run docker:update" },
+                    "release": { "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node eng/typescript/release/main.ts", "parallelism": false },
+                    "infra": { "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node infra/main.ts repository", "configurations": { "preview": { "args": "preview" }, "up": { "args": "up" }, "refresh": { "args": "refresh" } }, "parallelism": false },
+                    "docker": { "command": "mise daemons start docker" },
+                    "clean": { "command": "node eng/typescript/cleanup/main.ts", "parallelism": false }
+                }
+            }
+        }
     ],
     "sync": { "applyChanges": true },
     "release": {
@@ -166,15 +271,16 @@
         "storybook": { "command": "storybook dev --ci", "options": { "cwd": "{projectRoot}" }, "continuous": true },
         "types": { "command": "cf workers types", "options": { "cwd": "{projectRoot}" }, "inputs": [ "{projectRoot}/cloudflare.config.ts", { "externalDependencies": [ "cf" ] } ], "outputs": [ "{projectRoot}/.cloudflare/types" ], "cache": true },
         "run:*.cs": { "command": "dotnet run" },
-        "typecheck:*": [
-            { "cache": true },
+        "typecheck:*": [ { "cache": true }, { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo clippy --locked --no-deps --package {projectName}", "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ], "parallelism": false } ],
+        "typecheck:tsc": [
             {
                 "filter": { "projects": [ "tag:language:typescript", "rasm" ] },
                 "command": "tsc --pretty false --incremental --tsBuildInfoFile \"$NX_WORKSPACE_ROOT/.cache/tsc/{projectName}/tsconfig.tsbuildinfo\"",
                 "options": { "cwd": "{projectRoot}" },
-                "inputs": [ "...", "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ]
+                "inputs": [ "...", "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ],
+                "cache": true
             },
-            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo clippy --locked --no-deps --package {projectName}", "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ], "parallelism": false }
+            { "filter": { "projects": [ "rasm" ] }, "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", "!{workspaceRoot}/{docs,infra,tools/nx}/**" ] }
         ],
         "lint:*": { "cache": true },
         "rewrite:*": { "dependsOn": [ "grammar" ], "parallelism": false },
@@ -209,6 +315,12 @@
             "dependsOn": [ "...", { "projects": [ "directory:tools/roslyn/**" ], "target": "build" } ],
             "cache": true,
             "parallelism": false
+        },
+        "lint:squawk": {
+            "command": "squawk --config .config/squawk.toml '.artifacts/typescript/vitest/{projectName}/**/*.sql'",
+            "dependsOn": [ "test" ],
+            "inputs": [ "{workspaceRoot}/.config/squawk.toml", { "dependentTasksOutputFiles": "**/*.sql" }, { "externalDependencies": [] }, { "runtime": "squawk --version" } ],
+            "cache": true
         },
         "lint:dylint": [
             {
@@ -264,7 +376,8 @@
             { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "{workspaceRoot}/eng/python/blender/**/*.py", { "runtime": "\"$BLENDER_PATH\" --version" } ] },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
-                "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ]
+                "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
+                "outputs": [ "...", "{workspaceRoot}/.artifacts/typescript/vitest/{projectName}" ]
             },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },

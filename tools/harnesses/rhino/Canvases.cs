@@ -71,7 +71,7 @@ public sealed class Canvases : ICanvases {
         return document;
     }
 
-    private static JsonNode Read(Grasshopper2.Doc.IDocumentObject member) => new JsonObject {
+    private static JsonObject Read(Grasshopper2.Doc.IDocumentObject member) => new() {
         ["id"] = member.InstanceId.ToString(),
         ["name"] = member.DisplayName,
         ["user"] = member.UserName,

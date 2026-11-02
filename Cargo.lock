@@ -6602,6 +6602,7 @@ dependencies = [
 name = "rasm-dependency"
 version = "1.0.0"
 dependencies = [
+ "nonempty-collections",
  "petgraph",
  "rustworkx-core",
  "thiserror 2.0.21",

@@ -9,7 +9,7 @@ import WatchAppsWire
 private let helps: [(arguments: [String], names: [String])] = [
     (["--help"], ["watch", "launch", "read", "capture", "perform", "set"]),
     (["watch", "--help"], ["<names>"]),
-    (["launch", "--help"], ["<names>", "--new", "--hides", "--document", "--arguments", "--environment"]),
+    (["launch", "--help"], ["<names>", "--new", "--document", "--arguments", "--environment"]),
     (["read", "--help"], ["<names>", "--pid"]),
     (["capture", "--help"], ["<names>", "--pid", "--window", "--longest-side"]),
     (["perform", "--help"], ["<id>", "<action>"]),

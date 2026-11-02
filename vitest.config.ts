@@ -47,7 +47,7 @@ const _project = Effect.fnUntraced(function* (directory: string) {
             hideSkippedTests: ci,
             maxWorkers: '50%',
             pool: 'threads',
-            provide: { artifacts },
+            provide: { artifacts: results },
             reporters: ci ? ['dot', 'github-actions'] : ['tree'],
             sequence: { shuffle: ci },
             silent: 'passed-only',

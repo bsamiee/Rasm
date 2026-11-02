@@ -22,7 +22,8 @@ interface Program {
     readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
     readonly previews?: readonly [string, ...string[]];
     readonly headless?: readonly string[];
-    readonly targets?: { readonly project: 'root' } | { readonly project: 'owner'; readonly selects: readonly string[]; readonly names: 'path' | 'project' };
+    readonly flags?: readonly string[];
+    readonly targets?: readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -34,7 +35,7 @@ interface Operands {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
-const OPTION = /^--?[\p{L}\p{N}]/u;
+const OPTION = /^-./u;
 const TILDE = /^~(?<user>[^/]*)/u;
 const PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
 const SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
@@ -347,6 +348,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
         sd: {
             valued: ['-f', '-n', '--flags', '--max-replacements'],
+            flags: ['-p', '--preview', '-F', '--fixed-strings', '-A', '--across', '-h', '--help', '-V', '--version'],
             leading: 2,
             stdin: 'default',
             informational: ['-h', '-V'],
@@ -368,33 +370,33 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         ksh: SHELL,
         sqlite3: SQL,
         duckdb: SQL,
-        nx: { valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files'] },
+        nx: { valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
         tsc: {
-            valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
-            informational: ['-v', '-h'],
-            targets: { project: 'owner', selects: ['-p', '--project'], names: 'path' },
+            valued: ['-p', '--project', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
+            informational: ['-v', '-h', '-b', '--build', '-w', '--watch', '--init', '--showConfig'],
+            targets: ['-p', '--project'],
         },
         cargo: {
-            valued: ['-p', '--package', '--exclude', '--manifest-path', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
-            targets: { project: 'owner', selects: ['-p', '--package'], names: 'project' },
+            valued: ['-p', '--package', '--exclude', '-m', '--manifest-path', '-C', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
+            targets: ['-p', '--package'],
         },
         biome: {
-            valued: ['--config-path', '--max-diagnostics', '--reporter', '--diagnostic-level', '--log-level', '--log-kind', '--log-path', '--vcs-root', '--stdin-file-path', '--only', '--skip', '--colors', '--threads'],
-            targets: { project: 'root' },
+            valued: ['--config-path', '--max-diagnostics', '--reporter', '--diagnostic-level', '--log-level', '--log-kind', '--log-path', '--vcs-root', '--vcs-default-branch', '--stdin-file-path', '--only', '--skip', '--colors', '--log-file', '--reporter-file', '--since', '--files-max-size', '--indent-width', '--line-width'],
+            targets: [],
         },
         ruff: {
-            valued: ['--config', '--select', '--extend-select', '--ignore', '--extend-ignore', '--per-file-ignores', '--extend-per-file-ignores', '--fixable', '--unfixable', '--output-format', '-o', '--output-file', '--target-version', '--line-length', '--exclude', '--extend-exclude', '--stdin-filename', '--cache-dir'],
-            targets: { project: 'root' },
+            valued: ['--config', '--select', '--extend-select', '--ignore', '--per-file-ignores', '--extend-per-file-ignores', '--fixable', '--extend-fixable', '--unfixable', '--output-format', '--extension', '--color', '--range', '-o', '--output-file', '--target-version', '--line-length', '--exclude', '--extend-exclude', '--stdin-filename', '--cache-dir'],
+            targets: [],
         },
         'ast-grep': {
-            valued: ['-c', '--config', '-r', '--rule', '--inline-rules', '--filter', '--globs', '--error', '--warning', '--info', '--hint', '--off', '--format', '--report-style', '--color', '--no-ignore', '--custom-languages', '-j', '--threads', '-A', '--after', '-B', '--before', '-C', '--context', '--max-results'],
-            targets: { project: 'root' },
+            valued: ['-c', '--config', '-r', '--rule', '--inline-rules', '-p', '--pattern', '-l', '--lang', '-k', '--kind', '--selector', '--strictness', '--filter', '--globs', '--format', '--report-style', '--color', '--no-ignore', '--custom-languages', '-j', '--threads', '-A', '--after', '-B', '--before', '-C', '--context', '--max-results'],
+            targets: [],
         },
         osascript: { valued: ['-e', '-l', '-s'] },
-        open: { valued: ['-a', '-b', '-s', '-u', '--env', '--stdin', '--stdout', '--stderr'] },
+        open: { valued: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
         'watch-apps': { valued: ['--document', '--arguments', '--environment'] },
-        analyzeHeadless: { wholeWords: true, valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-connect', '-commit', '-max-cpu', '-librarySearchPaths', '-loader'] },
-        Blender: { informational: ['-v', '-h'], headless: ['-b', '--background'] },
+        analyzeHeadless: { wholeWords: true, informational: ['-help'], valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths', '-loader'] },
+        Blender: { informational: ['-v', '-h', '--log-list-categories'], headless: ['-b', '--background'] },
     } satisfies Record<string, Program>),
 );
 
@@ -421,17 +423,19 @@ const option = (row: Program, word: string) => {
     return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: attached === '' ? [] : [attached] };
 };
 
+const optional = (row: Program, word: string): boolean => OPTION.test(word) && (row.flags === undefined || option(row, word).names.every((name) => [row.flags, row.valued].some((listed) => listed?.includes(name) === true)));
+
 const firstOperand = (invocation: Invocation, index: number): number => {
     const [program] = invocation;
     const word = invocation[index];
-    return word === undefined || word === '--' || !OPTION.test(word) ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
+    return word === undefined || word === '--' || !optional(declared(program), word) ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
 };
 
 const separated = (row: Program, [head, ...rest]: readonly string[]): Operands => {
     if (head === undefined || head === '--') {
         return { inputs: rest, options: [], values: [], inner: [] };
     }
-    if (!OPTION.test(head)) {
+    if (!optional(row, head)) {
         const tail = separated(row, rest);
         return { ...tail, inputs: [head, ...tail.inputs] };
     }
@@ -512,7 +516,7 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
         const [first, ...more] = words;
         const deeper = pending.flatMap(([step, ...steps]) => (step !== undefined && step === first ? [steps] : []));
-        if (first !== undefined && OPTION.test(first)) {
+        if (first !== undefined && optional(row, first)) {
             return wrapped(more.slice(option(row, first).taken), pending);
         }
         if (deeper.length > 0) {
@@ -524,6 +528,11 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     return [[program, ...rest.slice(0, rest.length - inner.length)], ...invocations(inner)];
 };
 
+const staged = <W extends { readonly text: string }>(words: readonly W[], [invocation, ...rest]: readonly Invocation[]): readonly { readonly assigned: readonly W[]; readonly words: readonly W[] }[] => {
+    const at = words.findIndex(({ text }) => !ASSIGNMENT.test(text));
+    return invocation === undefined || at < 0 ? [] : [{ assigned: words.slice(0, at), words: words.slice(at, at + invocation.length) }, ...staged(words.slice(at + invocation.length), rest)];
+};
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { declared, firstOperand, type Invocation, informational, invocations, OPTION, operands, option, placed, unquoted, waits, within };
+export { declared, firstOperand, type Invocation, informational, invocations, operands, option, optional, placed, staged, unquoted, waits, within };

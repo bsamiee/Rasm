@@ -18,6 +18,7 @@ import ghidra.program.model.address.AddressRange;
 import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.address.AddressSetView;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.lang.CompilerSpec;
 import ghidra.program.model.lang.Language;
@@ -52,7 +53,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.TreeMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -105,34 +105,68 @@ public class Emu extends GhidraScript {
 
     record Convention(
             String target, boolean register, int size, String stack, int pop, Register result) {
-        static Convention of(Program program) {
+        static Report.Result<Convention> of(Program program) {
             CompilerSpec spec = program.getCompilerSpec();
             PrototypeModel model = spec.getDefaultCallingConvention();
-            Varnode location = model.getReturnAddress()[0];
             String stack = spec.getStackPointer().getName();
-            long offset = location.getAddress().getOffset();
-            String target =
-                    location.isRegister()
-                            ? program.getRegister(location.getAddress(), location.getSize())
-                                    .getName()
-                            : "*[%s]:%d (%s %s %d)"
-                                    .formatted(
-                                            spec.getStackBaseSpace().getName(),
-                                            location.getSize(),
-                                            stack,
-                                            offset < 0 ? "-" : "+",
-                                            Math.abs(offset));
-            return new Convention(
-                    target,
-                    location.isRegister(),
-                    location.getSize(),
-                    stack,
+            int pop =
                     model.getExtrapop() == PrototypeModel.UNKNOWN_EXTRAPOP
                             ? model.getStackshift()
-                            : model.getExtrapop(),
-                    model.getReturnLocation(
-                                    new PointerDataType(program.getDataTypeManager()), program)
-                            .getRegister());
+                            : model.getExtrapop();
+            Register result =
+                    model.getStorageLocations(
+                                    program,
+                                    new DataType[] {
+                                        new PointerDataType(program.getDataTypeManager())
+                                    },
+                                    false,
+                                    false)[0]
+                            .getRegister();
+            return CollectionUtils.asStream(program.getListing().getInstructions(true))
+                    .filter(instruction -> instruction.getFlowType().isCall())
+                    .map(instruction -> List.of(instruction.getPcode()))
+                    .flatMap(
+                            ops ->
+                                    IntStream.range(1, ops.size())
+                                            .filter(index -> ops.get(index).getOpcode() == PcodeOp.CALL)
+                                            .mapToObj(index -> ops.get(index - 1))
+                                            .filter(
+                                                    op ->
+                                                            op.getOpcode() == PcodeOp.STORE
+                                                                    || op.getOutput() != null
+                                                                            && op.getOutput().isRegister()))
+                    .findFirst()
+                    .<Report.Result<Convention>>map(
+                            op -> {
+                                boolean register = op.getOpcode() != PcodeOp.STORE;
+                                int size = register ? op.getOutput().getSize() : op.getInput(2).getSize();
+                                return new Report.Success<>(
+                                        register
+                                                ? new Convention(
+                                                        program.getRegister(op.getOutput()).getName(),
+                                                        true,
+                                                        size,
+                                                        stack,
+                                                        pop,
+                                                        result)
+                                                : new Convention(
+                                                        "*[%s]:%d %s"
+                                                                .formatted(
+                                                                        spec.getStackBaseSpace()
+                                                                                .getName(),
+                                                                        size,
+                                                                        stack),
+                                                        false,
+                                                        size,
+                                                        stack,
+                                                        pop,
+                                                        result));
+                            })
+                    .orElseGet(
+                            () ->
+                                    new Report.Failure<>(
+                                            "Program `%s` holds no call storing its return address"
+                                                    .formatted(program.getName())));
         }
 
         String stub(String effect) {
@@ -529,7 +563,7 @@ public class Emu extends GhidraScript {
         Path out = usage.out(args);
         Plan plan = usage.values(Stream.of(read(usage.operands(args)))).getFirst();
         Layout layout = Layout.of(currentProgram);
-        Convention convention = Convention.of(currentProgram);
+        Convention convention = usage.values(Stream.of(Convention.of(currentProgram))).getFirst();
         List<Stub> stubs = stubs(currentProgram, layout).toList();
         List<String> names = stubs.stream().map(Stub::name).toList();
         List<Prepared> runs =

@@ -5,8 +5,6 @@ import { commandDecision, unrun, WORKTREE } from '../policies/policies.ts';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ISOLATED = /isolation\s*:\s*['"`]worktree['"`]/u;
-const FOREGROUND = 600_000;
-const WATCH = 1_800_000;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -20,8 +18,8 @@ const register: Register = (on, options) => {
             return next(e);
         }
         const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
-        const request = e.tool === 'Bash' ? { tool: e.tool, background: e.run_in_background === true, timeout: e.timeout === undefined ? none : some(e.timeout) } : { tool: e.tool, background: true, timeout: some(e.timeout_ms) };
-        const decision = await commandDecision({ run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: repo === null ? none : some(repo.root), cwd, home: home === undefined ? none : some(home) }, e.command, project, request);
+        const request = e.tool === 'Bash' ? { background: e.run_in_background === true, timeout: e.timeout === undefined ? none : some(e.timeout) } : { background: true, timeout: some(e.timeout_ms) };
+        const decision = await commandDecision({ run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: repo === null ? none : some(repo.root), cwd, home: home === undefined ? none : some(home) }, e.command, project, some(request));
         switch (decision.kind) {
             case 'deny':
                 return { deny: decision.reason };
@@ -29,11 +27,7 @@ const register: Register = (on, options) => {
                 return next(e);
             default: {
                 const { command, notice, timeout, background } = decision;
-                const answer = await next(
-                    e.tool === 'Bash'
-                        ? { ...e, command, ...(timeout.kind === 'some' && { timeout: Math.min(timeout.value, FOREGROUND) }), ...(background && { run_in_background: true }) }
-                        : { ...e, command, ...(timeout.kind === 'some' && { timeout_ms: Math.min(timeout.value, WATCH) }) },
-                );
+                const answer = await next(e.tool === 'Bash' ? { ...e, command, ...(timeout.kind === 'some' && { timeout: Math.min(timeout.value, 600_000) }), ...(background && { run_in_background: true }) } : { ...e, command });
                 if (notice.kind === 'none' || answer.deny !== undefined) {
                     return answer;
                 }

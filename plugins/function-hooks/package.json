@@ -5,19 +5,5 @@
     "type": "module",
     "exports": {
         ".": "./index.ts"
-    },
-    "nx": {
-        "tags": [ "host:claude" ],
-        "targets": {
-            "typecheck:tsc": {
-                "inputs": [
-                    "...",
-                    {
-                        "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts",
-                        "includeIgnored": true
-                    }
-                ]
-            }
-        }
     }
 }

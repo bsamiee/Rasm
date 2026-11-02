@@ -32,7 +32,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
     let bilinear = 2.0 * rate;
     let poles = |order: NonZero<u8>| {
         let degree = convert::<u8, f64>(order.get());
-        (0..order.get() / 2).map(move |index| Complex::from_polar(1.0, PI * convert::<u8, f64>(index).mul_add(2.0, degree + 1.0) / (2.0 * degree)))
+        (0..order.get() / 2).map(move |index| Complex::cis(PI * convert::<u8, f64>(index).mul_add(2.0, degree + 1.0) / (2.0 * degree)))
     };
     let mut cascade = stages
         .into_iter()
@@ -45,7 +45,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                     .map_err(refused(f0))
                     .map(|Coefficients { a1, a2, b0, b1, b2 }| Coefficients { a1, a2, b0: b0 * gain, b1: b1 * gain, b2: b2 * gain })
                     .and_then(|coefficients @ Coefficients { a1, a2, b0, b1, b2 }| {
-                        [a1, a2, b0, b1, b2].into_iter().all(f64::is_finite).then_some(coefficients).ok_or(SpectraError::Section { stage, f0: Frequency::new::<hertz>(f0) })
+                        [a1, a2, b0, b1, b2].into_iter().all(f64::is_finite).then_some(coefficients).ok_or_else(|| SpectraError::Section { stage, f0: Frequency::new::<hertz>(f0) })
                     })
             };
             let prototype = |pair: Type<f64>, cutoff: Frequency, order: NonZero<u8>, real: fn(Coefficients<f64>) -> Coefficients<f64>| {
@@ -97,10 +97,9 @@ pub fn bands(fraction: NonZero<u8>, span: Band) -> Vec<Band> {
     let last = span.last.get::<hertz>();
     iter::successors(Some(count.mul_add((span.start.get::<hertz>().max(f64::MIN_POSITIVE) / reference).log(octave), -offset).ceil()), |index| Some(index + 1.0))
         .map(|index| reference * octave.powf((index + offset) / count))
-        .take_while(|midband| *midband <= last)
-        .filter_map(|midband| match Band::try_new(RangeInclusive { start: Frequency::new::<hertz>(midband / edge), last: Frequency::new::<hertz>(midband * edge) }) {
-            Ok(band) => Some(band),
-            Err(BandError::PredicateViolated) => None,
+        .map_while(|midband| match Band::try_new(RangeInclusive { start: Frequency::new::<hertz>(midband / edge), last: Frequency::new::<hertz>(midband * edge) }) {
+            Ok(band) if midband <= last => Some(band),
+            Ok(_) | Err(BandError::PredicateViolated) => None,
         })
         .collect()
 }

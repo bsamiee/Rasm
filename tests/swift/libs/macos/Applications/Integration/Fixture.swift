@@ -49,11 +49,10 @@ func installation() throws -> Installation {
     try Installation(at: try #require(TestApplication.current))
 }
 
-func configuration(_ settings: Settings, new: Bool = false, hides: Bool = false) -> NSWorkspace.OpenConfiguration {
+func configuration(_ settings: Settings, new: Bool = false) -> NSWorkspace.OpenConfiguration {
     let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
     configuration.arguments = settings.arguments
     configuration.createsNewApplicationInstance = new
-    configuration.hides = hides
     return configuration
 }
 
@@ -69,7 +68,7 @@ func launched() async throws -> (installation: Installation, instance: NSRunning
 func launched(_ settings: Settings) async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
-    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(settings))
+    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(settings)).detached()
     try await instance.finishedLaunching()
     expectNoDifference(instance.activationPolicy, .accessory)
     return (installation, instance)

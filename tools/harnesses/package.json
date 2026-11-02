@@ -19,18 +19,5 @@
     },
     "devDependencies": {
         "@types/node": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "blender": {
-                "command": "node tools/harnesses/blender/main.ts",
-                "options": { "cwd": "{workspaceRoot}" }
-            },
-            "indesign": {
-                "command": "node tools/harnesses/indesign/main.ts",
-                "options": { "cwd": "{workspaceRoot}" },
-                "dependsOn": [ "@rasm/harnesses-indesign-uxpscript:build" ]
-            }
-        }
     }
 }

@@ -19,7 +19,6 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     let arguments: [String]
     let launches: Bool
     let activationPolicy: NSApplication.ActivationPolicy
-    let multipleInstancesProhibited: Bool
 
     public var isRecursive: Bool { true }
 
@@ -43,7 +42,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             try FileManager.default.copyItem(at: builtProduct(named: product), to: executable)
             let info: [String: Any] = [
                 kCFBundleIdentifierKey as String: identifier, kCFBundleNameKey as String: name, kCFBundleExecutableKey as String: process, "CFBundlePackageType": "APPL",
-                "LSMultipleInstancesProhibited": multipleInstancesProhibited, "LSUIElement": activationPolicy == .accessory, "LSBackgroundOnly": activationPolicy == .prohibited,
+                "LSUIElement": activationPolicy == .accessory, "LSBackgroundOnly": activationPolicy == .prohibited,
             ]
             try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: bundle.appending(components: "Contents", "Info.plist"))
             try await succeed(.name("codesign"), ["--sign", "-", "--force", bundle.path(percentEncoded: false)])
@@ -121,7 +120,6 @@ extension Trait where Self == TestApplication {
         arguments: [String] = [],
         launches: Bool = true,
         activationPolicy: NSApplication.ActivationPolicy = .accessory,
-        multipleInstancesProhibited: Bool = false,
     ) -> Self {
         let product: String = String(String(reflecting: entry).prefix { character in character != "." })
         return Self(
@@ -130,7 +128,6 @@ extension Trait where Self == TestApplication {
             arguments: arguments,
             launches: launches,
             activationPolicy: activationPolicy,
-            multipleInstancesProhibited: multipleInstancesProhibited,
         )
     }
 }

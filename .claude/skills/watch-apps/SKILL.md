@@ -10,7 +10,7 @@ description: "Use when opening or driving a desktop app, covering background con
 Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
 1. Start a Monitor running `watch` with the app's bundle id or display name
 2. Read the start lines: `system` pressure and each app's running instances or `{}` for none
-3. Open the app in background with `launch`
+3. Open the app with `launch` under `run_in_background: true`, stopping that task when work ends
 4. Act on each line by its state table row, on the `pid` of the instance work drives
 5. Run `read` for the control ids a watch line leaves out, then `perform` or `set` on one id
 6. Read the effect from the next watch line, `perform` and `set` print nothing on success
@@ -22,24 +22,18 @@ Monitor {"command": "watch-apps watch <app>",
 ```
 
 ```bash
-watch-apps launch <app> [--new] [--hides] \
+watch-apps launch <app> [--new] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
 ```
 
 - Names resolve as a path when starting with `/`, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
 - Names matching no app print a `fail` line, names matching apps of more than one bundle id a `fail` line listing them, and `watch` exits when no name resolves
 - `launch` of a bundle id installed at more than one path prints a `fail` line naming each path, pass one path as the name
-- `launch` prints state lines until the instance leaves `launching`, and reuses a running instance unless `--new` is passed
-- `--document` opens each named file, an unreachable file fails the command before anything opens, without one the app opens no document window
+- `launch` reuses the instance running at the app's path unless `--new` is passed, and opens a new one hidden, unfocused, and without splash screen
+- `launch` prints state lines until the instance leaves `launching`, then exits on a reused one or quits a new one when its starter exits or signals it
+- `--document` opens each named file, an unreachable file fails the command before anything opens
+- Without `--document`, an AppKit app opens an untitled document with no restored windows and an Adobe app its Home screen, `make document` creating one
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
-- `--hides` launches a new instance hidden and hides it again once launched when `--document` shows its windows, a running instance stays as it is
-- `--new` serves apps running one instance per document (Blender), a document app opens files in its running instance through `--document`
-- `--new` fails naming the running pid on an installation setting `LSMultipleInstancesProhibited` or whose new instance `watch` saw exit at its check
-- `--arguments -ApplePersistenceIgnoreState --arguments YES` stops `--new` restoring an AppKit app's documents, Blender opens `YES` as a file
-- Apps holding one instance by their own check show an alert in the new instance, which reads `responding` with a `requiresAnswer` element, then `exited`
-- Apps can activate and unhide themselves once launched or once a press answers a launch dialog, an argument stopping activation goes through `--arguments`
-- Apps supporting automatic termination can quit a hidden instance that shows no window
-- AppleScript `path to application` launches a stopped app hidden, a hidden menu bar app shows no panel until it restarts
 - `launch` captures neither the app's output nor error stream
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits or its reader closes. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
@@ -69,8 +63,6 @@ watch-apps set <id> -- '<text>'
 - Failed runs print a `fail` line keyed by the `id`, its `reason` naming an absent or disabled element, `AXRaise`, or an action refused or left unanswered
 - Refused and unanswered actions can have run, read the next state line before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- Instances launched with `--hides` stay hidden through dialogs and sheets
-- Instances hidden after launch show again at their next modal dialog
 - Watchers read hidden instances and actions reach them
 
 ## [03]-[STATES]

@@ -1,12 +1,12 @@
-use std::collections::{BTreeSet, HashMap};
-
 use petgraph::{
-    algo::{condensation, greedy_feedback_arc_set, kosaraju_scc},
+    algo::{condensation, greedy_feedback_arc_set},
     graph::DiGraph,
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableDiGraph},
     visit::{EdgeFiltered, EdgeRef as _},
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
+
+use crate::blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,12 +39,9 @@ pub fn simple<N, E>(graph: &StableDiGraph<N, E>) -> impl Iterator<Item = Vec<Nod
 #[must_use]
 pub fn tear<N, E>(mut graph: StableDiGraph<N, E>) -> Torn<N, E> {
     let skeleton = graph.map(|_, _| (), |_, _| ());
-    let block = kosaraju_scc(&skeleton).into_iter().enumerate().flat_map(|(rank, members)| members.into_iter().map(move |node| (node, rank))).collect::<HashMap<_, _>>();
-    let edges = greedy_feedback_arc_set(&EdgeFiltered::from_fn(&skeleton, |edge: EdgeReference<'_, ()>| block.get(&edge.source()) == block.get(&edge.target())))
-        .map(|edge| (edge.id(), edge.source(), edge.target()))
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .filter_map(|(edge, source, target)| graph.remove_edge(edge).map(|weight| (source, target, weight)))
+    let block = blocks(&skeleton);
+    let edges = greedy_feedback_arc_set(&EdgeFiltered::from_fn(&skeleton, |edge: EdgeReference<'_, ()>| block.get(edge.source().index()) == block.get(edge.target().index())))
+        .filter_map(|edge| graph.remove_edge(edge.id()).map(|weight| (edge.source(), edge.target(), weight)))
         .collect();
     Torn { graph, edges }
 }

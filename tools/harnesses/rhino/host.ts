@@ -152,7 +152,7 @@ const fields = {
             description: 'Document object, layer, and material changes while macros, script, and body ran',
         }),
     ),
-    restored: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Rhino.ApplicationSettings classes the case changed and the engine restored' })),
+    restored: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'RhinoAppSettings entries the case changed and the engine restored' })),
     diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ time: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Grasshopper 2 logger entries' })),
     cancelled: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Prompts left waiting that the harness cancelled' })),
     unanswered: Schema.optionalKey(Schema.Array(Schema.Struct({ title: Schema.optionalKey(Schema.String), text: Schema.Array(Schema.String), reason: Schema.String }))),
@@ -677,7 +677,7 @@ const session = Effect.fn('session')(function* (install: Install, companions: re
     const { pid } = yield* Launch({
         app: install.path,
         fresh: true,
-        arguments: ['-nosplash', `-runscript=_-ScriptEditor _Run "${path.join(folder, 'loader.cs')}"`],
+        arguments: [`-runscript=_-ScriptEditor _Run "${path.join(folder, 'loader.cs')}"`],
         environment: { [HARNESS]: yield* Schema.encodeEffect(Harnessed)([built.assembly, journal, captures, built.batch, ...remaining.map(String)]) },
     });
     const names = [install.bundle, ...companions] as const;

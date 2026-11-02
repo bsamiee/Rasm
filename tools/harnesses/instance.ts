@@ -2,7 +2,7 @@ import { constants, tmpdir } from 'node:os';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
-import { Array, Effect, FileSystem, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Effect, FileSystem, Match, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { HarnessError } from '#/error';
 import type { Crash } from '#/results';
@@ -10,6 +10,11 @@ import type { Crash } from '#/results';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Exited = Extract<typeof State.Type, { readonly _tag: 'Exited' }>;
+interface Row {
+    readonly identifier: string;
+    readonly pid: number;
+    readonly state: typeof State.Type;
+}
 interface Launch {
     readonly app: string;
     readonly fresh?: boolean;
@@ -39,17 +44,15 @@ const Ips = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decoded = Effect.fn('decoded')(function* (text: string) {
-    const line = yield* Schema.decodeEffect(Line)(text);
-    return Schema.is(System)(line)
-        ? []
-        : Schema.is(Failure)(line)
-          ? yield* Effect.flatMap(
-                Effect.fromOption(Array.head(Record.toEntries(line)), () => HarnessError.make({ reason: { _tag: 'Unavailable', because: text }, subject: 'watch-apps' })),
-                ([key, { fail }]) => HarnessError.make({ reason: { _tag: 'Unavailable', because: fail.reason }, subject: key }),
-            )
-          : Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat();
-});
+const listed = (line: typeof Instances.Type): readonly Row[] => Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat();
+const decoded = (text: string): Effect.Effect<readonly Row[], HarnessError | Schema.SchemaError> =>
+    Effect.flatMap(Schema.decodeEffect(Line)(text), (line) =>
+        Match.value(line).pipe(
+            Match.when(Schema.is(System), () => Effect.succeed([])),
+            Match.when(Schema.is(Failure), (failed) => HarnessError.make({ reason: { _tag: 'Unavailable', because: Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', ') }, subject: 'watch-apps' })),
+            Match.orElse((instances) => Effect.succeed(listed(instances))),
+        ),
+    );
 const rows = (command: readonly string[]) => Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.mapEffect(decoded), Stream.flattenIterable));
 const spawned = Effect.fn('spawned')(function* (command: string, args: readonly string[]) {
     const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore', stderr: 'inherit' });

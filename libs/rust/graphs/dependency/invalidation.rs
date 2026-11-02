@@ -1,64 +1,105 @@
-use core::{iter, ops::ControlFlow};
-use std::collections::BTreeSet;
+use core::iter;
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 use petgraph::{
     Direction,
-    algo::{
-        toposort,
-        tred::{dag_to_toposorted_adjacency_list, dag_transitive_reduction_closure},
-    },
-    graph::{DefaultIx, DiGraph},
-    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
-    visit::{Dfs, EdgeRef as _, Reversed, VisitMap as _, Visitable as _, Walker as _},
+    stable_graph::{NodeIndex, StableDiGraph},
+    visit::{Dfs, Reversed, VisitMap as _, Visitable as _, Walker as _},
 };
 
-use crate::{DependencyError, cycle, order::layers};
+use crate::{DependencyError, Evaluation, present};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub struct Due(NodeIndex);
+
+impl Due {
+    #[must_use]
+    pub const fn node(&self) -> NodeIndex { self.0 }
+}
+
+#[derive(Debug)]
+pub struct Propagation<'graph, N, E> {
+    graph: &'graph StableDiGraph<N, E>,
+    pending: BTreeMap<NodeIndex, usize>,
+    stale: BTreeSet<NodeIndex>,
+    due: BTreeSet<NodeIndex>,
+    changed: BTreeSet<NodeIndex>,
+}
+
+impl<'graph, N, E> Propagation<'graph, N, E> {
+    pub fn new(evaluation: &'graph Evaluation<N, E>, dirty: impl IntoIterator<Item = NodeIndex>) -> Result<(Self, Vec<Due>), DependencyError> {
+        let graph = evaluation.inner();
+        let stale = dirty.into_iter().collect::<BTreeSet<_>>();
+        present(graph, stale.iter().copied())?;
+        let mut walk = Dfs::from_parts(stale.iter().copied().collect(), graph.visit_map());
+        let affected = (&mut walk).iter(graph).collect::<Vec<_>>();
+        let mut pending =
+            affected.into_iter().map(|node| (node, graph.neighbors_directed(node, Direction::Incoming).filter(|source| walk.discovered.is_visited(source)).count())).collect::<BTreeMap<_, _>>();
+        let released = pending.extract_if(.., |_, &mut inputs| inputs == 0).map(|(node, _)| node).collect();
+        let mut propagation = Self { graph, pending, stale, due: BTreeSet::new(), changed: BTreeSet::new() };
+        let ready = propagation.advance(released);
+        Ok((propagation, ready))
+    }
+
+    pub fn finish(&mut self, Due(node): Due, changed: bool) -> Vec<Due> {
+        self.due.remove(&node);
+        let released = self.complete(node, changed);
+        self.advance(released)
+    }
+
+    #[must_use]
+    pub fn owed(&self) -> BTreeSet<NodeIndex> { iter::chain(&self.due, self.pending.keys()).copied().collect() }
+
+    #[must_use]
+    pub const fn changed(&self) -> &BTreeSet<NodeIndex> { &self.changed }
+
+    fn complete(&mut self, node: NodeIndex, changed: bool) -> Vec<NodeIndex> {
+        let graph = self.graph;
+        if changed {
+            self.changed.insert(node);
+            self.stale.extend(graph.neighbors_directed(node, Direction::Outgoing));
+        }
+        graph
+            .neighbors_directed(node, Direction::Outgoing)
+            .filter(|&target| match self.pending.entry(target) {
+                Entry::Occupied(held) if *held.get() == 1 => {
+                    held.remove();
+                    true
+                }
+                Entry::Occupied(mut held) => {
+                    *held.get_mut() = held.get().strict_sub(1);
+                    false
+                }
+                Entry::Vacant(_) => false,
+            })
+            .collect()
+    }
+
+    fn advance(&mut self, mut released: Vec<NodeIndex>) -> Vec<Due> {
+        let mut ready = Vec::new();
+        while let Some(node) = released.pop() {
+            if self.stale.remove(&node) {
+                self.due.insert(node);
+                ready.push(Due(node));
+            } else {
+                released.extend(self.complete(node, false));
+            }
+        }
+        ready
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn reach<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<StableDiGraph<&N, &E>, DependencyError> {
-    let mut walk = Dfs::from_parts(nodes.into_iter().map(|node| graph.contains_node(node).then_some(node).ok_or(DependencyError::Missing { node })).try_collect()?, graph.visit_map());
+    let nodes = nodes.into_iter().collect::<Vec<_>>();
+    present(graph, nodes.iter().copied())?;
+    let mut walk = Dfs::from_parts(nodes, graph.visit_map());
     match direction {
         Direction::Outgoing => (&mut walk).iter(graph).for_each(drop),
         Direction::Incoming => (&mut walk).iter(Reversed(graph)).for_each(drop),
     }
     Ok(graph.filter_map(|node, weight| walk.discovered.is_visited(&node).then_some(weight), |_, weight| Some(weight)))
-}
-
-pub fn propagate<N, E, B, C>(
-    graph: &StableDiGraph<N, E>,
-    dirty: impl IntoIterator<Item = NodeIndex>,
-    mut recompute: impl FnMut(&[NodeIndex]) -> ControlFlow<B, C>,
-) -> Result<ControlFlow<(B, BTreeSet<NodeIndex>)>, DependencyError>
-where
-    C: IntoIterator<Item = NodeIndex>,
-{
-    let dirty = dirty.into_iter().collect::<BTreeSet<_>>();
-    let affected = reach(graph, dirty.iter().copied(), Direction::Outgoing)?;
-    let stale = |node: &NodeIndex, changed: &BTreeSet<NodeIndex>| dirty.contains(node) || affected.neighbors_directed(*node, Direction::Incoming).any(|source| changed.contains(&source));
-    let mut waves = layers(&affected)?.into_iter();
-    let settled = waves.by_ref().try_fold(BTreeSet::new(), |changed, wave| {
-        let due = wave.into_iter().filter(|node| stale(node, &changed)).collect::<Vec<_>>();
-        match (!due.is_empty()).then(|| recompute(&due)) {
-            None => ControlFlow::Continue(changed),
-            Some(ControlFlow::Continue(found)) => ControlFlow::Continue(iter::chain(changed, found).collect()),
-            Some(ControlFlow::Break(reason)) => ControlFlow::Break((reason, due, changed)),
-        }
-    });
-    Ok(settled.map_continue(drop).map_break(|(reason, due, changed)| (reason, iter::chain(due, waves.flatten().filter(|node| stale(node, &changed))).collect())))
-}
-
-pub fn redundant<N, E>(graph: &StableDiGraph<N, E>) -> Result<Vec<EdgeIndex>, DependencyError> {
-    let compact = DiGraph::from(graph.map(|node, _| node, |edge, _| edge));
-    let sequence = toposort(&compact, None).map_err(|refused| cycle(graph, compact.node_weight(refused.node_id()).copied()))?;
-    let (ordered, ranks) = dag_to_toposorted_adjacency_list::<_, DefaultIx>(&compact, &sequence);
-    let (reduction, _) = dag_transitive_reduction_closure(&ordered);
-    Ok(compact
-        .edge_references()
-        .filter(|edge| {
-            compact.find_edge(edge.source(), edge.target()) != Some(edge.id())
-                || ranks.get(edge.source().index()).zip(ranks.get(edge.target().index())).is_some_and(|(&source, &target)| !reduction.contains_edge(source, target))
-        })
-        .map(|edge| *edge.weight())
-        .collect())
 }
