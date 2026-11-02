@@ -71,7 +71,7 @@ Depth runs follow behind the rows, so no library stays surface level: each commi
 
 - **Drain:** no new Rust, depth, TypeScript or harness run starts until the running ones land: rows `numerics/dynamics`, `geometry/implicit`, `drawing/views`, `documents/pdf`, `geospatial/weather`; depth on `geometry/planar`, `services/telemetry`, `services/daemon`, `cli` and `numerics/optimize`; `web/hosting`; the Illustrator and the Photoshop and Acrobat harness runs. The decompile runs, the distills and `font-foundry` keep going.
 - **Then, at once:** each open item under Defects to land fixed surgically at its cause by one focused agent per defect, delegating to its own agents, every check at zero; `typescript-sweep` from the drained commit with `args.exclude` holding `tools/harnesses` while a decompile run still drives it; and one `rust-tune` over every Rust commit since `24ede74fc`.
-- **After the Rust tune lands:** Rust rows in RUST.md order, six at once, sent without spacing; depth on three slots over each row as it lands, filled in this order while rows are short: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`.
+- **After the Rust tune lands:** six Rust runs at once, three rows and three depth runs, sent without spacing. Rows go in RUST.md order. Depth takes `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened (`numerics/analysis`, `graphs/layout`, `drawing/annotation` and the rows draining now). Each landing frees its slot for the next row or depth run, so six stay running until the queue empties.
 - **Folder guidance:** the `guidance` workflow once the sweep and the Rust queue settle.
 
 ### Defects to land
