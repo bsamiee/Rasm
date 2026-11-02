@@ -2,7 +2,6 @@ import { HostError, Requests } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Link } from '@rasm/uxp/link';
 import { Array, Cause, Console, Effect, flow, Layer, Match, Option, Predicate, Schema, SchemaGetter } from 'effect';
-import type { HttpRouter } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,7 +26,7 @@ const Reply = Schema.Union([
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const extension = (path: HttpRouter.PathInput): void => {
+const extension = (): void => {
     Effect.gen(function* () {
         const [{ __adobe_cep__: cep }, origin] = yield* Effect.all([Schema.decodeUnknownEffect(Panel)(globalThis), Schema.decodeUnknownEffect(Schema.String)(import.meta.env.LINK_ORIGIN)]);
         const evaluated = (script: string) =>
@@ -58,7 +57,7 @@ const extension = (path: HttpRouter.PathInput): void => {
         const [name, application] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.String)(cep.getExtensionId.call(cep)), Schema.decodeUnknownEffect(Schema.URLFromString)(cep.getSystemPath.call(cep, 'hostApplication'))]);
         // biome-ignore lint/nursery/noUnsafeTypeAssertion: each handler encodes its tag's payload and decodes its tag's success through that rpc's schemas, which a table built from the request map types as their union
         const layer = Requests.toLayer(handlers as unknown as { readonly [Current in RpcGroup.Rpcs<typeof Requests> as Current['_tag']]: Rpc.ToHandlerFn<Current, never> });
-        return yield* Layer.launch(Link.dial(Requests, layer, { origin, path, extension: name, application: Effect.succeed(application) }));
+        return yield* Layer.launch(Link.dial(Requests, layer, { origin, extension: name, application: Effect.succeed(application) }));
     }).pipe(Effect.tapCause(flow(Cause.pretty, Console.error)), Effect.runFork);
 };
 

@@ -246,6 +246,14 @@ fn borrowed_indexing(found: &str) {
        |                                           ^^^^^^^^
        |
        = help: call `queue.get(3)` and handle `None`
+
+    warning: indexing `IndexMap<u32, u16>` by `0` panics when the entry is absent
+      --> tools/dylint/examples/borrowed_indexing.rs:55:52
+       |
+    55 | fn positioned(ports: &IndexMap<u32, u16>) -> u16 { ports[0] }
+       |                                                    ^^^^^^^^
+       |
+       = help: call `ports.get_index(0)` and handle `None`
     "#);
 }
 

@@ -7,4 +7,4 @@ import { Link } from '@rasm/uxp/link';
 
 const { server, application } = host(indesign);
 
-plugin((link) => Link.dial(Contract, server, { ...link, path: '/com.adobe.InDesign', application }));
+plugin((link) => Link.dial(Contract, server, { ...link, application }));

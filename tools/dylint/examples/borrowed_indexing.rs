@@ -44,10 +44,12 @@ fn main() {
         listed(&[1]),
         expanded(&ordered_ports),
         owned(ordered_ports),
-        (queued(&VecDeque::from([1, 2, 3, 4])), listed_vec(&vec![1])),
+        (queued(&VecDeque::from([1, 2, 3, 4])), listed_vec(&vec![1]), positioned(&IndexMap::from([(2, 22)]))),
     ));
 }
 
 fn queued(queue: &VecDeque<u16>) -> u16 { queue[3] }
 
 fn listed_vec(ports: &Vec<u16>) -> u16 { ports[0] }
+
+fn positioned(ports: &IndexMap<u32, u16>) -> u16 { ports[0] }

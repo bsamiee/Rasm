@@ -13,7 +13,7 @@ import { status } from '#/status';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const served = Effect.gen(function* () {
-    const [automation, links] = yield* Effect.all([Automation, linked]);
+    const [automation, { libraries: links, changes }] = yield* Effect.all([Automation, linked]);
     const statuses = yield* status;
     yield* Effect.all([applications, faces, Effect.flatMap(routes(statuses, links), dictionaries)], { discard: true });
     const tools = Effect.gen(function* () {
@@ -24,13 +24,7 @@ const served = Effect.gen(function* () {
     yield* Effect.forEach(first, () => tools, { discard: true });
     yield* Effect.forkScoped(
         Stream.runForEach(
-            Stream.merge(
-                rest,
-                Stream.mergeAll(
-                    Array.map(links, (library) => Stream.drop(library.changes, 1)),
-                    { concurrency: 'unbounded' },
-                ),
-            ),
+            Stream.merge(rest, Stream.drop(changes, 1)),
             () => tools,
         ),
     );

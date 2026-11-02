@@ -35,7 +35,11 @@ where L: FileLoader + Send + Sync {
         },
         PagedFormat::Svg => Validated::Good(pages.map(|(number, page)| (number, Bytes::from_string(typst_svg::svg(page, &options.svg)))).collect()),
         PagedFormat::Png => {
-            let density = NonZero::new((options.png.pixel_per_pt.get() * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).map(|ppu| PixelDimensions { xppu: ppu.get(), yppu: ppu.get(), unit: Unit::Meter });
+            let density = NonZero::new((options.png.pixel_per_pt.get() * Abs::cm(100.0).to_pt()).round().to_int_saturating::<u32>()).map(|ppu| PixelDimensions {
+                xppu: ppu.get(),
+                yppu: ppu.get(),
+                unit: Unit::Meter,
+            });
             pages
                 .map(|(number, page)| {
                     raster(project.main.vpath(), number, page, &options.png, budget)?;
@@ -49,8 +53,8 @@ where L: FileLoader + Send + Sync {
                     encoder
                         .write_header()
                         .and_then(|mut writer| writer.write_image_data(&pixmap.take_demultiplied()).and_then(|()| writer.finish()))
-                    .map(|()| (number, Bytes::new(data)))
-                    .map_err(|source| TypesetError::Encode { page: number, source })
+                        .map(|()| (number, Bytes::new(data)))
+                        .map_err(|source| TypesetError::Encode { page: number, source })
                 })
                 .collect()
         }
@@ -69,9 +73,8 @@ where L: FileLoader + Send + Sync {
         .files
         .iter()
         .filter_map(|(path, file)| match file {
-            BundleFile::Document(BundleDocument::Paged(document, PagedExtras { format: PagedFormat::Png, anchors: _ })) => {
-                document.pages().first().map(|page| raster(path, NonZero::<usize>::MIN, page, &options.png, budget))
-            }
+            BundleFile::Document(BundleDocument::Paged(document, PagedExtras { format: PagedFormat::Png, anchors: _ })) =>
+                document.pages().first().map(|page| raster(path, NonZero::<usize>::MIN, page, &options.png, budget)),
             BundleFile::Document(BundleDocument::Paged(_, PagedExtras { format: PagedFormat::Pdf | PagedFormat::Svg, anchors: _ }) | BundleDocument::Html(_)) | BundleFile::Asset(_) => None,
         })
         .collect::<Validated<(), _>>();
@@ -88,12 +91,13 @@ where L: FileLoader + Send + Sync {
 fn raster(path: &VirtualPath, page: NonZero<usize>, content: &Page, options: &RenderOptions, budget: NonZero<u64>) -> Result<(), TypesetError> {
     let size = (content.frame.size() + if options.render_bleed { content.bleed } else { Sides::default() }.sum_by_axis())
         .map(|axis| (options.pixel_per_pt.get().cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
-    size.x
-        .checked_mul(4)
-        .filter(|&row| i32::try_from(row).is_ok())
-        .and_then(|row| u64::from(row).checked_mul(u64::from(size.y)))
-        .is_some_and(|length| usize::try_from(length).is_ok() && u64::from(size.x).strict_mul(u64::from(size.y)) <= budget.get())
-        .ok_or(TypesetError::Raster { path: path.clone(), page, width: size.x, height: size.y, budget })
+    (size.x.checked_mul(4).is_some_and(|row| row <= i32::MAX.cast_unsigned()) && u64::from(size.x).strict_mul(u64::from(size.y)) <= budget.get()).ok_or(TypesetError::Raster {
+        path: path.clone(),
+        page,
+        width: size.x,
+        height: size.y,
+        budget,
+    })
 }
 
 fn stamped(now: &Zoned, options: BundleOptions) -> BundleOptions {

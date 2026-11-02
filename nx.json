@@ -165,7 +165,7 @@
                 "options": {
                     "cwd": "{projectRoot}",
                     "commands": [
-                        "version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -skipMacroValidation build LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\" {args}",
+                        "version=$(dotnet dnx minver-cli --prerelease -y -- -v e) && xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -skipMacroValidation build LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\" {args}",
                         { "command": "xcode-build-server config -project {projectName}.xcodeproj -scheme {projectName} --build_root \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false }
                     ],
                     "parallel": false
@@ -179,8 +179,8 @@
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] },
-            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "vite build --config uxp.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
-            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "vite build --config cep.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
+            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "vite build --config uxp.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite", { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
+            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "vite build --config cep.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite", { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             { "filter": { "projects": [ "tag:output:script" ] }, "command": "vite build --config script.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             { "filter": { "projects": [ "tag:host:extendscript" ] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": [ "...", { "externalDependencies": [ "@swc/core", "@swc/cli" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
@@ -194,8 +194,8 @@
             },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
-                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.blender pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
-                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" } ],
+                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.blender pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
+                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}" ],
                 "cache": true
             },
@@ -205,7 +205,7 @@
                 "options": {
                     "commands": [
                         "rm -rf \".artifacts/xcode/{projectRoot}\"",
-                        "version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild archive -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -archivePath \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive\" -disableAutomaticPackageResolution -skipMacroValidation LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
+                        "version=$(dotnet dnx minver-cli --prerelease -y -- -v e) && xcodebuild archive -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -archivePath \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive\" -disableAutomaticPackageResolution -skipMacroValidation LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
                         "ditto -c -k --sequesterRsrc --keepParent \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive/Products/Applications/{projectName}.app\" \".artifacts/xcode/{projectRoot}/{projectName}.zip\" && rm -rf \".artifacts/xcode/{projectRoot}/{projectName}.xcarchive\""
                     ],
                     "parallel": false
@@ -213,12 +213,25 @@
                 "outputs": [ "{workspaceRoot}/.artifacts/xcode/{projectRoot}" ],
                 "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
                 "parallelism": false
+            },
+            {
+                "filter": { "projects": [ "tag:host:uxp" ] },
+                "command": "rm -f .artifacts/{projectRoot}.ccx && ditto -c -k --norsrc .artifacts/{projectRoot} .artifacts/{projectRoot}.ccx",
+                "dependsOn": [ "build" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.ccx" ]
+            },
+            {
+                "filter": { "projects": [ "tag:host:cep" ] },
+                "command": "doppler run --project agent-runtime --config dev --only-secrets ZXP_CERTIFICATE,ZXP_CERTIFICATE_PASSWORD --no-fallback --attempts 1 --command 'certificate=$(mktemp) && trap \"rm -f \\\"$certificate\\\"\" EXIT && printf %s \"$ZXP_CERTIFICATE\" | base64 -d > \"$certificate\" && rm -f .artifacts/{projectRoot}.zxp && ZXPSignCmd -sign .artifacts/{projectRoot} .artifacts/{projectRoot}.zxp \"$certificate\" \"$ZXP_CERTIFICATE_PASSWORD\" -tsa http://timestamp.digicert.com && ZXPSignCmd -verify .artifacts/{projectRoot}.zxp -certInfo'",
+                "dependsOn": [ "build" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.zxp" ],
+                "cache": false
             }
         ],
         "install": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
-                "command": "rm -rf \"/Applications/{projectName}.app\" && version=$(dotnet dnx minver-cli --prerelease -y -- -t macos-{projectName}-v -v e) && xcodebuild install -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution -skipMacroValidation DSTROOT=/Applications INSTALL_PATH=/ LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
+                "command": "rm -rf \"/Applications/{projectName}.app\" && version=$(dotnet dnx minver-cli --prerelease -y -- -v e) && xcodebuild install -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination generic/platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution -skipMacroValidation DSTROOT=/Applications INSTALL_PATH=/ LM_SKIP_METADATA_EXTRACTION=YES MARKETING_VERSION=\"$version\"",
                 "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
                 "parallelism": false
             },
@@ -231,8 +244,13 @@
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "rsync -a --delete .artifacts/{projectRoot}/ \"$HOME/Library/Application Support/Adobe/CEP/extensions/$(basename {projectRoot})/\" && defaults write com.adobe.CSXS.12 PlayerDebugMode 1", "dependsOn": [ "build" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "pack" ], "parallelism": false },
+            {
+                "filter": { "projects": [ "tag:host:cep" ] },
+                "command": "folder=\"$HOME/Library/Application Support/Adobe/CEP/extensions/$PRODUCT_BUNDLE_IDENTIFIER.$(basename {projectRoot})\" && rm -rf \"$folder\" && ditto -x -k .artifacts/{projectRoot}.zxp \"$folder\"",
+                "dependsOn": [ "pack" ],
+                "parallelism": false
+            },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
         ],

@@ -40,7 +40,9 @@ const Ips = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const listed = (line: typeof Instances.Type): Effect.Effect<readonly Row[]> => Effect.succeed(Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat());
+const settled = (state: typeof State.Type): state is Exited =>
+    State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !(['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).some((name) => constants.signals[name] === state.signal)));
+const listed =(line: typeof Instances.Type): Effect.Effect<readonly Row[]> => Effect.succeed(Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat());
 const decoded = (text: string): Effect.Effect<readonly Row[], HarnessError | Schema.SchemaError> =>
     Effect.flatMap(Schema.decodeEffect(Line)(text), (line) =>
         Match.value(line).pipe(
@@ -78,8 +80,6 @@ const lock = Effect.fn('lock')(function* (identifier: string, pid: number) {
     yield* Effect.acquireRelease(acquired, () => Effect.orDie(fs.remove(file)));
 });
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
-const settled = (state: typeof State.Type): state is Exited =>
-    State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !(['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).some((name) => constants.signals[name] === state.signal)));
 const owner = Effect.fn('owner')(function* (pid: number) {
     const { lines } = yield* spawned('ps', ['-o', 'command=', '-p', String(pid)]);
     return lines.join(' ').trim();

@@ -7,7 +7,6 @@ use nonempty_collections::NEBTreeSet;
 use petgraph::{
     Direction,
     acyclic::{Acyclic, AcyclicEdgeError},
-    algo::Cycle,
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     visit::EdgeRef as _,
 };
@@ -34,7 +33,7 @@ pub struct Rewiring<E> {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DependencyError {
-    #[error("dependency cycles {}", paths.iter().map(|path| path.iter().chain(path.first()).map(|node| node.index()).format(" -> ")).format("; "))]
+    #[error("dependency cycles {}", paths.iter().map(|path| iter::chain(path, path.first()).map(|node| node.index()).format(" -> ")).format("; "))]
     Cycle { paths: Vec<Vec<NodeIndex>> },
     #[error("nodes outside the graph: {}", nodes.iter().map(|node| node.index()).format(", "))]
     Missing { nodes: NEBTreeSet<NodeIndex> },
@@ -43,8 +42,9 @@ pub enum DependencyError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn evaluation<N, E>(graph: StableDiGraph<N, E>) -> Result<Evaluation<N, E>, DependencyError> {
-    let skeleton = graph.map(|_, _| (), |_, _| ());
-    Evaluation::try_from(graph).map_err(|Cycle { .. }| cycles::refusal(&skeleton))
+    let paths = cycles::closings(&graph);
+    paths.is_empty().ok_or(DependencyError::Cycle { paths })?;
+    Evaluation::try_from(graph).map_err(|refused| DependencyError::Cycle { paths: vec![vec![refused.node_id()]] })
 }
 
 pub fn connect<N, E>(graph: &mut Evaluation<N, E>, target: NodeIndex, sources: impl IntoIterator<Item = (NodeIndex, E)>, inputs: Inputs) -> Result<Rewiring<E>, DependencyError>

@@ -231,7 +231,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         if let Some((span, discard, label, error)) = found
             && match discard {
-                Discard::View => approx_ty_size(cx, error) > 0 && !body_output(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)).is_some_and(Ty::is_bool),
+                Discard::View => approx_ty_size(cx, error) > 0 && !body_output(cx, cx.tcx.typeck_root_def_id_local(cx.tcx.hir_enclosing_body_owner(expr.hir_id))).is_some_and(Ty::is_bool),
                 Discard::Absence => approx_ty_size(cx, error) > 0,
                 Discard::Fallback | Discard::Success | Discard::Unmatched | Discard::Iterated | Discard::Flattened | Discard::Statement | Discard::Unnamed =>
                     typeck.expr_ty(expr).opt_def_id().is_none_or(|produced| Some(produced) != self.exit_code),

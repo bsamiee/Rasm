@@ -105,11 +105,21 @@ const XcodeProject = Parsed('JSON', parseJson).pipe(
     Schema.decodeTo(
         Schema.Struct({
             files: Schema.Array(Schema.Unknown),
-            targets: Schema.Array(Schema.Struct({ members: Schema.Array(Schema.Struct({ product: Schema.String }).pipe(Schema.encodeKeys({ product: 'product-name' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ members: 'package-product-members' }))),
+            targets: Schema.Array(
+                Schema.Struct({
+                    name: Schema.String,
+                    members: Schema.Array(Schema.Struct({ product: Schema.String }).pipe(Schema.encodeKeys({ product: 'product-name' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+                    settings: Schema.Struct({ PRODUCT_BUNDLE_IDENTIFIER: Schema.OptionFromOptionalKey(Schema.String) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                }).pipe(Schema.encodeKeys({ members: 'package-product-members', settings: 'build-settings' })),
+            ),
         }),
     ),
 );
-const XcodeFolder = Schema.Struct({ kind: Schema.Literal('folder'), path: Schema.String });
+const NxJson = Parsed('JSON', parseJson).pipe(
+    Schema.decodeTo(Schema.Struct({ release: Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) }) })),
+);
+const Released = Schema.Struct({ targets: Schema.Struct({ build: Schema.Struct({ options: Schema.Struct({ env: Schema.Struct({ MinVerTagPrefix: Schema.String, PRODUCT_BUNDLE_IDENTIFIER: Schema.String }) }) }) }) });
+const XcodeEntry = Schema.Struct({ path: Schema.String });
 const TsConfig = Parsed('JSON', parseJson).pipe(
     Schema.decodeTo(
         Schema.Struct({
@@ -146,7 +156,16 @@ const cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, 
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
 });
-const extendedConfigs: (root: string, file: string) => Effect.Effect<readonly string[], Effect.Error<ReturnType<typeof decode>>, Effect.Services<ReturnType<typeof decode>>> = Effect.fnUntraced(function* (root: string, file: string) {
+const owning = Effect.fnUntraced(function* (root: string, dir: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const folders = [...dir.split(path.sep).map((_, at, segments) => segments.slice(0, segments.length - at).join(path.sep)), '.'];
+    const owner = yield* Effect.flatMap(
+        Effect.findFirst(folders, (folder) => fs.exists(path.join(root, folder, 'package.json'))),
+        Effect.fromOption,
+    );
+    return { owner, manifest: yield* decode(Package, root, path.join(owner, 'package.json')) };
+});
+const extendedConfigs:(root: string, file: string) => Effect.Effect<readonly string[], Effect.Error<ReturnType<typeof decode>>, Effect.Services<ReturnType<typeof decode>>> = Effect.fnUntraced(function* (root: string, file: string) {
     const [path, config] = yield* Effect.all([Path.Path, decode(TsConfig, root, file)]);
     const parents = config.extends.map((parent) => path.join(path.dirname(file), parent));
     const chains = yield* Effect.forEach(parents, (parent) => extendedConfigs(root, parent));
@@ -172,6 +191,7 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
         ...(yield* Effect.all({
             pyproject: Effect.cached(readPyproject(root)),
             mise: Effect.cached(decode(Mise, root, 'mise.toml')),
+            nx: Effect.cached(decode(NxJson, root, 'nx.json')),
             hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
             crates: Effect.cached(readCrates(store)),
             swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'describe', '--type', 'json'] })),
@@ -180,7 +200,12 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
 });
 
 // --- [PROJECTS]
-const testDirs = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
+const tagPrefix = Effect.fnUntraced(function* ({ nx }: Workspace, tags: readonly string[], name: string) {
+    const { release } = yield* nx;
+    const [group] = yield* Effect.fromOption(Record.findFirst(release.groups, ({ projects }) => tags.some((tag) => projects.includes(`tag:${tag}`))));
+    return release.releaseTag.pattern.replace('{releaseGroupName}', group).replace('{projectName}', name).replace('{version}', '');
+});
+const testDirs =(path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject, hosts }: Workspace) {
     const [path, { pythonFiles, testPaths }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
@@ -301,31 +326,36 @@ const markers = {
     }),
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
         const [{ moduleRoots }, { id }, targets] = yield* Effect.all([workspace.pyproject, decode(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
+        const tags = ['language:python', 'output:extension'];
         return {
             name: id,
-            tags: ['language:python', 'output:extension'],
+            tags,
             targets: {
-                pack: { inputs: moduleRoots.map((moduleRoot) => `{workspaceRoot}/${moduleRoot}/**/*`) },
+                pack: { inputs: moduleRoots.map((moduleRoot) => `{workspaceRoot}/${moduleRoot}/**/*`), options: { env: { MinVerTagPrefix: yield* tagPrefix(workspace, tags, id) } } },
                 install: {},
                 publish: {},
                 ...targets,
             },
         };
     }),
-    [XCODE_PROJECT]: Effect.fnUntraced(function* ({ dir }, { file, root: workspace }) {
+    [XCODE_PROJECT]: Effect.fnUntraced(function* ({ dir }, held) {
+        const { file, root: workspace } = held;
         const [path, { files, targets }] = yield* Effect.all([Path.Path, decode(XcodeProject, workspace, file)]);
-        const root = path.dirname(dir);
+        const [root, name] = [path.dirname(dir), path.parse(dir).name];
+        const identifier = yield* Effect.fromOption(Option.flatMap(Array.findFirst(targets, (target) => target.name === name), ({ settings }) => settings.PRODUCT_BUNDLE_IDENTIFIER));
         const updated = targets.some(({ members }) => members.some(({ product }) => product === 'Sparkle'));
-        const bundled = yield* Effect.forEach(
+        const owners = yield* Effect.forEach(
             files
-                .filter(Schema.is(XcodeFolder))
-                .map((folder) => path.relative('.artifacts', path.join(root, folder.path)))
+                .filter(Schema.is(XcodeEntry))
+                .map((entry) => path.relative('.artifacts', path.join(root, entry.path)))
                 .filter((source) => !source.startsWith('..')),
-            (source) => Effect.map(decode(Package, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
+            (source) => Effect.map(owning(workspace, path.join(path.dirname(source), path.parse(source).name)), ({ manifest }) => manifest.name),
         );
-        const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) } };
-        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => ({ ...target, options, ...(['build', 'pack'].includes(name) ? { dependsOn: bundled } : {}) })) };
+        const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
+        const tags = ['build:xcode', ...(updated ? ['output:appcast'] : [])];
+        const xcode = swiftProject(tags, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
+        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), MinVerTagPrefix: yield* tagPrefix(held, tags, name), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
+        return { root, name, ...xcode, targets: Record.map(xcode.targets, (target, step) => ({ ...target, options, ...(['build', 'pack'].includes(step) ? { dependsOn: bundled } : {}) })) };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
         const [path, { moduleRoots }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
@@ -333,14 +363,9 @@ const markers = {
         return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets };
     }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root, configFiles }) {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const folders = [...dir.split(path.sep).map((_, at, segments) => segments.slice(0, segments.length - at).join(path.sep)), '.'];
-        const owner = yield* Effect.flatMap(
-            Effect.findFirst(folders, (folder) => fs.exists(path.join(root, folder, 'package.json'))),
-            Effect.fromOption,
-        );
-        const [suite, configs, { compilerOptions }, manifest, containers, entries] = yield* Effect.all(
-            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), decode(Package, root, path.join(owner, 'package.json')), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])],
+        const path = yield* Path.Path;
+        const [suite, configs, { compilerOptions }, { owner, manifest }, containers, entries] = yield* Effect.all(
+            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), owning(root, dir), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])],
             { concurrency: 'unbounded' },
         );
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
@@ -364,8 +389,8 @@ const markers = {
         };
     }),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
-    'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
-    'cep.config.ts': () => Effect.succeed({ tags: ['host:cep'], targets: { build: {}, install: {} } }),
+    'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, pack: {}, install: {} } }),
+    'cep.config.ts': () => Effect.succeed({ tags: ['host:cep'], targets: { build: {}, pack: {}, install: {} } }),
     'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
     '.storybook/main.ts': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), targets: { storybook: {} } })),

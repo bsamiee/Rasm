@@ -10,7 +10,7 @@ use core::{
 use biquad::{Biquad as _, Coefficients, DirectForm2Transposed, Errors, Hertz, Type};
 use nalgebra::{convert, convert_unchecked};
 use ndarray::{Array1, Axis, Slice};
-use rustfft::num_complex::Complex;
+use num_complex::Complex;
 use uom::si::{f64::Frequency, frequency::hertz};
 
 use crate::{Band, Rate, Samples, Series, SpectraError};
@@ -153,7 +153,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                 poles(order)
                     .map(|pole| designed(pair, f0, -0.5 / pole.re, 1.0))
                     .chain((!order.get().is_multiple_of(2)).then(|| designed(Type::SinglePoleLowPass, f0, 0.5, 1.0).map(real)))
-                    .collect::<Result<Vec<_>, _>>()
+                    .try_collect::<Vec<_>>()
             };
             match *element.borrow() {
                 Stage::Section { filter, f0, q_value } => designed(filter, f0.get::<hertz>(), q_value, 1.0).map(|coefficients| vec![coefficients]),
@@ -178,6 +178,6 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                 }
             }
         })
-        .collect::<Result<Vec<_>, _>>()
+        .try_collect::<Vec<_>>()
         .map(|cascade| cascade.concat())
 }

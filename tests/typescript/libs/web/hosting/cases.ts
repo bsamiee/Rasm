@@ -1,6 +1,6 @@
 import { assert, type Vitest } from '@effect/vitest';
 import { createUpload, deleteObject, ObjectStorage, serveObject } from '@rasm/hosting';
-import { Cause, Deferred, Effect, Function, type Layer, Option, Stream } from 'effect';
+import { Array, Cause, Deferred, Effect, Function, type Layer, Option, Result, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { checkObjectStore, checkResumableWriteStore } from 'partial-content/conformance';
 import { isUploadNotFoundError } from 'partial-content/upload';
@@ -9,7 +9,8 @@ import { isUploadNotFoundError } from 'partial-content/upload';
 
 const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectStorage, E, R>) => {
     const encoder = new TextEncoder();
-    const [content, other] = [encoder.encode('partial content bytes'), encoder.encode('PARTIAL CONTENT BYTES')];
+    const [text, other] = ['partial content bytes', 'PARTIAL CONTENT BYTES'];
+    const content = encoder.encode(text);
     const object = { key: 'media/object', size: content.length, mime: 'text/plain' };
     const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412 };
     const ignore = Function.constant(Effect.void);
@@ -66,10 +67,13 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.deepStrictEqual([refused._tag, (yield* read('media/overrun', {})).status], ['BadRequest', code.missing]);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('publishes one whole object from overlapping uploads to one key', () =>
+    it.effect('publishes one whole object from overlapping uploads to one key and refuses each loser with Conflict', () =>
         Effect.gen(function* () {
-            yield* Effect.all([put(object.key, Stream.make(content), ignore), put(object.key, Stream.make(other), ignore)], { concurrency: 'unbounded', discard: true });
-            assert.oneOf((yield* read(object.key, {})).text, ['partial content bytes', 'PARTIAL CONTENT BYTES']);
+            const bodies = [text, other];
+            const outcomes = yield* Effect.all(Array.map(bodies, (body) => put(object.key, Stream.make(encoder.encode(body)), ignore)), { concurrency: 'unbounded', mode: 'result' });
+            const [published, refused] = Array.partition(Array.zip(bodies, outcomes), ([body, outcome]) => Result.map(Result.mapError(outcome, ({ _tag }) => _tag), Function.constant(body)));
+            assert.isTrue(refused.every((tag) => tag === 'Conflict'));
+            assert.oneOf((yield* read(object.key, {})).text, published);
         }).pipe(Effect.provide(storage)),
     );
     it.effect('deletes stored object and upload resource', () =>

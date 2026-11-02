@@ -243,9 +243,6 @@ struct Launch: AsyncParsableCommand {
     @Flag(help: "Opens another instance when one runs")
     var new: Bool = false
 
-    @Flag(help: .hidden)
-    var hides: Bool = false
-
     @Option(
         help: ArgumentHelp("File to open, one per flag", valueName: "path"),
         transform: { path in

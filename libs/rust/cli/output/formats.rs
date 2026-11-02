@@ -13,7 +13,7 @@ use futures::{Stream, executor, stream::TakeUntil};
 use indexmap::IndexSet;
 use minus::{Pager, hooks::Hook};
 use nonempty_collections::NEVec;
-use serde::{Serialize, ser::Error as _};
+use serde::Serialize;
 use serde_json::{
     Serializer,
     ser::{Formatter as _, PrettyFormatter},
@@ -87,7 +87,7 @@ where
     let recorded = |row| {
         move |source: csv::Error| match source.kind() {
             csv::ErrorKind::Io(failure) => OutputError::Write { source: io::Error::new(failure.kind(), source) },
-            _ => OutputError::Encode { row, source: serde_json::Error::custom(source) },
+            _ => OutputError::Csv { row, source },
         }
     };
     let celled = |Field { text, numeric }: &Field| Cell::new(escaped(text)).set_alignment(if *numeric { CellAlignment::Right } else { CellAlignment::Left });
@@ -216,7 +216,9 @@ where
         let flow = executor::block_on_stream(&mut items).enumerate().try_fold((opened, Vec::new()), |(mut sink, mut failures), (row, item)| match item.map(|value| appended(&mut sink, row, value)) {
             Ok(Ok(())) => ControlFlow::Continue((sink, failures)),
             Ok(Err(error @ OutputError::Write { source: _ })) => ControlFlow::Break((failures, Err(error))),
-            Ok(Err(error @ (OutputError::Encode { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Pager(_) | OutputError::Prompt(_)))) => {
+            Ok(Err(
+                error @ (OutputError::Encode { row: _, source: _ } | OutputError::Csv { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Pager(_) | OutputError::Prompt(_)),
+            )) => {
                 failures.push(E::from(error));
                 ControlFlow::Continue((sink, failures))
             }

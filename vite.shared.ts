@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import { Manifest as Extension } from '@rasm/cep/manifest';
 import { Manifest } from '@rasm/uxp/manifest';
@@ -16,6 +17,7 @@ const _ROOT = import.meta.dirname;
 const _HOSTED = /^adobe:/u;
 const _EXPERIMENTAL = { lazyBarrel: true };
 const _ENTRY = 'main.ts';
+const _CORE = /^\d+\.\d+\.\d+/mu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -71,9 +73,19 @@ const origin = (daemon: string) =>
         Effect.map(Manifest.loopback),
         Effect.runSync,
     );
-const uxp = (directory: string, { manifest, daemon }: { readonly manifest: Manifest; readonly daemon: string }): UserConfig =>
-    bundled(directory, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
-const cep = (directory: string, { host, daemon, manifest }: { readonly host: string; readonly daemon: string; readonly manifest: Extension }): UserConfig => {
+const released = (directory: string, { description }: { readonly description: string }) =>
+    Effect.all({
+        id: Effect.map(Config.String('PRODUCT_BUNDLE_IDENTIFIER'), (bundle) => `${bundle}.${basename(directory)}`),
+        name: Effect.succeed(description),
+        version: Config.String('MinVerTagPrefix').pipe(
+            Effect.flatMap((prefix) => Effect.try(() => execFileSync('dotnet', ['dnx', 'minver-cli', '--prerelease', '-y', '--', '-t', prefix, '-v', 'e'], { encoding: 'utf8' }))),
+            Effect.flatMap((text) => Effect.fromOption(Option.map(String.match(_CORE)(text), ([core]) => core))),
+        ),
+    }).pipe(Effect.runSync);
+const uxp = (directory: string, { npm, manifest, daemon }: { readonly npm: { readonly description: string }; readonly manifest: Omit<Parameters<typeof Manifest.make>[0], 'id' | 'name' | 'version'>; readonly daemon: string }): UserConfig =>
+    bundled(directory, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, ...released(directory, npm), requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
+const cep = (directory: string, { npm, host, daemon, manifest: fields }: { readonly npm: { readonly description: string }; readonly host: string; readonly daemon: string; readonly manifest: Omit<Parameters<typeof Extension.make>[0], 'id' | 'name' | 'version'> }): UserConfig => {
+    const manifest = Extension.make({ ...fields, ...released(directory, npm) });
     const outDir = join(_ROOT, '.artifacts', relative(_ROOT, directory));
     const bundle = (input: Record<string, string>, platform: 'browser' | 'neutral', output: Rolldown.OutputOptions) =>
         ({ consumer: 'client', build: { outDir, emptyOutDir: false, minify: platform === 'browser', rolldownOptions: { input, platform, preserveEntrySignatures: 'exports-only', experimental: _EXPERIMENTAL, output: { format: 'iife', codeSplitting: false, ...output } } } }) as const;

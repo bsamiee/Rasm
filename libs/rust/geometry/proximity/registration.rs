@@ -15,6 +15,10 @@ use crate::{
     points::{self, Cloud, Neighbor, Neighborhood},
 };
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Correspondence = (Point3<f64>, Point3<f64>, Point3<f64>, Option<Unit<Vector3<f64>>>, f64);
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -99,6 +103,21 @@ pub fn register(
         Some(Kernel::Tukey(scale)) if residual < scale.into_inner() => (residual / scale.into_inner()).mul_add(-(residual / scale.into_inner()), 1.0).powi(2),
         Some(Kernel::Tukey(_)) => 0.0,
     };
+    let planar = move |pose: &Isometry3<f64>, pairs: &[Correspondence]| {
+        let (hessian, gradient) = pairs
+            .iter()
+            .flat_map(|&(_, moved, corresponding, normal, weight)| {
+                directions(normal)
+                    .map(move |direction| (Vector6::from_iterator(iter::chain(moved.coords.cross(&direction).iter(), direction.iter()).copied()), (moved - corresponding).dot(&direction), weight))
+            })
+            .fold((Matrix6::<f64>::zeros(), Vector6::<f64>::zeros()), |(hessian, gradient), (row, residual, weight)| (hessian + row * row.transpose() * weight, gradient - row * (residual * weight)));
+        MatRef::from_column_major_slice(hessian.as_slice(), 6, 6).llt(Side::Lower).map(|llt| {
+            let solution = llt.solve(MatRef::from_column_major_slice(gradient.as_slice(), 6, 1));
+            let increment = Vector6::from_fn(|row, _| *solution.get(row, 0));
+            let rotation = UnitQuaternion::from_scaled_axis(increment.fixed_rows::<3>(0).into_owned());
+            Isometry3::from_parts(Translation3::from(rotation * pose.translation.vector + increment.fixed_rows::<3>(3)), rotation * pose.rotation)
+        })
+    };
     let step = move |pose: Isometry3<f64>, iteration: NonZero<usize>| -> Result<Registration, NEVec<ProximityError>> {
         let transformed = source.as_ref().par_iter().map(|point| pose.transform_point(point)).collect::<Vec<_>>();
         let candidates = match target {
@@ -132,24 +151,7 @@ pub fn register(
         let (matched, fitted) = NonZero::new(pairs.len()).ok_or_else(|| shortfall(Shortfall::Unmatched)).and_then(|matched| {
             match metric {
                 Metric::Point => fit(pairs.iter().map(|&(point, _, corresponding, _, weight)| (point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
-                Metric::Plane(_) => {
-                    let (hessian, gradient) = pairs
-                        .iter()
-                        .flat_map(|&(_, moved, corresponding, normal, weight)| {
-                            directions(normal).map(move |direction| {
-                                (Vector6::from_iterator(iter::chain(moved.coords.cross(&direction).iter(), direction.iter()).copied()), (moved - corresponding).dot(&direction), weight)
-                            })
-                        })
-                        .fold((Matrix6::<f64>::zeros(), Vector6::<f64>::zeros()), |(hessian, gradient), (row, residual, weight)| {
-                            (hessian + row * row.transpose() * weight, gradient - row * (residual * weight))
-                        });
-                    MatRef::from_column_major_slice(hessian.as_slice(), 6, 6).llt(Side::Lower).map_err(|LltError::NonPositivePivot { index: _ }| shortfall(Shortfall::Degenerate)).map(|llt| {
-                        let solution = llt.solve(MatRef::from_column_major_slice(gradient.as_slice(), 6, 1));
-                        let increment = Vector6::from_fn(|row, _| *solution.get(row, 0));
-                        let rotation = UnitQuaternion::from_scaled_axis(increment.fixed_rows::<3>(0).into_owned());
-                        Isometry3::from_parts(Translation3::from(rotation * pose.translation.vector + increment.fixed_rows::<3>(3)), rotation * pose.rotation)
-                    })
-                }
+                Metric::Plane(_) => planar(&pose, &pairs).map_err(|LltError::NonPositivePivot { index: _ }| shortfall(Shortfall::Degenerate)),
             }
             .map(|fitted| (matched, fitted))
         })?;

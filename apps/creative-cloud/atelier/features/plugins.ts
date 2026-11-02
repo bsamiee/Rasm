@@ -20,7 +20,7 @@ import type { routes } from '#/routes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Library = Effect.Success<typeof linked>[number];
+type Library = Effect.Success<typeof linked>['libraries'][number];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -67,15 +67,20 @@ const declaring =
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const linked = Effect.forEach(
-    [
-        { identifier: 'com.adobe.InDesign', Contract: InDesign, target: Manifest.target },
-        { identifier: 'com.adobe.Photoshop', Contract: Photoshop, target: Manifest.target },
-        { identifier: 'com.adobe.illustrator', Contract: Requests, target: Extension.target },
-        { identifier: 'com.adobe.AfterEffects', Contract: Requests, target: Extension.target },
-    ] as const satisfies readonly { readonly identifier: string; readonly Contract: RpcGroup.Any; readonly target: JscTarget }[],
-    (library) => Effect.map(Link.listen(Libraries, { path: `/${library.identifier}`, middleware: Layer.empty }), (listen) => ({ ...library, ...listen })),
-);
+const linked = Effect.gen(function* () {
+    const [automation, link] = yield* Effect.all([Automation, Link.listen(Libraries, { middleware: Layer.empty })]);
+    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter((peer) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer))));
+    const libraries = Array.map(
+        [
+            { identifier: 'com.adobe.InDesign', Contract: InDesign, target: Manifest.target },
+            { identifier: 'com.adobe.Photoshop', Contract: Photoshop, target: Manifest.target },
+            { identifier: 'com.adobe.illustrator', Contract: Requests, target: Extension.target },
+            { identifier: 'com.adobe.AfterEffects', Contract: Requests, target: Extension.target },
+        ] as const satisfies readonly { readonly identifier: string; readonly Contract: RpcGroup.Any; readonly target: JscTarget }[],
+        (library) => ({ ...library, peers: Effect.flatMap(link.peers, owned(library.identifier)), changes: Stream.mapEffect(link.changes, owned(library.identifier)), call: link.call }),
+    );
+    return { libraries, changes: link.changes };
+});
 const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Success<ReturnType<typeof routes>>, links: readonly Library[]) {
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const opened = serving('open');

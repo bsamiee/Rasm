@@ -7,4 +7,4 @@ import { Link } from '@rasm/uxp/link';
 
 const { server, application } = host(photoshop);
 
-plugin((link) => Link.dial(Contract, server, { ...link, path: '/com.adobe.Photoshop', application }));
+plugin((link) => Link.dial(Contract, server, { ...link, application }));

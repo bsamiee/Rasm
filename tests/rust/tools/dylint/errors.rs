@@ -508,9 +508,9 @@ fn discarded_error(found: &str) {
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-       --> tools/dylint/examples/stringified_error.rs:160:44
+       --> tools/dylint/examples/stringified_error.rs:166:44
         |
-    160 |     let mut attempt = counted(parsed(text).unwrap_or_default());
+    166 |     let mut attempt = counted(parsed(text).unwrap_or_default());
         |                                            ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`

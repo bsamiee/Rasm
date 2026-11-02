@@ -12,7 +12,7 @@ use std::{
 use jiff::{SignedDuration, Zoned, civil::Date, tz::TimeZone};
 use merman::{RenderError, svg::export::NativeFontError};
 use nonempty_collections::NEVec;
-use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, URL_FULL};
+use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, OTEL_STATUS_CODE, URL_FULL};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
 use reqwest::{
     Method, StatusCode,
@@ -49,7 +49,7 @@ pub enum TypesetError {
     Font { index: usize },
     #[error("{report}")]
     Typst { diagnostics: EcoVec<SourceDiagnostic>, report: String },
-    #[error("{} page {page} rasterizes to {width} by {height} pixels past the {budget} pixel budget or the pixmap bounds", path.get_without_slash())]
+    #[error("{} page {page} rasterizes to {width} by {height} pixels past the {budget} pixel budget or the pixmap row limit", path.get_without_slash())]
     Raster { path: VirtualPath, page: NonZero<usize>, width: u32, height: u32, budget: NonZero<u64> },
     #[error("page {page} PNG encoding failed")]
     Encode { page: NonZero<usize>, source: png::EncodingError },
@@ -74,7 +74,7 @@ impl Downloader for HttpDownloader {
             "request",
             otel.name = Method::GET.as_str(),
             otel.kind = "client",
-            otel.status_code = Empty,
+            { OTEL_STATUS_CODE } = Empty,
             { HTTP_REQUEST_METHOD } = Method::GET.as_str(),
             { URL_FULL } = url,
             { HTTP_RESPONSE_STATUS_CODE } = Empty,
@@ -82,7 +82,7 @@ impl Downloader for HttpDownloader {
         )
         .entered();
         let failed = |error: io::Error, kind: &dyn fmt::Debug| {
-            request.record(ERROR_TYPE, field::debug(kind)).record("otel.status_code", "error");
+            request.record(ERROR_TYPE, field::debug(kind)).record(OTEL_STATUS_CODE, "error");
             error
         };
         let mut response = self
@@ -141,15 +141,19 @@ impl FileLoader for Files {
     }
 }
 
-#[derive(derive_more::Debug)]
+#[derive(derive_more::Debug, derive_more::AsRef, derive_more::AsMut)]
 pub struct Project<L = Files> {
-    pub library: LazyHash<Library>,
+    library: LazyHash<Library>,
     #[debug(skip)]
-    pub fonts: Arc<FontStore>,
+    #[as_ref]
+    fonts: Arc<FontStore>,
     #[debug(skip)]
-    pub files: FileStore<L>,
-    pub main: FileId,
-    pub now: Zoned,
+    #[as_ref]
+    #[as_mut]
+    files: FileStore<L>,
+    main: FileId,
+    #[as_ref]
+    now: Zoned,
 }
 
 impl<L> Project<L>
@@ -223,10 +227,10 @@ where
         .enumerate()
         .map(|(index, data)| {
             let room = data.len().saturating_sub(size_of::<[u32; 3]>()) / const { NonZero::new(size_of::<u32>()).unwrap() };
-            ttf_parser::fonts_in_collection(&data)
-                .map_or(Some(1), |count| usize::try_from(count).is_ok_and(|faces| faces <= room).then_some(count))
-                .and_then(|count| NEVec::try_from_vec((0..count).filter_map(|face| Font::new(data.clone(), face)).collect()))
-                .ok_or(TypesetError::Font { index })
+            let refused = || TypesetError::Font { index };
+            let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
+            (0..count).nth(room).is_none().ok_or_else(refused)?;
+            NEVec::try_from_vec((0..count).filter_map(|face| Font::new(data.clone(), face)).collect()).ok_or_else(refused)
         })
         .collect::<Validated<Vec<_>, _>>()
         .map(|buffers| {

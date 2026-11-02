@@ -54,8 +54,8 @@ impl FromStr for Path {
     type Err = NameError;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let (head, tail) = text.split_once('/').map_or((text, None), |(head, tail)| (head, Some(tail)));
-        Ok(Self(NEVec::from((Name::try_new(head)?, tail.into_iter().flat_map(|tail| tail.split('/')).map(Name::try_new).try_collect::<Vec<_>>()?))))
+        let (head, rest) = text.split_once('/').map_or((text, None), |(head, rest)| (head, Some(rest)));
+        Ok(Self(NEVec::from((Name::try_new(head)?, rest.into_iter().flat_map(|names| names.split('/')).map(Name::try_new).try_collect::<Vec<_>>()?))))
     }
 }
 
@@ -184,7 +184,7 @@ macro_rules! quantities {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where S: Serializer {
                 serializer.serialize_f64(match self {
-                    $(Self::$kind(quantity) => quantity.get::<si::$module::$unit>(),)+
+                    $(Self::$kind(value) => value.get::<si::$module::$unit>(),)+
                 })
             }
         }
@@ -197,7 +197,7 @@ macro_rules! quantities {
 
         const fn base(quantity: Quantity) -> f64 {
             match quantity {
-                $(Quantity::$kind(quantity) => quantity.value,)+
+                $(Quantity::$kind(value) => value.value,)+
             }
         }
     };
@@ -255,12 +255,12 @@ impl<'de> Deserializer<'de> for &'de Value {
                 let mut elements = SeqDeserializer::new(items.iter());
                 let decoded = visitor.visit_seq(&mut elements)?;
                 elements.end().map(|()| decoded)
-            },
+            }
             Value::Object(entries) => {
                 let mut fields = MapDeserializer::new(entries.iter().map(|(key, value)| (BorrowedStrDeserializer::new(key), value)));
                 let decoded = visitor.visit_map(&mut fields)?;
                 fields.end().map(|()| decoded)
-            },
+            }
         }
     }
 

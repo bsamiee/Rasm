@@ -362,7 +362,7 @@ const launching = async ({ system }: Call, { invocations: chain, parts }: Comman
 };
 
 const launches = async (call: Call): Promise<readonly string[]> =>
-    (await Promise.all(call.script.commands.map(async (command) => toArray(await launching(call, command)).flatMap(({ program, app, foreign }) => (command.nested || foreign.length > 0 ? [`${[program, ...foreign].join(' ')} launches ${app} outside watch-apps. Run watch-apps launch ${app} --hides`] : []))))).flat();
+    (await Promise.all(call.script.commands.map(async (command) => toArray(await launching(call, command)).flatMap(({ program, app, foreign }) => (command.nested || foreign.length > 0 ? [`${[program, ...foreign].join(' ')} launches ${app} outside watch-apps. Run watch-apps launch ${app}`] : []))))).flat();
 
 // --- [REWRITE]
 
@@ -460,10 +460,6 @@ const finals = ({ system: { root } }: Call, invocation: Invocation, words: reado
         case 'refurb': {
             const text = 'python -m tools.refurb';
             return [edit(head.span.start, head.span.end, text, some(`refurb ran as ${text} over mypy cache`))];
-        }
-        case 'watch-apps': {
-            const subcommand = words[firstOperand(invocation, 1)];
-            return subcommand?.text === 'launch' && !options.includes('--hides') ? [edit(subcommand.span.end, subcommand.span.end, ' --hides', some('watch-apps launch took --hides'))] : [];
         }
         case 'nx':
             return uncached(invocation, rest);
@@ -591,7 +587,7 @@ const rewrites = async (call: Call, command: Command): Promise<readonly Change[]
     const launch = await launching(call, command);
     if (launch.kind === 'some') {
         const { program, start, app, flags } = launch.value;
-        return [...timing, edit(start.span.start, tail.span.end, ['watch-apps launch', app, '--hides', ...flags].join(' '), some(`${program} became watch-apps launch ${app}`))];
+        return [...timing, edit(start.span.start, tail.span.end, ['watch-apps launch', app, ...flags].join(' '), some(`${program} became watch-apps launch ${app}`))];
     }
     const found = await checker(call, command, last, words);
     if (found.kind === 'some') {

@@ -161,6 +161,8 @@ fn alternatives(text: &str) {
 
 fn asserted(text: &str) -> [u32; 2] { [const { u32::from_str_radix("22", 10).ok().expect("radix 10 parses decimal digits") }, parse(text).ok().unwrap()] }
 
+fn gated(texts: &[&str]) -> usize { texts.iter().filter(|text| parse(text).is_ok()).count() }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -169,5 +171,5 @@ fn main() {
     black_box(&(fallbacks("1"), successes("1"), views("1"), walked(&["1", "x"]), expanded("2"), handled("3")));
     black_box(&(translated("4") == ExitCode::SUCCESS, certain(5), saturated(-5), clamped(-5), absent(None), propagated("6"), tested("7"), predicate("8")));
     black_box(&(absences("9"), returned("10"), received(&mpsc::channel().1), closed(&mpsc::channel().1), kept(&["11"]), patterns(&["12", "13"]), skipped(&["14"]), compared(&[15])));
-    black_box(&(single(&[16]), locked(&Mutex::new(17)), worked(&["18", "19"]), PARSED, asserted("23")));
+    black_box(&(single(&[16]), locked(&Mutex::new(17)), worked(&["18", "19"]), PARSED, asserted("23"), gated(&["24"])));
 }

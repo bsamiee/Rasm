@@ -42,7 +42,7 @@ pub trait App: Clone + Send + Sync + 'static {
 #[derive(Debug, Clone)]
 pub struct Defaults {
     pub instructions: Option<String> = None,
-    pub page: NonZero<usize> = NonZero::new(1024).unwrap(),
+    pub page: NonZero<usize> = Option::unwrap(NonZero::new(1024)),
     pub retention: Duration = Duration::from_hours(1),
 }
 

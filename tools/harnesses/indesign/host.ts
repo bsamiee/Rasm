@@ -420,6 +420,7 @@ const acquired = Effect.fn('acquired')(function* (chosen: Installation) {
         usage: yield* Ref.make<typeof State.Type>({ _tag: 'Launching' }),
         log: Array.findFirst(listed, (line) => LOG.test(line)).pipe(Option.flatMap((line) => Option.fromNullishOr(LOG.exec(line)?.groups?.file))),
     };
+    yield* settled(instance.state) ? Deferred.succeed(session.verdict, Verdict.Exited({ exit: instance.state })) : Effect.void;
     yield* Effect.forkScoped(
         Stream.runForEach(watch([chosen.identifier, REPORTER], instance.pid), watcher(chosen, session)).pipe(
             Effect.andThen(HarnessError.make({ reason: { _tag: 'Unavailable', because: 'watch ended' }, subject: `process ${instance.pid}` })),

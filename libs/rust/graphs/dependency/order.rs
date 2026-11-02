@@ -18,7 +18,7 @@ pub fn topological<N, E, K>(graph: &StableDiGraph<N, E>, mut key: impl FnMut(Nod
 where K: Ord {
     match lexicographical_topological_sort(graph, |node| Ok::<K, !>(key(node)), direction == Direction::Incoming, None) {
         Ok(sequence) if sequence.len() == graph.node_count() => Ok(sequence),
-        Ok(_) | Err(TopologicalSortError::CycleOrBadInitialState) => Err(cycles::refusal(graph)),
+        Ok(_) | Err(TopologicalSortError::CycleOrBadInitialState) => Err(DependencyError::Cycle { paths: cycles::closings(graph) }),
     }
 }
 

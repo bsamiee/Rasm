@@ -8,6 +8,7 @@ import { Socket, SocketServer } from 'effect/socket';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
+const ENDPOINT = '/link';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,14 +19,14 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(
         group: RpcGroup.RpcGroup<Rpcs>,
         handlers: Layer.Layer<H, EH, RH>,
-        { origin, extension, path, application, redial = Schedule.spaced('1 second') }: { readonly origin: string; readonly extension: string; readonly path: HttpRouter.PathInput; readonly application: Effect.Effect<URL, E, R>; readonly redial?: Schedule.Schedule<unknown, Cause.Cause<unknown>> },
+        { origin, extension, application, redial = Schedule.spaced('1 second') }: { readonly origin: string; readonly extension: string; readonly application: Effect.Effect<URL, E, R>; readonly redial?: Schedule.Schedule<unknown, Cause.Cause<unknown>> },
     ) =>
         RpcServer.layer(group, { concurrency: 1 }).pipe(
             Layer.provide([handlers, RpcServer.layerProtocolSocketServer]),
             Layer.provide([
                 Layer.effect(SocketServer.SocketServer)(
                     Effect.gen(function* () {
-                        const [dialed, identity] = yield* Effect.all([Effect.fromResult(Url.fromString(path, origin)), Effect.flatMap(application, (url) => Schema.encodeEffect(Link)(Link.make({ application: url, extension })))]);
+                        const [dialed, identity] = yield* Effect.all([Effect.fromResult(Url.fromString(ENDPOINT, origin)), Effect.flatMap(application, (url) => Schema.encodeEffect(Link)(Link.make({ application: url, extension })))]);
                         const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(dialed, identity).href);
                         return {
                             address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Unspecified, 0),
@@ -47,7 +48,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             Layer.provide(Socket.layerWebSocketConstructorGlobal),
         );
     static readonly serves = (application: URL) => (peer: Link) => peer.application.href === application.href;
-    static readonly listen = Effect.fn('Link.listen')(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { path, middleware }: { readonly path: HttpRouter.PathInput; readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol> }) {
+    static readonly listen = Effect.fn('Link.listen')(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { middleware }: { readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol> }) {
         class Linked extends Data.Class<{ readonly peer: Link; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}
         const [router, links] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make(Array.empty<Linked>())]);
         const linking = Effect.fnUntraced(function* (request: HttpServerRequest.HttpServerRequest) {
@@ -68,7 +69,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             yield* Deferred.succeed(made, new Linked({ peer, client }));
             return yield* Effect.as(ended.await, HttpServerResponse.empty());
         });
-        yield* router.add('GET', path, (request) => (request.headers.origin === 'file://' ? linking(request) : Effect.succeed(HttpServerResponse.empty({ status: 403 }))));
+        yield* router.add('GET', ENDPOINT, (request) => (request.headers.origin === 'file://' ? linking(request) : Effect.succeed(HttpServerResponse.empty({ status: 403 }))));
         return {
             peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
             changes: Stream.map(SubscriptionRef.changes(links), Array.map(Struct.get('peer'))),

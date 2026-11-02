@@ -1,6 +1,5 @@
 {
     "name": "@rasm/atelier-illustrator-plugin",
-    "version": "1.0.0",
     "private": true,
     "description": "Atelier Illustrator",
     "type": "module",

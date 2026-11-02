@@ -152,7 +152,6 @@ internal sealed record Outcome(string Name, Completion Completion) {
     public JsonObject? Read { get; init; }
     public JsonObject? ReadFailed { get; init; }
     public ImmutableArray<string> Leaked { get; init; } = [];
-    public ImmutableArray<string>? Restored { get; init; }
     public DocumentState? Document { get; init; }
     public Saved? Saved { get; init; }
     public ImmutableArray<Macro>? Macros { get; init; }
@@ -402,27 +401,16 @@ internal static class Languages {
 }
 
 internal static class Settings {
-    public static FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> Snapshot() =>
-        Entries(PersistentSettings.RhinoAppSettings, []).ToFrozenDictionary(static entry => string.Join('/', entry.Keys), StringComparer.Ordinal);
+    public static FrozenDictionary<string, string> Snapshot() => Entries(PersistentSettings.RhinoAppSettings, "").ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static (ImmutableArray<string> Restored, ImmutableArray<string> Leaked) Restore(FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> before) {
-        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> after = Snapshot();
-        ImmutableArray<string> changed = [.. before.Keys.Union(after.Keys, StringComparer.Ordinal).Where(path => !Same(before, after, path)).Order(StringComparer.Ordinal)];
-        foreach ((ImmutableArray<string> keys, string value) in changed.Where(before.ContainsKey).Select(path => before[path]))
-            _ = Child(keys[..^1]).Iter(settings => settings.SetString(keys[^1], value));
-        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> restored = Snapshot();
-        return ([.. changed.Where(path => Same(before, restored, path))], [.. changed.Where(path => !Same(before, restored, path))]);
+    public static ImmutableArray<string> Changed(FrozenDictionary<string, string> before) {
+        FrozenDictionary<string, string> after = Snapshot();
+        return [.. before.Keys.Union(after.Keys, StringComparer.Ordinal).Where(path => !string.Equals(before.GetValueOrDefault(path), after.GetValueOrDefault(path), StringComparison.Ordinal)).Order(StringComparer.Ordinal)];
     }
 
-    private static bool Same(FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> left, FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> right, string path) =>
-        string.Equals(left.GetValueOrDefault(path).Value, right.GetValueOrDefault(path).Value, StringComparison.Ordinal);
-
-    private static Option<PersistentSettings> Child(ImmutableArray<string> keys) =>
-        keys.Aggregate(Some(PersistentSettings.RhinoAppSettings), static (held, key) => held.Bind(settings => settings.TryGetChild(key, out PersistentSettings child) ? Some(child) : None));
-
-    private static IEnumerable<(ImmutableArray<string> Keys, string Value)> Entries(PersistentSettings settings, ImmutableArray<string> parent) =>
-        settings.Keys.SelectMany(key => settings.TryGetString(key, out string value) ? [(parent.Add(key), value)] : Enumerable.Empty<(ImmutableArray<string>, string)>())
-            .Concat(settings.ChildKeys.SelectMany(key => settings.TryGetChild(key, out PersistentSettings child) ? Entries(child, parent.Add(key)) : []));
+    private static IEnumerable<KeyValuePair<string, string>> Entries(PersistentSettings settings, string parent) =>
+        settings.Keys.SelectMany(key => settings.TryGetString(key, out string value) ? [KeyValuePair.Create(parent + key, value)] : Enumerable.Empty<KeyValuePair<string, string>>())
+            .Concat(settings.ChildKeys.SelectMany(key => settings.TryGetChild(key, out PersistentSettings child) ? Entries(child, $"{parent}{key}/") : []));
 }
 
 internal static class Documents {
@@ -540,7 +528,7 @@ public static class Engine {
     // --- [CASES]
     private static (Outcome Outcome, ImmutableArray<uint> Opened) Execute(Case @case, Expressions code, int index, string captures, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases) {
         uint[] open = [.. RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber)];
-        FrozenDictionary<string, (ImmutableArray<string> Keys, string Value)> settings = Settings.Snapshot();
+        FrozenDictionary<string, string> settings = Settings.Snapshot();
         Option<RhinoDoc> held = None;
         Option<(ICanvases Canvases, object Document, object? Prior)> canvas = None;
         TextWriter[] streams = [Console.Out, Console.Error];
@@ -581,8 +569,7 @@ public static class Engine {
             Console.SetError(streams[1]);
             _ = batch && RhinoApp.RunScript("_BatchMode _Off", echo: false);
             _ = canvas.Iter(static held => held.Canvases.Release(held.Document, held.Prior));
-            (ImmutableArray<string> restored, ImmutableArray<string> leaked) = Settings.Restore(settings);
-            recorded = recorded with { Restored = restored.IsEmpty ? null : restored, Leaked = leaked };
+            recorded = recorded with { Leaked = Settings.Changed(settings) };
         }
         ImmutableArray<uint> current = [.. RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber).Where(serial => !open.Contains(serial))];
         return (recorded, held.IsSome ? current : [.. previous, .. current]);

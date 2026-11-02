@@ -1,4 +1,4 @@
-#![feature(default_field_values)]
+#![feature(default_field_values, iterator_try_collect)]
 
 use core::{fmt, num::NonZero, range::RangeInclusive};
 

@@ -152,7 +152,6 @@ const fields = {
             description: 'Document object, layer, and material changes while macros, script, and body ran',
         }),
     ),
-    restored: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'RhinoAppSettings entries the case changed and the engine restored' })),
     diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ time: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Grasshopper 2 logger entries' })),
     cancelled: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Prompts left waiting that the harness cancelled' })),
     unanswered: Schema.optionalKey(Schema.Array(Schema.Struct({ title: Schema.optionalKey(Schema.String), text: Schema.Array(Schema.String), reason: Schema.String }))),
@@ -434,9 +433,9 @@ const rebuilt = Effect.fn('rebuilt')(function* (install: Install, folder: string
 
 // --- [WATCH]
 const keyOf = ({ identifier, pid }: Pick<Row, 'identifier' | 'pid'>) => `${identifier} ${pid}`;
-const watching = Effect.fn('watching')(function* (names: Array.NonEmptyReadonlyArray<string>, pid: number) {
-    const states = yield* SubscriptionRef.make<Record.ReadonlyRecord<string, Row>>({});
-    yield* watch(names, pid).pipe(
+const watching = Effect.fn('watching')(function* (names: Array.NonEmptyReadonlyArray<string>, launched: Row) {
+    const states = yield* SubscriptionRef.make<Record.ReadonlyRecord<string, Row>>({ [keyOf(launched)]: launched });
+    yield* watch(names, launched.pid).pipe(
         Stream.runForEach((row) => SubscriptionRef.update(states, (held) => ({ ...held, [keyOf(row)]: row }))),
         Effect.forkScoped,
     );
@@ -674,15 +673,16 @@ const session = Effect.fn('session')(function* (install: Install, companions: re
     const home = yield* fs.makeTempDirectoryScoped({ directory: folder, prefix: 'session-' });
     const journal = path.join(home, 'journal.jsonl');
     yield* fs.writeFileString(journal, '');
-    const { pid } = yield* Launch({
+    const launched = yield* Launch({
         app: install.path,
         fresh: true,
         arguments: [`-runscript=_-ScriptEditor _Run "${path.join(folder, 'loader.cs')}"`],
         environment: { [HARNESS]: yield* Schema.encodeEffect(Harnessed)([built.assembly, journal, captures, built.batch, ...remaining.map(String)]) },
     });
+    const { pid } = launched;
     const names = [install.bundle, ...companions] as const;
     const key = keyOf({ identifier: install.bundle, pid });
-    const watched: Watched = { pid, journal, key, states: yield* watching(names, pid), progress: yield* SubscriptionRef.make<Progress>({ entries: [], cancelled: new Set() }), limit, captures };
+    const watched: Watched = { pid, journal, key, states: yield* watching(names, launched), progress: yield* SubscriptionRef.make<Progress>({ entries: [], cancelled: new Set() }), limit, captures };
     const blocked = yield* Deferred.make<string>();
     const alerts = (held: readonly Dialog[]) => held.filter(({ system }) => system).length;
     const seen = alerts(yield* SubscriptionRef.get(dialogs));

@@ -208,7 +208,8 @@ const background = Effect.fnUntraced(function* (install: Install, args: readonly
     } satisfies Started;
 });
 const launched = Effect.fnUntraced(function* (install: Install, args: readonly string[], environment: Record.ReadonlyRecord<string, string>, states: States, stderr: string) {
-    const { pid } = yield* Launch({ app: install.path, fresh: true, arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment });
+    const { pid, state } = yield* Launch({ app: install.path, fresh: true, arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment });
+    yield* SubscriptionRef.set(states, Option.some(state));
     return {
         pid,
         exited: SubscriptionRef.changes(states).pipe(

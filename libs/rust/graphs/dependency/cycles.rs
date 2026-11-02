@@ -8,8 +8,6 @@ use petgraph::{
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
 
-use crate::DependencyError;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
@@ -48,18 +46,16 @@ pub fn tear<N, E>(mut graph: StableDiGraph<N, E>) -> Torn<N, E> {
     Torn { graph, edges }
 }
 
-pub(crate) fn refusal<N, E>(graph: &StableDiGraph<N, E>) -> DependencyError {
+pub(crate) fn closings<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Vec<NodeIndex>> {
     let block = blocks(graph);
     let within = |node: NodeIndex| block.get(node.index()).copied().flatten();
-    DependencyError::Cycle {
-        paths: graph
-            .edge_references()
-            .filter_map(|edge| within(edge.source()).filter(|&rank| within(edge.target()) == Some(rank)).map(|rank| (rank, (edge.source(), edge.target()))))
-            .collect::<BTreeMap<_, _>>()
-            .into_iter()
-            .map(|(rank, (source, target))| closing(graph, |node| within(node) == Some(rank), target, source))
-            .collect(),
-    }
+    graph
+        .edge_references()
+        .filter_map(|edge| within(edge.source()).filter(|&rank| within(edge.target()) == Some(rank)).map(|rank| (rank, (edge.source(), edge.target()))))
+        .collect::<BTreeMap<_, _>>()
+        .into_iter()
+        .map(|(rank, (source, target))| closing(graph, |node| within(node) == Some(rank), target, source))
+        .collect()
 }
 
 fn blocks<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Option<usize>> {

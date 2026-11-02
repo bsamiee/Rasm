@@ -32,9 +32,8 @@ where D: IntoParallelIterator<Item = (VirtualPath, &'source str)> {
                 .map(|(path, source)| match renderer.render(RenderRequest::svg(source, control.child(), request.clone())) {
                     Ok(RenderOutput::Svg(Some(output))) => Ok((RootedPath::new(VirtualRoot::Project, path).intern(), Bytes::from_string(output.into_parts().0))),
                     Ok(RenderOutput::Svg(None)) => Err(TypesetError::Diagram { path, source: RenderError::NoDiagram }),
-                    Ok(RenderOutput::Semantic(_) | RenderOutput::LayoutJson(_) | RenderOutput::EdgeGeometryJson(_) | RenderOutput::SvgPlan(_)) => {
-                        Err(TypesetError::Diagram { path, source: RenderError::UnsupportedTarget("svg") })
-                    }
+                    Ok(RenderOutput::Semantic(_) | RenderOutput::LayoutJson(_) | RenderOutput::EdgeGeometryJson(_) | RenderOutput::SvgPlan(_)) =>
+                        Err(TypesetError::Diagram { path, source: RenderError::UnsupportedTarget("svg") }),
                     Err(error) => Err(TypesetError::Diagram { path, source: error }),
                 })
                 .collect()
