@@ -302,6 +302,19 @@ const polls = ({ request, script: { commands, background } }: Call): readonly st
             }),
         );
 
+// --- [CHECK]
+
+const checks = ({ script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ invocations: chain }) =>
+        chain.some(([program, ...rest]) =>
+            ['ast-grep', 'sg', 'tsc', 'biome', 'swiftlint', 'swift-format', 'periphery', 'tombi', 'cargo-clippy', 'cargo-dylint'].includes(program ?? '') ||
+            (program === 'cargo' && ['clippy', 'check', 'dylint', 'fmt', 'test', 'nextest'].includes(rest[0] ?? '')) ||
+            rest.some((word, at) => ['run', 'run-many', 'affected'].includes(word) && rest.slice(at + 1).some((target) => /(^|:|-t=?|,)(check|lint|typecheck|format|test)\b/.test(target))),
+        )
+            ? ['Checks run once when the queue drains. Continue the work without running them']
+            : [],
+    );
+
 // --- [LAUNCH]
 
 const opened = (head: Word, args: readonly Word[]): Option<Launch> => {
@@ -603,7 +616,7 @@ const commandDecision = async (system: System, command: string, project: string,
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project, request };
-    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, launches, detached].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, checks, launches, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }
