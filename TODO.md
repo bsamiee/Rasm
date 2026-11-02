@@ -48,8 +48,8 @@ Rebuild the Rust, Swift and TypeScript libraries and their consumers the way the
 
 ### Review between runs
 
-- **Each finished run:** the diff against the run's base read file by file, lines, declarations and exports measured with the same commands, regressions sent back to an agent, then a commit of the run's own paths by `git commit -- <paths>`.
-- **Run phases:** a parallel survey brief, an author, an in-place challenger, landing packages, per file group an adversary then a ground-up rebuild, a check agent, and in rust.js and typescript.js a Mine phase that tunes the checks and the skill.
+- **Each finished run:** the diff against the run's base read file by file, lines, declarations and exports measured with the same commands, regressions sent back to an agent, then a commit of the run's own paths by `git commit -- <paths>`, then its tune launch (`rust-tune` or `typescript-tune` with `args.commit`), so the next run never waits on mining.
+- **Run phases:** a parallel survey brief, an author, an in-place challenger, landing packages, per file group an adversary then a depth adversary that rebuilds each file for advanced use, and a check agent. Mining the checks and skills is its own launch after the commit.
 - **Shared tree:** another session may edit beside these runs. Files are split by owner before either commits, and neither touches the other's files.
 
 ### Rust depth passes
@@ -62,9 +62,9 @@ Once every RUST.md [03] row has landed, each crate gets a depth run so no crate 
 ### State on 2026-11-01
 
 - **Swift:** all three rows landed, with a close-out of the stopped Swift mine. A rerun of the Swift mine waits until the watch-apps session's Swift test wave lands.
-- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. Next are `creative-cloud/indesign`, then `data/database`, `web/hosting`, `web/media` and `web/ui`, once the SchemaTransformation pass lands.
-- **SchemaTransformation pass:** one workflow that mines every TypeScript root, adds an ast-grep rule tested against scratch snippets, fixes each finding with an adversary after it, and teaches the member once in the owning skill file.
-- **Rust:** `services/telemetry`, `cli/command` and `cli/output` landed. `cli/screen` and `services/daemon` are finished and commit with `geometry/mesh`, which runs beside them. 36 rows remain, launched in batches of three rows with no dependency between them, 20 minutes apart. `services/mcp` comes first, since it waits on `services/daemon`.
+- **TypeScript:** `data/search`, `ai/mcp`, `creative-cloud/uxp`, `graphics/typography` and `creative-cloud/automation` landed. `creative-cloud/indesign` is running; it gets a Check-only rerun under the depth adversaries before its commit, then `typescript-tune`. Next are `data/database`, `web/hosting`, `web/media` and `web/ui`, one at a time as the lane opens.
+- **SchemaTransformation pass:** landed. The same mining runs over the other Effect 4 members the TypeScript code restates by hand, where a member states the form.
+- **Rust:** `services/telemetry`, `cli/command` and `cli/output` landed. `cli/screen`, `services/daemon` and `geometry/mesh` landed under the old second pass and get Check-only reruns under the depth adversaries, then one commit and `rust-tune`. Then the 36 remaining rows launch, each disjoint row 20 minutes after the last, `services/mcp` first, since it waits on `services/daemon`.
 
 ### Done
 
@@ -79,7 +79,7 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 - **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Their logic informs our own design and is never copied.
 - **Architecture:** one design of packages, folders and files, challenged by critics, recorded in TYPESCRIPT.md rows. Libraries hold general capability usable in any host. Adobe code holds what is specific to Adobe.
-- **Runs:** each row runs on typescript.js as it stands, with both adversarial passes and the Mine phase, adding external packages where a domain needs them.
+- **Runs:** each row runs on typescript.js as it stands, with both adversarial passes, then `typescript-tune` on its commit, adding external packages where a domain needs them.
 - **Companion:** a checks and skill workflow launches after each extension run, designed in `docs/research/typescript-extension/WORKFLOWS.md`.
 
 ### Progress
