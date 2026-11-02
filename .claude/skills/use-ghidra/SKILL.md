@@ -42,6 +42,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Bundle: Compile failures drop the failing file and every file referencing it
 - Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
+- Parallel: Each process pays a JVM start, bundle load and project open, a worker runs one process over its whole share of inputs
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
 - Files: `<macros>` goes under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the repository root
