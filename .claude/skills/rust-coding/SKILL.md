@@ -18,7 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, a file its concept's
+- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a file its concept's
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
@@ -39,7 +39,7 @@ Function signatures are contracts, parameter types state every value a function 
 - Defaults sit on one options struct whose `default_field_values` state each, a caller writes the fields it changes before `..`
 - Values and types differing per platform are one `cfg_select!`, an element, variant, or arm one platform alone holds takes `#[cfg]` on itself
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
-- Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`
+- Facts a dependency or the build states come from it: a protocol version from the package's constant, the crate name from `env!("CARGO_PKG_NAME")`, and a field default a dependency states only on a value with drop glue (`Stroke::new(width).join`) stays a literal, since a const default cannot drop it
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
@@ -159,7 +159,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
-- Rules across fields take `nutype` over a standard type of that shape (`Range<Timestamp>`), else over a declared record
+- Rules across fields take `nutype` over a standard type of that shape, else over a declared record: an interval is a `core::range` value (`RangeInclusive<f64>`, `Copy` with public ends), and a `core::ops` range stays where a wire derive reads it (serde implements `ops::Range<Timestamp>` alone)
 - Public fields hold values no rule constrains
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
 
@@ -278,12 +278,12 @@ pub enum LedgerError {
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts it through `?`
-- Discards match each error variant they drop and a plain `Err` value by its type (`Err(<Type> { .. })`), or record the failure as an event
+- Discards match each error variant they drop and a plain `Err` value by its type (`Err(<Type> { .. })`), or record the failure as an event, and an `if let` on a success variant (`Ok`, `Validated::Good`) discards the failure it skips alike
 - Consumers branch on variants, message text is for people
 
 ### [04.3]-[EXIT]
 
-Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Layer errors convert through `impl<X> From<LayerError<X>> for ExitCode where X: Into<Self>`. Accumulated failures exit with the first one's status:
+Entry points run the composed effect once and translate its result into an exit status. Crate errors convert by value into `sysexits::ExitCode`, as sysexits converts `io::Error`, once the entry point has reported them by reference. Generic entry points bound `E: Into<ExitCode>` with the error type as the bound's subject, so a nested entry point infers `E` from its closure, and an associated error type states the bound in its declaration. Layer errors convert through `impl<X> From<LayerError<X>> for ExitCode where X: Into<Self>`. Accumulated failures exit with the first one's status, the variant holding an `NEVec` of crate errors converting its first through `Self::from` in place of a status of its own:
 
 ```rust
 impl From<LedgerError> for ExitCode {
@@ -312,7 +312,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 |  [04]   | Implementations chosen at run time or mixed in one collection | `Box<dyn Trait>`, `Arc<dyn Trait>`     |
 |  [05]   | Async capability chosen at run time                           | `dynosaur` dynamic type over the trait |
 
-- Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, and implementors write `async fn`
+- Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, implementors write `async fn` for a body that awaits and return `ready(..)` under the trait's signature for one that awaits nothing
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
 - Bounds repeated across signatures are one trait alias, a crate-private trait with one implementor is that type's inherent `impl`

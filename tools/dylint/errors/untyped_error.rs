@@ -1,4 +1,4 @@
-use core::{mem, ops::ControlFlow};
+use core::{iter, mem, ops::ControlFlow};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
@@ -12,7 +12,7 @@ use clippy_utils::{
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{
-    AmbigArg, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, TraitItem, TyKind,
+    AmbigArg, Closure, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, TraitItem, TyKind,
     def::{DefKind, Res},
     def_id::{DefId, LocalDefId},
     intravisit::{self, Visitor},
@@ -197,6 +197,23 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             })
         }
 
+        fn forwarded(cx: &LateContext<'_>, closure: &Closure<'_>) -> bool {
+            let value = cx.tcx.hir_body(closure.body).value.peel_blocks();
+            matches!(value.kind, ExprKind::Call(..) | ExprKind::MethodCall(..))
+                && fn_def_id(cx, value)
+                    .filter(|&callee| !workspace_def(cx, callee))
+                    .is_some_and(|callee| result_parts(cx, cx.tcx.fn_sig(callee).skip_binder().output().skip_binder()).is_some_and(|(_, error)| !error.has_param()))
+        }
+
+        fn handed<'tcx>(cx: &LateContext<'tcx>, call: &Expr<'_>, error: Ty<'tcx>) -> bool {
+            let (receiver, arguments) = match call.kind {
+                ExprKind::MethodCall(_, receiver, arguments, _) => (Some(receiver), arguments),
+                ExprKind::Call(_, arguments) => (None, arguments),
+                _ => (None, [].as_slice()),
+            };
+            iter::chain(receiver, arguments).any(|operand| same_type_modulo_regions(cx.typeck_results().expr_ty(operand).peel_refs(), error))
+        }
+
         let typeck = cx.typeck_results();
         if let Some((variant, fields)) = constructed(typeck, expr)
             && let Some(local) = variant.def_id.as_local()
@@ -225,9 +242,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
         let raised = match expr.kind {
             _ if expanded_externally(cx, expr.span) => None,
-            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) && !fixed(cx, expr) => body_output(cx, closure.def_id)
-                .and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned)))
-                .map(|error| (closure.fn_decl_span, error)),
+            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) && !fixed(cx, expr) && !forwarded(cx, closure) =>
+                body_output(cx, closure.def_id)
+                    .and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned)))
+                    .map(|error| (closure.fn_decl_span, error)),
             ExprKind::Path(_) if typeck.expr_ty(expr).is_fn() => mapped(cx, expr, typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().output()).map(|error| (expr.span, error)),
             ExprKind::Call(_, [_]) if fn_def_id(cx, expr).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr) => result_parts(cx, typeck.expr_ty(expr)).map(|(_, error)| (expr.span, error)),
             ExprKind::Call(..) | ExprKind::MethodCall(..)
@@ -235,7 +253,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && let produced = typeck.expr_ty(expr)
                     && let error = result_parts(cx, produced).map_or(produced, |(_, error)| error)
                     && error.ty_adt_def().is_some_and(|report| report.did().krate == callee.krate)
-                    && matches!(untyped_kind(cx, error), Some(UntypedKind::Report)) =>
+                    && matches!(untyped_kind(cx, error), Some(UntypedKind::Report))
+                    && !(result_parts(cx, produced).is_some() && handed(cx, expr, error)) =>
                 Some((expr.span, error)),
             _ => None,
         };

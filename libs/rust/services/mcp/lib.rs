@@ -1,135 +1,177 @@
 #![feature(associated_type_defaults, default_field_values, error_reporter, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
-use core::{error::Error, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error};
-use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    error::Report,
-    process,
-    sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
+use core::{
+    error::Error,
+    fmt,
+    future::{Ready, ready},
+    pin::pin,
+    str::Utf8Error,
 };
+use std::{borrow::Cow, error::Report, ffi::OsString, io};
 
-use axum::{
-    extract::ConnectInfo,
-    http::{request::Parts, uri::Authority},
-};
-use clap::{Args, CommandFactory, FromArgMatches};
-use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
-use jsonschema::ValidationError;
-use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, propagation::Extractor};
-use opentelemetry_semantic_conventions::attribute::{
-    ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, NETWORK_PEER_ADDRESS, NETWORK_PEER_PORT, NETWORK_PROTOCOL_NAME, NETWORK_TRANSPORT, RPC_RESPONSE_STATUS_CODE,
-};
-use rasm_command::Augmented;
-use rasm_daemon::Daemon;
+use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+use jsonschema::{ValidationError, paths::Location};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
-        CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientRequest, CompleteRequest, CompleteRequestParams, CompleteResult,
-        CustomRequest, CustomResult, ErrorCode, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskRequest, GetTaskResult, Implementation, JsonObject,
-        ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult,
-        PaginatedRequestParams, ProgressNotificationParam, PromptListChangedNotification, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, Request,
-        ResourceListChangedNotification, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ResourcesCapability, ServerConfig, ServerNotification, ServerResult, SubscribeRequestMethod,
-        SubscribeRequestParams, SubscriptionFilter, ToolListChangedNotification, UnsubscribeRequestMethod, UnsubscribeRequestParams, UpdateTaskParams, UpdateTaskRequest,
+        ErrorCode, ProgressNotificationParam, ProgressToken, PromptListChangedNotification, ProtocolVersion, ResourceListChangedNotification, ResourceUpdatedNotification,
+        ResourceUpdatedNotificationParam, ServerCapabilities, ServerNotification, SubscriptionFilter, ToolListChangedNotification,
     },
-    service::{DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY, NotificationContext, RequestContext, SubscriptionContext},
-    transport::{StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID, streamable_http_server::session::local::LocalSessionManager},
+    service::{ClientInitializeError, RequestContext},
 };
+use serde::{Serialize, de::value};
 use serde_json::Value;
-use serde_urlencoded::de;
-use tokio::{
-    sync::{broadcast, watch},
-    time::Instant,
-};
-use tokio_stream::wrappers::{BroadcastStream, WatchStream, errors::BroadcastStreamRecvError};
-use tokio_util::{
-    sync::CancellationToken,
-    task::{AbortOnDropHandle, TaskTracker},
-};
-use tracing::{
-    Instrument as _,
-    field::{self, Empty},
-};
-use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
-use tracing_subscriber::layer::Identity;
+use tokio::sync::{broadcast, watch};
+use tokio_stream::wrappers::WatchStream;
+use tokio_util::sync::CancellationToken;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub trait Endpoint: Send + Sync + 'static {
+pub trait Endpoint: ServerHandler {
     type Error: Error + Send + Sync + Into<sysexits::ExitCode> + 'static;
 
-    fn info(&self) -> &ServerConfig;
+    fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> { Err::<Ready<()>, _>(McpError::Unrouted { uri: uri.to_owned() }) }
 
-    fn handle(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> impl Future<Output = Result<ServerResult, ErrorData>> + Send;
-
-    fn subscribe(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, Unserved>;
-
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    fn listed(&self) -> SubscriptionFilter { SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(&self.info().capabilities) }
+    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_18, ProtocolVersion::V_2025_11_25, ProtocolVersion::V_2026_07_28];
-const MCP_METHOD_NAME: &str = "mcp.method.name";
-const MCP_PROTOCOL_VERSION: &str = "mcp.protocol.version";
-const MCP_RESOURCE_URI: &str = "mcp.resource.uri";
-const GEN_AI_TOOL_NAME: &str = "gen_ai.tool.name";
-const GEN_AI_PROMPT_NAME: &str = "gen_ai.prompt.name";
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Args)]
-#[group(skip)]
-#[command(next_help_heading = "MCP")]
-struct Options {
-    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback and bound address")]
-    allowed_host: Vec<Authority>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, derive_more::Display)]
+#[serde(rename_all = "lowercase")]
+pub enum Unanswered {
+    #[display("user declined to answer, continue without answer")]
+    Declined,
+    #[display("user dismissed question, call again to ask again")]
+    Dismissed,
+    #[display("user answer is empty, call again to ask again")]
+    Empty,
+    #[display("client cannot ask user, ask in conversation and pass answer as arguments")]
+    Unsupported,
+    #[display("call ended before user answered, call again")]
+    Abandoned,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error)]
-pub enum Invalid {
+#[derive(Debug, Serialize, thiserror::Error)]
+#[serde(tag = "_tag")]
+pub enum McpError {
     #[error("cannot route resource {pattern}")]
-    Route { pattern: String, source: matchit::InsertError },
+    Route {
+        pattern: String,
+        #[serde(skip)]
+        source: matchit::InsertError,
+    },
     #[error("cannot compile tool {tool} input schema")]
-    Schema { tool: Cow<'static, str>, source: ValidationError<'static> },
-}
-
-impl From<Invalid> for sysexits::ExitCode {
-    fn from(value: Invalid) -> Self {
-        match value {
-            Invalid::Route { pattern: _, source: _ } | Invalid::Schema { tool: _, source: _ } => Self::Software,
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Unserved {
+    Schema {
+        tool: Cow<'static, str>,
+        #[serde(skip)]
+        source: ValidationError<'static>,
+    },
+    #[error("{count} declarations failed{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
+    Declarations {
+        #[serde(skip)]
+        errors: NEVec<Self>,
+    },
+    #[error("arguments break tool {tool} input schema, correct each violation at its path and call again")]
+    Arguments { tool: Cow<'static, str>, violations: NEVec<(Location, String)> },
     #[error("{uri} names no resource, list resources and resource templates")]
     Unrouted { uri: String },
     #[error("{uri} variable percent-decodes to invalid UTF-8")]
-    Unencoded { uri: String, source: Utf8Error },
+    Unencoded {
+        uri: String,
+        #[serde(skip)]
+        source: Utf8Error,
+    },
     #[error("{uri} variables break template, read resources/templates/list")]
-    Malformed { uri: String, source: serde_path_to_error::Error<de::Error> },
-    #[error("{name} names no tool, list tools")]
-    Unlisted { name: Cow<'static, str> },
+    Variables {
+        uri: String,
+        #[serde(skip)]
+        source: serde_path_to_error::Error<value::Error>,
+    },
     #[error("requestState matches no paused call, call again without requestState")]
     Unparked,
     #[error("server is shutting down, call again after restart")]
     Stopping,
+    #[error("{reason}")]
+    Elicitation { reason: Unanswered },
+    #[error("requested form has no object schema, tool cannot ask question")]
+    Unaskable {
+        #[serde(skip)]
+        source: serde_json::Error,
+    },
+    #[error("answer breaks requested form, call again to ask again")]
+    Answer {
+        data: Value,
+        #[serde(skip)]
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
+    #[error("question did not reach user, call again")]
+    Unreached {
+        #[serde(skip)]
+        source: ServiceError,
+    },
+    #[error("cannot spawn upstream server {}", .command.display())]
+    Spawn {
+        #[serde(skip)]
+        command: OsString,
+        #[serde(skip)]
+        source: io::Error,
+    },
+    #[error("upstream handshake failed")]
+    Handshake {
+        #[serde(skip)]
+        source: Box<ClientInitializeError>,
+    },
+    #[error("upstream handshake sent no server info")]
+    Unidentified,
+    #[error("upstream server ended before shutdown")]
+    Ended,
 }
 
-impl From<Unserved> for ErrorData {
-    fn from(value: Unserved) -> Self {
+impl From<McpError> for ErrorData {
+    fn from(value: McpError) -> Self {
         let code = match &value {
-            Unserved::Unrouted { uri: _ } => ErrorCode::RESOURCE_NOT_FOUND,
-            Unserved::Unencoded { uri: _, source: _ } | Unserved::Malformed { uri: _, source: _ } | Unserved::Unlisted { name: _ } | Unserved::Unparked => ErrorCode::INVALID_PARAMS,
-            Unserved::Stopping => ErrorCode::INTERNAL_ERROR,
+            McpError::Unrouted { uri: _ } => ErrorCode::RESOURCE_NOT_FOUND,
+            McpError::Arguments { tool: _, violations: _ } | McpError::Unencoded { uri: _, source: _ } | McpError::Variables { uri: _, source: _ } | McpError::Unparked => ErrorCode::INVALID_PARAMS,
+            McpError::Route { pattern: _, source: _ }
+            | McpError::Schema { tool: _, source: _ }
+            | McpError::Declarations { errors: _ }
+            | McpError::Stopping
+            | McpError::Elicitation { reason: _ }
+            | McpError::Unaskable { source: _ }
+            | McpError::Answer { data: _, source: _ }
+            | McpError::Unreached { source: _ }
+            | McpError::Spawn { command: _, source: _ }
+            | McpError::Handshake { source: _ }
+            | McpError::Unidentified
+            | McpError::Ended => ErrorCode::INTERNAL_ERROR,
         };
-        Self::new(code, Report::new(value).to_string(), None)
+        Self::new(code, Report::new(&value).to_string(), serde_json::to_value(&value).ok())
+    }
+}
+
+impl From<McpError> for sysexits::ExitCode {
+    fn from(value: McpError) -> Self {
+        match value {
+            McpError::Spawn { command: _, source } => source.into(),
+            McpError::Handshake { source: _ } | McpError::Unidentified => Self::Protocol,
+            McpError::Ended => Self::Unavailable,
+            McpError::Stopping => Self::TempFail,
+            McpError::Declarations { errors } => Self::from(errors.into_nonempty_iter().next().0),
+            McpError::Route { pattern: _, source: _ }
+            | McpError::Schema { tool: _, source: _ }
+            | McpError::Arguments { tool: _, violations: _ }
+            | McpError::Unrouted { uri: _ }
+            | McpError::Unencoded { uri: _, source: _ }
+            | McpError::Variables { uri: _, source: _ }
+            | McpError::Unparked
+            | McpError::Elicitation { reason: _ }
+            | McpError::Unaskable { source: _ }
+            | McpError::Answer { data: _, source: _ }
+            | McpError::Unreached { source: _ } => Self::Software,
+        }
     }
 }
 
@@ -140,30 +182,29 @@ pub struct Notifier(broadcast::Sender<ServerNotification>);
 
 impl Notifier {
     pub fn notify(&self, notification: impl Into<ServerNotification>) { let (Ok(_) | Err(broadcast::error::SendError(_))) = self.0.send(notification.into()); }
-
-    #[must_use]
-    pub fn subscribe(&self) -> BroadcastStream<ServerNotification> { BroadcastStream::new(self.0.subscribe()) }
-
-    pub fn resync(&self, filter: &SubscriptionFilter) { resynced(filter, filter.resource_subscriptions.iter().flatten().cloned()).for_each(|notification| self.notify(notification)); }
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Progress(watch::Sender<(f64, Option<f64>, Option<String>)>);
+pub struct Progress(watch::Sender<Option<ProgressNotificationParam>>);
 
 impl Progress {
+    pub fn report(&self, progress: f64, total: Option<f64>, message: Option<String>) {
+        self.0.send_if_modified(|latest| {
+            latest.as_mut().filter(|held| progress.is_finite() && progress > held.progress).map(|held| (held.progress, held.total, held.message) = (progress, total, message)).is_some()
+        });
+    }
+
     pub fn relay<F>(&self, context: &RequestContext<RoleServer>, call: F) -> impl Future<Output = F::Output> + Send
     where F: Future<Output: Send> + Send {
-        let (peer, updates) = (context.peer.clone(), WatchStream::new(self.0.subscribe()));
+        let peer = context.peer.clone();
         let updates = stream::iter(context.meta.get_progress_token().map(|token| {
-            updates.filter(|&(progress, _, _)| ready(progress > 0.0_f64)).map(move |(progress, total, message)| {
-                let mut update = ProgressNotificationParam::new(token.clone(), progress);
-                (update.total, update.message) = (total, message);
-                Ok(update)
-            })
+            self.seed(token);
+            WatchStream::new(self.0.subscribe())
         }))
-        .flatten();
+        .flatten()
+        .filter_map(|latest| ready(latest.filter(|held| held.progress > 0.0_f64)));
         async move {
-            let relayed = updates.try_for_each(|update| peer.notify_progress(update)).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
+            let relayed = updates.map(Ok).try_for_each(|held| peer.notify_progress(held)).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
             match future::select(pin!(call), pin!(relayed)).await {
                 future::Either::Left((output, _)) => output,
                 future::Either::Right(((), call)) => call.await,
@@ -171,232 +212,29 @@ impl Progress {
         }
     }
 
-    pub fn stage(&self, message: impl Into<String>) { self.0.send_modify(|(progress, _, last)| (*progress, *last) = (*progress + 1.0_f64, Some(message.into()))); }
-
-    pub fn report(&self, progress: f64, total: Option<f64>, message: Option<String>) { self.0.send_if_modified(|last| (progress > last.0).then(|| *last = (progress, total, message)).is_some()); }
-}
-
-struct Host<E> {
-    endpoint: E,
-    notifier: Notifier,
-    stopping: CancellationToken,
-    requests: TaskTracker,
-    watches: TaskTracker,
-    leases: Mutex<BTreeMap<String, Weak<AbortOnDropHandle<()>>>>,
-    config: StreamableHttpServerConfig,
-}
-
-impl<E> Daemon for Host<E>
-where E: Endpoint
-{
-    type Error = E::Error;
-
-    fn router(self: Arc<Self>) -> axum::Router {
-        let config = self.config.clone();
-        axum::Router::new().route_service(
-            "/",
-            StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&self), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::new(LocalSessionManager::default()), config),
-        )
-    }
-
-    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), E::Error>> + Send { self.endpoint.serve(stopping) }
-
-    async fn drain(&self) {
-        self.requests.close();
-        self.requests.wait().await;
-        self.stopping.cancel();
-        self.watches.close();
-        self.watches.wait().await;
-    }
-}
-
-struct Session<E> {
-    host: Arc<Host<E>>,
-    subscribed: watch::Sender<BTreeMap<String, Arc<AbortOnDropHandle<()>>>>,
-    relay: OnceLock<AbortOnDropHandle<()>>,
-}
-
-impl<E> Session<E>
-where E: Endpoint
-{
-    fn hold(&self, uri: String) -> Result<(), Unserved> {
-        let mut leases = self.host.leases.lock();
-        leases.retain(|_, held| held.strong_count() > 0);
-        let held = if let Some(held) = leases.get(&uri).and_then(Weak::upgrade) {
-            held
-        } else {
-            let watched = self.host.stopping.clone().run_until_cancelled_owned(self.host.endpoint.subscribe(&uri)?).map(drop).instrument(tracing::info_span!("watch", { MCP_RESOURCE_URI } = uri));
-            Arc::new(AbortOnDropHandle::new(self.host.watches.spawn(watched)))
-        };
-        leases.insert(uri.clone(), Arc::downgrade(&held));
-        self.subscribed.send_modify(|uris| drop(uris.insert(uri, held)));
-        Ok(())
-    }
-
-    async fn dispatch(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
-        const MCP_SESSION_ID: &str = "mcp.session.id";
-        const TRANSPORT: &str = "tcp";
-        const PROTOCOL: &str = "http";
-        struct Carrier<'meta>(&'meta JsonObject);
-        impl Extractor for Carrier<'_> {
-            fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(Value::as_str) }
-
-            fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
-        }
-        static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| {
-            const MCP_SERVER_OPERATION_DURATION: &str = "mcp.server.operation.duration";
-            const BOUNDARIES: [f64; 14] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0];
-            global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build())
-                .f64_histogram(MCP_SERVER_OPERATION_DURATION)
-                .with_unit("s")
-                .with_boundaries(BOUNDARIES.to_vec())
-                .build()
-        });
-        let _held = self.host.requests.token();
-        let (method, version, parts) = (request.method().to_owned(), context.protocol_version(), context.extensions.get::<Parts>());
-        let peer = parts.and_then(|parts| parts.extensions.get::<ConnectInfo<SocketAddr>>()).map(|&ConnectInfo(peer)| peer);
-        let (tool, prompt, uri) = match &request {
-            ClientRequest::CallToolRequest(call) => (Some(call.params.name.to_string()), None, None),
-            ClientRequest::GetPromptRequest(get) => (None, Some(get.params.name.clone()), None),
-            ClientRequest::ReadResourceRequest(read) => (None, None, Some(read.params.uri.clone())),
-            _ => (None, None, None),
-        };
-        let span = tracing::info_span!(
-            "request",
-            otel.name = tool.as_ref().or(prompt.as_ref()).or(uri.as_ref()).map_or_else(|| method.clone(), |name| format!("{method} {name}")),
-            otel.kind = "server",
-            { MCP_METHOD_NAME } = method,
-            { GEN_AI_TOOL_NAME } = tool.as_deref(),
-            { GEN_AI_PROMPT_NAME } = prompt.as_deref(),
-            { MCP_RESOURCE_URI } = uri.as_deref(),
-            { MCP_PROTOCOL_VERSION } = version.as_ref().map(ProtocolVersion::as_str),
-            { MCP_SESSION_ID } = parts.and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
-            { JSONRPC_REQUEST_ID } = %context.id,
-            { NETWORK_TRANSPORT } = TRANSPORT,
-            { NETWORK_PROTOCOL_NAME } = PROTOCOL,
-            { NETWORK_PEER_ADDRESS } = peer.map(|peer| field::display(peer.ip())),
-            { NETWORK_PEER_PORT } = peer.map(|peer| peer.port()),
-            { ERROR_TYPE } = Empty,
-            { RPC_RESPONSE_STATUS_CODE } = Empty,
-        );
-        let (Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted)) =
-            span.set_parent(global::get_text_map_propagator(|propagator| propagator.extract(&Carrier(&context.meta))));
-        let (started, cancelled) = (Instant::now(), context.ct.clone());
-        let result = match request {
-            _ if self.host.requests.is_closed() => Err(Unserved::Stopping.into()),
-            ClientRequest::SubscribeRequest(subscribe) if matches!(self.host.endpoint.info().capabilities.resources, Some(ResourcesCapability { subscribe: Some(true), .. })) =>
-                self.hold(subscribe.params.uri).map(ServerResult::empty).map_err(ErrorData::from),
-            ClientRequest::SubscribeRequest(_) => Err(ErrorData::method_not_found::<SubscribeRequestMethod>()),
-            ClientRequest::UnsubscribeRequest(unsubscribe) => {
-                self.subscribed.send_if_modified(|uris| uris.remove(&unsubscribe.params.uri).is_some());
-                Ok(ServerResult::empty(()))
+    pub(crate) fn seed(&self, token: ProgressToken) {
+        self.0.send_if_modified(|latest| {
+            match latest {
+                Some(held) => held.progress_token = token,
+                None => *latest = Some(ProgressNotificationParam::new(token, 0.0_f64)),
             }
-            other => self.host.endpoint.handle(other, context).instrument(span.clone()).await,
-        }
-        .map_err(|error| match error.code {
-            ErrorCode::RESOURCE_NOT_FOUND if version.as_ref().is_some_and(|version| !version.has_initialize()) => ErrorData { code: ErrorCode::INVALID_PARAMS, ..error },
-            _ => error,
+            false
         });
-        let elapsed = started.elapsed();
-        let (error_type, failure) = match (&result, cancelled.is_cancelled()) {
-            (Ok(_) | Err(_), true) => (Some(Cow::Borrowed("cancelled")), None),
-            (Ok(ServerResult::CallToolResult(CallToolResult { is_error: Some(true), .. })), false) => (Some(Cow::Borrowed("tool_error")), None),
-            (Ok(_), false) => (None, None),
-            (Err(error), false) => (Some(Cow::Owned(error.code.0.to_string())), Some(error)),
-        };
-        span.record(ERROR_TYPE, error_type.as_deref());
-        if let Some(error) = failure {
-            tracing::warn!(parent: span.record(RPC_RESPONSE_STATUS_CODE, error_type.as_deref()), elapsed = elapsed.as_secs_f64(), { EXCEPTION_MESSAGE } = %error.message, "request failed");
-        } else {
-            tracing::info!(parent: &span, elapsed = elapsed.as_secs_f64(), "request completed");
-        }
-        let attributes = [
-            Some(KeyValue::new(MCP_METHOD_NAME, method)),
-            tool.map(|name| KeyValue::new(GEN_AI_TOOL_NAME, name)),
-            prompt.map(|name| KeyValue::new(GEN_AI_PROMPT_NAME, name)),
-            version.map(|version| KeyValue::new(MCP_PROTOCOL_VERSION, version.as_str().to_owned())),
-            Some(KeyValue::new(NETWORK_TRANSPORT, TRANSPORT)),
-            Some(KeyValue::new(NETWORK_PROTOCOL_NAME, PROTOCOL)),
-            error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind)),
-        ];
-        DURATION.record(elapsed.as_secs_f64(), &attributes.into_iter().flatten().collect::<Vec<_>>());
-        result
-    }
-
-    fn notifications(&self, filter: SubscriptionFilter) -> impl Stream<Item = ServerNotification> + Send + 'static {
-        let (admitted, held) = (resynced(&filter, []).map(|notification| discriminant(&notification)).collect::<Vec<_>>(), self.subscribed.subscribe());
-        self.host.notifier.subscribe().flat_map(move |received| {
-            stream::iter(match received {
-                Ok(ServerNotification::ResourceUpdatedNotification(updated)) => Vec::from_iter(held.borrow().contains_key(&updated.params.uri).then(|| updated.into())),
-                Ok(other) => Vec::from_iter(admitted.contains(&discriminant(&other)).then_some(other)),
-                Err(BroadcastStreamRecvError::Lagged(_)) => Vec::from_iter(resynced(&filter, Vec::from_iter(held.borrow().keys().cloned()))),
-            })
-        })
-    }
-}
-
-macro_rules! dispatched {
-    ($method:ident($request:ident: $params:ty) = $sent:expr) => {
-        async fn $method(&self, $request: $params, context: RequestContext<RoleServer>) -> Result<(), ErrorData> { self.dispatch(ClientRequest::from($sent), context).await.map(drop) }
-    };
-    ($method:ident($request:ident: $params:ty) -> $response:ty = $sent:expr => $($variant:ident)|+) => {
-        async fn $method(&self, $request: $params, context: RequestContext<RoleServer>) -> Result<$response, ErrorData> {
-            match self.dispatch(ClientRequest::from($sent), context).await? {
-                $(ServerResult::$variant(result) => Ok(result.into()),)+
-                _ => Err(internal(ServiceError::UnexpectedResponse)),
-            }
-        }
-    };
-}
-
-impl<E> ServerHandler for Session<E>
-where E: Endpoint
-{
-    dispatched!(complete(request: CompleteRequestParams) -> CompleteResult = CompleteRequest::new(request) => CompleteResult);
-    dispatched!(get_prompt(request: GetPromptRequestParams) -> GetPromptResponse = GetPromptRequest::new(request) => GetPromptResult | InputRequiredResult);
-    dispatched!(list_prompts(request: Option<PaginatedRequestParams>) -> ListPromptsResult = ListPromptsRequest { params: request, ..Default::default() } => ListPromptsResult);
-    dispatched!(list_resources(request: Option<PaginatedRequestParams>) -> ListResourcesResult = ListResourcesRequest { params: request, ..Default::default() } => ListResourcesResult);
-    dispatched!(list_resource_templates(request: Option<PaginatedRequestParams>) -> ListResourceTemplatesResult =
-        ListResourceTemplatesRequest { params: request, ..Default::default() } => ListResourceTemplatesResult);
-    dispatched!(read_resource(request: ReadResourceRequestParams) -> ReadResourceResponse = ReadResourceRequest::new(request) => ReadResourceResult | InputRequiredResult);
-    dispatched!(subscribe(request: SubscribeRequestParams) = Request::<SubscribeRequestMethod, _>::new(request));
-    dispatched!(unsubscribe(request: UnsubscribeRequestParams) = Request::<UnsubscribeRequestMethod, _>::new(request));
-    dispatched!(call_tool(request: CallToolRequestParams) -> CallToolResponse = CallToolRequest::new(request) => CallToolResult | InputRequiredResult | CreateTaskResult);
-    dispatched!(list_tools(request: Option<PaginatedRequestParams>) -> ListToolsResult = ListToolsRequest { params: request, ..Default::default() } => ListToolsResult);
-    dispatched!(get_task(request: GetTaskParams) -> GetTaskResult = GetTaskRequest::new(request) => GetTaskResult);
-    dispatched!(update_task(request: UpdateTaskParams) = UpdateTaskRequest::new(request));
-    dispatched!(cancel_task(request: CancelTaskParams) = CancelTaskRequest::new(request));
-    dispatched!(on_custom_request(request: CustomRequest) -> CustomResult = request => CustomResult);
-
-    fn get_info(&self) -> ServerConfig { self.host.endpoint.info().clone() }
-
-    fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { Cow::Borrowed(PROTOCOL_VERSIONS) }
-
-    fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> {
-        let mut accepted = requested.supported_by(&self.host.endpoint.info().capabilities);
-        if let Some(uris) = accepted.resource_subscriptions.as_mut() {
-            uris.retain(|uri| self.hold(uri.clone()).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription refused")).is_ok());
-        }
-        Some(accepted)
-    }
-
-    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
-        let notifications = self.notifications(self.host.endpoint.listed());
-        let relayed = async move { notifications.map(Ok).try_for_each(|notification| context.peer.send_notification(notification)).await };
-        self.relay.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(relayed.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "session closed")))));
-    }
-
-    async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {
-        let notifications = self.notifications(context.accepted().clone()).take_until(self.host.stopping.cancelled()).take_until(context.cancelled());
-        let sent = notifications.map(Ok).try_for_each(|notification| context.sink().send(notification));
-        sent.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription closed")).await;
-        Ok(())
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
+pub(crate) fn versions() -> &'static [ProtocolVersion] {
+    const FLOOR: ProtocolVersion = ProtocolVersion::V_2025_06_18;
+    ProtocolVersion::KNOWN_VERSIONS.rsplit_once(|version| *version < FLOOR).map_or(ProtocolVersion::KNOWN_VERSIONS, |(_, served)| served)
+}
+
+pub(crate) fn listed(capabilities: &ServerCapabilities) -> SubscriptionFilter {
+    SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(capabilities)
+}
+
+pub(crate) fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
 where U: IntoIterator<Item = String> {
     [
         (filter.tools_list_changed, ToolListChangedNotification::default().into()),
@@ -408,32 +246,10 @@ where U: IntoIterator<Item = String> {
     .chain(uris.into_iter().map(|uri| ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri)).into()))
 }
 
-fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::new(error).to_string(), None) }
-
-#[must_use]
-pub fn fault(error: ServiceError) -> ErrorData { if let ServiceError::McpError(data) = error { data } else { internal(error) } }
+pub(crate) fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::new(error).to_string(), None) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<P, E>(build: impl AsyncFnOnce(P, Implementation, Notifier) -> Result<E, E::Error>) -> process::ExitCode
-where
-    P: CommandFactory + FromArgMatches,
-    E: Endpoint,
-{
-    let program = P::command();
-    let identity =
-        program.get_about().into_iter().fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), |identity, about| identity.with_description(about.to_string()));
-    rasm_daemon::run(
-        rasm_telemetry::Defaults { directives: "info,rmcp=warn,rmcp::service=error".into(), .. },
-        Identity::new(),
-        async |Augmented { options: Options { allowed_host }, args }, address, stopping| {
-            let notifier = Notifier(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY));
-            let endpoint = build(args, identity, notifier.clone()).await?;
-            let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation().with_cancellation_token(stopping.child_token());
-            config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
-            Ok(Host { endpoint, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default(), config })
-        },
-    )
-}
-
+pub mod host;
+pub mod proxy;
 pub mod server;

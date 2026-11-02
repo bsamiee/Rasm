@@ -15,6 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
+arithmetic-side-effects-allowed       = ["kurbo::Affine"]
 arithmetic-side-effects-allowed-unary = ["rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -41,6 +42,12 @@ allowed-duplicate-crates = [
     "glam",                  # 0.30, 0.31, and 0.32 under newest `nalgebra` 0.35.0 through the weak `glam03x?/std` of its `std` feature (rust-clippy#16440), beside 0.33 under `glamx` and nalgebra `convert-glam033`
     "convert_case",          # 0.10 under newest `derive_more-impl` 2.1.1 beside 0.11 under `kinded_macros` 0.5.1, which newest `nutype_macros` 0.8.0 takes
     "itertools",             # 0.14 under newest `prost-derive` 0.14.4 through `opentelemetry-otlp`, beside 0.15 under `clippy_utils` and `rasm-screen`
+    "rstar",                 # 0.8, 0.9, 0.10, 0.11, and 0.13 under newest `geo-types` 0.7.20 through the weak `rstar_0_*?/serde` of its `serde` feature (rust-clippy#16440), beside 0.12 under newest `geo` 0.33.1 and 0.13 under `parry3d-f64`
+    "heapless",              # 0.6 and 0.7 under the weak `rstar` 0.8 to 0.11 copies of `geo-types` (rust-clippy#16440), beside 0.8 under `rstar` 0.12 and 0.13
+    "hash32",                # 0.1 and 0.2 under the weak `heapless` 0.6 and 0.7 copies (rust-clippy#16440), beside 0.3 under `heapless` 0.8
+    "generic-array",         # 0.12, 0.13, and 0.14 under `as-slice` 0.1.5 of the weak `heapless` 0.6.1 copy (rust-clippy#16440)
+    "equator",               # 0.2 under newest `nano-gemm` 0.2.2, which newest `faer` 0.24.4 takes, beside 0.6 under `faer`
+    "equator-macro",         # 0.2 under `equator` 0.2 beside 0.6 under `equator` 0.6
 ]
 
 # --- [BANS]
@@ -114,7 +121,7 @@ disallowed-methods          = [
     { path = "std::sync::Arc::into_raw_with_allocator", reason = "Leaks allocation without forbidden `unsafe`, owner outliving readers passes `&` or `Arc`" },
     { path = "std::vec::Vec::into_parts", reason = "Leaks allocation without forbidden `unsafe`, owner outliving readers passes `&` or `Arc`" },
     { path = "std::vec::Vec::remove", replacement = "std::vec::Vec::try_remove", reason = "Panics past end, absence stays `Option`" },
-    { path = "slice::split_at", replacement = "slice::split_at_checked", reason = "Panics past end, absence stays `Option`" },
+    { path = "slice::split_at", replacement = "slice::split_at_checked", reason = "Panics past end, absence stays `Option`, a split where a predicate turns is `split_once` or `rsplit_once`, its `None` meaning no element matched" },
     { path = "slice::split_at_mut", replacement = "slice::split_at_mut_checked", reason = "Panics past end, absence stays `Option`" },
     { path = "str::split_at", replacement = "str::split_at_checked", reason = "Panics past end or off char boundary, absence stays `Option`" },
     { path = "str::split_at_mut", replacement = "str::split_at_mut_checked", reason = "Panics past end or off char boundary, absence stays `Option`" },

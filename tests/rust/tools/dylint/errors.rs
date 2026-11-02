@@ -576,121 +576,121 @@ fn discarded_error(found: &str) {
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Code` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:356:21
+       --> tools/dylint/examples/untyped_error.rs:365:21
         |
-    356 |         coded(text).unwrap_or_default(),
+    365 |         coded(text).unwrap_or_default(),
         |                     ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Code` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:357:38
+       --> tools/dylint/examples/untyped_error.rs:366:38
         |
-    357 |         retried(text, Code::Invalid).unwrap_or_default(),
+    366 |         retried(text, Code::Invalid).unwrap_or_default(),
         |                                      ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Relocated` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:358:25
+       --> tools/dylint/examples/untyped_error.rs:367:25
         |
-    358 |         relocated(text).unwrap_or_default(),
+    367 |         relocated(text).unwrap_or_default(),
         |                         ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Box<str>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:359:26
+       --> tools/dylint/examples/untyped_error.rs:368:26
         |
-    359 |         boxed_text(text).unwrap_or_default(),
+    368 |         boxed_text(text).unwrap_or_default(),
         |                          ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Arc<str>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:360:27
+       --> tools/dylint/examples/untyped_error.rs:369:27
         |
-    360 |         shared_text(text).unwrap_or_default(),
+    369 |         shared_text(text).unwrap_or_default(),
         |                           ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Rc<str>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:361:28
+       --> tools/dylint/examples/untyped_error.rs:370:28
         |
-    361 |         counted_text(text).unwrap_or_default(),
+    370 |         counted_text(text).unwrap_or_default(),
         |                            ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Arc<dyn Error + Send + Sync>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:363:28
+       --> tools/dylint/examples/untyped_error.rs:372:28
         |
-    363 |         shared_error(text).unwrap_or_default(),
+    372 |         shared_error(text).unwrap_or_default(),
         |                            ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `Rc<dyn Error>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:364:29
+       --> tools/dylint/examples/untyped_error.rs:373:29
         |
-    364 |         counted_error(text).unwrap_or_default(),
+    373 |         counted_error(text).unwrap_or_default(),
         |                             ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `map_or` replaces `Vec<PortError>` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:382:27
+       --> tools/dylint/examples/untyped_error.rs:391:27
         |
-    382 |         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
+    391 |         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
         |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `RenderError` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:397:46
+       --> tools/dylint/examples/untyped_error.rs:406:46
         |
-    397 |         answered(oneshot::channel().1).await.unwrap_or_default(),
+    406 |         answered(oneshot::channel().1).await.unwrap_or_default(),
         |                                              ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `RenderError` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:398:30
+       --> tools/dylint/examples/untyped_error.rs:407:30
         |
-    398 |         infallible(Ok(8080)).unwrap_or_default(),
+    407 |         infallible(Ok(8080)).unwrap_or_default(),
         |                              ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ErrorData` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:399:26
+       --> tools/dylint/examples/untyped_error.rs:408:26
         |
-    399 |         served(text, 80).unwrap_or_default(),
+    408 |         served(text, 80).unwrap_or_default(),
         |                          ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ErrorData` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:400:22
+       --> tools/dylint/examples/untyped_error.rs:409:22
         |
-    400 |         mapped(text).unwrap_or_default(),
+    409 |         mapped(text).unwrap_or_default(),
         |                      ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ErrorData` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:401:40
+       --> tools/dylint/examples/untyped_error.rs:410:40
         |
-    401 |         dispatched(text, "ports/read").unwrap_or_default(),
+    410 |         dispatched(text, "ports/read").unwrap_or_default(),
         |                                        ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_default` replaces `ErrorData` with a fallback value
-       --> tools/dylint/examples/untyped_error.rs:402:31
+       --> tools/dylint/examples/untyped_error.rs:411:31
         |
-    402 |         extracted(Some(text)).unwrap_or_default(),
+    411 |         extracted(Some(text)).unwrap_or_default(),
         |                               ^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
@@ -1084,20 +1084,20 @@ fn independent_question_marks(found: &str) {
        = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `spelled(text)` returns before independent `borrowed(text)` is computed
-       --> tools/dylint/examples/untyped_error.rs:349:9
+       --> tools/dylint/examples/untyped_error.rs:358:9
         |
-    349 | /         spelled(text)?,
-    350 | |         borrowed(text)?,
+    358 | /         spelled(text)?,
+    359 | |         borrowed(text)?,
         | |______________________^
         |
         = help: collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`
         = note: `#[warn(independent_question_marks)]` on by default
 
     warning: `?` on `loaded(Path::new("port"))` returns before independent `reported(Path::new("port")).map_err(projected)` is computed
-       --> tools/dylint/examples/untyped_error.rs:387:9
+       --> tools/dylint/examples/untyped_error.rs:396:9
         |
-    387 | /         loaded(Path::new("port"))?,
-    388 | |         reported(Path::new("port")).map_err(projected)?,
+    396 | /         loaded(Path::new("port"))?,
+    397 | |         reported(Path::new("port")).map_err(projected)?,
         | |______________________________________________________^
         |
         = help: collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`
@@ -2053,18 +2053,26 @@ fn untyped_error(found: &str) {
         |
         = help: return a `thiserror` enum with a variant per failure and its typed source
 
-    warning: `Result` error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
-       --> tools/dylint/examples/untyped_error.rs:344:20
+    warning: `Result` error `anyhow::Error` is a report that erases each failure's type
+       --> tools/dylint/examples/untyped_error.rs:346:75
         |
-    344 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    346 | fn annotated(report: anyhow::Error) -> ReportError { ReportError::Project(report.context("port")) }
+        |                                                                           ^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: return a `thiserror` enum with a variant per failure and its typed source
+
+    warning: `Result` error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
+       --> tools/dylint/examples/untyped_error.rs:353:20
+        |
+    353 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: return a `thiserror` enum with a variant per failure and its typed source
 
     warning: `Result` error `()` is a unit type that names no failure
-       --> tools/dylint/examples/untyped_error.rs:378:49
+       --> tools/dylint/examples/untyped_error.rs:387:49
         |
-    378 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
+    387 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
         |                                                 ^^^^
         |
         = help: return a `thiserror` enum with a variant per failure and its typed source

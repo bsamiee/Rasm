@@ -4,10 +4,10 @@
 name                 = "rasm-mcp"
 version.workspace    = true
 edition.workspace    = true
-description          = "Typed MCP servers over Streamable HTTP"
+description          = "MCP host on rasm-daemon: sessions with telemetry, routed app servers with tasks and elicitation, and upstream proxies"
 repository.workspace = true
 license.workspace    = true
-keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http"]
+keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http", "proxy"]
 categories           = ["network-programming", "web-programming::http-server"]
 
 # --- [TARGETS] --------------------------------------------------------------------------
@@ -39,8 +39,6 @@ serde_json                         = { workspace = true }
 serde_path_to_error                = { workspace = true }
 serde_urlencoded                   = { workspace = true }
 jsonschema                         = { workspace = true }
-schemars                           = { workspace = true }
-bounded-integer                    = { workspace = true }
 uuid                               = { workspace = true }
 axum                               = { workspace = true }
 form_urlencoded                    = { workspace = true }

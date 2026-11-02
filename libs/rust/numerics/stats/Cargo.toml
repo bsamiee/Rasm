@@ -1,0 +1,47 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-stats"
+version.workspace    = true
+edition.workspace    = true
+description          = "Statistics over named bounded spaces: mergeable summaries, dependence matrices, Monte Carlo, Latin hypercube, Sobol and factorial designs, confidence and bootstrap intervals, NUTS calibration and Guideline 14 grading, Saltelli and Morris sensitivity"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["statistics", "sampling", "sensitivity", "calibration", "mcmc"]
+categories           = ["mathematics", "science"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                = { workspace = true }
+anyhow               = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+datasketches         = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+nutype               = { workspace = true }
+average              = { workspace = true }
+nalgebra             = { workspace = true }
+num-dual             = { workspace = true }
+rand                 = { workspace = true }
+sobol_burley         = { workspace = true }
+statrs               = { workspace = true }
+nuts-rs              = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

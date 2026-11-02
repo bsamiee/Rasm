@@ -76,13 +76,11 @@ rule:
     kind: function_item
     all:
         - has: {field: name, pattern: $NAME}
-        - inside: {kind: declaration_list, inside: {kind: impl_item}}
+        - inside: {kind: declaration_list, inside: {kind: impl_item, not: {has: {field: trait, pattern: $_}}}}
         - any:
             - matches: wrap-trio
             - matches: free-trio
-            - all:
-                - inside: {kind: declaration_list, inside: {kind: impl_item, not: {has: {field: trait, pattern: $_}}}}
-                - matches: plain-trio
+            - matches: plain-trio
         - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: rust-forwarding-newtype-impl}}}
 message: '`$NAME` forwards to `self.$FIELD` in the shape of two earlier methods'
-note: 'Expose the field in place of its forwarding methods, or move their repeated step into one method taking `impl FnOnce(&<field type>) -> <result>`'
+note: 'Expose the field in place of its forwarding methods so callers reach it directly; a trait impl writes each method its trait requires and stays exempt'

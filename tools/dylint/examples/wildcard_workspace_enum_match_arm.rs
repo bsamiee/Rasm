@@ -85,9 +85,9 @@ const fn foreign(order: Ordering) -> u8 {
     }
 }
 
-const fn member(invalid: &rasm_mcp::Invalid) -> u8 {
-    match invalid {
-        rasm_mcp::Invalid::Route { pattern: _, source: _ } => 0,
+const fn member(reason: rasm_mcp::Unanswered) -> u8 {
+    match reason {
+        rasm_mcp::Unanswered::Declined | rasm_mcp::Unanswered::Dismissed | rasm_mcp::Unanswered::Empty | rasm_mcp::Unanswered::Unsupported => 0,
         _ => 1,
     }
 }

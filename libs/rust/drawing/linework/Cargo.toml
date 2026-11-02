@@ -1,0 +1,41 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-linework"
+version.workspace    = true
+edition.workspace    = true
+description          = "Presentation model every Rasm drawing output reads on kurbo, linesweeper and geo: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with stroke dashing and expansion, region booleans and offsets, hatch expansion and linework cleanup"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["drawing", "linework", "hatch", "vector", "cad"]
+categories           = ["graphics", "rendering::data-formats"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+nutype               = { workspace = true }
+geo                  = { workspace = true }
+geo-types            = { workspace = true }
+color                = { workspace = true }
+kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

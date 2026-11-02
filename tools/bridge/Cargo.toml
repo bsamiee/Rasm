@@ -33,32 +33,29 @@ path = "../../tests/rust/tools/bridge/transport.rs"
 
 # --- [RUNTIME]
 [dependencies]
-futures                            = { workspace = true }
-tokio                              = { workspace = true }
-tokio-stream                       = { workspace = true }
-tokio-util                         = { workspace = true }
-sysexits                           = { workspace = true }
-thiserror                          = { workspace = true }
-rmcp                               = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-tracing                            = { workspace = true }
-clap                               = { workspace = true }
-rasm-mcp                           = { workspace = true }
+tokio    = { workspace = true }
+clap     = { workspace = true }
+rasm-mcp = { workspace = true }
 
 # --- [TESTING]
 [target."cfg(unix)".dev-dependencies]
-process-wrap         = { workspace = true }
-nonempty-collections = { workspace = true }
-validated            = { workspace = true }
-derive_more          = { workspace = true }
-serde                = { workspace = true }
-serde_json           = { workspace = true }
-serde_path_to_error  = { workspace = true }
-reqwest              = { workspace = true }
-opentelemetry        = { workspace = true }
-opentelemetry-otlp   = { workspace = true }
-opentelemetry-proto  = { workspace = true }
-testcontainers       = { workspace = true }
+futures                            = { workspace = true }
+tokio-stream                       = { workspace = true }
+process-wrap                       = { workspace = true }
+nonempty-collections               = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true }
+reqwest                            = { workspace = true }
+rmcp                               = { workspace = true }
+opentelemetry                      = { workspace = true }
+opentelemetry-otlp                 = { workspace = true }
+opentelemetry-proto                = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+testcontainers                     = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

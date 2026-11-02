@@ -975,9 +975,9 @@ fn single_impl_trait(found: &str) {
         | ^^^^^^^^^^^^^^^^
         |
     note: `dyn Source` always holds `Port`
-       --> tools/dylint/examples/untyped_error.rs:346:18
+       --> tools/dylint/examples/untyped_error.rs:355:18
         |
-    346 |     let source: &dyn Source = &Port;
+    355 |     let source: &dyn Source = &Port;
         |                  ^^^^^^^^^^
         = help: replace `Source` with an inherent `impl Port` block
         = note: `#[warn(single_impl_trait)]` on by default

@@ -47,7 +47,7 @@ windows-service = "0.8.1"                                             # Windows 
 
 # --- [ERRORS]
 annotate-snippets    = "0.12.17"                                   # Diagnostics rendered over source spans
-anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap
+anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap and nuts-rs chain results rasm-stats downcasts to `NutsError`
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 sysexits             = "0.13.0"                                    # Process exit statuses each crate error converts into at the host
 thiserror            = "2.0.21"                                    # Error enums that consumers match by variant
@@ -64,7 +64,7 @@ strum        = { version = "0.28.0", features = ["derive"] }                    
 
 # --- [COLLECTIONS]
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
-datasketches          = { version = "0.6.0", features = ["tdigest"] }             # Mergeable t-digest quantile sketches that chunk reductions merge and freeze
+datasketches          = { version = "0.6.0", features = ["tdigest"] }             # Mergeable t-digest quantile sketches that chunk reductions merge and query
 enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
 fastbloom             = "0.17.0"                                                  # Bloom filters that precheck membership
 fst                   = { version = "0.4.7", features = ["levenshtein"] }         # Finite-state sets and maps with prefix, range, and fuzzy queries
@@ -81,25 +81,25 @@ loro = "1.17.1" # Loro documents with text, list, map, and tree history
 yrs  = "0.28.0" # Yjs documents with state vectors and update exchange
 
 # --- [SERIALIZATION]
-apache-avro         = { version = "0.22.0", features = ["derive", "zstandard", "snappy"] }           # Avro schemas, binary encoding, and container files
-binrw               = "0.15.2"                                                                       # Binary formats read and written from one declaration
-bytes               = { version = "1.12.1", features = ["serde"] }                                   # Shared immutable byte buffers
-cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                        # CBOR codec
-csv                 = "1.4.0"                                                                        # CSV records decoded into and encoded from typed rows
-data-encoding       = "2.11.1"                                                                       # Base64, base32, and hex codecs
-json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
-jsonptr             = "0.8.2"                                                                        # JSON Pointer resolution with typed failures
-plist               = "1.10.3"                                                                       # XML and binary property lists
-rmp-serde           = "1.3.1"                                                                        # MessagePack codec
-serde               = { version = "1.0.229", features = ["derive"] }                                 # Derived encode and decode of records and tagged unions
-serde-saphyr        = "2.0.0"                                                                        # YAML codec without unsafe libyaml
-serde_json          = { version = "1.0.154", features = ["raw_value", "float_roundtrip"] }           # JSON codec with values and raw passthrough
-serde_path_to_error = "0.1.20"                                                                       # Boundary decode errors that name failing field path
-serde_urlencoded    = "0.7.1"                                                                        # Typed decode of form-encoded fields, numbers and booleans parsed from text
-serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] } # Field codecs declared on records that schema derivation reads
-toml                = "1.1.8"                                                                        # Typed TOML decode and encode
-toml_edit           = { version = "0.25.17", features = ["serde"] }                                  # TOML edits that keep comments and layout
-yaml-edit           = "0.3.6"                                                                        # YAML edits that keep comments and layout
+apache-avro         = { version = "0.22.0", features = ["derive", "zstandard", "snappy"] }                   # Avro schemas, binary encoding, and container files
+binrw               = "0.15.2"                                                                               # Binary formats read and written from one declaration
+bytes               = { version = "1.12.1", features = ["serde"] }                                           # Shared immutable byte buffers
+cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                                # CBOR codec
+csv                 = "1.4.0"                                                                                # CSV records decoded into and encoded from typed rows
+data-encoding       = "2.11.1"                                                                               # Base64, base32, and hex codecs
+json-patch          = "4.2.0"                                                                                # JSON Patch apply and diff over JSON values
+jsonptr             = "0.8.2"                                                                                # JSON Pointer resolution with typed failures
+plist               = "1.10.3"                                                                               # XML and binary property lists
+rmp-serde           = "1.3.1"                                                                                # MessagePack codec
+serde               = { version = "1.0.229", features = ["derive"] }                                         # Derived encode and decode of records and tagged unions
+serde-saphyr        = "2.0.0"                                                                                # YAML codec without unsafe libyaml
+serde_json          = { version = "1.0.154", features = ["raw_value", "float_roundtrip", "preserve_order"] } # JSON codec with values, raw passthrough, and objects kept in insertion order
+serde_path_to_error = "0.1.20"                                                                               # Boundary decode errors that name failing field path
+serde_urlencoded    = "0.7.1"                                                                                # Typed decode of form-encoded fields, numbers and booleans parsed from text
+serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] }         # Field codecs declared on records that schema derivation reads
+toml                = "1.1.8"                                                                                # Typed TOML decode and encode
+toml_edit           = { version = "0.25.17", features = ["serde"] }                                          # TOML edits that keep comments and layout
+yaml-edit           = "0.3.6"                                                                                # YAML edits that keep comments and layout
 
 # --- [SCHEMA]
 jsonschema = { version = "0.60.2", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
@@ -381,7 +381,7 @@ zarrs_icechunk     = { version = "0.6.0", default-features = false, features = [
 zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
-average        = { version = "0.17.0", default-features = false, features = ["std", "rayon"] }                  # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
+average        = { version = "0.17.0", default-features = false, features = ["std"] }                           # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
 csaps          = "0.5.0"                                                                                        # Cubic smoothing splines over samples and grids
 dashu          = "0.6.2"                                                                                        # Arbitrary-precision integers, rationals, and floats
 faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] } # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
@@ -390,7 +390,7 @@ glam           = { version = "0.34.2", features = ["serde"] }                   
 glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                 # parry poses converted to and from nalgebra isometries
 inari          = "2.0.0"                                                                                        # Interval arithmetic with verified enclosures
 iso_currency   = { version = "0.7.1", features = ["with-serde"] }                                               # ISO 4217 currency codes and minor units
-nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033"] }                      # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values
+nalgebra       = { version = "0.35.0", features = ["serde-serialize", "convert-glam033"] }                      # Fixed-size vectors, points, and transforms at every geometry signature, vectors and points crossing into parry's glam values, dynamic matrices of sampled designs, draws and dependence, and `convert` for counts entering float arithmetic
 ndarray        = { version = "0.17.2", features = ["rayon", "serde"] }                                          # N-dimensional arrays holding grids, matrices, and analysis data
 ndarray-interp = "0.6.0"                                                                                        # Bilinear and cubic interpolation over ndarray grids at sample points
 num-dual       = "0.15.1"                                                                                       # Forward-mode automatic differentiation
@@ -419,7 +419,7 @@ fmi         = { version = "0.8.0", default-features = false, features = ["fmi2",
 good_lp     = { version = "1.15.3", default-features = false, features = ["clarabel", "highs"] } # LP and MIP models over HiGHS and Clarabel, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
 kasuari     = "0.4.13"                                                                           # Cassowary constraint solving of layouts
 nlopt       = "0.8.1"                                                                            # Constrained local and global optimization
-nuts-rs     = { version = "0.19.1", features = ["ndarray"] }                                     # No-U-Turn sampling
+nuts-rs     = "0.19.1"                                                                           # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
 dugong           = "0.9.3"                                                                           # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
@@ -462,7 +462,7 @@ contour           = "0.13.1"                                                    
 eulumdat-daylight = "0.7.1"                                                                                                                                                                   # Perez and CIE sky radiance distributions
 flatgeobuf        = { version = "6.0.1", default-features = false, features = ["http"] }                                                                                                      # FlatGeobuf files and HTTP range reads, default `default-tls` links platform TLS through reqwest 0.12 native-tls beside rustls
 gdal              = { version = "0.19.0", features = ["array"] }                                                                                                                              # GDAL rasters and OGR vectors
-geo               = { version = "0.33.1", features = ["serde"] }                                                                                                                              # Planar predicates, booleans, buffers, simplification, and triangulation
+geo               = { version = "0.33.1", features = ["serde"] }                                                                                                                              # Planar predicates, booleans, line clipping, sweep intersections, ball-tree radius queries, buffers, simplification, and triangulation
 geo-traits        = "0.3.0"                                                                                                                                                                   # Geometry access traits GeoArrow and GeoParquet values read through
 geo-types         = { version = "0.7.20", features = ["serde"] }                                                                                                                              # Geometry primitives shared by georust crates
 geoarrow-array    = "0.9.0"                                                                                                                                                                   # GeoArrow geometry arrays
@@ -518,7 +518,7 @@ subsetter   = "0.2.6"                                                           
 write-fonts = { version = "0.55.0", features = ["read"] }                          # Font table compilation
 
 # --- [GRAPHICS]
-kurbo       = { version = "0.13.1", features = ["serde"] }                          # 2D Bezier paths, affine transforms, offsets, and arc lengths
+kurbo       = { version = "0.13.1", features = ["serde"] }                          # 2D Bezier paths, affine transforms, flattening, dashing, stroke expansion, offsets, and arc lengths
 linesweeper = "0.5.0"                                                               # Boolean operations on curved paths
 resvg       = "0.49.0"                                                              # SVG rasterization
 tiny-skia   = "0.12.0"                                                              # CPU rasterization of paths, gradients, and patterns
@@ -611,8 +611,10 @@ rasm-command   = { path = "libs/rust/cli/command", version = "1.0.0" }        # 
 rasm-output    = { path = "libs/rust/cli/output", version = "1.0.0" }         # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
 rasm-screen    = { path = "libs/rust/cli/screen", version = "1.0.0" }         # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view
 rasm-daemon    = { path = "libs/rust/services/daemon", version = "1.0.0" }    # Served process every Rasm daemon runs: listen row, bind and bound address, axum serve with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain on the command's signals
-rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP server over Streamable HTTP on `rasm-daemon` every Rasm MCP product and `rasm-mcp-bridge` serve through
+rasm-mcp       = { path = "libs/rust/services/mcp", version = "1.0.0" }       # MCP host on `rasm-daemon`: endpoint sessions with telemetry and drain, routed app servers with tasks, elicitation and a cancelled-call ledger, and the upstream proxy `rasm-mcp-bridge` serves
 rasm-mesh      = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      # Solids every Rasm geometry consumer composes: mesh import with winding repair, extrusion, revolution, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, reduction, refinement, decomposition, measures
+rasm-stats     = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
+rasm-linework  = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
