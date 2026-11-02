@@ -1,13 +1,13 @@
 export const meta = {
   name: 'harness-depth',
-  description: 'Harden one host harness: mine past proofs, run a battery of needs through it, land root-cause fixes, then two unanchored depth passes',
-  whenToUse: 'One run per harness folder under tools/harnesses: args.key the folder, args.name the host, args.apps the installed releases, args.skills the skills that drive it, args.products the docs/research product folders whose proofs used it. One run per host at a time.',
+  description: 'Harden one host harness: mine past failures, run a battery of needs through it once, land root-cause fixes, deepen in place, one check',
+  whenToUse: 'args.key the folder under tools/harnesses, args.name the host, args.apps the installed releases, args.skills the skills that drive it, args.products the product folders whose proofs used it.',
   phases: [
-    { title: 'Mine', detail: 'readers over past proofs, workarounds, crashes and dialogs' },
-    { title: 'Battery', detail: 'case authors per need in parallel, one serial runner through the harness' },
-    { title: 'Fix', detail: 'one architect groups every finding by cause, one lander lands the root fixes' },
-    { title: 'Depth', detail: 'two identical unanchored passes, each lens readers then one adversarial lander' },
-    { title: 'Check', detail: 'checks and a live batch in the background' },
+    { title: 'Mine', detail: 'readers over past proofs, failures and the host model' },
+    { title: 'Battery', detail: 'case authors per need in parallel, one runner through the harness' },
+    { title: 'Fix', detail: 'one lander fixes every finding at its cause' },
+    { title: 'Deepen', detail: 'adversaries in parallel, each fixing its lens in place' },
+    { title: 'Check', detail: 'checks and the battery once, fixes once, checks once' },
   ],
 }
 
@@ -15,58 +15,42 @@ const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const KIT = `${REPO}/tools/harnesses`
 const HARNESS = `${KIT}/${args.key}`
 const DIR = `${REPO}/.artifacts/workflows/harness-depth/${args.key}`
-const BASIS = `Load Skill(manage-repo), Skill(clean-prose), Skill(watch-apps), ${args.skills} and the coding skill of each language you write first. The kit runs one host call per batch, every case isolated so a failure is recorded and never reaches the host as a dialog or crash, preconditions as data, results compared bit-exact, a facts index checked before any question. Each case runs in the host's real state with the host hidden from its launch through \`watch-apps launch\`: a real document, scene or canvas built from the case's preconditions, so selection, the active window and context work. The harness is version-independent (every installed release of ${args.name}: ${args.apps}) and asks the host for whole answers in one call through its object model, dictionary, introspection or MCP reads. Code holds the repository bar: logic derived and parameterized from the host's own facts, algebraic data, fewest entry points, exports and items, no stringly type, arbitrary constant, wrapper, forwarder, version or path written in, or hand-rolled fact a package or host API states. A fix lands at the cause as general capability, never as a case-specific branch, a new entry point a parameter serves, or a retry, guard or timeout that hides a failure. Hosts run in the background with \`watch-apps watch\` on them throughout; nothing activates an app or takes the owner's focus. A crash in a host with a window raises the system crash dialog whichever process started it, so a case reads host state through members its host documents as answering without a live view, never by invoking members wholesale through reflection. Other runs drive these hosts: touch only your own documents and processes.`
-const SILENT = 'Report only what changes the harness, each with its cause and source; say nothing about what holds.'
+const BASIS = `Load Skill(manage-repo), Skill(watch-apps), ${args.skills} and the coding skill of each language you write first. The harness runs one host call per batch with every case isolated, so a failure is recorded and never reaches the host as a dialog or crash; it launches the host hidden through \`watch-apps launch\`, builds real documents from each case's preconditions, reads whole answers in one call, and ends a hung host. It serves every installed release of ${args.name} (${args.apps}). Findings already recorded (.artifacts/workflows/, docs/research, the facts index) are facts to act on, never to rediscover. Code is derived from the host's own facts: no stringly type, written-in version or path, wrapper, retry, guard or timeout that hides a failure, and no entry point a parameter serves. A fix lands at the cause as general capability. Touch only your own documents and processes.`
 const FOUND = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] }
 const flat = (results) => results.filter(Boolean).flatMap((r) => r.findings.map((f) => `- ${f}`)).join('\n')
 
-const MINERS = [
-  { lens: 'proofs', ask: `Read every proof the harness or its predecessors ran for ${args.products}: each product's proof/ notes, reports, case and result files, and host scripts. Name each workaround a proof needed (a fake selection, an added window, a skipped case, a stand-in environment), each case recorded as thrown or unproven because the harness could not express it, and each place a proof hand-wrote what the harness should hold.` },
-  { lens: 'failures', ask: `Read ~/Library/Logs/DiagnosticReports for ${args.name}, and the agent transcripts under ~/.claude/projects/-Users-bardiasamiee-Developer-Rasm/*/subagents for runs that drove it (rg for its name beside osascript, do script, execute, eval, probe, harness). Name each crash, hang, dialog and repeated probe, its cause, and the general harness capability that removes it.` },
-  { lens: 'model', ask: `Read ${args.name}'s scripting model whole (dictionary through \`sdef\`, object model types, introspection, MCP surfaces, command line) against ${HARNESS}. Name each kind of host fact or state a proof will need that the harness cannot set up, read or compare.` },
-]
-
 phase('Mine')
-const mined = flat(await parallel(MINERS.map((m) => () => agent(`Miner for ${HARNESS}, ${m.lens} lens. ${m.ask} ${SILENT} Edit nothing. ${BASIS}
-Return (structured): findings.`, { label: `mine:${m.lens}`, phase: 'Mine', schema: FOUND }))))
+const mined = flat(await parallel([
+  ['proofs', `every proof run for ${args.products}: each workaround it needed and each case left unproven because the harness could not express it`],
+  ['failures', `crash reports in ~/Library/Logs/DiagnosticReports for ${args.name} and past run transcripts that drove it: each crash, hang, dialog and repeated call with its cause`],
+  ['model', `${args.name}'s scripting model (dictionary, object model, introspection) against ${HARNESS}: each kind of host state a proof needs that the harness cannot set up, read or compare`],
+].map(([lens, ask]) => () => agent(`${BASIS}
+Miner, ${lens} lens. Read ${ask}. One line each with its cause. Edit nothing. Return (structured) the findings.`, { label: `mine:${lens}`, phase: 'Mine', schema: FOUND }))))
 
 phase('Battery')
-const authored = await parallel(['documents and their setup (intent, size, color, units, language)', 'selection, active window, view and context', 'text, composition and right-to-left', 'units, numbers, precision and rounding', 'styles, tables and structured content', 'export, rendering and file round trips', 'errors, dialogs, alerts and recovery', 'plugins, extensions and script engines the host loads', 'host releases side by side and version reporting'].map((need, i) => () => agent(`Case author for ${args.name}, need: ${need}. Write the cases a real proof in this area needs, as the harness's case files under ${DIR}/battery/${i + 1}/, covering edge, malformed and large inputs and every release installed, without running them. Where the harness cannot express a case, record that as a finding rather than working around it. ${SILENT} ${BASIS}
-Return (structured): findings, each naming its case file.`, { label: `battery:author:${i + 1}`, phase: 'Battery', schema: FOUND })))
-const ran = await agent(`Battery runner for ${HARNESS}. Run every case file under ${DIR}/battery/ through the harness's own entry points, one batch at a time, serially, against each installed release of ${args.name}, with \`watch-apps watch\` on it. Never probe outside the harness. Record each crash, hang, dialog, wrong result, thrown case, slow batch and missing capability with its cause. Authors' findings: ${flat(authored)}
-${SILENT} ${BASIS}
-Return (structured): findings.`, { label: 'battery:run', phase: 'Battery', schema: FOUND })
+const authored = await parallel(['documents and their setup', 'selection, active window and context', 'text, composition and right-to-left', 'units, numbers and precision', 'styles, tables and structured content', 'export and file round trips', 'errors, dialogs and recovery', 'plugins and script engines', 'host releases side by side'].map((need, i) => () => agent(`${BASIS}
+Case author for ${args.name}, need: ${need}. Write the cases a real proof in this area needs as the harness's case files under ${DIR}/battery/${i + 1}/, without running them. Each case the harness cannot express is a finding. Return (structured) the findings.`, { label: `battery:author:${i + 1}`, phase: 'Battery', schema: FOUND })))
+const ran = await agent(`${BASIS}
+Battery runner. Run every case file under ${DIR}/battery/ through the harness once, against each installed release of ${args.name}. Record each crash, hang, dialog, wrong result and missing capability with its cause. Return (structured) the findings.`, { label: 'battery:run', phase: 'Battery', schema: FOUND })
 
 phase('Fix')
-await agent(`Architect. Group every finding below by its cause and write ${DIR}/FIXES.md: for each cause, the general capability or rule in the harness that removes it, where it lives in the kit (host-neutral modules or ${HARNESS}), and the findings it closes. Reject a session-specific finding, one a parameter of an existing operation serves, and one that hides a failure, with one line why. Findings:
+const fixed = await agent(`${BASIS}
+Lander. Fix every finding below at its cause across ${KIT} and ${HARNESS}, grouping findings that share a cause into one general fix and rebuilding a file whole where its fixes reshape it. Push back only on a session-specific finding or one that hides a failure, one line each.
 ${mined}
 ${flat(authored)}
 ${flat([ran])}
-${BASIS}
-Return at most 12 lines: the causes and their fixes.`, { label: 'fix:plan', phase: 'Fix' })
-const fixed = await agent(`Lander for ${DIR}/FIXES.md. Land each fix in its strongest form across ${KIT} and ${HARNESS}, rebuilding a file whole where its fixes reshape it. Refuse a plan step that would add surface without capability, with one line why. ${BASIS}
-Return at most 15 lines: what landed, what you refused and why, battery results before and after.`, { label: 'fix:land', phase: 'Fix' })
+Return at most 12 lines: what landed.`, { label: 'fix', phase: 'Fix' })
 
-const LENSES = [
-  { lens: 'information', ask: `Every way ${args.name} can answer what a proof needs, richer and faster than the harness asks now. Do not trust the current approach; find where it guesses, asks piecemeal, runs a stand-in environment, or misses a kind of fact.` },
-  { lens: 'capability', ask: 'Each capability a proof needs that the harness lacks or holds shallowly, folded into existing entry points as deeper logic, never a new command a parameter serves.' },
-  { lens: 'derivation', ask: 'Each type, enum, error variant or validation no caller acts on differently, each piece of hand-rolled logic, restated host fact, version or path written in, stringly form, constant or export, and each branch an algebraic form or derived value states.' },
-  { lens: 'abstraction', ask: `Whether each fix the lander made sits at the right level (host-neutral or ${args.key}), names the general capability rather than the case that exposed it, and leaves no special case behind.` },
-]
-const depth = (n) => async () => {
-  const found = flat(await parallel(LENSES.map((l) => () => agent(`Depth reader for ${HARNESS} and ${KIT}, ${l.lens} lens. Read the harness whole as it stands, as a shallow draft. ${l.ask} ${SILENT} Edit nothing. ${BASIS}
-Return (structured): findings.`, { label: `depth:${n}:${l.lens}`, phase: 'Depth', schema: FOUND }))))
-  return agent(`Depth lander for ${HARNESS} and ${KIT}. Findings:
-${found}
-Judge each as an adversary: reject a weak or cosmetic one, one that adds an entry point a parameter serves, and one that trades a real host answer for a guess, each with one line why. Land the rest in their strongest form, rebuilding a file whole where its findings reshape it. ${BASIS}
-Return at most 12 lines: what landed, what you rejected and why, exports before and after.`, { label: `depth:${n}:land`, phase: 'Depth' })
-}
-
-phase('Depth')
-const first = await depth(1)()
-const second = await depth(2)()
+phase('Deepen')
+await parallel([
+  ['information', `ways ${args.name} answers a proof's needs richer or in fewer calls than the harness asks now`],
+  ['capability', 'capability a proof needs that the harness lacks or holds shallowly, folded into existing entry points'],
+  ['reduction', 'types, variants, validations, constants, exports and hand logic no caller acts on differently, and restated host facts'],
+].map(([lens, ask]) => () => agent(`${BASIS}
+Adversary, ${lens} lens. The lander reported:
+${fixed}
+Read ${HARNESS} and ${KIT} as they now stand and fix in place every remaining ${ask}. Other adversaries edit beside you; re-read a file before each edit. Return at most 6 lines: what you changed.`, { label: `deepen:${lens}`, phase: 'Deepen' })))
 
 phase('Check')
-const checked = await agent(`Check ${KIT}. Run its project checks and the linters for each language it holds through nx, then the whole battery under ${DIR}/battery/ through the harness against every installed release of ${args.name} with watch-apps watching. Fix every finding at its root. Record in the facts index what the battery settled. ${BASIS}
-Return at most 10 lines: each command and the battery result, each fix, and \`git diff --shortstat\` over ${KIT}.`, { label: 'check', phase: 'Check' })
-return { fixed, first, second, checked }
+return agent(`${BASIS}
+Check ${KIT}: run its nx project checks and the battery under ${DIR}/battery/ through the harness once, fix every finding at its cause once, then run them once more. Record what the battery settled in the facts index. Return at most 10 lines: findings fixed and any that remain.`, { label: 'check', phase: 'Check' })
