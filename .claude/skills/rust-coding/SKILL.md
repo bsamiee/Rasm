@@ -18,7 +18,7 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
 - Values and methods that vary are parameters, a caller choosing among methods of one result (a percentile or BCa interval) rather than the callee fixing the costlier one, and kinds, keys, and states are typed values rather than strings
-- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a file its concept's
+- Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a function the result it returns, a file its concept's
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
@@ -50,11 +50,11 @@ Function signatures are contracts, parameter types state every value a function 
 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
-Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or to a bound excluding the values it fails on (`Neg` beside `Sub` refusing an unsigned measure), or by widening the output:
+Functions are total when each declared input produces a declared output, and a panic is an outcome the signature omits. Make a partial function total by narrowing the input to a constructed type or to a bound excluding only the values it fails on (`Neg` beside `Sub` refusing an unsigned measure), or by widening the output:
 - `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
 - Empty collections are results, `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one differently
 - Clamps hiding an input the callee rejects (`.max(0.0)` before an asserting call) are a narrowed input type excluding only what the callee rejects, a value it gives a meaning (a `0.0` tolerance as the subject's own, a `0.0` epsilon as an exact test) staying reachable as `None`, and a clamp stays where the domain defines it
-- Inputs a dependency asserts on (a cone's dimension, an oversized raster) are refused at construction or before the call, naming their subject
+- Inputs a dependency asserts on (a cone's dimension, an oversized raster) are refused at construction or before the call, naming each refused subject
 - Associated constants a dependency panics on (a zero period) take `const { assert!(..) }` in the generic body, failing at monomorphization
 
 ### [01.2]-[PURITY]
@@ -90,10 +90,11 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Iterator pipelines hold every traversal, with a named adapter or reduction (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or an in-place pass over a collected buffer (`Vec::dedup`, `sort`, `retain`), a kept order (`Acyclic::nodes_iter`) read in place of a sort, and `fold` holds a reduction no member names
 - Adjacent pairs (`array_windows`, `map_windows`, `circular_tuple_windows` closing a ring) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
+- Steps every arm shares (reversing a graph for a direction) run once before the `match`
 - Arms and closures of a combinator choosing a value (`map_or`, `map_or_else`, `unwrap_or_else`, `Some(x).filter(p).unwrap_or_else(f)`) nest no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
 - Irrefutable `let`s inside a let chain name a value later conditions and the arm read
-- Side effects on an `Option` run inside `if let` in place of `into_iter().for_each` or a `filter` ignoring its item
+- Side effects under an `Option` or condition run in `if let` or `if`, in place of `into_iter().for_each`, a flattened `bool::then`, or an item-blind `filter`
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Builder steps over an `Option` or iterator fold its items into the builder with the method path as the step (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`
 - `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` pairs, a method taking `IntoIterator` receiving the `Option` whole
@@ -116,6 +117,7 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 ```
 
 - Matches over a workspace enum list every variant, a new variant then fails each match that must handle it
+- Arms read what their own pattern binds, a nested match re-reading a value its outer arm narrowed lists variants that never reach it
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Struct patterns name every field, and `field: _` marks a field the arm ignores
 - `if let` guards bind from a second refutable pattern inside an arm, deref patterns match through `Box`, `Rc`, `Arc`, `Vec`, `String`, and `Cow`
@@ -171,7 +173,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
 - Rules across fields take `nutype` over a standard type of that shape, else over a declared record: an interval is a `core::range` value (`RangeInclusive<f64>`, `Copy` with public ends), an integer window whose type's maximum is a valid member (a Sobol index through `u16::MAX`) a nutype over `RangeInclusive<u16>` refusing `start > last`, never a half-open range or a count that tops out one short or admits an empty window, and a `core::ops` range stays where a wire derive reads it (serde implements `ops::Range<Timestamp>` alone)
-- Public fields hold values no rule constrains
+- Public fields hold values no rule across fields constrains, each field's own type validating it
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
 - Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry or a guard emptying the result
 - Tokens a value issues carry an invariant `'id` brand its scoped constructor binds, and another issuer's token fails to compile
@@ -179,7 +181,7 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 ### [03.3]-[OWNERSHIP]
 
 Ownership states who decides a value's lifetime:
-- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
+- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` over the element the body reads (`IntoIter: Clone` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
 - Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`, or the shared handle a dependency states for the concept (linebender_resource_handle `FontData` over font bytes and collection index)
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Steps only some inputs take return `Cow<'_, T>`, the untouched path borrowing its input
@@ -200,6 +202,7 @@ impl Account {
 - `Account` holds an `id` and a `balance`, and one signed `amount` states a credit and a debit alike
 - Struct update copies unchanged fields from a state (`..*self`, `..self` consumed to change a type parameter), a foreign default, or a foreign value (`..event`)
 - `&mut self` methods stay on a type whose purpose is an owned buffer or an index updated in place (a builder, a parser cursor, a spatial tree)
+- Remaps per element (an endpoint per edge) read a dense index or the package conversion holding one, never a binary search per element
 
 Select collections by their most frequent operation:
 
@@ -230,7 +233,7 @@ Every fallible function returns its outcome as a value, and one type serves one 
 |  [04]   | `ControlFlow<B, C>`                | Early exit from a fold with a value, not a failure |
 |  [05]   | `impl Stream<Item = Result<T, E>>` | Values over time, each failure one item            |
 
-Input boundaries select the result type, functions preserve it, and one point converts by the target's method (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone, and a result its inputs cannot measure (a bias correction from resamples all on one side) is a refusal tested before the step that turns it infinite, never an `Ok` holding NaN or an infinity.
+Input boundaries select the result type, functions preserve it, a `Validated` holds the narrowest error its checks return (a boundary's defects), and one point converts by the target's method (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone, and a result its inputs cannot measure (a bias correction from resamples all on one side) is a refusal tested before the step that turns it infinite, never an `Ok` holding NaN or an infinity.
 
 ### [04.1]-[COMPOSITION]
 
@@ -290,10 +293,11 @@ pub enum LedgerError {
 ```
 
 - Messages render from typed fields through `#[error]` and print neither source nor a value its `Display` writes (`source.path()`), `Report::new(&error)` renders the chain
+- Absent message fields render as what absence means (a package default)
 - Messages branching on a field or listing a variant's `NEVec` (one `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, a list of plain values through `Itertools::format`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
-- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
+- Boundaries `map_err` a foreign error into a variant holding the operation or the caller's subject it omits (the path, the key, never a value the callee built) beside the source, an error omitting none reaching its variant through `From` and `?`, the crate's own error a foreign call hands back from a crate callback mapping alike, and calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
 - Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
@@ -434,7 +438,7 @@ Numeric facts come from the type or package that states them:
 - Tolerances on a measure in the caller's units are relative to it (a residual change against the previous residual)
 - Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
-- Quantities enter and leave through `uom` at a signature, and the kernel between them runs on `f64`
+- Quantities enter and leave through `uom` at a signature, a coordinate pair one validated type reading out each, the kernel between them on `f64`
 - Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`
 - Operators state float, dual, complex, and matrix arithmetic, `arithmetic-side-effects-allowed` rows list operand types in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)

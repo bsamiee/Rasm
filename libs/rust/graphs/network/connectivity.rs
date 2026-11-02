@@ -3,14 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ordered_float::OrderedFloat;
 use petgraph::{
-    EdgeType,
+    EdgeType, Undirected,
     algo::kosaraju_scc,
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph, StableUnGraph},
     visit::{EdgeRef as _, IntoEdgeReferences as _},
 };
 use rustworkx_core::connectivity::{articulation_points, connected_components, stoer_wagner_min_cut};
 
-use crate::Weight;
+use crate::{Weight, compact};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -68,21 +68,13 @@ where Ty: EdgeType {
 }
 
 #[must_use]
-pub fn min_cut<N, E>(graph: &StableUnGraph<N, E>, weight: impl Fn(EdgeReference<'_, E>) -> Weight) -> Option<Cut> {
-    let cut = stoer_wagner_min_cut(graph, |edge| Ok::<_, !>(OrderedFloat(weight(edge).into_inner()))).into_ok();
-    cut.map(|(OrderedFloat(value), side)| severed(graph, value, side.into_iter().collect()))
-}
-
-pub(crate) fn severed<N, E, Ty>(graph: &StableGraph<N, E, Ty>, value: f64, side: BTreeSet<NodeIndex>) -> Cut
+pub fn min_cut<N, E, Ty>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(EdgeReference<'_, E>) -> Weight) -> Option<Cut>
 where Ty: EdgeType {
-    let edges = graph
-        .edge_references()
-        .filter(|edge| match (side.contains(&edge.source()), side.contains(&edge.target())) {
-            (true, false) => true,
-            (false, true) => !Ty::is_directed(),
-            (true, true) | (false, false) => false,
-        })
-        .map(|edge| edge.id())
-        .collect();
-    Cut { value, side, edges }
+    let network = compact(graph, |edge| (OrderedFloat(weight(edge).into_inner()), edge.id())).into_edge_type::<Undirected>();
+    let cut = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(edge.weight().0)).into_ok();
+    cut.map(|(OrderedFloat(value), side)| {
+        let side = side.into_iter().collect::<BTreeSet<_>>();
+        let edges = network.edge_references().filter(|edge| side.contains(&edge.source()) != side.contains(&edge.target())).map(|edge| edge.weight().1).collect();
+        Cut { value, side: side.into_iter().map(|node| network[node]).collect(), edges }
+    })
 }

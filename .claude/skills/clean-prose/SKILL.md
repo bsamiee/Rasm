@@ -133,7 +133,7 @@ Sentences state one instruction or fact in active voice and simple present or pa
 - Verbs name actions, nominalizations and phrasal verbs take their verb from the word map
 - Modals are must for a requirement, can for a possibility, will for what comes next
 - `should` becomes must or goes as a suggestion, `may`, `might`, `could`, and `would` become can or condition, `may have` stays
-- One word names one concept across a file and every file of its area
+- One word names one concept across a file and every file of its area, identifiers included
 - Contractions expand, present perfect becomes simple past or present, spelling is American
 - Em dashes appear as `value — description` in a list item or table cell alone
 - Parentheses hold a phrase, a sentence inside them folds into its sentence or goes

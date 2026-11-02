@@ -8,7 +8,7 @@ use uom::si::{
 };
 
 use crate::{
-    Elevation, Place, SiteError,
+    Elevation, SiteError,
     crs::{Crs, Factors},
 };
 
@@ -20,10 +20,12 @@ pub enum North {
     True,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, derive_more::Display)]
+#[display(rename_all = "lowercase")]
 pub enum Scale {
     Grid,
     Ground,
+    #[display("{}", _0.get::<ratio>())]
     Stated(Ratio),
 }
 
@@ -44,29 +46,30 @@ pub struct Frame {
     #[as_ref]
     factors: Factors,
     #[as_ref]
-    place: Place,
+    elevation: Elevation,
 }
 
 impl Frame {
     pub fn from_anchor(crs: Crs, anchor: Point3<f64>, north: North, rotation: Angle, scale: Scale) -> Result<Self, SiteError> {
+        let refused = || SiteError::Anchor { anchor, rotation, scale };
+        let positive = match scale {
+            Scale::Grid | Scale::Ground => true,
+            Scale::Stated(stated) => stated.get::<ratio>().is_normal() && stated.is_sign_positive(),
+        };
+        (anchor.iter().all(|coordinate| coordinate.is_finite()) && rotation.is_finite() && positive).ok_or_else(refused)?;
         let factors = crs.factors()?(anchor)?;
         let unit = factors.grid_unit.get::<meter>();
         let stretch = match scale {
-            Scale::Grid => unit.recip(),
-            Scale::Ground => factors.parallel_scale.get::<ratio>() * factors.elevation_scale.get::<ratio>() / unit,
+            Scale::Grid => 1.0,
+            Scale::Ground => factors.parallel_scale.get::<ratio>() * factors.elevation_scale.get::<ratio>(),
             Scale::Stated(stated) => stated.get::<ratio>(),
-        };
+        } / unit;
         let turn = match north {
             North::Grid => rotation.get::<radian>(),
             North::True => rotation.get::<radian>() + factors.meridian_convergence.get::<radian>(),
         };
-        let elevation = Elevation::try_new(Length::new::<meter>(anchor.z * unit)).ok().filter(|_| turn.is_finite() && stretch.is_normal() && stretch.is_sign_positive()).ok_or(SiteError::Anchor {
-            anchor,
-            rotation,
-            scale: Ratio::new::<ratio>(stretch),
-        })?;
-        let place = Place::try_from((factors.position, elevation))?;
-        Ok(Self { crs, similarity: Similarity3::new(anchor.coords, Vector3::z() * turn, stretch), factors, place })
+        let elevation = Elevation::try_new(Length::new::<meter>(anchor.z * unit)).ok().filter(|_| turn.is_finite() && stretch.is_normal() && stretch.is_sign_positive()).ok_or_else(refused)?;
+        Ok(Self { crs, similarity: Similarity3::new(anchor.coords, Vector3::z() * turn, stretch), factors, elevation })
     }
 
     #[must_use]

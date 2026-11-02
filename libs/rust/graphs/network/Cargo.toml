@@ -23,18 +23,21 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-rayon          = { workspace = true }
-thiserror      = { workspace = true }
-derive_more    = { workspace = true }
-indexmap       = { workspace = true }
-hashbrown      = { workspace = true }
-serde          = { workspace = true }
-nutype         = { workspace = true }
-ordered-float  = { workspace = true }
-nalgebra       = { workspace = true }
-leiden-rs      = { workspace = true }
-petgraph       = { workspace = true }
-rustworkx-core = { workspace = true }
+rayon                = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+validated            = { workspace = true }
+nonempty-collections = { workspace = true }
+itertools            = { workspace = true }
+indexmap             = { workspace = true }
+hashbrown            = { workspace = true }
+serde                = { workspace = true }
+nutype               = { workspace = true }
+ordered-float        = { workspace = true }
+nalgebra             = { workspace = true }
+leiden-rs            = { workspace = true }
+petgraph             = { workspace = true }
+rustworkx-core       = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

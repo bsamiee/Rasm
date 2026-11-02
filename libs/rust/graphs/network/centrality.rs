@@ -3,14 +3,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use hashbrown::HashMap;
 use petgraph::{
-    Direction::{self, Incoming, Outgoing},
+    Direction::{self, Outgoing},
     EdgeType,
     graph::Graph,
     stable_graph::{EdgeReference, NodeIndex, StableGraph},
-    visit::{EdgeRef as _, IntoEdges, IntoNeighbors, IntoNodeIdentifiers, NodeCount, NodeIndexable, Reversed},
+    visit::NodeIndexable as _,
 };
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use rustworkx_core::centrality::{eigenvector_centrality, katz_centrality};
+use validated::Validated;
 
 use crate::{
     NetworkError, Tolerance, Weight, compact,
@@ -40,7 +41,7 @@ pub fn geodesic<N, E, Ty>(
     graph: &StableGraph<N, E, Ty>,
     origins: impl IntoIterator<Item: Borrow<NodeIndex>>,
     cost: impl Fn(EdgeReference<'_, E>) -> Weight + Sync,
-    extent: impl Fn(EdgeReference<'_, E>) -> Weight + Sync,
+    extent: impl Fn(EdgeReference<'_, E>, Weight) -> Weight + Sync,
     mass: impl Fn(&N) -> Weight + Sync,
     decay: impl Fn(f64) -> f64 + Sync,
     catchment: Catchment,
@@ -50,15 +51,19 @@ where
     E: Sync,
     Ty: EdgeType + Sync,
 {
-    let origins = origins.into_iter().map(|node| present(graph, *node.borrow())).try_collect::<BTreeSet<_>>()?;
-    let scale = if graph.is_directed() { 1.0 } else { 0.5 };
+    let origins = origins.into_iter().map(|node| present(graph, *node.borrow())).collect::<Validated<BTreeSet<_>, _>>().ok().map_err(NetworkError::Refused)?;
     let held = |node: NodeIndex| mass(&graph[node]).into_inner();
+    let counted = |node: NodeIndex| match (Ty::is_directed(), origins.contains(&node)) {
+        (false, true) => 0.5,
+        (true, _) | (false, false) => 1.0,
+    };
     let blank = || vec![Centrality::default(); graph.node_bound()];
-    let pass = |mut total: Vec<Centrality>, origin: NodeIndex| {
+    let pass = |mut total: Vec<Centrality>, &origin: &NodeIndex| {
         let tree = search(graph, origin, &cost, &extent, catchment);
         let (own, dependency) = tree.iter().enumerate().skip(1).rev().fold((Centrality::default(), vec![0.0; tree.len()]), |(own, mut dependency), (position, (&node, reached))| {
             let weight = held(node);
-            let carried = dependency.get(position).map_or(weight, |share| weight + share);
+            let paired = weight * counted(node);
+            let carried = dependency.get(position).map_or(paired, |share| paired + share);
             reached.predecessors.iter().filter_map(|&edge| graph.edge_endpoints(edge)).filter_map(|(tail, head)| tree.get_full(if tail == node { &head } else { &tail })).for_each(
                 |(index, _, before)| {
                     if let Some(share) = dependency.get_mut(index) {
@@ -68,7 +73,7 @@ where
             );
             (own + Centrality { reach: weight, farness: weight * reached.distance, gravity: weight * decay(reached.distance), ..Centrality::default() }, dependency)
         });
-        let carrier = held(origin) * scale;
+        let carrier = held(origin);
         iter::once((origin, own)).chain(tree.keys().zip(dependency).skip(1).map(|(&node, share)| (node, Centrality { betweenness: carrier * share, ..Centrality::default() }))).for_each(
             |(node, part)| {
                 if let Some(slot) = total.get_mut(node.index()) {
@@ -78,7 +83,7 @@ where
         );
         total
     };
-    let total = origins.into_par_iter().fold(blank, pass).reduce(blank, |mut total, other| {
+    let total = origins.par_iter().fold(blank, pass).reduce(blank, |mut total, other| {
         iter::zip(&mut total, other).for_each(|(slot, part)| *slot += part);
         total
     });
@@ -94,15 +99,11 @@ pub fn eigenvector<N, E, Ty>(
 where
     Ty: EdgeType,
 {
-    fn scan<G>(network: G, Convergence { max_iter, tol }: Convergence) -> Option<Vec<f64>>
-    where G: NodeIndexable + IntoNodeIdentifiers + IntoNeighbors + IntoEdges<EdgeWeight = f64> + NodeCount<NodeId: Eq> {
-        eigenvector_centrality(network, |edge| Ok::<f64, !>(*edge.weight()), max_iter.map(NonZero::get), tol.map(Tolerance::into_inner)).into_ok()
+    let mut network = compact(graph, |edge| weight(edge).into_inner());
+    if direction == Outgoing {
+        network.reverse();
     }
-    let network = compact(graph, |edge| weight(edge).into_inner());
-    let scores = match direction {
-        Incoming => scan(&network, convergence),
-        Outgoing => scan(Reversed(&network), convergence),
-    };
+    let scores = eigenvector_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), convergence.max_iter.map(NonZero::get), convergence.tol.map(Tolerance::into_inner)).into_ok();
     scored(&network, scores, convergence)
 }
 
@@ -110,23 +111,23 @@ pub fn katz<N, E, Ty>(
     graph: &StableGraph<N, E, Ty>,
     weight: impl Fn(EdgeReference<'_, E>) -> Weight,
     mass: impl Fn(&N) -> Weight,
-    attenuation: Weight,
+    alpha: Weight,
     direction: Direction,
     convergence: Convergence,
 ) -> Result<BTreeMap<NodeIndex, f64>, NetworkError>
 where
     Ty: EdgeType,
 {
-    fn scan<G>(network: G, attenuation: Weight, beta: HashMap<usize, f64>, Convergence { max_iter, tol }: Convergence) -> Option<Vec<f64>>
-    where G: NodeIndexable + IntoNodeIdentifiers + IntoNeighbors + IntoEdges<EdgeWeight = f64> + NodeCount<NodeId: Eq> {
-        katz_centrality(network, |edge| Ok::<f64, !>(*edge.weight()), Some(attenuation.into_inner()), Some(beta), None, max_iter.map(NonZero::get), tol.map(Tolerance::into_inner)).into_ok()
+    let mut network = compact(graph, |edge| weight(edge).into_inner());
+    if direction == Outgoing {
+        network.reverse();
     }
-    let network = compact(graph, |edge| weight(edge).into_inner());
     let beta = network.node_indices().map(|node| (node.index(), mass(&graph[network[node]]).into_inner())).collect::<HashMap<_, _>>();
-    let scores = match (beta.values().all(|&held| held == 0.0), direction) {
-        (true, _) => Some(vec![0.0; network.node_count()]),
-        (false, Incoming) => scan(&network, attenuation, beta, convergence),
-        (false, Outgoing) => scan(Reversed(&network), attenuation, beta, convergence),
+    let scores = if beta.values().all(|&held| held == 0.0) {
+        Some(vec![0.0; network.node_count()])
+    } else {
+        katz_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), Some(alpha.into_inner()), Some(beta), None, convergence.max_iter.map(NonZero::get), convergence.tol.map(Tolerance::into_inner))
+            .into_ok()
     };
     scored(&network, scores, convergence)
 }

@@ -9,6 +9,7 @@ use petgraph::{
     visit::EdgeRef as _,
 };
 use rustworkx_core::steiner_tree::{SteinerTreeResult, steiner_tree};
+use validated::Validated;
 
 use crate::{NetworkError, Weight, compact, locate};
 
@@ -33,16 +34,13 @@ pub fn steiner<N, E>(
     terminals: impl IntoIterator<Item: Borrow<NodeIndex>>,
     cost: impl Fn(EdgeReference<'_, E>) -> Weight,
 ) -> Result<Option<BTreeSet<EdgeIndex>>, NetworkError> {
-    let network = compact(graph, &cost);
-    let located = terminals.into_iter().map(|node| locate(&network, *node.borrow())).try_collect::<BTreeSet<_>>()?;
-    let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().into_inner())).into_ok();
+    let network = compact(graph, |edge| (cost(edge), edge.id()));
+    let located = terminals.into_iter().map(|node| locate(&network, *node.borrow())).collect::<Validated<BTreeSet<_>, _>>().ok().map_err(NetworkError::Refused)?;
+    let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().0.into_inner())).into_ok();
     Ok(tree.map(|SteinerTreeResult { used_node_indices: _, used_edge_endpoints }| {
         used_edge_endpoints
             .into_iter()
-            .filter_map(|ends| {
-                let [source, target] = <[usize; 2]>::from(ends).try_map(|end| network.node_weight(NodeIndex::new(end)).copied())?;
-                graph.edges_connecting(source, target).min_by_key(|&edge| cost(edge)).map(|edge| edge.id())
-            })
+            .filter_map(|(source, target)| network.edges_connecting(NodeIndex::new(source), NodeIndex::new(target)).map(|edge| *edge.weight()).min().map(|(_, edge)| edge))
             .collect()
     }))
 }

@@ -28,6 +28,12 @@ pub struct Reached {
     pub predecessors: Vec<EdgeIndex>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Route {
+    pub distance: f64,
+    pub steps: Vec<(EdgeIndex, NodeIndex)>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Catchment {
     pub radius: Option<Weight> = None,
@@ -41,20 +47,20 @@ pub fn catchment<N, E, Ty>(
     graph: &StableGraph<N, E, Ty>,
     source: NodeIndex,
     cost: impl Fn(EdgeReference<'_, E>) -> Weight,
-    extent: impl Fn(EdgeReference<'_, E>) -> Weight,
+    extent: impl Fn(EdgeReference<'_, E>, Weight) -> Weight,
     catchment: Catchment,
 ) -> Result<IndexMap<NodeIndex, Reached>, NetworkError>
 where
     Ty: EdgeType,
 {
-    present(graph, source).map(|source| search(graph, source, cost, extent, catchment))
+    present(graph, source).ok().map_err(NetworkError::Refused).map(|source| search(graph, source, cost, extent, catchment))
 }
 
 pub(crate) fn search<N, E, Ty>(
     graph: &StableGraph<N, E, Ty>,
     source: NodeIndex,
     cost: impl Fn(EdgeReference<'_, E>) -> Weight,
-    extent: impl Fn(EdgeReference<'_, E>) -> Weight,
+    extent: impl Fn(EdgeReference<'_, E>, Weight) -> Weight,
     catchment: Catchment,
 ) -> IndexMap<NodeIndex, Reached>
 where
@@ -65,7 +71,7 @@ where
         source: NodeIndex,
         travel: impl Fn(G::EdgeRef) -> EdgeReference<'graph, E>,
         cost: impl Fn(EdgeReference<'graph, E>) -> Weight,
-        extent: impl Fn(EdgeReference<'graph, E>) -> Weight,
+        extent: impl Fn(EdgeReference<'graph, E>, Weight) -> Weight,
         Catchment { radius, tolerance, direction: _ }: Catchment,
     ) -> IndexMap<NodeIndex, Reached>
     where
@@ -83,13 +89,14 @@ where
             [source],
             |edge| {
                 let edge = travel(edge);
-                let step = (edge.id(), cost(edge).into_inner(), extent(edge).into_inner());
+                let spent = cost(edge);
+                let step = (edge.id(), spent.into_inner(), extent(edge, spent).into_inner());
                 leg.set(step);
                 Ok::<f64, !>(step.1)
             },
             |event| match event {
                 DijkstraEvent::Discover(node, distance) => {
-                    let tied = frontier.remove(&node).into_iter().flatten().filter(|&(_, arrival, _, _)| arrival - distance <= tolerance);
+                    let tied = frontier.remove(&node).into_iter().flatten().filter(|&(_, arrival, _, _)| arrival - distance <= tolerance * distance);
                     let reached = tied.fold(None, |reached, (edge, _, spanned, paths)| {
                         Some(match reached {
                             None => Reached { distance, extent: spanned, paths, predecessors: vec![edge] },
@@ -133,13 +140,17 @@ pub fn route<N, E, Ty>(
     goal: impl Fn(NodeIndex) -> bool,
     cost: impl Fn(EdgeReference<'_, E>) -> Weight,
     estimate: impl Fn(NodeIndex) -> Weight,
-) -> Result<Option<(f64, Vec<EdgeIndex>)>, NetworkError>
+) -> Result<Option<Route>, NetworkError>
 where
     Ty: EdgeType,
 {
-    present(graph, source).map(|source| {
+    present(graph, source).ok().map_err(NetworkError::Refused).map(|source| {
         astar(graph, source, goal, |edge| cost(edge).into_inner(), |node| estimate(node).into_inner()).and_then(|(distance, nodes)| {
-            nodes.array_windows().map(|&[from, to]| graph.edges_connecting(from, to).min_by_key(|&edge| cost(edge)).map(|edge| edge.id())).try_collect::<Vec<_>>().map(|edges| (distance, edges))
+            nodes
+                .array_windows()
+                .map(|&[from, to]| graph.edges_connecting(from, to).min_by_key(|&edge| cost(edge)).map(|edge| (edge.id(), to)))
+                .try_collect::<Vec<_>>()
+                .map(|steps| Route { distance, steps })
         })
     })
 }

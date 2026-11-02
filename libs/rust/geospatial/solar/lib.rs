@@ -3,7 +3,7 @@
 use jiff::{SignedDuration, Timestamp, tz::Offset};
 use nalgebra::{Unit, UnitQuaternion, Vector3};
 use rasm_proximity::ProximityError;
-use rasm_site::{Elevation, Place, Position};
+use rasm_site::Place;
 use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t, time::JulianDate};
 use uom::si::{
     angle::{degree, radian},
@@ -36,7 +36,7 @@ pub enum SolarError {
 
 pub fn position(sun: &Sun, at: Timestamp) -> Result<(PreparedPositions, SolarPosition), SolarError> {
     let prepared = SolarPositions::new().for_time_from_julian(julian(sun, at)?)?;
-    Ok((prepared, prepared.at(location(&sun.place), AsRef::<Elevation>::as_ref(&sun.place).get::<meter>(), sun.refraction)?))
+    Ok((prepared, prepared.at(location(&sun.place), sun.place.elevation.get::<meter>(), sun.refraction)?))
 }
 
 #[must_use]
@@ -63,10 +63,7 @@ fn julian(sun: &Sun, at: Timestamp) -> Result<JulianDate, SolarError> {
     )?)
 }
 
-fn location(place: &Place) -> Location {
-    let position: &Position = place.as_ref();
-    Location { latitude: position.y(), longitude: position.x() }
-}
+fn location(place: &Place) -> Location { Location { latitude: place.position.latitude().get::<degree>(), longitude: place.position.longitude().get::<degree>() } }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
