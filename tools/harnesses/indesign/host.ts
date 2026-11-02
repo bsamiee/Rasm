@@ -11,7 +11,7 @@ import { HarnessError } from '#/error';
 import { ENGINES, Encoded, Engine, fields, Header, HostCase, Outcome, Recorded, Reply, Survey } from '#/indesign/contract';
 import { engineOf, merged, type precondition } from '#/indesign/precondition';
 import uxpscript from '#/indesign/uxpscript/script.config';
-import { crashed, type Exited, Launch, lock, owner, sampled, settled, watch } from '#/instance';
+import { crashed, type Exited, Launch, lock, owner, ended, settled, watch } from '#/instance';
 import { type Answered, type Hang, results } from '#/results';
 import { bury } from '#/values';
 
@@ -390,7 +390,7 @@ const progress = (session: Session, records: string, folders: readonly string[],
             ),
             () => records,
         );
-        const sample = yield* sampled(session.pid, `${folder}/sample.txt`);
+        const sample = yield* ended(session.pid, `${folder}/sample.txt`);
         yield* Deferred.succeed(session.verdict, Verdict.Hung({ index: running, hang: { cpu: usage._tag === 'Unresponsive' && usage.process === 'running' ? 'busy' : 'blocked', sample } }));
     });
 

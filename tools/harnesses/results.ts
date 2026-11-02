@@ -25,7 +25,7 @@ const Crash = Schema.Struct({
     type: Schema.optionalKey(Schema.String.annotate({ description: 'Mach exception type and signal the report names' })),
     frames: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Faulting thread frames of the crash report' })),
 }).annotate({ description: 'Exit of the instance while the case ran' });
-const Hang = Schema.Struct({ cpu: Schema.Literals(['busy', 'blocked']), sample: Schema.String.annotate({ description: 'sample report path of the instance' }) }).annotate({ description: 'Case past the limit with no record, the instance left running' });
+const Hang = Schema.Struct({ cpu: Schema.Literals(['busy', 'blocked']), sample: Schema.String.annotate({ description: 'sample report path of the instance' }) }).annotate({ description: 'Case past the limit with no record, the instance sampled then ended' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

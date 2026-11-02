@@ -101,11 +101,12 @@ const crashed = Effect.fn('crashed')(function* (exit: Exited) {
         ),
     } satisfies typeof Crash.Type;
 });
-const sampled = Effect.fn('sampled')(function* (pid: number, file: string) {
+const ended = Effect.fn('ended')(function* (pid: number, file: string) {
     const { code } = yield* spawned('sample', [String(pid), '1', '-file', file]);
+    yield* spawned('kill', ['-KILL', String(pid)]);
     return yield* code === 0 ? Effect.succeed(file) : HarnessError.make({ reason: { _tag: 'Unavailable', because: `sample exited with code ${code}` }, subject: `process ${pid}` });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashed, type Exited, Launch, lock, owner, sampled, settled, watch };
+export { crashed, type Exited, Launch, lock, owner, ended, settled, watch };

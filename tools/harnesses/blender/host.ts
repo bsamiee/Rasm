@@ -6,7 +6,7 @@ import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { Batch, Engine, Entry, HostCase, Outcome, type Results, Session } from '#/blender/contract';
 import { Vector } from '#/cases';
 import { HarnessError } from '#/error';
-import { crashed, type Exited, Launch, sampled, settled, watch } from '#/instance';
+import { crashed, type Exited, Launch, ended, settled, watch } from '#/instance';
 import type { Answered } from '#/results';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -228,7 +228,7 @@ const hang = Effect.fn('hang')(function* (started: Started, stderr: string, capt
     yield* fs.makeDirectory(captures, { recursive: true });
     const offset = (yield* fs.readFileString(stderr)).length;
     yield* Effect.sync(() => process.kill(started.pid, 'SIGUSR1'));
-    const sample = yield* sampled(started.pid, path.join(captures, `${started.pid}.sample.txt`));
+    const sample = yield* ended(started.pid, path.join(captures, `${started.pid}.sample.txt`));
     yield* started.halted;
     const python = (yield* fs.readFileString(stderr)).slice(offset);
     return End.Hung({ cpu, sample, python });

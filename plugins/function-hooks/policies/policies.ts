@@ -302,21 +302,6 @@ const polls = ({ request, script: { commands, background } }: Call): readonly st
             }),
         );
 
-// --- [KILL]
-
-const kills = ({ script: { commands, background } }: Call): readonly string[] =>
-    commands.flatMap(({ invocations: chain }) =>
-        chain.flatMap((invocation, at) => {
-            const [program] = invocation;
-            const { options, inputs } = operands(invocation);
-            const fed = chain.slice(0, at).some(([name]) => declared(name).stdin === 'always');
-            const listing = options.some((name) => ['-0', '-l', '-L'].includes(name));
-            const started = background && inputs.every((word) => word === '$!' || word.startsWith('%'));
-            const foreign = program === 'kill' && !listing && (fed || (inputs.length > 0 && !started));
-            return ['pkill', 'killall'].includes(program) || foreign ? [`${program} ends processes other runs can own. Let watch-apps quit apps it launched, stop tasks with TaskStop, kill only pids the call started`] : [];
-        }),
-    );
-
 // --- [LAUNCH]
 
 const opened = (head: Word, args: readonly Word[]): Option<Launch> => {
@@ -618,7 +603,7 @@ const commandDecision = async (system: System, command: string, project: string,
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project, request };
-    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, kills, launches, detached].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, polls, launches, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }
