@@ -10,7 +10,7 @@ description: "Use when opening or driving a desktop app, covering background con
 Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
 1. Start a Monitor running `watch` with the app's bundle id or display name
 2. Read the start lines: `system` pressure and each app's running instances or `{}` for none
-3. Open the app with `launch`, which sends no activation
+3. Open the app in background with `launch`
 4. Act on each line by its state table row, on the `pid` of the instance work drives
 5. Run `read` for the control ids a watch line leaves out, then `perform` or `set` on one id
 6. Read the effect from the next watch line, `perform` and `set` print nothing on success
@@ -26,8 +26,8 @@ watch-apps launch <app> [--new] [--hides] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
 ```
 
-- Names resolve as a path when starting with `/`, then by bundle id, then by Spotlight name or id and then by containment, ignoring case and diacritics
-- Names matching no app print a `fail` line, names matching apps of more than one bundle id a `fail` line listing them, and `watch` exits 1 when no name resolves
+- Names resolve as a path when starting with `/`, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
+- Names matching no app print a `fail` line, names matching apps of more than one bundle id a `fail` line listing them, and `watch` exits when no name resolves
 - `launch` of a bundle id installed at more than one path prints a `fail` line naming each path, pass one path as the name
 - `launch` prints state lines until the instance leaves `launching`, and reuses a running instance unless `--new` is passed
 - `--document` opens each named file, an unreachable file fails the command before anything opens, without one the app opens no document window
@@ -40,7 +40,7 @@ watch-apps launch <app> [--new] [--hides] \
 - Apps can activate and unhide themselves once launched or once a press answers a launch dialog, an argument stopping activation goes through `--arguments`
 - Apps supporting automatic termination can quit a hidden instance that shows no window
 - AppleScript `path to application` launches a stopped app hidden, a hidden menu bar app shows no panel until it restarts
-- Output and error streams of the app are its own, `launch` captures neither
+- `launch` captures neither the app's output nor error stream
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits or its reader closes. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
 
@@ -56,9 +56,9 @@ watch-apps set <id> -- '<text>'
 ```
 
 - `--pid` selects the one instance `read` or `capture` prints and takes one app
-- `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>.png`
-- `--window` captures one window from a line's `window` field, `--longest-side` scales the image down to that many pixels
-- Hidden and minimized windows have no on-screen window to capture, a capture needs the Screen Recording grant
+- `capture` writes a PNG of the instance's on-screen windows to `$TMPDIR/watch-apps/<bundle id>-<pid>-windows.png`
+- `--window` captures one window from a line's `window` field to a file ending in its number, `--longest-side` scales the image down to that many pixels
+- `capture` skips hidden and minimized windows and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `set` writes text to an element's settable `AXValue`, every other element prints a `fail` line
 - `set` bypasses the app's change tracking: a document stays unedited, autosave can write the text, and closing asks nothing
@@ -69,13 +69,13 @@ watch-apps set <id> -- '<text>'
 - Failed runs print a `fail` line keyed by the `id`, its `reason` naming an absent or disabled element, `AXRaise`, or an action refused or left unanswered
 - Refused and unanswered actions can have run, read the next state line before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- Instances launched with `--hides` stay hidden through alerts, sheets, save panels, and modal panels, and a capture finds no window
+- Instances launched with `--hides` stay hidden through dialogs and sheets
 - Instances hidden after launch show again at their next modal dialog
 - Watchers read hidden instances and actions reach them
 
 ## [03]-[STATES]
 
-Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance of the app, a field the app leaves unknown is absent:
+Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown is absent:
 - States read `{"running": {"status": {"<status>": {<fields>}}, "usage": {<fields>}}}`, `{"failed": {<fields>}}`, or `{"exited": {<fields>}}`
 - `fail` lines read `{"<key>": {"fail": {"reason": <text>}}}`, keyed by name, bundle id, element id, `system`, or `watch-apps`
 - `capture` lines read `{"<bundle id>": {"<pid>": {"file": <path>, "windows": [<window>]}}}`, an instance with no on-screen window printing a `fail` line in place of its entry
