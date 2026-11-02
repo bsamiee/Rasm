@@ -8,7 +8,7 @@ import jsesc from 'jsesc';
 import { type Batch, Call, Probe } from '#/cases';
 import { HarnessError } from '#/error';
 import { conditionOf, expand, scriptOf } from '#/indesign/host';
-import { crashed, type Exited, Launch, lock, owner, ended, settled, watch } from '#/instance';
+import { crashed, type Exited, ended, Launch, lock, owner, settled, watch } from '#/instance';
 import { Answer, Document, HostCase, Outcome, Recorded, Reply, type Request, type Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import type { Answered, Hang } from '#/results';
@@ -420,6 +420,7 @@ const acquired = Effect.fn('acquired')(function* (release: Release, limit: Durat
 const batchIn = Effect.fn('batchIn')(function* (session: Session, batch: Omit<typeof Request.Type, 'records'>, presses: readonly (readonly string[])[], folders: readonly string[], limit: Duration.Duration) {
     const fs = yield* FileSystem.FileSystem;
     const records = yield* fs.makeTempDirectoryScoped({ prefix: 'photoshop-records-' });
+    yield* Effect.addFinalizer(() => Ref.set(session.records, Option.none()));
     yield* Effect.all([Ref.set(session.records, Option.some(records)), Ref.set(session.presses, presses), Ref.set(session.folders, folders), Ref.set(session.notes, [])]);
     yield* Effect.forkScoped(progress(session, records, limit));
     const reply = yield* Effect.result(
@@ -428,7 +429,7 @@ const batchIn = Effect.fn('batchIn')(function* (session: Session, batch: Omit<ty
                 Effect.andThen(sent(session, { ...batch, records })),
                 Effect.onExit((exit) => (Exit.hasInterrupts(exit) ? Effect.void : Ref.set(session.busy, false))),
             ),
-            Effect.flatMap(Deferred.await(session.verdict), (ended) => HarnessError.make({ reason: { _tag: 'Unavailable', because: verdictText(ended) }, subject: `process ${session.pid}` })),
+            Effect.flatMap(Deferred.await(session.verdict), (reached) => HarnessError.make({ reason: { _tag: 'Unavailable', because: verdictText(reached) }, subject: `process ${session.pid}` })),
         ),
     );
     const [{ finished, running }, notes, verdict] = yield* Effect.all([recorded(records), Ref.get(session.notes), Effect.flatMap(Deferred.poll(session.verdict), Option.match({ onNone: () => Effect.succeedNone, onSome: Effect.asSome }))]);
@@ -485,12 +486,12 @@ const execute = Effect.fn('execute')(function* <P extends Plan>(
         const on = (index: number) => ran.notes.filter(([at]) => Option.contains(at, index)).map(([, note]) => note);
         const noted = (index: number) => (row: typeof Outcome.Type) => mapped(rest[index]?.map ?? [])({ ...row, answered: [...row.answered, ...on(index)] });
         const kept = Array.getSomes(rest.map((_, index) => Option.map(Option.fromUndefinedOr(ran.finished.get(index)), noted(index))));
-        const ended = Option.getOrElse(ran.running, () => kept.length);
-        const remaining = Result.isFailure(ran.reply) ? rest.slice(ended + 1) : [];
+        const stopped = Option.getOrElse(ran.running, () => kept.length);
+        const remaining = Result.isFailure(ran.reply) ? rest.slice(stopped + 1) : [];
         const relaunch = Option.exists(ran.verdict, (verdict) => !Verdict.$is('Lost')(verdict)) && remaining.length > 0;
         const unsent = relaunch ? [] : remaining.map(({ hosted }) => Outcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason: 'batch ended before the case ran' } }));
         const interrupted = yield* Option.match(
-            Option.zipWith(Result.getFailure(ran.reply), Array.get(rest, ended), (error, { hosted }) => ({ name: hosted.name, message: error.message })),
+            Option.zipWith(Result.getFailure(ran.reply), Array.get(rest, stopped), (error, { hosted }) => ({ name: hosted.name, message: error.message })),
             {
                 onNone: () => Effect.succeed([]),
                 onSome: ({ name, message }) =>
@@ -500,7 +501,7 @@ const execute = Effect.fn('execute')(function* <P extends Plan>(
                             message,
                             Option.filter(ran.verdict, () => Option.isSome(ran.running)),
                         ),
-                        (parts) => [Outcome.make({ name, answered: on(ended), ...parts })],
+                        (parts) => [Outcome.make({ name, answered: on(stopped), ...parts })],
                     ),
             },
         );

@@ -218,7 +218,7 @@ var harness = (function () {
     }
     function press(root, key) {
         var control = match(root, key);
-        control.notify("onClick");
+        run(control.onClick, control);
         return nameOf(control) === "cancel" || control.text === "Cancel" ? 2 : 1;
     }
     function tree(root) {
@@ -242,6 +242,7 @@ var harness = (function () {
         var answer = session.windowAnswers[session.windowShown] || {};
         session.windowShown++;
         root.layout.layout(true);
+        if (root.location === undefined) { root.center(); }
         session.record.windows.push({ title: root.text, type: root.type, tree: tree(root) });
         run(root.onShow, root);
         if (root.type === "palette") {
@@ -889,12 +890,12 @@ var harness = (function () {
 
     // --- [RUN]
     function Exited() {}
-    function scoped(Window, alert, confirm, prompt, app, File, Folder, exit, $, source, extra) {
+    function scoped(Window, alert, confirm, prompt, app, File, Folder, exit, $, document, source, extra) {
         return (function () { return eval(source); }).apply(undefined, extra);
     }
     function body(item) {
         if (item._tag === "Probe") { return "(function (doc, made) { return (" + item.evaluate + "); }).apply(undefined, arguments);"; }
-        if (item._tag === "Call") { return (item.source === undefined ? "" : item.source.code) + "\n;(" + item.call + ").apply(undefined, arguments);"; }
+        if (item._tag === "Call") { return (item.source === undefined ? "" : item.source.code.indexOf("@JSXBIN@") === 0 ? "eval(" + quote(item.source.code) + ");" : item.source.code) + "\n;(" + item.call + ").apply(undefined, arguments);"; }
         return item.source.code;
     }
     function thrown(error) {
@@ -951,7 +952,7 @@ var harness = (function () {
                 fakeDollar(session, item)
             ];
             session.app = shadows[4];
-            session.evaluate = function (code, extra) { return scoped.apply(undefined, shadows.concat([code, extra])); };
+            session.evaluate = function (code, extra) { return scoped.apply(undefined, shadows.concat([session.app.activeDocument, code, extra])); };
             release = patched(session);
             if (item.precondition.redraw !== undefined) { realApp.scriptPreferences.enableRedraw = item.precondition.redraw; }
             var docs = opened(session, item, batch);

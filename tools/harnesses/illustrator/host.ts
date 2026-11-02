@@ -14,7 +14,7 @@ import { HarnessError } from '#/error';
 import { Engine, fields, Header, HostCase, Outcome, PASTEBOARD, Recorded, Reply, Batch as Sent, Survey } from '#/illustrator/contract';
 import type { precondition } from '#/illustrator/precondition';
 import { merged } from '#/indesign/precondition';
-import { crashed, type Exited, Launch, ended, settled, watch } from '#/instance';
+import { crashed, type Exited, ended, Launch, settled, watch } from '#/instance';
 import { type Answered, Crash, type Hang, recorded as many, results } from '#/results';
 import { bury, JsonObject } from '#/values';
 
@@ -223,8 +223,7 @@ const escaped = (refused: ReadonlySet<string>) => (code: string) =>
         Result.try(() => parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, allowHashBang: true })),
         {
             onFailure: (error) => Option.some(`source does not parse: ${String(error)}`),
-            onSuccess: (tree) =>
-                Option.map(Option.fromNullishOr(findNodeAt(tree, undefined, undefined, escaping(refused))), ({ node }) => `${code.slice(node.start, node.end)} reaches the host around the case shadows`),
+            onSuccess: (tree) => Option.map(Option.fromNullishOr(findNodeAt(tree, undefined, undefined, escaping(refused))), ({ node }) => `${code.slice(node.start, node.end)} reaches the host around the case shadows`),
         },
     );
 const refusal = (methods: readonly string[], hosted: typeof HostCase.Type, binary: boolean) => {
@@ -537,7 +536,7 @@ const acquired = Effect.fn('acquired')(function* (chosen: Installation, limit: D
     yield* settled(instance.state) ? Effect.andThen(Deferred.succeed(session.gone, instance.state), Deferred.succeed(session.verdict, Verdict.Exited({ exit: instance.state }))) : Effect.void;
     yield* Effect.raceFirst(
         Deferred.await(session.ready),
-        Effect.flatMap(Deferred.await(session.verdict), (ended) => lost(instance.pid)(verdictText(ended))),
+        Effect.flatMap(Deferred.await(session.verdict), (over) => lost(instance.pid)(verdictText(over))),
     ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => lost(instance.pid)(`no responding state within ${Duration.format(limit)}`) }));
     const held = Option.getOrElse(yield* lines('lsof', ['-Fan', '-p', String(instance.pid)]), () => []);
     const settings = yield* Effect.fromOption(
@@ -584,7 +583,7 @@ const batchIn = (session: Session, opened: Opened, make: (records: string) => ty
             ),
         );
         const start = yield* measure;
-        const ended = Effect.flatMap(Deferred.await(session.verdict), (ending) => HarnessError.make({ reason: { _tag: 'Unavailable', because: verdictText(ending) }, subject: `process ${session.pid}` }));
+        const stopped = Effect.flatMap(Deferred.await(session.verdict), (ending) => HarnessError.make({ reason: { _tag: 'Unavailable', because: verdictText(ending) }, subject: `process ${session.pid}` }));
         const resumed = (header: typeof Header.Type, batch: typeof Sent.Type) =>
             Option.flatMap(Option.fromUndefinedOr(header.held), (from) =>
                 Sent.match(batch, {
@@ -594,26 +593,21 @@ const batchIn = (session: Session, opened: Opened, make: (records: string) => ty
                     Resumed: (held) => Option.some(Sent.cases.Resumed.make({ ...held, from, cases: held.cases.slice(from - held.from) })),
                 }),
             );
+        const gated = (next: typeof Sent.Type & { readonly from: number }) =>
+            Effect.raceFirst(
+                answeredFor(
+                    session,
+                    next.from,
+                    Option.getOrElse(Array.get(folders, next.from), () => records),
+                    limit,
+                ),
+                stopped,
+            );
         const phases = (batch: typeof Sent.Type): Effect.Effect<typeof Header.Type, Effect.Error<ReturnType<typeof sent>> | Effect.Error<ReturnType<typeof answeredFor>>, Effect.Services<ReturnType<typeof sent>> | Effect.Services<ReturnType<typeof answeredFor>>> =>
-            Effect.flatMap(Effect.raceFirst(sent(session, batch), ended), (header) =>
+            Effect.flatMap(Effect.raceFirst(sent(session, batch), stopped), (header) =>
                 Option.match(resumed(header, batch), {
                     onNone: () => Effect.succeed(header),
-                    onSome: (next) =>
-                        Effect.as(
-                            Effect.andThen(
-                                Effect.raceFirst(
-                                    answeredFor(
-                                        session,
-                                        next.from,
-                                        Option.getOrElse(Array.get(folders, next.from), () => records),
-                                        limit,
-                                    ),
-                                    ended,
-                                ),
-                                phases(next),
-                            ),
-                            header,
-                        ),
+                    onSome: (next) => Effect.as(Effect.andThen(gated(next), phases(next)), header),
                 }),
             );
         const reply = yield* Effect.result(phases(make(records)));
@@ -638,9 +632,9 @@ const surveyIn = Effect.fn('surveyIn')(function* (session: Session, opened: Open
 const finishedIn = (rest: readonly Prepared[], ran: Effect.Success<ReturnType<typeof batchIn>>) => {
     const on = (index: number) => ran.notes.filter(([at]) => Option.contains(at, index)).map(([, note]) => note);
     const kept = rest.flatMap(({ map }, index) => Option.toArray(Option.map(Option.fromUndefinedOr(ran.finished.get(index)), (row) => ({ ...mapped(map)(row), answered: [...row.answered, ...on(index)], logs: ran.logged(index) }))));
-    const ended = Option.getOrElse(ran.running, () => kept.length);
-    const failure = Option.zipWith(Result.getFailure(ran.reply), Array.get(rest, ended), (error, { hosted }) => ({ name: hosted.name, folder: hosted.folder, message: error.message, answered: on(ended), logs: ran.logged(ended) }));
-    const remaining = Result.isFailure(ran.reply) ? rest.slice(ended + 1) : [];
+    const stop = Option.getOrElse(ran.running, () => kept.length);
+    const failure = Option.zipWith(Result.getFailure(ran.reply), Array.get(rest, stop), (error, { hosted }) => ({ name: hosted.name, folder: hosted.folder, message: error.message, answered: on(stop), logs: ran.logged(stop) }));
+    const remaining = Result.isFailure(ran.reply) ? rest.slice(stop + 1) : [];
     const relaunch = Option.exists(ran.verdict, (verdict) => Verdict.$is('Exited')(verdict) || Verdict.$is('Hung')(verdict)) && remaining.length > 0;
     const unsent = relaunch ? [] : remaining.map(({ hosted }) => Outcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason: 'batch ended before the case ran' } }));
     return { kept, failure, remaining, relaunch, unsent };
@@ -694,9 +688,10 @@ const execute = Effect.fn('execute')(function* <P extends Plan>(
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const early = Option.orElse(held.survey, () => known(Option.none()));
         const draft = yield* Option.match(held.plan, { onSome: Effect.succeedSome, onNone: () => Effect.transposeOption(Option.map(early, planned)) });
-        const answered = Option.filter(Option.zipWith(early, draft, idle), (step) => Option.getOrElse(held.rest, () => step.plan.sendable).length === 0);
-        if (Option.isSome(answered)) {
-            return [[answered.value], Option.none<Held>()] as const;
+        const drained = (planned: Step) => Option.getOrElse(held.rest, () => planned.plan.sendable).length === 0;
+        const idled = Option.filter(Option.zipWith(early, draft, idle), drained);
+        if (Option.isSome(idled)) {
+            return [[idled.value], Option.none<Held>()] as const;
         }
         const scratch = yield* fs.makeTempDirectoryScoped({ prefix: 'illustrator-' });
         const owned = path.join(scratch, `${label}.svg`);
@@ -716,18 +711,12 @@ const execute = Effect.fn('execute')(function* <P extends Plan>(
         const folders = rest.map(({ hosted }) => hosted.folder);
         const copying = rest.some(({ hosted }) => hosted.precondition.sends?.some(pasting) === true);
         const pressed = rest.map(({ presses }) => presses);
+        const cases = rest.map(({ hosted }) => hosted);
         const saved = path.join(scratch, 'pasteboard.json');
         const color = path.join(scratch, 'color.csf');
         yield* fs.copyFile(path.join(opened.settings, COLOR_SETTINGS), color);
         yield* copying ? pasteboard('save', saved) : Effect.void;
-        const ran = yield* batchIn(
-            session,
-            opened,
-            (records) => Sent.cases.Cases.make({ records, label, colorSettings: color, from: 0, cases: rest.map(({ hosted }) => hosted) }),
-            folders,
-            pressed,
-            limit,
-        );
+        const ran = yield* batchIn(session, opened, (records) => Sent.cases.Cases.make({ records, label, colorSettings: color, from: 0, cases }), folders, pressed, limit);
         const { kept, failure, remaining, relaunch, unsent } = finishedIn(rest, ran);
         yield* copying && kept.flatMap(({ writes }) => writes).some(({ _tag }) => _tag === 'Pasteboard') ? pasteboard('restore', saved) : Effect.void;
         const interrupted = yield* Effect.forEach(

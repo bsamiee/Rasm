@@ -13,11 +13,14 @@
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
+        "@swc/core": "catalog:",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "jsesc": "catalog:"
     },
     "devDependencies": {
+        "@types/jsesc": "catalog:",
         "@types/node": "catalog:"
     }
 }

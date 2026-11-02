@@ -44,15 +44,15 @@ const expressionOf = (batch: typeof Batch.Type, row: Row) =>
         Match.orElse(() => scriptOf(batch, row)),
     );
 const expectOf = (batch: typeof Batch.Type, row: Row) => row.expect ?? batch.expect ?? (Schema.is(Call)(row) || Schema.is(Probe)(row) ? 'value' : 'read');
+const revived = (state: Record.ReadonlyRecord<string, Schema.Json> = {}) => Record.map(state, (held) => revive(held));
 const locator =
     (outcome: typeof Outcome.Type) =>
     ({ kind, path }: Reference): unknown =>
         Match.value(kind).pipe(
-            Match.when('before', () => outcome.before?.[path]),
-            Match.when('read', () => outcome.read?.[path]),
+            Match.when('before', () => revived(outcome.before)[path]),
+            Match.when('read', () => revived(outcome.read)[path]),
             Match.orElse(() => ({ $: `${kind}:${path}` })),
         );
-const revived = (state: Record.ReadonlyRecord<string, Schema.Json> = {}) => Record.map(state, (held) => revive(held));
 const paired = (batch: typeof Batch.Type) => (row: Row, fn: string, outcome: typeof Outcome.Type) =>
     Option.map(answerOf(outcome, null), (answer): Pair => {
         const expect = expectOf(batch, row);
