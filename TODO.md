@@ -77,7 +77,7 @@ Starts once every [01] run has landed. It extends the TypeScript libraries in de
 
 ### Method
 
-- **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Their logic informs our own design and is never copied.
+- **Research and mining:** agents read the current code, the catalog packages and primary sources in each domain, and study the most capable InDesign plugins for grids, margins and right-to-left text, decompiled through Codex and Ghidra only where the owner approves a plugin. Each plugin and script is decompiled in full and understood, then its capability is rebuilt in our own shape and depth as programmatic capability (general packages, `@rasm/indesign`, Atelier and its Galley extension), never as a port or a shippable script, the way Sidekick became the MCP layer, the Creative Cloud libraries and Atelier.
 - **Architecture:** one design of packages, folders and files, challenged by critics, recorded in TYPESCRIPT.md rows. Libraries hold general capability usable in any host. Adobe code holds what is specific to Adobe.
 - **Runs:** each row runs on typescript.js as it stands, with both adversarial passes, then `typescript-tune` on its commit, adding external packages where a domain needs them.
 - **Companion:** a checks and skill workflow launches after each extension run, designed in `docs/research/typescript-extension/WORKFLOWS.md`.
