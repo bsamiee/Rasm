@@ -16,16 +16,17 @@ const Content = <S extends Schema.Top>(schema: S, description: string, block: (v
             }),
     });
 const Image = (mimeType: string) => Content(Schema.Uint8Array, 'Media type of image content block', (data) => [McpSchema.ImageContent.make({ data, mimeType }), mimeType]);
-const Attachment = Content(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array }), 'URI of file content block', ({ uri, mimeType, data }) => [
-    Option.match(
-        Option.filter(mimeType, (type) => type.startsWith('image/')),
-        {
-            onSome: (image) => McpSchema.ImageContent.make({ data, mimeType: image }),
-            onNone: () => McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri, blob: data, mimeType: Option.getOrUndefined(mimeType) }) }),
-        },
-    ),
-    uri,
-]);
+const Attachment = <S extends Schema.Top & { readonly Type: { readonly uri: string; readonly mimeType: Option.Option<string>; readonly data: Uint8Array } }>(schema: S) =>
+    Content(schema, 'URI of file content block', ({ uri, mimeType, data }) => [
+        Option.match(
+            Option.filter(mimeType, (type) => type.startsWith('image/')),
+            {
+                onSome: (image) => McpSchema.ImageContent.make({ data, mimeType: image }),
+                onNone: () => McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri, blob: data, mimeType: Option.getOrUndefined(mimeType) }) }),
+            },
+        ),
+        uri,
+    ]);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

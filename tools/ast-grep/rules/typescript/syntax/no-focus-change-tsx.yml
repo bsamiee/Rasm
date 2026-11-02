@@ -7,7 +7,7 @@ utils:
     program:
         kind: string
         nthChild: 1
-        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(make|spawn|spawnSync|execFile|execFileSync)$'}}}
+        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(spawn|spawnSync|execFile|execFileSync)$|^(ChildProcess\.)?make$'}}}
     activating-script:
         regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'
     activating-line:

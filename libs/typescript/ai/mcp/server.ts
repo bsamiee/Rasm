@@ -13,6 +13,8 @@ const Executions = Schema.fromJsonString(
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Instructions = Context.Reference<readonly string[]>('@rasm/mcp/server/Instructions', { defaultValue: () => [] });
+const Visible = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/server/Visible', { defaultValue: () => Effect.succeed(true) });
+class Scheme extends Context.Service<Scheme, { readonly uri: (path: string) => string }>()('@rasm/mcp/server/Scheme') {}
 const ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -41,9 +43,9 @@ const instrumented =
                 return yield* exit;
             }).pipe(Effect.withSpan(`${method} ${name}`, { kind: 'server', attributes: { 'mcp.method.name': method, ...attributes }, parent: pipe(Record.filter({ ...requestMetadata }, Predicate.isString), Headers.fromInput, HttpTraceContext.fromHeaders, Option.getOrUndefined) })),
         );
-const executions = Effect.fnUntraced(function* (scheme: string) {
-    const [server, scope, kept] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>())]);
-    const listed = { uri: `${scheme}://executions`, name: 'executions', description: 'Cancelled or refused state-changing calls that keep running. Read outcome before repeating a call, finished calls drop after one read', mimeType: 'application/json' };
+const executions = Effect.gen(function* () {
+    const [server, scheme, scope, kept] = yield* Effect.all([McpServer.McpServer, Scheme, Effect.scope, Ref.make(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>())]);
+    const listed = { uri: scheme.uri('executions'), name: 'executions', description: 'Cancelled or refused state-changing calls that keep running. Read outcome before repeating a call, finished calls drop after one read', mimeType: 'application/json' };
     const registration = yield* Effect.cached(
         McpServer.registerResource({
             ...listed,
@@ -82,41 +84,40 @@ const executions = Effect.fnUntraced(function* (scheme: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layer = (scheme: string) =>
-    Layer.effect(McpServer.McpServer)(
-        Effect.gen(function* () {
-            const [server, { registration, record, link }] = yield* Effect.all([McpServer.McpServer, executions(scheme)]);
-            const ranking =
-                <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
-                (input: string, context: C) =>
-                    Effect.map(complete(input, context), ({ completion: { values }, ...rest }) => {
-                        const ordered = ranked(input, values);
-                        return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
-                    });
-            const writes = ({ annotations }: Parameters<typeof server.addTool>[0]) => !Context.get(annotations, Tool.Readonly);
-            const refused = ({ message }: McpSchema.InternalError) => McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message }), link] });
-            const served = (options: Parameters<typeof server.addTool>[0]) =>
-                Effect.fnUntraced(
-                    function* (payload: Schema.Json) {
-                        const [blocks, early] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.CallToolResult>()]);
-                        const answer = Effect.gen(function* () {
-                            const result = yield* options.handle(payload);
-                            const added = yield* Ref.get(blocks);
-                            return result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] });
-                        }).pipe(Effect.provideService(ToolCall, { add: (block) => Ref.update(blocks, Array.append(block)), respond: (refusal) => Effect.asVoid(Deferred.complete(early, Effect.map(Effect.flip(orInternalError(Effect.fail(refusal))), refused))) }));
-                        return yield* writes(options) ? record(options.tool.name, payload, answer, early) : answer;
-                    },
-                    instrumented('tools/call', options.tool.name, { 'gen_ai.tool.name': options.tool.name, 'gen_ai.operation.name': 'execute_tool' }),
-                );
-            return McpServer.McpServer.of({
-                ...server,
-                addTool: (options) => Effect.andThen(writes(options) ? registration : Effect.void, server.addTool({ ...options, handle: served(options) })),
-                addResource: (options) => server.addResource({ ...options, handle: options.handle.pipe(instrumented('resources/read', options.resource.uri, { 'mcp.resource.uri': options.resource.uri })) }),
-                addResourceTemplate: (options) => server.addResourceTemplate({ ...options, completions: Record.map(options.completions, ranking), handle: (at, params) => options.handle(at, params).pipe(instrumented('resources/read', options.template.uriTemplate, { 'mcp.resource.uri': at })) }),
-                addPrompt: (options) => server.addPrompt({ ...options, completions: Record.map(options.completions, ranking), handle: (params) => options.handle(params).pipe(instrumented('prompts/get', options.prompt.name, { 'gen_ai.prompt.name': options.prompt.name })) }),
-            });
-        }),
-    );
+const layer = Layer.effect(McpServer.McpServer)(
+    Effect.gen(function* () {
+        const [server, { registration, record, link }] = yield* Effect.all([McpServer.McpServer, executions]);
+        const ranking =
+            <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
+            (input: string, context: C) =>
+                Effect.map(complete(input, context), ({ completion: { values }, ...rest }) => {
+                    const ordered = ranked(input, values);
+                    return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
+                });
+        const writes = ({ annotations }: Parameters<typeof server.addTool>[0]) => !Context.get(annotations, Tool.Readonly);
+        const refused = ({ message }: McpSchema.InternalError) => McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message }), link] });
+        const served = (options: Parameters<typeof server.addTool>[0]) =>
+            Effect.fnUntraced(
+                function* (payload: Schema.Json) {
+                    const [blocks, early] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.CallToolResult>()]);
+                    const answer = Effect.gen(function* () {
+                        const result = yield* options.handle(payload);
+                        const added = yield* Ref.get(blocks);
+                        return result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] });
+                    }).pipe(Effect.provideService(ToolCall, { add: (block) => Ref.update(blocks, Array.append(block)), respond: (refusal) => Effect.asVoid(Deferred.complete(early, Effect.map(Effect.flip(orInternalError(Effect.fail(refusal))), refused))) }));
+                    return yield* writes(options) ? record(options.tool.name, payload, answer, early) : answer;
+                },
+                instrumented('tools/call', options.tool.name, { 'gen_ai.tool.name': options.tool.name, 'gen_ai.operation.name': 'execute_tool' }),
+            );
+        return McpServer.McpServer.of({
+            ...server,
+            addTool: (options) => Effect.andThen(writes(options) ? registration : Effect.void, server.addTool({ ...options, handle: served(options) })),
+            addResource: (options) => server.addResource({ ...options, handle: options.handle.pipe(instrumented('resources/read', options.resource.uri, { 'mcp.resource.uri': options.resource.uri })) }),
+            addResourceTemplate: (options) => server.addResourceTemplate({ ...options, completions: Record.map(options.completions, ranking), handle: (at, params) => options.handle(at, params).pipe(instrumented('resources/read', options.template.uriTemplate, { 'mcp.resource.uri': at })) }),
+            addPrompt: (options) => server.addPrompt({ ...options, completions: Record.map(options.completions, ranking), handle: (params) => options.handle(params).pipe(instrumented('prompts/get', options.prompt.name, { 'gen_ai.prompt.name': options.prompt.name })) }),
+        });
+    }),
+);
 const layerHttp = <E, R>(manifest: { readonly name: string; readonly version: string; readonly description: string }, listening: { readonly address: NetAddress.InetAddress; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
     const allowed = new Set([...listening.hosts, 'localhost', ...[...NetAddress.loopbackAddresses, ...(NetAddress.isUnspecified(listening.address.address) ? [] : [listening.address.address])].map(NetAddress.formatUrlHost)]);
     const hostValidation = HttpRouter.middleware(
@@ -141,7 +142,7 @@ const layerHttp = <E, R>(manifest: { readonly name: string; readonly version: st
                 path: '/',
                 allowSessionTermination: true,
                 protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26, McpProtocol.v2024_11_05],
-                registrations: Layer.provide(app, layer(manifest.name)),
+                registrations: Layer.provide(app, Layer.provideMerge(layer, Layer.succeed(Scheme)({ uri: (path) => `${manifest.name}://${path}` }))),
             }),
         ),
     ).pipe(Layer.provideMerge(McpServer.McpServer.layer));
@@ -150,4 +151,4 @@ const layerHttp = <E, R>(manifest: { readonly name: string; readonly version: st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Instructions, layer, layerHttp, orInternalError, ToolCall };
+export { Instructions, layer, layerHttp, orInternalError, Scheme, ToolCall, Visible };

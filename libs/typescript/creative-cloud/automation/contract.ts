@@ -1,9 +1,14 @@
 import { Unmatched } from '@rasm/search/unmatched';
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { AppleEventValue, Execute, Kind, Terms } from '#/apple-events';
+import { Execute, Kind, Terms } from '#/apple-events';
 import { Installation, Perform, Pid, RunningInstance, Screenshot, State } from '#/applications';
-import { AvailableFace } from '#/fonts';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+class AvailableFace extends Schema.Class<AvailableFace, { readonly brand: unique symbol }>('AvailableFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.URL }) {
+    static readonly Name = Schema.String.annotate({ description: 'PostScript name, full name, or family for default face, any case' });
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -21,12 +26,11 @@ const Contract = RpcGroup.make(
     Rpc.make('terms', { payload: { url: Schema.URL }, success: Terms, error: Schema.ErrorInstance() }),
     Rpc.make('definition', { payload: { url: Schema.URL, kind: Kind, name: Schema.String }, success: Schema.String, error }),
     Rpc.make('execute', { payload: { pid: Pid, ...Execute.fields }, success: Execute.Result, error }),
-    Rpc.make('script', { payload: { pid: Pid, source: Schema.String.annotate({ description: 'Source for dictionary script command' }) }, success: AppleEventValue, error }),
-    Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields }, success: Screenshot.Result, error }),
+    Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields, file: Schema.URL.annotate({ description: 'PNG file written' }) }, success: Screenshot.Result, error }),
     Rpc.make('faces', { success: Schema.Array(AvailableFace) }),
     Rpc.make('face', { payload: { name: AvailableFace.Name }, success: AvailableFace, error: Unmatched }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Contract };
+export { AvailableFace, Contract };

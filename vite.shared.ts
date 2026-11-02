@@ -1,10 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
+import { Manifest as Extension } from '@rasm/cep/manifest';
 import { Manifest } from '@rasm/uxp/manifest';
+import { transformSync } from '@swc/core';
 import compiler from '@vitejs/plugin-react';
-import { Array, Config, Effect, Record, Schema, String } from 'effect';
-import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnObject } from 'vite';
+import { Array, Config, Effect, Option, Record, Schema, String } from 'effect';
+import { parse } from 'smol-toml';
+import { defaultClientConditions, defaultServerConditions, type Plugin, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnObject } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -60,9 +64,41 @@ const bundled = (directory: string, main: string, asset: { readonly fileName: st
     };
 };
 
-const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: Manifest }): UserConfig => bundled(directory, main, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(manifest)) });
+const origin = (daemon: string) =>
+    Schema.decodeUnknownEffect(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Struct({ port: Schema.optionalKey(Schema.Int) })) }))(parse(readFileSync(join(_ROOT, 'mise.toml'), 'utf8'))).pipe(
+        Effect.flatMap(({ daemons }) => Effect.fromOption(Option.flatMap(Record.get(daemons, daemon), ({ port }) => Option.fromUndefinedOr(port)))),
+        Effect.map(Manifest.loopback),
+        Effect.runSync,
+    );
+const uxp = (directory: string, { main, manifest, daemon }: { readonly main: string; readonly manifest: Manifest; readonly daemon: string }): UserConfig =>
+    bundled(directory, main, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin(daemon)] }) } }))) });
+const cep = (directory: string, { main, host, daemon, manifest }: { readonly main: string; readonly host: string; readonly daemon: string; readonly manifest: Extension }): UserConfig => {
+    const outDir = join(_ROOT, '.artifacts', relative(_ROOT, directory));
+    const bundle = (input: Record<string, string>, platform: 'browser' | 'neutral', output: Rolldown.OutputOptions) =>
+        ({ consumer: 'client', build: { outDir, emptyOutDir: false, minify: platform === 'browser', rolldownOptions: { input, platform, preserveEntrySignatures: 'exports-only', experimental: _EXPERIMENTAL, output: { format: 'iife', codeSplitting: false, ...output } } } }) as const;
+    return {
+        builder: {},
+        define: { 'import.meta.env.LINK_ORIGIN': JSON.stringify(origin(daemon)) },
+        environments: { client: bundle({ main }, 'browser', { entryFileNames: '[name].js' }), host: bundle({ host }, 'neutral', { name: 'handle', exports: 'default', entryFileNames: '[name].jsx' }) },
+        plugins: [
+            {
+                name: 'extendscript',
+                applyToEnvironment: ({ name }) => name === 'host',
+                renderChunk: (code) => transformSync(code, { jsc: { target: Extension.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code,
+            } satisfies Plugin,
+            {
+                name: 'panel',
+                applyToEnvironment: ({ name }) => name === 'client',
+                generateBundle(this: Rolldown.PluginContext): void {
+                    this.emitFile({ type: 'asset', fileName: 'index.html', source: '<!doctype html><meta charset="utf-8"><script src="main.js"></script>\n' });
+                    this.emitFile({ type: 'asset', fileName: 'CSXS/manifest.xml', source: manifest.xml({ main: 'index.html', script: 'host.jsx' }) });
+                },
+            } satisfies Plugin,
+        ],
+    };
+};
 const script = (directory: string, { main, extension }: { readonly main: string; readonly extension: string }): UserConfig => bundled(directory, main, { fileName: `main.${extension}`, source: "require('./main.js');\n" });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { react, script, uxp, worker };
+export { cep, react, script, uxp, worker };

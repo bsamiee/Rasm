@@ -14,6 +14,7 @@
         "./runtime": "./runtime.ts"
     },
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "effect": "catalog:"
     },

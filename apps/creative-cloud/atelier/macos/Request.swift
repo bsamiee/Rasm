@@ -39,9 +39,7 @@ struct Executed: Encodable, Sendable {
 }
 
 struct Captured: Encodable, Sendable {
-    let image: Data
-    let width: Int
-    let height: Int
+    let windows: [CGWindowID]
 }
 
 struct Launched: Encodable, Sendable {
@@ -83,8 +81,7 @@ enum Request: Decodable, Sendable {
     case terms(url: URL)
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
     case execute(pid: pid_t, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
-    case script(pid: pid_t, source: String)
-    case screenshot(pid: pid_t, window: CGWindowID?, pixels: Int?)
+    case screenshot(pid: pid_t, window: CGWindowID?, longestSide: Int?, file: URL)
     case faces
     case face(name: String)
 
@@ -136,23 +133,10 @@ enum Request: Decodable, Sendable {
                     refusing: activating(of: installation),
                 )
                 return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
-            case .script(let pid, let source):
-                let dictionary: ScriptingDictionary = try await definitions.dictionary(of: running(pid).installation)
-                let script: ScriptingDictionary.Command = try dictionary.command(handling: scriptEvents)
-                let declared: [String: AppleEventValue] = scriptArguments.filter { key, _ in script.parameters.contains { term in term.code == FourCharCode(sdef: key) } }
-                let event: NSAppleEventDescriptor = try dictionary.event(
-                    script,
-                    arguments: declared.merging(["direct": .text(source)]) { _, direct in direct },
-                    target: NSAppleEventDescriptor(processIdentifier: pid),
-                )
-                return try await .value(AppleEventValue(event.sent(), in: dictionary))
-            case .screenshot(let pid, let window, let pixels):
-                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
+            case .screenshot(let pid, let window, let longestSide, let file):
+                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(file: file)
                 configuration.showsCursor = false
-                guard let image: CGImage = try await running(pid).instance.screenshot(of: window, longestSide: pixels, configuration: configuration).output.sdrImage else {
-                    throw AtelierFailure(subject: String(pid), reason: .unrendered)
-                }
-                return try .value(Captured(image: image.data(as: .png), width: image.width, height: image.height))
+                return try await .value(Captured(windows: running(pid).instance.screenshot(of: window, longestSide: longestSide, configuration: configuration).windows))
             case .faces:
                 return .value(FontFace.available())
             case .face(let name):

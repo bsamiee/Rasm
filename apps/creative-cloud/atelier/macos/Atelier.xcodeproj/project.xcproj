@@ -46,7 +46,6 @@
         { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
-    { "kind": "folder", "path": "../../../../.artifacts/apps/creative-cloud/atelier/scripts/indesign", "target-membership": [ "Atelier" ] },
   ],
   "targets": [
     {

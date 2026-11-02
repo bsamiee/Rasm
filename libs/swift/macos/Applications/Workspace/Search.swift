@@ -1,6 +1,6 @@
 public import AppKit
 import AsyncAlgorithms
-import CasePaths
+import CasePathsCore
 import CoreServices
 import OrderedCollections
 public import Results

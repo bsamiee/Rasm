@@ -11,7 +11,8 @@
         "./apple-events": "./apple-events.ts",
         "./applications": "./applications.ts",
         "./automation": "./automation.ts",
-        "./fonts": "./fonts.ts"
+        "./contract": "./contract.ts",
+        "./requests": "./requests.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

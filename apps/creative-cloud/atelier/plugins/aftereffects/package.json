@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/atelier-aftereffects-plugin",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Atelier After Effects",
+    "type": "module",
+    "imports": {
+        "#/package.json": "./package.json"
+    },
+    "main": "main.ts",
+    "dependencies": {
+        "@rasm/aftereffects": "workspace:*",
+        "@rasm/cep": "workspace:*"
+    }
+}

@@ -6,11 +6,11 @@ import { Command, Flag } from 'effect/cli';
 import { FetchHttpClient, HttpRouter } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { Otlp, OtlpSerialization } from 'effect/observability';
-import { layerHttp } from '#/server';
+import { layerHttp, type Scheme } from '#/server';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const main = <E>(manifest: Parameters<typeof layerHttp>[0], app: Layer.Layer<never, E, McpServer.McpServer | HttpRouter.HttpRouter | NodeServices.NodeServices>): void => {
+const main = <E>(manifest: Parameters<typeof layerHttp>[0], app: Layer.Layer<never, E, McpServer.McpServer | Scheme | HttpRouter.HttpRouter | HttpRouter.Request<'Error', unknown> | NodeServices.NodeServices>): void => {
     const name = manifest.name.slice(manifest.name.lastIndexOf('/') + 1);
     const settings = {
         listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.withSchema(Schema.InetAddressFromString), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),

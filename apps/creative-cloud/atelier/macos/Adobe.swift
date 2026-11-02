@@ -1,7 +1,6 @@
 import AppKit
 import AppleEvents
 import Applications
-import Carbon.OpenScripting
 import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -14,21 +13,19 @@ let activatingCommands: KeyValuePairs<String, [String]> = [
     "com.adobe.PremierePro": ["CR8RCRPr"],
 ]
 
-let scriptEvents: [AEEventID] = [AEEventID(sdef: "DjxM"), AEEventID(kAEDoScript)].compactMap(\.self)
-
-let scriptArguments: [String: AppleEventValue] = ["doLg": .enumerator("JSLg")]
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 func adobeInstallation(at url: URL) throws -> Installation {
     let installation: Installation = try Installation(at: url)
-    guard installation.identifier.hasPrefix(adobePrefix) else { throw AtelierFailure(subject: url.path(percentEncoded: false), reason: .notAdobe) }
+    guard installation.identifier.hasPrefix(adobePrefix) else {
+        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .absent("bundle identifier starting \(adobePrefix)"))
+    }
     return installation
 }
 
 func running(_ pid: pid_t) throws -> (instance: NSRunningApplication, installation: Installation) {
     guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: pid), let url: URL = instance.bundleURL else {
-        throw AtelierFailure(subject: String(pid), reason: .noProcess)
+        throw ApplicationFailure(subject: String(pid), reason: .noProcess)
     }
     return (instance, try adobeInstallation(at: url))
 }

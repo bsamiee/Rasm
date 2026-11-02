@@ -1,7 +1,7 @@
 import { Array, Cause, Context, Effect, Exit, Function, flow, Option, pipe, Record, Schema, SchemaGetter, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import type { Dependency } from '#/resource';
-import { orInternalError, ToolCall } from '#/server';
+import { orInternalError, ToolCall, Visible } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -9,6 +9,7 @@ interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
     readonly fields: Fields;
     readonly resolve: (given: Schema.Struct.Type<Fields>) => Effect.Effect<Chosen, Error, R>;
     readonly depends: (chosen: Chosen, given: Schema.Struct.Type<Fields>) => Effect.Effect<readonly Dependency[], Error, R>;
+    readonly serves: (chosen: Chosen) => boolean;
     readonly annotations: Context.Context<never>;
     readonly completion: { readonly [Key in keyof Fields]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R> };
 }
@@ -23,7 +24,8 @@ const registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extend
         Schema.toCodecJson(tool.successSchema),
     ];
     const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
-    yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
+    const visible = Context.get(tool.annotations, Visible);
+    yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide([toolkit.toLayer({ [tool.name]: Function.identity }), McpServer.visibility(() => orInternalError(visible)).layer]));
 });
 const stated = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
 const refused = flow(

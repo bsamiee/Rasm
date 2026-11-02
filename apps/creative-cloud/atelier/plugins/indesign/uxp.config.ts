@@ -1,6 +1,19 @@
+import { Manifest } from '@rasm/uxp/manifest';
+import { Option } from 'effect';
 import npm from '#/package.json' with { type: 'json' };
-import { script } from '../../../../../vite.shared.ts';
+import { uxp } from '../../../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default script(import.meta.dirname, { main: npm.main, extension: 'idjs' });
+export default uxp(import.meta.dirname, {
+    main: npm.main,
+    daemon: 'atelier',
+    manifest: Manifest.make({
+        id: 'app.rasm.atelier.indesign',
+        name: npm.description,
+        version: npm.version,
+        host: { app: 'ID', minVersion: '18.5.0', data: Option.some({ loadEvent: 'startup' }) },
+        entrypoints: [],
+        requiredPermissions: { localFileSystem: Option.some('fullAccess'), allowCodeGenerationFromStrings: Option.some(true) },
+    }),
+});

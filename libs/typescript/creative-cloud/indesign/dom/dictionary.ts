@@ -1,4 +1,5 @@
 import type { InDesignDOMObject, MenuAction } from 'adobe:indesign';
+import { Field, Method } from '@rasm/automation/requests';
 import { Array, Effect, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -37,25 +38,6 @@ const Declared = Schema.TemplateLiteralParser([
     Schema.Literals(['.', '. (Optional)']),
 ]).pipe(Schema.decodeTo(Schema.Struct({ types: Schema.Array(Schema.String) }), { decode: SchemaGetter.transform(([, , types]) => ({ types })), encode: SchemaGetter.forbiddenEncoding }));
 const Optional = Schema.TemplateLiteral([Schema.String, '(Optional)']);
-const Member = Schema.Struct({
-    name: Schema.String,
-    type: Schema.OptionFromOptionalKey(Schema.String),
-    types: Schema.Array(Schema.String),
-    description: Schema.OptionFromOptionalKey(Schema.String),
-    array: Schema.OptionFromOptionalKey(Schema.Literal(true)),
-    ...Struct.Record(['minimum', 'maximum'], Schema.OptionFromOptionalKey(Schema.Finite)),
-    members: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)),
-    unavailable: Schema.OptionFromOptionalKey(Schema.String),
-}).annotate({ identifier: 'Member' });
-const Field = Member.pipe(Schema.fieldsAssign({ settable: Schema.Boolean })).annotate({ identifier: 'Field' });
-const Method = Member.mapFields(Struct.pick(['name', 'description']))
-    .pipe(
-        Schema.fieldsAssign({
-            parameters: Schema.Array(Member.mapFields(Struct.omit(['unavailable'])).pipe(Schema.fieldsAssign({ optional: Schema.Boolean }))),
-            returns: Schema.OptionFromOptionalKey(Member.mapFields(Struct.pick(['type', 'array']))),
-        }),
-    )
-    .annotate({ identifier: 'Method' });
 const Class = Schema.Struct({ parent: Schema.OptionFromOptionalKey(Schema.String), fields: Schema.Record(Schema.String, Field), methods: Schema.Record(Schema.String, Method), statics: Schema.Record(Schema.String, Schema.String) });
 const Typed = [Schema.String, Schema.OptionFromNullOr(Schema.String), Schema.OptionFromNullOr(Schema.String), Schema.OptionFromNullOr(Schema.Literal(true)), Schema.OptionFromNullOr(Schema.Finite), Schema.OptionFromNullOr(Schema.Finite)] as const;
 const Flagged = Schema.Tuple([Schema.Boolean, ...Typed]);
@@ -107,4 +89,4 @@ const undeclared = <S extends typeof Field | typeof Method>(schema: S, name: str
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Field, Member, Method, READER, Rows, unavailable, undeclared };
+export { READER, Rows, unavailable, undeclared };

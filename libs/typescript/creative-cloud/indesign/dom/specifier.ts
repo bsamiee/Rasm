@@ -1,20 +1,18 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
+import { Reference } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cache, Effect, Equal, Option, Predicate, Record, Schema, SchemaTransformation, Struct } from 'effect';
+import { Array, Cache, Effect, Equal, Option, Predicate, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Container = Schema.String.check(Schema.isPattern(/(?:^|[^/])$/u));
 const Separator = Schema.Literals(['//', '/']);
-const Kind = Schema.String.check(Schema.isPattern(/^@?[a-z][\w-]*$/u));
+const { Kind, Identified, Indexed, Named } = Reference;
 const Property = Schema.TemplateLiteral(['@', Schema.String]);
-const Identified = Schema.TemplateLiteral(['[@id=', Schema.Int, ']']);
-const Indexed = Schema.TemplateLiteral(['[', Schema.Int, ']']);
-const Named = Schema.TemplateLiteral(['[@name="', Schema.String, '"]']);
 const Name = Schema.TemplateLiteralParser(Named.parts);
 const Selector = Schema.Union([Identified, Indexed, Named]);
-const Step = Schema.Struct({ container: Container, separator: Separator, kind: Kind, selector: Schema.OptionFromOptionalKey(Selector) });
+const Step = Schema.Struct({ container: Container, separator: Separator, kind: Schema.Union([Kind, Schema.Literal('')]), selector: Schema.OptionFromOptionalKey(Selector) });
 const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator, Kind, Selector]), Schema.TemplateLiteralParser([Container, Separator, Kind])]).pipe(
     Schema.decodeTo(
         Schema.toEncoded(Step),
@@ -24,8 +22,9 @@ const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator
         }),
     ),
 );
+const Root = Schema.Literal('/').pipe(Schema.decodeTo(Schema.toEncoded(Step), { decode: SchemaGetter.succeed({ container: '', separator: '/', kind: '' }), encode: SchemaGetter.succeed('/') }));
 class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ ...Step.fields, end: Schema.OptionFromOptionalKey(Step) }) {
-    static readonly Path = Schema.Union([Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']), Written]).pipe(
+    static readonly Path = Schema.Union([Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']), Written, Root]).pipe(
         Schema.decodeTo(
             Specifier,
             SchemaTransformation.transform({
@@ -74,30 +73,34 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
             );
         });
         return yield* Option.match(located(specifier.path), {
-            onSome: (found) => Effect.succeed(Option.isNone(specifier.selector) && !Schema.is(Property)(specifier.kind) ? Array.ensure(found) : found),
+            onSome: (found) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || Schema.is(Property)(specifier.kind) ? found : Array.ensure(found)),
             onNone: () => (Option.isSome(specifier.end) ? Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(specifier.path), candidates: [] })) : nearest()),
         });
     });
     static readonly object = (specifier: Specifier) => Model.use(({ host }) => Effect.filterOrFail(Specifier.resolve(specifier), host, () => Unmatched.make({ subject: 'object', query: Option.some(specifier.path), candidates: [] })));
 
+    get root(): boolean {
+        return this.kind === '';
+    }
     get path(): string {
         const steps = Array.map([this, ...Option.toArray(this.end)], ({ container, separator, kind, selector }) => `${container}${separator}${kind}${Option.getOrElse(selector, () => '')}`);
         return Option.match(this.end, { onNone: () => steps.join(''), onSome: () => `(${steps.join(' to ')})` });
     }
     get leaf(): string {
-        return Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => `${kind}${Option.getOrElse(selector, () => '')}`).join(' to ');
+        return this.root ? this.path : Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => `${kind}${Option.getOrElse(selector, () => '')}`).join(' to ');
     }
     get name(): Option.Option<string> {
         return Option.map(Option.flatMap(this.selector, Schema.decodeUnknownOption(Name)), ([, name]) => name);
     }
 }
-class Reference extends Schema.Class<Reference, { readonly brand: unique symbol }>('Reference')({ type: Schema.String, specifier: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), valid: Schema.Boolean }) {
-    static readonly of = (object: InDesignDOMObject<unknown>): Reference => {
-        const valid = object.isValid;
-        return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid && 'name' in object ? Option.liftPredicate(object.name, Predicate.isString) : Option.none(), valid });
-    };
-}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const reference = (object: InDesignDOMObject<unknown>): Reference => {
+    const valid = object.isValid;
+    return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid && 'name' in object ? Option.liftPredicate(object.name, Predicate.isString) : Option.none(), valid });
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Reference, Specifier };
+export { reference, Specifier };

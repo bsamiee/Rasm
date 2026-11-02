@@ -1,9 +1,9 @@
 import type { Document, PreflightProcess } from 'adobe:indesign';
+import { HostError, Reference } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, SchemaGetter, String } from 'effect';
 import { Model } from '#/dom/model';
-import { Reference, Specifier } from '#/dom/specifier';
-import { InDesignError } from '#/error';
+import { reference, Specifier } from '#/dom/specifier';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,41 +29,37 @@ class PreflightProcessView extends Schema.TaggedClass<PreflightProcessView, { re
     appliedProfile: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent for document-embedded profiles' })),
     aggregatedResults: Schema.Result(Schema.Array(Row), Schema.Defect()).annotate({ description: 'Rows of finished process, empty without issues, refusal while checking' }),
 }) {
+    static readonly owns = (model: typeof Model.Service) => model.owning<PreflightProcess>('aggregatedResults');
     static readonly of = (process: PreflightProcess) =>
         Effect.try({
             try: () =>
                 PreflightProcessView.make({
-                    ...Reference.of(process),
-                    targetObject: Reference.of(process.targetObject),
-                    appliedProfile: Option.map(Option.fromUndefinedOr(process.appliedProfile), Reference.of),
+                    ...reference(process),
+                    targetObject: reference(process.targetObject),
+                    appliedProfile: Option.map(Option.fromUndefinedOr(process.appliedProfile), reference),
                     aggregatedResults: aggregated(process),
                 }),
-            catch: InDesignError.refused(process.toSpecifier()),
+            catch: HostError.refused(process.toSpecifier()),
         });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<PreflightProcess>('aggregatedResults')), Option.map(PreflightProcessView.of));
 }
 class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
     document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
     profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
 }) {
     static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Schema.Array(Row) }));
-
-    run() {
-        const { document, profile } = this;
-        return Effect.gen(function* () {
-            const model = yield* Model;
-            const open = model.app.documents.everyItem().getElements();
-            const targets = yield* Option.match(document, {
-                onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
-                onSome: (specifier) =>
-                    Effect.map(
-                        Effect.filterOrFail(Specifier.resolve(specifier), model.document, () => Unmatched.make({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
-                        Array.of,
-                    ),
-            });
-            return yield* Effect.forEach(targets, (target) => checked(target, profile));
+    static readonly handle = Effect.fn('Preflight.handle')(function* ({ document, profile }: Preflight) {
+        const model = yield* Model;
+        const open = model.app.documents.everyItem().getElements();
+        const targets = yield* Option.match(document, {
+            onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
+            onSome: (specifier) =>
+                Effect.map(
+                    Effect.filterOrFail(Specifier.resolve(specifier), model.document, () => Unmatched.make({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+                    Array.of,
+                ),
         });
-    }
+        return yield* Effect.forEach(targets, (target) => checked(target, profile));
+    });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -85,7 +81,7 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     const live = preflightOff ? Option.none() : Option.some(document.activeProcess);
     const applied = Option.flatMap(live, (process) => Option.fromUndefinedOr(process.appliedProfile));
     const chosen = yield* Option.match(named, { onSome: byName, onNone: () => Option.match(applied, { onSome: Effect.succeed, onNone: () => (Predicate.isString(working) ? byName(working) : Effect.succeed(working)) }) });
-    const refused = InDesignError.refused(`preflight of ${document.toSpecifier()} under ${chosen.name}`);
+    const refused = HostError.refused(`preflight of ${document.toSpecifier()} under ${chosen.name}`);
     const finished = Option.flatMap(
         Option.filter(live, () => Option.isNone(named)),
         flow(aggregated, Result.getSuccess),
@@ -100,8 +96,8 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
         (process) => Effect.sync(() => process.remove()),
     );
     return {
-        targetObject: Reference.of(document),
-        appliedProfile: Reference.of(chosen),
+        targetObject: reference(document),
+        appliedProfile: reference(chosen),
         aggregatedResults: yield* Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }),
     };
 });

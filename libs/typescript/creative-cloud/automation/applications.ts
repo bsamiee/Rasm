@@ -10,6 +10,7 @@ interface Control extends Schema.Struct.Type<typeof controlFields> {
 
 const Pid = Schema.Int.annotate({ description: 'Running instance process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID from status elements' });
+const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side limit in pixels' });
 const ElementID = Schema.String.annotate({ description: 'Base64 Accessibility remote token, absent once element closes' });
 const controlFields = {
     id: ElementID,
@@ -123,12 +124,12 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.isAnyOf(['Exited'])(instance.state);
 }
 class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbol }>('Screenshot')({
-    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent for on-screen windows on display holding most' })),
-    pixels: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side limit, smaller captures keep native size' })),
+    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent captures every on-screen window on the display showing most of them' })),
+    longestSide: Schema.OptionFromOptionalKey(LongestSide),
 }) {
-    static readonly Result = Schema.Struct({ image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Pixels' }), height: Schema.Int.annotate({ description: 'Pixels' }) });
+    static readonly Result = Schema.Struct({ windows: Schema.Array(WindowID) });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Installation, Perform, Pid, RunningInstance, Screenshot, State };
+export { Installation, LongestSide, Perform, Pid, RunningInstance, Screenshot, State };

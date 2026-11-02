@@ -8,27 +8,6 @@ import JSONRPC
 import Sparkle
 import os
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-struct AtelierFailure: LocalizedError {
-    enum Reason: Sendable {
-        case notAdobe
-        case noProcess
-        case unrendered
-    }
-
-    let subject: String
-    let reason: Reason
-
-    var errorDescription: String? {
-        switch reason {
-            case .notAdobe: "\(subject) has no bundle identifier starting \(adobePrefix)"
-            case .noProcess: "No running application has Process ID \(subject)"
-            case .unrendered: "ScreenCaptureKit returned no SDR image of process \(subject)"
-        }
-    }
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 @main

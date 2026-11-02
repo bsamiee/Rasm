@@ -1,4 +1,4 @@
-import CasePaths
+import CasePathsCore
 import Files
 public import Foundation
 import Results

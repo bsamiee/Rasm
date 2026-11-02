@@ -1,10 +1,10 @@
 import type { Document, Gradient, Layer, Link, MasterSpread, MixedInk, MixedInkGroup, Page, PageItem, PlainColor, PlainSwatch, Spread, Tint } from 'adobe:indesign';
-import { Array, Effect, flow, Match, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { HostError, type Open, Reference } from '@rasm/automation/requests';
+import { Array, Effect, Match, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { ParagraphAttributes } from '#/documents/text';
 import { Model } from '#/dom/model';
-import { Reference } from '#/dom/specifier';
-import { read } from '#/dom/value';
-import { InDesignError } from '#/error';
+import { reference } from '#/dom/specifier';
+import { picked, read } from '#/dom/value';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
                 );
                 return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
             },
-            catch: InDesignError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
+            catch: HostError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
         });
     });
 }
@@ -34,8 +34,8 @@ class LayerView extends Schema.TaggedClass<LayerView, { readonly brand: unique s
     layerColor: Schema.Json.annotate({ description: 'UIColors member or RGB values' }),
     items: Schema.Int,
 }) {
-    static readonly of = (layer: Layer) => read(LayerView, layer.toSpecifier(), () => ({ _tag: 'Layer', ...Reference.of(layer), index: layer.index, visible: layer.visible, locked: layer.locked, printable: layer.printable, ignoreWrap: layer.ignoreWrap, layerColor: layer.layerColor, items: layer.pageItems.length }));
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<Layer>('layerColor')), Option.map(LayerView.of));
+    static readonly owns = (model: typeof Model.Service) => model.owning<Layer>('layerColor');
+    static readonly of = (layer: Layer) => read(LayerView, layer.toSpecifier(), () => ({ ...picked(LayerView.fields)(layer), ...reference(layer), _tag: 'Layer', items: layer.pageItems.length }));
 }
 class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique symbol }>()('Link', {
     ...Reference.fields,
@@ -49,9 +49,8 @@ class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique sym
     date: Schema.String.annotate({ description: 'Source file modification date' }),
     parent: Reference.annotate({ description: 'Placed graphic or story' }),
 }) {
-    static readonly of = (link: Link) =>
-        read(LinkView, link.toSpecifier(), () => ({ _tag: 'Link', ...Reference.of(link), status: link.status, filePath: link.filePath, linkResourceURI: link.linkResourceURI, linkType: link.linkType, needed: link.needed, edited: link.edited, size: link.size, date: link.date, parent: link.parent }));
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<Link>('linkResourceURI')), Option.map(LinkView.of));
+    static readonly owns = (model: typeof Model.Service) => model.owning<Link>('linkResourceURI');
+    static readonly of = (link: Link) => read(LinkView, link.toSpecifier(), () => ({ ...picked(LinkView.fields)(link), ...reference(link), _tag: 'Link' }));
 }
 class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique symbol }>()('Swatch', {
     ...Reference.fields,
@@ -64,17 +63,18 @@ class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique
         MixedInk: { baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
     }).annotate({ description: 'Empty Swatch for None and mixed ink groups' }),
 }) {
-    static readonly of = Effect.fn('SwatchView.of')(function* (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) {
+    static readonly owns = (model: typeof Model.Service) => model.owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup');
+    static readonly of = (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) => {
+        const { cases } = SwatchView.fields.value;
         const value = Match.value(swatch).pipe(
-            Match.when({ constructorName: 'Color' }, ({ model, space, colorValue }) => ({ _tag: 'Color', model, space, colorValue })),
-            Match.when({ constructorName: 'Tint' }, ({ baseColor, tintValue }) => ({ _tag: 'Tint', baseColor, tintValue })),
-            Match.when({ constructorName: 'Gradient' }, ({ type, gradientStops }) => ({ _tag: 'Gradient', type, gradientStops: Array.map(gradientStops.everyItem().getElements(), ({ stopColor, location, midpoint }) => ({ stopColor, location, midpoint })) })),
-            Match.when({ constructorName: 'MixedInk' }, ({ baseColor, inkPercentages }) => ({ _tag: 'MixedInk', baseColor, inkPercentages })),
+            Match.when({ constructorName: 'Color' }, (color) => ({ ...picked(cases.Color.fields)(color), _tag: 'Color' })),
+            Match.when({ constructorName: 'Tint' }, (tint) => ({ ...picked(cases.Tint.fields)(tint), _tag: 'Tint' })),
+            Match.when({ constructorName: 'Gradient' }, (gradient) => ({ ...picked(cases.Gradient.fields)(gradient), _tag: 'Gradient', gradientStops: Array.map(gradient.gradientStops.everyItem().getElements(), picked(cases.Gradient.fields.gradientStops.value.fields)) })),
+            Match.when({ constructorName: 'MixedInk' }, (ink) => ({ ...picked(cases.MixedInk.fields)(ink), _tag: 'MixedInk' })),
             Match.orElse(() => ({ _tag: 'Swatch' })),
         );
-        return yield* read(SwatchView, swatch.toSpecifier(), () => ({ _tag: 'Swatch', ...Reference.of(swatch), group: Option.map(Option.fromNullOr(swatch.parentColorGroup), Struct.get('name')), value }));
-    });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup')), Option.map(SwatchView.of));
+        return read(SwatchView, swatch.toSpecifier(), () => ({ _tag: 'Swatch', ...reference(swatch), group: Option.map(Option.fromNullOr(swatch.parentColorGroup), Struct.get('name')), value }));
+    };
 }
 class PageView extends Schema.TaggedClass<PageView, { readonly brand: unique symbol }>()('Page', {
     ...Reference.fields,
@@ -90,25 +90,22 @@ class PageView extends Schema.TaggedClass<PageView, { readonly brand: unique sym
     }),
     items: Schema.Struct({ own: Schema.Int, inherited: Schema.Int }).annotate({ description: 'Own and parent page item counts' }),
 }) {
+    static readonly owns = (model: typeof Model.Service) => model.page;
     static readonly of = (page: Page) =>
-        Effect.flatMap(Extent.of(page), (box) =>
+        Effect.flatMap(Extent.of(page), (extent) =>
             read(PageView, page.toSpecifier(), () => {
                 const { marginPreferences: margins } = page;
                 return {
                     _tag: 'Page',
-                    ...Reference.of(page),
-                    documentOffset: page.documentOffset,
-                    side: page.side,
-                    extent: box,
-                    parent: page.parent,
+                    ...reference(page),
+                    ...Struct.pick(page, ['documentOffset', 'side', 'parent', 'appliedSection']),
+                    extent,
                     appliedMaster: Option.fromNullOr(page.appliedMaster),
-                    appliedSection: page.appliedSection,
                     margins: { top: margins.top, bottom: margins.bottom, inside: margins.left, outside: margins.right, columns: Array.chunksOf(margins.columnsPositions, 2) },
                     items: { own: page.pageItems.length, inherited: page.masterPageItems.length },
                 };
             }),
         );
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.page), Option.map(PageView.of));
 }
 class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique symbol }>()('Spread', {
     ...Reference.fields,
@@ -119,13 +116,14 @@ class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique
     pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(PageView.fields, ['side', 'extent'])))).annotate({ description: 'Pages in order' }),
     items: Schema.Int,
 }) {
+    static readonly owns = (model: typeof Model.Service) => Predicate.or(model.spread, model.owning<MasterSpread>('namePrefix'));
     static readonly of = (found: Spread | MasterSpread) =>
         Effect.flatMap(
-            Effect.forEach(found.pages.everyItem().getElements(), (page) => Effect.map(Extent.of(page), (box) => ({ ...Reference.of(page), side: page.side, extent: box }))),
+            Effect.forEach(found.pages.everyItem().getElements(), (page) => Effect.map(Extent.of(page), (extent) => ({ ...reference(page), side: page.side, extent }))),
             (pages) =>
                 read(SpreadView, found.toSpecifier(), () => ({
                     _tag: 'Spread',
-                    ...Reference.of(found),
+                    ...reference(found),
                     index: found.index,
                     showMasterItems: found.showMasterItems,
                     appliedMaster: Option.fromNullOr(found.appliedMaster),
@@ -134,7 +132,6 @@ class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique
                     items: found.pageItems.length,
                 })),
         );
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(Predicate.or(model.spread, model.owning<MasterSpread>('namePrefix'))), Option.map(SpreadView.of));
 }
 class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: unique symbol }>()('Document', {
     ...Reference.fields,
@@ -164,10 +161,11 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     textDefaults: ParagraphAttributes,
 }) {
     static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
+    static readonly owns = (model: typeof Model.Service) => model.document;
     static readonly overset = ({ stories }: Document): readonly string[] => Array.flatMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? [stories.itemByID(id).toSpecifier()] : []));
     static readonly row = Effect.fn('DocumentView.row')(function* (document: Document) {
         const { saved } = document;
-        return { ...Reference.of(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
+        return { ...reference(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
     });
     static readonly of = (found: Document) =>
         Effect.flatMap(DocumentView.row(found), (row) =>
@@ -182,26 +180,26 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
                     units: { horizontal: view.horizontalMeasurementUnits, vertical: view.verticalMeasurementUnits, origin: view.rulerOrigin },
                     pages: found.pages.length,
                     spreads: found.spreads.length,
-                    parents: Array.map(found.masterSpreads.everyItem().getElements(), (each) => ({ ...Reference.of(each), pages: each.pages.length })),
-                    sections: Array.map(found.sections.everyItem().getElements(), (each) => ({ ...Reference.of(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
-                    layers: Array.map(found.layers.everyItem().getElements(), (each) => ({ ...Reference.of(each), visible: each.visible, locked: each.locked, printable: each.printable })),
+                    parents: Array.map(found.masterSpreads.everyItem().getElements(), (each) => ({ ...reference(each), pages: each.pages.length })),
+                    sections: Array.map(found.sections.everyItem().getElements(), (each) => ({ ...reference(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
+                    layers: Array.map(found.layers.everyItem().getElements(), (each) => ({ ...reference(each), visible: each.visible, locked: each.locked, printable: each.printable })),
                     stories: { count: found.stories.length, overset: DocumentView.overset(found) },
                     links: Record.map(Array.groupBy(found.links.everyItem().status, String), Array.length),
                     fonts: Array.zipWith(found.fonts.everyItem().name, found.fonts.everyItem().status, (name, status) => ({ name, status })),
                     swatches: found.swatches.everyItem().getElements(),
                     styles: { paragraph: found.allParagraphStyles.length, character: found.allCharacterStyles.length, object: found.allObjectStyles.length, table: found.allTableStyles.length, cell: found.allCellStyles.length },
-                    preflightOptions: {
-                        ...Record.fromIterableWith(Struct.keys(DocumentView.fields.preflightOptions.fields), (key) => [key, preflight[key]]),
-                        preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name,
-                    },
+                    preflightOptions: { ...picked(DocumentView.fields.preflightOptions.fields)(preflight), preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name },
                     activeProcess: preflight.preflightOff ? Option.none() : Option.some(found.activeProcess),
                     textDefaults: ParagraphAttributes.of(found.textDefaults),
                 };
             }),
         );
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.document), Option.map(DocumentView.of));
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const open = ({ file }: Open) => Model.use(({ app }) => Effect.try({ try: () => reference(app.open(decodeURIComponent(file.pathname), false)), catch: HostError.refused(`open of ${file.href}`) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { DocumentView, Extent, LayerView, LinkView, PageView, SpreadView, SwatchView };
+export { DocumentView, Extent, LayerView, LinkView, open, PageView, SpreadView, SwatchView };

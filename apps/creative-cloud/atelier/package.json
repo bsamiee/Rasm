@@ -11,14 +11,19 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
+        "@rasm/photoshop": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
-        "amaro": "catalog:",
-        "effect": "catalog:"
+        "@rasm/uxp": "workspace:*",
+        "@swc/core": "catalog:",
+        "effect": "catalog:",
+        "image-size": "catalog:"
     },
     "devDependencies": {
+        "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
         "@types/node": "catalog:",
         "indesign-uxp-types": "catalog:"

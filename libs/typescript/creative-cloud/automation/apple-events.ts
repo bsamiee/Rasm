@@ -41,9 +41,10 @@ class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('
         .annotate({ description: 'Files command writes, returned with reply' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
+    static readonly Artifact = Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array });
     static readonly Result = Schema.Struct({
         reply: AppleEventValue,
-        artifacts: Schema.Array(Schema.Result(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8ArrayFromBase64 }), Schema.ErrorInstance())).annotate({ description: 'File contents with media type, or read error' }),
+        artifacts: Schema.Array(Schema.Result(Execute.Artifact, Schema.ErrorInstance())).annotate({ description: 'File contents with media type, or read error' }),
     });
 }
 

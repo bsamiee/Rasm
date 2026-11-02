@@ -9,9 +9,8 @@ import { McpSchema } from 'effect/ai';
 const status = Effect.gen(function* () {
     const automation = yield* Automation;
     const answering = (state: typeof State.Type) => State.isAnyOf(['Responding'])(state) && state.elements.some(Struct.get('requiresAnswer'));
-    const reporting = { report: (state: typeof State.Type) => answering(state) || !State.isAnyOf(['Launching', 'Responding'])(state) };
-    const refusing = { ...reporting, refuse: answering };
-    const template = yield* registerResourceTemplate`adobe://status/${McpSchema.param('pid', Pid)}`({
+    const report = (state: typeof State.Type) => answering(state) || !State.isAnyOf(['Launching', 'Responding'])(state);
+    const template = yield* registerResourceTemplate`status/${McpSchema.param('pid', Pid)}`({
         name: 'status',
         description: SchemaAST.resolveDescription(State.ast),
         mimeType: 'application/json',
@@ -24,7 +23,11 @@ const status = Effect.gen(function* () {
                 Effect.flatMap(({ state }) => (State.isAnyOf(['Exited'])(state) ? Effect.succeed(state) : automation.status({ pid }))),
             ),
     });
-    return { reported: (pid: number) => template(pid)(reporting), refused: (pid: number) => template(pid)(refusing) };
+    return {
+        reported: (pid: number) => template(pid)({ report }),
+        dialog: (pid: number) => template(pid)({ report, refuse: answering }),
+        launch: (pid: number) => template(pid)({ report, refuse: State.isAnyOf(['Launching']) }),
+    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

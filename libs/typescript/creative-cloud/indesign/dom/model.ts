@@ -1,8 +1,8 @@
 import type { BaseCollection, Document, Enumeration, Enumerator, InDesignDOMObject, Page, PageItem, ReadonlyNamedDOMObject, Spread, Text, TextFrame } from 'adobe:indesign';
+import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cache, Context, Effect, flow, Option, Predicate, pipe, Random, Record, Schema, Struct } from 'effect';
-import { type Member, READER, Rows, unavailable } from '#/dom/dictionary';
-import { InDesignError } from '#/error';
+import { Array, Cache, Context, Effect, flow, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
+import { READER, Rows, unavailable } from '#/dom/dictionary';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
             const found: unknown = Reflect.get(indesign, kind);
             return Predicate.isFunction(found) && Object.hasOwn(found.prototype, 'everyItem');
         };
-        const plural = ({ type }: Pick<typeof Member.Type, 'type'>): boolean => Option.exists(type, listing);
+        const plural = ({ type }: { readonly type: Option.Option<string> }): boolean => Option.exists(type, listing);
         const filled = <R extends { readonly types: readonly string[] }>(row: R) => ({
             ...row,
             members: pipe(
@@ -47,7 +47,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
         const rows = yield* Cache.make({
             capacity: exported.length,
             lookup: (kind: string) =>
-                Effect.try({ try: (): unknown => indesign.app.doScript(READER, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: InDesignError.refused(`dictionary class ${kind}`) }).pipe(
+                Effect.try({ try: (): unknown => indesign.app.doScript(READER, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
                     Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.NullOr(Rows)), Effect.orDie)),
                     Effect.filterOrFail(Predicate.isNotNull, () => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates: classes })),
                     Effect.map(({ fields, methods, ...declared }) => ({
@@ -57,7 +57,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
                     })),
                 ),
         });
-        const lineage = (name: string): Effect.Effect<readonly string[], Unmatched | InDesignError> => Effect.flatMap(Cache.get(rows, name), ({ parent }) => Option.match(parent, { onNone: () => Effect.succeed([]), onSome: (above) => Effect.map(lineage(above), (rest) => [above, ...rest]) }));
+        const lineage = (name: string): Effect.Effect<readonly string[], Unmatched | HostError> => Effect.flatMap(Cache.get(rows, name), ({ parent }) => Option.match(parent, { onNone: () => Effect.succeed([]), onSome: (above) => Effect.map(lineage(above), (rest) => [above, ...rest]) }));
         const element = (kind: string) => Effect.map(Cache.get(rows, kind), ({ methods }) => Option.flatMap(Record.get(methods, 'item'), ({ returns }) => Option.flatMap(returns, Struct.get('type'))));
         const catalog = yield* Cache.make({
             capacity: exported.length,
@@ -100,14 +100,19 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
         });
     }),
 }) {
-    static readonly active = Model.use(({ app }) => Effect.try({ try: () => app.activeDocument, catch: () => Unmatched.make({ subject: 'active document', query: Option.none(), candidates: app.documents.everyItem().name }) }));
-    static readonly doScript = <S extends Schema.Top>(schema: S, subject: string, source: string, ...given: readonly string[]) =>
-        Model.use(({ app, ScriptLanguage }) => Effect.try({ try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [...given]), catch: InDesignError.refused(subject) })).pipe(Effect.flatMap(flow(Schema.decodeUnknownEffect(schema), Effect.orDie)));
-    static readonly file = (owner: InDesignDOMObject<unknown>, field: string) => Model.doScript(Schema.OptionFromNullOr(Schema.String), `${owner.toSpecifier()} ${field}`, 'var value = resolve(arguments[0])[arguments[1]]; value === null ? null : value.fsName', owner.toSpecifier(), field);
-    static readonly temporary = (name: string) =>
-        Effect.acquireRelease(
-            Effect.zipWith(Model.doScript(Schema.String, `temporary ${name}`, 'Folder.temp.fsName'), Random.nextInt, (folder, unique) => `${folder}/${unique}-${name}`),
-            (path) => Effect.orDie(Model.doScript(Schema.Boolean, `removal of ${path}`, 'File(arguments[0]).remove()', path)),
+    static readonly document = Model.use(({ app, document }) => {
+        const open = app.documents.everyItem().getElements();
+        const shown = Option.flatMap(Option.liftThrowable((): unknown => app.activeWindow.parent)(), Option.liftPredicate(document));
+        return pipe(
+            Array.head(open),
+            Option.filter(() => open.length === 1),
+            Option.orElse(() => shown),
+            Effect.fromOption(() => Unmatched.make({ subject: 'document', query: Option.none(), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+        );
+    });
+    static readonly file = (owner: InDesignDOMObject<unknown>, field: string) =>
+        Model.use(({ app, ScriptLanguage }) => Effect.try({ try: (): unknown => app.doScript('var value = resolve(arguments[0])[arguments[1]]; value === null ? null : value.fsName', ScriptLanguage.JAVASCRIPT, [owner.toSpecifier(), field]), catch: HostError.refused(`${owner.toSpecifier()} ${field}`) })).pipe(
+            Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Schema.String)), Effect.orDie)),
         );
 }
 

@@ -1,48 +1,50 @@
+import { HostError, Reference } from '@rasm/automation/requests';
 import { Source } from '@rasm/typography/source';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Effect, flow, Option, Predicate, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import { Model } from '#/dom/model';
-import { Reference } from '#/dom/specifier';
-import { fontByName, read } from '#/dom/value';
-import { InDesignError } from '#/error';
+import { reference, Specifier } from '#/dom/specifier';
+import { fontByName, picked, read, Slice } from '#/dom/value';
 import { FindChange } from '#/requests/find-change';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Installed = Schema.Struct({
+    postscriptName: Schema.String,
+    fullName: Schema.String,
+    version: Schema.String,
+    type: Schema.String,
+    location: Schema.String.annotate({ description: 'File path, or label without readable file' }),
+    styles: Schema.Array(Schema.String).annotate({ description: 'Style names' }),
+    axes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Finite })).annotate({ description: 'Instance axes by InDesign name in fvar order, values to 2 decimals' })),
+    features: Schema.Array(Schema.String).annotate({ description: 'OpenTypeFeature members in GSUB or GPOS' }),
+    allows: Schema.Struct(Struct.Record(['allowOutlines', 'allowPDFEmbedding', 'allowEditableEmbedding', 'restrictedPrinting'], Schema.Boolean)),
+});
 class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique symbol }>()('Font', {
     ...Reference.fields,
     family: Schema.String,
     style: Schema.OptionFromOptionalKey(Schema.String),
     status: Schema.String,
-    uses: Schema.Array(Schema.String).annotate({ description: 'Active document text and styles set in the face' }),
-    installed: Schema.OptionFromOptionalKey(
-        Schema.Struct({
-            postscriptName: Schema.String,
-            fullName: Schema.String,
-            version: Schema.String,
-            type: Schema.String,
-            location: Schema.String.annotate({ description: 'File path, or label without readable file' }),
-            styles: Schema.Array(Schema.String).annotate({ description: 'Style names' }),
-            axes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Finite })).annotate({ description: 'Instance axes by InDesign name in fvar order, values to 2 decimals' })),
-            features: Schema.Array(Schema.String).annotate({ description: 'OpenTypeFeature members in GSUB or GPOS' }),
-            allows: Schema.Struct(Struct.Record(['outlines', 'pdfEmbedding', 'editableEmbedding', 'restrictedPrinting'], Schema.Boolean)),
-        }),
-    ),
+    uses: Schema.Array(Schema.String).annotate({ description: 'Current document text and styles set in the face' }),
+    installed: Schema.OptionFromOptionalKey(Installed),
 }) {
+    static readonly owns = (model: typeof Model.Service) => model.owning<import('adobe:indesign').Font>('postscriptName');
     static readonly of = Effect.fn('FontView.of')(function* (face: import('adobe:indesign').Font) {
         const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
         const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];
         const style = installed ? Option.some(face.fontStyleName) : Option.none();
-        const uses = yield* Option.match(yield* Effect.option(Model.active), {
+        const specifier = yield* Effect.orDie(Schema.decodeUnknownEffect(Specifier.Path)(face.toSpecifier()));
+        const uses = yield* Option.match(yield* Effect.option(Model.document), {
             onNone: () => Effect.succeed(Array.empty<string>()),
             onSome: (open) =>
                 Effect.map(
                     FindChange.make({
                         mode: 'Text',
-                        find: Option.some({ appliedFont: { type: face.constructorName, specifier: face.toSpecifier() } }),
+                        find: Option.some({ appliedFont: { type: face.constructorName, specifier } }),
                         options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
                         change: Option.none(),
                         scope: Option.none(),
+                        slice: Slice.make({ offset: 0, limit: Option.none() }),
                     }).search(open),
                     ({ matches }) => [
                         ...Array.map(matches, Struct.get('specifier')),
@@ -65,64 +67,43 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
                           ),
                       ]
                     : [[], []],
-            catch: InDesignError.refused(`styles and features of ${face.name}`),
+            catch: HostError.refused(`styles and features of ${face.name}`),
         });
         const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();
         return yield* read(FontView, face.toSpecifier(), () => ({
             _tag: 'Font',
-            ...Reference.of(face),
+            ...reference(face),
             family,
             style,
             status: face.status,
             uses,
-            installed: installed
-                ? Option.some({
-                      postscriptName: face.postscriptName,
-                      fullName: face.fullName,
-                      version: face.version,
-                      type: face.fontType,
-                      location: face.location,
-                      styles,
-                      axes,
-                      features,
-                      allows: { outlines: face.allowOutlines, pdfEmbedding: face.allowPDFEmbedding, editableEmbedding: face.allowEditableEmbedding, restrictedPrinting: face.restrictedPrinting },
-                  })
-                : Option.none(),
+            installed: installed ? Option.some({ ...picked(Installed.fields)(face), type: face.fontType, styles, axes, features, allows: picked(Installed.fields.allows.fields)(face) }) : Option.none(),
         }));
     });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<import('adobe:indesign').Font>('postscriptName')), Option.map(FontView.of));
 }
 class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')({
-    name: Schema.String.annotate({ description: 'Font, PostScript, or full name, family name selects Regular face' }),
+    name: Schema.String.annotate({ description: 'Font, PostScript, or full name, family name selects its Regular or first face' }),
     text: Schema.String.annotate({ description: 'Subset characters for unreadable font files' }),
+    file: Schema.String,
 }) {
     static readonly Result = Schema.Struct({
         view: FontView,
-        source: Schema.OptionFromOptionalKey(Source.annotate({ description: 'Installed face bytes' })),
+        source: Schema.OptionFromOptionalKey(Source.mapFields(Struct.omit(['data'])).mapFields(Struct.assign({ file: Schema.String.annotate({ description: 'Installed face file, or subset written to the requested file' }) }))),
     });
-
-    run() {
-        const { name, text } = this;
-        return Effect.gen(function* () {
-            const [face, { FontStatus }, { fs }] = yield* Effect.all([fontByName(name), Model, Uxp]);
-            const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: InDesignError.refused(path) });
-            const subset = Model.temporary('font.otf').pipe(
-                Effect.tap((path) => Effect.try({ try: () => face.createSubsetFont(text, path), catch: InDesignError.refused(`subset of ${face.name}`) })),
-                Effect.flatMap((path) => bytes(`file:${path}`)),
-                Effect.map((data) => Option.some({ data, postscriptName: Option.none<string>() })),
-            );
-            const source = face.status.equals(FontStatus.INSTALLED)
-                ? yield* bytes(`file:${face.location}`).pipe(
-                      Effect.map((data) => Option.some({ data, postscriptName: Option.some(face.postscriptName) })),
-                      Effect.catchIf(
-                          ({ cause }) => notFound(cause),
-                          () => subset,
-                      ),
-                  )
-                : Option.none();
-            return { view: yield* FontView.of(face), source };
-        }).pipe(Effect.scoped);
-    }
+    static readonly handle = Effect.fn('Font.handle')(function* ({ name, text, file }: Font) {
+        const [face, { FontStatus }, { fs }] = yield* Effect.all([fontByName(name), Model, Uxp]);
+        const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
+        const source = face.status.equals(FontStatus.INSTALLED)
+            ? yield* Effect.try({ try: () => fs.lstatSync(`file:${face.location}`), catch: HostError.refused(face.location) }).pipe(
+                  Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
+                  Effect.catchIf(
+                      ({ cause }) => notFound(cause),
+                      () => subset,
+                  ),
+              )
+            : Option.none();
+        return { view: yield* FontView.of(face), source };
+    });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

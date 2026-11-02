@@ -1,21 +1,63 @@
+import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Effect, flow, identity, Match, Option, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
-import type { Member } from '#/dom/dictionary';
 import { Model } from '#/dom/model';
-import { Reference, Specifier } from '#/dom/specifier';
-import { InDesignError } from '#/error';
+import { reference, Specifier } from '#/dom/specifier';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Value = typeof Enumerated.Type | typeof Located.Type | string | number | boolean | null | readonly Value[] | Values;
+type Encoded = typeof Enumerated.Encoded | typeof Located.Encoded | string | number | boolean | null | readonly Encoded[] | { readonly [field: string]: Encoded };
+interface Values {
+    readonly [field: string]: Value;
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Value = Schema.Json.annotate({ description: 'Name for an enumerator or named object, {type, member} for an enumerator, {type, specifier} for another object, points or unit string for a measurement, record for nested preferences' });
+const Enumerated = Schema.Struct({ type: Schema.String, member: Schema.String });
+const Located = Schema.Struct({ type: Schema.String, specifier: Specifier.Path });
+const Value: Schema.Codec<Value, Encoded> = Schema.Union([
+    Enumerated,
+    Located,
+    Schema.String,
+    Schema.Finite,
+    Schema.Boolean,
+    Schema.Null,
+    Schema.Array(Schema.suspend(() => Value)),
+    Schema.Record(
+        Schema.String,
+        Schema.suspend(() => Value),
+    ),
+]).annotate({
+    description: 'Name for an enumerator or named object, {type, member} for an enumerator, {type, specifier} for another object, points or unit string for a measurement, record for nested preferences',
+});
 const Values = Schema.Record(Schema.String, Value);
+class Slice extends Schema.Class<Slice, { readonly brand: unique symbol }>('Slice')({
+    offset: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)))
+        .annotate({ description: 'Items skipped' }),
+    limit: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Items returned, absent returns the rest' })),
+}) {
+    static readonly field = Slice.pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
+
+    of<A>(items: readonly A[]): readonly A[] {
+        return items.slice(this.offset, Option.getOrUndefined(Option.map(this.limit, (limit) => this.offset + limit)));
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ENCODING]
 
 const record = (value: unknown): value is Record.ReadonlyRecord<string, unknown> => Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype;
+const picked =
+    <F extends Schema.Struct.Fields>(fields: F) =>
+    (object: object): Record.ReadonlyRecord<string, unknown> =>
+        Record.fromIterableWith(
+            Struct.keys(fields).filter((key) => key in object),
+            (key) => [key, Reflect.get(object, key)],
+        );
 const encoder = Effect.map(
     Model,
     ({ enumerator, collection, host }) =>
@@ -29,7 +71,7 @@ const encoder = Effect.map(
                     Match.value,
                     Match.when(enumerator, String),
                     Match.when(collection, (items) => ({ type: items.constructor.name, specifier: items.everyItem().toSpecifier(), length: items.length })),
-                    Match.when(host, Reference.of),
+                    Match.when(host, reference),
                     Match.when(Predicate.isPromise, () => {
                         throw new TypeError(`${key} holds a promise, scripts answer before it settles`);
                     }),
@@ -45,7 +87,7 @@ const encoder = Effect.map(
 );
 const read = <S extends Schema.Top>(schema: S, subject: string, value: () => unknown) =>
     encoder.pipe(
-        Effect.flatMap((encoded) => Effect.try({ try: () => encoded(value()), catch: InDesignError.refused(subject) })),
+        Effect.flatMap((encoded) => Effect.try({ try: () => encoded(value()), catch: HostError.refused(subject) })),
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.toCodecJson(schema))), Effect.orDie)),
     );
 
@@ -58,8 +100,8 @@ const member = Effect.fnUntraced(function* (kind: string, name: string) {
 });
 const byName = Effect.fnUntraced(function* (type: string, name: string, scope: Option.Option<object>) {
     const model = yield* Model;
-    const [{ fields }, parents] = yield* Effect.all([Cache.get(model.rows, type), model.lineage(type)]);
-    const listing = Record.has(fields, 'name') && ![type, ...parents].includes('Swatch') ? yield* Cache.get(model.catalog, type) : Option.none();
+    const { fields } = yield* Cache.get(model.rows, type);
+    const listing = Record.has(fields, 'name') ? yield* Cache.get(model.catalog, type) : Option.none();
     return yield* Option.match(Option.all([scope, listing]), {
         onNone: () => Effect.succeed<unknown>(name),
         onSome: ([document, field]) => {
@@ -71,42 +113,45 @@ const byName = Effect.fnUntraced(function* (type: string, name: string, scope: O
 const fontByName = Effect.fn('fontByName')(function* (name: string) {
     const { app, FontStatus } = yield* Model;
     const every = app.fonts.everyItem();
+    const faces = Array.map(Array.zip(Array.zip(every.name, every.postscriptName), Array.zip(every.fullName, Array.zip(every.fontFamily, every.fontStyleName))), ([[label, postscript], [full, [family, style]]], index) => ({ label, postscript, full, family, style, index }));
+    const families = Record.map(
+        Array.groupBy(faces, Struct.get('family')),
+        (listed) =>
+            Option.getOrElse(
+                Array.findFirst(listed, ({ style }) => style === 'Regular'),
+                () => Array.headNonEmpty(listed),
+            ).index,
+    );
     const installed = pipe(
-        Array.zip(Array.zip(every.name, every.postscriptName), Array.zip(every.fullName, Array.zip(every.fontFamily, every.fontStyleName))),
-        Array.map(([[label, postscript], [full, [family, style]]], index) => ({ postscript, names: [label, postscript, full, ...(style === 'Regular' ? [family] : [])] as const, font: () => app.fonts.item(index) })),
+        faces,
+        Array.map(({ label, postscript, full, family, index }) => ({ postscript, names: [label, postscript, full, ...(Option.contains(Record.get(families, family), index) ? [family] : [])], font: () => app.fonts.item(index) })),
         Array.dedupeWith((a, b) => a.postscript === b.postscript),
     );
-    const missing = Array.flatMap(Option.toArray(yield* Effect.option(Model.active)), (open) => {
+    const missing = Array.flatMap(app.documents.everyItem().getElements(), (open) => {
         const used = open.fonts.everyItem();
-        return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ names: [label] as const, font: () => open.fonts.item(index) }]));
+        return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ names: [label], font: () => open.fonts.item(index) }]));
     });
     return (yield* Unmatched.single([...installed, ...missing], 'font', Option.some(name), Struct.get('names'))).font();
 });
 
 // --- [DECODING]
 
-const decoder = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 'types'>>): ((value: unknown) => Effect.Effect<unknown, InDesignError | Unmatched | Schema.SchemaError, Model>) => {
+const decoder = (target: unknown, row: Option.Option<{ readonly types: readonly string[] }>): ((value: unknown) => Effect.Effect<unknown, HostError | Unmatched | Schema.SchemaError, Model>) => {
     const typed = (text: string) =>
-        Effect.flatMap(Effect.all([Model, Effect.option(Model.active)]), ([{ enumeration, classes, owner }, open]) => {
+        Effect.flatMap(Effect.all([Model, Effect.option(Model.document)]), ([{ enumeration, classes, owner }, open]) => {
+            const types = Option.match(row, { onNone: Array.empty<string>, onSome: Struct.get('types') });
             const scope = Option.orElse(owner(target), () => open);
-            return Match.value(Option.match(row, { onNone: Array.empty, onSome: Struct.get('types') })).pipe(
-                Match.when(Schema.is(Schema.Tuple([Schema.String])), ([type]) =>
-                    Match.value(type).pipe(
-                        Match.when(flow(enumeration, Option.isSome), (each) => member(each, text)),
-                        Match.when('Font', () => fontByName(text)),
-                        Match.when(
-                            (each) => classes.includes(each),
-                            (each) => byName(each, text, scope),
-                        ),
-                        Match.orElse(() => Effect.succeed<unknown>(text)),
-                    ),
-                ),
-                Match.orElse((types) => Effect.firstSuccessOf([...types.filter(flow(enumeration, Option.isSome)).map((each) => member(each, text)), Effect.succeed<unknown>(text)])),
-            );
+            const named = types.includes('String')
+                ? [Effect.succeed<unknown>(text)]
+                : Array.map(
+                      types.filter((type) => type === 'Font' || classes.includes(type)),
+                      (type) => (type === 'Font' ? fontByName(text) : byName(type, text, scope)),
+                  );
+            return Effect.firstSuccessOf([...Array.map(types.filter(flow(enumeration, Option.isSome)), (type) => member(type, text)), ...named, ...(Array.isReadonlyArrayNonEmpty(named) ? [] : [Effect.succeed<unknown>(text)])]);
         });
-    const decode: (value: unknown) => Effect.Effect<unknown, InDesignError | Unmatched | Schema.SchemaError, Model> = Match.type<unknown>().pipe(
-        Match.when(Schema.is(Schema.Struct({ type: Schema.String, specifier: Schema.String })), ({ specifier }) => Effect.flatMap(Schema.decodeUnknownEffect(Specifier.Path)(specifier), Specifier.resolve)),
-        Match.when(Schema.is(Schema.Struct({ type: Schema.String, member: Schema.String })), ({ type, member: name }) => member(type, name)),
+    const decode: (value: unknown) => Effect.Effect<unknown, HostError | Unmatched | Schema.SchemaError, Model> = Match.type<unknown>().pipe(
+        Match.when(Schema.is(Located), ({ specifier }) => Specifier.resolve(specifier)),
+        Match.when(Schema.is(Enumerated), ({ type, member: name }) => member(type, name)),
         Match.when(Predicate.isString, typed),
         Match.when(Array.isArray, (items) => Effect.forEach(items, decode)),
         Match.when(record, (properties) => Effect.all(Record.map(properties, decoder(target, Option.none())))),
@@ -117,4 +162,4 @@ const decoder = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 't
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { byName, decoder, encoder, fontByName, read, record, Value, Values };
+export { byName, decoder, encoder, fontByName, picked, read, record, Slice, Value, Values };

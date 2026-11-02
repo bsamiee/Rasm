@@ -1,7 +1,8 @@
 {
-    "name": "@rasm/atelier-indesign-script",
+    "name": "@rasm/atelier-indesign-plugin",
+    "version": "1.0.0",
     "private": true,
-    "description": "Document model served to agents from inside the host",
+    "description": "Atelier InDesign",
     "type": "module",
     "imports": {
         "#/package.json": "./package.json"
@@ -9,7 +10,8 @@
     "main": "main.ts",
     "dependencies": {
         "@rasm/indesign": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

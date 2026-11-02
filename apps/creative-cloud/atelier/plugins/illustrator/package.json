@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/atelier-illustrator-plugin",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Atelier Illustrator",
+    "type": "module",
+    "imports": {
+        "#/package.json": "./package.json"
+    },
+    "main": "main.ts",
+    "dependencies": {
+        "@rasm/cep": "workspace:*",
+        "@rasm/illustrator": "workspace:*"
+    }
+}

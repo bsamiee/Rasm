@@ -2,31 +2,30 @@ import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Data, Deferred, Duration, Effect, Latch, Layer, Option, type Predicate, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { NetAddress } from 'effect/net';
-import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, type RpcSerialization, RpcServer } from 'effect/rpc';
+import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
-import { Plugin } from '#/runtime';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')({
-    application: Schema.URLFromString.pipe(Schema.decode({ decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : Url.setPathname(url, `${url.pathname}/`))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Served application bundle URL with trailing slash' }),
-    extension: Schema.String.annotate({ description: 'Plugin manifest name' }),
+    application: Schema.URLFromString.pipe(Schema.decode({ decode: SchemaGetter.transform((url) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Served application bundle URL with trailing slash, from any file URL inside the bundle' }),
+    extension: Schema.String.annotate({ description: 'Plugin or extension name' }),
 }) {
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(
         group: RpcGroup.RpcGroup<Rpcs>,
         handlers: Layer.Layer<H, EH, RH>,
-        { path, application, serialization, redial }: { readonly path: HttpRouter.PathInput; readonly application: Effect.Effect<URL, E, R>; readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>; readonly redial: Schedule.Schedule<unknown, Cause.Cause<unknown>> },
+        { origin, extension, path, application, redial = Schedule.spaced('1 second') }: { readonly origin: string; readonly extension: string; readonly path: HttpRouter.PathInput; readonly application: Effect.Effect<URL, E, R>; readonly redial?: Schedule.Schedule<unknown, Cause.Cause<unknown>> },
     ) =>
         RpcServer.layer(group, { concurrency: 1 }).pipe(
             Layer.provide([handlers, RpcServer.layerProtocolSocketServer]),
             Layer.provide([
                 Layer.effect(SocketServer.SocketServer)(
                     Effect.gen(function* () {
-                        const [{ name, requiredPermissions }, url] = yield* Effect.all([Plugin, application]);
-                        const {
-                            domains: [origin],
-                        } = yield* Effect.fromOption(requiredPermissions.network, () => new Cause.NoSuchElementError(`${name} manifest lacks requiredPermissions.network domains`));
-                        const [dialed, identity] = yield* Effect.all([Effect.fromResult(Url.fromString(path, origin)), Schema.encodeEffect(Link)(Link.make({ application: url, extension: name }))]);
+                        const [dialed, identity] = yield* Effect.all([Effect.fromResult(Url.fromString(path, origin)), Effect.flatMap(application, (url) => Schema.encodeEffect(Link)(Link.make({ application: url, extension })))]);
                         const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(dialed, identity).href);
                         return {
                             address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Unspecified, 0),
@@ -43,14 +42,12 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                         };
                     }),
                 ),
-                serialization,
+                RpcSerialization.layerJson,
             ]),
             Layer.provide(Socket.layerWebSocketConstructorGlobal),
         );
-    static readonly listen = Effect.fn('Link.listen')(function* <Rpcs extends Rpc.Any>(
-        group: RpcGroup.RpcGroup<Rpcs>,
-        { path, serialization, middleware }: { readonly path: HttpRouter.PathInput; readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>; readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol> },
-    ) {
+    static readonly serves = (application: URL) => (peer: Link) => peer.application.href === application.href;
+    static readonly listen = Effect.fn('Link.listen')(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { path, middleware }: { readonly path: HttpRouter.PathInput; readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol> }) {
         class Linked extends Data.Class<{ readonly peer: Link; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}
         const [router, links] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make(Array.empty<Linked>())]);
         const linking = Effect.fnUntraced(function* (request: HttpServerRequest.HttpServerRequest) {
@@ -64,7 +61,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                     ),
                 }),
                 Effect.provideService(Socket.Socket, socket),
-                Effect.provide(serialization),
+                Effect.provide(RpcSerialization.layerJson),
             );
             const clients = yield* Layer.build(Layer.provideMerge(middleware, Layer.succeed(RpcClient.Protocol, protocol)));
             const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients));

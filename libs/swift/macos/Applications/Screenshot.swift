@@ -48,6 +48,16 @@ extension SCContentFilter {
     }
 }
 
+extension SCScreenshotConfiguration {
+    public convenience init(file: URL, as type: UTType = .png) {
+        self.init()
+        let reference: UTTypeReference = type as UTTypeReference
+        defer { extendLifetime(reference) }
+        unsafe contentType = reference
+        fileURL = file
+    }
+}
+
 extension CGImage {
     public func data(as type: UTType) throws(ApplicationFailure) -> Data {
         let data: CFMutableData = CFDataCreateMutable(nil, 0)

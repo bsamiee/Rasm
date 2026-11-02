@@ -1,0 +1,19 @@
+import { Manifest } from '@rasm/uxp/manifest';
+import { Option } from 'effect';
+import npm from '#/package.json' with { type: 'json' };
+import { uxp } from '../../../../../vite.shared.ts';
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+export default uxp(import.meta.dirname, {
+    main: npm.main,
+    daemon: 'atelier',
+    manifest: Manifest.make({
+        id: 'app.rasm.atelier.photoshop',
+        name: npm.description,
+        version: npm.version,
+        host: { app: 'PS', minVersion: '27.0.0', data: Option.some({ loadEvent: 'startup' }) },
+        entrypoints: [],
+        requiredPermissions: { localFileSystem: Option.some('fullAccess'), allowCodeGenerationFromStrings: Option.some(true) },
+    }),
+});

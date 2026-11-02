@@ -1,13 +1,8 @@
-import { Array, Cause, Context, Duration, Effect, identity, Layer, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Duration, Effect, identity, Layer, Schedule, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'effect/rpc';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import type { Execute } from '#/apple-events';
 import { Contract } from '#/contract';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const MessageJson = Schema.fromJsonString(Schema.Unknown);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -27,29 +22,6 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
         return { ...client, installations, instances, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
     }),
 }) {
-    static readonly protocol = (pid: number, event: (message: string) => Pick<Execute, 'command' | 'arguments'>) =>
-        Layer.effect(RpcClient.Protocol)(
-            RpcClient.Protocol.make(
-                Effect.fnUntraced(function* (writeResponse) {
-                    const { execute } = yield* Automation;
-                    const sent = Effect.fnUntraced(
-                        function* (clientId: number, request: RpcMessage.RequestEncoded) {
-                            const { reply } = yield* execute({ pid, ...event(yield* Schema.encodeEffect(MessageJson)(request)) });
-                            // biome-ignore lint/nursery/noUnsafeTypeAssertion: RpcClient decodes each part through codecFor
-                            const responses = Array.ensure(yield* Schema.decodeUnknownEffect(MessageJson)(reply)) as readonly RpcMessage.FromServerEncoded[];
-                            yield* Effect.forEach(responses, (response) => writeResponse(clientId, response), { discard: true });
-                        },
-                        (effect, _, request) => Effect.mapError(effect, (cause) => RpcClientError.RpcClientError.make({ reason: RpcClientError.RpcClientDefect.make({ message: `${request.tag} request to process ${pid} failed`, cause }) })),
-                    );
-                    return {
-                        send: (clientId: number, request: RpcMessage.FromClientEncoded) => (request._tag === 'Request' ? sent(clientId, request) : Effect.void),
-                        supportsAck: false,
-                        supportsTransferables: false,
-                        codecFor: RpcSerialization.json.codecFor,
-                    };
-                }),
-            ),
-        );
     static readonly layer = (executable: string) =>
         Layer.effect(Automation, Automation.make).pipe(
             Layer.provide(RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) })),

@@ -1,0 +1,24 @@
+{
+    "name": "@rasm/cep",
+    "private": true,
+    "description": "Requests served from a CEP extension through its host's ExtendScript",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./entrypoints": "./entrypoints.ts",
+        "./extendscript": "./extendscript.ts",
+        "./manifest": "./manifest.ts"
+    },
+    "dependencies": {
+        "@rasm/automation": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "types-for-adobe": "catalog:"
+    }
+}

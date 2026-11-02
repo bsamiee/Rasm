@@ -5,6 +5,7 @@ packages:
     - 'tests/typescript/*'
     - 'plugins/*'
     - 'tools/harnesses'
+    - 'tools/harnesses/*/uxpscript'
 catalogMode: strict
 saveExact: true
 packageImportMethod: hardlink
@@ -262,7 +263,6 @@ catalog:
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
-    amaro: 1.3.0 # Node's TypeScript syntax stripping
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
     image-size: 2.0.4 # Image width and height read from encoded bytes
     # --- [INFRASTRUCTURE]
@@ -322,11 +322,11 @@ catalog:
     '@effect/docgen': 4.1.1
     '@effect/openapi-generator': 4.1.1
     '@effect/graphql-generator': 4.1.1
-    nx: 24.0.2
+    nx: 24.0.3
     '@nx/devkit': 24.0.3
     '@nx/dotnet': 24.0.3
     '@nx/playwright': 24.0.3
-    '@nx/vitest': 24.0.2
+    '@nx/vitest': 24.0.3
     '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar `@ast-grep/napi` registers as a dynamic language
     smol-toml: 1.9.1 # Nx parser for `pyproject.toml` and `blender_manifest.toml`

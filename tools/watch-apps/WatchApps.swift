@@ -360,17 +360,13 @@ struct Capture: AsyncParsableCommand {
 
     func capture(_ id: String, _ running: NSRunningApplication) async -> Result<Screenshot, ApplicationFailure> {
         await Result { () async throws(ApplicationFailure) in
-            let (shot, windows): (SCScreenshotOutput, [CGWindowID]) = try await running.screenshot(of: window, longestSide: longestSide)
-            guard let image: CGImage = shot.sdrImage else { throw ApplicationFailure(subject: "capture of process \(running.processIdentifier)", reason: .absent("SDR image")) }
-            let data: Data = try image.data(as: .png)
-            let file: URL = captures.appending(component: ([id, String(running.processIdentifier)] + windows.map(String.init)).joined(separator: "-") + ".png")
-            do {
-                try FileManager.default.createDirectory(at: captures, withIntermediateDirectories: true)
-                try data.write(to: file, options: .atomic)
-            } catch {
-                throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error))
+            let file: URL = captures.appending(component: [id, String(running.processIdentifier), window.map(String.init) ?? "windows"].joined(separator: "-") + ".png")
+            do { try FileManager.default.createDirectory(at: captures, withIntermediateDirectories: true) } catch {
+                throw ApplicationFailure(subject: captures.path(percentEncoded: false), reason: .host(error))
             }
-            return Screenshot(file: file.path(percentEncoded: false), windows: windows)
+            let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(file: file)
+            configuration.showsCursor = false
+            return try await Screenshot(file: file.path(percentEncoded: false), windows: running.screenshot(of: window, longestSide: longestSide, configuration: configuration).windows)
         }
     }
 }

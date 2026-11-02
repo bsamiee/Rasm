@@ -1,9 +1,9 @@
 import type { InDesignDOMObject, ParagraphStyle, Story, Text, TextFrame } from 'adobe:indesign';
-import { Array, Cache, Effect, flow, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { HostError, Reference } from '@rasm/automation/requests';
+import { Array, Cache, Effect, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { Model } from '#/dom/model';
-import { Reference } from '#/dom/specifier';
-import { byName, encoder, read } from '#/dom/value';
-import { InDesignError } from '#/error';
+import { reference } from '#/dom/specifier';
+import { byName, encoder, picked, read, type Slice } from '#/dom/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,16 +21,17 @@ class ParagraphAttributes extends Schema.Class<ParagraphAttributes, { readonly b
     bulletChar: Schema.Int.annotate({ description: 'Bullet character code point' }),
     numberingFormat: Schema.Json,
 }) {
-    static readonly of = (owner: Pick<ParagraphStyle, keyof typeof ParagraphAttributes.fields>) => ({
-        nestedGrepStyles: Array.map(owner.nestedGrepStyles.everyItem().getElements(), ({ grepExpression, appliedCharacterStyle }) => ({ grepExpression, appliedCharacterStyle })),
-        nestedStyles: Array.map(owner.nestedStyles.everyItem().getElements(), ({ appliedCharacterStyle, delimiter, repetition, inclusive }) => ({ appliedCharacterStyle, delimiter, repetition, inclusive })),
-        nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), ({ appliedCharacterStyle, lineCount, repeatLast }) => ({ appliedCharacterStyle, lineCount, repeatLast })),
-        tabList: Array.map(owner.tabList, (tab) => Record.fromIterableWith(Struct.keys(ParagraphAttributes.fields.tabList.value.fields), (key) => [key, Reflect.get(tab, key)])),
-        bulletsAndNumberingListType: owner.bulletsAndNumberingListType,
-        numberingLevel: owner.numberingLevel,
-        bulletChar: owner.bulletChar.characterValue,
-        numberingFormat: owner.numberingFormat,
-    });
+    static readonly of = (owner: Pick<ParagraphStyle, keyof typeof ParagraphAttributes.fields>) => {
+        const { nestedGrepStyles, nestedStyles, nestedLineStyles, tabList } = ParagraphAttributes.fields;
+        return {
+            ...picked(ParagraphAttributes.fields)(owner),
+            nestedGrepStyles: Array.map(owner.nestedGrepStyles.everyItem().getElements(), picked(nestedGrepStyles.value.fields)),
+            nestedStyles: Array.map(owner.nestedStyles.everyItem().getElements(), picked(nestedStyles.value.fields)),
+            nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), picked(nestedLineStyles.value.fields)),
+            tabList: Array.map(owner.tabList, picked(tabList.value.fields)),
+            bulletChar: owner.bulletChar.characterValue,
+        };
+    };
 }
 class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique symbol }>()('Style', {
     ...Reference.fields,
@@ -40,10 +41,11 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
     own: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }),
     paragraphAttributes: Schema.OptionFromOptionalKey(ParagraphAttributes),
 }) {
+    static readonly owns = (model: typeof Model.Service) => model.owning<Styled>('basedOn');
     static readonly of = Effect.fn('StyleView.of')(function* (style: Styled) {
         const model = yield* Model;
         const enclosing = model.ancestors(style.parent);
-        const refused = InDesignError.refused(style.toSpecifier());
+        const refused = HostError.refused(style.toSpecifier());
         const mine = yield* Effect.try({ try: () => style.properties, catch: refused });
         const based = mine.basedOn;
         const container = Option.orElse(Array.findFirst(enclosing, model.document), () => Option.some(model.app));
@@ -52,7 +54,7 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
         const own = yield* overrides(style, mine, (name) => Reflect.get(theirs, name), { ...StyleView.fields, ...ParagraphAttributes.fields });
         return yield* read(StyleView, style.toSpecifier(), () => ({
             _tag: 'Style',
-            ...Reference.of(style),
+            ...reference(style),
             group: Array.flatMap(enclosing, (above) => (model.named(above) && !model.document(above) ? [above.name] : [])),
             basedOn: Array.unfold(based, (each) => (model.host(each) && Predicate.hasProperty(each, 'basedOn') ? Option.some([each, each.basedOn] as const) : Option.none())),
             nextStyle: Option.liftPredicate(mine.nextStyle, model.host),
@@ -60,7 +62,6 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
             paragraphAttributes: Option.map(Option.liftPredicate(style, model.owning<ParagraphStyle>('nestedGrepStyles')), ParagraphAttributes.of),
         }));
     });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<Styled>('basedOn')), Option.map(StyleView.of));
 }
 class StoryView extends Schema.TaggedClass<StoryView, { readonly brand: unique symbol }>()('Story', {
     ...Reference.fields,
@@ -72,17 +73,18 @@ class StoryView extends Schema.TaggedClass<StoryView, { readonly brand: unique s
     }),
     styles: Schema.Array(Schema.String).annotate({ description: 'Applied paragraph style names' }),
 }) {
+    static readonly owns = (model: typeof Model.Service) => model.owning<Story>('textContainers');
     static readonly of = (story: Story) =>
         read(StoryView, story.toSpecifier(), () => {
             const containers = story.textContainers;
             return {
                 _tag: 'Story',
-                ...Reference.of(story),
+                ...reference(story),
                 length: story.length,
                 overflows: story.overflows,
                 overset: story.length - Number.sumAll(Array.map(containers, ({ characters }) => characters.length)),
                 textContainers: Array.map(containers, (container) => ({
-                    ...Reference.of(container),
+                    ...reference(container),
                     page: 'parentPage' in container ? Option.map(Option.fromNullOr(container.parentPage), Struct.get('name')) : Option.none(),
                     columns: 'textFramePreferences' in container ? Option.some(container.textFramePreferences.textColumnCount) : Option.none(),
                     overflows: container.overflows,
@@ -91,7 +93,6 @@ class StoryView extends Schema.TaggedClass<StoryView, { readonly brand: unique s
                 styles: Array.dedupe(Array.map(story.paragraphs.everyItem().appliedParagraphStyle, Struct.get('name'))),
             };
         });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(model.owning<Story>('textContainers')), Option.map(StoryView.of));
 }
 const Run = Reference.mapFields(
     Struct.assign({
@@ -117,42 +118,56 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
     appliedParagraphStyle: Reference,
     appliedCharacterStyle: Reference,
     overrides: Schema.Struct(Struct.Record(['paragraph', 'character'], Schema.Boolean)).annotate({ description: 'Text differs from paragraph or character style' }),
-    runs: Schema.Array(Run).annotate({ description: 'Style ranges in order' }),
+    ranges: Schema.Int.annotate({ description: 'Style range count' }),
+    runs: Schema.Array(Run).annotate({ description: 'Style ranges of the slice in order' }),
     paragraphAttributes: ParagraphAttributes,
 }) {
+    static readonly owns = (model: typeof Model.Service) => Predicate.or(model.text, model.frame);
     static readonly overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
-        Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: InDesignError.refused(`overrides of ${text.toSpecifier()}`) }));
-    static readonly of = Effect.fn('TextView.of')(function* (found: Text | TextFrame) {
+        Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
+    static readonly of = Effect.fn('TextView.of')(function* (found: Text | TextFrame, slice: Slice) {
         const { enumerator, NothingEnum, frame } = yield* Model;
         const text = frame(found) ? found.texts.item(0) : found;
         const overridden = yield* TextView.overrides(text);
+        const every = text.textStyleRanges.everyItem().getElements();
+        const ranges = slice.of(every);
+        const styles = yield* Effect.try({
+            try: () =>
+                Record.map(
+                    Record.fromIterableWith(
+                        Array.flatMap(ranges, (run) => [run.appliedParagraphStyle, run.appliedCharacterStyle]),
+                        (style) => [style.toSpecifier(), style],
+                    ),
+                    Struct.get('properties'),
+                ),
+            catch: HostError.refused(`styles of ${text.toSpecifier()}`),
+        });
         const runs = yield* Effect.forEach(
-            text.textStyleRanges.everyItem().getElements(),
+            ranges,
             Effect.fnUntraced(function* (run) {
-                const [own, paragraph, character] = yield* Effect.try({ try: () => [run.properties, run.appliedParagraphStyle.properties, run.appliedCharacterStyle.properties] as const, catch: InDesignError.refused(run.toSpecifier()) });
-                const styled = { ...paragraph, ...Record.filter(character, (set: unknown) => !(set === null || set === '' || (enumerator(set) && NothingEnum.NOTHING.equals(set)))) };
+                const [own, based, applied] = yield* Effect.try({ try: () => [run.properties, { ...styles[run.appliedParagraphStyle.toSpecifier()] }, { ...styles[run.appliedCharacterStyle.toSpecifier()] }] as const, catch: HostError.refused(run.toSpecifier()) });
+                const inherited = (name: string): unknown => {
+                    const set: unknown = Reflect.get(applied, name);
+                    return set === null || set === '' || (enumerator(set) && NothingEnum.NOTHING.equals(set)) ? Reflect.get(based, name) : set;
+                };
                 return {
-                    ...Reference.of(run),
-                    ...Struct.pick(own, ['contents', 'length', 'appliedCharacterStyle', 'appliedFont', 'pointSize', 'opentypeFeatures', 'kerningValue', 'appliedConditions', 'rubyFlag', 'rubyString']),
+                    ...picked(Run.fields)(own),
+                    ...reference(run),
                     designAxes: Result.try(() => run.designAxes),
-                    changed: yield* overrides(run, own, (name) => Reflect.get(styled, name), { ...Run.fields, ...TextView.fields, ...ParagraphAttributes.fields }),
+                    changed: yield* overrides(run, own, inherited, { ...Run.fields, ...TextView.fields, ...ParagraphAttributes.fields }),
                 };
             }),
         );
         return yield* read(TextView, text.toSpecifier(), () => ({
             _tag: 'Text',
-            ...Reference.of(text),
-            parentStory: text.parentStory,
-            contents: text.contents,
-            length: text.length,
-            appliedParagraphStyle: text.appliedParagraphStyle,
-            appliedCharacterStyle: text.appliedCharacterStyle,
+            ...reference(text),
+            ...Struct.pick(text, ['parentStory', 'contents', 'length', 'appliedParagraphStyle', 'appliedCharacterStyle']),
             overrides: overridden,
+            ranges: every.length,
             runs,
             paragraphAttributes: ParagraphAttributes.of(text),
         }));
     });
-    static readonly viewed = (model: typeof Model.Service) => flow(Option.liftPredicate(Predicate.or(model.text, model.frame)), Option.map(TextView.of));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

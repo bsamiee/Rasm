@@ -1,69 +1,62 @@
 import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
+import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, flow, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Cache, Effect, flow, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { Model } from '#/dom/model';
 import { Specifier } from '#/dom/specifier';
-import { Mutation, preserve } from '#/dom/transactions';
-import { read, Values } from '#/dom/value';
-import { InDesignError } from '#/error';
+import { commit, preserve } from '#/dom/transactions';
+import { read, Slice, Values } from '#/dom/value';
 import { Change } from '#/requests/change';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const modes = {
-    Text: { find: 'findText', change: 'changeText', preferences: { find: 'findTextPreferences', change: 'changeTextPreferences', options: 'findChangeTextOptions' }, search: 'textSearch' },
-    Grep: { find: 'findGrep', change: 'changeGrep', preferences: { find: 'findGrepPreferences', change: 'changeGrepPreferences', options: 'findChangeGrepOptions' }, search: 'grepSearch' },
-    Glyph: { find: 'findGlyph', change: 'changeGlyph', preferences: { find: 'findGlyphPreferences', change: 'changeGlyphPreferences', options: 'findChangeGlyphOptions' }, search: 'glyphSearch' },
-    Object: { find: 'findObject', change: 'changeObject', preferences: { find: 'findObjectPreferences', change: 'changeObjectPreferences', options: 'findChangeObjectOptions' }, search: 'objectSearch' },
-    Color: { find: 'findColor', change: 'changeColor', preferences: { find: 'findColorPreferences', change: 'changeColorPreferences', options: 'findChangeColorOptions' }, search: 'colorSearch' },
+    Text: { find: 'findText', change: 'changeText', preferences: { find: 'findTextPreferences', change: 'changeTextPreferences', options: 'findChangeTextOptions' } },
+    Grep: { find: 'findGrep', change: 'changeGrep', preferences: { find: 'findGrepPreferences', change: 'changeGrepPreferences', options: 'findChangeGrepOptions' } },
+    Glyph: { find: 'findGlyph', change: 'changeGlyph', preferences: { find: 'findGlyphPreferences', change: 'changeGlyphPreferences', options: 'findChangeGlyphOptions' } },
+    Object: { find: 'findObject', change: 'changeObject', preferences: { find: 'findObjectPreferences', change: 'changeObjectPreferences', options: 'findChangeObjectOptions' } },
+    Color: { find: 'findColor', change: 'changeColor', preferences: { find: 'findColorPreferences', change: 'changeColorPreferences', options: 'findChangeColorOptions' } },
+    Transliterate: { find: 'findTransliterate', change: 'changeTransliterate', preferences: { find: 'findTransliteratePreferences', change: 'changeTransliteratePreferences', options: 'findChangeTransliterateOptions' } },
 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class FindChange extends Mutation.extend<FindChange>('FindChange')({
+class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbol }>('FindChange')({
     mode: Schema.Literals(Struct.keys(modes)),
     find: Schema.OptionFromOptionalKey(Values.annotate({ description: 'Find preference fields (pattern, format criteria)' })),
     change: Schema.OptionFromOptionalKey(Values.annotate({ description: 'Change preference fields for every match, absent to find only' })),
     options: Schema.OptionFromOptionalKey(Values.annotate({ description: 'Find/change option fields' })),
-    scope: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Document, story, text, or page item to search, active document when absent' })),
+    scope: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Document, story, text, or page item to search, current document when absent' })),
+    slice: Slice.field,
 }) {
     static readonly Result = Schema.Struct({
         count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Color mode change count, absent otherwise' })) }),
         matches: Schema.Array(Schema.Struct({ specifier: Schema.String, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({ description: 'Matches with text before changes, empty for Color' }),
     });
-
-    override get label(): string {
-        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
-    }
-
-    run() {
-        return Option.match(this.scope, { onSome: Specifier.resolve, onNone: () => Model.active }).pipe(
-            Effect.flatMap((found: unknown) => Option.match(this.change, { onNone: () => this.search(found), onSome: () => this.commit(this.search(found)) })),
-            Effect.flatMap((found) => read(FindChange.Result, this.label, () => found)),
+    static readonly handle = (payload: FindChange) =>
+        Option.match(payload.scope, { onSome: Specifier.resolve, onNone: () => Model.document }).pipe(
+            Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? commit(payload.label, payload.search(found)) : payload.search(found))),
+            Effect.flatMap(({ count, matches }) => read(FindChange.Result, payload.label, () => ({ count, matches: payload.slice.of(matches) }))),
         );
+
+    get label(): string {
+        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
     }
 
     search(located: unknown) {
         const { mode, find: sought, change: replacing, options, scope } = this;
+        const { find, change, preferences } = modes[mode];
         return Effect.gen(function* () {
             const model = yield* Model;
-            const { app, enumerator, NothingEnum, SearchModes } = model;
-            const { find, change, preferences, search: searchMode } = modes[mode];
-            const search = SearchModes[searchMode];
-            const held = `find-change-${yield* Effect.fiberId}`;
-            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: InDesignError.refused(`save of ${mode} preferences as query ${held}`) }), () =>
-                Effect.sync(() => {
-                    app.loadFindChangeQuery(held, search);
-                    app.deleteFindChangeQuery(held, search);
-                }),
-            );
+            const { app, enumerator, NothingEnum } = model;
+            yield* Effect.forEach(Object.values(preferences), held, { discard: true });
             yield* Effect.try({
                 try: () =>
                     Object.assign(
                         app,
                         Record.mapEntries(preferences, (member) => [member, NothingEnum.NOTHING]),
                     ),
-                catch: InDesignError.refused(`reset of ${mode} preferences`),
+                catch: HostError.refused(`reset of ${mode} preferences`),
             });
             const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (enumerator(each) ? `<${String(each)}>` : String(each))).join('');
             const scopes = yield* Effect.forEach(
@@ -96,7 +89,7 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')({
                             const matches = Predicate.isNumber(hits) ? [] : hits.map(describe);
                             return { count: { matches: Predicate.isNumber(hits) ? hits : hits.length, changes: Option.flatMap(replacing, () => Option.liftPredicate(each[change](), Predicate.isNumber)) }, matches };
                         },
-                        catch: InDesignError.refused(`${mode} search of ${each.toSpecifier()}`),
+                        catch: HostError.refused(`${mode} search of ${each.toSpecifier()}`),
                     });
                 }, Effect.scoped),
             );
@@ -105,6 +98,21 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')({
         }).pipe(Effect.scoped);
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const held = Effect.fnUntraced(function* (member: (typeof modes)[keyof typeof modes]['preferences']['find' | 'change' | 'options']) {
+    const model = yield* Model;
+    const { app, enumerator, NothingEnum } = model;
+    const target = app[member];
+    const { fields } = yield* Cache.get(model.rows, target.constructorName);
+    const current = (name: string) => Option.filter(Option.liftThrowable((): unknown => Reflect.get(target, name))(), (value) => !(enumerator(value) && NothingEnum.NOTHING.equals(value)));
+    const writable = Record.filter(fields, (row, name) => row.settable && !model.plural(row) && Option.isNone(row.unavailable) && name !== 'properties');
+    return yield* Effect.acquireRelease(
+        Effect.sync(() => Record.getSomes(Record.map(writable, (_, name) => current(name)))),
+        (saved) => Effect.sync(() => Object.assign(Object.assign(app, { [member]: NothingEnum.NOTHING })[member], saved)),
+    );
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
