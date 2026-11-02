@@ -1,4 +1,4 @@
-#![feature(default_field_values, float_conversions, iterator_try_collect)]
+#![feature(control_flow_into_value, default_field_values, deref_patterns, float_conversions, iterator_try_collect)]
 
 use core::{fmt, num::NonZero, range::RangeInclusive};
 
@@ -13,9 +13,14 @@ use uom::{
     },
 };
 
+use crate::decay::Lundeby;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(with = rate, error = SpectraError), derive(Debug, Clone, Copy, PartialEq, Deref))]
+#[nutype::nutype(
+    validate(with = |rate: &Frequency| -> Result<(), SpectraError> { (rate.is_normal() && rate.is_sign_positive()).ok_or(SpectraError::Rate { rate: *rate }) }, error = SpectraError),
+    derive(Debug, Clone, Copy, PartialEq, Deref)
+)]
 pub struct Rate(Frequency);
 
 #[nutype::nutype(validate(with = finite, error = SpectraError), derive(Debug, Clone, PartialEq, Deref))]
@@ -27,11 +32,22 @@ pub struct Series {
     pub samples: Samples,
 }
 
-#[nutype::nutype(validate(with = band, error = SpectraError), derive(Debug, Clone, Copy, PartialEq, Deref))]
-pub struct Band(RangeInclusive<Frequency>);
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lagged {
+    pub lag: Time,
+    pub series: Series,
+}
 
-#[nutype::nutype(validate(with = passband, error = SpectraError), derive(Debug, Clone, Copy, PartialEq, Deref))]
-pub struct Passband(RangeInclusive<Frequency>);
+#[nutype::nutype(
+    validate(
+        with = |band: &RangeInclusive<Frequency>| -> Result<(), SpectraError> {
+            (band.start.is_finite() && band.last.is_finite() && band.start < band.last).ok_or(SpectraError::Band { band: *band })
+        },
+        error = SpectraError
+    ),
+    derive(Debug, Clone, Copy, PartialEq, Deref)
+)]
+pub struct Band(RangeInclusive<Frequency>);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -43,14 +59,14 @@ pub enum SpectraError {
     Sample { index: usize },
     #[error("sample rate {} is no positive normal frequency", rate.into_format_args(hertz, Abbreviation))]
     Rate { rate: Frequency },
-    #[error("band from {} to {} rises from no start at or above zero to a finite end", band.start.into_format_args(hertz, Abbreviation), band.last.into_format_args(hertz, Abbreviation))]
+    #[error("band from {} to {} {}", band.start.into_format_args(hertz, Abbreviation), band.last.into_format_args(hertz, Abbreviation), match band {
+        RangeInclusive { start, last } if !start.is_finite() || !last.is_finite() => "is not finite",
+        RangeInclusive { start, last } if start >= last => "does not rise",
+        RangeInclusive { start: _, last: _ } => "starts at no positive frequency",
+    })]
     Band { band: RangeInclusive<Frequency> },
-    #[error("passband from {} to {} rises from no positive start to a finite end", band.start.into_format_args(hertz, Abbreviation), band.last.into_format_args(hertz, Abbreviation))]
-    Passband { band: RangeInclusive<Frequency> },
     #[error("series at {} and {} differ in sample rate", rates[0].into_format_args(hertz, Abbreviation), rates[1].into_format_args(hertz, Abbreviation))]
     Rates { rates: [Rate; 2] },
-    #[error("series of {} and {} samples differ in length", lengths[0], lengths[1])]
-    Lengths { lengths: [usize; 2] },
     #[error("axis {axis} lies outside an array of {dimensions} dimensions")]
     Axis { axis: usize, dimensions: usize },
     #[error("axis {axis} holds the half spectrum and takes no complex transform")]
@@ -59,8 +75,8 @@ pub enum SpectraError {
     Bins { axis: usize, expected: usize, found: usize },
     #[error("a segment of {segment} samples padded by {padding} estimates no power over {samples} samples")]
     Segment { segment: NonZero<usize>, padding: usize, samples: usize },
-    #[error("coherence at {} is undefined, a series holds no power there", frequency.into_format_args(hertz, Abbreviation))]
-    Coherence { frequency: Frequency },
+    #[error("series holds no power at {}", frequency.into_format_args(hertz, Abbreviation))]
+    Power { frequency: Frequency },
     #[error("padding of {} and {} samples around {samples} samples fits no {taps}-tap kernel or reaches past its border", sides[0], sides[1])]
     Boundary { sides: [usize; 2], samples: usize, taps: usize },
     #[error("stride of zero samples takes no output")]
@@ -83,17 +99,21 @@ pub enum SpectraError {
     Weighting { stage: usize, frequency: Frequency, deviation: f64, rate: Rate },
     #[error("series holds no energy")]
     Silent,
+    #[error("noise truncation {} is not positive and finite", fmt::from_fn(|formatter| {
+        decay::refused(lundeby).enumerate().try_for_each(|(index, (setting, value, unit))| write!(formatter, "{}{setting} {value} {unit}", if index == 0 { "" } else { ", " }))
+    }))]
+    Lundeby { lundeby: Lundeby },
     #[error("noise truncation finds no decay above the noise floor at iteration {iteration}")]
     Truncation { iteration: usize },
-    #[error("early time {} is negative or not finite", early.into_format_args(second, Abbreviation))]
-    Early { early: Time },
-    #[error("early time {} leaves no energy on one side of the split", early.into_format_args(second, Abbreviation))]
+    #[error(
+        "early time {} {}",
+        early.into_format_args(second, Abbreviation),
+        if early.is_finite() && early.is_sign_positive() { "leaves no energy on one side of the split" } else { "is negative or not finite" }
+    )]
     Split { early: Time },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn rate(rate: &Frequency) -> Result<(), SpectraError> { (rate.is_normal() && rate.is_sign_positive()).ok_or(SpectraError::Rate { rate: *rate }) }
 
 fn finite(samples: &Array1<f64>) -> Result<(), SpectraError> {
     match samples.iter().position(|sample| !sample.is_finite()) {
@@ -101,14 +121,6 @@ fn finite(samples: &Array1<f64>) -> Result<(), SpectraError> {
         None if samples.is_empty() => Err(SpectraError::Empty),
         None => Ok(()),
     }
-}
-
-fn band(band: &RangeInclusive<Frequency>) -> Result<(), SpectraError> {
-    (band.last.is_finite() && (0.0..band.last.get::<hertz>()).contains(&band.start.get::<hertz>())).ok_or(SpectraError::Band { band: *band })
-}
-
-fn passband(band: &RangeInclusive<Frequency>) -> Result<(), SpectraError> {
-    (band.last.is_finite() && band.start.get::<hertz>() > 0.0 && band.start < band.last).ok_or(SpectraError::Passband { band: *band })
 }
 
 const fn real_bins(len: usize) -> usize { len.strict_div(2).strict_add(1) }

@@ -4,7 +4,7 @@
 name                 = "rasm-spectra"
 version.workspace    = true
 edition.workspace    = true
-description          = "Spectra of uniform series and planes: Fourier, real, cosine and chirp-z zoom transforms along array axes, FFT convolution and correlation under any boundary, Welch power estimates under periodic tapers with mean or median averaging, Butterworth and RBJ biquad cascades run causal or zero-phase with their frequency responses over IEC 61260 fractional-octave bands, ISO 3382-1 decay curves under noise truncation, reverberation times, clarity, definition and centre time"
+description          = "Spectra of uniform series and planes: Fourier, real, cosine, analytic and chirp-z zoom transforms along array axes, Fourier resampling, FFT convolution and correlation under any boundary and regularized deconvolution, Welch power, cross-spectral and H1 transfer estimates with coherence and spectrograms under periodic tapers with mean or median averaging, Butterworth band-stop and RBJ biquad cascades and IEC 61672-1 A and C weighting run causal or zero-phase with their frequency responses, IEC 61260 fractional-octave bands and filter banks, ISO 3382-1 decay under optional converged Lundeby truncation, reverberation times, clarity, definition, centre time, strength, lateral energy and interaural cross-correlation"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["signal-processing", "fft", "spectrum", "filters", "acoustics"]
@@ -25,6 +25,8 @@ bench   = false
 [dependencies]
 thiserror    = { workspace = true }
 nutype       = { workspace = true }
+derive_more  = { workspace = true }
+rayon        = { workspace = true }
 faer         = { workspace = true }
 nalgebra     = { workspace = true }
 ndarray      = { workspace = true }

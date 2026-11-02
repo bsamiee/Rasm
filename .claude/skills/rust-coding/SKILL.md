@@ -42,6 +42,7 @@ Function signatures are contracts, parameter types state every value a function 
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
 - Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
 - Values an input already holds (a mesh's cached `local_aabb`) are read from it by the step that uses it, never recomputed
+- Values describing an output (a resampled rate) derive from the output produced, never from the request it rounds
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
@@ -306,7 +307,7 @@ pub enum LedgerError {
 - Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
 - `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
 - Errors of one fieldless variant (a nutype `<Name>Error`) reach `None` through `ok()`, clippy `manual_ok_err` rejecting a `match` naming it
-- Consumers branch on variants, message text is for people
+- Consumers branch on variants, one per cause a caller fixes (a silent reference apart from an empty window), message text is for people
 
 ### [04.3]-[EXIT]
 

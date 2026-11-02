@@ -6208,6 +6208,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pcd-rs"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4ed911416cc7a2548600b6bd3a9c5b6413a779e37fe564c541d2f586fccf9a5"
+dependencies = [
+ "byteorder",
+ "itertools 0.13.0",
+ "num-traits",
+ "regex",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "pdf-writer"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7122,6 +7135,7 @@ dependencies = [
  "nonempty-collections",
  "nutype",
  "parry3d-f64",
+ "pcd-rs",
  "petgraph",
  "reqwest",
  "serde",
@@ -7488,6 +7502,7 @@ dependencies = [
  "thiserror 2.0.21",
  "uom",
  "uuid",
+ "validated",
 ]
 
 [[package]]
