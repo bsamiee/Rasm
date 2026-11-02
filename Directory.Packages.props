@@ -35,6 +35,7 @@
     <ItemGroup Label="Rhino">
         <PackageVersion Include="Grasshopper"                                             Version="9.0.26300.9401" />                              <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO -->
         <PackageVersion Include="Grasshopper2"                                            Version="9.0.26300.9401" />                              <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO -->
+        <PackageVersion Include="Krafs.Publicizer"                                        Version="2.3.2" />                                       <!-- Compile access to internal and private members of a referenced assembly -->
         <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.3.26522.148" />
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                                      <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="9.0.26300.9401" />                              <!-- Rhino SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->

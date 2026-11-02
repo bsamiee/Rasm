@@ -112,7 +112,11 @@ dotnet_diagnostic.MA0235.severity = error
 dotnet_diagnostic.MA0236.severity = error
 dotnet_diagnostic.MA0237.severity = error
 dotnet_diagnostic.MA0238.severity = error
+dotnet_diagnostic.MA0210.severity = error
 MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
+MA0053.public_class_should_be_sealed = true
+MA0053.class_with_virtual_member_should_be_sealed = true
+MA0053.exceptions_should_be_sealed = true
 
 # --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
 dotnet_diagnostic.RCS1002.severity = error

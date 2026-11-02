@@ -37,6 +37,7 @@
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
         <PlatformTarget>AnyCPU</PlatformTarget>
         <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>

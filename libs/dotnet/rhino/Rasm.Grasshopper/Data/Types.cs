@@ -38,7 +38,7 @@ public interface IValueControl<T> {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
+public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     // --- [CONSTRUCTION]
     public ValueParameter() : base(new Nomen(typeof(T).Name, "")) { }
 
@@ -47,7 +47,7 @@ public class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     public ValueParameter(GrasshopperIO.IReader reader) : base(reader) { }
 
     // --- [IDENTITY]
-    public Guid CustomIoId => DataTypes.IoId(GetType());
+    public Guid CustomIoId => DataTypes.IoId(typeof(ValueParameter<T>));
 
     // --- [PRESENTATION]
     public override bool DisplayCapable => TypeAssistant.ZupportsDraw;
