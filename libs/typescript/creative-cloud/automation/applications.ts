@@ -12,6 +12,14 @@ const Pid = Schema.Int.annotate({ description: 'Running instance process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID from status elements' });
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side limit in pixels' });
 const ElementID = Schema.String.annotate({ description: 'Base64 Accessibility remote token, absent once element closes' });
+const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
+const Window = Schema.Struct({
+    number: WindowID,
+    title: Schema.optionalKey(Schema.String.annotate({ description: 'kCGWindowName, absent when unset or without the Screen Recording grant' })),
+    frame: Frame,
+    layer: Schema.Int,
+    onScreen: Schema.Boolean,
+}).annotate({ description: 'CoreGraphics window of the instance that no element describes, readable through capture' });
 const controlFields = {
     id: ElementID,
     role: Schema.String,
@@ -42,7 +50,7 @@ const elements = {
             requiresAnswer: Schema.Boolean.annotate({ description: 'Sheet, modal, or system dialog' }),
             detail: Schema.optionalKey(
                 Schema.Struct({
-                    frame: Schema.optionalKey(Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'AXPosition and AXSize' })),
+                    frame: Schema.optionalKey(Frame),
                     main: Schema.optionalKey(Schema.Boolean),
                     focused: Schema.optionalKey(Schema.Boolean),
                     text: Schema.Array(Schema.String),
@@ -52,6 +60,7 @@ const elements = {
             ),
         }),
     ),
+    windows: Schema.Array(Window),
 };
 const usage = {
     usage: Schema.optionalKey(
@@ -60,7 +69,10 @@ const usage = {
         }),
     ),
 };
-const unresponsive = { process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread run state: running, waiting, or stopped by a signal or debugger' }) };
+const unresponsive = {
+    process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread run state: running, waiting, or stopped by a signal or debugger' }),
+    windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window of the instance, a modal alert included' }),
+};
 const exit = {
     status: Schema.optionalKey(Schema.Int),
     signal: Schema.optionalKey(Schema.Int),
@@ -83,7 +95,7 @@ const State = Schema.Union([
             Schema.TaggedStruct('Responding', { ...elements, ...usage }),
             SchemaTransformation.transform({
                 decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, ...Struct.pick(running, ['usage']) }),
-                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements']) }, ...Struct.pick(responding, ['usage']) } }),
+                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, ['usage']) } }),
             }),
         ),
     ),
@@ -92,14 +104,14 @@ const State = Schema.Union([
             Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage }),
             SchemaTransformation.transform({
                 decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, ['usage']) }),
-                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process']) }, ...Struct.pick(value, ['usage']) } }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, ['usage']) } }),
             }),
         ),
     ),
     Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
-    .annotate({ description: 'Windows and the dialogs requiring an answer while responding, the process status when unresponsive past Accessibility timeout, failed on status read' })
+    .annotate({ description: 'Elements, dialogs requiring an answer, and undescribed windows while responding, the process status and every window when unresponsive past Accessibility timeout, failed on status read' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(
@@ -132,4 +144,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Installation, LongestSide, Perform, Pid, RunningInstance, Screenshot, State };
+export { Installation, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, Window };

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Fonts as typed faces through to shaped text",
+    "description": "Fonts as typed faces through to shaped, kerned, and justified text",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -10,13 +10,21 @@
     "exports": {
         "./face": "./face.ts",
         "./shaped": "./shaped.ts",
-        "./source": "./source.ts"
+        "./source": "./source.ts",
+        "./settings": "./composition/settings.ts",
+        "./unicode": "./text/unicode.ts",
+        "./words": "./text/words.ts",
+        "./kerning": "./composition/kerning.ts",
+        "./justification": "./composition/justification.ts",
+        "./quran": "./text/quran.ts",
+        "./symbols": "./text/symbols.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",
         "effect": "catalog:",
         "fontkit": "catalog:",
-        "harfbuzzjs": "catalog:"
+        "harfbuzzjs": "catalog:",
+        "icu": "catalog:"
     },
     "devDependencies": {
         "@types/fontkit": "catalog:",

@@ -564,9 +564,6 @@ catalogs:
     '@types/nodemailer':
       specifier: 8.0.2
       version: 8.0.2
-    '@types/papaparse':
-      specifier: 5.5.2
-      version: 5.5.2
     '@types/photoshop':
       specifier: 27.11.0
       version: 27.11.0
@@ -705,6 +702,9 @@ catalogs:
     hucre:
       specifier: 1.3.0
       version: 1.3.0
+    icu:
+      specifier: 2.4.0
+      version: 2.4.0
     idb-keyval:
       specifier: 6.3.0
       version: 6.3.0
@@ -774,9 +774,6 @@ catalogs:
     oxc-transform-react:
       specifier: 0.156.0
       version: 0.156.0
-    papaparse:
-      specifier: 5.7.0
-      version: 5.7.0
     parquet-wasm:
       specifier: 0.9.0
       version: 0.9.0
@@ -1572,9 +1569,6 @@ importers:
       '@types/nodemailer':
         specifier: 'catalog:'
         version: 8.0.2
-      '@types/papaparse':
-        specifier: 'catalog:'
-        version: 5.5.2
       '@types/photoshop':
         specifier: 'catalog:'
         version: 27.11.0
@@ -1713,6 +1707,9 @@ importers:
       hucre:
         specifier: 'catalog:'
         version: 1.3.0
+      icu:
+        specifier: 'catalog:'
+        version: 2.4.0
       idb-keyval:
         specifier: 'catalog:'
         version: 6.3.0
@@ -1782,9 +1779,6 @@ importers:
       oxc-transform-react:
         specifier: 'catalog:'
         version: 0.156.0
-      papaparse:
-        specifier: 'catalog:'
-        version: 5.7.0
       parquet-wasm:
         specifier: 'catalog:'
         version: 0.9.0
@@ -2047,9 +2041,15 @@ importers:
 
   apps/creative-cloud/atelier/plugins/indesign:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/automation
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
+      '@rasm/typography':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/graphics/typography
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
@@ -2241,6 +2241,9 @@ importers:
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
+      '@rasm/typography':
+        specifier: workspace:*
+        version: link:../../graphics/typography
       effect:
         specifier: 'catalog:'
         version: 4.1.1
@@ -2425,6 +2428,9 @@ importers:
       harfbuzzjs:
         specifier: 'catalog:'
         version: 1.6.4
+      icu:
+        specifier: 'catalog:'
+        version: 2.4.0
     devDependencies:
       '@types/fontkit':
         specifier: 'catalog:'
@@ -9062,9 +9068,6 @@ packages:
   '@types/pako@2.0.4':
     resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
 
-  '@types/papaparse@5.5.2':
-    resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
-
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
 
@@ -11444,6 +11447,9 @@ packages:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
 
+  icu@2.4.0:
+    resolution: {integrity: sha512-B/9jieH5xI6Sw5MpXcfA7WtL1nfYTsl7RNzfJ+7BJr54t4KAi3MVMcRMp6/gNQbPgB2V5CQO8p27V2mUD7OZpg==}
+
   idb-keyval@6.3.0:
     resolution: {integrity: sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow==}
 
@@ -12901,9 +12907,6 @@ packages:
 
   pako@2.2.0:
     resolution: {integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==}
-
-  papaparse@5.7.0:
-    resolution: {integrity: sha512-qBGxg/7Q3Kl9Wfhrz2Z74UnvnHTXLNG6jmKJFeBvP2+y4lV7So+7SR62+Zd47JvdrCkX+nDcnr0ObPzek/+6RA==}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -23368,10 +23371,6 @@ snapshots:
 
   '@types/pako@2.0.4': {}
 
-  '@types/papaparse@5.5.2':
-    dependencies:
-      '@types/node': 26.6.6
-
   '@types/parse-json@4.0.2': {}
 
   '@types/pg-pool@2.0.7':
@@ -26146,6 +26145,8 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
+  icu@2.4.0: {}
+
   idb-keyval@6.3.0: {}
 
   idb@7.1.1: {}
@@ -27731,8 +27732,6 @@ snapshots:
   pako@1.0.11: {}
 
   pako@2.2.0: {}
-
-  papaparse@5.7.0: {}
 
   parent-module@1.0.1:
     dependencies:

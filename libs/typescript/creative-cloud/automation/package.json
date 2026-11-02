@@ -12,10 +12,12 @@
         "./applications": "./applications.ts",
         "./automation": "./automation.ts",
         "./contract": "./contract.ts",
-        "./requests": "./requests.ts"
+        "./requests": "./requests.ts",
+        "./typesetting": "./typesetting.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

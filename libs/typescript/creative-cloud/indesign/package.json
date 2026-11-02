@@ -8,7 +8,11 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./host": "./host.ts"
+        "./adjust": "./requests/adjust.ts",
+        "./host": "./host.ts",
+        "./model": "./dom/model.ts",
+        "./settings": "./documents/settings.ts",
+        "./transactions": "./dom/transactions.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",

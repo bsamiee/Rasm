@@ -9,6 +9,7 @@ import { Plugin, Uxp } from '#/runtime';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const logged = flow(Cause.pretty, Console.error);
+const Root = Schema.declare((value: unknown): value is HTMLElement => value instanceof HTMLElement);
 const hosted = Layer.merge(
     Layer.effect(Clock.Clock)(
         Effect.map(Clock.Clock, (base) => {
@@ -31,7 +32,7 @@ const plugin = <E, F>(
     dial: (link: Pick<Parameters<typeof Link.dial>[2], 'origin' | 'extension'>) => Layer.Layer<never, E, Uxp | Plugin>,
     entries: {
         readonly commands: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
-        readonly panels: Record.ReadonlyRecord<string, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, Uxp | Plugin>>>;
+        readonly panels: Record.ReadonlyRecord<string, Record.ReadonlyRecord<'show' | 'hide', (root: HTMLElement) => Effect.Effect<void, F, Uxp | Plugin>>>;
     } = { commands: {}, panels: {} },
 ): void => {
     const manifest = 'plugin:/manifest.json';
@@ -45,14 +46,18 @@ const plugin = <E, F>(
             return Layer.provideMerge(dial({ origin, extension: decoded.name }), Layer.succeed(Plugin)(decoded));
         }).pipe(Layer.unwrap, Layer.provideMerge(hosted), Layer.tapCause(logged)),
     );
-    const run = (work: Effect.Effect<unknown, F, Uxp | Plugin>) => (): Promise<void> => runtime.runPromise(Effect.asVoid(work));
+    const run = <X>(work: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(work));
+    const panel =
+        (work: (root: HTMLElement) => Effect.Effect<void, F, Uxp | Plugin>) =>
+        (...[root]: readonly unknown[]): Promise<void> =>
+            run(Schema.decodeUnknownEffect(Root)(root).pipe(Effect.flatMap(work), Effect.tapCause(logged), Effect.forkDetach));
     Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
         Effect.flatMap(({ setup }) =>
             Effect.sync(() =>
                 setup.call(entrypoints, {
                     plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() },
-                    commands: Record.map(entries.commands, flow(Effect.tapCause(logged), run)),
-                    panels: Record.map(entries.panels, Record.map(flow(Effect.tapCause(logged), Effect.forkDetach, run))),
+                    commands: Record.map(entries.commands, (work) => () => run(Effect.tapCause(work, logged))),
+                    panels: Record.map(entries.panels, Record.map(panel)),
                 } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>),
             ),
         ),

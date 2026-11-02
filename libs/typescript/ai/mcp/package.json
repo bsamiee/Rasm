@@ -10,6 +10,7 @@
     "exports": {
         "./content": "./content.ts",
         "./node": "./node.ts",
+        "./progress": "./progress.ts",
         "./resource": "./resource.ts",
         "./rpc": "./rpc.ts",
         "./server": "./server.ts",

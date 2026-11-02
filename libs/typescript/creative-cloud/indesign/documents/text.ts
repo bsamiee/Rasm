@@ -1,6 +1,8 @@
 import type { InDesignDOMObject, ParagraphStyle, Story, Text, TextFrame } from 'adobe:indesign';
 import { HostError, Reference } from '@rasm/automation/requests';
+import { Settings } from '@rasm/typography/settings';
 import { Array, Cache, Effect, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
 import { reference } from '#/dom/specifier';
 import { byName, encoder, picked, read, type Slice } from '#/dom/value';
@@ -20,8 +22,9 @@ class ParagraphAttributes extends Schema.Class<ParagraphAttributes, { readonly b
     numberingLevel: Schema.Int,
     bulletChar: Schema.Int.annotate({ description: 'Bullet character code point' }),
     numberingFormat: Schema.Json,
+    settings: Settings,
 }) {
-    static readonly of = (owner: Pick<ParagraphStyle, keyof typeof ParagraphAttributes.fields>) => {
+    static readonly of = (owner: Pick<ParagraphStyle, Exclude<keyof typeof ParagraphAttributes.fields, 'settings'>>) => {
         const { nestedGrepStyles, nestedStyles, nestedLineStyles, tabList } = ParagraphAttributes.fields;
         return {
             ...picked(ParagraphAttributes.fields)(owner),
@@ -30,6 +33,7 @@ class ParagraphAttributes extends Schema.Class<ParagraphAttributes, { readonly b
             nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), picked(nestedLineStyles.value.fields)),
             tabList: Array.map(owner.tabList, picked(tabList.value.fields)),
             bulletChar: owner.bulletChar.characterValue,
+            settings: HostSettings.of(owner),
         };
     };
 }
@@ -107,6 +111,7 @@ const Run = Reference.mapFields(
         appliedConditions: Schema.Array(Reference),
         rubyFlag: Schema.Boolean,
         rubyString: Schema.String,
+        settings: Settings,
         changed: Schema.JsonObject.annotate({ description: 'Attributes differing from character style, else paragraph style' }),
     }),
 );
@@ -154,6 +159,7 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
                     ...picked(Run.fields)(own),
                     ...reference(run),
                     designAxes: Result.try(() => run.designAxes),
+                    settings: yield* HostSettings.read(run),
                     changed: yield* overrides(run, own, inherited, { ...Run.fields, ...TextView.fields, ...ParagraphAttributes.fields }),
                 };
             }),

@@ -8,6 +8,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./digits": "./digits.ts",
         "./ranked": "./ranked.ts",
         "./unmatched": "./unmatched.ts"
     },

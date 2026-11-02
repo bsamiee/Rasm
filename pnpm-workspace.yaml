@@ -107,8 +107,6 @@ catalog:
     hucre: 1.3.0
     jspdf: 4.2.1
     jszip: 3.10.2
-    papaparse: 5.7.0
-    '@types/papaparse': 5.5.2
     '@effect/ai-anthropic': 4.1.1
     '@effect/ai-openai': 4.1.1
     '@effect/ai-openrouter': 4.1.1
@@ -249,16 +247,18 @@ catalog:
     '@types/geojson': 7946.0.16
     '@webgpu/types': 0.1.74
     typegpu: 0.12.9
-    # --- [ADOBE_HOSTS_FONTS]
+    # --- [TYPOGRAPHY]
+    icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
+    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
+    fontkit: 2.0.4
+    '@types/fontkit': 2.0.9
+    # --- [ADOBE_HOSTS]
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe-uxp-types/photoshop': 0.1.8
     '@types/photoshop': 27.11.0
     '@adobe/premierepro': 27.0.0-beta.57
     indesign-uxp-types: 1.0.0
-    fontkit: 2.0.4
-    '@types/fontkit': 2.0.9
-    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
