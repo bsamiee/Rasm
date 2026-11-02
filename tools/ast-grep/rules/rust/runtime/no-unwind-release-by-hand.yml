@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unwind-release-by-hand
+language: rust
+severity: error
+rule:
+    any:
+        - kind: let_declaration
+          all:
+            - has: {field: value, has: {stopBy: end, kind: identifier, regex: '^catch_unwind$'}}
+            - precedes: {stopBy: end, has: {stopBy: end, kind: identifier, regex: '^resume_unwind$'}}
+        - kind: call_expression
+          has: {field: function, kind: field_expression, has: {field: field, regex: '^shutdown_background$'}}
+message: 'Release runs by hand beside a call that can unwind'
+note: 'Pair acquisition and release through `DropGuard::new(<value>, <release>)`, and `DropGuard::dismiss` returns the value once the work commits'

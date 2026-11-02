@@ -203,7 +203,7 @@ where A: App
 fn paged<T>(mut rows: Vec<T>, params: Option<PaginatedRequestParams>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
     rows.sort_by(|left, right| key(left).cmp(key(right)));
     rows.dedup_by(|later, kept| key(later) == key(kept));
-    let start = params.and_then(|params| params.cursor).map_or(0, |cursor| rows.partition_point(|row| key(row) <= cursor.as_str()));
+    let start = params.and_then(|params| params.cursor).map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor.as_str()));
     let mut kept = rows.split_off(start);
     let further = kept.len() > page.get();
     kept.truncate(page.get());

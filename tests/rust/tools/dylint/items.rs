@@ -375,6 +375,19 @@ fn single_reader(found: &str) {
         |                                           ^^^^^^^
         = help: move `floored` into `unwrapped` as a nested item
 
+    warning: `optional` has one reader, `doubled`
+       --> tools/dylint/examples/single_reader.rs:213:1
+        |
+    213 | fn optional<T>(item: T) -> Option<T> { Some(item) }
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: read here
+       --> tools/dylint/examples/single_reader.rs:215:51
+        |
+    215 | fn doubled<T: Copy>(item: T) -> [Option<T>; 2] { [optional(item), optional(item)] }
+        |                                                   ^^^^^^^^        ^^^^^^^^
+        = help: move `optional` into `doubled` as a closure over its generic parameters
+
     warning: `listed` has one reader, `paired`
        --> tools/dylint/examples/single_reader.rs:211:1
         |
@@ -382,22 +395,22 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:215:6
+       --> tools/dylint/examples/single_reader.rs:219:6
         |
-    215 |     (listed(item), item)
+    219 |     (listed(item), item)
         |      ^^^^^^
         = help: move `listed` into `paired` as a closure over its generic parameters
 
     warning: `repeated` has one reader, `tripled`
-       --> tools/dylint/examples/single_reader.rs:218:1
+       --> tools/dylint/examples/single_reader.rs:222:1
         |
-    218 | fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(i...
+    222 | fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(i...
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:220:42
+       --> tools/dylint/examples/single_reader.rs:224:42
         |
-    220 | fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
+    224 | fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
         |                                          ^^^^^^^^
         = help: move `repeated` into `tripled` as a nested item
 
@@ -408,9 +421,9 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:226:42
+       --> tools/dylint/examples/single_reader.rs:230:42
         |
-    226 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+    230 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
         |                                          ^^^^^^
         = help: move `halved` into `narrowed` as a nested item
     "#);

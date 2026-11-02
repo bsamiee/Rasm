@@ -1,4 +1,4 @@
-use std::{cell::Cell, collections::BTreeMap, iter, ops::RangeInclusive};
+use std::{cell::Cell, cmp, collections::BTreeMap, iter, ops::RangeInclusive};
 
 use geo::{BallTree, BooleanOps as _, Distance as _, Euclidean, InterpolatableLine as _, Intersections, Length as _, LineLocatePoint as _, MapCoords as _, PointWithData, sweep::Cross};
 use geo_types::{Coord, Line, LineString, MultiLineString, Point};
@@ -70,7 +70,7 @@ pub fn clip(elements: Vec<Element>, region: &Region, keep: Side, tolerance: Tole
                 Element::Fill { region: shape, color } => area(shape).map(|outcome| outcome.map(|remaining| Element::Fill { region: remaining, color })).transpose(),
                 Element::Hatch { region: shape, pattern, placement, pen } =>
                     area(shape).map(|outcome| outcome.map(|remaining| Element::Hatch { region: remaining, pattern, placement, pen })).transpose(),
-                element @ (Element::Text { text: _, color: _ } | Element::Glyphs { run: _, color: _ } | Element::Placed { content: _, placement: _ }) => Some(Ok(element)),
+                element @ (Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }) => Some(Ok(element)),
             };
             outcome.map(|item| item.map_err(|source| LineworkError::Element { index, source }))
         })
@@ -97,7 +97,7 @@ pub fn coincident(elements: Vec<Element>, tolerance: Tolerance) -> Result<Vec<El
         .collect::<Validated<Vec<Vec<Vec<Line<f64>>>>, _>>()
         .ok()?;
     let span = |upper: &Line<f64>, lower: &Line<f64>| {
-        lower.line_locate_point(&upper.start_point()).zip(lower.line_locate_point(&upper.end_point())).map(|(start, end)| (start.min(end), start.max(end))).filter(|&(start, end)| {
+        lower.line_locate_point(&upper.start_point()).zip(lower.line_locate_point(&upper.end_point())).map(|(start, end)| cmp::minmax_by(start, end, f64::total_cmp)).filter(|&[start, end]| {
             (end - start) * Euclidean.length(lower) > grid && [start, end].into_iter().all(|ratio| Euclidean.distance(&lower.point_at_ratio_from_start(&Euclidean, ratio), upper) <= grid)
         })
     };
@@ -113,20 +113,20 @@ pub fn coincident(elements: Vec<Element>, tolerance: Tolerance) -> Result<Vec<El
         .filter(|piece| piece.line.start != piece.line.end)
         .collect::<Intersections<Piece>>()
         .filter_map(|(left, right, _)| {
-            let (upper, lower) = if left.key < right.key { (left, right) } else { (right, left) };
+            let [upper, lower] = cmp::minmax_by_key(left, right, |piece| piece.key);
             span(&upper.original, &lower.original).map(|span| (lower.key, span))
         })
-        .fold(BTreeMap::<[usize; 3], Vec<(f64, f64)>>::new(), |mut removed, (key, span)| {
+        .fold(BTreeMap::<[usize; 3], Vec<[f64; 2]>>::new(), |mut removed, (key, span)| {
             let spans = removed.entry(key).or_default();
-            spans.insert(spans.partition_point(|probe| probe.0.total_cmp(&span.0).is_lt()), span);
+            spans.insert(spans.partition_point(|probe| probe[0].total_cmp(&span[0]).is_lt()), span);
             removed
         });
     let touched = |element: usize, subpaths: RangeInclusive<usize>| removed.range([element, *subpaths.start(), 0]..=[element, *subpaths.end(), usize::MAX]).next().is_some();
     let kept = |element: usize, subpath: usize, segments: &[Line<f64>]| {
         rebuilt(
             segments.iter().enumerate().flat_map(|(segment, line)| {
-                iter::chain(removed.get(&[element, subpath, segment]).into_iter().flatten().copied(), iter::once((1.0_f64, 1.0_f64)))
-                    .scan(0.0_f64, |reach, (start, end)| {
+                iter::chain(removed.get(&[element, subpath, segment]).into_iter().flatten().copied(), iter::once([1.0_f64, 1.0_f64]))
+                    .scan(0.0_f64, |reach, [start, end]| {
                         let gap = (*reach, start);
                         *reach = reach.max(end);
                         Some(gap)
@@ -154,12 +154,7 @@ pub fn coincident(elements: Vec<Element>, tolerance: Tolerance) -> Result<Vec<El
         .enumerate()
         .filter_map(|(element, (item, subpaths))| match item {
             Element::Stroke { path, pen, linetype } if touched(element, usize::MIN..=usize::MAX) => reworked(element, &path, &subpaths).map(|path| Element::Stroke { path, pen, linetype }),
-            item @ (Element::Stroke { path: _, pen: _, linetype: _ }
-            | Element::Fill { region: _, color: _ }
-            | Element::Hatch { region: _, pattern: _, placement: _, pen: _ }
-            | Element::Text { text: _, color: _ }
-            | Element::Glyphs { run: _, color: _ }
-            | Element::Placed { content: _, placement: _ }) => Some(item),
+            item @ (Element::Stroke { .. } | Element::Fill { .. } | Element::Hatch { .. } | Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }) => Some(item),
         })
         .collect())
 }

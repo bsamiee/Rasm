@@ -77,6 +77,13 @@ fn journaled(path: &Path) -> Result<String, JournalError> { Ok(fs_err::read_to_s
 
 fn opened(path: &Path) -> Result<String, StoreError> { Ok(std::fs::read_to_string(path)?) }
 
+fn bound(path: &Path) -> Result<String, StoreError> {
+    let read = std::fs::read_to_string(path);
+    read.map_err(StoreError::from)
+}
+
+fn tupled(path: &Path) -> Result<String, StoreError> { [(path, fs_err::read_to_string(path))].into_iter().try_fold(String::new(), |_, (_, read)| read.map_err(StoreError::from)) }
+
 fn measured(path: &Path) -> Result<usize, StoreError> { Ok(fs_err::read(path).map(|bytes| bytes.len())?) }
 
 fn counted(path: &Path) -> Result<usize, StoreError> { std::fs::read(path).map(|bytes| bytes.len()).map_err(Into::into) }
@@ -102,6 +109,8 @@ fn main() {
         stored(Path::new("port")),
         journaled(Path::new("port")),
         opened(Path::new("port")),
+        bound(Path::new("port")),
+        tupled(Path::new("port")),
         measured(Path::new("port")),
         counted(Path::new("port")),
         streamed(Path::new("port")),

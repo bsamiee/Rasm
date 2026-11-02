@@ -3,12 +3,24 @@ id: no-minmax-by-hand
 language: rust
 severity: error
 rule:
-    kind: if_expression
-    all:
-        - any:
+    any:
+        - kind: if_expression
+          any:
             - pattern: 'if $A <= $B { ($A, $B) } else { ($B, $A) }'
             - pattern: 'if $A < $B { ($A, $B) } else { ($B, $A) }'
             - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
             - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
-message: '`if` orders `$A` and `$B` into a pair by hand'
-note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`) or `cmp::minmax_by(<a>, <b>, <float>::total_cmp)` and read the `[min, max]` array'
+            - pattern: 'if $A.$KEY <= $B.$KEY { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A.$KEY < $B.$KEY { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A.$KEY >= $B.$KEY { ($B, $A) } else { ($A, $B) }'
+            - pattern: 'if $A.$KEY > $B.$KEY { ($B, $A) } else { ($A, $B) }'
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^min$'}}
+            - pattern: $A.min($B)
+            - inside:
+                kind: block
+                stopBy: {kind: 'block, function_item'}
+                has: {stopBy: end, kind: call_expression, pattern: $A.max($B)}
+message: '`if` or a `.min` and `.max` pair orders `$A` and `$B` by hand'
+note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`), `cmp::minmax_by(<a>, <b>, <float>::total_cmp)`, or `cmp::minmax_by_key(<a>, <b>, <key>)` and read the `[min, max]` array'

@@ -1,7 +1,7 @@
 use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
-    fn_def_id,
+    expr_or_init, fn_def_id,
     paths::PathNS,
     peel_blocks,
     res::{MaybeDef as _, MaybeResPath as _},
@@ -31,7 +31,7 @@ impl Pass {
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn producer<'tcx>(cx: &LateContext<'tcx>, io_error: DefId, expr: &'tcx Expr<'tcx>) -> Option<(DefId, GenericArgsRef<'tcx>)> {
-            let value = peel_blocks(expr);
+            let value = peel_blocks(expr_or_init(cx, expr));
             let produced = desugar_await(value).map_or(value, peel_blocks);
             let typeck = cx.typeck_results();
             match produced.kind {
@@ -80,21 +80,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !expanded_externally(cx, expr.span)
             && let ty::Adt(adt, _) = target.kind()
             && adt.did().is_local()
-            && let produced = producer(cx, io_error, operand)
-            && !produced.is_some_and(|(function, args)| {
-                cx.tcx
-                    .trait_of_assoc(function)
-                    .map_or(Some(function.krate), |_| args.type_at(0).peel_refs().ty_adt_def().map(|owner| owner.did().krate))
-                    .is_some_and(|owner| cx.tcx.crate_name(owner) == self.contextual)
-            })
+            && let Some((function, args)) = producer(cx, io_error, operand)
+            && cx
+                .tcx
+                .trait_of_assoc(function)
+                .map_or(Some(function.krate), |_| args.type_at(0).peel_refs().ty_adt_def().map(|owner| owner.did().krate))
+                .is_none_or(|owner| cx.tcx.crate_name(owner) != self.contextual)
         {
-            let origin = produced.map_or_else(|| String::from("an expression"), |(function, _)| format!("`{}`", item_path(cx, function)));
+            let origin = item_path(cx, function);
             span_lint_hir_and_then(
                 cx,
                 IO_ERROR_WITHOUT_CONTEXT,
                 expr.hir_id,
                 span,
-                with_forced_trimmed_paths!(format!("{origin} returns an `io::Error` stating no operation or subject, and it enters `{target}` through `From`")),
+                with_forced_trimmed_paths!(format!("`{origin}` returns an `io::Error` stating no operation or subject, and it enters `{target}` through `From`")),
                 |diag| {
                     diag.help("call the `fs_err` form stating operation and path, or `map_err` into a variant holding the operation and `#[source] io::Error`");
                 },

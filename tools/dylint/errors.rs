@@ -85,7 +85,7 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<&'tcx Ex
     let body = cx.tcx.hir_body(closure.body);
     let [parameter] = body.params else { return None };
     match parameter.pat.kind {
-        PatKind::Wild => true,
+        PatKind::Wild | PatKind::Struct(_, [], Some(_)) => true,
         PatKind::Binding(_, binding, _, None) => !is_local_used(cx, body.value, binding),
         _ => false,
     }

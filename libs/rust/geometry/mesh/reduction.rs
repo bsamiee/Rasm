@@ -1,5 +1,5 @@
 use meshopt::{SimplifyOptions, SimplifyVertex};
-use nalgebra::{Point3, Translation3};
+use nalgebra::Point3;
 use parry3d_f64::shape::TriMesh;
 
 use crate::{MeshError, Operation, Solid};
@@ -51,7 +51,4 @@ pub fn reduce_points(points: &[Point3<f64>], target: usize) -> Vec<u32> {
     }
 }
 
-fn positions(points: impl Iterator<Item = Point3<f64>>, origin: Point3<f64>) -> Vec<[f32; 3]> {
-    let frame = Translation3::from(origin.coords);
-    points.map(|point| <[f32; 3]>::from(frame.inverse_transform_point(&point).cast::<f32>())).collect()
-}
+fn positions(points: impl Iterator<Item = Point3<f64>>, origin: Point3<f64>) -> Vec<[f32; 3]> { points.map(|point| <[f32; 3]>::from((point - origin).cast::<f32>())).collect() }

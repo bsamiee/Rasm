@@ -274,9 +274,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             left.len() == right.len()
                 && iter::zip(left, right).all(|(left_field, right_field)| {
-                    let before = unifier.differences.as_ref().map_or(0, Vec::len);
+                    let before = unifier.differences.as_ref().map_or_default(Vec::len);
                     let matched = left_field.name == right_field.name && defaulted(left_field.default, right_field.default) && unified_ty(unifier, left_field.ty, right_field.ty);
-                    unifier.shared |= matched && unifier.differences.as_ref().map_or(0, Vec::len) == before;
+                    unifier.shared |= matched && unifier.differences.as_ref().map_or_default(Vec::len) == before;
                     matched
                 })
         }
@@ -338,7 +338,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &left.fields, &right.fields)
                     && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &right.fields, &left.fields)
             };
-            let transparent = Symbol::intern("transparent");
+            let transparent = sym::transparent;
             let forwarding = |case: &Case<'tcx>| {
                 adt.variants()
                     .iter()

@@ -1,4 +1,4 @@
-#![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks)]
+#![feature(control_flow_into_value, error_reporter, panic_update_hook, try_blocks, try_blocks_heterogeneous)]
 
 use core::{error::Error, fmt, future, iter, ops::ControlFlow, pin::pin, time::Duration};
 use std::{
@@ -120,41 +120,30 @@ where
         failures: Vec<E>,
     }
     fn released() -> io::Result<()> { execute!(io::stdout(), DisableBracketedPaste, Show) }
-    fn checked<P, E>(mut session: Session<P, E>, operation: Operation, outcome: io::Result<()>) -> ControlFlow<Session<P, E>, Session<P, E>>
-    where E: From<ScreenError> {
-        match outcome {
-            Ok(()) => ControlFlow::Continue(session),
-            Err(source) => {
-                session.failures.push(E::from(ScreenError::Terminal { operation, source }));
-                ControlFlow::Break(session)
-            }
+    let checked = |mut session: Session<P, E>, operation: Operation, outcome: io::Result<()>| match outcome {
+        Ok(()) => ControlFlow::Continue(session),
+        Err(source) => {
+            session.failures.push(E::from(ScreenError::Terminal { operation, source }));
+            ControlFlow::Break(session)
         }
-    }
-    fn updated<P, E>(mut session: Session<P, E>, input: Input<P::Action, P::Item>) -> ControlFlow<Session<P, E>, Session<P, E>>
-    where P: Program {
-        match session.program.update(input) {
-            ControlFlow::Continue(()) => ControlFlow::Continue(session),
-            ControlFlow::Break(()) => ControlFlow::Break(session),
-        }
-    }
-    fn keyed<P, E>(session: Session<P, E>, event: Event) -> ControlFlow<Session<P, E>, Session<P, E>>
-    where
-        P: Program,
-        E: From<ScreenError>,
-    {
-        #[cfg(unix)]
-        fn suspended<P, E>(mut session: Session<P, E>) -> ControlFlow<Session<P, E>, Session<P, E>>
-        where E: From<ScreenError> {
-            let resumed = try {
-                ratatui::try_restore()?;
-                released()?;
-                kill_current_process_group(Signal::TSTP).map_err(io::Error::from)?;
-                terminal::enable_raw_mode()?;
-                execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
-                session.terminal.clear()?
-            };
-            checked(session, Operation::Suspend, resumed)
-        }
+    };
+    let updated = |mut session: Session<P, E>, input: Input<P::Action, P::Item>| match session.program.update(input) {
+        ControlFlow::Continue(()) => ControlFlow::Continue(session),
+        ControlFlow::Break(()) => ControlFlow::Break(session),
+    };
+    #[cfg(unix)]
+    let suspended = move |mut session: Session<P, E>| {
+        let resumed = try bikeshed io::Result<()> {
+            ratatui::try_restore()?;
+            released()?;
+            kill_current_process_group(Signal::TSTP)?;
+            terminal::enable_raw_mode()?;
+            execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+            session.terminal.clear()?
+        };
+        checked(session, Operation::Suspend, resumed)
+    };
+    let keyed = move |session: Session<P, E>, event: Event| {
         let toggled = |current: Session<P, E>, pane: Pane| ControlFlow::Continue(Session { pane: (current.pane != Some(pane)).then_some(pane), ..current });
         let paged = |current: Session<P, E>, page: TuiWidgetEvent| {
             current.logs.transition(page);
@@ -175,33 +164,23 @@ where
             Some(Action::Program(action)) => updated(session, Input::Action(action)),
             None => updated(session, Input::Event(event)),
         }
-    }
-    fn arrived<P, E>(mut session: Session<P, E>, arrival: Arrival<P::Item, E>) -> ControlFlow<Session<P, E>, Session<P, E>>
-    where
-        P: Program,
-        E: From<ScreenError>,
-    {
-        match arrival {
-            Arrival::Event(Ok(event)) => keyed(session, event),
-            Arrival::Event(Err(source)) => checked(session, Operation::Read, Err(source)),
-            Arrival::Item(Ok(item)) => updated(session, Input::Item(item)),
-            Arrival::Item(Err(failure)) => {
-                session.failures.push(failure);
-                ControlFlow::Continue(session)
-            }
-            Arrival::End => updated(session, Input::End),
-            Arrival::Refresh => ControlFlow::Continue(session),
+    };
+    let arrived = move |mut session: Session<P, E>, arrival: Arrival<P::Item, E>| match arrival {
+        Arrival::Event(Ok(event)) => keyed(session, event),
+        Arrival::Event(Err(source)) => checked(session, Operation::Read, Err(source)),
+        Arrival::Item(Ok(item)) => updated(session, Input::Item(item)),
+        Arrival::Item(Err(failure)) => {
+            session.failures.push(failure);
+            ControlFlow::Continue(session)
         }
-    }
-    fn framed<P, E>(mut session: Session<P, E>, styles: &Styles) -> ControlFlow<Session<P, E>, Session<P, E>>
-    where
-        P: Program,
-        E: From<ScreenError>,
-    {
+        Arrival::End => updated(session, Input::End),
+        Arrival::Refresh => ControlFlow::Continue(session),
+    };
+    let framed = move |mut session: Session<P, E>, styles: &Styles| {
         tui_logger::move_events();
         let shown = session.terminal.draw(|frame| view::drawn(frame, &mut session.program, session.pane, &session.logs, styles)).map(|_frame| ());
         checked(session, Operation::Draw, shown)
-    }
+    };
     rasm_command::run(defaults, io::stderr.with_filter(|_| !terminal::is_raw_mode_enabled().is_ok_and(|raw| raw)), TuiTracingSubscriberLayer, async move |Process { args, mut signals, filter: _ }| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
@@ -241,11 +220,11 @@ where
                 Ok(session) => session.failures,
                 Err(entering) => vec![E::from(entering)],
             };
-            let restored: io::Result<()> = try {
+            let left = (try bikeshed io::Result<()> {
                 ratatui::try_restore()?;
                 released()?
-            };
-            let left = restored.map_err(|source| ScreenError::Terminal { operation: Operation::Leave, source });
+            })
+            .map_err(|source| ScreenError::Terminal { operation: Operation::Leave, source });
             NEVec::try_from_vec(iter::chain(failures, left.err().map(E::from)).collect()).map_or_else(|| Ok(if arrivals.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok }), Err)
         })
         .await

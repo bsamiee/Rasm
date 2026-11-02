@@ -26,6 +26,8 @@ fn retried(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Err(Fai
 
 fn retried_named(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_ignored| Err(Failure::Missing)) }
 
+fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }| Failure::Missing) }
+
 fn kept(text: &str) -> Result<u16, Failure> { parse(text).map_err(Failure::Parse) }
 
 fn read(text: &str) -> Result<u16, Failure> { parse(text).map_err(|error| Failure::Parse(error)) }
@@ -40,5 +42,5 @@ fn recovered(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Ok(0)
 async fn main() {
     let (sender, answer) = oneshot::channel();
     black_box(&(sender.send(1), received(answer).await));
-    black_box(&[named("1"), ignored("1"), retried("2"), retried_named("3"), kept("4"), read("5"), recovered("6")]);
+    black_box(&[named("1"), ignored("1"), retried("2"), retried_named("3"), destructured("1"), kept("4"), read("5"), recovered("6")]);
 }

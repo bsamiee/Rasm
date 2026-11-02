@@ -3,7 +3,7 @@ use core::iter;
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use itertools::Itertools as _;
 use rustc_errors::Applicability;
-use rustc_hir::{Pat, PatKind};
+use rustc_hir::{Node, Pat, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, FieldDef, VariantDef};
 use rustc_span::Span;
@@ -19,7 +19,7 @@ enum UnnamedFields {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(REST_PATTERN_WORKSPACE_FIELD: "`..` in struct and tuple-struct patterns covering accessible fields of workspace types");
+lint!(REST_PATTERN_WORKSPACE_FIELD: "`..` in struct and tuple-struct patterns covering accessible fields of workspace types outside a `name @` binding");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) {
@@ -41,6 +41,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
         if let PatKind::Struct(qpath, ..) | PatKind::TupleStruct(qpath, ..) = pat.kind
             && !expanded_externally(cx, pat.span)
+            && !cx.tcx.hir_parent_iter(pat.hir_id).map_while(|(_, node)| if let Node::Pat(outer) = node { Some(outer) } else { None }).any(|outer| matches!(outer.kind, PatKind::Binding(.., Some(_))))
             && let ty::Adt(adt, _) = cx.typeck_results().pat_ty(pat).kind()
             && workspace_def(cx, adt.did())
             && let variant = adt.variant_of_res(cx.qpath_res(&qpath, pat.hir_id))

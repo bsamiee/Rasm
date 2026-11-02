@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-builder-step
+language: rust
+severity: error
+rule:
+    any:
+        - kind: match_expression
+          any:
+            - pattern: 'match $OPTION { Some($ITEM) => $BUILDER.$STEP($$$ARGS), None => $BUILDER, }'
+            - pattern: 'match $OPTION { None => $BUILDER, Some($ITEM) => $BUILDER.$STEP($$$ARGS), }'
+        - kind: if_expression
+          pattern: 'if let Some($ITEM) = $OPTION { $BUILDER.$STEP($$$ARGS) } else { $BUILDER }'
+constraints:
+    BUILDER: {kind: identifier}
+message: '`$OPTION` decides by hand whether `$BUILDER` takes `.$STEP`'
+note: 'Fold the `Option` into the value (`<option>.into_iter().fold(<builder>, <Builder>::<step>)`), with `.map` ahead of the fold when the step takes a converted value'

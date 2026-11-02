@@ -4,6 +4,7 @@ use core::{error::Error, fmt};
 use std::{
     error::Report,
     io,
+    mem::DropGuard,
     process::{ExitCode, Termination},
 };
 
@@ -92,11 +93,15 @@ where
     O: FromArgMatches,
     P: FromArgMatches,
 {
-    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> { Ok(Self { options: O::from_arg_matches(matches)?, args: P::from_arg_matches(matches)? }) }
+    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> { Self::from_arg_matches_mut(&mut matches.clone()) }
 
-    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
-        self.options.update_from_arg_matches(matches)?;
-        self.args.update_from_arg_matches(matches)
+    fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, clap::Error> { Ok(Self { options: O::from_arg_matches_mut(matches)?, args: P::from_arg_matches_mut(matches)? }) }
+
+    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> { self.update_from_arg_matches_mut(&mut matches.clone()) }
+
+    fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), clap::Error> {
+        self.options.update_from_arg_matches_mut(matches)?;
+        self.args.update_from_arg_matches_mut(matches)
     }
 }
 
@@ -182,8 +187,8 @@ where
         Err(error) => return reported(&mut command, error),
     };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(journal.clone())).or_else(stderr), layer, |filter| {
-        let runtime = Runtime::new().map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Runtime, source })))?;
-        let worked = runtime.block_on(async {
+        let runtime = DropGuard::new(Runtime::new().map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Runtime, source })))?, Runtime::shutdown_background);
+        runtime.block_on(async {
             let signals = cfg_select! {
                 unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)),
                 windows => [windows::ctrl_c().map(CtrlCStream::new)],
@@ -192,9 +197,7 @@ where
             .try_collect::<Signals>()
             .map_err(|source| NEVec::new(E::from(CommandError::Io { operation: Operation::Signal, source })))?;
             work(Process { args, signals, filter: filter.clone() }).await
-        });
-        runtime.shutdown_background();
-        worked
+        })
     })
 }
 

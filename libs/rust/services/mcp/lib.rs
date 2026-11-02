@@ -212,7 +212,7 @@ impl Progress {
         }
     }
 
-    pub(crate) fn seed(&self, token: ProgressToken) {
+    fn seed(&self, token: ProgressToken) {
         self.0.send_if_modified(|latest| {
             match latest {
                 Some(held) => held.progress_token = token,
@@ -225,16 +225,16 @@ impl Progress {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn versions() -> &'static [ProtocolVersion] {
+fn versions() -> &'static [ProtocolVersion] {
     const FLOOR: ProtocolVersion = ProtocolVersion::V_2025_06_18;
     ProtocolVersion::KNOWN_VERSIONS.rsplit_once(|version| *version < FLOOR).map_or(ProtocolVersion::KNOWN_VERSIONS, |(_, served)| served)
 }
 
-pub(crate) fn listed(capabilities: &ServerCapabilities) -> SubscriptionFilter {
+fn listed(capabilities: &ServerCapabilities) -> SubscriptionFilter {
     SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(capabilities)
 }
 
-pub(crate) fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
+fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
 where U: IntoIterator<Item = String> {
     [
         (filter.tools_list_changed, ToolListChangedNotification::default().into()),
@@ -246,7 +246,7 @@ where U: IntoIterator<Item = String> {
     .chain(uris.into_iter().map(|uri| ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri)).into()))
 }
 
-pub(crate) fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::new(error).to_string(), None) }
+fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::new(error).to_string(), None) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

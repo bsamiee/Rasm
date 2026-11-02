@@ -23,4 +23,4 @@ transform:
     QUALIFIED_END: {replace: {source: $IC, replace: '^[\s\S]+$', by: ')'}}
 fix: $QUALIFIED_START$IR$QUALIFIED_END$R$METHOD_CALL
 message: '`collect` names the `Result` or `Option` wrapper around `$C$IC` by hand'
-note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, `Iterator::try_collect::<<container>>(&mut <iterator>)` where `Itertools` is imported'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, `Iterator::try_collect::<<container>>(&mut <iterator>)` where `Itertools` is imported, or `Itertools::process_results` where adapters over the `Ok` values precede the collect'

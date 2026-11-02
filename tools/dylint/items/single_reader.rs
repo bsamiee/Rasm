@@ -203,12 +203,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             {
                 let caller_name = tcx.item_name(caller);
                 let generic = |item: LocalDefId| tcx.generics_of(item).requires_monomorphization(tcx);
-                let form = if matches!(tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn)
-                    && generic(target)
-                    && generic(caller)
-                    && sites.iter().all(|&(reader, _)| reader != target)
-                    && outside().count() == 1
-                {
+                let form = if matches!(tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn) && generic(target) && generic(caller) && sites.iter().all(|&(reader, _)| reader != target) {
                     "a closure over its generic parameters"
                 } else {
                     "a nested item"

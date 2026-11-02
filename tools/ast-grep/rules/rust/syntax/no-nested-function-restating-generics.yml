@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-function-restating-generics
+language: rust
+severity: error
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $PARAMETER}}}
+        - inside:
+            kind: function_item
+            stopBy: end
+            has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $PARAMETER}}}
+        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, has: {field: function, kind: identifier, pattern: $NAME}}}}
+message: 'Nested `$NAME` restates enclosing generic parameter `$PARAMETER`'
+note: 'Nest the helper as a closure reading the enclosing generics, a nested `fn` holds recursion or a generic of its own under another name'

@@ -12,7 +12,7 @@ use clippy_utils::{
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{
-    AmbigArg, Closure, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, TraitItem, TyKind,
+    AmbigArg, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, TraitItem, TyKind,
     def::{DefKind, Res},
     def_id::{DefId, LocalDefId},
     intravisit::{self, Visitor},
@@ -101,7 +101,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let (reason, help) = variant.fields.iter().find_map(|field| {
                     let held = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
                     match untyped_kind(cx, held) {
-                        Some(untyped @ (UntypedKind::Erased | UntypedKind::Report)) => Some((untyped.into(), String::from("hold the wrapped error's concrete type as `#[source]`"))),
+                        Some(untyped @ UntypedKind::Erased) => Some((untyped.into(), String::from("hold the wrapped error's concrete type as `#[source]`"))),
+                        Some(untyped @ UntypedKind::Report) =>
+                            Some((untyped.into(), String::from("hold the wrapped error's concrete type as `#[source]`, or record a report a foreign signature fixes as a `tracing` event"))),
                         Some(untyped @ UntypedKind::Many(element)) => Some((untyped.into(), with_forced_trimmed_paths!(format!("hold the errors as `nonempty_collections::NEVec<{element}>`")))),
                         Some(UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Messages | UntypedKind::NoError(_)) | None =>
                             singular(cx, held).then(|| ("a source error with one value", format!("delete the field and build `{}` in a `map_err` closure", variant.name))),
@@ -197,14 +199,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             })
         }
 
-        fn forwarded(cx: &LateContext<'_>, closure: &Closure<'_>) -> bool {
-            let value = cx.tcx.hir_body(closure.body).value.peel_blocks();
-            matches!(value.kind, ExprKind::Call(..) | ExprKind::MethodCall(..))
-                && fn_def_id(cx, value)
-                    .filter(|&callee| !workspace_def(cx, callee))
-                    .is_some_and(|callee| result_parts(cx, cx.tcx.fn_sig(callee).skip_binder().output().skip_binder()).is_some_and(|(_, error)| !error.has_param()))
-        }
-
         fn handed<'tcx>(cx: &LateContext<'tcx>, call: &Expr<'_>, error: Ty<'tcx>) -> bool {
             let (receiver, arguments) = match call.kind {
                 ExprKind::MethodCall(_, receiver, arguments, _) => (Some(receiver), arguments),
@@ -242,10 +236,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
         let raised = match expr.kind {
             _ if expanded_externally(cx, expr.span) => None,
-            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) && !fixed(cx, expr) && !forwarded(cx, closure) =>
-                body_output(cx, closure.def_id)
-                    .and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned)))
-                    .map(|error| (closure.fn_decl_span, error)),
+            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) && !fixed(cx, expr) => body_output(cx, closure.def_id)
+                .and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned)))
+                .map(|error| (closure.fn_decl_span, error)),
             ExprKind::Path(_) if typeck.expr_ty(expr).is_fn() => mapped(cx, expr, typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().output()).map(|error| (expr.span, error)),
             ExprKind::Call(_, [_]) if fn_def_id(cx, expr).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr) => result_parts(cx, typeck.expr_ty(expr)).map(|(_, error)| (expr.span, error)),
             ExprKind::Call(..) | ExprKind::MethodCall(..)
@@ -300,7 +293,7 @@ fn fixed(cx: &LateContext<'_>, closure: &Expr<'_>) -> bool {
 }
 
 fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>, untyped: UntypedKind<'tcx>) {
-    const TYPED: &str = "return a `thiserror` enum with a variant per failure and its typed source";
+    const TYPED: &str = "replace with a `thiserror` enum holding a variant per failure and its typed source";
     let trimmed = || with_forced_trimmed_paths!(error.to_string());
     let (shown, declared, help) = match untyped {
         UntypedKind::Report => (error.to_string(), None, String::from(TYPED)),
@@ -309,7 +302,7 @@ fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>
         UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Erased | UntypedKind::Messages | UntypedKind::NoError(_) =>
             (trimmed(), None, String::from(TYPED)),
     };
-    span_lint_hir_and_then(cx, UNTYPED_ERROR, node, span, format!("`Result` error `{shown}` is {}", <&str>::from(untyped)), |diag| {
+    span_lint_hir_and_then(cx, UNTYPED_ERROR, node, span, format!("error `{shown}` is {}", <&str>::from(untyped)), |diag| {
         if let Some(declared) = declared {
             diag.span_note(cx.tcx.def_span(declared), "declared here");
         }

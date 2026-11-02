@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ok-fallback
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    pattern: $OPTION.unwrap_or(Ok($VALUE))
+message: '`$OPTION` turns absence into success through `Ok($VALUE)`'
+note: 'Swap `Option<Result<..>>` nesting with `.transpose()`, or collect it with its sibling results into `validated::Validated`'

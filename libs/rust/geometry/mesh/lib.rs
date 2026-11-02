@@ -75,23 +75,19 @@ impl Solid {
             ..MeshGLP::default()
         };
         buffers.merge();
+        let imported = if repair.is_some() { Manifold::from_mesh_glp_robust(&buffers) } else { Manifold::from_mesh_glp(&buffers) };
         Self::oriented(
             Operation::Import,
-            repair.map_or_else(
-                || Manifold::from_mesh_glp(&buffers),
-                |rule| {
-                    let imported = Manifold::from_mesh_glp_robust(&buffers);
-                    let rebuilt = |source: &Manifold| Manifold::from_impl(robust::rebuild_with_rule(source.as_impl(), rule, token, progress));
-                    match (imported.status(), rule) {
-                        (Error::NoError, WindingRule::Nonzero) if !imported.as_impl().is_soup && !soup::has_self_intersections_with_token(imported.as_impl(), token) =>
-                            Some(imported.repair_orientation_with_token(token))
-                                .filter(|repaired| repair::shells_well_nested(&soup::impl_to_tris(repaired.as_impl())))
-                                .unwrap_or_else(|| rebuilt(&imported)),
-                        (Error::NoError, WindingRule::Positive | WindingRule::Nonzero) => rebuilt(&imported),
-                        (_, WindingRule::Positive | WindingRule::Nonzero) => imported,
-                    }
-                },
-            ),
+            match (repair, imported.status()) {
+                (Some(WindingRule::Nonzero), Error::NoError)
+                    if !imported.as_impl().is_soup
+                        && !soup::has_self_intersections_with_token(imported.as_impl(), token)
+                        && let repaired = imported.repair_orientation_with_token(token)
+                        && repair::shells_well_nested(&soup::impl_to_tris(repaired.as_impl())) =>
+                    repaired,
+                (Some(rule), Error::NoError) => Manifold::from_impl(robust::rebuild_with_rule(imported.as_impl(), rule, token, progress)),
+                (None | Some(_), _) => imported,
+            },
         )
     }
 

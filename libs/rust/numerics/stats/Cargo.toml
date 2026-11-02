@@ -23,23 +23,25 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-rayon                = { workspace = true }
-anyhow               = { workspace = true }
-nonempty-collections = { workspace = true }
-thiserror            = { workspace = true }
-validated            = { workspace = true }
-derive_more          = { workspace = true }
-datasketches         = { workspace = true }
-itertools            = { workspace = true }
-serde                = { workspace = true }
-nutype               = { workspace = true }
-average              = { workspace = true }
-nalgebra             = { workspace = true }
-num-dual             = { workspace = true }
-rand                 = { workspace = true }
-sobol_burley         = { workspace = true }
-statrs               = { workspace = true }
-nuts-rs              = { workspace = true }
+rayon                              = { workspace = true }
+anyhow                             = { workspace = true }
+nonempty-collections               = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+datasketches                       = { workspace = true }
+itertools                          = { workspace = true }
+serde                              = { workspace = true }
+nutype                             = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+average                            = { workspace = true }
+nalgebra                           = { workspace = true }
+num-dual                           = { workspace = true }
+rand                               = { workspace = true }
+sobol_burley                       = { workspace = true }
+statrs                             = { workspace = true }
+nuts-rs                            = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

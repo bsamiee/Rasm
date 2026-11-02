@@ -53,7 +53,7 @@ pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance
     let dotted = |pattern: &kurbo::Dashes| {
         let even = pattern.iter().cycle().take(pattern.len().next_multiple_of(2)).copied().collect::<Vec<_>>();
         let (pairs, _) = even.as_chunks::<2>();
-        let dot = pairs.iter().filter_map(|&[on, off]| (on <= 0.0_f64).then_some(off)).reduce(f64::min).map_or(0.0_f64, |gap| gap.min(tolerance.into_inner()));
+        let dot = pairs.iter().filter_map(|&[on, off]| (on <= 0.0_f64).then_some(off)).reduce(f64::min).map_or_default(|gap| gap.min(tolerance.into_inner()));
         (dot / 2.0_f64, pairs.iter().flat_map(|&[on, off]| if on <= 0.0_f64 { [dot, off - dot] } else { [on, off] }).collect::<kurbo::Dashes>())
     };
     let centerline = linetype.map_or(Cow::Borrowed(path), |linetype| {

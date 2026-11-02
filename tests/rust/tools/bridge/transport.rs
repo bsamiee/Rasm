@@ -1,6 +1,9 @@
 #![cfg(unix)]
 
-use core::{future::ready, net::SocketAddr};
+use core::{
+    future::ready,
+    net::{IpAddr, SocketAddr},
+};
 use std::io::{self, BufRead};
 
 use futures::{StreamExt as _, TryStreamExt as _, future};
@@ -74,7 +77,10 @@ const INSTANCE: &str = "transport";
 
 #[derive(Deserialize)]
 struct Event {
-    listen: Option<SocketAddr>,
+    #[serde(rename = "server.address")]
+    address: Option<IpAddr>,
+    #[serde(rename = "server.port")]
+    port: Option<u16>,
     #[serde(rename = "service.name")]
     service: String,
     #[serde(rename = "service.instance.id")]
@@ -154,7 +160,7 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
         .try_filter_map(|line| {
             ready(decode::<Event>(&line).map(|event| {
                 log.push(line);
-                event.listen.map(|address| (address, event))
+                event.address.zip(event.port).map(|(address, port)| (SocketAddr::new(address, port), event))
             }))
         })
         .try_next()

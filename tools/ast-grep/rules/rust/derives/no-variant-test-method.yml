@@ -17,16 +17,39 @@ utils:
                 - any:
                     - all: [{has: {field: left, matches: self-value}}, {has: {field: right, regex: '^&?\s*\w+::\w+$'}}]
                     - all: [{has: {field: right, matches: self-value}}, {has: {field: left, regex: '^&?\s*\w+::\w+$'}}]
+    variant-pattern:
+        kind: match_pattern
+        regex: '^(\w+::)+\w+$'
+    bool-arm:
+        kind: match_arm
+        has: {field: value, kind: boolean_literal}
+    bool-selection:
+        kind: match_expression
+        has:
+            field: body
+            all:
+                - not: {has: {nthChild: 3}}
+                - not: {has: {kind: match_arm, not: {matches: bool-arm}}}
+                - has: {matches: bool-arm, has: {field: pattern, matches: variant-pattern}}
+                - has: {kind: match_arm, has: {field: value, regex: '^true$'}}
+                - has: {kind: match_arm, has: {field: value, regex: '^false$'}}
     test-body:
-        matches: {rust-single-statement: {first: {any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}}}
+        matches: {rust-single-statement: {first: {any: [{matches: variant-test}, {matches: bool-selection}, {kind: expression_statement, has: {any: [{matches: variant-test}, {matches: bool-selection}]}}]}}}
 rule:
-    kind: function_item
-    all:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
-        - has: {field: return_type, regex: '^bool$'}
-        - has: {field: body, matches: test-body}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
-        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
-message: '`$NAME` tests one variant of `$T` by hand'
-note: 'Delete the method, derive `derive_more::IsVariant` on its enum, and call `is_<variant>()` at each use'
+    any:
+        - kind: function_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
+            - has: {field: return_type, regex: '^bool$'}
+            - has: {field: body, matches: test-body}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+        - kind: match_expression
+          all:
+            - matches: bool-selection
+            - not: {inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, all: [{has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}}, {has: {field: return_type, regex: '^bool$'}}, {has: {field: body, matches: test-body}}]}}
+            - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {kind: scoped_identifier, has: {field: path, pattern: $T}}}}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+message: 'Method or `match` tests a `$T` variant by hand'
+note: 'Derive `derive_more::IsVariant` on the enum and call `is_<variant>()` at each use in place of a test method or `match`'

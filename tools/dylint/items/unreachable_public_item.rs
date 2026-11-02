@@ -1,6 +1,9 @@
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use rustc_errors::Applicability;
-use rustc_hir::{ForeignItem, HirId, ImplItem, ImplItemImplKind, Item, def_id::LocalDefId};
+use rustc_hir::{
+    ForeignItem, HirId, ImplItem, ImplItemImplKind, Item,
+    def_id::{CRATE_DEF_ID, LocalDefId},
+};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_span::{ExpnKind, MacroKind, Span};
 
@@ -34,7 +37,19 @@ fn report(cx: &LateContext<'_>, node: HirId, item: LocalDefId, visibility: Span)
     if !generated && cx.tcx.visibility(item).is_public() && !cx.effective_visibilities.is_reachable(item) {
         let descr = cx.tcx.def_descr(item.to_def_id());
         span_lint_hir_and_then(cx, UNREACHABLE_PUBLIC_ITEM, node, cx.tcx.def_span(item), format!("`pub` {descr} is unreachable from the crate root"), |diag| {
-            suggest(cx, node, diag, visibility, "narrow the visibility to the crate", "pub(crate)", Applicability::MachineApplicable);
+            if cx.tcx.parent_module_from_def_id(item).to_local_def_id() == CRATE_DEF_ID {
+                suggest(
+                    cx,
+                    node,
+                    diag,
+                    cx.tcx.sess.source_map().span_until_non_whitespace(visibility),
+                    "delete the visibility, a private crate root item is visible in every module of its crate",
+                    "",
+                    Applicability::MachineApplicable,
+                );
+            } else {
+                suggest(cx, node, diag, visibility, "narrow the visibility to the crate", "pub(crate)", Applicability::MachineApplicable);
+            }
         });
     }
 }

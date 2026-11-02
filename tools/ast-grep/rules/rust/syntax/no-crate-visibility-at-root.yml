@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-crate-visibility-at-root
+language: rust
+severity: error
+files: ["libs/rust/**/lib.rs", "tools/**/lib.rs", "tools/**/main.rs"]
+rule:
+    kind: visibility_modifier
+    regex: '^pub\(crate\)$'
+    any:
+        - inside: {inside: {kind: source_file}}
+        - inside: {inside: {kind: declaration_list, inside: {kind: impl_item, inside: {kind: source_file}}}}
+message: '`pub(crate)` on a crate root item restates private visibility'
+note: 'Delete the visibility, a private crate root item is visible in every module of its crate'

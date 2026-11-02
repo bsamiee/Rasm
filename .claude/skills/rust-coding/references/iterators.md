@@ -13,6 +13,9 @@ Each adapter states one transformation, and a pipeline reads top to bottom as th
 |  [05]   | Merge many sorted sequences           | `kmerge_by`                 |
 |  [06]   | Keep the `k` least by a key           | `k_smallest_relaxed_by_key` |
 |  [07]   | Take the one item a filter leaves     | `exactly_one`               |
+|  [08]   | Chain iterables passed as arguments   | `iter::chain`               |
+|  [09]   | Split a slice into `[T; N]` and back  | `as_chunks`, `as_flattened` |
+|  [10]   | Split tuples into a collection each   | `multiunzip`                |
 
 Gaps in a sorted series fill in one flat expression:
 
@@ -70,4 +73,4 @@ pub fn fingerprints(blobs: &[Blob]) -> Validated<Vec<Fingerprint>, StoreError> {
 }
 ```
 
-Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure.
+Every blob runs to its outcome, successes keep input order, and failures join in completion order and each names its blob. Parallel steps read their item and shared immutable values alone, and a scratch buffer a step reuses comes from `map_init`, one per job. Seeded results stay independent of scheduling through one generator per job, each `rng.fork()` taken sequentially ahead of `into_par_iter`, or `set_stream(job)` over one seed. `fold_chunks` folds fixed-size runs for a result no split decides. `walk_tree_prefix` and `walk_tree_postfix` walk a tree from its root and a children closure.

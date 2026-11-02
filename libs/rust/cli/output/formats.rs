@@ -25,7 +25,7 @@ where
         Grid { table: Table, header: Style, paging: Paging },
     }
     fn titled(name: &[u8], style: Style) -> Cell {
-        let colored = |color| painted(color, Color::AnsiValue, |red, green, blue| Color::Rgb { r: red, g: green, b: blue });
+        let colored = |color| painted(color, Color::AnsiValue, |r, g, b| Color::Rgb { r, g, b });
         let cell = Cell::new(String::from_utf8_lossy(name)).add_attributes(
             [
                 (Effects::BOLD, Attribute::Bold),
@@ -45,26 +45,21 @@ where
             .filter_map(|(effect, attribute)| style.get_effects().contains(effect).then_some(attribute))
             .collect(),
         );
-        let cell = match style.get_fg_color() {
-            Some(color) => cell.fg(colored(color)),
-            None => cell,
-        };
-        match style.get_bg_color() {
-            Some(color) => cell.bg(colored(color)),
-            None => cell,
-        }
+        let cell = style.get_fg_color().map(colored).into_iter().fold(cell, Cell::fg);
+        style.get_bg_color().map(colored).into_iter().fold(cell, Cell::bg)
     }
-    fn stepped<R>(sink: &mut Sink<R>, row: usize, value: R) -> Result<(), OutputError>
-    where R: Serialize {
+    let stepped = |sink: &mut Sink<R>, row: usize, value: R| -> Result<(), OutputError> {
         match sink {
-            Sink::Lines(out) =>
-                serde_json::to_writer(&mut *out, &value).map_err(|source| OutputError::Json { row: Some(row), source }).and_then(|()| writeln!(out).map_err(|source| OutputError::Write { source })),
-            Sink::Array(rows) => {
-                rows.push(value);
+            Sink::Lines(out) => {
+                serde_json::to_writer(&mut *out, &value).map_err(|source| OutputError::Json { row: Some(row), source })?;
+                writeln!(out).map_err(|source| OutputError::Write { source })
+            }
+            Sink::Array(kept) => {
+                kept.push(value);
                 Ok(())
             }
             Sink::Records(out) => out.serialize(&value).map_err(|source| OutputError::Records { row, source }),
-            Sink::Grid { table, header, paging: _ } => {
+            Sink::Grid { table, header: style, paging: _ } => {
                 let mut record = Writer::from_writer(Vec::new());
                 let records = record
                     .serialize(&value)
@@ -75,36 +70,35 @@ where
                 if let Some(names) = names.first()
                     && table.header().is_none()
                 {
-                    table.set_header(names.iter().map(|name| titled(name, *header)));
+                    table.set_header(names.iter().map(|name| titled(name, *style)));
                 }
                 table.add_row(fields.iter().map(String::from_utf8_lossy));
                 Ok(())
             }
         }
-    }
-    fn finished<R>(sink: Sink<R>) -> Result<(), OutputError>
-    where R: Serialize {
+    };
+    let finished = |sink: Sink<R>| -> Result<(), OutputError> {
         match sink {
             Sink::Lines(_) => Ok(()),
-            Sink::Array(rows) => {
+            Sink::Array(kept) => {
                 let mut out = io::stdout().lock();
-                serde_json::to_writer_pretty(&mut out, &rows).map_err(|source| OutputError::Json { row: None, source }).and_then(|()| writeln!(out).map_err(|source| OutputError::Write { source }))
+                serde_json::to_writer_pretty(&mut out, &kept).map_err(|source| OutputError::Json { row: None, source })?;
+                writeln!(out).map_err(|source| OutputError::Write { source })
             }
             Sink::Records(mut out) => out.flush().map_err(|source| OutputError::Write { source }),
             Sink::Grid { table, header: _, paging: _ } if table.is_empty() => Ok(()),
             Sink::Grid { table, header: _, paging: Paging::Never } => writeln!(anstream::stdout(), "{table}").map_err(|source| OutputError::Write { source }),
-            Sink::Grid { table, header: _, paging: paging @ (Paging::Auto | Paging::Always) } => {
+            Sink::Grid { table, header: _, paging: requested @ (Paging::Auto | Paging::Always) } => {
                 let pager = Pager::new();
-                let viewed = try {
+                try bikeshed Result<(), OutputError> {
                     pager.remove_hook(Hook::PostPagerExit, 1)?;
-                    pager.set_run_no_overflow(matches!(paging, Paging::Always))?;
+                    pager.set_run_no_overflow(matches!(requested, Paging::Always))?;
                     pager.set_text(table.to_string())?;
                     minus::page_all(pager)?
-                };
-                viewed.map_err(OutputError::Pager)
+                }
             }
         }
-    }
+    };
     let opened = match format.unwrap_or_else(|| if io::stdout().is_terminal() { Format::Grid } else { Format::Jsonl }) {
         Format::Grid => {
             let mut table = Table::new();

@@ -1,4 +1,4 @@
-use std::iter;
+use std::{cmp, iter};
 
 use geo::{BooleanOps as _, BoundingRect as _, MapCoords as _};
 use geo_types::{LineString, MultiLineString};
@@ -22,9 +22,9 @@ pub fn expand(region: &Region, pattern: &Pattern, placement: Affine, tolerance: 
             .flat_map(|(family, frame)| {
                 let (inverse, spacing) = (frame.inverse(), family.delta.y);
                 let (local, step) = (inverse.transform_rect_bbox(extent), |y: f64| if spacing == 0.0_f64 { 0.0_f64 } else { (y / spacing).round() });
-                let (first, last) = (step(local.y0), step(local.y1));
-                let rows = iter::successors(Some(first.min(last)), |row| Some(row + 1.0_f64))
-                    .take_while(|&row| row <= first.max(last))
+                let [first, last] = cmp::minmax_by(step(local.y0), step(local.y1), f64::total_cmp);
+                let rows = iter::successors(Some(first), |row| Some(row + 1.0_f64))
+                    .take_while(|&row| row <= last)
                     .map(|row| LineString::new(vec![crate::coord(frame * Point::new(local.x0, row * spacing)), crate::coord(frame * Point::new(local.x1, row * spacing))]))
                     .collect::<MultiLineString<f64>>();
                 let clipped = polygons.clip(&rows, false);

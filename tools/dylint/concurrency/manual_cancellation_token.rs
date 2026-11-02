@@ -12,7 +12,7 @@ use clippy_utils::{
 };
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{Block, Expr, ExprKind, HirId, LoopSource, MatchSource, Pat, StmtKind, def_id::DefId};
+use rustc_hir::{Block, Expr, ExprKind, HirId, LoopSource, MatchSource, Pat, Stmt, StmtKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
@@ -90,9 +90,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let polled = match (While::hir(expr), expr.kind) {
             (Some(While { condition, body: &Expr { kind: ExprKind::Block(body, _), .. }, .. }), _) => Some((condition, body)),
             (None, ExprKind::Loop(body, _, LoopSource::Loop, _))
-                if let Some(&Expr { kind: ExprKind::If(condition, stop, None), .. }) =
-                    body.stmts.first().map_or(body.expr, |statement| if let StmtKind::Expr(first) | StmtKind::Semi(first) = statement.kind { Some(first) } else { None })
-                    && matches!(peel_blocks_with_stmt(stop).kind, ExprKind::Break(..)) =>
+                if let Some(&Expr { kind: ExprKind::If(condition, stop, None), .. }) = match body.stmts {
+                    [] => body.expr,
+                    [Stmt { kind: StmtKind::Expr(first) | StmtKind::Semi(first), .. }, ..] => Some(*first),
+                    [_, ..] => None,
+                } && matches!(peel_blocks_with_stmt(stop).kind, ExprKind::Break(..)) =>
                 Some((condition, body)),
             _ => None,
         };

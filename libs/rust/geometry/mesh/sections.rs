@@ -52,6 +52,6 @@ pub fn segments(mesh: &TriMesh, plane: &Isometry3<f64>, epsilon: f64) -> Vec<[Po
 }
 
 fn halfspace(plane: &Isometry3<f64>) -> (Vector3<f64>, f64) {
-    let normal = plane.rotation.transform_vector(&Vector3::z());
+    let normal = plane.rotation * Vector3::z();
     (normal, normal.dot(&plane.translation.vector))
 }

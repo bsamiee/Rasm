@@ -69,6 +69,13 @@ const fn inaccessible(token: sealed::Token) -> u8 {
     scope
 }
 
+const fn passed(gesture: Gesture) -> Option<Gesture> {
+    match gesture {
+        whole @ (Gesture::Drag { .. } | Gesture::Pinch(..)) => Some(whole),
+        Gesture::Tap => None,
+    }
+}
+
 const fn external(range: Range<u8>) -> u8 {
     let Range { start, .. } = range;
     start
@@ -78,5 +85,17 @@ const fn external(range: Range<u8>) -> u8 {
 
 fn main() {
     let (window, gesture, token) = (Window { start: 0, end: 1, label: "window" }, Gesture::Drag { from: 0, to: 1 }, sealed::Token::new(1));
-    black_box(&(rest(window), listed(window), variant(gesture), target(gesture), private(token), inaccessible(token), token.secret(), external(0..1), Gesture::Tap, Gesture::Pinch(0, 1)));
+    black_box(&(
+        rest(window),
+        listed(window),
+        variant(gesture),
+        target(gesture),
+        private(token),
+        inaccessible(token),
+        token.secret(),
+        external(0..1),
+        passed(gesture),
+        Gesture::Tap,
+        Gesture::Pinch(0, 1),
+    ));
 }

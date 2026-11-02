@@ -1,5 +1,3 @@
-#![feature(iterator_try_collect)]
-
 use core::range::RangeInclusive;
 
 use datasketches::error::Error;
@@ -30,6 +28,8 @@ pub enum StatsError {
     NotFinite,
     #[error("chain {chain} failed")]
     Sampler { chain: u64, source: NutsError },
+    #[error("chain {chain} failed with no typed source")]
+    Chain { chain: u64 },
     #[error("sampler settings refused")]
     Settings,
     #[error("{found} outputs for a design of {expected} points")]
@@ -44,7 +44,7 @@ impl LogpError for StatsError {
     fn is_recoverable(&self) -> bool {
         match self {
             Self::NotFinite => true,
-            Self::Sampler { chain: _, source: _ } | Self::Settings | Self::Outputs { expected: _, found: _ } | Self::Distribution(_) | Self::Sketch(_) => false,
+            Self::Sampler { chain: _, source: _ } | Self::Chain { chain: _ } | Self::Settings | Self::Outputs { expected: _, found: _ } | Self::Distribution(_) | Self::Sketch(_) => false,
         }
     }
 }

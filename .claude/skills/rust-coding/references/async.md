@@ -38,7 +38,7 @@ where H: Handler + Send + Sync + 'static {
 }
 ```
 
-Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, and the drop cancels it on every exit path. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
+Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, and the drop cancels it on every exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
 
 ```rust
 pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(), ServiceError>, mut signals: impl Stream + Unpin) -> Result<(), ServiceError> {
@@ -51,7 +51,7 @@ pub async fn supervised(serving: impl AsyncFnOnce(CancellationToken) -> Result<(
 }
 ```
 
-`async move |stop| serve(listener, handler, stop).await` fills `serving`. `maybe_done` holds its output across both races until `take_output` reads it once. Drains over more than one future chain the second race's abandonment (`matches!(.., Either::Left(_)).ok_or(Abandoned)`) with each `take_output()` as zero or one item into `Validated<(), _>`, and a failure finished before the second signal joins `Abandoned`. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`move |stop| serve(listener, handler, stop)` fills `serving`. `maybe_done` holds its output across both races until `take_output` reads it once. Drains over more than one future chain the second race's abandonment (`matches!(.., Either::Left(_)).ok_or(Abandoned)`) with each `take_output()` as zero or one item into `Validated<(), _>`, and a failure finished before the second signal joins `Abandoned`. Drains finishing ahead of cancellation sit inside one `join` beside each worker (`drain.map(|()| stop.cancel())`), and a server future stays in each race it cannot win, its accept loop advancing only while polled. An output more than one future reads is `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
 
 ## [03]-[STREAMS]
 
@@ -64,7 +64,7 @@ where S: Sensor {
 }
 ```
 
-`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` sets ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped`, read through `pin!` and `as_mut()` once the consumer finishes, tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
+`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` sets ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write or one commit per batch. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped`, read through `pin!` and `as_mut()` once the consumer finishes, tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
 
 ```rust
 pub fn listed<C>(catalog: &C) -> impl Stream<Item = Result<Item, SourceError>>
@@ -116,7 +116,7 @@ pub async fn deposited(deposit: &impl AsyncFn(Deposit) -> Result<Account, Ledger
 }
 ```
 
-Spans and metrics read crate key constants (`ACCOUNT`, `BALANCE`), and `opentelemetry_semantic_conventions::attribute` supplies each key it names. `skip_all` keeps arguments out of the span unless a field names them. Spawned tasks start outside the caller's span. `in_current_span()` attaches the caller's span to a task future, `instrument(span)` gives it its own (a connection named by its peer). Pure functions emit nothing, and the boundary that calls them records what they returned.
+Spans, events, metrics, and JSON log fields read crate key constants (`ACCOUNT`, `BALANCE`), and `opentelemetry_semantic_conventions::attribute` supplies each key it names (`{ SERVER_ADDRESS } = %address.ip()`). Failures a program continues past record through `unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), ..))` over a `Result<(), _>`. Trace context crosses a wire through a propagator over its carrier (`HeaderExtractor(&headers)`, an `Extractor` or `Injector` impl over a JSON object) with no `HashMap` copy. `skip_all` keeps arguments out of the span unless a field names them. Spawned tasks start outside the caller's span. `in_current_span()` attaches the caller's span to a task future, `instrument(span)` gives it its own (a connection named by its peer). Pure functions emit nothing, and the boundary that calls them records what they returned.
 
 ## [06]-[POLICIES]
 

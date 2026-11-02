@@ -281,6 +281,8 @@ fn loaded(path: &Path) -> Result<String, LoadError> { fs_err::read_to_string(pat
 
 fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
 
+fn first_recovered(reports: Vec<anyhow::Error>) -> Option<ParseIntError> { reports.into_iter().map(|report| report.downcast::<ParseIntError>()).find_map(Result::ok) }
+
 fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
 
 fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
@@ -337,7 +339,7 @@ enum WrappedError {
 fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
 
 fn recovered(reports: Vec<anyhow::Error>) -> Option<PortError> {
-    reports.into_iter().map(|report| report.downcast::<ParseIntError>()).find_map(|downcast| match downcast {
+    reports.into_iter().find_map(|report| match report.downcast::<ParseIntError>() {
         Ok(source) => Some(PortError::Parse(source)),
         Err(anyhow::Error { .. }) => None,
     })
@@ -353,7 +355,17 @@ fn merged(values: &[u16]) -> Vec<u16> { values.iter().copied().coalesce(|left, r
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = "8080";
     let source: &dyn Source = &Port;
-    black_box(&(numbered(text), documented(text), messages(text), paired(text), wrapped(text), recovered(Vec::new()), annotated(anyhow::Error::from(fmt::Error)), merged(&[1, 1, 2])));
+    black_box(&(
+        numbered(text),
+        documented(text),
+        messages(text),
+        paired(text),
+        wrapped(text),
+        recovered(Vec::new()),
+        first_recovered(Vec::new()),
+        annotated(anyhow::Error::from(fmt::Error)),
+        merged(&[1, 1, 2]),
+    ));
     let ports = [
         spelled(text)?,
         borrowed(text)?,

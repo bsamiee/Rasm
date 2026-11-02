@@ -54,7 +54,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
             && let Some((_, source_error)) = result_parts(cx, typeck.expr_ty(source))
             && let Some(returned) = arms.iter().find_map(|arm| if let ExprKind::Ret(Some(returned)) | ExprKind::Break(_, Some(returned)) = arm.body.kind { Some(returned) } else { None })
-            && fn_def_id(cx, returned).is_lang_item(cx, LangItem::TryTraitFromResidual)
+            && let homogeneous = fn_def_id(cx, returned).is_lang_item(cx, LangItem::ResidualIntoTryType)
+            && (homogeneous || fn_def_id(cx, returned).is_lang_item(cx, LangItem::TryTraitFromResidual))
             && let Some((_, target_error)) = result_parts(cx, typeck.expr_ty(returned))
             && !same_type_modulo_regions(source_error, target_error)
             && result_parts(cx, typeck.expr_ty(converted)).is_some_and(|(_, converted_error)| same_type_modulo_regions(converted_error, target_error))
@@ -70,17 +71,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !is_from_proc_macro(cx, converted)
         {
             let removed = converted.span.with_lo(receiver.hi());
-            span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`map_err` repeats the `From` conversion `?` applies", |diag| {
-                suggest(
-                    cx,
-                    converted.hir_id,
-                    diag,
-                    removed,
-                    "delete the `map_err` call",
-                    "",
-                    if fixed_error(cx, source) && !inferred_return(cx, expr.hir_id) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect },
-                );
-            });
+            let applicability = if fixed_error(cx, source) && !inferred_return(cx, expr.hir_id) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect };
+            if homogeneous {
+                span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`?` in a homogeneous `try` block applies no `From`, `map_err` converts by hand", |diag| {
+                    diag.help("name the block's type with `try bikeshed <result> { .. }` and delete the `map_err` call, each `?` converting into it");
+                });
+            } else {
+                span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`map_err` repeats the `From` conversion `?` applies", |diag| {
+                    suggest(cx, converted.hir_id, diag, removed, "delete the `map_err` call", "", applicability);
+                });
+            }
         }
     }
 

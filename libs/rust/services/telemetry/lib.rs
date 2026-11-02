@@ -1,4 +1,4 @@
-#![feature(default_field_values, error_reporter, try_blocks)]
+#![feature(default_field_values, error_reporter, try_blocks_heterogeneous)]
 
 use core::error::Error;
 use std::{
@@ -6,7 +6,7 @@ use std::{
     borrow::Cow,
     error::Report,
     mem::DropGuard,
-    panic::{self, AssertUnwindSafe},
+    panic,
     process::{ExitCode, Termination},
 };
 
@@ -60,7 +60,7 @@ enum Signal {
     Logs,
 }
 
-#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+#[derive(Clone, Copy, Debug, Default, ValueEnum, derive_more::IsVariant)]
 enum Exporter {
     #[default]
     None,
@@ -111,7 +111,7 @@ impl Options {
         T: Termination,
         E: Error + Into<sysexits::ExitCode>,
     {
-        fn built<T>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<T, ExporterBuildError>) -> Validated<Option<T>, TelemetryError> {
+        fn built<B>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<B, ExporterBuildError>) -> Validated<Option<B>, TelemetryError> {
             match exporter {
                 Exporter::None => Validated::Good(None),
                 Exporter::Otlp => build().map(Some).map_err(|source| TelemetryError::Build { signal, source }).into(),
@@ -150,6 +150,9 @@ impl Options {
         fn flushed(results: impl IntoIterator<Item = (Signal, OTelSdkResult)>) -> Result<(), NEVec<TelemetryError>> {
             results.into_iter().map(|(signal, result)| result.map_err(|source| TelemetryError::Flush { signal, source })).collect::<Validated<(), _>>().ok()
         }
+        fn shutdown((traces, metrics, logs): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)) -> Result<(), NEVec<TelemetryError>> {
+            flushed([(Signal::Traces, traces.shutdown()), (Signal::Metrics, metrics.shutdown()), (Signal::Logs, logs.shutdown())])
+        }
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter } = self;
         let Defaults { directives, attributes } = defaults;
         let detectors: [Box<dyn ResourceDetector>; _] =
@@ -159,23 +162,14 @@ impl Options {
             .with_service_name(command.get_name().to_owned())
             .with_attributes(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned())))
             .with_detector(Box::new(ServiceInstanceIdResourceDetector))
-            .with_detectors(
-                if [traces_exporter, metrics_exporter, logs_exporter].into_iter().any(|exporter| match exporter {
-                    Exporter::None => false,
-                    Exporter::Otlp => true,
-                }) {
-                    &detectors
-                } else {
-                    &[]
-                },
-            )
+            .with_detectors(if [traces_exporter, metrics_exporter, logs_exporter].iter().any(Exporter::is_otlp) { &detectors } else { &[] })
             .with_detector(Box::new(EnvResourceDetector::new()))
             .with_attributes(attributes)
             .with_attributes(service_name.map(|name| KeyValue::new(SERVICE_NAME, name)))
             .build();
         let early = Dispatch::new(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN));
         let started = dispatcher::with_default(&early, || {
-            let started: Result<_, NEVec<TelemetryError>> = try {
+            (try bikeshed Result<_, NEVec<TelemetryError>> {
                 let (filter, span_exporter, metric_exporter, log_exporter) = Validated::from(EnvFilter::try_new(&directives).map_err(|source| TelemetryError::Filter { directives, source }))
                     .map4(
                         built(Signal::Traces, traces_exporter, || SpanExporter::builder().build()),
@@ -198,8 +192,8 @@ impl Options {
                 subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| NEVec::new(TelemetryError::Dispatch))?;
                 LogTracer::init().map_err(|SetLoggerError { .. }| NEVec::new(TelemetryError::Forward))?;
                 (traces, metrics, logs, handle)
-            };
-            started.inspect_err(reported)
+            })
+            .inspect_err(reported)
         });
         let (traces, metrics, logs, handle) = match started {
             Ok(started) => started,
@@ -219,15 +213,18 @@ impl Options {
                 })
                 .collect(),
         ));
-        let (restore, hooked) = (DropGuard::new(panic::take_hook(), panic::set_hook), (traces.clone(), metrics.clone(), logs.clone()));
-        panic::set_hook(Box::new(move |info| {
-            tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
-            flushed([(Signal::Traces, hooked.0.force_flush()), (Signal::Metrics, hooked.1.force_flush()), (Signal::Logs, hooked.2.force_flush())]).unwrap_or_else(|errors| reported(&errors));
-        }));
-        let worked = panic::catch_unwind(AssertUnwindSafe(|| work(&handle).inspect_err(reported)));
-        drop(restore);
-        let stopped = flushed([(Signal::Traces, traces.shutdown()), (Signal::Metrics, metrics.shutdown()), (Signal::Logs, logs.shutdown())]).inspect_err(reported);
-        match (worked.unwrap_or_else(|payload| panic::resume_unwind(payload)), stopped) {
+        let hooked = (traces.clone(), metrics.clone(), logs.clone());
+        let stopping = DropGuard::new((traces, metrics, logs), |providers| shutdown(&providers).unwrap_or_else(|errors| reported(&errors)));
+        let worked = {
+            let _restore = DropGuard::new(panic::take_hook(), panic::set_hook);
+            panic::set_hook(Box::new(move |info| {
+                tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
+                flushed([(Signal::Traces, hooked.0.force_flush()), (Signal::Metrics, hooked.1.force_flush()), (Signal::Logs, hooked.2.force_flush())]).unwrap_or_else(|errors| reported(&errors));
+            }));
+            work(&handle).inspect_err(reported)
+        };
+        let stopped = shutdown(&DropGuard::dismiss(stopping)).inspect_err(reported);
+        match (worked, stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
             (Err(failures), _) => status(failures),
             (Ok(_), Err(failures)) => status(failures),

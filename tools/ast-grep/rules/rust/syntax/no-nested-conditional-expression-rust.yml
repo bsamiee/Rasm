@@ -122,14 +122,30 @@ utils:
                     - inside: {kind: function_item, field: body, has: {field: return_type, pattern: $_}}
                     - inside: {kind: closure_expression, field: body}
 rule:
-    kind: 'if_expression, match_expression'
-    matches: nesting-branch
     any:
-        - inside: {kind: let_declaration, field: value}
-        - inside: {kind: assignment_expression, field: right}
-        - inside: {kind: return_expression}
-        - inside: {kind: match_arm, field: value}
-        - inside: {kind: closure_expression, field: body}
-        - inside: {matches: body-tail}
-message: '`if` or `match` value nests another `if` or `match`'
-note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`)'
+        - kind: 'if_expression, match_expression'
+          matches: nesting-branch
+          any:
+            - inside: {kind: let_declaration, field: value}
+            - inside: {kind: assignment_expression, field: right}
+            - inside: {kind: return_expression}
+            - inside: {kind: match_arm, field: value}
+            - inside: {kind: closure_expression, field: body}
+            - inside: {matches: body-tail}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(map_or|map_or_else)$'}}
+            - has:
+                field: arguments
+                has:
+                    kind: closure_expression
+                    has:
+                        field: body
+                        any:
+                            - matches: conditional
+                            - kind: block
+                              has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, matches: tail-conditional}
+        - kind: call_expression
+          pattern: Some($VALUE).filter($TEST).unwrap_or_else($FALLBACK)
+message: '`if`, `match`, `map_or`, `map_or_else`, or `filter(..).unwrap_or_else` value nests another decision'
+note: 'Bind the operand once, then select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`)'

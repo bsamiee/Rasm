@@ -1,4 +1,4 @@
-#![feature(iterator_try_collect, try_blocks)]
+#![feature(iterator_try_collect, try_blocks_heterogeneous)]
 
 use core::{error::Error, fmt, pin::pin};
 use std::{io, panic, process};
@@ -84,22 +84,22 @@ pub enum OutputError {
 
 impl From<OutputError> for ExitCode {
     fn from(value: OutputError) -> Self {
-        io_error_kind(&value).map_or_else(
-            || match value {
-                OutputError::Write { source: _ } | OutputError::Pager(_) | OutputError::Prompt(InquireError::IO(_)) => Self::IoErr,
-                OutputError::Json { row: _, source: _ } | OutputError::Records { row: _, source: _ } | OutputError::Prompt(InquireError::Custom(_)) => Self::DataErr,
-                OutputError::Prompt(InquireError::NotTTY) => Self::NoInput,
-                OutputError::Prompt(InquireError::InvalidConfiguration(_)) => Self::Software,
-                OutputError::Prompt(InquireError::OperationCanceled | InquireError::OperationInterrupted) => Self::TempFail,
-            },
-            Self::from,
-        )
+        match &value {
+            OutputError::Write { source } | OutputError::Pager(MinusError::Draw(source)) | OutputError::Prompt(InquireError::IO(source)) => source.kind().into(),
+            OutputError::Json { row: _, source } => source.io_error_kind().map_or(Self::DataErr, Self::from),
+            OutputError::Records { row: _, source } if let ErrorKind::Io(failure) = source.kind() => failure.kind().into(),
+            OutputError::Records { row: _, source: _ } | OutputError::Prompt(InquireError::Custom(_)) => Self::DataErr,
+            OutputError::Pager(_) => Self::IoErr,
+            OutputError::Prompt(InquireError::NotTTY) => Self::NoInput,
+            OutputError::Prompt(InquireError::InvalidConfiguration(_)) => Self::Software,
+            OutputError::Prompt(InquireError::OperationCanceled | InquireError::OperationInterrupted) => Self::TempFail,
+        }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn io_error_kind(error: &OutputError) -> Option<io::ErrorKind> {
+fn io_error_kind(error: &OutputError) -> Option<io::ErrorKind> {
     match error {
         OutputError::Write { source } | OutputError::Pager(MinusError::Draw(source)) | OutputError::Prompt(InquireError::IO(source)) => Some(source.kind()),
         OutputError::Json { row: _, source } => source.io_error_kind(),

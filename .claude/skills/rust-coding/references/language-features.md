@@ -23,7 +23,7 @@ pub fn stops(order: &Order, catalog: &Catalog) -> Vec<(Sku, Option<Stop>)> {
 }
 ```
 
-`try bikeshed Result<Stop, ShopError> { .. }` under `try_blocks_heterogeneous` names the block's type, and each `?` enters the crate error through its `#[from]` variants in place of a typed `let` binding or a trailing `map_err`.
+`try bikeshed Result<Stop, PickError> { .. }` under `try_blocks_heterogeneous` names the block's type, and each `?` enters the crate error through its `#[from]` variants in place of a typed `let` binding or a trailing `map_err`.
 
 ## [02]-[DEFAULT_FIELD_VALUES]
 

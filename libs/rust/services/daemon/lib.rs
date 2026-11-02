@@ -1,13 +1,13 @@
 #![feature(error_reporter)]
 
-use core::{error::Error, future::ready, net::SocketAddr, pin::pin};
+use core::{error::Error, future::ready, iter, net::SocketAddr, pin::pin};
 use std::{error::Report, io, process::ExitCode, sync::Arc};
 
 use axum::{Router, serve::ListenerExt as _};
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, StreamExt as _, future};
 use nonempty_collections::NEVec;
-use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
+use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, SERVER_ADDRESS, SERVER_PORT};
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::Defaults;
 use tokio::net::TcpListener;
@@ -92,7 +92,7 @@ where
         let stopping = CancellationToken::new();
         let future::Either::Left((started, _)) = future::select(pin!(start(args, address, stopping.child_token())), signals.next()).await else { return Ok(()) };
         let daemon = Arc::new(started.map_err(DaemonError::Daemon)?);
-        tracing::info!(listen = %address, "listening");
+        tracing::info!({ SERVER_ADDRESS } = %address.ip(), { SERVER_PORT } = address.port(), "listening");
         let accepted = listener.tap_io(|stream| {
             if let Err(error) = stream.set_nodelay(true) {
                 tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "TCP_NODELAY refused");
@@ -108,8 +108,8 @@ where
             stopping.cancel();
         };
         let finished = matches!(future::select(pin!(future::join3(drained, lifetime.as_mut(), http.as_mut())), signals.next()).await, future::Either::Left(_)).ok_or(DaemonError::Abandoned);
-        let ended = lifetime.as_mut().take_output().unwrap_or(Ok(())).map_err(DaemonError::Daemon);
-        let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| DaemonError::Io { operation: Operation::Serve, source });
-        Validated::from(ended).map3(served.into(), finished.into(), |(), (), ()| ()).ok()
+        let ended = lifetime.as_mut().take_output().map(|ended| ended.map_err(DaemonError::Daemon));
+        let served = http.as_mut().take_output().map(|served| served.map_err(|source| DaemonError::Io { operation: Operation::Serve, source }));
+        iter::chain(ended, served).chain([finished]).collect::<Validated<(), _>>().ok()
     })
 }

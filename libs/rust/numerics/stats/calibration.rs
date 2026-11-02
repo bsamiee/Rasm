@@ -5,8 +5,9 @@ use average::Mean;
 use itertools::Itertools as _;
 use nalgebra::{DMatrix, DVector};
 use nonempty_collections::NEVec;
-use num_dual::{DualDVec64, DualNum};
+use num_dual::{DualDVec64, DualNum as _};
 use nuts_rs::{Chain as _, CpuLogpFunc, CpuMath, CpuMathError, EuclideanAdaptOptions, HasDims, NutsError, NutsSettings, Progress, Settings};
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rand::{Rng, RngExt as _, SeedableRng as _, rngs::ChaCha8Rng};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use serde::Serialize;
@@ -85,36 +86,40 @@ where
     M: Debug + Default + Copy + Serialize,
     NutsSettings<EuclideanAdaptOptions<M>>: Settings,
 {
-    Settings::validate(settings).map_err(|anyhow::Error { .. }| NEVec::new(StatsError::Settings))?;
+    let refused = |report: anyhow::Error, failure: StatsError| {
+        tracing::error!({ EXCEPTION_MESSAGE } = %report, "sampler raised a report with no typed source");
+        failure
+    };
+    Settings::validate(settings).map_err(|report| NEVec::new(refused(report, StatsError::Settings)))?;
     let dimensions = space.len().get();
     (0..nalgebra::convert::<usize, u64>(settings.num_chains()))
         .into_par_iter()
         .map(|chain| -> Result<Trace, StatsError> {
-            let failed = |error: anyhow::Error| error.downcast::<NutsError>().map_or_else(|anyhow::Error { .. }| StatsError::Settings, |source| StatsError::Sampler { chain, source });
+            let failed = |error: anyhow::Error| error.downcast::<NutsError>().map_or_else(|report| refused(report, StatsError::Chain { chain }), |source| StatsError::Sampler { chain, source });
             let mut rng = ChaCha8Rng::seed_from_u64(settings.seed());
             rng.set_stream(chain);
             let start = DVector::from_fn(dimensions, |_, _| rng.random_range(-2.0_f64..2.0_f64));
             let mut sampler = settings.new_chain(chain, CpuMath::new(Posterior { space, density: &density }), &mut rng).map_err(failed)?;
             sampler.set_position(start.as_slice()).map_err(failed)?;
-            let (draws, progress): (Vec<Box<[f64]>>, Vec<Progress>) =
-                Iterator::try_collect(&mut iter::repeat_with(|| sampler.draw()).take(settings.hint_num_tune().strict_add(settings.hint_num_draws())).filter_ok(|(_, progress)| !progress.tuning))
-                    .map_err(failed)?;
-            Ok(Trace { draws: DMatrix::from_iterator(dimensions, draws.len(), draws.iter().flat_map(|draw| iter::zip(draw, space.values()).map(|(z, bounds)| bounded(z, bounds).0))), progress })
+            let (draws, progress): (Vec<Box<[f64]>>, Vec<Progress>) = iter::repeat_with(|| sampler.draw().map_err(failed))
+                .take(settings.hint_num_tune().strict_add(settings.hint_num_draws()))
+                .process_results(|drawn| drawn.filter(|(_, progress)| !progress.tuning).unzip())?;
+            Ok(Trace {
+                draws: DMatrix::from_iterator(dimensions, draws.len(), draws.iter().flat_map(|draw| iter::zip(draw, space.values()).map(|(&z, bounds)| bounded(&DualDVec64::from(z), bounds).0.re))),
+                progress,
+            })
         })
         .collect::<Validated<Vec<Trace>, StatsError>>()
         .ok()
 }
 
-fn bounded<T>(z: &T, bounds: &Bounds) -> (T, T)
-where T: DualNum<Primitive = f64, InnerDual = f64> {
-    let magnitude = z.abs();
-    let softplus = magnitude.clone().scale(&-1.0_f64).exp().ln_1p();
-    let [near, far] = [softplus.clone(), [magnitude.clone(), softplus.clone()].into_iter().sum::<T>()].map(|surprisal| surprisal.scale(&-1.0_f64).exp());
-    let (rising, falling) = if z.is_negative() { (far, near) } else { (near, far) };
-    (
-        rising.mul_add(T::from(bounds.last), falling.scale(&bounds.start)),
-        [magnitude, softplus.scale(&2.0_f64)].into_iter().sum::<T>().mul_add(T::from(-1.0_f64), T::from((bounds.last - bounds.start).ln())),
-    )
+fn bounded(z: &DualDVec64, bounds: &Bounds) -> (DualDVec64, DualDVec64) {
+    let negative = z.re.is_sign_negative();
+    let magnitude = if negative { -z.clone() } else { z.clone() };
+    let softplus = (-magnitude.clone()).exp().ln_1p();
+    let [near, far] = [softplus.clone(), magnitude.clone() + softplus.clone()].map(|surprisal| (-surprisal).exp());
+    let (rising, falling) = if negative { (far, near) } else { (near, far) };
+    (rising * bounds.last + falling * bounds.start, -(magnitude + softplus * 2.0) + (bounds.last - bounds.start).ln())
 }
 
 // --- [GRADING]

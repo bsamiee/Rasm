@@ -6,7 +6,7 @@ use tokio::process::Command;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const COMMAND: &str = "command";
+const COMMAND: &str = "COMMAND";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,9 +14,8 @@ struct Upstream(Command);
 
 impl CommandFactory for Upstream {
     fn command() -> clap::Command {
-        clap::Command::new(env!("CARGO_PKG_NAME")).version(env!("CARGO_PKG_VERSION")).about(env!("CARGO_PKG_DESCRIPTION")).arg(
+        clap::command!().arg(
             Arg::new(COMMAND)
-                .value_name("COMMAND")
                 .value_parser(value_parser!(OsString))
                 .num_args(1..)
                 .required(true)
@@ -52,4 +51,4 @@ impl FromArgMatches for Upstream {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() -> ExitCode { host::run(async |Upstream(command), identity, notifier| Proxy::spawn(command, identity, notifier).await) }
+fn main() -> ExitCode { host::run(|Upstream(command), identity, notifier| Proxy::spawn(command, identity, notifier)) }
