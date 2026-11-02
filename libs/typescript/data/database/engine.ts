@@ -73,7 +73,7 @@ interface Engine {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const engine = SqlClient.SqlClient.use((sql) =>
+const Engine = SqlClient.SqlClient.use((sql) =>
     sql.onDialect({
         sqlite: () => Effect.succeed<Engine>(Sqlite),
         pg: () => Effect.succeed<Engine>(Pg),
@@ -83,7 +83,7 @@ const engine = SqlClient.SqlClient.use((sql) =>
     }),
 );
 const statements = <F extends Fields, O extends TableOptions<F>>(relation: Relation<F, O>) =>
-    Effect.map(Effect.all([SqlClient.SqlClient, engine]), ([sql, picked]) => {
+    Effect.map(Effect.all([SqlClient.SqlClient, Engine]), ([sql, picked]) => {
         const columns = Object.values(relation.columns);
         const written = columns.filter(({ projection }) => Option.isNone(projection));
         const [bare, owner] = [sql.literal(''), sql`${sql(relation.name)}`];
@@ -111,4 +111,4 @@ const statements = <F extends Fields, O extends TableOptions<F>>(relation: Relat
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Engine, engine, statements };
+export { Engine, statements };

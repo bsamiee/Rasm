@@ -2,7 +2,7 @@ import { D1Client } from '@effect/sql-d1';
 import { Array, Data, type Duration, Effect, Layer, Option, Schema, Struct } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
 import { Column } from '#/column';
-import { type Engine, engine } from '#/engine';
+import { Engine } from '#/engine';
 import { ReconcileError } from '#/finding';
 import { refusals } from '#/reconcile';
 import type { Relation } from '#/relation';
@@ -37,7 +37,7 @@ class Catalog extends Data.Class<{
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['plan']>>) => Effect.Effect<unknown, E, R>) {
-    const [client, picked, d1] = yield* Effect.all([SqlClient.SqlClient, engine, Effect.serviceOption(D1Client.D1Client)]);
+    const [client, picked, d1] = yield* Effect.all([SqlClient.SqlClient, Engine, Effect.serviceOption(D1Client.D1Client)]);
     yield* Array.match(
         catalog.tables.flatMap((relation) => [...refusals(relation), ...picked.refusals(relation)]),
         { onEmpty: () => Effect.void, onNonEmpty: (findings) => Effect.fail(ReconcileError.make({ findings })) },
@@ -66,7 +66,7 @@ const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Opt
             ),
     });
     yield* Object.values(undeclared).some((objects) => objects.length > 0) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void;
-    const [picked, client] = yield* Effect.all([engine, SqlClient.SqlClient]);
+    const [picked, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);
     yield* picked.open(client);
 });
 
