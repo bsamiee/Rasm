@@ -34,7 +34,7 @@ ${BASIS}
 Return (structured): the folders to write and the files to delete.`, { label: 'select', phase: 'Select', schema: { type: 'object', properties: { write: { type: 'array', items: { type: 'string' } }, remove: { type: 'array', items: { type: 'string' } } }, required: ['write', 'remove'] } })
 
 phase('Write')
-const written = await parallel((chosen?.write ?? []).map((folder) => () => agent(`Writer for ${REPO}/${folder}/CLAUDE.md. Follow ${SELECTION} for this folder and ${STANDARD}. Read the folder's code and its history again yourself before writing; verify every claim against the current code. Write the file whole (rebuild it if one exists), at most 125 lines, and make ${folder}/AGENTS.md a relative symlink to it. ${BASIS}
+const written = await parallel((chosen?.write ?? []).map((folder) => () => agent(`Writer for ${REPO}/${folder}/CLAUDE.md. Follow ${SELECTION} for this folder and ${STANDARD}. Read the folder's code and its history again yourself before writing. Write the file whole (rebuild it if one exists), at most 125 lines, and make ${folder}/AGENTS.md a relative symlink to it. ${BASIS}
 Return at most 6 lines: line count, sections, and what you left out and why.`, { label: `write:${folder}`, phase: 'Write' })))
 
 phase('Challenge')

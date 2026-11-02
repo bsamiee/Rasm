@@ -44,7 +44,7 @@ ${flat(authored)}
 ${flat([ran])}
 ${BASIS}
 Return at most 12 lines: the causes and their fixes.`, { label: 'fix:plan', phase: 'Fix' })
-const fixed = await agent(`Lander for ${DIR}/FIXES.md. Land each fix in its strongest form across ${KIT} and ${HARNESS}, rebuilding a file whole where its fixes reshape it, then rerun the battery cases each fix closes through the harness and confirm they pass. Refuse a plan step that would add surface without capability, with one line why. ${BASIS}
+const fixed = await agent(`Lander for ${DIR}/FIXES.md. Land each fix in its strongest form across ${KIT} and ${HARNESS}, rebuilding a file whole where its fixes reshape it. Refuse a plan step that would add surface without capability, with one line why. ${BASIS}
 Return at most 15 lines: what landed, what you refused and why, battery results before and after.`, { label: 'fix:land', phase: 'Fix' })
 
 const LENSES = [
@@ -58,7 +58,7 @@ const depth = (n) => async () => {
 Return (structured): findings.`, { label: `depth:${n}:${l.lens}`, phase: 'Depth', schema: FOUND }))))
   return agent(`Depth lander for ${HARNESS} and ${KIT}. Findings:
 ${found}
-Judge each as an adversary: reject a weak or cosmetic one, one that adds an entry point a parameter serves, and one that trades a real host answer for a guess, each with one line why. Land the rest in their strongest form, rebuilding a file whole where its findings reshape it, and verify each change live through the battery cases it touches. ${BASIS}
+Judge each as an adversary: reject a weak or cosmetic one, one that adds an entry point a parameter serves, and one that trades a real host answer for a guess, each with one line why. Land the rest in their strongest form, rebuilding a file whole where its findings reshape it. ${BASIS}
 Return at most 12 lines: what landed, what you rejected and why, exports before and after.`, { label: `depth:${n}:land`, phase: 'Depth' })
 }
 
