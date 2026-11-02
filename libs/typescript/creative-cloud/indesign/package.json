@@ -1,7 +1,7 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign requests served from a UXP plugin",
+    "description": "InDesign operations and requests for UXP programs",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -10,6 +10,7 @@
     "exports": {
         "./adjust": "./requests/adjust.ts",
         "./host": "./host.ts",
+        "./kerns": "./requests/kerns.ts",
         "./model": "./dom/model.ts",
         "./settings": "./documents/settings.ts",
         "./transactions": "./dom/transactions.ts"

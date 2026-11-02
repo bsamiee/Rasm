@@ -4,18 +4,21 @@ import type { Face } from '#/face';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const hexadecimal = 16;
-const lastCodePoint = 0x10_ff_ff;
+const HEXADECIMAL = 16;
+const LAST_CODE_POINT = 0x10_ff_ff;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const CodePoint = Schema.String.pipe(Schema.decodeTo(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: lastCodePoint })), SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, hexadecimal), encode: (point) => point.toString(hexadecimal) })));
+const CodePoint = Schema.String.pipe(Schema.decodeTo(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: LAST_CODE_POINT })), SchemaTransformation.transform({ decode: (cell) => Number.parseInt(cell, HEXADECIMAL), encode: (point) => point.toString(HEXADECIMAL) })));
 class Symbols extends Schema.Class<Symbols, { readonly brand: unique symbol }>('Symbols')({ sets: Schema.Record(Schema.String, Schema.Array(CodePoint)).annotate({ description: 'Code points by header name' }) }) {
     static readonly decode = Effect.fn('Symbols.decode')(function* (file: string) {
-        const rows = yield* Stream.make(file).pipe(Stream.pipeThroughChannel(Csv.decodeString({ delimiter: '\t', headers: true })), Stream.runCollect);
-        return yield* Schema.decodeUnknownEffect(Symbols)({ sets: Record.fromIterableWith(Array.take(rows, 1).flatMap(Record.keys), (header) => [header, rows.map((row) => row[header]).filter((cell) => cell !== '')]) });
+        const rows = yield* Stream.make(file).pipe(Stream.pipeThroughChannel(Csv.decodeString({ delimiter: '\t', headers: true, ignoreEmptyLines: true })), Stream.runCollect);
+        const columns = Array.groupBy(
+            rows.flatMap((row) => Record.toEntries(row)),
+            ([header]) => header,
+        );
+        return yield* Schema.decodeEffect(Symbols)({ sets: Record.map(columns, (cells) => cells.map(([, cell]) => cell).filter((cell) => cell !== '')) });
     });
-    static readonly text = String.fromCodePoint;
 
     supported(face: Face) {
         return Symbols.make({ sets: Record.map(this.sets, (points) => points.filter((point) => face.has(point))) });

@@ -6,17 +6,20 @@ import { error, Reference } from '#/requests';
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Adjust')({
-    target: Schema.String.annotate({ description: 'Text, story, or text frame specifier, / for text defaults' }),
+    target: Schema.String.annotate({ description: 'Text or text container specifier, / for text defaults' }),
     deltas: Schema.NonEmptyArray(
         Schema.TaggedUnion({
-            Kerning: { em: Schema.Finite.annotate({ description: 'Kerning delta in em after last base letter, before its marks' }) },
+            Kerning: { em: Schema.Finite.annotate({ description: 'Kerning delta in em after last base letter, before its marks, negative tightens' }) },
             Tracking: { em: Schema.Finite.annotate({ description: 'Tracking delta in em' }) },
             BaselineShift: { points: Schema.Finite.annotate({ description: 'Baseline shift delta in points, up positive' }) },
-            Marks: Struct.Record(['x', 'y'], Schema.Finite.annotate({ description: 'Mark offset delta in em, y up' })),
+            Marks: {
+                x: Schema.Finite.annotate({ description: 'Horizontal mark offset delta in em' }),
+                y: Schema.Finite.annotate({ description: 'Vertical mark offset delta in em, away from base positive' }),
+            },
         }),
     ).annotate({ description: 'Deltas added to current values in order' }),
 }) {
-    static readonly Result = Reference.mapFields(Struct.assign({ applied: Schema.Array(Schema.String) }));
+    static readonly Result = Reference.mapFields(Struct.assign({ applied: Schema.Array(Schema.String).annotate({ description: 'Members written' }) }));
 
     get label(): string {
         return `Adjust ${Array.dedupe(Array.map(this.deltas, Struct.get('_tag'))).join(', ')} of ${this.target}`;
@@ -25,16 +28,16 @@ class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Ad
 class Kerns extends Schema.Class<Kerns, { readonly brand: unique symbol }>('Kerns')({
     target: Adjust.fields.target,
     kerns: Schema.Union([
-        Schema.Literal('clear').annotate({ description: 'Metric kerning restored across target' }),
+        Schema.Literal('clear').annotate({ description: 'Metrics kerning restored across target' }),
         Schema.Array(
             Schema.Struct({
                 index: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Insertion point index within target' }),
-                em: Schema.Finite.annotate({ description: 'Kerning in em' }),
+                em: Schema.Finite.annotate({ description: 'Kerning in em, negative tightens' }),
             }),
-        ).annotate({ description: 'Kerning written at insertion points, manual kerning kept' }),
+        ).annotate({ description: 'Kerning written at insertion points, nonzero manual kerning kept' }),
     ]),
 }) {
-    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int }));
+    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int.annotate({ description: 'Kerning positions written' }) }));
 
     get label(): string {
         return Match.value(this.kerns).pipe(
@@ -48,12 +51,10 @@ class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('
     settings: Schema.OptionFromOptionalKey(
         Settings.mapFields((fields) => Struct.map(Struct.evolve(fields, { direction: (field) => Schema.OptionFromNullOr(field.schema.from.schema), numberingSystem: (field) => Schema.OptionFromNullOr(field.schema.from.schema) }), Schema.optionalKey))
             .check(Schema.isMinProperties(1))
-            .annotate({
-                description: 'Fields written before read, absent reads alone, null clears direction or numbering system',
-            }),
+            .annotate({ description: 'Fields written before read, absent reads alone, null clears direction or numbering system' }),
     ),
 }) {
-    static readonly Result = Settings;
+    static readonly Result = Settings.annotate({ description: 'Settings of target, first run of mixed text' });
 
     get label(): string {
         return Option.match(this.settings, { onNone: () => `Read settings of ${this.target}`, onSome: (given) => `Set ${Struct.keys(given).join(', ')} of ${this.target}` });

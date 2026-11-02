@@ -24,7 +24,7 @@ class ParagraphAttributes extends Schema.Class<ParagraphAttributes, { readonly b
     numberingFormat: Schema.Json,
     settings: Settings,
 }) {
-    static readonly of = (owner: Pick<ParagraphStyle, Exclude<keyof typeof ParagraphAttributes.fields, 'settings'>>) => {
+    static readonly of = (owner: Pick<ParagraphStyle, keyof typeof ParagraphAttributes.fields & keyof ParagraphStyle>, settings: Settings) => {
         const { nestedGrepStyles, nestedStyles, nestedLineStyles, tabList } = ParagraphAttributes.fields;
         return {
             ...picked(ParagraphAttributes.fields)(owner),
@@ -33,7 +33,7 @@ class ParagraphAttributes extends Schema.Class<ParagraphAttributes, { readonly b
             nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), picked(nestedLineStyles.value.fields)),
             tabList: Array.map(owner.tabList, picked(tabList.value.fields)),
             bulletChar: owner.bulletChar.characterValue,
-            settings: HostSettings.of(owner),
+            settings,
         };
     };
 }
@@ -56,6 +56,8 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
         const base = Predicate.isString(based) ? yield* byName(style.constructorName, based, container) : based;
         const theirs = yield* Effect.try({ try: (): object => (model.host(base) ? base.properties : {}), catch: refused });
         const own = yield* overrides(style, mine, (name) => Reflect.get(theirs, name), { ...StyleView.fields, ...ParagraphAttributes.fields });
+        const paragraph = Option.liftPredicate(style, model.owning<ParagraphStyle>('nestedGrepStyles'));
+        const settings = yield* Effect.transposeOption(Option.map(paragraph, HostSettings.read));
         return yield* read(StyleView, style.toSpecifier(), () => ({
             _tag: 'Style',
             ...reference(style),
@@ -63,7 +65,7 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
             basedOn: Array.unfold(based, (each) => (model.host(each) && Predicate.hasProperty(each, 'basedOn') ? Option.some([each, each.basedOn] as const) : Option.none())),
             nextStyle: Option.liftPredicate(mine.nextStyle, model.host),
             own,
-            paragraphAttributes: Option.map(Option.liftPredicate(style, model.owning<ParagraphStyle>('nestedGrepStyles')), ParagraphAttributes.of),
+            paragraphAttributes: Option.zipWith(paragraph, settings, ParagraphAttributes.of),
         }));
     });
 }
@@ -133,7 +135,7 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
     static readonly of = Effect.fn('TextView.of')(function* (found: Text | TextFrame, slice: Slice) {
         const { enumerator, NothingEnum, frame } = yield* Model;
         const text = frame(found) ? found.texts.item(0) : found;
-        const overridden = yield* TextView.overrides(text);
+        const [overridden, settings] = yield* Effect.all([TextView.overrides(text), HostSettings.read(text)]);
         const every = text.textStyleRanges.everyItem().getElements();
         const ranges = slice.of(every);
         const styles = yield* Effect.try({
@@ -171,7 +173,7 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
             overrides: overridden,
             ranges: every.length,
             runs,
-            paragraphAttributes: ParagraphAttributes.of(text),
+            paragraphAttributes: ParagraphAttributes.of(text, settings),
         }));
     });
 }

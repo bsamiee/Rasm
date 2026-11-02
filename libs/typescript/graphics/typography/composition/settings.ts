@@ -5,7 +5,7 @@ import { Tag } from '#/tags';
 
 const Range = (value: number, description: string) => {
     const range = Schema.Struct(Struct.Record(['min', 'desired', 'max'], Schema.Finite.pipe(Schema.withConstructorDefault(Effect.succeed(value)))))
-        .check(Schema.makeFilter(({ min, desired, max }: { readonly min: number; readonly desired: number; readonly max: number }) => min <= desired && desired <= max, { description: 'min <= desired <= max' }))
+        .check(Schema.makeFilter(({ min, desired, max }) => min <= desired && desired <= max, { description: 'min <= desired <= max' }))
         .annotate({ description });
     return range.pipe(Schema.withConstructorDefault(Effect.sync(() => range.make({}))));
 };
@@ -28,7 +28,7 @@ const Spacing = Schema.Struct({
 class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>('Settings')(
     {
         direction: Schema.OptionFromOptionalKey(Schema.Literals(['rtl', 'ltr']).annotate({ description: 'Paragraph direction, script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        numberingSystem: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Intl numbering system id (arab, arabext, latn), source digits when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        numberingSystem: Schema.OptionFromOptionalKey(Schema.String.check(Schema.isPattern(/^[a-z\d]{3,8}$/u)).annotate({ description: 'Intl numbering system id (arab, arabext, latn), source digits when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         kashida: Kashida.pipe(Schema.withConstructorDefault(Effect.sync(() => Kashida.make({})))),
         marks: Marks.pipe(Schema.withConstructorDefault(Effect.sync(() => Marks.make({})))),
         features: Schema.Array(Tag)

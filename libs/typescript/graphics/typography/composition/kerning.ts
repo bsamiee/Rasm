@@ -7,10 +7,7 @@ import { Word } from '#/text/words';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Span {
-    readonly start: number;
-    readonly end: number;
-}
+type Span = Word['runs'][number];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +17,7 @@ const Wall = Schema.Struct({
     foot: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Height in em, face descender when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
 });
 const Rule = Schema.Struct({
-    side: Schema.Literals(['before', 'after']).annotate({ description: 'Gap side of letter: before reads first two base letters of following run, after reads last of preceding run' }),
+    side: Schema.Literals(['before', 'after']).annotate({ description: 'Letter side facing gap: before reads first two base letters of following run, after reads last of preceding run' }),
     groups: Schema.Array(Schema.String).annotate({ description: 'ICU JoiningGroup value names' }),
     wall: Wall.annotate({ description: 'Line slid to contact with preceding run from the gap side' }).pipe(Schema.withConstructorDefault(Effect.sync(() => Wall.make({})))),
     correction: Schema.Finite.annotate({ description: 'Added to gap, in em' }).pipe(Schema.withConstructorDefault(Effect.succeed(0))),
@@ -38,10 +35,11 @@ class Kerning extends Data.Class<{
         otherwise: Otherwise.pipe(Schema.withConstructorDefault(Effect.sync(() => Otherwise.make({})))),
     });
     static readonly rule = Effect.fn('Kerning.rule')(function* (rules: typeof Kerning.Rules.Type, before: string, after: string) {
-        const { JoiningGroup, JoiningType } = yield* Unicode;
+        const { GeneralCategory, GeneralCategoryGroup, JoiningGroup } = yield* Unicode;
+        const letter = GeneralCategoryGroup.letter();
         const letters = (text: string) =>
             points(text)
-                .filter((point) => JoiningType.forChar(point) !== JoiningType.Transparent)
+                .filter((point) => letter.contains(GeneralCategory.forChar(point)))
                 .map((point) => JoiningGroup.forChar(point).value);
         const facing = { before: Array.take(letters(after), 2), after: Array.takeRight(letters(before), 1) };
         return Option.getOrElse(
@@ -67,13 +65,8 @@ class Kerning extends Data.Class<{
         const words = yield* Word.of(text);
         const content = ({ start, end }: Span) => text.slice(start, end);
         const lone = (span: Span) => Array.match(points(content(span)), { onEmpty: () => false, onNonEmpty: (all) => all.length === 1 && punctuation.contains(GeneralCategory.forChar(Array.headNonEmpty(all))) });
-        const spans = words.flatMap(({ start, end, runs }) =>
-            Array.sort(
-                [...runs, ...Array.zipWith([start, ...runs.map(Struct.get('end'))], [...runs.map(Struct.get('start')), end], (from, to) => ({ start: from, end: to })).filter(lone)],
-                Order.mapInput(Order.Number, ({ start: from }: Span) => from),
-            ),
-        );
-        const adjacent = Array.zip(spans, Array.drop(spans, 1)).filter(([before, after]) => !lone(after) && Array.contains(['', ' ', '\u200c'], text.slice(before.end, after.start)));
+        const spans = words.flatMap(({ start, end, runs }) => Array.sortWith([...runs, ...Array.zipWith([start, ...runs.map(Struct.get('end'))], [...runs.map(Struct.get('start')), end], (from, to) => ({ start: from, end: to })).filter(lone)], Struct.get('start'), Order.Number));
+        const adjacent = Array.window(spans, 2).filter(([before, after]) => !lone(after) && Array.contains(['', ' ', '\u200c'], text.slice(before.end, after.start)));
         return yield* Effect.map(
             Effect.forEach(adjacent, ([before, after]) =>
                 Effect.map(

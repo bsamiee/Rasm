@@ -6,10 +6,13 @@ import type { Link } from '#/link';
 import { Manifest } from '#/manifest';
 import { Plugin, Uxp } from '#/runtime';
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Root = Schema.declare((value: unknown): value is HTMLElement => value instanceof HTMLElement);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const logged = flow(Cause.pretty, Console.error);
-const Root = Schema.declare((value: unknown): value is HTMLElement => value instanceof HTMLElement);
 const hosted = Layer.merge(
     Layer.effect(Clock.Clock)(
         Effect.map(Clock.Clock, (base) => {
@@ -46,10 +49,10 @@ const plugin = <E, F>(
             return Layer.provideMerge(dial({ origin, extension: decoded.name }), Layer.succeed(Plugin)(decoded));
         }).pipe(Layer.unwrap, Layer.provideMerge(hosted), Layer.tapCause(logged)),
     );
-    const run = <X>(work: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(work));
+    const run = (work: Effect.Effect<unknown, F, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(work));
     const panel =
         (work: (root: HTMLElement) => Effect.Effect<void, F, Uxp | Plugin>) =>
-        (...[root]: readonly unknown[]): Promise<void> =>
+        (root?: unknown): Promise<void> =>
             run(Schema.decodeUnknownEffect(Root)(root).pipe(Effect.flatMap(work), Effect.tapCause(logged), Effect.forkDetach));
     Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
         Effect.flatMap(({ setup }) =>

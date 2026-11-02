@@ -1,21 +1,23 @@
-import type { InDesignDOMObject, InsertionPoint, Text, TextDefault } from 'adobe:indesign';
+import type { Characters, InDesignDOMObject, InsertionPoint, Text, TextDefault } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import type { Adjust } from '@rasm/automation/typesetting';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Match, Option } from 'effect';
-import { accumulated, HostSettings, THOUSANDTHS } from '#/documents/settings';
+import { Array, Effect, flow, Match, Option, Record, Schema } from 'effect';
+import { HostSettings } from '#/documents/settings';
 import { reference } from '#/dom/specifier';
 import { commit } from '#/dom/transactions';
 import { Change } from '#/requests/change';
+import { manualKern } from '#/requests/kerns';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MARK = /^\p{Mn}+$/v;
+const MARK = /^\p{M}+$/v;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const added = <K extends string>(target: InDesignDOMObject<unknown> & Record<K, number>, member: K, amount: number) => Effect.flatMap(Effect.try({ try: () => target[member], catch: HostError.refused(`${target.toSpecifier()} ${member}`) }), (current) => Change.write(target, { [member]: current + amount }));
-const baseLetter = (characters: { readonly item: (index: number) => { readonly contents: unknown } }, at: number): Option.Option<number> => {
+const added = <K extends string>(target: InDesignDOMObject<unknown> & Record<NoInfer<K>, number>, amounts: Record.ReadonlyRecord<K, number>) =>
+    Effect.flatMap(Effect.try({ try: () => Record.map(amounts, (amount, member) => target[member] + amount), catch: HostError.refused(`${Record.keys(amounts).join(', ')} of ${target.toSpecifier()}`) }), (values) => Change.write(target, values));
+const baseLetter = (characters: Characters, at: number): Option.Option<number> => {
     if (at < 0) {
         return Option.none();
     }
@@ -33,21 +35,22 @@ const pointAfterBase = Effect.fnUntraced(function* (text: Text) {
     });
     return yield* Effect.fromOption(point, () => Unmatched.make({ subject: 'base letter', query: Option.some(specifier), candidates: [] }));
 });
+const kernBy = Effect.fnUntraced(function* (text: Text, em: number) {
+    const [point, held] = yield* Effect.all([pointAfterBase(text), manualKern]);
+    const current = yield* Effect.try({ try: () => held(point), catch: HostError.refused(`kerning of ${point.toSpecifier()}`) });
+    return yield* Change.write(point, { kerningValue: current + HostSettings.thousandths(em) });
+});
 const adjustText = (target: Text | TextDefault, deltas: Adjust['deltas']) =>
     Effect.map(
-        accumulated(deltas, (delta) =>
+        Effect.forEach(deltas, (delta) =>
             Match.valueTags(delta, {
-                Kerning: ({ em }) =>
-                    HostSettings.range(target).pipe(
-                        Effect.flatMap(pointAfterBase),
-                        Effect.flatMap((point) => Change.write(point, { kerningValue: Option.getOrElse(Option.liftThrowable(() => point.kerningValue)(), () => 0) + em * THOUSANDTHS })),
-                    ),
-                Tracking: ({ em }) => added(target, 'tracking', em * THOUSANDTHS),
-                BaselineShift: ({ points }) => added(target, 'baselineShift', points),
-                Marks: ({ x, y }) => Effect.flatMap(HostSettings.read(target), ({ marks }) => HostSettings.write(target, { marks: { x: marks.x + x, y: marks.y + y } })),
+                Kerning: ({ em }) => Effect.flatMap(HostSettings.range(target), (text) => kernBy(text, em)),
+                Tracking: ({ em }) => added(target, { tracking: HostSettings.thousandths(em) }),
+                BaselineShift: ({ points }) => added(target, { baselineShift: points }),
+                Marks: ({ x, y }) => Effect.flatMap(Effect.orDie(Schema.encodeEffect(HostSettings.fields.marks)({ x, y })), (amounts) => added(target, amounts)),
             }),
         ),
-        Array.dedupe,
+        flow(Array.flatten, Array.dedupe),
     );
 const adjust = Effect.fn('adjust')(function* (payload: Adjust) {
     const target = yield* HostSettings.target(payload.target);

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/search",
     "private": true,
-    "description": "Name lookup that answers a miss with ranked near matches",
+    "description": "Name lookup that answers a miss with ranked near matches, decimal digits across numbering systems",
     "sideEffects": false,
     "type": "module",
     "imports": {

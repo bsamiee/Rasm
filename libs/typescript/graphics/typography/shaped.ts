@@ -53,10 +53,7 @@ class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Sh
                 cluster,
                 ...Record.map(position, em),
                 extents: Option.map(Option.fromUndefinedOr(face.font.glyphExtents(codepoint)), Record.map(em)),
-                class: Option.getOrElse(
-                    Array.findFirst(GlyphClasses.literals, (key) => GlyphClass[key] === face.font.face.getGlyphClass(codepoint)),
-                    () => 'UNCLASSIFIED' as const,
-                ),
+                class: Array.getUnsafe(GlyphClasses.literals, face.font.face.getGlyphClass(codepoint)),
                 flags: GlyphFlags.literals.filter((flag) => (set & GlyphFlag[flag]) !== 0),
             })),
             missing: Array.dedupe(characters.filter(({ cluster }) => unmapped.has(cluster)).map(({ codepoint }) => String.fromCodePoint(codepoint))),

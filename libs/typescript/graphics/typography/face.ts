@@ -150,9 +150,6 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     markClass(glyph: number) {
         return Option.fromUndefinedOr(this.markClasses.get(glyph));
     }
-    outline(glyph: number) {
-        return this.font.glyphToJson(glyph);
-    }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

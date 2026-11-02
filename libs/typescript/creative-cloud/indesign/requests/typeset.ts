@@ -7,10 +7,8 @@ import { commit } from '#/dom/transactions';
 
 const typeset = Effect.fn('typeset')(function* (payload: Typeset) {
     const target = yield* HostSettings.target(payload.target);
-    return yield* Option.match(payload.settings, {
-        onNone: () => HostSettings.read(target),
-        onSome: (given) => commit(payload.label, Effect.andThen(HostSettings.write(target, given), HostSettings.read(target))),
-    });
+    yield* Effect.transposeOption(Option.map(payload.settings, (given) => commit(payload.label, HostSettings.write(target, given))));
+    return yield* HostSettings.read(target);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

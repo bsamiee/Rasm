@@ -15,11 +15,11 @@ const ElementID = Schema.String.annotate({ description: 'Base64 Accessibility re
 const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
 const Window = Schema.Struct({
     number: WindowID,
-    title: Schema.optionalKey(Schema.String.annotate({ description: 'kCGWindowName, absent when unset or without the Screen Recording grant' })),
+    title: Schema.optionalKey(Schema.String.annotate({ description: 'kCGWindowName, absent when unset or without Screen Recording grant' })),
     frame: Frame,
     layer: Schema.Int,
     onScreen: Schema.Boolean,
-}).annotate({ description: 'CoreGraphics window of the instance that no element describes, readable through capture' });
+}).annotate({ description: 'CoreGraphics window no element describes, readable through capture' });
 const controlFields = {
     id: ElementID,
     role: Schema.String,
@@ -71,7 +71,7 @@ const usage = {
 };
 const unresponsive = {
     process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread run state: running, waiting, or stopped by a signal or debugger' }),
-    windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window of the instance, a modal alert included' }),
+    windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window, modal alerts included' }),
 };
 const exit = {
     status: Schema.optionalKey(Schema.Int),
@@ -111,7 +111,7 @@ const State = Schema.Union([
     Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
     Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
 ])
-    .annotate({ description: 'Elements, dialogs requiring an answer, and undescribed windows while responding, the process status and every window when unresponsive past Accessibility timeout, failed on status read' })
+    .annotate({ description: 'Elements, dialogs requiring answer and undescribed windows while responding, process status and every window when unresponsive past Accessibility timeout, failed on status read' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(

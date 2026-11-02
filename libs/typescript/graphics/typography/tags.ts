@@ -7,7 +7,7 @@ const TAG_LENGTH = 4;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Tag = Schema.String.check(Schema.isMaxLength(TAG_LENGTH)).pipe(Schema.decodeTo(Schema.String.check(Schema.isBetweenLength(TAG_LENGTH, TAG_LENGTH)), SchemaTransformation.transform({ decode: String.padEnd(TAG_LENGTH), encode: String.trimEnd })));
+const Tag = Schema.String.check(Schema.isBetweenLength(1, TAG_LENGTH)).pipe(Schema.decodeTo(Schema.String.check(Schema.isBetweenLength(TAG_LENGTH, TAG_LENGTH)), SchemaTransformation.transform({ decode: String.padEnd(TAG_LENGTH), encode: String.trimEnd })));
 const TagSettings = <A extends Feature | Variation>(host: { new (tag: string, value?: number): A; fromString: (given: string) => A | undefined }, description: string) =>
     Schema.Array(
         Schema.String.annotate({ description }).pipe(

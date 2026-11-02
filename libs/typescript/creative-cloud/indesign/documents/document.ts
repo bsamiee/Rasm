@@ -1,6 +1,7 @@
 import type { Document, Gradient, Layer, Link, MasterSpread, MixedInk, MixedInkGroup, Page, PageItem, PlainColor, PlainSwatch, Spread, Tint } from 'adobe:indesign';
 import { HostError, type Open, Reference } from '@rasm/automation/requests';
 import { Array, Effect, Match, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { HostSettings } from '#/documents/settings';
 import { ParagraphAttributes } from '#/documents/text';
 import { Model } from '#/dom/model';
 import { reference } from '#/dom/specifier';
@@ -168,7 +169,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
         return { ...reference(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
     });
     static readonly of = (found: Document) =>
-        Effect.flatMap(DocumentView.row(found), (row) =>
+        Effect.flatMap(Effect.all([DocumentView.row(found), HostSettings.read(found.textDefaults)]), ([row, settings]) =>
             read(DocumentView, found.toSpecifier(), () => {
                 const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = found;
                 return {
@@ -190,7 +191,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
                     styles: { paragraph: found.allParagraphStyles.length, character: found.allCharacterStyles.length, object: found.allObjectStyles.length, table: found.allTableStyles.length, cell: found.allCellStyles.length },
                     preflightOptions: { ...picked(DocumentView.fields.preflightOptions.fields)(preflight), preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name },
                     activeProcess: preflight.preflightOff ? Option.none() : Option.some(found.activeProcess),
-                    textDefaults: ParagraphAttributes.of(found.textDefaults),
+                    textDefaults: ParagraphAttributes.of(found.textDefaults, settings),
                 };
             }),
         );

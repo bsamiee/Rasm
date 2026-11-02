@@ -1,9 +1,9 @@
-import type { Text } from 'adobe:indesign';
+import type { InsertionPoint, Text } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import type { Kerns } from '@rasm/automation/typesetting';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Effect, Match, Option, Predicate } from 'effect';
-import { accumulated, HostSettings, THOUSANDTHS } from '#/documents/settings';
+import { Array, Effect, Match, Option } from 'effect';
+import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
 import { reference } from '#/dom/specifier';
 import { commit } from '#/dom/transactions';
@@ -11,27 +11,29 @@ import { Change } from '#/requests/change';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const manualKern = Model.use(({ app }) =>
+    Effect.try({
+        try: () => {
+            const manual = app.translateKeyString('$ID/Manual');
+            return (point: InsertionPoint) => (point.kerningMethod === manual ? point.kerningValue : 0);
+        },
+        catch: HostError.refused('$ID/Manual'),
+    }),
+);
 const clearKerns = Effect.fnUntraced(function* (text: Text) {
     yield* Change.write(text, { kerningMethod: '$ID/Metrics' });
-    return yield* Effect.try({ try: () => text.insertionPoints.length, catch: HostError.refused(`insertion points of ${text.toSpecifier()}`) });
+    return yield* Effect.try({ try: () => text.length, catch: HostError.refused(`length of ${text.toSpecifier()}`) });
 });
 const writeKerns = Effect.fnUntraced(function* (text: Text, rows: Exclude<Kerns['kerns'], 'clear'>) {
-    const { app } = yield* Model;
-    const manual = app.translateKeyString('$ID/Manual');
+    const held = yield* manualKern;
     const points = text.insertionPoints;
-    const written = yield* accumulated(
-        rows,
-        Effect.fnUntraced(function* ({ index, em }) {
-            const refused = HostError.refused(`insertion point ${index} of ${text.toSpecifier()}`);
-            const point = points.item(index);
-            if (!point.isValid) {
-                return yield* Unmatched.make({ subject: `insertion point among indexes 0 to ${points.length - 1}`, query: Option.some(`${index}`), candidates: [] });
-            }
-            const kept = yield* Effect.try({ try: () => point.kerningMethod === manual && point.kerningValue !== 0, catch: refused });
-            return kept ? [] : yield* Change.write(point, { kerningValue: em * THOUSANDTHS });
-        }),
-    );
-    return written.length;
+    const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
+    const length = yield* Effect.try({ try: () => points.length, catch: refused });
+    const outside = rows.filter(({ index }) => index >= length);
+    yield* Array.isReadonlyArrayEmpty(outside) ? Effect.void : Unmatched.make({ subject: `insertion point among indexes 0 to ${length - 1}`, query: Option.some(outside.map(({ index }) => index).join(', ')), candidates: [] });
+    const open = yield* Effect.try({ try: () => rows.filter(({ index }) => held(points.item(index)) === 0), catch: refused });
+    yield* Effect.forEach(open, ({ index, em }) => Change.write(points.item(index), { kerningValue: HostSettings.thousandths(em) }), { discard: true });
+    return open.length;
 });
 const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
     const text = yield* Effect.flatMap(HostSettings.target(payload.target), HostSettings.range);
@@ -39,7 +41,7 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
         payload.label,
         Effect.map(
             Match.value(payload.kerns).pipe(
-                Match.when(Predicate.isString, () => clearKerns(text)),
+                Match.when('clear', () => clearKerns(text)),
                 Match.orElse((rows) => writeKerns(text, rows)),
             ),
             (written) => ({ ...reference(text), written }),
@@ -49,4 +51,4 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { clearKerns, kerns, writeKerns };
+export { clearKerns, kerns, manualKern, writeKerns };
