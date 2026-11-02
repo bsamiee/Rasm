@@ -1,6 +1,7 @@
 use std::{borrow::Cow, iter, mem};
 
-use kurbo::{BezPath, ParamCurveDeriv as _, PathEl, PathSeg, Point, Shape as _, Stroke, StrokeOpts, Vec2, segments, stroke};
+use itertools::Itertools as _;
+use kurbo::{BezPath, PathEl, PathSeg, Shape as _, Stroke, StrokeOpts, Vec2, segments, stroke};
 
 use crate::{Alignment, Linetype, Pen, Tolerance};
 
@@ -10,36 +11,25 @@ use crate::{Alignment, Linetype, Pen, Tolerance};
 pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Tolerance) -> Vec<(Cow<'path, [PathEl]>, f64, kurbo::Dashes)> {
     let pattern = linetype.dashes.iter().copied().collect::<kurbo::Dashes>();
     let first = *linetype.dashes.first();
-    let period = linetype.dashes.iter().cycle().take(linetype.dashes.len().get().next_multiple_of(2)).sum::<f64>();
+    let period = linetype.dashes.iter().sum::<f64>();
     let length = |elements: &[PathEl]| elements.perimeter(tolerance.into_inner() / f64::from(u32::try_from(segments(elements.iter().copied()).count()).unwrap_or(u32::MAX)));
     let fitted = |piece: Cow<'path, [PathEl]>| {
         let length = length(&piece);
         let scale = length / ((length / period).round().max(1.0_f64) * period);
         (length > 0.0_f64).then(|| (piece, scale * first / 2.0_f64, pattern.iter().map(|dash| dash * scale).collect()))
     };
-    let tangent = |controls: [Point; 3]| controls.into_iter().map(Point::to_vec2).find(|direction| *direction != Vec2::ZERO);
-    let directions = |segment: &PathSeg| {
-        let derivative = segment.to_cubic().deriv();
-        tangent([derivative.p0, derivative.p1, derivative.p2]).zip(tangent([derivative.p2, derivative.p1, derivative.p0]))
-    };
     path.subpaths()
         .filter(|elements| segments(elements.iter().copied()).next().is_some())
         .flat_map(|elements| match linetype.alignment {
-            Alignment::Start(phase) => vec![(Cow::Borrowed(elements), phase, pattern.clone())],
+            Alignment::Start { dash_offset } => vec![(Cow::Borrowed(elements), dash_offset.into_inner(), pattern.clone())],
             Alignment::Center => vec![(Cow::Borrowed(elements), first.midpoint(-length(elements)), pattern.clone())],
-            Alignment::Corners(angle) => {
-                let corner = |left: &PathSeg, right: &PathSeg| {
-                    directions(left).zip(directions(right)).is_some_and(|((_, incoming), (outgoing, _))| incoming.cross(outgoing).atan2(incoming.dot(outgoing)).abs() > angle)
-                };
-                let mut runs = segments(elements.iter().copied()).filter(|segment| directions(segment).is_some()).collect::<Vec<_>>();
+            Alignment::Corners { angle } => {
+                let corner = |(_, (_, incoming)): &(PathSeg, (Vec2, Vec2)), (_, (outgoing, _)): &(PathSeg, (Vec2, Vec2))| crate::deflection(*incoming, *outgoing) > angle.into_inner();
+                let mut runs = segments(elements.iter().copied()).filter_map(|segment| crate::tangents(&segment).map(|tangents| (segment, tangents))).collect::<Vec<_>>();
                 let seam = if matches!(elements.last(), Some(PathEl::ClosePath)) { iter::zip(iter::chain(runs.last(), &runs), &runs).position(|(left, right)| corner(left, right)) } else { Some(0) };
-                match seam {
-                    None => fitted(Cow::Borrowed(elements)).into_iter().collect(),
-                    Some(seam) => {
-                        runs.rotate_left(seam);
-                        runs.chunk_by(|left, right| !corner(left, right)).filter_map(|run| fitted(Cow::Owned(BezPath::from_path_segments(run.iter().copied()).into_elements()))).collect::<Vec<_>>()
-                    }
-                }
+                let Some(seam) = seam else { return fitted(Cow::Borrowed(elements)).into_iter().collect() };
+                runs.rotate_left(seam);
+                runs.chunk_by(|left, right| !corner(left, right)).filter_map(|run| fitted(Cow::Owned(BezPath::from_path_segments(run.iter().map(|&(segment, _)| segment)).into_elements()))).collect()
             }
         })
         .collect()
@@ -51,8 +41,7 @@ pub fn dash(path: &BezPath, linetype: &Linetype, tolerance: Tolerance) -> BezPat
 #[must_use]
 pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance: Tolerance) -> BezPath {
     let dotted = |pattern: &kurbo::Dashes| {
-        let even = pattern.iter().cycle().take(pattern.len().next_multiple_of(2)).copied().collect::<Vec<_>>();
-        let (pairs, _) = even.as_chunks::<2>();
+        let (pairs, _) = pattern.as_chunks::<2>();
         let dot = pairs.iter().filter_map(|&[on, off]| (on <= 0.0_f64).then_some(off)).reduce(f64::min).map_or_default(|gap| gap.min(tolerance.into_inner()));
         (dot / 2.0_f64, pairs.iter().flat_map(|&[on, off]| if on <= 0.0_f64 { [dot, off - dot] } else { [on, off] }).collect::<kurbo::Dashes>())
     };
@@ -66,7 +55,12 @@ pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance
             .collect::<Vec<_>>();
         Cow::Owned(joined(&pieces, tolerance).collect())
     });
-    stroke(centerline.iter(), &Stroke::new(pen.width.into_inner()).with_caps(pen.cap).with_join(pen.join).with_miter_limit(pen.miter_limit), &StrokeOpts::default(), tolerance.into_inner())
+    stroke(
+        centerline.iter(),
+        &Stroke::new(pen.width.into_inner()).with_caps(pen.cap).with_join(pen.join).with_miter_limit(pen.miter_limit.into_inner()),
+        &StrokeOpts::default(),
+        tolerance.into_inner(),
+    )
 }
 
 fn joined(pieces: &[(Cow<'_, [PathEl]>, f64, kurbo::Dashes)], tolerance: Tolerance) -> impl Iterator<Item = PathEl> {
@@ -84,8 +78,15 @@ fn joined(pieces: &[(Cow<'_, [PathEl]>, f64, kurbo::Dashes)], tolerance: Toleran
                 parts.rotate_left(start);
                 parts
             })
+            .coalesce(|mut previous, part| {
+                if touching(&previous, &part) {
+                    previous.extend(part.into_iter().skip(1));
+                    Ok(previous)
+                } else {
+                    Err((previous, part))
+                }
+            })
             .collect::<Vec<_>>();
-        parts.dedup_by(|part, previous| touching(previous, part).then(|| previous.extend(part.drain(1..))).is_some());
         match parts.as_mut_slice() {
             [only] if leaves(only) && touching(only, only) => only.push(PathEl::ClosePath),
             [first, .., last] if touching(last, first) => last.extend(mem::take(first).into_iter().skip(1)),

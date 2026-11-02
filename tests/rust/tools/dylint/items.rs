@@ -78,15 +78,15 @@ fn single_reader(found: &str) {
        = note: `#[warn(single_reader)]` on by default
 
     warning: `infallible` has one reader, `certain`
-       --> tools/dylint/examples/discarded_error.rs:15:1
+       --> tools/dylint/examples/discarded_error.rs:21:1
         |
-     15 | fn infallible(value: u32) -> Result<u32, Infallible> { Ok(value) }
+     21 | fn infallible(value: u32) -> Result<u32, Infallible> { Ok(value) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/discarded_error.rs:135:33
+       --> tools/dylint/examples/discarded_error.rs:141:33
         |
-    135 | fn certain(value: u32) -> u32 { infallible(value).unwrap_or_default() }
+    141 | fn certain(value: u32) -> u32 { infallible(value).unwrap_or_default() }
         |                                 ^^^^^^^^^^
         = help: move `infallible` into `certain` as a closure
         = note: `#[warn(single_reader)]` on by default

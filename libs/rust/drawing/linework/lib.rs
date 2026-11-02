@@ -1,24 +1,22 @@
-#![feature(cmp_minmax, default_field_values)]
+#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, impl_trait_in_assoc_type)]
 
-use std::{iter, ops::Range, sync::Arc};
+use core::range::Range;
+use std::{f64::consts::PI, iter, sync::Arc};
 
 use color::{OpaqueColor, Srgb};
-use geo_types::{Coord, LineString};
-use kurbo::{Affine, BezPath, Cap, Join, PathEl, Point, Rect, Shape, Vec2, flatten};
+use geo_types::{Coord, LineString, MultiPolygon, Polygon};
+use itertools::Itertools as _;
+use kurbo::{Affine, BezPath, Cap, Join, ParamCurveDeriv as _, PathEl, PathSeg, Point, Rect, Shape, Vec2, flatten};
+use linebender_resource_handle::FontData;
 use linesweeper::{
     Error, FillRule,
-    topology::{Contour, Topology, WindingNumber},
+    topology::{Contour, ContourIdx, Topology, WindingNumber},
 };
-use nonempty_collections::NEVec;
+use nonempty_collections::{NEVec, NonEmptyIterator as _};
+use parlance::{FontFamily, FontVariation};
+use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Alignment {
-    Start(f64),
-    Center,
-    Corners(f64),
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Side {
@@ -32,7 +30,7 @@ pub enum Target {
     Drafting,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, enum_map::Enum)]
 pub enum EdgeKind {
     Crease,
     Silhouette,
@@ -40,7 +38,7 @@ pub enum EdgeKind {
     Cut,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, enum_map::Enum)]
 pub enum Visibility {
     Visible,
     Hidden,
@@ -61,6 +59,14 @@ pub enum Baseline {
     Bottom,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+pub enum Dash {
+    #[display("dash array")]
+    Array,
+    #[display("dash offset")]
+    Offset,
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -69,10 +75,49 @@ pub struct Tolerance(f64);
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Width(f64);
 
+#[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct MiterLimit(f64);
+
+#[nutype::nutype(const_fn, validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct Opacity(f64);
+
+impl Opacity {
+    pub const OPAQUE: Self = Self::try_new(1.0_f64).ok().unwrap();
+}
+
 #[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct FontSize(f64);
 
+#[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0, less_or_equal = 1000.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct FontWeight(f32);
+
+#[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct FontWidth(f32);
+
+#[nutype::nutype(validate(finite, greater_or_equal = -90.0, less_or_equal = 90.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct Slant(f32);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FontStyle {
+    Normal,
+    Italic,
+    Oblique { angle: Option<Slant> },
+}
+
+#[nutype::nutype(validate(finite), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct DashOffset(f64);
+
+#[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = PI), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct Deflection(f64);
+
+#[nutype::nutype(validate(with = invertible, error = LineworkError), derive(Debug, Clone, Copy, PartialEq, Deref))]
+pub struct Placement(Affine);
+
+#[nutype::nutype(validate(with = finite, error = Error), derive(Debug, Clone, PartialEq, Deref))]
+pub struct Path(BezPath);
+
 #[nutype::nutype(
+    sanitize(with = |pattern: NEVec<f64>| if pattern.len().get().is_multiple_of(2) { pattern } else { pattern.nonempty_iter().chain(pattern.iter()).copied().collect() }),
     validate(predicate = |pattern: &NEVec<f64>| {
         let period = pattern.iter().sum::<f64>();
         pattern.iter().all(|dash| *dash >= 0.0_f64) && period.is_finite() && period > 0.0_f64
@@ -80,6 +125,13 @@ pub struct FontSize(f64);
     derive(Debug, Clone, PartialEq, Deref)
 )]
 pub struct Dashes(NEVec<f64>);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Alignment {
+    Start { dash_offset: DashOffset },
+    Center,
+    Corners { angle: Deflection },
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Cmyk {
@@ -100,24 +152,32 @@ pub enum Color {
 pub struct Pen {
     pub width: Width,
     pub color: Color,
+    pub opacity: Opacity = Opacity::OPAQUE,
     pub cap: Cap = Cap::Round,
     pub join: Join = Join::Round,
-    pub miter_limit: f64 = 4.0,
+    pub miter_limit: MiterLimit = MiterLimit::try_new(4.0).ok().unwrap(),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Linetype {
     pub dashes: Dashes,
     pub alignment: Alignment,
+    pub target: Target,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Family {
+pub struct Descriptor {
     pub angle: f64,
     pub origin: Point,
     pub delta: Vec2,
     pub dashes: Option<Dashes>,
 }
+
+#[nutype::nutype(
+    validate(predicate = |descriptor: &Descriptor| descriptor.angle.is_finite() && descriptor.origin.is_finite() && descriptor.delta.is_finite() && descriptor.delta.y != 0.0_f64),
+    derive(Debug, Clone, PartialEq, Deref)
+)]
+pub struct Family(Descriptor);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pattern {
@@ -127,7 +187,7 @@ pub struct Pattern {
 
 #[derive(Debug, Clone, Default, PartialEq, derive_more::Deref)]
 #[deref(forward)]
-pub struct Region(Vec<Contour>);
+pub struct Region(Arc<[Contour]>);
 
 impl Region {
     pub fn new(shape: &impl Shape, fill_rule: FillRule, tolerance: Tolerance) -> Result<Self, LineworkError> {
@@ -137,46 +197,67 @@ impl Region {
             .subpaths()
             .flat_map(|elements| iter::chain(elements.iter().copied(), (!matches!(elements.last(), Some(PathEl::ClosePath))).then_some(PathEl::ClosePath)))
             .collect::<BezPath>();
-        swept::<i32>(vec![(&closed, ())], tolerance, |&winding| fill_rule.is_inside(winding))
+        finite(&closed)?;
+        swept::<i32>(iter::once((&closed, ())), tolerance, |&winding| fill_rule.is_inside(winding))
     }
 
-    #[must_use]
-    pub fn transform(self, affine: Affine) -> Self {
-        match affine.determinant() {
-            0.0_f64 => Self::default(),
-            determinant => Self(
-                self.0
-                    .into_iter()
-                    .map(|Contour { path, parent, outer }| {
-                        let moved = affine * path;
-                        Contour { path: if determinant.is_sign_negative() { moved.reverse_subpaths() } else { moved }, parent, outer }
-                    })
-                    .collect(),
-            ),
-        }
+    pub fn transform(&self, affine: Placement) -> Result<Self, LineworkError> {
+        let mirrored = affine.determinant().is_sign_negative();
+        let moved = self
+            .iter()
+            .map(|Contour { path, parent, outer }| {
+                let moved = *affine * path;
+                Contour { path: if mirrored { moved.reverse_subpaths() } else { moved }, parent: *parent, outer: *outer }
+            })
+            .collect::<Arc<[_]>>();
+        moved.iter().try_for_each(|contour| finite(&contour.path))?;
+        Ok(Self(moved))
     }
+}
+
+impl Shape for Region {
+    type PathElementsIter<'iter> = impl Iterator<Item = PathEl> + 'iter;
+
+    fn path_elements(&self, _tolerance: f64) -> Self::PathElementsIter<'_> { self.iter().flat_map(|contour| contour.path.iter()) }
+
+    fn area(&self) -> f64 { self.iter().map(|contour| contour.path.area()).sum() }
+
+    fn perimeter(&self, accuracy: f64) -> f64 { self.iter().map(|contour| contour.path.perimeter(accuracy)).sum() }
+
+    fn winding(&self, pt: Point) -> i32 { self.iter().map(|contour| contour.path.winding(pt)).sum() }
+
+    fn bounding_box(&self) -> Rect { self.iter().map(|contour| contour.path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, enum_map::Enum)]
+pub struct Class {
+    pub kind: EdgeKind,
+    pub visibility: Visibility,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Edge {
-    pub path: BezPath,
-    pub kind: EdgeKind,
-    pub visibility: Visibility,
+    pub path: Path,
+    pub class: Class,
     pub depth: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Text {
     pub content: Arc<str>,
-    pub family: Arc<str>,
+    pub family: FontFamily<'static>,
     pub size: FontSize,
-    pub placement: Affine,
+    pub placement: Placement,
+    pub weight: FontWeight = FontWeight::try_new(400.0).ok().unwrap(),
+    pub width: FontWidth = FontWidth::try_new(1.0).ok().unwrap(),
+    pub style: FontStyle = FontStyle::Normal,
     pub anchor: Anchor = Anchor::Start,
     pub baseline: Baseline = Baseline::Alphabetic,
-    pub width: Option<f64> = None,
+    pub max_advance: Option<Width> = None,
+    pub target: Target = Target::Model,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Glyph {
     pub id: u32,
     pub cluster: Range<usize>,
@@ -186,14 +267,14 @@ pub struct Glyph {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GlyphRun {
-    pub font: Arc<[u8]>,
-    pub index: u32,
+    pub font: FontData,
     pub family: Arc<str>,
     pub size: FontSize,
-    pub variations: Arc<[([u8; 4], f32)]>,
+    pub variations: Arc<[FontVariation]>,
     pub glyphs: Vec<Glyph>,
     pub text: Arc<str>,
-    pub placement: Affine,
+    pub placement: Placement,
+    pub target: Target,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -205,12 +286,13 @@ pub enum Content {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Element {
-    Stroke { path: BezPath, pen: Pen, linetype: Option<Linetype> },
-    Fill { region: Region, color: Color },
-    Hatch { region: Region, pattern: Pattern, placement: Affine, pen: Pen },
-    Text { text: Text, color: Color },
-    Glyphs { run: GlyphRun, color: Color },
-    Placed { content: Content, placement: Affine },
+    Stroke { path: Path, pen: Pen, linetype: Option<Linetype> },
+    Fill { region: Region, color: Color, opacity: Opacity = Opacity::OPAQUE },
+    Hatch { region: Region, pattern: Pattern, placement: Placement, pen: Pen },
+    Text { text: Text, color: Color, opacity: Opacity = Opacity::OPAQUE },
+    Glyphs { run: GlyphRun, color: Color, opacity: Opacity = Opacity::OPAQUE },
+    Placed { content: Content, placement: Placement, opacity: Opacity = Opacity::OPAQUE },
+    Clip { region: Region, keep: Side, elements: Vec<Self> },
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -219,31 +301,70 @@ pub enum Element {
 pub enum LineworkError {
     #[error(transparent)]
     Sweep(#[from] Error),
-    #[error("element {index} has a path the sweep refuses")]
-    Element { index: usize, source: Error },
+    #[error("affine {0:?} is singular or not finite")]
+    Placement(Affine),
+    #[error("{0} leaves its range once scaled")]
+    Scaled(Dash),
+    #[error("hatch family {family} places its rows {spacing} apart on paper, under the tolerance")]
+    Spacing { family: usize, spacing: f64 },
+    #[error("element {index}: {}", errors.iter().format("; "))]
+    Element { index: usize, errors: NEVec<Self> },
+    #[error("layer {name}: {}", errors.iter().format("; "))]
+    Layer { name: Arc<str>, errors: NEVec<Self> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn transform(element: Element, affine: Affine) -> Element {
-    match element {
-        Element::Stroke { path, pen, linetype } => Element::Stroke { path: affine * path, pen, linetype },
-        Element::Fill { region, color } => Element::Fill { region: region.transform(affine), color },
-        Element::Hatch { region, pattern: pattern @ Pattern { families: _, target: Target::Model }, placement, pen } =>
-            Element::Hatch { region: region.transform(affine), pattern, placement: affine * placement, pen },
-        Element::Hatch { region, pattern: pattern @ Pattern { families: _, target: Target::Drafting }, placement, pen } =>
-            Element::Hatch { region: region.transform(affine), pattern, placement: affine * placement * Affine::scale(affine.determinant().abs().sqrt().recip()), pen },
-        Element::Text { text, color } => Element::Text { text: Text { placement: affine * text.placement, ..text }, color },
-        Element::Glyphs { run, color } => Element::Glyphs { run: GlyphRun { placement: affine * run.placement, ..run }, color },
-        Element::Placed { content, placement } => Element::Placed { content, placement: affine * placement },
-    }
+pub fn transform(elements: Vec<Element>, affine: Placement) -> Result<Vec<Element>, NEVec<LineworkError>> {
+    let scale = affine.determinant().abs().sqrt();
+    let placed = |placement: Placement, target: Target| {
+        Validated::from(Placement::try_new(match target {
+            Target::Model => *affine * *placement,
+            Target::Drafting => *affine * *placement * Affine::scale(scale.recip()),
+        }))
+    };
+    let lengthened = |Linetype { dashes, alignment, target }: Linetype| {
+        let shifted = |aligned: Alignment| match aligned {
+            Alignment::Start { dash_offset } => DashOffset::try_new(dash_offset.into_inner() * scale).map(|dash_offset| Alignment::Start { dash_offset }),
+            Alignment::Center | Alignment::Corners { angle: _ } => Ok(aligned),
+        };
+        match target {
+            Target::Drafting => Validated::Good(Linetype { dashes, alignment, target }),
+            Target::Model => Validated::from(Dashes::try_new(dashes.nonempty_iter().map(|dash| dash * scale).collect()).map_err(|DashesError::PredicateViolated| LineworkError::Scaled(Dash::Array)))
+                .map2(Validated::from(shifted(alignment).map_err(|DashOffsetError::FiniteViolated| LineworkError::Scaled(Dash::Offset))), |dashes, alignment| Linetype { dashes, alignment, target }),
+        }
+    };
+    let moved = |region: &Region| Validated::from(region.transform(affine));
+    elements
+        .into_iter()
+        .enumerate()
+        .map(|(index, element)| {
+            match element {
+                Element::Stroke { path, pen, linetype } => Validated::from(Path::try_new(*affine * path.into_inner()).map_err(LineworkError::from))
+                    .map2(linetype.map_or(Validated::Good(None), |linetype| lengthened(linetype).map(Some)), |path, linetype| Element::Stroke { path, pen, linetype }),
+                Element::Fill { region, color, opacity } => moved(&region).map(|region| Element::Fill { region, color, opacity }),
+                Element::Hatch { region, pattern, placement, pen } => moved(&region).map2(placed(placement, pattern.target), |region, placement| Element::Hatch { region, pattern, placement, pen }),
+                Element::Text { text, color, opacity } => placed(text.placement, text.target).map(|placement| Element::Text { text: Text { placement, ..text }, color, opacity }),
+                Element::Glyphs { run, color, opacity } => placed(run.placement, run.target).map(|placement| Element::Glyphs { run: GlyphRun { placement, ..run }, color, opacity }),
+                Element::Placed { content, placement, opacity } => placed(placement, Target::Model).map(|placement| Element::Placed { content, placement, opacity }),
+                Element::Clip { region, keep, elements: grouped } =>
+                    moved(&region).map2(transform(grouped, affine).map_or_else(Validated::Fail, Validated::Good), |region, inner| Element::Clip { region, keep, elements: inner }),
+            }
+            .ok()
+            .map_err(|errors| LineworkError::Element { index, errors })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
 }
 
-fn swept<W>(paths: Vec<(&BezPath, W::Tag)>, tolerance: Tolerance, inside: impl Fn(&W) -> bool) -> Result<Region, LineworkError>
+fn invertible(affine: &Affine) -> Result<(), LineworkError> { (affine.is_finite() && affine.determinant().is_normal()).then_some(()).ok_or(LineworkError::Placement(*affine)) }
+
+fn swept<'path, W>(paths: impl IntoIterator<Item = (&'path BezPath, W::Tag), IntoIter: Clone>, tolerance: Tolerance, inside: impl Fn(&W) -> bool) -> Result<Region, LineworkError>
 where W: WindingNumber {
-    paths.iter().try_for_each(|(path, _)| finite(path))?;
-    Ok(Region(Topology::<W>::from_paths(paths, tolerance.into_inner()).map_err(Error::from)?.contours(inside).into_contours().collect()))
+    let paths = paths.into_iter();
+    let bounds = paths.clone().map(|(path, _)| path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default();
+    let magnitude = bounds.min_x().min(bounds.min_y()).abs().max(bounds.max_x().max(bounds.max_y()).abs());
+    Ok(Region(Topology::<W>::from_paths(paths, tolerance.into_inner().max(magnitude * (f64::EPSILON * 64.0_f64))).map_err(Error::from)?.contours(inside).into_contours().collect()))
 }
 
 fn finite(path: &BezPath) -> Result<(), Error> {
@@ -254,13 +375,19 @@ fn finite(path: &BezPath) -> Result<(), Error> {
     }
 }
 
-fn extent(region: &Region) -> Option<Rect> { region.iter().map(|contour| contour.path.bounding_box()).reduce(|left, right| left.union(right)) }
+fn tangents(segment: &PathSeg) -> Option<(Vec2, Vec2)> {
+    let derivative = segment.to_cubic().deriv();
+    let tangent = |controls: [Point; 3]| controls.into_iter().map(Point::to_vec2).find(|direction| *direction != Vec2::ZERO);
+    tangent([derivative.p0, derivative.p1, derivative.p2]).zip(tangent([derivative.p2, derivative.p1, derivative.p0]))
+}
+
+fn deflection(incoming: Vec2, outgoing: Vec2) -> f64 { incoming.cross(outgoing).atan2(incoming.dot(outgoing)).abs() }
 
 fn coord(point: Point) -> Coord<f64> { Coord::from(<(f64, f64)>::from(point)) }
 
-fn flattened(path: &BezPath, tolerance: Tolerance) -> Vec<LineString<f64>> {
+fn flattened(elements: impl IntoIterator<Item = PathEl>, tolerance: Tolerance) -> Vec<LineString<f64>> {
     let mut lines = Vec::new();
-    flatten(path.iter(), tolerance.into_inner(), |element| match element {
+    flatten(elements, tolerance.into_inner(), |element| match element {
         PathEl::MoveTo(point) => lines.push(LineString::new(vec![coord(point)])),
         PathEl::LineTo(point) | PathEl::QuadTo(_, point) | PathEl::CurveTo(_, _, point) => lines.last_mut().into_iter().for_each(|line| line.0.push(coord(point))),
         PathEl::ClosePath => lines.last_mut().into_iter().for_each(LineString::close),
@@ -268,11 +395,24 @@ fn flattened(path: &BezPath, tolerance: Tolerance) -> Vec<LineString<f64>> {
     lines
 }
 
+fn polygons(region: &Region, tolerance: Tolerance) -> MultiPolygon<f64> {
+    let ring = |path: &BezPath| flattened(path.iter(), tolerance).into_iter().flat_map(|line| line.0).collect::<LineString<f64>>();
+    let holes = region.iter().fold(vec![Vec::new(); region.len()], |mut holes, contour| match contour {
+        Contour { path, parent: Some(ContourIdx(parent)), outer: false } => {
+            holes.get_mut(*parent).into_iter().for_each(|group| group.push(ring(path)));
+            holes
+        }
+        Contour { path: _, parent: _, outer: _ } => holes,
+    });
+    region.iter().zip(holes).filter_map(|(contour, holes)| contour.outer.then(|| Polygon::new(ring(&contour.path), holes))).collect()
+}
+
 fn path(lines: impl IntoIterator<Item = LineString<f64>>) -> BezPath {
     lines
         .into_iter()
-        .flat_map(|LineString(coords)| {
-            let closed = coords.len() > 2 && coords.first() == coords.last();
+        .flat_map(|line| {
+            let closed = line.0.len() > 2 && line.is_closed();
+            let LineString(coords) = line;
             let kept = coords.len().strict_sub(usize::from(closed));
             let mut points = coords.into_iter().take(kept).map(|coord| Point::from(coord.x_y()));
             iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).chain(closed.then_some(PathEl::ClosePath))

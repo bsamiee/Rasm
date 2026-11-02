@@ -45,335 +45,335 @@ fn decode_without_path(found: &str) {
 fn discarded_error(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `unwrap_or` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:21:21
+      --> tools/dylint/examples/discarded_error.rs:27:21
        |
-    21 |         parse(text).unwrap_or(0),
+    27 |         parse(text).unwrap_or(0),
        |                     ^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
        = note: `#[warn(discarded_error)]` on by default
 
     warning: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:22:21
+      --> tools/dylint/examples/discarded_error.rs:28:21
        |
-    22 |         parse(text).unwrap_or_default(),
+    28 |         parse(text).unwrap_or_default(),
        |                     ^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `map_or` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:23:21
+      --> tools/dylint/examples/discarded_error.rs:29:21
        |
-    23 |         parse(text).map_or(0, |value| value.strict_add(1)),
+    29 |         parse(text).map_or(0, |value| value.strict_add(1)),
        |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_else` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:24:21
+      --> tools/dylint/examples/discarded_error.rs:30:21
        |
-    24 |         parse(text).unwrap_or_else(|_| 0),
+    30 |         parse(text).unwrap_or_else(|_| 0),
        |                     ^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or_else` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:25:21
+      --> tools/dylint/examples/discarded_error.rs:31:21
        |
-    25 |         parse(text).unwrap_or_else(|_ignored| 0),
+    31 |         parse(text).unwrap_or_else(|_ignored| 0),
        |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `map_or_else` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:26:21
+      --> tools/dylint/examples/discarded_error.rs:32:21
        |
-    26 |         parse(text).map_or_else(|_| 0, |value| value.strict_add(1)),
+    32 |         parse(text).map_or_else(|_| 0, |value| value.strict_add(1)),
        |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `or` turns `ParseIntError` into success
-      --> tools/dylint/examples/discarded_error.rs:30:76
+      --> tools/dylint/examples/discarded_error.rs:36:76
        |
-    30 | fn successes(text: &str) -> [Result<(), ParseIntError>; 2] { [effect(text).or(Ok(())), effect(text).or_else(|_| Ok(()))] }
+    36 | fn successes(text: &str) -> [Result<(), ParseIntError>; 2] { [effect(text).or(Ok(())), effect(text).or_else(|_| Ok(()))] }
        |                                                                            ^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `or_else` turns `ParseIntError` into success
-      --> tools/dylint/examples/discarded_error.rs:30:101
+      --> tools/dylint/examples/discarded_error.rs:36:101
        |
-    30 | fn successes(text: &str) -> [Result<(), ParseIntError>; 2] { [effect(text).or(Ok(())), effect(text).or_else(|_| Ok(()))] }
+    36 | fn successes(text: &str) -> [Result<(), ParseIntError>; 2] { [effect(text).or(Ok(())), effect(text).or_else(|_| Ok(()))] }
        |                                                                                                     ^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `ok` turns `ParseIntError` into `None`
-      --> tools/dylint/examples/discarded_error.rs:32:54
+      --> tools/dylint/examples/discarded_error.rs:38:54
        |
-    32 | fn absences(text: &str) -> Option<u32> { parse(text).ok()?.checked_add(parse(text).ok().map_or(0, |value| value)) }
+    38 | fn absences(text: &str) -> Option<u32> { parse(text).ok()?.checked_add(parse(text).ok().map_or(0, |value| value)) }
        |                                                      ^^^^
        |
        = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
     warning: `ok` turns `ParseIntError` into `None`
-      --> tools/dylint/examples/discarded_error.rs:32:84
+      --> tools/dylint/examples/discarded_error.rs:38:84
        |
-    32 | fn absences(text: &str) -> Option<u32> { parse(text).ok()?.checked_add(parse(text).ok().map_or(0, |value| value)) }
+    38 | fn absences(text: &str) -> Option<u32> { parse(text).ok()?.checked_add(parse(text).ok().map_or(0, |value| value)) }
        |                                                                                    ^^^^
        |
        = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
     warning: `ok` turns `ParseIntError` into `None`
-      --> tools/dylint/examples/discarded_error.rs:34:54
+      --> tools/dylint/examples/discarded_error.rs:40:54
        |
-    34 | fn returned(text: &str) -> Option<u32> { parse(text).ok() }
+    40 | fn returned(text: &str) -> Option<u32> { parse(text).ok() }
        |                                                      ^^^^
        |
        = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
     warning: `Result::ok` turns `ParseIntError` into `None`
-      --> tools/dylint/examples/discarded_error.rs:44:57
+      --> tools/dylint/examples/discarded_error.rs:50:57
        |
-    44 |         texts.iter().map(|text| parse(text)).filter_map(Result::ok).collect(),
+    50 |         texts.iter().map(|text| parse(text)).filter_map(Result::ok).collect(),
        |                                                         ^^^^^^^^^^
        |
        = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
     warning: `is_ok_and` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:57:21
+      --> tools/dylint/examples/discarded_error.rs:63:21
        |
-    57 |         parse(text).is_ok_and(|value| value > 1),
+    63 |         parse(text).is_ok_and(|value| value > 1),
        |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `is_ok` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:58:21
+      --> tools/dylint/examples/discarded_error.rs:64:21
        |
-    58 |         parse(text).is_ok(),
+    64 |         parse(text).is_ok(),
        |                     ^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `is_err` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:59:21
+      --> tools/dylint/examples/discarded_error.rs:65:21
        |
-    59 |         parse(text).is_err(),
+    65 |         parse(text).is_err(),
        |                     ^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `is_err_and` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:60:21
+      --> tools/dylint/examples/discarded_error.rs:66:21
        |
-    60 |         parse(text).is_err_and(|_| true),
+    66 |         parse(text).is_err_and(|_| true),
        |                     ^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `err().is_none` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:61:20
+      --> tools/dylint/examples/discarded_error.rs:67:20
        |
-    61 |         parse(text).err().is_none(),
+    67 |         parse(text).err().is_none(),
        |                    ^^^^^^^^^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `err().is_some` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:62:20
+      --> tools/dylint/examples/discarded_error.rs:68:20
        |
-    62 |         parse(text).err().is_some(),
+    68 |         parse(text).err().is_some(),
        |                    ^^^^^^^^^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: `matches!` tests the `Result` and drops `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:63:9
+      --> tools/dylint/examples/discarded_error.rs:69:9
        |
-    63 |         matches!(parse(text), Ok(1)),
+    69 |         matches!(parse(text), Ok(1)),
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result` and handle `Err` in place of the test
 
     warning: pattern of `if let` leaves `ParseIntError` unmatched
-      --> tools/dylint/examples/discarded_error.rs:68:8
+      --> tools/dylint/examples/discarded_error.rs:74:8
        |
-    68 |     if let Ok(value) = parse(texts[0]) {
+    74 |     if let Ok(value) = parse(texts[0]) {
        |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `if let` drops a `Result` and its unhandled `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:71:8
+      --> tools/dylint/examples/discarded_error.rs:77:8
        |
-    71 |     if let Err(_) = parse(texts[0]) {}
+    77 |     if let Err(_) = parse(texts[0]) {}
        |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, or return it with `?`
 
     warning: `if let` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:72:23
+      --> tools/dylint/examples/discarded_error.rs:78:23
        |
-    72 |     let fallback = if let Ok(value) = parse(texts[0]) { value } else { 0 };
+    78 |     let fallback = if let Ok(value) = parse(texts[0]) { value } else { 0 };
        |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: pattern of `let Ok(..) else` leaves `ParseIntError` unmatched
-      --> tools/dylint/examples/discarded_error.rs:73:5
+      --> tools/dylint/examples/discarded_error.rs:79:5
        |
-    73 |     let Ok(start) = parse(texts[0]) else { return fallback };
+    79 |     let Ok(start) = parse(texts[0]) else { return fallback };
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `Err(_) =>` replaces `ParseIntError` with a fallback value
-      --> tools/dylint/examples/discarded_error.rs:76:9
+      --> tools/dylint/examples/discarded_error.rs:82:9
        |
-    76 |         Err(_) => 0,
+    82 |         Err(_) => 0,
        |         ^^^^^^^^^^^
        |
        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `Err(_) =>` drops a `Result` and its unhandled `ParseIntError`
-      --> tools/dylint/examples/discarded_error.rs:97:13
-       |
-    97 |             Err(_) => continue,
-       |             ^^^^^^^^^^^^^^^^^^
-       |
-       = help: match the `Result`, or return it with `?`
+       --> tools/dylint/examples/discarded_error.rs:103:13
+        |
+    103 |             Err(_) => continue,
+        |             ^^^^^^^^^^^^^^^^^^
+        |
+        = help: match the `Result`, or return it with `?`
 
     warning: `map_or` replaces `PoisonError<MutexGuard<'_, u32>>` with a fallback value
-       --> tools/dylint/examples/discarded_error.rs:105:61
+       --> tools/dylint/examples/discarded_error.rs:111:61
         |
-    105 | fn locked(shared: &Mutex<u32>) -> [u32; 2] { [shared.lock().map_or(0, |guard| *guard), shared.try_lock().map_or(0, |guard| *guard)] }
+    111 | fn locked(shared: &Mutex<u32>) -> [u32; 2] { [shared.lock().map_or(0, |guard| *guard), shared.try_lock().map_or(0, |guard| *guard)] }
         |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `map_or` replaces `TryLockError<MutexGuard<'_, u32>>` with a fallback value
-       --> tools/dylint/examples/discarded_error.rs:105:106
+       --> tools/dylint/examples/discarded_error.rs:111:106
         |
-    105 | fn locked(shared: &Mutex<u32>) -> [u32; 2] { [shared.lock().map_or(0, |guard| *guard), shared.try_lock().map_or(0, |guard| *guard)] }
+    111 | fn locked(shared: &Mutex<u32>) -> [u32; 2] { [shared.lock().map_or(0, |guard| *guard), shared.try_lock().map_or(0, |guard| *guard)] }
         |                                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `flatten` iterates results and skips each `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:110:43
+       --> tools/dylint/examples/discarded_error.rs:116:43
         |
-    110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
+    116 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                           ^^^^^^^^^
         |
         = help: collect the results into `validated::Validated<Vec<_>, ParseIntError>` and call `.ok()`
 
     warning: `into_iter` iterates the `Result` and skips its `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:110:80
+       --> tools/dylint/examples/discarded_error.rs:116:80
         |
-    110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
+    116 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                                                                ^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `iter` iterates the `Result` and skips its `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:110:119
+       --> tools/dylint/examples/discarded_error.rs:116:119
         |
-    110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
+    116 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                                                                                                       ^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `iter_mut` iterates the `Result` and skips its `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:110:151
+       --> tools/dylint/examples/discarded_error.rs:116:151
         |
-    110 | ...collect(), parse(texts[0]).iter().count(), parse(texts[0]).iter_mut().count())
+    116 | ...collect(), parse(texts[0]).iter().count(), parse(texts[0]).iter_mut().count())
         |                                                               ^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `is_ok_and` tests the `Result` and drops `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:113:71
+       --> tools/dylint/examples/discarded_error.rs:119:71
         |
-    113 | fn tested(text: &str) -> Result<bool, ParseIntError> { Ok(parse(text).is_ok_and(|value| value > 1)) }
+    119 | fn tested(text: &str) -> Result<bool, ParseIntError> { Ok(parse(text).is_ok_and(|value| value > 1)) }
         |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result` and handle `Err` in place of the test
 
     warning: `drop` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:118:5
+       --> tools/dylint/examples/discarded_error.rs:124:5
         |
-    118 |     drop(effect(text));
+    124 |     drop(effect(text));
         |     ^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`
 
     warning: `_ =` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:119:5
+       --> tools/dylint/examples/discarded_error.rs:125:5
         |
-    119 |     _ = effect(text);
+    125 |     _ = effect(text);
         |     ^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`
 
     warning: `let _ignored` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:120:5
+       --> tools/dylint/examples/discarded_error.rs:126:5
         |
-    120 |     let _ignored = effect(text);
+    126 |     let _ignored = effect(text);
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`
 
     warning: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-       --> tools/dylint/examples/discarded_error.rs:125:22
+       --> tools/dylint/examples/discarded_error.rs:131:22
         |
-    123 | macro_rules! defaulted {
-    124 |     ($text:expr) => {
-    125 |         parse($text).unwrap_or_default()
+    129 | macro_rules! defaulted {
+    130 |     ($text:expr) => {
+    131 |         parse($text).unwrap_or_default()
         |                      ^^^^^^^^^^^^^^^^^^^
     ...
-    129 | fn expanded(text: &str) -> u32 { defaulted!(text) }
+    135 | fn expanded(text: &str) -> u32 { defaulted!(text) }
         |                                  ---------------- in this macro invocation
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `unwrap_or` replaces `TryFromIntError` with a fallback value
-       --> tools/dylint/examples/discarded_error.rs:139:52
+       --> tools/dylint/examples/discarded_error.rs:145:52
         |
-    139 | fn clamped(value: i64) -> u8 { u8::try_from(value).unwrap_or(1) }
+    145 | fn clamped(value: i64) -> u8 { u8::try_from(value).unwrap_or(1) }
         |                                                    ^^^^^^^^^^^^
         |
         = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `let (.. | Err(_))` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:147:5
+       --> tools/dylint/examples/discarded_error.rs:153:5
         |
-    147 |     let (Ok(()) | Err(_)) = effect(text);
+    153 |     let (Ok(()) | Err(_)) = effect(text);
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`
 
     warning: `let (.. | Err(_))` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:148:5
+       --> tools/dylint/examples/discarded_error.rs:154:5
         |
-    148 |     let (Ok(()) | Err(ParseIntError { .. })) = effect(text);
+    154 |     let (Ok(()) | Err(ParseIntError { .. })) = effect(text);
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`
 
     warning: `let (.. | Err(_))` drops `Vec<u32>` without naming its type
-       --> tools/dylint/examples/discarded_error.rs:149:5
+       --> tools/dylint/examples/discarded_error.rs:155:5
         |
-    149 |     let (Ok(()) | Err(_)) = returned_back(vec![1]);
+    155 |     let (Ok(()) | Err(_)) = returned_back(vec![1]);
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Err` value by its type, `Err(<Type> { .. })`
 
     warning: `Err(_) =>` drops a `Result` and its unhandled `ParseIntError`
-       --> tools/dylint/examples/discarded_error.rs:152:9
+       --> tools/dylint/examples/discarded_error.rs:158:9
         |
-    152 |         Ok(()) | Err(_) => (),
+    158 |         Ok(()) | Err(_) => (),
         |         ^^^^^^^^^^^^^^^^^^^^^
         |
         = help: match the `Result`, or return it with `?`

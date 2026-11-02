@@ -17,7 +17,7 @@ Code treats each crate as part of the language:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
-- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+- Values and methods that vary are parameters, a caller choosing among methods of one result (a percentile or BCa interval) rather than the callee fixing the costlier one, and kinds, keys, and states are typed values rather than strings
 - Names are domain or package vocabulary and never coined, a field or parameter holding a package value takes the member's name, or the word the package documents for it where a workspace lint rejects that name (t-digest `k` is its `compression`), a file its concept's
 
 [REFERENCES]:
@@ -43,7 +43,7 @@ Function signatures are contracts, parameter types state every value a function 
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from the type or member that owns it
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
-- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds recursion, a generic of its own, or a `const fn`
+- Helpers one function reads nest inside it as closures reading its generics, a nested `fn` holds a generic of its own, a `const fn`, or recursion no closure reaches, a closure calling its enclosing function recursing through it
 - Helpers adding a fact to a package call serve only calls needing it
 
 ### [01.1]-[TOTAL_FUNCTIONS]
@@ -150,7 +150,7 @@ pub enum Delivery {
 - Variants differing only by a tag are one struct keyed by a fieldless enum
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sits inside it
 - Enums fit a growing set of operations, a trait fits a growing set of cases
-- Absence and failure stay separate when a consumer responds differently to each
+- Absence and failure stay separate when a consumer responds differently to each, and an input owed once per element (a start per chain) arrives whole, a shortfall refused rather than filled by a callee draw the caller cannot see
 - Variants standing for absence (`Closed`, `Unset`) are an `Option` around the enum, a wire token spelling absence (`none`) stays a variant, and a foreign sentinel for absence (an id 0, an index -1) becomes `None` where it enters (`u32::try_from(id).ok().and_then(NonZero::new)`)
 
 ### [03.2]-[CONSTRAINED_VALUES]
@@ -158,19 +158,20 @@ pub enum Delivery {
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its sanitizers, validators, and a generated `<Name>Error` enum, or the crate error through `validate(with = <fn>, error = <Error>)`
 - `derive_more` derives `From`, `Into`, `AsRef`, and `Display` on a newtype with no invariant, `#[as_ref]` exposes a guarded record's field read-only
-- `NonZero<T>` holds a nonzero integer, a `NonZero` constant written as `const { NonZero::new(<value>).unwrap() }`, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
+- `NonZero<T>` holds a nonzero integer, a constant of a type with a `const fn` constructor written in its const context as `NonZero::new(<value>).unwrap()`, or `try_new(<value>).ok().unwrap()` over a `Result` constructor (nutype `const_fn`) under `const_result_trait_fn` and `const_trait_impl`, an invalid value failing the build, with `const { .. }` around it in a runtime body, `bounded_integer` a range of integers, `NotNan<f64>` a stored ordered float key, and `f64::total_cmp` orders a key nothing stores
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
 - `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
-- Rules across fields take `nutype` over a standard type of that shape, else over a declared record: an interval is a `core::range` value (`RangeInclusive<f64>`, `Copy` with public ends), and a `core::ops` range stays where a wire derive reads it (serde implements `ops::Range<Timestamp>` alone)
+- Rules across fields take `nutype` over a standard type of that shape, else over a declared record: an interval is a `core::range` value (`RangeInclusive<f64>`, `Copy` with public ends), an integer window whose type's maximum is a valid member (a Sobol index through `u16::MAX`) a nutype over `RangeInclusive<u16>` refusing `start > last`, never a half-open range or a count that tops out one short or admits an empty window, and a `core::ops` range stays where a wire derive reads it (serde implements `ops::Range<Timestamp>` alone)
 - Public fields hold values no rule constrains
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
+- Invariants every consumer reads (a finite path, an invertible affine) are a constructed type each operation takes and returns, never a check repeated at each entry or a guard emptying the result
 
 ### [03.3]-[OWNERSHIP]
 
 Ownership states who decides a value's lifetime:
-- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` (`+ Copy` when walked more than once), so a borrowed collection a package hands out passes without a copy
-- Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`
+- Functions storing an argument take it by value, the caller decides whether to clone, and functions only reading one borrow it, a collection through `IntoIterator<Item: Borrow<T>>` (`+ Copy` when walked more than once), so a borrowed collection a package hands out passes without a copy, and a `&mut self` callback a hot loop calls (a sampler's density) owns its scratch buffers, sized at construction and cleared per call, never allocating per call
+- Values shared across tasks for reading are `Arc<str>` and `Arc<[T]>`, or the shared handle a dependency states for the concept (linebender_resource_handle `FontData` over font bytes and collection index)
 - Lifetimes appear where an output borrows from an input, and a named lifetime names the borrowed source
 - Interior mutability belongs to boundary types that own shared state, domain types hold none
 
@@ -219,7 +220,7 @@ Every fallible function returns its outcome as a value, and one type serves one 
 |  [04]   | `ControlFlow<B, C>`                | Early exit from a fold with a value, not a failure |
 |  [05]   | `impl Stream<Item = Result<T, E>>` | Values over time, each failure one item            |
 
-Input boundaries select the result type, functions preserve it, and one point converts by the target's method (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone.
+Input boundaries select the result type, functions preserve it, and one point converts by the target's method (`ok_or`, `ok`, `transpose`, `into`). An operational failure stays an error to its consumer, `None` holds absence alone, and a result its inputs cannot measure (a bias correction from resamples all on one side) is a refusal tested before the step that turns it infinite, never an `Ok` holding NaN or an infinity.
 
 ### [04.1]-[COMPOSITION]
 
@@ -248,9 +249,10 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 ```
 
 - Failures of independent chains all reach the caller: a missing source beside an overflowing target
+- `Validated` joins constructions and operations that can fail, never a pass rechecking a value its type already guarantees
 - Foreign trait methods fixing one error type (`from_arg_matches_mut` on a record generic over `Args`) bind independent steps through `?` in one struct literal
 - `<step>?;` in a function or `try` block and `try { <statements>; <value> }` elsewhere replace an `.and_then(|()| ..)` step, a helper function exists only for a name
-- Errors from one traversed element name the element, its index or its key
+- Errors from one traversed element name the element, its index or its key, a check over a matrix naming its column and row (`Start { chain, dimension }`), and each check runs where the input enters, before the step that would turn a bad value non-finite
 - Nested contexts stay nested, a consumer matches `Result<Option<T>, E>` once
 
 ### [04.2]-[ERRORS]
@@ -279,8 +281,8 @@ pub enum LedgerError {
 - Messages branching on a field render through `#[error("{}", fmt::from_fn(..))]`
 - Fields named `source` hold the foreign error a variant wraps
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, and one with a single value (`SetLoggerError`) maps to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
-- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source
-- Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation
+- Boundaries `map_err` a foreign error into a variant holding the operation or subject it omits (the path, the key) beside the source, the crate's own error a foreign call hands back from a crate callback mapping alike
+- Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none records as a `tracing` event beside a variant naming the operation, and every sibling call of that operation passes the same mapping, a bare `?` on one dropping the subject the others carry
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
 - Functions generic over a consumer error only to call `E::from` return the crate error, and the caller converts through `?`
@@ -410,7 +412,7 @@ Libraries return their own error, and the application composes each failure poli
 ## [07]-[NUMERICS]
 
 Numeric facts come from the type or package that states them:
-- Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules
+- Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules, and a dependency bound stated as `< 2^n` is the full `u<n>` range of indices, never a `u<n>` count, which reaches one short
 - Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
 - Tolerances are values a caller passes, and floats compare within them, a zero or default the callee defines reachable as `None`
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)

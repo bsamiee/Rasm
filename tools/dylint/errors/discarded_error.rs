@@ -4,7 +4,7 @@ use clippy_utils::{
     ExprUseNode,
     consts::{ConstEvalCtxt, Constant},
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr, is_from_proc_macro,
+    fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_inside_always_const_context,
     macros::root_macro_call,
     paths::PathNS,
     peel_blocks,
@@ -178,7 +178,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                             arguments.first().is_some_and(|value| fn_def_id(cx, unread(cx, value).unwrap_or_else(|| peel_blocks(value))).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk)),
                         Gate::Relayed =>
                             get_parent_expr(cx, expr).is_some_and(|parent| match parent.kind {
-                                ExprKind::MethodCall(_, relayed, ..) => relayed.hir_id == expr.hir_id,
+                                ExprKind::MethodCall(unwrapped, relayed, ..) =>
+                                    relayed.hir_id == expr.hir_id && !(unwrapped.ident.name == sym::unwrap && is_inside_always_const_context(cx.tcx, expr.hir_id)),
                                 ExprKind::Call(..) => fn_def_id(cx, parent).is_lang_item(cx, LangItem::TryTraitBranch),
                                 _ => false,
                             }) || matches!(get_expr_use_site(cx.tcx, typeck, expr.span.ctxt(), expr).use_node(cx), ExprUseNode::Return(_)),

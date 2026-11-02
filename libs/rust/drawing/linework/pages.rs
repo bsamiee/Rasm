@@ -1,8 +1,10 @@
 use std::{collections::BTreeMap, num::NonZero, sync::Arc};
 
 use kurbo::{Affine, Rect, Size};
+use nonempty_collections::{NEVec, nev};
+use validated::Validated;
 
-use crate::{Element, Region, Visibility};
+use crate::{Element, LineworkError, Placement, Region, Side, Visibility};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,8 +24,8 @@ pub struct Layer {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Viewport {
-    pub boundary: Region,
-    pub placement: Affine,
+    pub boundary: Option<Region>,
+    pub placement: Placement,
     pub scale: Scale,
     pub layers: Vec<Layer>,
 }
@@ -51,11 +53,26 @@ pub struct Page {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn affine(viewport: &Viewport) -> Affine { viewport.placement * Affine::scale(f64::from(viewport.scale.paper.get()) / f64::from(viewport.scale.model.get())) }
+pub fn affine(viewport: &Viewport) -> Result<Placement, LineworkError> {
+    Placement::try_new(*viewport.placement * Affine::scale(f64::from(viewport.scale.paper.get()) / f64::from(viewport.scale.model.get())))
+}
 
-pub fn paper(viewport: Viewport) -> impl Iterator<Item = Layer> {
-    let model = affine(&viewport);
-    let Viewport { boundary: _, placement: _, scale: _, layers } = viewport;
-    layers.into_iter().map(move |Layer { name, print, view, elements }| Layer { name, print, view, elements: elements.into_iter().map(|element| crate::transform(element, model)).collect() })
+pub fn paper(viewport: Viewport) -> Result<Vec<Layer>, NEVec<LineworkError>> {
+    let model = affine(&viewport).map_err(|error| nev![error])?;
+    let Viewport { boundary, placement: _, scale: _, layers } = viewport;
+    layers
+        .into_iter()
+        .map(|Layer { name, print, view, elements }| {
+            crate::transform(elements, model).map_err(|errors| LineworkError::Layer { name: Arc::clone(&name), errors }).map(|placed| Layer {
+                name,
+                print,
+                view,
+                elements: match boundary.clone() {
+                    Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: placed }],
+                    None => placed,
+                },
+            })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
 }
