@@ -1,0 +1,50 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-annotation"
+version.workspace    = true
+edition.workspace    = true
+description          = "Annotation every Rasm drawing set composes on rasm-linework: text set from caller fonts into glyph runs and outlines, length and angle notation over uom quantities, dimensions, leaders, marks, SVG symbols with text slots, legends and tables, each with its text mask"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["drawing", "annotation", "dimension", "typesetting", "cad"]
+categories           = ["graphics", "text-processing"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+nonempty-collections       = { workspace = true }
+thiserror                  = { workspace = true }
+validated                  = { workspace = true }
+derive_more                = { workspace = true }
+enum-map                   = { workspace = true }
+itertools                  = { workspace = true }
+nutype                     = { workspace = true }
+uom                        = { workspace = true }
+color                      = { workspace = true }
+colorgrad                  = { workspace = true }
+fontdb                     = { workspace = true }
+fontique                   = { workspace = true }
+linebender_resource_handle = { workspace = true }
+parlance                   = { workspace = true }
+parley                     = { workspace = true }
+skrifa                     = { workspace = true }
+kurbo                      = { workspace = true }
+linesweeper                = { workspace = true }
+usvg                       = { workspace = true }
+rasm-linework              = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

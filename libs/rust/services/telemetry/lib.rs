@@ -1,13 +1,12 @@
 #![feature(default_field_values, error_reporter, trait_alias, try_blocks_heterogeneous)]
 
-use core::{error::Error, iter};
+use core::{error::Error, iter, mem::DropGuard};
 use std::{
     backtrace::Backtrace,
     borrow::Cow,
     collections::HashMap,
     error::Report,
     io,
-    mem::DropGuard,
     panic::{self, PanicHookInfo},
     process::{ExitCode, Termination},
     sync::Arc,

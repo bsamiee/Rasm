@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import process from 'node:process';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import { Manifest as Extension } from '@rasm/cep/manifest';
 import { Manifest } from '@rasm/uxp/manifest';

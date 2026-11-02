@@ -173,9 +173,8 @@ pub fn instances(model: &Model) -> Result<Vec<Instance>, NEVec<IfcError>> {
         let malformed = |id: &str| IfcError::Malformed { node: node.node.clone(), attribute: id.into() };
         let points = |id: &str, positions: Vec<[f64; 3]>, colors: Option<Vec<[f32; 3]>>| match colors {
             None => Ok(Some(Shape::Points(Arc::new(Points::Plain(positions.into_iter().map(Point3::from).collect()))))),
-            Some(colors) if colors.len() == positions.len() => {
-                Ok(Some(Shape::Points(Arc::new(Points::Colored(positions.into_iter().map(Point3::from).zip(colors.into_iter().map(OpaqueColor::new)).collect())))))
-            }
+            Some(colors) if colors.len() == positions.len() =>
+                Ok(Some(Shape::Points(Arc::new(Points::Colored(positions.into_iter().map(Point3::from).zip(colors.into_iter().map(OpaqueColor::new)).collect()))))),
             Some(_) => Err(malformed(id)),
         };
         let decoded = Validated::from(attribute::<Mesh>(node)).map4(
@@ -189,18 +188,17 @@ pub fn instances(model: &Model) -> Result<Vec<Instance>, NEVec<IfcError>> {
             Validated::Good((Some(Mesh { points: vertices, face_vertex_indices }), _, _, _)) => {
                 let (triangles, remainder) = face_vertex_indices.as_chunks::<3>();
                 Validated::from(
-                    (remainder.is_empty() && face_vertex_indices.iter().all(|index| usize::try_from(*index).is_ok_and(|vertex| vertex < vertices.len())))
-                        .ok_or_else(|| malformed(Mesh::ID))
-                        .and_then(|()| {
+                    (remainder.is_empty() && face_vertex_indices.iter().all(|index| usize::try_from(*index).is_ok_and(|vertex| vertex < vertices.len()))).ok_or_else(|| malformed(Mesh::ID)).and_then(
+                        |()| {
                             TriMesh::new(vertices.into_iter().map(Vector::from_array).collect(), triangles.to_vec())
                                 .map(|mesh| Some(Shape::Mesh(Arc::new(mesh))))
                                 .map_err(|source| IfcError::Mesh { node: node.node.clone(), source })
-                        }),
+                        },
+                    ),
                 )
             }
-            Validated::Good((None, Some(Curves { points: vertices }), _, _)) => {
-                Validated::Good(Some(Shape::Curve(Arc::new(Polyline::new(vertices.into_iter().map(Vector::from_array).collect(), None)))))
-            }
+            Validated::Good((None, Some(Curves { points: vertices }), _, _)) =>
+                Validated::Good(Some(Shape::Curve(Arc::new(Polyline::new(vertices.into_iter().map(Vector::from_array).collect(), None))))),
             Validated::Good((None, None, Some(PointArray { positions, colors }), _)) => Validated::from(points(PointArray::ID, positions, colors)),
             Validated::Good((None, None, None, Some(PointText { positions, colors }))) => Validated::from(match (triples(&positions), colors.as_deref().map(triples)) {
                 (Some(positions), colors @ (None | Some(Some(_)))) => points(PointText::ID, positions.into_iter().map(|position| position.map(f64::from)).collect(), colors.flatten()),

@@ -6,9 +6,11 @@ import { Contract } from '#/contract';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+class Host extends Context.Service<Host, ChildProcessSpawner.ChildProcessHandle>()('@rasm/automation/automation/Host') {}
+
 class Automation extends Context.Service<Automation>()('@rasm/automation/automation', {
     make: Effect.gen(function* () {
-        const client = yield* RpcClient.make(Contract);
+        const [client, { exitCode: exited }] = yield* Effect.all([RpcClient.make(Contract), Host]);
         const held = Effect.fnUntraced(function* <A, E, R>(changes: Stream.Stream<A, E, R>, subject: string) {
             const [first, rest] = yield* Stream.peel(changes, Sink.head());
             const latest = yield* Effect.flatMap(
@@ -19,24 +21,19 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
             return latest;
         });
         const [installations, instances] = yield* Effect.all([held(client.installations(), 'installations'), held(client.instances(), 'instances')]);
-        return { ...client, installations, instances, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
+        return { ...client, installations, instances, exited, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
     }),
 }) {
     static readonly layer = (executable: string) =>
-        Layer.effect(Automation, Automation.make).pipe(
-            Layer.provide(RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) })),
-            Layer.provide([
-                Layer.effect(Socket.Socket)(
-                    Socket.fromTransformStream(
-                        Effect.gen(function* () {
-                            const requests = new TransformStream<Uint8Array, Uint8Array>();
-                            const child = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' })));
-                            return { readable: Stream.toReadableStream(child.stdout), writable: requests.writable };
-                        }).pipe(Effect.mapError((cause) => Socket.SocketError.make({ reason: Socket.SocketOpenError.make({ kind: 'Unknown', cause }) }))),
-                    ),
-                ),
-                RpcSerialization.layerNdJsonRpc(),
-            ]),
+        Layer.unwrap(
+            Effect.gen(function* () {
+                const requests = new TransformStream<Uint8Array, Uint8Array>();
+                const child = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' })));
+                return Layer.effect(Automation, Automation.make).pipe(
+                    Layer.provide(RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) })),
+                    Layer.provide([Layer.succeed(Host)(child), Layer.effect(Socket.Socket)(Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(child.stdout), writable: requests.writable }))), RpcSerialization.layerNdJsonRpc()]),
+                );
+            }),
         );
 }
 

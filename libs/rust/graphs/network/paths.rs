@@ -1,5 +1,8 @@
-use core::f64::consts::{FRAC_PI_2, PI};
-use std::collections::{HashMap, hash_map::Entry};
+use core::{
+    cell::Cell,
+    f64::consts::{FRAC_PI_2, PI},
+};
+use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use nalgebra::{SVector, Unit};
@@ -9,76 +12,118 @@ use petgraph::{
     algo::astar,
     data::{Element, FromElements as _},
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
-    visit::{Control, EdgeRef as _, IntoEdgeReferences as _, IntoEdges, Reversed, Visitable},
+    visit::{Control, EdgeRef as _, IntoEdgeReferences as _, IntoEdges, Reversed, ReversedEdgeReference, Visitable},
 };
 use rustworkx_core::traversal::{DijkstraEvent, dijkstra_search};
 
-use crate::{NetworkError, Weight, present};
+use crate::{NetworkError, Tolerance, Weight, present};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reached {
     pub distance: f64,
+    pub extent: f64,
     pub paths: f64,
-    pub predecessors: Vec<NodeIndex>,
+    pub predecessors: Vec<EdgeIndex>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Catchment {
     pub radius: Option<Weight> = None,
-    pub tolerance: Option<Weight> = None,
+    pub tolerance: Option<Tolerance> = None,
     pub direction: Direction = Outgoing,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn reach<N, E, Ty>(graph: &StableGraph<N, E, Ty>, source: NodeIndex, cost: impl Fn(&E) -> Weight, catchment: Catchment) -> Result<IndexMap<NodeIndex, Reached>, NetworkError>
-where Ty: EdgeType {
-    present(graph, source).map(|source| search(graph, source, cost, catchment))
+pub fn catchment<N, E, Ty>(
+    graph: &StableGraph<N, E, Ty>,
+    source: NodeIndex,
+    cost: impl Fn(EdgeReference<'_, E>) -> Weight,
+    extent: impl Fn(EdgeReference<'_, E>) -> Weight,
+    catchment: Catchment,
+) -> Result<IndexMap<NodeIndex, Reached>, NetworkError>
+where
+    Ty: EdgeType,
+{
+    present(graph, source).map(|source| search(graph, source, cost, extent, catchment))
 }
 
-pub(crate) fn search<N, E, Ty>(graph: &StableGraph<N, E, Ty>, source: NodeIndex, cost: impl Fn(&E) -> Weight, catchment: Catchment) -> IndexMap<NodeIndex, Reached>
-where Ty: EdgeType {
-    fn settle<G>(graph: G, source: NodeIndex, cost: impl Fn(&G::EdgeWeight) -> Weight, Catchment { radius, tolerance, direction: _ }: Catchment) -> IndexMap<NodeIndex, Reached>
-    where G: IntoEdges<NodeId = NodeIndex> + Visitable {
-        let tied = |left: f64, right: f64| (left - right).abs() <= tolerance.map_or_default(Weight::into_inner);
-        let mut settled = IndexMap::<NodeIndex, Reached>::new();
-        let mut frontier = HashMap::from([(source, Reached { distance: 0.0, paths: 1.0, predecessors: Vec::new() })]);
+pub(crate) fn search<N, E, Ty>(
+    graph: &StableGraph<N, E, Ty>,
+    source: NodeIndex,
+    cost: impl Fn(EdgeReference<'_, E>) -> Weight,
+    extent: impl Fn(EdgeReference<'_, E>) -> Weight,
+    catchment: Catchment,
+) -> IndexMap<NodeIndex, Reached>
+where
+    Ty: EdgeType,
+{
+    fn settle<'graph, G, E>(
+        graph: G,
+        source: NodeIndex,
+        travel: impl Fn(G::EdgeRef) -> EdgeReference<'graph, E>,
+        cost: impl Fn(EdgeReference<'graph, E>) -> Weight,
+        extent: impl Fn(EdgeReference<'graph, E>) -> Weight,
+        Catchment { radius, tolerance, direction: _ }: Catchment,
+    ) -> IndexMap<NodeIndex, Reached>
+    where
+        G: IntoEdges<NodeId = NodeIndex> + Visitable,
+        E: 'graph,
+    {
+        let tolerance = tolerance.map_or_default(Tolerance::into_inner);
+        let leg = Cell::new((EdgeIndex::end(), 0.0, 0.0));
+        let origin = Reached { distance: 0.0, extent: 0.0, paths: 1.0, predecessors: Vec::new() };
+        let mut current = (origin.distance, origin.extent, origin.paths);
+        let mut settled = IndexMap::from([(source, origin)]);
+        let mut frontier = HashMap::<NodeIndex, Vec<(EdgeIndex, f64, f64, f64)>>::new();
         dijkstra_search(
             graph,
             [source],
-            |edge| Ok::<f64, !>(cost(edge.weight()).into_inner()),
+            |edge| {
+                let edge = travel(edge);
+                let step = (edge.id(), cost(edge).into_inner(), extent(edge).into_inner());
+                leg.set(step);
+                Ok::<f64, !>(step.1)
+            },
             |event| match event {
-                DijkstraEvent::Discover(node, _) => {
-                    settled.extend(frontier.remove_entry(&node));
+                DijkstraEvent::Discover(node, distance) => {
+                    let tied = frontier.remove(&node).into_iter().flatten().filter(|&(_, arrival, _, _)| arrival - distance <= tolerance);
+                    let reached = tied.fold(None, |reached, (edge, _, spanned, paths)| {
+                        Some(match reached {
+                            None => Reached { distance, extent: spanned, paths, predecessors: vec![edge] },
+                            Some(Reached { distance: _, extent: least, paths: counted, mut predecessors }) => {
+                                predecessors.push(edge);
+                                Reached { distance, extent: least.min(spanned), paths: counted + paths, predecessors }
+                            }
+                        })
+                    });
+                    if let Some(reached) = reached {
+                        current = (reached.distance, reached.extent, reached.paths);
+                        settled.insert(node, reached);
+                    }
                     Control::<()>::Continue
                 }
-                DijkstraEvent::EdgeRelaxed(from, to, weight) | DijkstraEvent::EdgeNotRelaxed(from, to, weight) if let Some(&Reached { distance, paths, predecessors: _ }) = settled.get(&from) =>
-                    match (distance + cost(weight).into_inner(), event, frontier.entry(to)) {
-                        (next, ..) if radius.is_some_and(|bound| next > bound.into_inner()) => Control::Prune,
-                        (next, _, Entry::Occupied(mut held)) if tied(next, held.get().distance) => {
-                            let Reached { distance: best, paths: count, predecessors } = held.get_mut();
-                            *best = best.min(next);
-                            *count += paths;
-                            predecessors.push(from);
-                            Control::Continue
-                        }
-                        (next, DijkstraEvent::EdgeRelaxed(..), entry) => {
-                            entry.insert_entry(Reached { distance: next, paths, predecessors: vec![from] });
-                            Control::Continue
-                        }
-                        (_, DijkstraEvent::EdgeNotRelaxed(..) | DijkstraEvent::Discover(..) | DijkstraEvent::ExamineEdge(..) | DijkstraEvent::Finish(_), _) => Control::Continue,
-                    },
-                DijkstraEvent::EdgeRelaxed(..) | DijkstraEvent::EdgeNotRelaxed(..) | DijkstraEvent::ExamineEdge(..) | DijkstraEvent::Finish(_) => Control::Continue,
+                DijkstraEvent::EdgeRelaxed(_, to, _) | DijkstraEvent::EdgeNotRelaxed(_, to, _) => {
+                    let ((edge, step, span), (base, spent, paths)) = (leg.get(), current);
+                    let (arrival, spanned) = (base + step, spent + span);
+                    if radius.is_some_and(|bound| spanned > bound.into_inner()) {
+                        Control::Prune
+                    } else {
+                        frontier.entry(to).or_default().push((edge, arrival, spanned, paths));
+                        Control::Continue
+                    }
+                }
+                DijkstraEvent::ExamineEdge(..) | DijkstraEvent::Finish(_) => Control::Continue,
             },
         )
         .into_ok();
         settled
     }
     match catchment.direction {
-        Outgoing => settle(graph, source, cost, catchment),
-        Incoming => settle(Reversed(graph), source, cost, catchment),
+        Outgoing => settle(graph, source, |edge| edge, cost, extent, catchment),
+        Incoming => settle(Reversed(graph), source, ReversedEdgeReference::into_unreversed, cost, extent, catchment),
     }
 }
 
@@ -86,16 +131,20 @@ pub fn route<N, E, Ty>(
     graph: &StableGraph<N, E, Ty>,
     source: NodeIndex,
     goal: impl Fn(NodeIndex) -> bool,
-    cost: impl Fn(&E) -> Weight,
+    cost: impl Fn(EdgeReference<'_, E>) -> Weight,
     estimate: impl Fn(NodeIndex) -> Weight,
-) -> Result<Option<(f64, Vec<NodeIndex>)>, NetworkError>
+) -> Result<Option<(f64, Vec<EdgeIndex>)>, NetworkError>
 where
     Ty: EdgeType,
 {
-    present(graph, source).map(|source| astar(graph, source, goal, |edge| cost(edge.weight()).into_inner(), |node| estimate(node).into_inner()))
+    present(graph, source).map(|source| {
+        astar(graph, source, goal, |edge| cost(edge).into_inner(), |node| estimate(node).into_inner()).and_then(|(distance, nodes)| {
+            nodes.array_windows().map(|&[from, to]| graph.edges_connecting(from, to).min_by_key(|&edge| cost(edge)).map(|edge| edge.id())).try_collect::<Vec<_>>().map(|edges| (distance, edges))
+        })
+    })
 }
 
-pub fn angular<N, E, Ty, const D: usize>(
+pub fn segments<N, E, Ty, const D: usize>(
     graph: &StableGraph<N, E, Ty>,
     tangents: impl Fn(EdgeReference<'_, E>) -> [Unit<SVector<f64, D>>; 2],
 ) -> Result<StableGraph<EdgeIndex, Weight, Ty>, NetworkError>

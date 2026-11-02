@@ -199,7 +199,9 @@ pub(crate) fn inheritance(schemas: &IndexMap<Box<str>, Schema>) -> DiGraphMap<&s
 pub(crate) fn decode(schemas: &IndexMap<Box<str>, Schema>, inherited: &DiGraphMap<&str, ()>, node: &Path, id: &str, value: &serde_json::Value) -> Result<Value, IfcError> {
     let schema = schemas.get(id).ok_or_else(|| IfcError::Unschematized { node: node.clone(), attribute: id.into() })?;
     let mut track = serde_path_to_error::Track::new();
-    Descriptions::new(iter::once(&schema.value), schemas, inherited)
-        .and_then(|seed| seed.deserialize(serde_path_to_error::Deserializer::new(value, &mut track)))
-        .map_err(|inner| IfcError::Invalid { node: node.clone(), attribute: id.into(), source: serde_path_to_error::Error::new(track.path(), inner) })
+    Descriptions::new(iter::once(&schema.value), schemas, inherited).and_then(|seed| seed.deserialize(serde_path_to_error::Deserializer::new(value, &mut track))).map_err(|inner| IfcError::Invalid {
+        node: node.clone(),
+        attribute: id.into(),
+        source: serde_path_to_error::Error::new(track.path(), inner),
+    })
 }

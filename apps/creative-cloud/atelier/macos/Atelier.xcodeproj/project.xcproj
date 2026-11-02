@@ -23,6 +23,9 @@
     },
   ],
   "files": [
+    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/swc.darwin-arm64.node", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server Addons", "code-sign-on-copy": true } ] },
+    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
     {
       "kind": "folder",
@@ -57,6 +60,21 @@
         "compile-sources",
         "frameworks",
         "resources",
+        {
+          "kind": "copy",
+          "name": "Embed Server",
+          "bundle-base-path": "contents-directory",
+          "relative-path": "Helpers",
+        }, {
+          "kind": "copy",
+          "name": "Embed Server Addons",
+          "bundle-base-path": "frameworks-directory",
+        }, {
+          "kind": "copy",
+          "name": "Embed Server Agent",
+          "bundle-base-path": "contents-directory",
+          "relative-path": "Library",
+        },
       ],
       "package-product-members": [
         {
@@ -86,6 +104,7 @@
         },
       ],
       "build-settings": {
+        "ARCHS": "arm64",
         "AUTOMATION_APPLE_EVENTS": "YES",
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_FILE": "Info.plist",

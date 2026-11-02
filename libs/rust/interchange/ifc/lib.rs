@@ -278,15 +278,8 @@ impl<'de> Deserializer<'de> for &'de Value {
     where V: Visitor<'de> {
         match self {
             Value::String(text) | Value::Enum(text) => visitor.visit_enum(BorrowedStrDeserializer::new(text)),
-            Value::Boolean(_)
-            | Value::Integer(_)
-            | Value::Real(_)
-            | Value::Quantity(_)
-            | Value::DateTime(_)
-            | Value::Array(_)
-            | Value::Object(_)
-            | Value::Reference(_)
-            | Value::Blob(_) => self.deserialize_any(visitor),
+            Value::Boolean(_) | Value::Integer(_) | Value::Real(_) | Value::Quantity(_) | Value::DateTime(_) | Value::Array(_) | Value::Object(_) | Value::Reference(_) | Value::Blob(_) =>
+                self.deserialize_any(visitor),
         }
     }
 

@@ -115,9 +115,7 @@ const XcodeProject = Parsed('JSON', parseJson).pipe(
         }),
     ),
 );
-const NxJson = Parsed('JSON', parseJson).pipe(
-    Schema.decodeTo(Schema.Struct({ release: Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) }) })),
-);
+const NxJson = Parsed('JSON', parseJson).pipe(Schema.decodeTo(Schema.Struct({ release: Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) }) })));
 const Released = Schema.Struct({ targets: Schema.Struct({ build: Schema.Struct({ options: Schema.Struct({ env: Schema.Struct({ MinVerTagPrefix: Schema.String, PRODUCT_BUNDLE_IDENTIFIER: Schema.String }) }) }) }) });
 const XcodeEntry = Schema.Struct({ path: Schema.String });
 const TsConfig = Parsed('JSON', parseJson).pipe(
@@ -165,7 +163,7 @@ const owning = Effect.fnUntraced(function* (root: string, dir: string) {
     );
     return { owner, manifest: yield* decode(Package, root, path.join(owner, 'package.json')) };
 });
-const extendedConfigs:(root: string, file: string) => Effect.Effect<readonly string[], Effect.Error<ReturnType<typeof decode>>, Effect.Services<ReturnType<typeof decode>>> = Effect.fnUntraced(function* (root: string, file: string) {
+const extendedConfigs: (root: string, file: string) => Effect.Effect<readonly string[], Effect.Error<ReturnType<typeof decode>>, Effect.Services<ReturnType<typeof decode>>> = Effect.fnUntraced(function* (root: string, file: string) {
     const [path, config] = yield* Effect.all([Path.Path, decode(TsConfig, root, file)]);
     const parents = config.extends.map((parent) => path.join(path.dirname(file), parent));
     const chains = yield* Effect.forEach(parents, (parent) => extendedConfigs(root, parent));
@@ -205,7 +203,7 @@ const tagPrefix = Effect.fnUntraced(function* ({ nx }: Workspace, tags: readonly
     const [group] = yield* Effect.fromOption(Record.findFirst(release.groups, ({ projects }) => tags.some((tag) => projects.includes(`tag:${tag}`))));
     return release.releaseTag.pattern.replace('{releaseGroupName}', group).replace('{projectName}', name).replace('{version}', '');
 });
-const testDirs =(path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
+const testDirs = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject, hosts }: Workspace) {
     const [path, { pythonFiles, testPaths }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
@@ -342,7 +340,12 @@ const markers = {
         const { file, root: workspace } = held;
         const [path, { files, targets }] = yield* Effect.all([Path.Path, decode(XcodeProject, workspace, file)]);
         const [root, name] = [path.dirname(dir), path.parse(dir).name];
-        const identifier = yield* Effect.fromOption(Option.flatMap(Array.findFirst(targets, (target) => target.name === name), ({ settings }) => settings.PRODUCT_BUNDLE_IDENTIFIER));
+        const identifier = yield* Effect.fromOption(
+            Option.flatMap(
+                Array.findFirst(targets, (target) => target.name === name),
+                ({ settings }) => settings.PRODUCT_BUNDLE_IDENTIFIER,
+            ),
+        );
         const updated = targets.some(({ members }) => members.some(({ product }) => product === 'Sparkle'));
         const owners = yield* Effect.forEach(
             files
@@ -364,10 +367,9 @@ const markers = {
     }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, { file, root, configFiles }) {
         const path = yield* Path.Path;
-        const [suite, configs, { compilerOptions }, { owner, manifest }, containers, entries] = yield* Effect.all(
-            [suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), owning(root, dir), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])],
-            { concurrency: 'unbounded' },
-        );
+        const [suite, configs, { compilerOptions }, { owner, manifest }, containers, entries] = yield* Effect.all([suiteInputs('typescript', dir, root), extendedConfigs(root, file), decode(TsConfig, root, file), owning(root, dir), containerTests(dir, root), glob(root, [`${dir}/*/main.ts`])], {
+            concurrency: 'unbounded',
+        });
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
         const runs = entries.flatMap((entry) => {
             const folder = path.dirname(entry);
@@ -392,6 +394,7 @@ const markers = {
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, pack: {}, install: {} } }),
     'cep.config.ts': () => Effect.succeed({ tags: ['host:cep'], targets: { build: {}, pack: {}, install: {} } }),
     'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
+    'sea.config.ts': () => Effect.succeed({ tags: ['output:sea'], targets: { pack: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
     '.storybook/main.ts': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), targets: { storybook: {} } })),
     'hooks/hooks.json': Effect.fnUntraced(function* ({ dir }, { file, root }) {
@@ -556,31 +559,24 @@ const components = Effect.fnUntraced(function* (root: string, inferred: CreateNo
     const projects = inferred.flatMap(([file, { projects: held = {} }]) => Record.collect(held, (at, project) => ({ file, at, project })));
     const declared = (at: string) => Array.dedupe(projects.filter((row) => row.at === at).flatMap(({ project }) => Object.keys(project.targets ?? {})));
     const apps = Array.getSomes(projects.map((row) => Option.map(Schema.decodeUnknownOption(Released)(row.project), ({ targets }) => ({ ...row, env: targets.build.options.env }))));
-    return yield* Effect.forEach(
-        apps,
-        Effect.fnUntraced(function* ({ file, at: app, env }) {
-            const { owner } = yield* owning(root, app);
-            const held = Array.dedupe(projects.map(Struct.get('at'))).filter((at) => owner !== '.' && at !== app && !path.relative(owner, at).startsWith('..'));
-            const members = yield* Effect.forEach(yield* Effect.filter(held, (at) => fs.exists(path.join(root, at, 'package.json'))), (at) =>
-                Effect.map(decode(Package, root, path.join(at, 'package.json')), ({ name }) => ({ at, name, steps: Array.intersection(['build', 'pack', 'install'], declared(at)) })),
-            );
-            const holding = (step: string) => members.filter(({ steps }) => steps.includes(step)).map(Struct.get('name'));
-            const after = (step: string, needed: string) => Array.match(holding(needed), { onEmpty: () => ({}), onNonEmpty: (projects) => (declared(app).includes(step) ? { [step]: { dependsOn: [{ projects, target: needed }] } } : {}) });
-            return [
-                file,
-                {
-                    projects: {
-                        ...Object.fromEntries(members.map(({ at, steps }) => [at, { root: at, targets: Object.fromEntries(steps.map((step) => [step, { options: { env } }])) }])),
-                        [app]: { root: app, implicitDependencies: members.map(Struct.get('name')), targets: { ...after('install', 'install'), ...after('publish', 'pack') } },
-                    },
-                },
-            ] as const;
-        }),
-    );
+    const member = Effect.fnUntraced(function* (at: string) {
+        const { name } = yield* decode(Package, root, path.join(at, 'package.json'));
+        return { at, name, steps: Array.intersection(['build', 'pack', 'install'], declared(at)) };
+    });
+    const component = Effect.fnUntraced(function* ({ file, at: app, env }: (typeof apps)[number]) {
+        const { owner } = yield* owning(root, app);
+        const nested = owner === '.' ? [] : Array.dedupe(projects.map(Struct.get('at'))).filter((at) => at !== app && !path.relative(owner, at).startsWith('..'));
+        const members = yield* Effect.forEach(yield* Effect.filter(nested, (at) => fs.exists(path.join(root, at, 'package.json'))), member);
+        const holding = (step: string) => members.filter(({ steps }) => steps.includes(step)).map(Struct.get('name'));
+        const after = (step: string, needed: string) => (declared(app).includes(step) ? Array.match(holding(needed), { onEmpty: () => ({}), onNonEmpty: (names) => ({ [step]: { dependsOn: [{ projects: names, target: needed }] } }) }) : {});
+        const targeted = (steps: readonly string[]) => Object.fromEntries(steps.map((step) => [step, { options: { env } }]));
+        return [file, { projects: { ...Object.fromEntries(members.map(({ at, steps }) => [at, { root: at, targets: targeted(steps) }])), [app]: { root: app, implicitDependencies: members.map(Struct.get('name')), targets: { ...after('install', 'install'), ...after('publish', 'pack') } } } }] as const;
+    });
+    return yield* Effect.forEach(apps, component);
 });
 
 // --- [DEPENDENCIES]
-const imports =(root: string, { projectFileMap }: FileMap) =>
+const imports = (root: string, { projectFileMap }: FileMap) =>
     Array.match(
         Object.values(projectFileMap).flatMap((files) => files.map(({ file }) => file).filter((file) => file.endsWith('.py'))),
         {

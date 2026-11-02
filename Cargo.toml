@@ -68,6 +68,7 @@ datasketches          = { version = "0.6.0", features = ["tdigest"] }           
 enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
 fastbloom             = "0.17.0"                                                  # Bloom filters that precheck membership
 fst                   = { version = "0.4.7", features = ["levenshtein"] }         # Finite-state sets and maps with prefix, range, and fuzzy queries
+hashbrown             = "0.17.1"                                                  # Hash maps rustworkx-core takes as keyed inputs (Katz `beta_map`)
 imbl                  = { version = "7.0.2", features = ["serde"] }               # Persistent vectors and maps with structural sharing across tasks
 indexmap              = { version = "2.14.2", features = ["serde"] }              # Insertion-ordered maps and sets that keep iteration and output deterministic
 itertools             = "0.15.0"                                                  # Partitioned results, grouping, windows, and merges over iterators
@@ -489,7 +490,7 @@ solar-positioning = { version = "0.7.2", default-features = false, features = ["
 stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                                                # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
 stac-io           = "0.3.5"                                                                                                                                                                   # STAC reads, writes, and API searches
 thermalcomfort    = { version = "4.6.2", features = ["std"] }                                                                                                                                 # PMV, UTCI, adaptive comfort, and psychrometrics
-tzf-rs            = { version = "2.2.0", default-features = false, features = ["bundled"] }                                                                                                   # Time zones from coordinates, default `clap` adds a CLI
+tzf-rs            = { version = "2.3.0", default-features = false, features = ["bundled"] }                                                                                                   # Time zones from coordinates, default `clap` adds a CLI
 
 # --- [COLOR]
 color       = { version = "0.3.3", features = ["serde"] }                  # CSS color parsing, serialization, interpolation, and gamut mapping
@@ -517,6 +518,7 @@ turbojpeg         = "1.5.1"                                                     
 
 # --- [TYPOGRAPHY]
 fontdb                     = { version = "0.23.0", default-features = false, features = ["std"] } # Font faces loaded from caller bytes into the database usvg reads, at the release krilla-svg and typst link, defaults `fs`, `memmap`, and `fontconfig` scan system fonts
+fontique                   = { version = "0.12.0", default-features = false, features = ["std"] } # Font collections registered from caller blobs that parley's `FontContext` holds, at the release parley links, default `system` scans system fonts
 harfrust                   = "0.15.0"                                                             # Text shaping
 linebender_resource_handle = "0.1.1"                                                              # Shared font blob with its collection index, the `FontData` parley runs hand out
 parlance                   = "0.1.1"                                                              # Font family stacks, variation settings, and tags parley styles read
@@ -625,6 +627,7 @@ rasm-mesh       = { path = "libs/rust/geometry/mesh", version = "1.0.0" }      #
 rasm-proximity  = { path = "libs/rust/geometry/proximity", version = "1.0.0" } # Proximity every Rasm geometry consumer composes: incremental placed-shape assemblies, clashes and separations under a pair rule, signed deviations, ray and swept-shape batches, containment, k-d tree neighbors and normals, weighted rigid fits and robust ICP registration
 rasm-stats      = { path = "libs/rust/numerics/stats", version = "1.0.0" }     # Statistics every Rasm numerics consumer composes: named bounded spaces, mergeable summaries, dependence matrices, designs, intervals, NUTS calibration, Guideline 14 grading, Saltelli and Morris sensitivity
 rasm-linework   = { path = "libs/rust/drawing/linework", version = "1.0.0" }   # Presentation model every Rasm drawing output reads: colors, pens, linetypes, hatch patterns, regions, edge classes, text, glyph runs, elements and pages, with strokes, region booleans and offsets, hatches and cleanup
+rasm-annotation = { path = "libs/rust/drawing/annotation", version = "1.0.0" } # Annotation every Rasm drawing set composes: text set from caller fonts into glyph runs and outlines, length and angle notation, dimensions, leaders, clouds, breaklines and scale bars, SVG symbols with text slots, legends and schedule tables, each with its text mask
 rasm-site       = { path = "libs/rust/geospatial/site", version = "1.0.0" }    # Where a site is and how its coordinates convert: latitude, longitude and elevation, time zones, parcel boundaries, CRS transformations, grid convergence and scale, site frames anchored to a grid
 rasm-solar      = { path = "libs/rust/geospatial/solar", version = "1.0.0" }   # Sun every Rasm site consumer composes: SPA positions beside their prepared Earth-Sun distance and declination and sky directions at an instant, rises, transits and sets over an interval and the windows above an apparent elevation, Tregenza and Reinhart sky patches and the patch a direction falls in, incidence, sun hours and sky view through placed obstacles, solar rights and collection envelopes
 rasm-dependency = { path = "libs/rust/graphs/dependency", version = "1.0.0" }  # Evaluation graph every Rasm consumer of a dependency order composes: cycle refusal naming every closing path, whole input rewiring, keyed order, layers, invalidation reach, dependency-driven propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, deadline-bounded critical path schedules

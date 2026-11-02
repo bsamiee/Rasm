@@ -89,8 +89,10 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [06]-[HOST_PACKAGING]
 
 UXP plugins package as one `.ccx` zip per host with `manifest.json` at its root:
-- `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves
-- Beta hosts load a plugin folder through a `UXP/PluginsInfo/v1/<host.app>.json` row, its `path` reading `$localPlugins/External/<folder>`
+- `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release host matching `host.app` and `minVersion`, answering `-411` when none does
+- Beta hosts load the plugins installed for the release host of their `host.app`, a running host loading each install at once
 - Hosts load native addon binaries with a Developer ID signature and notarization alone
-- Marketplace review refuses plugins launching an external application
+- Marketplace listings disclose the companion application a plugin talks to, and the plugin keeps that communication reliable
 - Marketplace and independent copies of a plugin take separate plugin IDs
+
+CEP extensions publish as a signed, timestamped `.zxp` a person installs through a ZXP installer, and this Mac extracts each into the per-user extension folder named by its bundle id. Node servers publish as an ESM single executable with `useVfs`, each native addon a signed real file the bundle resolves its package to, and an addon extracting its payload at load needs `disable-library-validation`.

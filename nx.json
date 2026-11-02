@@ -214,27 +214,21 @@
                 "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
                 "parallelism": false
             },
-            {
-                "filter": { "projects": [ "tag:host:uxp" ] },
-                "command": "rm -f .artifacts/{projectRoot}.ccx && ditto -c -k --norsrc .artifacts/{projectRoot} .artifacts/{projectRoot}.ccx",
-                "dependsOn": [ "build" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.ccx" ]
-            },
+            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "rm -f .artifacts/{projectRoot}.ccx && ditto -c -k --norsrc .artifacts/{projectRoot} .artifacts/{projectRoot}.ccx", "dependsOn": [ "build" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.ccx" ] },
             {
                 "filter": { "projects": [ "tag:host:cep" ] },
                 "command": "doppler run --project agent-runtime --config dev --only-secrets ZXP_CERTIFICATE,ZXP_CERTIFICATE_PASSWORD --no-fallback --attempts 1 --command 'certificate=$(mktemp) && trap \"rm -f \\\"$certificate\\\"\" EXIT && printf %s \"$ZXP_CERTIFICATE\" | base64 -d > \"$certificate\" && rm -f .artifacts/{projectRoot}.zxp && ZXPSignCmd -sign .artifacts/{projectRoot} .artifacts/{projectRoot}.zxp \"$certificate\" \"$ZXP_CERTIFICATE_PASSWORD\" -tsa http://timestamp.digicert.com && ZXPSignCmd -verify .artifacts/{projectRoot}.zxp -certInfo'",
                 "dependsOn": [ "build" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.zxp" ],
                 "cache": false
+            },
+            {
+                "filter": { "projects": [ "tag:output:sea" ] },
+                "command": "vite build --config {projectRoot}/sea.config.ts && node --build-sea .artifacts/{projectRoot}/sea.json && codesign --force --sign - --options runtime --entitlements {projectRoot}/server.entitlements \"$(jq -r .output .artifacts/{projectRoot}/sea.json)\""
             }
         ],
         "install": [
-            {
-                "filter": { "projects": [ "tag:build:xcode" ] },
-                "command": "rm -rf \"/Applications/{projectName}.app\" && ditto -x -k .artifacts/xcode/{projectRoot}/{projectName}.zip /Applications",
-                "dependsOn": [ "...", "pack" ],
-                "parallelism": false
-            },
+            { "filter": { "projects": [ "tag:build:xcode" ] }, "command": "rm -rf \"/Applications/{projectName}.app\" && ditto -x -k .artifacts/xcode/{projectRoot}/{projectName}.zip /Applications", "dependsOn": [ "...", "pack" ], "parallelism": false },
             {
                 "filter": { "projects": [ "tag:output:rhp" ] },
                 "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
@@ -245,12 +239,7 @@
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "pack" ], "parallelism": false },
-            {
-                "filter": { "projects": [ "tag:host:cep" ] },
-                "command": "folder=\"$HOME/Library/Application Support/Adobe/CEP/extensions/$PRODUCT_BUNDLE_IDENTIFIER.$(basename {projectRoot})\" && rm -rf \"$folder\" && ditto -x -k .artifacts/{projectRoot}.zxp \"$folder\"",
-                "dependsOn": [ "pack" ],
-                "parallelism": false
-            },
+            { "filter": { "projects": [ "tag:host:cep" ] }, "command": "folder=\"$HOME/Library/Application Support/Adobe/CEP/extensions/$PRODUCT_BUNDLE_IDENTIFIER.$(basename {projectRoot})\" && rm -rf \"$folder\" && ditto -x -k .artifacts/{projectRoot}.zxp \"$folder\"", "dependsOn": [ "pack" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
         ],

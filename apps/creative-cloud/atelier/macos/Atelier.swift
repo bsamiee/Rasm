@@ -5,16 +5,62 @@ import CurrentProcess
 import Encoding
 import Foundation
 import JSONRPC
+import ServiceManagement
 import Sparkle
 import os
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct ServerAgent: Decodable {
+    let environment: [String: String]
+
+    private enum CodingKeys: String, CodingKey {
+        case environment = "EnvironmentVariables"
+    }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+struct ServerError: LocalizedError {
+    enum Reason: Sendable {
+        case unidentified
+        case relocated(named: [String])
+        case unreadable(any Error)
+        case refused(any Error)
+    }
+
+    let subject: String
+    let reason: Reason
+
+    var errorDescription: String? { "\(reason): \(subject)" }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock: () -> Void) -> Bool {
+        immediateInstallationBlock()
+        return true
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 @main
 enum Atelier {
     static func main() async {
-        let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let logger: Logger = Logger(for: Self.self)
+        var input: stat = stat()
+        guard unsafe fstat(STDIN_FILENO, &input) == 0, [S_IFIFO, S_IFSOCK].contains(input.st_mode & S_IFMT) else {
+            do {
+                try register(bundle: .main)
+            } catch {
+                logger.fault("Atelier left its server unregistered, \(error, privacy: .public)")
+                exit(EXIT_FAILURE)
+            }
+            return
+        }
+        let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let calls: DispatchQueue = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "Atelier.output")
         do {
@@ -39,8 +85,26 @@ enum Atelier {
             exit(EXIT_FAILURE)
         }
     }
-}
 
-final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
-    func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock _: () -> Void) -> Bool { true }
+    static func register(bundle: Bundle) throws(ServerError) {
+        guard let identifier = bundle.bundleIdentifier else {
+            throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .unidentified)
+        }
+        let plist: String = "\(identifier).server.plist"
+        let file: URL = bundle.bundleURL.appending(components: "Contents", "Library", "LaunchAgents", plist)
+        let agent: ServerAgent
+        do {
+            agent = try PropertyListDecoder().decode(ServerAgent.self, from: Data(contentsOf: file))
+        } catch {
+            throw ServerError(subject: file.path(percentEncoded: false), reason: .unreadable(error))
+        }
+        guard let executable = bundle.executablePath, agent.environment.values.contains(executable) else {
+            throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .relocated(named: agent.environment.values.sorted()))
+        }
+        do {
+            try SMAppService.agent(plistName: plist).register()
+        } catch {
+            throw ServerError(subject: plist, reason: .refused(error))
+        }
+    }
 }

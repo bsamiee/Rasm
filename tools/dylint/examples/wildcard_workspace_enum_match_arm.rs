@@ -85,9 +85,9 @@ const fn foreign(order: Ordering) -> u8 {
     }
 }
 
-const fn member(reason: rasm_mcp::Unanswered) -> u8 {
+const fn member(reason: rasm_mcp::server::elicitation::Unanswered) -> u8 {
     match reason {
-        rasm_mcp::Unanswered::Declined | rasm_mcp::Unanswered::Dismissed | rasm_mcp::Unanswered::Empty | rasm_mcp::Unanswered::Unsupported => 0,
+        rasm_mcp::server::elicitation::Unanswered::Declined | rasm_mcp::server::elicitation::Unanswered::Cancelled | rasm_mcp::server::elicitation::Unanswered::Empty => 0,
         _ => 1,
     }
 }

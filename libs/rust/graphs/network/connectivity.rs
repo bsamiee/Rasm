@@ -3,14 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ordered_float::OrderedFloat;
 use petgraph::{
-    EdgeType, Undirected,
+    EdgeType,
     algo::kosaraju_scc,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph, StableUnGraph},
+    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph, StableUnGraph},
     visit::{EdgeRef as _, IntoEdgeReferences as _},
 };
 use rustworkx_core::connectivity::{articulation_points, connected_components, stoer_wagner_min_cut};
 
-use crate::{Weight, compact};
+use crate::Weight;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,6 +33,7 @@ pub struct Biconnected {
 pub struct Cut {
     pub value: f64,
     pub side: BTreeSet<NodeIndex>,
+    pub edges: BTreeSet<EdgeIndex>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -67,9 +68,21 @@ where Ty: EdgeType {
 }
 
 #[must_use]
-pub fn min_cut<N, E, Ty>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(&E) -> Weight) -> Option<Cut>
+pub fn min_cut<N, E>(graph: &StableUnGraph<N, E>, weight: impl Fn(EdgeReference<'_, E>) -> Weight) -> Option<Cut> {
+    let cut = stoer_wagner_min_cut(graph, |edge| Ok::<_, !>(OrderedFloat(weight(edge).into_inner()))).into_ok();
+    cut.map(|(OrderedFloat(value), side)| severed(graph, value, side.into_iter().collect()))
+}
+
+pub(crate) fn severed<N, E, Ty>(graph: &StableGraph<N, E, Ty>, value: f64, side: BTreeSet<NodeIndex>) -> Cut
 where Ty: EdgeType {
-    let network = compact(graph, |edge| OrderedFloat(weight(edge).into_inner())).into_edge_type::<Undirected>();
-    let cut = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(*edge.weight())).into_ok();
-    cut.map(|(OrderedFloat(value), side)| Cut { value, side: side.into_iter().filter_map(|node| network.node_weight(node).copied()).collect() })
+    let edges = graph
+        .edge_references()
+        .filter(|edge| match (side.contains(&edge.source()), side.contains(&edge.target())) {
+            (true, false) => true,
+            (false, true) => !Ty::is_directed(),
+            (true, true) | (false, false) => false,
+        })
+        .map(|edge| edge.id())
+        .collect();
+    Cut { value, side, edges }
 }

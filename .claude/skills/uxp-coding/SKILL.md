@@ -250,7 +250,7 @@ Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) 
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host, `host.app` taking `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`. Hosts enforce each `requiredPermissions` key:
+One manifest serves one host, its `id` and `version` derived at build, `host.app` taking `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`. Hosts enforce each `requiredPermissions` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
@@ -264,7 +264,7 @@ One manifest serves one host, `host.app` taking `ID`, `PS`, `premierepro`, `ame`
 |  [08]   | `webview` `allow: "yes"` with `domains` | Modal dialog WebViews for listed domains or `"all"`      | No WebView                       |
 |  [09]   | `enableUserInfo`                        | `userInfo.userId()` returns the Creative Cloud user GUID | No user GUID                     |
 
-- `entrypoints` rows name a `panel` or `command` `id` with `label.default`
+- `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and hosts refuse a manifest naming neither `main` nor an entrypoint
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes

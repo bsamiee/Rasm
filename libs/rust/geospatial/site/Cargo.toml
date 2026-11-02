@@ -25,7 +25,7 @@ bench   = false
 [dependencies]
 thiserror           = { workspace = true }
 derive_more         = { workspace = true }
-itertools           = { workspace = true }
+nonempty-collections = { workspace = true }
 serde               = { workspace = true }
 serde_json          = { workspace = true }
 serde_path_to_error = { workspace = true }

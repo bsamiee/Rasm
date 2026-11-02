@@ -1,5 +1,5 @@
-use core::{fmt::Display, future::ready, pin::pin};
-use std::{borrow::Cow, collections::BTreeMap};
+use core::{error::Error, future::ready, pin::pin};
+use std::{borrow::Cow, collections::BTreeMap, error::Report, sync::Arc};
 
 use futures::{
     FutureExt as _, StreamExt as _,
@@ -10,38 +10,39 @@ use jsonschema::validator_for;
 use nonempty_collections::NEVec;
 use rmcp::{
     ErrorData, RoleServer, ServiceError,
-    handler::server::tool::{IntoCallToolResult, ToolCallContext, ToolRoute},
-    model::{
-        CallToolRequestMethod, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, CreateTaskResult, ElicitRequest, ElicitRequestParams, ElicitationAction, ElicitationSchema,
-        InputRequest, InputRequiredResult, JsonObject, NumberOrString, ProgressToken, ServerResult,
+    handler::server::{
+        tool::{IntoCallToolResult, ToolCallContext, ToolRoute},
+        tool_name_validation::validate_and_warn_tool_name,
     },
-    service::{ElicitationSafe, RequestContext},
+    model::{CallToolRequestMethod, CallToolRequestParams, CallToolResponse, CallToolResult, CreateTaskResult, InputRequiredResult, NumberOrString, ProgressToken},
+    service::RequestContext,
     task_manager::{TaskContext, TaskExit, TaskOptions},
 };
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
 use serde_json::Value;
 use tokio::{
     sync::{mpsc, oneshot},
-    time::Instant,
+    time::{self, Instant},
 };
 use tokio_stream::wrappers::{UnboundedReceiverStream, WatchStream};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
+use validated::Validated;
 
-use super::{App, Server};
-use crate::{McpError, Progress, Unanswered, internal};
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Asked = (InputRequest, oneshot::Sender<Value>);
+use super::{
+    App, Server,
+    elicitation::{Asked, Elicitation},
+    executions::{self, Execution},
+};
+use crate::{McpError, Progress, internal};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, derive_more::From)]
-pub struct Failure<E>(pub E);
+pub struct ToolError<E>(pub E);
 
-impl<E> IntoCallToolResult for Failure<E>
-where E: Serialize + Display
+impl<E> IntoCallToolResult for ToolError<E>
+where E: Serialize + Error
 {
     fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> {
         #[derive(Serialize)]
@@ -50,30 +51,14 @@ where E: Serialize + Display
             error: &'error E,
             message: String,
         }
-        ContentBlock::json(Rendered { error: &self.0, message: self.0.to_string() }).map(|block| CallToolResult::error(vec![block]).into())
+        serde_json::to_value(Rendered { error: &self.0, message: Report::new(&self.0).to_string() }).map(|value| CallToolResult::structured_error(value).into()).map_err(internal)
     }
 }
 
-impl<E> From<Failure<E>> for ErrorData
-where E: Serialize + Display
+impl<E> From<ToolError<E>> for ErrorData
+where E: Serialize + Error
 {
-    fn from(value: Failure<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(value.0.to_string(), Some(data))) }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(super) struct Execution {
-    tool: Cow<'static, str>,
-    arguments: Option<JsonObject>,
-    outcome: Option<Outcome>,
-    #[serde(skip)]
-    since: Instant,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "_tag")]
-enum Outcome {
-    Returned { result: Box<ServerResult> },
-    Failed { error: ErrorData },
+    fn from(value: ToolError<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(Report::new(&value.0).to_string(), Some(data))) }
 }
 
 pub(super) struct Running {
@@ -85,56 +70,25 @@ pub(super) struct Running {
     destructive: bool,
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-pub struct Elicitation {
-    context: RequestContext<RoleServer>,
-    asked: mpsc::UnboundedSender<(String, Asked)>,
-}
-
-impl Elicitation {
-    pub async fn elicit<T>(&self, message: impl Into<String>) -> Result<T, McpError>
-    where T: ElicitationSafe + DeserializeOwned {
-        let abandoned = || McpError::Elicitation { reason: Unanswered::Abandoned };
-        self.context
-            .client_capabilities()
-            .and_then(|capabilities| capabilities.elicitation)
-            .is_some_and(|modes| modes.form.is_some() || modes.url.is_none())
-            .ok_or(McpError::Elicitation { reason: Unanswered::Unsupported })?;
-        let requested_schema = ElicitationSchema::from_type::<T>().map_err(|source| McpError::Unaskable { source })?;
-        let params = ElicitRequestParams::FormElicitationParams { meta: None, message: message.into(), requested_schema };
-        let result = if self.context.protocol_version().is_none_or(|version| version.has_initialize()) {
-            self.context.peer.create_elicitation(params).await.map_err(|source| McpError::Unreached { source })?
-        } else {
-            let (responder, answered) = oneshot::channel();
-            self.asked.send((Uuid::new_v4().to_string(), (InputRequest::Elicitation(ElicitRequest::new(params)), responder))).map_err(|mpsc::error::SendError(_)| abandoned())?;
-            let answer = answered.await.map_err(|oneshot::error::RecvError { .. }| abandoned())?;
-            serde_path_to_error::deserialize(&answer).map_err(|source| McpError::Answer { data: answer, source })?
-        };
-        match (result.action, result.content) {
-            (ElicitationAction::Accept, Some(content)) => serde_path_to_error::deserialize(&content).map_err(|source| McpError::Answer { data: content, source }),
-            (ElicitationAction::Accept, None) => Err(McpError::Elicitation { reason: Unanswered::Empty }),
-            (ElicitationAction::Decline, _) => Err(McpError::Elicitation { reason: Unanswered::Declined }),
-            (_, _) => Err(McpError::Elicitation { reason: Unanswered::Dismissed }),
-        }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(super) fn validated<A>(route: ToolRoute<A>) -> Result<ToolRoute<A>, McpError>
+pub(super) fn validated<A>(route: ToolRoute<A>) -> Validated<(Cow<'static, str>, ToolRoute<A>), McpError>
 where A: Send + Sync + 'static {
     let ToolRoute { call, attr, .. } = route;
-    let validator = validator_for(&attr.schema_as_json_value()).map_err(|source| McpError::Schema { tool: attr.name.clone(), source })?;
-    Ok(ToolRoute::new_dyn(attr, move |context: ToolCallContext<'_, A>| {
-        let arguments = Value::Object(context.arguments.clone().unwrap_or_default());
-        let violations = validator.evaluate(&arguments).iter_errors().map(|entry| (entry.instance_location.clone(), entry.error.message().to_owned())).collect();
-        match NEVec::try_from_vec(violations) {
-            None => call(context),
-            Some(violations) => ready(Failure(McpError::Arguments { tool: context.name, violations }).into_call_tool_result()).boxed(),
-        }
-    }))
+    let named = validate_and_warn_tool_name(&attr.name).ok_or_else(|| McpError::ToolName { tool: attr.name.clone() });
+    let compiled = validator_for(&attr.schema_as_json_value()).map_err(|source| McpError::Schema { tool: attr.name.clone(), source });
+    Validated::from(named).map2(Validated::from(compiled), |(), validator| {
+        let name = attr.name.clone();
+        let routed = ToolRoute::new_dyn(attr, move |context: ToolCallContext<'_, A>| {
+            let arguments = Value::Object(context.arguments.clone().unwrap_or_default());
+            let violations = validator.evaluate(&arguments).iter_errors().map(|entry| (entry.instance_location.clone(), entry.error.message().to_owned())).collect();
+            match NEVec::try_from_vec(violations) {
+                None => call(context),
+                Some(violations) => ready(ToolError(McpError::Arguments { tool: context.name, violations }).into_call_tool_result()).boxed(),
+            }
+        });
+        (name, routed)
+    })
 }
 
 pub(super) async fn call<A>(server: &Server<A>, request: CallToolRequestParams, context: RequestContext<RoleServer>) -> Result<CallToolResponse, ErrorData>
@@ -172,11 +126,10 @@ where A: App {
             Either::Right(((), settled)) => settled.await,
         }
     }
-    let tools = server.changes.tools.load_full().ok_or_else(ErrorData::method_not_found::<CallToolRequestMethod>)?;
+    let tools = server.registry.tools.load_full().ok_or_else(ErrorData::method_not_found::<CallToolRequestMethod>)?;
     let resumed = server.parked.with_mut(|waiting| {
-        waiting.retain(|_, held| held.execution.since.elapsed() < server.retention);
         let retried = |_: &String, held: &mut Running| (&held.execution.tool, &held.execution.arguments) == (&request.name, &request.arguments);
-        request.request_state.as_ref().map(|state| waiting.extract_if(state..=state, retried).next().ok_or(McpError::Unparked)).transpose()
+        request.request_state.as_ref().map(|state| waiting.extract_if(state..=state, retried).next().ok_or(McpError::RequestState)).transpose()
     })?;
     let mut running = if let Some((_, mut held)) = resumed {
         request
@@ -197,16 +150,21 @@ where A: App {
         let call = async move { tools.call(ToolCallContext::new(&app, request, called)).await };
         Running { call: call.inspect(move |_| drop(released)).boxed(), questions, pending: BTreeMap::new(), progress, execution, destructive }
     };
-    let park = |mut parked: Running| {
-        parked.execution.since = Instant::now();
+    let park = |parked: Running| {
         let state = Uuid::new_v4().to_string();
         let required = InputRequiredResult::new(Some(parked.pending.iter().map(|(key, (asked, _))| (key.clone(), asked.clone())).collect()), Some(state.clone()));
+        let (calls, expiring) = (Arc::clone(&server.parked), state.clone());
         server.parked.with_mut(|waiting| waiting.insert(state, parked));
+        server.tracker.spawn(server.halted.clone().run_until_cancelled_owned(time::sleep(server.retention)).map(move |expired| {
+            if expired.is_some() {
+                drop(calls.with_mut(|held| held.remove(&expiring)));
+            }
+        }));
         CallToolResponse::from(required)
     };
     if context.client_capabilities().is_some_and(|capabilities| capabilities.supports_tasks()) && server.info.capabilities.supports_tasks() {
         let options = TaskOptions::default().with_ttl_ms((!running.destructive).then(|| u64::try_from(server.retention.as_millis()).unwrap_or(u64::MAX)));
-        Ok(CreateTaskResult::new(server.tasks.spawn(options, |task| tasked(running, task).boxed())).into())
+        Ok(CreateTaskResult::new(server.tasks.spawn(options, |task| server.tracker.track_future(tasked(running, task)).boxed())).into())
     } else if running.pending.is_empty() {
         let mut asked = Vec::new();
         tokio::select! {
@@ -217,20 +175,8 @@ where A: App {
             }
             completed = running.progress.relay(&context, &mut running.call) => completed,
             () = context.ct.cancelled() => {
-                if let Running { call, questions: _, pending: _, progress: _, execution, destructive: true } = running {
-                    let mut row = 0;
-                    server.changes.ledger.send_modify(|rows| {
-                        rows.retain(|_, held| held.outcome.is_none() || held.since.elapsed() < server.retention);
-                        row = rows.last_key_value().map_or(0, |(last, _)| last.saturating_add(1));
-                        rows.insert(row, execution);
-                    });
-                    let outcome = match call.await {
-                        Ok(response) => Outcome::Returned { result: Box::new(response.into()) },
-                        Err(error) => Outcome::Failed { error },
-                    };
-                    server.changes.ledger.send_modify(|rows| {
-                        rows.entry(row).and_modify(|held| (held.outcome, held.since) = (Some(outcome), Instant::now()));
-                    });
+                if running.destructive {
+                    executions::record(&server.registry.ledger, server.retention, running.execution, running.call).await;
                 }
                 Err(internal(ServiceError::Cancelled { reason: None }))
             }

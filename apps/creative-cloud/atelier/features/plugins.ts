@@ -69,7 +69,8 @@ const declaring =
 
 const linked = Effect.gen(function* () {
     const [automation, link] = yield* Effect.all([Automation, Link.listen(Libraries, { middleware: Layer.empty })]);
-    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter((peer) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer))));
+    const serving = (installed: readonly Installation[], identifier: string) => (peer: Link) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer));
+    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter(serving(installed, identifier)));
     const libraries = Array.map(
         [
             { identifier: 'com.adobe.InDesign', Contract: InDesign, target: Manifest.target },

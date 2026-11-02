@@ -28,12 +28,16 @@ tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
 tokio-util                         = { workspace = true }
 arc-swap                           = { workspace = true }
+process-wrap                       = { workspace = true }
 nonempty-collections               = { workspace = true }
 sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive-where                       = { workspace = true }
 derive_more                        = { workspace = true }
+itertools                          = { workspace = true }
+bytes                              = { workspace = true }
+data-encoding                      = { workspace = true }
 serde                              = { workspace = true }
 serde_json                         = { workspace = true }
 serde_path_to_error                = { workspace = true }
@@ -44,6 +48,7 @@ axum                               = { workspace = true }
 form_urlencoded                    = { workspace = true }
 matchit                            = { workspace = true }
 percent-encoding                   = { workspace = true }
+url                                = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry                      = { workspace = true }
 opentelemetry-http                 = { workspace = true }
