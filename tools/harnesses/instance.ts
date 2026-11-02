@@ -1,5 +1,4 @@
 import { constants, tmpdir } from 'node:os';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
 import { Array, Effect, FileSystem, Match, Option, Path, Record, Schema, Stream } from 'effect';
@@ -71,13 +70,9 @@ const Launch = Effect.fn('Launch')(function* (spec: Launch) {
 const lock = Effect.fn('lock')(function* (identifier: string, pid: number) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = path.join(tmpdir(), 'rasm-harnesses');
-    const file = path.join(folder, `${identifier}.${pid}.lock`);
     yield* fs.makeDirectory(folder, { recursive: true });
-    const acquired = Effect.gen(function* () {
-        const { code } = yield* spawned('shlock', ['-f', file, '-p', `${process.pid}`]);
-        yield* code === 0 ? Effect.void : Effect.flatMap(fs.readFileString(file), (holder) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `held by harness process ${holder.trim()}` }, subject: `${identifier} process ${pid}` }));
-    });
-    yield* Effect.acquireRelease(acquired, () => Effect.orDie(fs.remove(file)));
+    const holder = yield* ChildProcess.make('lockf', ['-k', path.join(folder, `${identifier}.${pid}.lock`), 'sh', '-c', 'echo && exec cat'], { stdin: 'pipe', stderr: 'inherit' });
+    yield* Stream.runHead(holder.stdout);
 });
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
 const owner = Effect.fn('owner')(function* (pid: number) {
