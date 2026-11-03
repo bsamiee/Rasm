@@ -47,7 +47,10 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         buffer.setFlags(Number.sumAll(Array.map(flags, (flag) => BufferFlag[flag])));
         Option.map(language, (tag) => buffer.setLanguage(otTagToLanguage(tag)));
         Option.map(script, (tag) => buffer.setScript(otTagToScript(tag)));
-        Option.map(Option.orElse(direction, () => Option.map(settings.direction, (key) => DIRECTIONS[key])), (key) => buffer.setDirection(Direction[key]));
+        Option.map(
+            Option.orElse(direction, () => Option.map(settings.direction, (key) => DIRECTIONS[key])),
+            (key) => buffer.setDirection(Direction[key]),
+        );
         buffer.guessSegmentProperties();
         const characters = buffer.getGlyphInfos();
         shape(face.font, buffer, [...features, ...Record.collect(settings.features, (tag, value) => new Feature(tag, value))]);

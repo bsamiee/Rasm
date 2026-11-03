@@ -122,8 +122,8 @@ const features = Schema.Struct({
                 ...opentypeFeatures.filter(([, value]) => value !== 0),
             ]),
         ),
-        encode: SchemaGetter.transform((features) => {
-            const flagged = (tag: string) => Option.contains(Record.get(features, tag), 1);
+        encode: SchemaGetter.transform((chosen) => {
+            const flagged = (tag: string) => Option.contains(Record.get(chosen, tag), 1);
             const capitalization = Option.getOrElse(
                 Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)),
                 () => 'NORMAL' as const,
@@ -133,7 +133,7 @@ const features = Schema.Struct({
                 otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))),
                 ...Record.map(FEATURE_FLAGS, flagged),
                 capitalization,
-                opentypeFeatures: Record.toEntries(Record.filter(features, (_, tag) => !memberTags.includes(tag))),
+                opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.includes(tag))),
             };
         }),
     }),

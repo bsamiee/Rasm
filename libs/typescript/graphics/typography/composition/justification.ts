@@ -48,8 +48,19 @@ class Justification extends Data.Class<
         const isLetter = (text: string, { class: kind, xAdvance, cluster }: ShapedText['glyphs'][number]) => kind !== 'MARK' && xAdvance !== 0 && !isSpace(text, cluster);
         const spaced = (text: string, glyphs: ShapedText['glyphs']) => {
             const joined = joinedClusters(text);
-            const letters = glyphs.flatMap((each, at) => (isLetter(text, each) ? [{ at, cluster: each.cluster }] : []));
-            return new Set(Array.window(letters, 2).filter(([before, after]) => !joined(before.cluster, after.cluster)).map(([before]) => before.at));
+            const letters = Array.getSomes(
+                glyphs.map((each, at) =>
+                    Option.map(
+                        Option.liftPredicate(each, (glyph) => isLetter(text, glyph)),
+                        ({ cluster }) => ({ at, cluster }),
+                    ),
+                ),
+            );
+            return new Set(
+                Array.window(letters, 2)
+                    .filter(([before, after]) => !joined(before.cluster, after.cluster))
+                    .map(([before]) => before.at),
+            );
         };
         const measured = (run: Run, shaped = ShapedText.of(face, run, settings)): ShapedRun => {
             const letters = shaped.glyphs.filter((each) => isLetter(run.text, each));
@@ -126,9 +137,13 @@ class Justification extends Data.Class<
 const joinedClusters = (text: string) => {
     const runs = Word.of(text).flatMap(Struct.get('runs'));
     const runAt = (cluster: number) => Array.findFirstIndex(runs, ({ start, end }) => start <= cluster && cluster < end);
-    return (before: number, after: number) => Option.getOrElse(Option.zipWith(runAt(before), runAt(after), (left, right) => left === right), () => false);
+    return (before: number, after: number) =>
+        Option.getOrElse(
+            Option.zipWith(runAt(before), runAt(after), (left, right) => left === right),
+            () => false,
+        );
 };
-const inGroups =(group: JoiningGroup, groups: readonly JoiningGroup[] = [group]) => groups.includes(group);
+const inGroups = (group: JoiningGroup, groups: readonly JoiningGroup[] = [group]) => groups.includes(group);
 const kashidaCandidates = (text: string, { start, end }: Word['runs'][number]) => {
     const { NoJoiningGroup, Seen, Sad, Yeh, FarsiYeh, TehMarbuta, Heh, Dal, Alef, Tah, Lam, Kaf, Gaf, Beh, Reh, Waw, Ain, Qaf, Feh } = JoiningGroup;
     const rows: readonly { readonly rank?: number; readonly before?: readonly JoiningGroup[]; readonly after?: readonly JoiningGroup[]; readonly following?: readonly JoiningGroup[]; readonly final?: true }[] = [
