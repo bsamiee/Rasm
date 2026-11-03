@@ -36,8 +36,8 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 ### Queue
 
 1. **Rust:** six runs at once, three rows in RUST.md order and three depth runs, each landing freeing its slot; `rust-tune` from `24ede74fc` after 2 to 3 land, and again every few landings.
-2. **InPage:** depth pass, clean prose and `typescript-tune` landed; the manual audit (every page of the InPage manual against our logic) runs with its fixes, then a tune if justified.
-3. **Then:** one focused agent per open defect, and `typescript-sweep` once no other run edits TypeScript. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
+2. **InPage:** depth pass, clean prose, `typescript-tune` and the manual audit (`2a7c018e2`, PLAN.md `[17]-[DESKTOP_MANUAL]`) landed.
+3. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect. Depth order: `interchange/ifc`, `geospatial/solar` with `geospatial/site` as one run, `documents/typeset`, then each landed row not yet deepened.
 4. **InPage depth rerun:** once the sweep and all other TypeScript work land (it may overlap the extension planning), rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability.
 5. **Folder guidance:** once the sweep and the Rust queue settle.
 
@@ -74,7 +74,7 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### State
 
-- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides), `font-foundry`, the InPage manual audit, and the coding-skill pass carrying the derivation principle (`.artifacts/workflows/skills/derivation.md`) into every `<language>-coding` skill.
+- **Running:** `internals-finish` (preferences, right-to-left, composers, color, guides) and `font-foundry`; the derivation principle (`.artifacts/workflows/skills/derivation.md`) landed in every `<language>-coding` skill (`0a2cc53ef`).
 - **InPage landing:** library, depth pass (`f9bfccb21`) and Atelier (`233e6a109`) committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`.
 - **Research notes:** every value stated as library behavior is rewritten as the relation, parameter or measured property it derives from; `grids.md` holds one page relation solved for any free quantity.
 - **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
