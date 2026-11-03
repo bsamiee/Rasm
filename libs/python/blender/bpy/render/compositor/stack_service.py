@@ -14,7 +14,7 @@ from expression.collections import Block
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
+from blender.bpy.commands.operators import called
 from blender.bpy.data.ids.ownership import retained
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value, written
@@ -172,13 +172,13 @@ class LayerStackService[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         rebuilt = rooted(bpy.types.Scene, context).bind(lambda scene: self.rebuilt(scene, held.tree, record, context))
         return paired(rebuilt, rooted(bpy.types.Screen, context).bind(lambda screen: written(self.view.struct(screen), ("active",), active))).map(lambda _: True)
 
-    def rewritten(self, context: bpy.types.Context, held: Selection[M], at: Lens, change: Callable[[object], object], active: int) -> Outcome[bool]:
-        """Writes the stack with the value a lens reaches changed, answering whether the stack changed."""
-        return amended(held.record, at, change).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=str(active))).bind(lambda record: self.replaced(context, held, record, active))
+    def rewritten[V](self, context: bpy.types.Context, held: Selection[M], kind: type[V], at: Lens, change: Callable[[V], object], active: int) -> Outcome[bool]:
+        """Writes the stack with the `kind` value a lens reaches changed, answering whether the stack changed."""
+        return amended(kind, held.record, at, change).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=str(active))).bind(lambda record: self.replaced(context, held, record, active))
 
     def appended(self, context: bpy.types.Context, held: Selection[M], entry: Entry[M]) -> Outcome[bool]:
         """Appends an effect entry to the active layer, answering whether the stack changed."""
-        return self.rewritten(context, held, (LAYERS, held.active, EFFECTS), lambda found: (*found, entry) if isinstance(found, tuple) else found, held.active)
+        return self.rewritten(context, held, tuple, (LAYERS, held.active, EFFECTS), lambda found: (*found, entry), held.active)
 
     def moved(self, context: bpy.types.Context, origin: int, target: int) -> Outcome[None]:
         """Moves the layer row at one list row to another, then rebuilds the stack, its inputs following their layer keys."""
@@ -227,7 +227,7 @@ class LayerStackService[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                     return self.replaced(context, held, stack, 0).bind(lambda changed: valued("", changed=changed))
                 case StackLayer() as layer:
                     return held.layer.bind(
-                        lambda prior: self.rewritten(context, held, (LAYERS, held.active), lambda _: msgspec.structs.replace(layer, key=prior.key), held.active).bind(
+                        lambda prior: self.rewritten(context, held, StackLayer, (LAYERS, held.active), lambda _: msgspec.structs.replace(layer, key=prior.key), held.active).bind(
                             lambda changed: valued(prior.key, changed=changed)
                         )
                     )

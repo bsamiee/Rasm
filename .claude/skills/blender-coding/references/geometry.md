@@ -97,10 +97,13 @@ Buffers follow host storage:
 Exporters transform the temporary evaluated mesh in place through `Mesh.transform` and copy its buffers out before `to_mesh_clear`:
 
 ```python
-def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, /) -> Option[tuple[Buffer, Buffer, Buffer]]:
+type Surface = tuple[Buffer, Buffer, Buffer]
+
+
+def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, /) -> Option[Surface]:
     evaluated: bpy.types.Object = source.evaluated_get(depsgraph)
 
-    def read(mesh: bpy.types.Mesh) -> tuple[Buffer, Buffer, Buffer]:
+    def read(mesh: bpy.types.Mesh) -> Surface:
         positions: bpy.types.FloatVectorAttribute = mesh.attributes["position"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         corners: bpy.types.IntAttribute = mesh.attributes[".corner_vert"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         mesh.transform(evaluated.matrix_world)
@@ -151,7 +154,7 @@ Channels follow the layered action model:
 Keys replace a channel's keys through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`:
 
 ```python
-def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDArray[np.float32], interpolation: str, /, *, index: int = 0) -> Result[bpy.types.FCurve, RuntimeError]:
+def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDArray[np.float32], interpolation: "rna_enums.BeztripleInterpolationModeItems", /, *, index: int = 0) -> Result[bpy.types.FCurve, RuntimeError]:
     modes: bpy.types.EnumProperty = bpy.types.Keyframe.bl_rna.properties["interpolation"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
     def filled(curve: bpy.types.FCurve) -> bpy.types.FCurve:

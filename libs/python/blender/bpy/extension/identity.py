@@ -17,7 +17,7 @@ import structlog
 
 from blender.bpy.data.rna.paths import addon_preferences, Struct
 from blender.bpy.extension.reports import Reports
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -98,12 +98,12 @@ class ResourceValues:
         return Some(self[resource]) if resource in self.values else Nothing
 
     @contextmanager
-    def holding[T](self, resource: Resource[T], opened: Callable[[], AbstractContextManager[T]], /) -> Generator[None]:
+    def holding[T](self, resource: Resource[T], opened: Callable[[], AbstractContextManager[T]], /) -> Generator[Outcome[None]]:
         """Holds the value the opened scope yields under resource until scope exit."""
         with ExitStack() as stack:
             self.values[resource] = stack.enter_context(opened())
             stack.callback(self.values.pop, resource)
-            yield
+            yield Result[None, Faults](ok=None)
 
     def renewed[T](self, resource: Resource[T], renew: Callable[[T], T], /) -> Outcome[None]:
         """Replaces the value held under resource with its renewal after a file load."""
@@ -129,7 +129,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
             name = template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), BASE=base.__name__, digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{key}").hex)
             return _checked(name, (key, name.encode()), tuple[Key, Annotated[bytes, msgspec.Meta(max_length=63)]])
 
-        return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, Reason.UNREGISTERED, base.__name__, member="name form")).bind(formed)
+        return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, Reason.UNREGISTERED, base.__name__, "name form")).bind(formed)
 
     def identifier(self, key: Key, /) -> Outcome[str]:
         """Builds a property, record, or command identifier under the manifest ID, unregistered fault for a key outside lowercase snake case."""

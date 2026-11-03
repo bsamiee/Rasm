@@ -101,7 +101,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
     };
     let front = |hits: &[Hit]| {
         let nearest = hits.first()?.time_of_impact;
-        let hit = hits.iter().take_while(|hit| hit.time_of_impact <= nearest + reach).min_by_key(|hit| owner(hit).map(|(body, Source { original, face })| (body, original, face)))?;
+        let hit = hits.iter().take_while(|hit| hit.time_of_impact <= nearest + reach).min_by_key(|hit| owner(hit))?;
         owner(hit).zip(Unit::try_new(hit.normal, 0.0)).map(|(key, normal)| (key, (hit.point, normal)))
     };
     for (cell, hits) in iter::zip(cells, crossed) {
@@ -127,7 +127,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
             (sample, outline)
         })
         .into_iter()
-        .sorted_unstable_by_key(|&((body, Source { original, face }), _)| (body, original, face))
+        .sorted_unstable_by_key(|&(key, _)| key)
         .collect::<Vec<_>>()
         .into_par_iter()
         .filter_map(|((body, source), ((point, normal), outline))| {

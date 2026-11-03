@@ -1,4 +1,4 @@
-"""Fault reasons, fault, result type, result accumulation, and type narrowing."""
+"""Faults, their reasons, and result accumulation."""
 
 from collections.abc import Iterable
 from enum import StrEnum
@@ -16,7 +16,7 @@ type Outcome[T] = Result[T, Faults]
 
 
 class Reason(StrEnum):
-    """Refusal of a value, lookup, requirement, edit, registration, operation, or file, each value the report template of its fault."""
+    """Refusal kinds, each value the report template of its fault."""
 
     OUTSIDE = "{subject} accepts {member}, not {cause}"
     INVALID = "{subject} is invalid. {cause}"

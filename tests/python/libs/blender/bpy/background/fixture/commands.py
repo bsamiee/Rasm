@@ -9,15 +9,36 @@ from typing import Final
 from bl_ui.space_view3d import VIEW3D_MT_add, VIEW3D_MT_pivot_pie
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called, Command, filled, idname, Operation, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.commands.invocations import Folder, Open, Pick, Popup, Save, Suppressible
 from blender.bpy.commands.keymaps import Button, Chord, Keymap, nesting
 from blender.bpy.commands.modal import Gesture, Modal
-from blender.bpy.commands.operators import Answer, BoundBody, Call, Done, Empty, Macro, NoUndo, Operator, tallied, Unchanged, UndoGroup
+from blender.bpy.commands.operators import (
+    Answer,
+    BoundBody,
+    Call,
+    called,
+    Command,
+    Done,
+    Empty,
+    filled,
+    idname,
+    Macro,
+    NoUndo,
+    Operation,
+    operation,
+    Operator,
+    Placement,
+    PopupKind,
+    PopupTarget,
+    Setting,
+    tallied,
+    Unchanged,
+    UndoGroup,
+)
 from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import CliCommand
@@ -85,18 +106,11 @@ def stepped(bound: str, call: Call[Amount]) -> Outcome[Answer]:
 # --- [READS]
 
 
-def operation(identity: Identity, command: Command) -> Operation:
-    """Returns the `bpy.ops` callable of an extension command."""
-    module, _, name = idname(identity, command).default_value("").partition(".")
-    found: Operation = getattr(getattr(bpy.ops, module), name)
-    return found
-
-
 def _ran(identity: Identity, command: Command, values: Mapping[str, Setting | Option[Setting]]) -> tuple[Outcome[frozenset[str]], int]:
     """Calls a command from a zero count, answering its outcome and the count it left."""
     scene: bpy.types.Scene = bpy.context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     scene[COUNT] = 0
-    return called(operation(identity, command), values), int(scene[COUNT])
+    return operation(identity, command).bind(lambda found: called(found, values)), int(scene[COUNT])
 
 
 def binding(item: bpy.types.KeyMapItem) -> dict[str, object]:
@@ -115,7 +129,11 @@ def binding(item: bpy.types.KeyMapItem) -> dict[str, object]:
 
 def described(identity: Identity, command: Command) -> dict[str, object]:
     """Reads the registered class of a command: flags, the optional members Nothing where the class leaves them to the host, texts, helpers, callbacks, and properties."""
-    rna: bpy.types.Struct = operation(identity, command).get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    match operation(identity, command):
+        case Result(tag="ok", ok=found):
+            rna: bpy.types.Struct = found.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        case Result(error=faults):
+            raise RuntimeError(faults)
     cls: type[bpy.types.Operator] = getattr(bpy.types, rna.identifier)
 
     def declared[T](read: Callable[[], T]) -> Option[T]:
@@ -158,7 +176,7 @@ def executed(identity: Identity) -> dict[str, object]:
 
 def refusal(identity: Identity) -> str:
     """Answers the host error text of a refused command."""
-    return called(operation(identity, refused), {}).swap().map(lambda faults: str(faults[0].cause)).default_value("")
+    return operation(identity, refused).bind(lambda found: called(found, {})).swap().map(lambda faults: str(faults[0].cause)).default_value("")
 
 
 def suppressed(identity: Identity) -> dict[str, object]:
@@ -269,11 +287,11 @@ def keys() -> tuple[dict[str, object], ...]:
 COUNTED: Final = Operator.of(Amount)(counted)
 SEEDED: Final = Operator.of(Amount, named=Some("seeded"), seed=Some(lambda _properties, _event, _identity: {"amount": 7}))(counted)
 GROUPED: Final = Operator.of(Empty, named=Some("grouped"), undo=UndoGroup(group="fixture"))(kept.run)
-PLAIN: Final = Operator.of(Empty, named=Some("plain"), undo=NoUndo(), presets=True, internal=True)(kept.run)
+PLAIN: Final = Operator.of(Empty, named=Some("plain"), options=frozenset({"INTERNAL", "PRESET"}), undo=NoUndo())(kept.run)
 DIALOG: Final = Operator.of(Amount, named=Some("dialog"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))))(counted)
 REDO: Final = Operator.of(Amount, named=Some("redo"), undo=NoUndo(), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_popup))))(counted)
 SEARCH: Final = Operator.of(Amount, named=Some("search"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))))(counted)
-CONFIRMED: Final = Operator.of(Amount, named=Some("confirmed"), invoke=Some(Suppressible(message=lambda _context, _properties: "Count now?")))(counted)
+CONFIRMED: Final = Operator.of(Amount, named=Some("confirmed"), invoke=Some(Suppressible(message=lambda _context, _properties: Ok("Count now?"))))(counted)
 OPENED: Final = Operator.of(Empty, named=Some("opened"), invoke=Some(Open(extensions=lambda _properties: (".txt",))))(chosen)
 SAVED: Final = Operator.of(Empty, named=Some("saved"), invoke=Some(Save(extensions=lambda _properties: (".txt",))))(chosen)
 FOLDER: Final = Operator.of(Empty, named=Some("folder"), invoke=Some(Folder()))(chosen)
@@ -281,9 +299,8 @@ PICKED: Final = Operator.of(Empty, named=Some("picked"), invoke=Some(Pick(cursor
 DRAGGED: Final = Operator.of(
     Empty,
     named=Some("dragged"),
-    invoke=Some(
-        Modal[None](gesture=Gesture.DRAG, begin=lambda _context, _travel: Ok(None), preview=lambda _context, _state, _travel: Ok(Nothing), restore=lambda _context, _state: Ok(None), priority=True)
-    ),
+    options=frozenset({"MODAL_PRIORITY"}),
+    invoke=Some(Modal[None](gesture=Gesture.DRAG, begin=lambda _context, _travel: Ok(None), preview=lambda _context, _state, _travel: Ok(Nothing), restore=lambda _context, _state: Ok(None))),
 )(kept.run)
 OVER: Final = Operator.of(Amount)(BoundBody(lambda identity: Ok(identity.manifest.id), stepped))
 TWICE: Final = Macro(key="twice", description="Counts by two, then by three", steps=(Placement(COUNTED, {"amount": 2}), Placement(COUNTED, {"amount": 3})))

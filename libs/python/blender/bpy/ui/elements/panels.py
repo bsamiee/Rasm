@@ -1,4 +1,4 @@
-"""Panels beside a stock panel, under a stock parent, in an extension Sidebar tab, in an editor region, or opened as a popover, and the add-on preferences page over the preference groups rows declare, with the status, confirmation, shortcut, and stored settings sections it derives."""
+"""Panels an extension registers, its add-on preferences page included."""
 
 from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -108,9 +108,9 @@ class PanelCopy(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Panel(msgspec.Struct, frozen=True, kw_only=True):
-    """Section registered as a panel at each placement, with child panels and a popover panel per store values popover its sections reach.
+    """Section registered as a panel at its placement and at each of `copies`, with child panels and a popover panel per store values popover its sections reach.
 
-    `condition` hides the panel while it fails, as does a section holder the context does not reach, and `units` sets its width as a popover.
+    `condition` hides the panel at its own placement while it fails, as does a section holder the context does not reach, and `units` sets its width as a popover.
     """
 
     section: Section[Any]
@@ -123,7 +123,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def popovers(cls, rows: Iterable[object]) -> tuple[Self, ...]:
-        """Popover panel of each store values popover the rows' sections reach, registered in the top bar header, which draws no panels, a popover button or `wm.call_panel` alone opening it."""
+        """Returns a popover panel per store values popover the rows' sections reach, opened by a popover button or `wm.call_panel` alone."""
         return tuple(cls(section=popover, at=POPOVER) for section in sections_in(rows) for popover in section.popover.to_list())
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
@@ -180,7 +180,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     # --- [GATHERING]
 
     def gathered(self, identity: Identity, declared: tuple[Declaration | Gathering, ...], /) -> Outcome[Acquisitions]:
-        """Declares the preferences class, its commands, sections, and value popovers, registering the class where its draws realize, a taken fault naming each preference key two forms share."""
+        """Returns the preferences class with its commands, sections, and value popovers, or a taken fault naming each preference key two forms share."""
         asks = tuple(row for row in declared if isinstance(row, operators.Operator) and any(isinstance(form, invocations.Suppressible) for form in row.invoke.to_list()))
         bindings = tuple(row for row in declared if isinstance(row, keymaps.Keymap))
         stores = tuple(row for row in declared if isinstance(row, Attachment))
@@ -208,7 +208,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 )
             ),
         )
-        clear = operators.Operator.of(operators.Empty, icon=Some("TRASH"), internal=True, invoke=Some(confirmation))(clear_stored_settings)
+        clear = operators.Operator.of(operators.Empty, icon=Some("TRASH"), options=frozenset({"INTERNAL"}), invoke=Some(confirmation))(clear_stored_settings)
 
         def changed(_owner: Struct, _context: bpy.types.Context) -> None:
             self.changed.fired().default_with(identity.reports.hold)
@@ -268,7 +268,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
     """Registers the panel classes at every placement for the scope, re-registering a docked placement after each `changed` firing that moves it."""
 
     def slug(at: FixedPlacement) -> str:
-        """Returns the key suffix of a copy placed at a placement: the stock panel's identifier, or the editor with its tab or region, in lowercase words joined by underscores."""
+        """Returns a copy's key suffix: the stock panel's identifier, or the editor with its tab or region, in lowercase snake case."""
         match at:
             case Beside(panel=stock) | Child(parent=stock):
                 text = definition(_stock(stock)).identifier
@@ -282,12 +282,12 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
     classes = ExitStack()
 
     def classed(section: Section[Any], draws: SectionDraws, name: str, members: Mapping[str, object], options: frozenset[str], condition: Option[Condition]) -> type[bpy.types.Panel]:
-        """Builds a panel class over the section's draws, closed unless the section opens first, polled by the condition and whether the context reaches the section's holder."""
+        """Builds a panel class over the section's draws, polled by the condition and whether the context reaches the section's holder."""
 
         def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
             return satisfied(condition, context) and draws.present(context)
 
-        headers = {member: layout_method(draw) for member, shown in (("draw_header", draws.head), ("draw_header_preset", draws.tail)) for draw in shown.to_list()}
+        headers = {member: layout_method(draw) for member, shown in (("draw_header", draws.draw_header), ("draw_header_preset", draws.draw_header_preset)) for draw in shown.to_list()}
         return type(
             name,
             (bpy.types.Panel,),
@@ -299,7 +299,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
                 "bl_translation_context": section.translation_context,
                 "bl_options": {*options, *(() if section.opened else ("DEFAULT_CLOSED",))},
                 "poll": classmethod(poll),
-                "draw": layout_method(draws.body),
+                "draw": layout_method(draws.draw),
                 **headers,
             },
         )
@@ -346,16 +346,15 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
     with ExitStack() as scope:
         scope.enter_context(classes)
         pending = scope.enter_context(identity.reports.deferred(rebuilt))
-        for signal in dict.fromkeys(at.changed for _, at, _ in sites if isinstance(at, DynamicPlacement)):
-            scope.enter_context(signal.followed(lambda: Ok(pending())))
-        yield resolved().bind(registered)
+        followed = accumulated(scope.enter_context(signal.followed(lambda: Ok(pending()))) for signal in dict.fromkeys(at.changed for _, at, _ in sites if isinstance(at, DynamicPlacement)))
+        yield followed.bind(lambda _: resolved().bind(registered))
 
 
 # --- [PLACEMENTS]
 
 
 def _stock(panel: type[_bpy_types.Panel]) -> type[bpy.types.Panel]:
-    """Returns a stock panel as the RNA panel type declaring its placement members, which the stubs give `_bpy_types.Panel` no sight of."""
+    """Returns a stock panel as the RNA panel type the stubs give its placement members."""
     declared: type[bpy.types.Panel] = panel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return declared
 

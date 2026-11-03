@@ -2,11 +2,7 @@ import { DateTime, identity, Match, Option, Predicate, Record, Schema } from 'ef
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Kind = typeof Kinds.Type;
-interface Reference {
-    readonly kind: Kind;
-    readonly path: string;
-}
+type Located = { readonly [K in typeof Kinds.Type]?: (path: string) => unknown };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,17 +20,22 @@ const JsonObject = Schema.Record(Schema.String, Schema.Json);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const tagged = (tag: string, located: (reference: Reference) => unknown): unknown =>
+const tagged = (tag: string, located: Located): unknown =>
     Option.getOrElse(
         Option.firstSomeOf<unknown>([
             Record.get(NUMBERS, tag),
             Option.map(Option.fromNullishOr(SCALED.exec(tag)?.groups), ({ mantissa = '0', power = '0' }) => Number(mantissa) * 2 ** Math.ceil(Number(power) / 2) * 2 ** Math.floor(Number(power) / 2)),
             Option.flatMap(Option.fromNullishOr(DATED.exec(tag)?.groups?.instant), (instant) => Option.map(DateTime.make(instant), DateTime.toDateUtc)),
-            Option.flatMap(Option.fromNullishOr(REFERENCE.exec(tag)?.groups), ({ kind, path = '' }) => Option.map(Schema.decodeUnknownOption(Kinds)(kind), (held) => located({ kind: held, path }))),
+            Option.map(Option.fromNullishOr(REFERENCE.exec(tag)?.groups), ({ kind, path = '' }) =>
+                Option.match(
+                    Option.flatMap(Schema.decodeUnknownOption(Kinds)(kind), (held) => Option.fromUndefinedOr(located[held])),
+                    { onNone: () => ({ $: tag }), onSome: (resolve) => resolve(path) },
+                ),
+            ),
         ]),
         () => tag,
     );
-const revive = (value: Schema.Json, located: (reference: Reference) => unknown = ({ kind, path }) => ({ $: `${kind}:${path}` })): unknown =>
+const revive = (value: Schema.Json, located: Located = {}): unknown =>
     Match.value(value).pipe(
         Match.when(Array.isArray, (items) => items.map((item) => revive(item, located))),
         Match.when(
@@ -52,10 +53,10 @@ const bury = (value: unknown, named: (held: object) => Option.Option<string> = O
         Match.when(
             (held: unknown) => Predicate.isUndefined(held) || (Predicate.isNumber(held) && (!Number.isFinite(held) || Object.is(held, -0))),
             (held) => ({
-                $: Option.getOrElse(
+                $: Option.match(
                     Record.findFirst(NUMBERS, (number) => Object.is(number, held)),
-                    () => ['undefined'] as const,
-                )[0],
+                    { onNone: () => String(held), onSome: ([tag]) => tag },
+                ),
             }),
         ),
         Match.when(Array.isArray, (items: readonly unknown[]) => items.map((item) => bury(item, named))),
@@ -72,4 +73,4 @@ const bury = (value: unknown, named: (held: object) => Option.Option<string> = O
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bury, JsonObject, type Reference, revive, Tagged };
+export { bury, JsonObject, revive, Tagged };

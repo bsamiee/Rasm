@@ -386,7 +386,6 @@ dev       = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-package                  = false
 default-groups           = "all"
 python-preference        = "only-system"
 python-downloads         = "never"
@@ -544,7 +543,7 @@ pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_
 "tests/**"                                                                       = ["assert"]
 "{libs/python/blender,apps/blender,tests/python/libs/blender/bpy/background}/**" = [
     "boolean-positional-value-in-call",                                                       # bpy, gpu, and RNA writes take booleans as values (`gpu.state.scissor_test_set(True)`)
-    "import-private-name",                                                                    # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "import-private-name",                                                                    # Blender supplies private modules (`_bpy_internal`, `_bpy_types`) with no public form
     "non-pep695-generic-class",                                                               # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
 ]
 "{apps/blender,tests/python/libs/blender/bpy/background/fixture}/**"             = [

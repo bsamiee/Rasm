@@ -7,6 +7,7 @@ idiomatic_version_file_enable_tools = ["dotnet", "rust"]
 dotnet.cli_telemetry_optout         = true
 python.uv_venv_auto                 = "create|source"
 experimental                        = true
+auto_install                        = false
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
@@ -19,10 +20,9 @@ HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
 RUSTUP_AUTO_INSTALL                   = "0"
-PROJ_DATA                             = false
-PROJ_NETWORK                          = false
 TOMBI_CACHE_HOME                      = "{{config_root}}/.cache/tombi"
 YAMLLINT_CONFIG_FILE                  = "{{config_root}}/.config/yamllint.yaml"
+XDG_CONFIG_HOME                       = "{{ xdg_config_home }}"
 SWIFTPM_BUILD_DIR                     = "{{config_root}}/.cache/swiftpm/build"
 OMIT_DYNAMIC_TEST_SUPPORT             = "1"
 NX_WORKSPACE_DATA_DIRECTORY           = ".cache/nx/workspace-data"

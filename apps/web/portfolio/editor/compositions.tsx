@@ -7,18 +7,18 @@ import { SecureRandom } from 'effect/crypto';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { PlacementFields } from '#/editor/placement-fields';
-import { draft, hero, updateEntry } from '#/editor/state';
-import { CompositionGrid } from '#/media/composition-grid';
-import { compositionLabel, entryTitle, format, placementTitle } from '#/media/labels';
-import type { AssetCollection } from '#/model/asset';
-import { Composition, type Placement } from '#/model/placement';
-import type { Entry } from '#/model/portfolio';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { PlacementFields } from '#/editor/placement-fields.tsx';
+import { draft, hero, updateEntry } from '#/editor/state.ts';
+import { CompositionGrid } from '#/media/composition-grid.tsx';
+import { choice, compositionLabel, entryTitle, format, placementTitle } from '#/media/labels.ts';
+import type { Assets } from '#/model/asset.ts';
+import { Composition, CompositionId, type Placement } from '#/model/placement.ts';
+import type { Entry } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof AssetCollection.Type; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type }) => {
+const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof Assets.Service; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type }) => {
     const setDraft = useAtomSet(draft);
     const [first, second] = item.items;
     const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: change }))));
@@ -37,8 +37,8 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
         <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
             <CompositionGrid active={true} composition={item} presentation="preview" renderMedia={true} />
             <div className="field-pair">
-                <Choice label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={Composition.fields.scale.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.scale} />
-                <Choice label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={Composition.fields.align.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.align} />
+                <Choice {...choice} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={Composition.fields.scale.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.scale} />
+                <Choice {...choice} label="Alignment" onChange={({ id }) => replace({ ...item, align: id })} options={Composition.fields.align.schema.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={item.align} />
             </div>
             <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} value={first}>
                 {promote(first)}
@@ -61,7 +61,7 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
                         <button className="button button-outline" onClick={() => replace({ ...item, items: [second, first] })} type="button">
                             Swap order
                         </button>
-                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: SecureRandom.uuidV7Unsafe(), items: [second] })} type="button">
+                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [second] })} type="button">
                             Unpair
                         </button>
                     </>
@@ -71,7 +71,21 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
         </div>
     );
 };
-const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }: { readonly assets: typeof AssetCollection.Type; readonly entry: typeof Entry.Type; readonly selected: string | undefined; readonly onSelect: (id: string) => void; readonly onUpload: () => void; readonly onLibrary: () => void }) => {
+const Compositions = ({
+    assets,
+    entry,
+    selected,
+    onSelect,
+    onUpload,
+    onPlace,
+}: {
+    readonly assets: typeof Assets.Service;
+    readonly entry: typeof Entry.Type;
+    readonly selected: typeof CompositionId.Type | undefined;
+    readonly onSelect: (id: typeof CompositionId.Type) => void;
+    readonly onUpload: () => void;
+    readonly onPlace: () => void;
+}) => {
     const setDraft = useAtomSet(draft);
     const [choosing, setChoosing] = useState(false);
     const item = entry.compositions.find((candidate) => candidate.id === selected) ?? entry.compositions[0];
@@ -79,12 +93,12 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
         <>
             <div className="actions">
                 <h3 className="max-editor:w-full mr-auto text-xl tracking-tight">
-                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: 'composition', other: 'compositions' })}</span>
+                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                 </h3>
                 <button className="button button-outline" onClick={onUpload} type="button">
                     Add files
                 </button>
-                <button className="button button-ghost" onClick={onLibrary} type="button">
+                <button className="button button-ghost" onClick={onPlace} type="button">
                     Add from library
                 </button>
                 <button aria-expanded={choosing} aria-label="Choose composition" className="button button-outline editor:hidden" onClick={() => setChoosing(!choosing)} type="button">
@@ -95,7 +109,10 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
                 <div className="editor:editor-scroll max-editor:not-data-open:hidden min-w-0" data-open={choosing || undefined}>
                     <ReorderableList
                         actions={(keys) => (
-                            <ConfirmDialog label={`Remove ${format.quantity(keys.size, { one: 'selected composition', other: 'selected compositions' })}`} onConfirm={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) }))))} />
+                            <ConfirmDialog
+                                label={`Remove ${format.quantity(keys.size, { one: (count) => `${count} selected composition`, other: (count) => `${count} selected compositions` })}`}
+                                onConfirm={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) }))))}
+                            />
                         )}
                         aria-label={`${entryTitle(entry)} compositions`}
                         className="editor-sequence"

@@ -1,8 +1,8 @@
-import { constants } from 'node:os';
+import { constants, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
-import { Array, Effect, FileSystem, flow, Match, Option, Record, Result, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, ByteSize, Duration, Effect, FileSystem, flow, identity, Match, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/error';
 import type { Crash, Dialog } from '#/results';
 
@@ -21,6 +21,7 @@ interface Launch {
     readonly fresh?: boolean;
     readonly documents?: readonly string[];
     readonly arguments?: readonly string[];
+    readonly defaults?: Record.ReadonlyRecord<string, string>;
     readonly environment?: Record.ReadonlyRecord<string, string>;
 }
 interface Spawned {
@@ -35,6 +36,9 @@ interface Spawned {
 const REPORTING = (['SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGFPE', 'SIGBUS', 'SIGSEGV', 'SIGSYS'] as const).map((name) => constants.signals[name]);
 const SIGNALS: Record.ReadonlyRecord<string, number> = constants.signals;
 const RUNNABLE = 'R';
+const ADOBE_CRASH_REPORTER = 'com.adobe.crashreporter';
+const MAIN_THREAD = /^\s*\d+ Thread_\S+\s+DispatchQueue_1: com\.apple\.main-thread\b/u;
+const FRAME = /^(?<depth>[ +!:|]*)\d+ (?<symbol>.+?) {2}(?:\(in (?<image>[^)]+)\)|\[)/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,6 +58,43 @@ const Ips = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// --- [PROCESSES]
+const output = Effect.fn('output')(function* (command: string, args: readonly string[]) {
+    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore' });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkUint8Array(handle.stdout), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return { stdout, stderr, code };
+}, Effect.scoped);
+const checked = Effect.fn('checked')(function* (command: string, args: readonly string[]) {
+    const { stdout, stderr, code } = yield* output(command, args);
+    return code === 0 ? stdout : yield* HarnessError.unavailable([command, ...args].join(' '))(`exited with code ${code}: ${stderr}`);
+});
+const printed = (command: string, args: readonly string[]) => Effect.map(checked(command, args), (bytes) => new TextDecoder().decode(bytes));
+const plist = Effect.fn('plist')(function* <S extends Schema.Top>(app: string, schema: S) {
+    const path = yield* Path.Path;
+    return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(yield* printed('plutil', ['-convert', 'json', '-o', '-', path.join(app, 'Contents', 'Info.plist')]));
+});
+
+// --- [FILES]
+const watched = (path: string) =>
+    Stream.unwrap(
+        Effect.map(FileSystem.FileSystem, (fs) =>
+            Stream.concat(
+                Stream.make(undefined),
+                Stream.map(fs.watch(path), () => undefined),
+            ),
+        ),
+    );
+const appeared = Effect.fn('appeared')(function* (file: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    yield* Stream.runHead(
+        Stream.filter(
+            Stream.mapEffect(watched(path.dirname(file)), () => fs.exists(file)),
+            identity,
+        ),
+    );
+    return yield* fs.readFileString(file);
+});
+
 // --- [LINES]
 const settled = (state: typeof State.Type): state is Exited => State.guards.Exited(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !REPORTING.includes(state.signal)));
 const listed = (line: typeof Instances.Type): readonly Row[] => Record.collect(line, (identifier, instances) => Record.collect(instances, (pid, state) => ({ identifier, pid: Number(pid), state }))).flat();
@@ -61,25 +102,26 @@ const decoded = (text: string): Effect.Effect<readonly Row[], HarnessError | Sch
     Effect.flatMap(Schema.decodeEffect(Line)(text), (line) =>
         Match.value(line).pipe(
             Match.when(Schema.is(System), () => Effect.succeed([])),
-            Match.when(Schema.is(Failure), (failed) => HarnessError.make({ reason: { _tag: 'Unavailable', because: Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', ') }, subject: 'watch-apps' })),
+            Match.when(Schema.is(Failure), (failed) => HarnessError.unavailable('watch-apps')(Record.collect(failed, (key, { fail }) => `${key}: ${fail.reason}`).join(', '))),
             Match.orElse(flow(listed, Effect.succeed)),
         ),
     );
 const rows = (command: readonly string[]) => Effect.map(ChildProcess.make('watch-apps', command, { stdin: 'ignore', stderr: 'inherit' }), (handle) => handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.mapEffect(decoded), Stream.flattenIterable));
-const lines = Effect.fn('lines')(function* (command: string, args: readonly string[]) {
-    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore', stderr: 'inherit' });
-    const [printed, code] = yield* Effect.all([Stream.runCollect(Stream.splitLines(Stream.decodeText(handle.stdout))), handle.exitCode], { concurrency: 'unbounded' });
-    return { lines: printed, code };
-}, Effect.scoped);
 
 // --- [INSTANCES]
 const Launch = Effect.fn('Launch')(function* (spec: Launch) {
-    const flags = [...(spec.fresh === true ? ['--new'] : []), ...(spec.documents ?? []).map((file) => `--document=${file}`), ...(spec.arguments ?? []).map((value) => `--arguments=${value}`), ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`)];
+    const flags = [
+        ...(spec.fresh === true ? ['--new'] : []),
+        ...(spec.documents ?? []).map((file) => `--document=${file}`),
+        ...(spec.arguments ?? []).map((value) => `--arguments=${value}`),
+        ...Record.collect(spec.defaults ?? {}, (key, value) => [`--arguments=-${key}`, `--arguments=${value}`]).flat(),
+        ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`),
+    ];
     const states = yield* Stream.runCollect(Stream.takeUntil(yield* rows(['launch', spec.app, ...flags]), ({ state }) => !State.guards.Launching(state) && (!State.guards.Exited(state) || settled(state))));
     return yield* Option.match(
         Option.filter(Array.last(states), ({ state }) => !State.guards.Launching(state)),
         {
-            onNone: () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}` }, subject: spec.app }),
+            onNone: () => HarnessError.unavailable(spec.app)(`launch ended at ${states.map(({ pid, state }) => `${pid} ${state._tag}`).join(', ') || 'no state'}`),
             onSome: Effect.succeed,
         },
     );
@@ -99,16 +141,34 @@ const spawned = Effect.fn('spawned')(function* (identifier: string, spec: Spawne
             }),
         }),
     );
-    const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [] };
+    const alive: typeof State.Type = { _tag: 'Responding', elements: [], windows: [], answering: false };
     return { identifier, pid: handle.pid, state: alive, rows: Stream.fromEffect(Effect.map(exited, (state): Row => ({ identifier, pid: handle.pid, state }))) };
 });
 const read = (names: Array.NonEmptyReadonlyArray<string>) => Effect.scoped(Effect.flatMap(rows(['read', ...names]), Stream.runCollect));
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
-const sampled = Effect.fn('sampled')(function* (pid: number, file: string) {
-    const { code } = yield* lines('sample', [String(pid), '1', '-file', file]);
-    return yield* code === 0 ? Effect.succeed(file) : HarnessError.make({ reason: { _tag: 'Unavailable', because: `sample exited with code ${code}` }, subject: `process ${pid}` });
+const sampled = Effect.fn('sampled')(function* (pid: number) {
+    const file = (yield* Path.Path).join(tmpdir(), `${pid}.sample.txt`);
+    yield* checked('sample', [String(pid), '1', '-file', file]);
+    return file;
 });
-const busy = (pid: number) => Effect.map(lines('ps', ['-o', 'stat=', '-p', String(pid)]), ({ lines: printed }) => (printed.some((line) => line.startsWith(RUNNABLE)) ? ('busy' as const) : ('blocked' as const)));
+const stalled = Effect.fn('stalled')(function* (sample: string) {
+    const lines = (yield* (yield* FileSystem.FileSystem).readFileString(sample)).split('\n');
+    const block = Array.takeWhile(
+        Array.drop(
+            Array.dropWhile(lines, (line) => !MAIN_THREAD.test(line)),
+            1,
+        ),
+        (line) => line.trim() !== '',
+    );
+    const frames = Array.getSomes(block.map((line) => Option.fromNullishOr(FRAME.exec(line)?.groups)));
+    const heaviest = Array.takeWhile(frames, ({ depth = '' }, at) => Option.match(Array.get(frames, at - 1), { onNone: () => true, onSome: (above) => depth.length > (above.depth ?? '').length }));
+    return Array.reverse(heaviest).map(({ image, symbol = '' }) => (image === undefined ? symbol : `${image} ${symbol}`));
+});
+const busy = (pid: number) =>
+    Effect.map(
+        ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.lines(ChildProcess.make('ps', ['-o', 'stat=', '-p', String(pid)]))),
+        (lines) => (lines.some((line) => line.startsWith(RUNNABLE)) ? ('busy' as const) : ('blocked' as const)),
+    );
 
 // --- [DIALOGS]
 const pressing = (element: Element): readonly Control[] => (element.detail?.controls ?? []).filter(({ actions }) => actions.includes('AXPress'));
@@ -148,12 +208,13 @@ const crashed = Effect.fn('crashed')(function* (exit: Exited) {
 const described = (state: typeof State.Type): string =>
     State.match(state, {
         Launching: () => 'launching',
-        Responding: ({ elements }) => `responding${elements.some(({ requiresAnswer }) => requiresAnswer) ? ' with a dialog requiring an answer' : ''}`,
-        Unresponsive: ({ process, usage, windows }) => `unresponsive ${process}${usage === undefined ? '' : ` cpu ${usage.cpu} s footprint ${usage.footprint} B`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? String(number) : `${number} "${title}"`)).join(', ')}`}`,
+        Responding: ({ answering }) => `responding${answering ? ' with a dialog requiring an answer' : ''}`,
+        Unresponsive: ({ process, usage, windows }) =>
+            `unresponsive ${process}${usage === undefined ? '' : ` cpu ${Duration.format(usage.cpu)} footprint ${ByteSize.format(usage.footprint)}`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? String(number) : `${number} "${title}"`)).join(', ')}`}`,
         Failed: ({ reason }) => `status failed: ${reason}`,
         Exited: ({ signal, status, report, reportFailure }) => `exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report.url.href}`}${reportFailure === undefined ? '' : `, ${reportFailure}`}`,
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { busy, type Control, crashed, described, dialogOf, type Element, type Exited, Launch, perform, pressed, type Row, read, type Spawned, sampled, settled, shown, spawned, watch };
+export { ADOBE_CRASH_REPORTER, appeared, busy, type Control, checked, crashed, described, dialogOf, type Element, type Exited, Launch, output, perform, plist, pressed, printed, type Row, read, type Spawned, sampled, settled, shown, spawned, stalled, watch, watched };

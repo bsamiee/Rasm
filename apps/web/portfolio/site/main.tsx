@@ -1,7 +1,7 @@
-import { hydratePage } from '@rasm/hosting/page/hydration';
+import { hydrate } from '@rasm/hosting/page/hydrate';
 import '#/site/theme.css';
-import { shell } from '#/site/shell';
+import { shell } from '#/site/shell.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-hydratePage(shell);
+hydrate(shell);

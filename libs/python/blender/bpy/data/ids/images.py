@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 from functools import partial, reduce
 from itertools import starmap, takewhile
+import math
 from typing import Final, Literal
 
 import bpy
@@ -28,7 +29,7 @@ from blender.records.stores import content_hash, ContentHash
 
 type _Buffer = npt.NDArray[np.bool | np.int32 | np.float32]
 type _Elements[T] = bpy.types.bpy_prop_collection[T]
-type _Parts = tuple[tuple[Struct, ...], tuple[bpy.types.Attribute, ...], tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...], tuple[tuple[str, str | None], ...]]
+type _Parts = tuple[tuple[Struct, ...], tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...], tuple[tuple[str, str | None], ...]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -53,7 +54,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
             image,
             dict((
                 *(((("source",), "SEQUENCE"),) if self.sequence else ()),
-                *((("colorspace_settings", "name"), Option.of_optional(config.getColorSpace(space)).map(lambda held: held.getName()).default_value(space)) for space in self.space.to_list()),
+                *((("colorspace_settings", "name"), config.getCanonicalName(space) or space) for space in self.space.to_list()),
                 *((("alpha_mode",), alpha) for alpha in self.alpha.to_list()),
                 *((("use_view_as_render",), shown) for shown in self.view_as_render.to_list()),
             )),
@@ -82,11 +83,7 @@ def pixels(image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
 def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[ImageFile]:
     """Returns associated float32 pixels top row first, absent fault when empty."""
     settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    space = (
-        Option.of_optional(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR)).map(lambda held: held.getName()).default_value(settings.name)
-        if image.is_float and not settings.is_data
-        else settings.name
-    )
+    space = (config.getCanonicalName(PyOpenColorIO.ROLE_SCENE_LINEAR) or settings.name) if image.is_float and not settings.is_data else settings.name
 
     def formed(plane: npt.NDArray[np.float32]) -> ImageFile:
         flipped = np.ascontiguousarray(plane[::-1])
@@ -138,7 +135,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneComposit
         count = len(values)
 
         def fetched(member: bpy.types.Property, dtype: type[np.bool | np.int32 | np.float32]) -> _Buffer:
-            buffer: _Buffer = np.empty(count * max(int(np.prod(Descriptor.dimensions(member))), 1), dtype)
+            buffer: _Buffer = np.empty(count * math.prod(Descriptor.dimensions(member)), dtype)
             values.foreach_get(member.identifier, buffer)
             return buffer
 
@@ -182,9 +179,18 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneComposit
         ).map(lambda parts: chained(content_hash(type(owner), *(snapshot for snapshot, _ in parts[0]), *parts[1]), (key for _, hashes in parts[0] for key in hashes)))
 
     def elements(block: bpy.types.ID) -> Outcome[ContentHash]:
-        shapes = tuple(Option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve) else ()
+        shapes = tuple(Option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Lattice) else ()
         keys = tuple(key for shape in shapes for key in shape.key_blocks)
-        materials = tuple(block.materials) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil) else ()
+        materials = (
+            tuple(block.materials)
+            if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil | bpy.types.MetaBall | bpy.types.Volume)
+            else ()
+        )
+        drawings = tuple(drawing for layer in block.layers for frame in layer.frames for drawing in Option.of_optional(frame.drawing).to_list()) if isinstance(block, bpy.types.GreasePencil) else ()
+        attributes = (
+            *(block.attributes if isinstance(block, bpy.types.Mesh | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil) else ()),
+            *(attribute for drawing in drawings for attribute in drawing.attributes),
+        )
 
         def parts(structs: tuple[Struct, ...]) -> _Parts:
             match block:
@@ -200,7 +206,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneComposit
                         *(array for layer in block.skin_vertices for array in buffers(layer.data, bpy.types.MeshSkinVertex.bl_rna.properties)),
                         *weights,
                     )
-                    return structs, tuple(block.attributes), arrays, ()
+                    return structs, arrays, ()
                 case bpy.types.Curve():
                     profiles = tuple(Option.of_optional(block.bevel_profile).to_list())
                     arrays = (
@@ -215,24 +221,21 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node | bpy.types.SceneComposit
                             else ()
                         ),
                     )
-                    return (*structs, *profiles), (), arrays, ()
+                    return (*structs, *profiles), arrays, ()
                 case bpy.types.Curves():
-                    return structs, tuple(block.attributes), buffers(block.curve_offset_data, bpy.types.IntAttributeValue.bl_rna.properties), ()
-                case bpy.types.PointCloud():
-                    return structs, tuple(block.attributes), (), ()
+                    return structs, buffers(block.curve_offset_data, bpy.types.IntAttributeValue.bl_rna.properties), ()
                 case bpy.types.GreasePencil():
-                    drawings = tuple(drawing for layer in block.layers for frame in layer.frames for drawing in Option.of_optional(frame.drawing).to_list())
                     nodes = (*block.layers, *block.layer_groups)
                     arrays = (
                         *(array for layer in block.layers for array in buffers(layer.frames, bpy.types.GreasePencilFrame.bl_rna.properties)),
                         *(array for drawing in drawings for array in buffers(drawing.curve_offsets, bpy.types.IntAttributeValue.bl_rna.properties)),
                     )
                     labels = tuple((node.name, Option.of_optional(node.parent_group).map(lambda group: group.name).to_optional()) for node in nodes)
-                    return (block, *nodes), (*block.attributes, *(attribute for drawing in drawings for attribute in drawing.attributes)), arrays, labels
+                    return (block, *nodes), arrays, labels
                 case _:
-                    return structs, (), (), ()
+                    return structs, (), ()
 
-        structs, attributes, arrays, labels = parts((block, *shapes, *keys))
+        structs, arrays, labels = parts((block, *shapes, *keys))
         columns = tuple(
             array
             for attribute in attributes

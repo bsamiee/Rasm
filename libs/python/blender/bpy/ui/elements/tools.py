@@ -1,4 +1,4 @@
-"""Workspace tools registered into a toolbar with their keymap, widget, cursor drawing, header settings, and the extra settings popover."""
+"""Workspace tools an extension registers into a toolbar."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -7,15 +7,15 @@ from pathlib import Path
 from typing import Literal, TYPE_CHECKING
 
 from bl_ui.space_toolsystem_common import ToolDef
+from bl_ui.space_topbar import TOPBAR_PT_tool_settings_extra
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import Command, idname, Operation, Placement
 from blender.bpy.commands.invocations import Pick
 from blender.bpy.commands.keymaps import Bindings, resolved, Row
-from blender.bpy.commands.operators import Operator
+from blender.bpy.commands.operators import Command, idname, Operation, Operator, Placement
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Tier
@@ -93,7 +93,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns what every tool holds, then the toolbar registration, each tool class built once the interface band opens and its settings realize."""
+        """Returns what every tool holds, then the toolbar registration, each tool class built once the interface tier opens and its settings realize."""
         pointers = tuple(tool.pointer.map(lambda drawing: drawing.acquired(identity)) for tool in self.tools)
         held = tuple(
             row
@@ -104,7 +104,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 *acquired((*tool.settings, *tool.widget_settings, *tool.extra_settings)),
             )
         )
-        return Ok((*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.map(lambda pair: pair[1]) for pointed in pointers)))))
+        return Ok((*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.starmap(lambda _rows, callback: callback) for pointed in pointers)))))
 
     def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
         """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
@@ -174,7 +174,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
 
 
 def _settings(operator: str, group: Option[str], draws: _Draws, context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool, *, extra: bool = False) -> None:
-    """Draws the header settings, every visible tool operator property while none is declared, and opens the extra options popover while extra settings exist, or draws the extra settings inside that popover."""
+    """Draws the header settings and the extra options popover button, or the extra settings inside that popover."""
 
     def every(layout: bpy.types.UILayout, properties: Struct, _context: bpy.types.Context) -> None:
         for prop in (held for held in properties.bl_rna.properties if not held.is_hidden):
@@ -190,7 +190,7 @@ def _settings(operator: str, group: Option[str], draws: _Draws, context: bpy.typ
     for draw, held in ((draw, held) for draw in widgeted.to_list() for held in group.to_list()):
         draw(layout, tool.gizmo_group_properties(held), context)
     if extras.is_some():
-        layout.popover("TOPBAR_PT_tool_settings_extra", text="...")
+        layout.popover(TOPBAR_PT_tool_settings_extra.bl_idname, text="...")
 
 
 def _pointed(callback: DrawCallback, _context: bpy.types.Context, _tool: bpy.types.WorkSpaceTool, xy: tuple[int, int]) -> None:

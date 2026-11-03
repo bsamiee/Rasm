@@ -11,12 +11,12 @@ from threading import Event
 from typing import Final, Self
 
 import bpy
-from expression import Nothing, Ok, Option
+from expression import Nothing, Ok, Option, Result
 import msgspec
 
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity, Resource
-from blender.records.faults import Outcome
+from blender.records.faults import Faults, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -45,8 +45,8 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     body: Callable[..., Outcome[None]]
 
     @contextmanager
-    def held(self, identity: Identity, /) -> Generator[None]:
-        """Joins the extension's persistent dispatcher on the list until scope exit, running body over its host arguments and skipping runtime scenes."""
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
+        """Joins the extension's persistent dispatcher on the list until scope exit, running body over the host arguments it takes and skipping runtime scenes."""
         body = identity.reports.reported(self.body)
         count = sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values())
 
@@ -74,7 +74,7 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         with ExitStack() as stack:
             calls.append(called)
             stack.callback(left)
-            yield
+            yield Result[None, Faults](ok=None)
 
 
 class Subscription(msgspec.Struct, frozen=True, kw_only=True):
@@ -85,12 +85,12 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
     body: Callable[[], Outcome[None]]
 
     @contextmanager
-    def held(self, identity: Identity, /) -> Generator[None]:
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
         """Holds the subscription under its own msgbus owner until scope exit, notification faults held in the extension's reports."""
         owner, body = object(), identity.reports.reported(self.body)
 
         def notified() -> None:
-            """Runs body through reports, the host taking a plain function returning None."""
+            """Runs body through reports, the host printing a `ValueError` for any notify return other than None."""
             _ = body()
 
         def subscribed() -> Outcome[None]:
@@ -101,8 +101,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as stack:
             stack.callback(bpy.msgbus.clear_by_owner, owner)
             _ = subscribed()
-            stack.enter_context(Handler(handlers=bpy.app.handlers.load_post, body=subscribed).held(identity))
-            yield
+            yield stack.enter_context(Handler(handlers=bpy.app.handlers.load_post, body=subscribed).held(identity))
 
 
 class Timer(msgspec.Struct, frozen=True, kw_only=True):
@@ -112,7 +111,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
     first_interval: float = 0.0
 
     @contextmanager
-    def held(self, identity: Identity, /) -> Generator[None]:
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
         """Holds the persistent timer until it stops or scope exits, body faults held in the extension's reports."""
         body = identity.reports.reported(self.body)
 
@@ -128,7 +127,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as stack:
             bpy.app.timers.register(ticked, first_interval=self.first_interval, persistent=True)
             stack.callback(stopped)
-            yield
+            yield Result[None, Faults](ok=None)
 
 
 class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):

@@ -1,17 +1,17 @@
 import { Catalog } from '@rasm/database/catalog';
-import { Column } from '@rasm/database/column';
 import { Relation } from '@rasm/database/relation';
-import { Array, Option, Schema } from 'effect';
+import { Schema } from 'effect';
 import { type SqlClient, Statement } from 'effect/sql';
-import { StoredPortfolio } from '#/model/portfolio';
+import { AssetId } from '#/model/asset.ts';
+import { StoredPortfolio } from '#/model/portfolio.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const documents = Relation.make('documents', { state: Schema.Literals(['draft', 'published']), body: Schema.fromJsonString(StoredPortfolio), revision: Schema.Natural }, { key: ['state'], defaults: { revision: 0 } });
-const UploadAttempt = Schema.Struct({ id: Schema.String, discard: Schema.Boolean, objects: Schema.Array(Schema.Struct({ key: Schema.String, uploadId: Schema.OptionFromOptionalKey(Schema.String) })) });
+const UploadAttempt = Schema.Struct({ id: Schema.String, discard: Schema.Boolean, objects: Schema.Array(Schema.Struct({ key: Schema.String, width: Schema.optionalKey(Schema.Int), uploadId: Schema.OptionFromOptionalKey(Schema.String) })) });
 const assets = Relation.make(
     'assets',
-    { id: Schema.String, body: Schema.fromJsonString(Schema.Unknown), objectKey: Schema.OptionFromNullOr(Schema.String), removing: Schema.NullOr(Schema.BooleanFromBit), uploads: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Array(UploadAttempt))), available: Schema.BooleanFromBit },
+    { id: AssetId, body: Schema.fromJsonString(Schema.Unknown), objectKey: Schema.OptionFromNullOr(Schema.String), removing: Schema.NullOr(Schema.BooleanFromBit), uploads: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Array(UploadAttempt))), available: Schema.BooleanFromBit },
     {
         projections: {
             objectKey: { from: 'body', path: ['objectKey'] },
@@ -22,14 +22,14 @@ const assets = Relation.make(
     },
 );
 const owner = Relation.make('owner', { email: Schema.String, userId: Schema.String }, { key: ['email'], withoutRowid: true });
-const catalog = new Catalog({ tables: [documents, assets, owner], retired: ['reconcile_revision'], excluded: ['_cf_'] });
-const bookkeeping = Statement.csv(Array.getSomes(Object.values(assets.columns).map(({ projection }) => Option.filter(projection, Column.Projection.$is('Path')))).map(({ path }) => Statement.fragment([Statement.parameter(['$', ...path].join('.'))])));
+const catalog = Catalog.make({ tables: [documents, assets, owner], retired: ['reconcile_revision'], excludedPrefixes: ['_cf_'] });
+const projectedPaths = Statement.csv(assets.paths.map((path) => Statement.fragment([Statement.parameter(path)])));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const references = (sql: SqlClient.SqlClient, source: Statement.Fragment = sql`${sql(documents.name)}`) => sql`SELECT d.state, j.value AS asset_id, j.json -> j.path AS placement
+const references = (sql: SqlClient.SqlClient, source: Statement.Fragment = sql`${sql(documents.name)}`) => sql`SELECT d.state, j.value AS asset_id, j.fullkey, j.json -> j.path AS placement
     FROM ${source} d, json_tree(d.body) j WHERE j.key = 'assetId' AND j.type = 'text'`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, bookkeeping, catalog, documents, owner, references, UploadAttempt };
+export { assets, catalog, documents, owner, projectedPaths, references, UploadAttempt };

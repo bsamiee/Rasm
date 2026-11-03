@@ -1,4 +1,4 @@
-"""Record bytes: atomic file and folder commits, folder, file, and removal writes, typed JSON files of one record read present or absent, command argument codecs, content hashes and the generators they seed, and mirror paths."""
+"""Record files, atomic writes, command arguments, content hashes and the generators they seed, and mirror paths."""
 
 import base64
 from collections.abc import Callable, Iterable
@@ -13,7 +13,7 @@ import shutil
 import tempfile
 from typing import Annotated, Final, overload, Protocol
 
-from atomicwrites import move_atomic, replace_atomic
+from atomicwrites import replace_atomic
 import cbor2
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -81,17 +81,17 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         return self.read().map(Some).or_else_with(absent)
 
-    def written(self, value: T, *, exclusive: bool = False) -> Outcome[Path]:
+    def written(self, value: T, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]:
         """Writes the record in sorted key order through one atomic commit.
 
         Args:
             value: Record to hold.
-            exclusive: Refuse a path holding a file.
+            place: Atomic rename onto the path, `move_atomic` refusing a held file.
 
         Returns:
-            Ok(path), `UNWRITABLE` fault for a refused write, `FileExistsError` when exclusive meets a held path.
+            Ok(path), `UNWRITABLE` fault for a refused write.
         """
-        return committed(self.path, msgspec.json.encode(value, order="deterministic"), exclusive=exclusive)
+        return committed(self.path, msgspec.json.encode(value, order="deterministic"), place=place)
 
     def revised(self, change: Callable[[T], T]) -> Outcome[T]:
         """Writes change of the held record.
@@ -110,63 +110,47 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 # --- [WRITES]
 
 
-def folder_made(folder: Path) -> Outcome[Path]:
-    """Returns existing or created folder, or `UNWRITABLE` fault."""
-    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
+def _written(act: Callable[[Path], object], path: Path, /) -> Outcome[Path]:
+    return catch(act, exception=OSError)(path).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
 
 
-def removed(path: Path) -> Outcome[Path]:
-    """Returns path after removing the file it holds, a missing file counting as removed, or `UNWRITABLE` fault."""
-    return catch(path.unlink, exception=OSError)(missing_ok=True).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
+folder_made: Final = partial(_written, partial(Path.mkdir, parents=True, exist_ok=True))
+removed: Final = partial(_written, partial(Path.unlink, missing_ok=True))
 
 
 @catch(exception=OSError)
-def _swapped(stage: Path, path: Path, prior: Path) -> Path:
-    path.replace(prior)
+def _placed(place: Callable[[str, str], None], stage: Path, path: Path, prior: Path, /) -> Path:
     with ExitStack() as undo:
-        undo.callback(prior.replace, path)
-        stage.replace(path)
+        if stage.is_dir() and path.is_dir():
+            path.replace(prior)
+            undo.callback(prior.replace, path)
+        place(str(stage), str(path))
         undo.pop_all()
     return path
 
 
-@catch(exception=OSError)
-def _placed(stage: Path, path: Path, *, exclusive: bool) -> Path:
-    (move_atomic if exclusive else replace_atomic)(str(stage), str(path))
-    return path
-
-
 @overload
-def committed(path: Path, write: bytes, /, *, exclusive: bool = False) -> Outcome[Path]: ...
+def committed(path: Path, write: bytes, /, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]: ...
 @overload
 def committed(path: Path, write: Callable[[Path], Outcome[object]], /) -> Outcome[Path]: ...
-def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *, exclusive: bool = False) -> Outcome[Path]:
+def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]:
     """Writes `path` whole through a stage beside it, replacing it in one atomic step.
 
     Args:
         path: File or folder to replace, its parent folder created.
         write: Bytes the file holds, or writer of the stage, a path named as `path` in a temporary sibling folder removed on every path.
-        exclusive: Refuse a path holding a file, held by the bytes form alone since the atomic move links files and no folder.
+        place: Atomic rename of the stage onto `path`, `move_atomic` refusing a held file with `FileExistsError` as fault cause.
 
     Returns:
-        Ok(path), writer faults, or `UNWRITABLE` fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
+        Ok(path), writer faults, or `UNWRITABLE` fault for folder creation or replacement. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
     """
     unwritable = partial(Fault.of, Reason.UNWRITABLE, str(path))
-
-    def staged(stage: Path) -> Outcome[object]:
-        match write:
-            case bytes(data):
-                return catch(stage.write_bytes, exception=OSError)(data).map_error(unwritable)
-            case writer:
-                return writer(stage)
-
-    def published(stage: Path, prior: Path) -> Outcome[Path]:
-        return (_swapped(stage, path, prior) if stage.is_dir() and path.is_dir() else _placed(stage, path, exclusive=exclusive)).map_error(unwritable)
 
     def replaced(folder: tempfile.TemporaryDirectory[str]) -> Outcome[Path]:
         with folder as name:
             stage = Path(name) / path.name
-            return staged(stage).bind(lambda _: published(stage, Path(name) / f"{path.name}.prior"))
+            staged: Outcome[object] = catch(stage.write_bytes, exception=OSError)(write).map_error(unwritable) if isinstance(write, bytes) else write(stage)
+            return staged.bind(lambda _: _placed(place, stage, path, Path(name) / f"{path.name}.prior").map_error(unwritable))
 
     return folder_made(path.parent).bind(lambda parent: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=parent).map_error(unwritable)).bind(replaced)
 
@@ -178,7 +162,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> Outcome[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target))))
+        return folder_made(target.parent).bind(lambda _: _written(partial(copy, source), target))
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 

@@ -6,12 +6,12 @@ lazy import sys
 from cyclopts import App
 lazy from expression import Result
 
-lazy from eng.python.blender.faults import Fault, Faults
+lazy from blender.records.faults import Fault, Outcome
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Result[int, Faults] | None) -> int:
+def _reported(result: Outcome[int] | None) -> int:
     """Returns zero, a command's exit status, a lone failed child process's status, or 1 for other faults, writing each fault to stderr."""
     match result:
         case None:

@@ -1,45 +1,50 @@
-import { runMain } from '@effect/platform-node/NodeRuntime';
-import { layer } from '@effect/platform-node/NodeServices';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Manifest } from '@rasm/uxp/manifest';
 import { Array, Cause, Config, Effect, FileSystem, Path, Schema, SchemaGetter, String } from 'effect';
 import { Argument, Command } from 'effect/cli';
-import { output, stdout } from '#/eng/typescript/process';
+import { fromString, Plist } from '#/eng/typescript/parsed';
+import { run } from '#/eng/typescript/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ADOBE = 'Library/Application Support/Adobe';
-const UNMATCHED = '-411';
+const NO_HOST_RELEASE = /(?<![\w-])-411(?!\w)/u;
 const SECTION = /\n\s*\n/u;
-const HEADER = /^\d+ extensions? installed for /u;
-const COLUMN = / {2,}/u;
+const RULER = /[=]+/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Listing = Schema.String.pipe(
+const Listing = fromString('extension listing', (text) =>
+    text
+        .split(SECTION)
+        .filter(String.isNonEmpty)
+        .map((block) => String.split(block.trim(), '\n')),
+).pipe(
+    Schema.decodeTo(Schema.Array(Schema.TupleWithRest(Schema.Tuple([Schema.String, Schema.String, Schema.String]), [Schema.String]))),
     Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.transform((text: string) =>
-            Array.map(text.split(SECTION).filter(String.isNonEmpty), (block) => {
-                const [header, , , ...rows] = String.split(block.trim(), '\n');
-                return { product: header.replace(HEADER, ''), extensions: Array.map(rows, (row) => row.trim().split(COLUMN)) };
+        decode: SchemaGetter.transform((blocks) =>
+            blocks.flatMap(([, names, ruler, ...rows]) => {
+                const columns = Array.map(Array.fromIterable(ruler.matchAll(RULER)), ({ index, 0: span }) => [index, index + span.length] as const);
+                const cells = (row: string) => columns.map(([start, end]) => row.slice(start, end).trim());
+                return rows.map((row) => Object.fromEntries(Array.zip(cells(names), cells(row))));
             }),
         ),
         encode: SchemaGetter.forbiddenEncoding,
     }),
-    Schema.decodeTo(Schema.Array(Schema.Struct({ product: Schema.String, extensions: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }))),
+    Schema.decodeTo(Schema.Array(Schema.Struct({ 'Extension Name': Schema.String }))),
 );
+const Bundle = Plist.pipe(Schema.decodeTo(Schema.Struct({ CFBundleShortVersionString: Schema.String, CFBundleExecutable: Schema.String })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const install = Effect.fn('install')(function* (built: string, agent: string) {
     const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
-    const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, Manifest.file)).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), stdout(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
-    const installed = listing.some(({ extensions }) => extensions.some(([, name]) => name === manifest.name));
-    yield* installed ? stdout(agent, ['--remove', manifest.name]) : Effect.void;
-    const { text } = yield* output(agent, ['--install', `${built}.ccx`]);
-    yield* Effect.filterOrFail(
-        Effect.succeed(text),
-        String.includes('Installation Successful'),
-        (answer) => new Cause.UnknownError(undefined, answer.includes(UNMATCHED) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `Adobe plugin installer refused ${manifest.name}. ${answer.trim()}`),
+    const [manifest, listing] = yield* Effect.all([fs.readFileString(path.join(built, Manifest.file)).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))), run(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
+    yield* listing.some((extension) => extension['Extension Name'] === manifest.name) ? run(agent, ['--remove', manifest.name]) : Effect.void;
+    const installed = 'Installation Successful';
+    yield* run(agent, ['--install', `${built}.ccx`]).pipe(
+        Effect.catchTag('ExitError', ({ output }) => Effect.succeed(output)),
+        Effect.filterOrFail(String.includes(installed), (answer) => new Cause.UnknownError(answer, NO_HOST_RELEASE.test(answer) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `${path.basename(agent)} refused ${manifest.name}: ${answer.trim()}`)),
     );
     yield* fs.remove(path.join(home, ADOBE, 'CEP', 'extensions', manifest.id), { recursive: true, force: true });
 });
@@ -47,8 +52,8 @@ const install = Effect.fn('install')(function* (built: string, agent: string) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 Effect.gen(function* () {
-    const path = yield* Path.Path;
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const bundle = path.join('/', ADOBE, 'Adobe Desktop Common', 'RemoteComponents', 'UPI', 'UnifiedPluginInstallerAgent', 'UnifiedPluginInstallerAgent.app', 'Contents');
-    const { CFBundleShortVersionString, CFBundleExecutable } = yield* stdout('plutil', ['-convert', 'json', '-o', '-', path.join(bundle, 'Info.plist')]).pipe(Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ CFBundleShortVersionString: Schema.String, CFBundleExecutable: Schema.String })))));
+    const { CFBundleShortVersionString, CFBundleExecutable } = yield* fs.readFileString(path.join(bundle, 'Info.plist')).pipe(Effect.flatMap(Schema.decodeEffect(Bundle)));
     return yield* Command.make('install', { built: Argument.Directory('built', { mustExist: true }) }, ({ built }) => install(built, path.join(bundle, 'MacOS', CFBundleExecutable))).pipe(Command.run({ version: CFBundleShortVersionString }));
-}).pipe(Effect.provide(layer), runMain);
+}).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

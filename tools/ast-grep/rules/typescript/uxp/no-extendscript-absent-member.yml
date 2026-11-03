@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-extendscript-absent-member
+language: tsx
+severity: error
+rule:
+    any:
+        - kind: member_expression
+          pattern: $MEMBER
+          has: {field: object, kind: identifier, regex: '^JSON$'}
+        - kind: member_expression
+          pattern: $MEMBER
+          all:
+            - has: {field: object, kind: identifier, regex: '^(Object|Array|Number|String|Math)$'}
+            - has: {field: property, regex: '^(keys|values|entries|assign|hasOwn|create|defineProperty|defineProperties|getPrototypeOf|getOwnPropertyNames|getOwnPropertyDescriptor|freeze|seal|fromEntries|isArray|from|of|isInteger|isFinite|isNaN|isSafeInteger|fromCodePoint|raw|trunc|sign|cbrt|log2|log10|hypot)$'}
+        - kind: call_expression
+          pattern: $MEMBER
+          has:
+            field: function
+            kind: member_expression
+            has: {field: property, regex: '^(map|filter|forEach|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|flat|flatMap|includes|fill|at|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|codePointAt|normalize|bind)$'}
+        - kind: spread_element
+          pattern: $MEMBER
+          inside: {kind: object}
+    inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^@rasm/extendscript/handle$'}}}}
+message: '`$MEMBER` compiles to a member ExtendScript lacks'
+note: 'Write the ES3 form: an index loop, `for...in` over own keys, or `keys` and `assign` from `@rasm/extendscript/handle`'

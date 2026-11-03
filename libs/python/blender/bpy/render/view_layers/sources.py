@@ -33,7 +33,7 @@ from blender.bpy.render.view_layers.layers import colors, Role
 from blender.bpy.render.view_layers.passes import CryptomatteKind, Derived, Family, Flags, layer_of, LightSlot, PassFlags
 from blender.bpy.scene.materials import DataPass
 from blender.bpy.settings.attachments import Attachment
-from blender.imaging.files.buffers import Coded, Depth, unassociated
+from blender.imaging.files.buffers import Depth, unassociated
 from blender.imaging.files.documents import Document, LayerGroup, PixelLayer
 from blender.imaging.files.images import Deflate, Storage
 from blender.imaging.files.multilayer import Matte, Multilayer, Pass, PassLayout, PassRole
@@ -239,11 +239,11 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
     )
 
 
-def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
+def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
     """Builds the ID document of a written frame, one layer group per matte and one layer per matte name in its block's display color."""
     size = (frame.parts[0].height, frame.parts[0].width)
 
-    def grouped(index: int, matte: Matte) -> Outcome[tuple[LayerGroup[Coded], npt.NDArray[np.float32]]]:
+    def grouped(index: int, matte: Matte) -> Outcome[tuple[LayerGroup, npt.NDArray[np.float32]]]:
         def cover(name: str, color: Color) -> Outcome[tuple[str, Color, npt.NDArray[np.float32]]]:
             shown = mathutils.Color(color).from_scene_linear_to_srgb()
             return matte.coverage(frozenset({name})).map(lambda plane: (name, (shown.r, shown.g, shown.b), plane))
@@ -251,7 +251,7 @@ def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, dep
         def covered(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Outcome[tuple[tuple[str, Color, npt.NDArray[np.float32]], ...]]:
             return accumulated(cover(name, color) for name, _, color in named(layer, entity))
 
-        def layered(name: str, color: Color, plane: npt.NDArray[np.float32]) -> Outcome[PixelLayer[Coded]]:
+        def layered(name: str, color: Color, plane: npt.NDArray[np.float32]) -> Outcome[PixelLayer]:
             return paired(depth.coded(np.broadcast_to(np.asarray(color, dtype=np.float32), (*size, 3))), depth.coded(plane)).map(lambda codes: PixelLayer(name=name, color=codes[0], alpha=codes[1]))
 
         return located(scene, matte, matte.name.rpartition(".")[0]).bind(

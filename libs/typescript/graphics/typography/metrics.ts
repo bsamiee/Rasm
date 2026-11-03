@@ -1,5 +1,5 @@
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
-import type { Font as Parsed } from 'fontkit';
+import type { Font as Sfnt } from 'fontkit';
 import { type Font, MetricsTag } from 'harfbuzzjs';
 import type { Tables } from '#/tables';
 
@@ -15,22 +15,19 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
         vertical: Schema.OptionFromOptionalKey(Extents.annotate({ description: 'vhea values' })),
     }),
     ...Struct.Record(['xHeight', 'capHeight'], Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'OS/2 value' }))),
-    underline: Schema.Struct({
-        post: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'post table stroke' })),
-        cff: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'CFF Top DICT stroke' })),
-    }),
+    underline: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'post table stroke, else CFF Top DICT stroke' })),
     strikeout: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'OS/2 stroke' })),
     superscript: Schema.OptionFromOptionalKey(Shift.annotate({ description: 'OS/2 superscript em size and offset from the baseline, y up' })),
     subscript: Schema.OptionFromOptionalKey(Shift.annotate({ description: 'OS/2 subscript em size and offset from the baseline, y down' })),
     bounds: Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'head table box at default instance' }),
     italicAngle: Schema.Finite.annotate({ description: 'Degrees counterclockwise from vertical, slnt axis value when present' }),
 }) {
-    static readonly of = ({ font, parsed, tables, axes }: { readonly font: Font; readonly parsed: Parsed; readonly tables: typeof Tables.Type; readonly axes: ReadonlyArray<{ readonly tag: string; readonly value: number }> }) => {
+    static readonly of = ({ font, sfnt, tables, axes }: { readonly font: Font; readonly sfnt: Sfnt; readonly tables: typeof Tables.Type; readonly axes: ReadonlyArray<{ readonly tag: string; readonly value: number }> }) => {
         const em = (units: number) => units / font.face.upem;
         const metric = (tag: MetricsTag) => Option.map(Option.fromUndefinedOr(font.getMetricPosition(tag)), em);
         const drawn = Option.filter(({ thickness }: typeof Stroke.Type) => thickness !== 0);
         const stroke = ([offset, width]: readonly [MetricsTag, MetricsTag]) => drawn(Option.map(Option.all({ position: metric(offset), thickness: metric(width) }), ({ position, thickness }) => ({ position: position - thickness / 2, thickness })));
-        const shift = (script: 'SUPERSCRIPT' | 'SUBSCRIPT') => Option.all(Record.map({ size: 'SIZE', offset: 'OFFSET' } as const, (part) => Option.all(Record.map({ x: 'X', y: 'Y' } as const, (axis) => metric(MetricsTag[`${script}_EM_${axis}_${part}`])))));
+        const shift = (position: 'SUPERSCRIPT' | 'SUBSCRIPT') => Option.all(Record.map({ size: 'SIZE', offset: 'OFFSET' } as const, (part) => Option.all(Record.map({ x: 'X', y: 'Y' } as const, (axis) => metric(MetricsTag[`${position}_EM_${axis}_${part}`])))));
         return Metrics.make({
             extents: {
                 horizontal: Record.map(font.hExtents(), em),
@@ -38,17 +35,14 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
                 vertical: Option.all({ ascender: metric(MetricsTag.VERTICAL_ASCENDER), descender: metric(MetricsTag.VERTICAL_DESCENDER), lineGap: metric(MetricsTag.VERTICAL_LINE_GAP) }),
             },
             ...Record.map({ xHeight: MetricsTag.X_HEIGHT, capHeight: MetricsTag.CAP_HEIGHT }, (tag) => Option.filter(metric(tag), Predicate.isTruthy)),
-            underline: {
-                post: stroke([MetricsTag.UNDERLINE_OFFSET, MetricsTag.UNDERLINE_SIZE]),
-                cff: drawn(Option.map(tables['CFF '], ({ topDict: { UnderlinePosition, UnderlineThickness, FontMatrix } }) => ({ position: UnderlinePosition * FontMatrix[3], thickness: UnderlineThickness * FontMatrix[3] }))),
-            },
+            underline: Option.orElse(stroke([MetricsTag.UNDERLINE_OFFSET, MetricsTag.UNDERLINE_SIZE]), () => drawn(Option.map(tables['CFF '], ({ topDict: { UnderlinePosition, UnderlineThickness, FontMatrix } }) => ({ position: UnderlinePosition * FontMatrix[3], thickness: UnderlineThickness * FontMatrix[3] })))),
             strikeout: stroke([MetricsTag.STRIKEOUT_OFFSET, MetricsTag.STRIKEOUT_SIZE]),
             superscript: shift('SUPERSCRIPT'),
             subscript: shift('SUBSCRIPT'),
-            bounds: Record.map(Struct.pick(parsed.bbox, ['minX', 'minY', 'maxX', 'maxY']), em),
+            bounds: Record.map(Struct.pick(sfnt.bbox, ['minX', 'minY', 'maxX', 'maxY']), em),
             italicAngle: Option.match(
                 Array.findFirst(axes, ({ tag }) => tag === 'slnt'),
-                { onNone: () => parsed.italicAngle, onSome: Struct.get('value') },
+                { onNone: () => sfnt.italicAngle, onSome: Struct.get('value') },
             ),
         });
     };

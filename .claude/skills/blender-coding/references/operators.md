@@ -9,7 +9,6 @@ Operator classes declare inputs as `bpy.props` annotations, shared sets sitting 
 - Values from a button, keymap, or script skip their gesture or popup
 - Script calls with `undo` off neither read nor store last-run values
 - `undo=True` calls and interface runs read and store last-run values in `window_manager.operator_properties_last(<idname>)`
-- Panels draw `operator_properties_last(<idname>)` for the next run
 - `__init__` overrides take `(self, *args, **kwargs)` and forward both to `super().__init__`, Blender passing its own argument at each run
 - `bl_options` takes `BLOCKING` and `GRAB_CURSOR` for cursor-owning gestures and `INTERNAL` to hide from search
 - `MODAL_PRIORITY` in `bl_options` runs a modal operator before other modal operators
@@ -46,7 +45,7 @@ class Shrink(bpy.types.Operator):
     factor: bpy.props.FloatProperty(name="Factor", subtype="FACTOR", min=0.0, max=1.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
     @override
-    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Answer:
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Returns:
         if self.properties.is_property_set("factor"):
             return self.execute(context)
         self.before = {obj.session_uid: obj.delta_scale.copy() for obj in context.selected_editable_objects}
@@ -54,7 +53,7 @@ class Shrink(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     @override
-    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Answer:
+    def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Returns:
         match event.type, event.value:
             case "MOUSEMOVE", _ if region := context.region:
                 self.factor = event.mouse_region_x / region.width
@@ -74,7 +73,7 @@ class Shrink(bpy.types.Operator):
             obj.delta_scale = self.before[obj.session_uid]
 
     @override
-    def execute(self, context: bpy.types.Context) -> Answer:
+    def execute(self, context: bpy.types.Context) -> Returns:
         for obj in context.selected_editable_objects:
             obj.delta_scale = mathutils.Vector.Fill(3, self.factor)
         return {"FINISHED"}

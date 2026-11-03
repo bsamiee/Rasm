@@ -5,7 +5,16 @@ description: "Use when writing or reviewing C#, covering functional design with 
 
 # [DOTNET_CODING]
 
-Covers C# design decisions under workspace standards (TOTALITY, PURITY, BOUNDARY), from signature shape to host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary.
+Covers C# design from signature shape to host boundary, with LanguageExt, Thinktecture, and Mapperly types as vocabulary.
+
+[PRINCIPLES]:
+- Facts are stated once at their owner, and every other use derives from it
+- Packages and hosts are used through their members, and a hand-written form of a member is a defect
+- Helpers one function reads sit inside it, and a one-member static class or a forwarding layer merges into its caller
+- Kinds, keys, and states are smart enum items or union cases, and a string compared or switched on in their place is a defect
+- Optional fields set and read together are one `Option` of a record
+- Parameters every caller passes alike fold into their owner
+- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
@@ -39,6 +48,7 @@ Function signatures are contracts, input types describe every value the function
 - Signatures leave semantic detail unstated (`Where` and `TakeWhile` share one), names state it
 - Records hold inputs and outputs, functions hold behavior
 - Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter
+- Paths a caller names arrive as arguments, and sibling paths derive from them (`Path.ChangeExtension(file, ".tmp")`)
 - Constrained types exist only for a rule the domain owns, comparison stands where a consumer orders values, a type with no rule goes
 
 ### [01.1]-[HONEST_SIGNATURES]
@@ -175,7 +185,7 @@ Immutable values are fixed once created, a needed change derives a new value fro
 - `record` supports nondestructive mutation through `with`, which copies the unchanged properties and leaves the original unchanged
 - State machines pattern match the next interaction to select the transition
 - Getter-only auto-properties get a compiler-generated readonly backing field, assigned inline or in the constructor
-- Declared types are records, classes, and unions, a `struct` only where a native call, package API (a parallel action), or per-sample kernel the JIT specializes over a static abstract type argument requires one
+- Types are records, classes, and unions, a `struct` only for a native call, package API (parallel action), or JIT-specialized generic kernel
 
 ```csharp
 internal sealed record Document {
@@ -192,8 +202,9 @@ internal static class Editions {
 None of `readonly`, `init`, and `with` makes a referenced child object immutable, immutability extends through every referenced value:
 - Remove setters and construct through a constructor or factory that enforces required values and invariants, an invalid snapshot cannot exist
 - Seal the type, store collections as `Seq<A>`, copy a mutable input collection at the boundary with `toSeq`, and keep element types immutable
-- `Lens<A, B>` with `lens(outer, inner)` updates a nested field
+- `Lens<A, B>` with `lens(outer, inner)` updates a nested field without a chain of `with` expressions
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
+- Mutable host options extending another copy it through the copy constructor and set the difference in an initializer (`new(source) { ... }`)
 
 In-place updates (`List<T>.Sort()`) destroy the prior value, transformations preserve it and `values` keeps its order:
 
@@ -275,6 +286,8 @@ public sealed record Fault(string Subject, Reason Reason, Option<int> Index = de
 
 Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Fin<A>` holds violated business rules, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. Hosts separate both in one `Match`, `IsExceptional` logs detail and renders a generic failure, every other error renders its business message.
 
+Host calls signaling failure with `bool`, `-1`, or `null` become `Fin` at the call (`store.Write(file) ? unit : Error.New(...)`), and a failed step the caller continues past keeps its error message in the outcome.
+
 Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
@@ -353,21 +366,18 @@ Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().Ge
 ### [05.2]-[POLICIES]
 
 Failure policies are distinct operations:
-- Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `primary | @catch(predicate, f)` for one classified error
+- Fallback runs a lower-priority effect when the preferred one fails, `primary | secondary`, or `primary | @catch(predicate, f)` for one error class
 - Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(attempts))`
 - Recovery maps a final error to a value at the host, `IfFail` on the `Fin<A>`
 
-Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. The dependency structure and the concurrency bound select the traversal:
+Libraries return their result type with their own errors, the application composes the retry schedule, the fallback order, and the cache around it, and the host logs only a failure that reaches its translation. Traversals beyond the composition operators take a concurrency bound or keep every failure:
 
-| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                            |
-| :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------- |
-|  [01]   | Independent checks           | `Traverse` or tuple `Apply` on `Fin`    | Joins every error                                     |
-|  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails   |
-|  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                    |
-|  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
-|  [05]   | Every effect, failures kept  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
+| [INDEX] | [SCENARIO]                  | [TRAVERSAL]                             | [BEHAVIOR]                                            |
+| :-----: | :-------------------------- | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Bounded concurrency         | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
+|  [02]   | Every effect, failures kept | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
 
-Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, `awaitAll` runs a `Seq<IO<A>>`. Keep state unshared, and when one logical value must be shared, serialize its changes:
+Keep state unshared, and when one logical value must be shared, serialize its changes:
 - `Atom<A>` replaces the value with compare-and-swap
 - `AtomHashMap<K, V>` holds a registry with `FindOrAdd`
 - `Ref<A>` under `atomic` commits coordinated updates
@@ -382,11 +392,11 @@ Delivery shape selects the construct:
 
 ## [06]-[NUMERICS]
 
-Numeric facts come from the package that states them, and a sample loop reads only spans and SIMD lanes:
+Numeric facts come from the package that states them. Sample loops read only spans and SIMD lanes, with `Matrix<double>`, quantities, and `BigInteger` outside the loop:
 - Roots, quadrature, splines, fits, quantiles, factorizations, antiderivatives, and gradients are members of the referenced numerics packages
 - Hand loops that converge, bisect, or sum a series are a defect
-- Root searches pass `TryFindRoot` a signed margin, a measured bracket, caller accuracy, and the halvings from bracket width to `double.Epsilon`, a missed root is a failure
-- Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, quantities, and `BigInteger` stay outside the loop
+- `TryFindRoot` takes a signed margin, measured bracket, caller accuracy, and halvings from bracket width to `double.Epsilon`, a missed root fails
+- Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing
 - Conversions every pass needs (a host buffer's 2D view, a matrix to lanes) sit once at the type that owns them
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part
 - `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds samples and a host unit scale enters once at the boundary

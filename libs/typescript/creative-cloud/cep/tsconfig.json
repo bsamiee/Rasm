@@ -1,7 +1,6 @@
 {
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "lib": [ "es2022", "dom" ],
-        "types": [ "vite/client", "types-for-adobe/shared/global" ]
+        "lib": [ "es2022", "dom" ]
     }
 }

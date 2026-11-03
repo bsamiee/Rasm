@@ -8,12 +8,14 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./contract": "./contract.ts",
         "./host": "./host.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*",
+        "acorn": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {

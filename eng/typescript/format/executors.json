@@ -1,5 +1,5 @@
 {
     "executors": {
-        "format": { "implementation": "./main.ts#format", "schema": "./schema.json", "description": "Runs targets with `extensions` metadata over matching Git paths or workspace" }
+        "format": { "implementation": "./main.ts#format", "schema": "./schema.json", "description": "Runs writer targets with `extensions` metadata over matching Git paths or their default file sets" }
     }
 }

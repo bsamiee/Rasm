@@ -40,3 +40,22 @@ it('follows changed declarations on rerender', async () => {
     const element = screen.getByText('Figure').element();
     await expect.poll(() => [getComputedStyle(element).getPropertyValue('--media-ratio'), getComputedStyle(element).getPropertyValue('--media-focus')]).toEqual(['0.75', '']);
 });
+it('hoists one rule per declaration whatever the key order or the other declarations', async () => {
+    await render(
+        <>
+            {_scoped('First', { '--ratio': 3, '--tone': 'blue' })}
+            {_scoped('Second', { '--tone': 'blue', '--ratio': 3 })}
+            {_scoped('Third', { '--ratio': 3, '--tone': 'green' })}
+        </>,
+    );
+    const declared = [...document.styleSheets]
+        .flatMap(({ cssRules }) => [...cssRules])
+        .filter((rule) => rule instanceof CSSStyleRule)
+        .flatMap(({ style }) => [style.getPropertyValue('--ratio'), style.getPropertyValue('--tone')]);
+    expect(['3', 'blue', 'green'].map((value) => declared.filter((candidate) => candidate === value).length)).toEqual([1, 1, 1]);
+});
+it('keeps braces, semicolons, and markup inside the declaration value', async () => {
+    const screen = await render(_scoped('Escaped', { '--tone': 'red;--other:1}p{outline:solid}</style><b>' }));
+    const style = getComputedStyle(screen.getByText('Escaped').element());
+    expect([style.getPropertyValue('--other'), style.outlineStyle, document.querySelectorAll('b').length]).toEqual(['', 'none', 0]);
+});

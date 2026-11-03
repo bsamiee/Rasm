@@ -65,7 +65,7 @@ extension Installation {
         } catch {
             throw ApplicationFailure(subject: path, reason: .host(error))
         }
-        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .absent("CFBundleIdentifier")) }
+        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .absent(kCFBundleIdentifierKey as String)) }
         self.init(
             url: bundle,
             identifier: identifier,

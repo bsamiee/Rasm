@@ -9,6 +9,7 @@ import Processes
 import Results
 import ScreenCaptureKit
 import System
+import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ let notifications: Swift.Set<String> = [
     kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
     kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification,
 ]
-let captures: URL = URL.temporaryDirectory.appending(component: "watch-apps", directoryHint: .isDirectory)
+let captures: URL = URL.temporaryDirectory.appending(component: ProcessInfo.processInfo.processName, directoryHint: .isDirectory)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -50,22 +51,6 @@ enum Line: Encodable, Sendable {
 extension OrderedDictionary where Key == NSRunningApplication {
     var byProcess: [String: Value] {
         Dictionary(uniqueKeysWithValues: map { instance, value in (String(instance.processIdentifier), value) })
-    }
-}
-
-extension Installation {
-    @MainActor
-    static func application(named name: String) async throws(ApplicationFailure) -> [Self] {
-        let found: OrderedDictionary<String, [Self]> = OrderedDictionary(grouping: try await installed(named: name), by: \.identifier)
-        return try Unmatched.single(Array(found.elements), subject: "installed application", query: name, candidates: []) { application in application.key }.map(\.value)
-            .mapError { miss in ApplicationFailure(subject: name, reason: .unmatched(miss)) }.get()
-    }
-}
-
-extension NSWorkspace {
-    @MainActor
-    func instanceStates(of id: String) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
-        instanceStates(of: { instance in instance.bundleIdentifier == id }, walking: \.requiresAnswer, notifications: notifications, polling: messagingTimeout)
     }
 }
 
@@ -134,7 +119,7 @@ struct WatchApps: AsyncParsableCommand {
     ) async -> Never {
         await run { output in
             let found: [(name: String, application: Result<[Installation], ApplicationFailure>)] = await Array(
-                OrderedSet(names).async.map { name in (name, await Result { () async throws(ApplicationFailure) in try await Installation.application(named: name) }) }
+                OrderedSet(names).async.map { name in (name, await Result { () async throws(ApplicationFailure) in try await Installation.installed(named: name) }) }
             )
             for (name, failure): (String, ApplicationFailure) in found.compactMap({ name, application in application[case: \.failure].map { failure in (name, failure) } }) {
                 output.yield((name, .fail(failure.localizedDescription)))
@@ -215,9 +200,12 @@ struct Watch: AsyncParsableCommand {
                 }
                 for id: String in applications.keys {
                     group.addTask {
-                        for await states: OrderedDictionary<NSRunningApplication, InstanceState> in await NSWorkspace.shared.instanceStates(of: id) {
-                            output.yield((id, .states(states)))
-                        }
+                        let changes: some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> = await NSWorkspace.shared.instanceStates(
+                            of: { instance in instance.bundleIdentifier == id },
+                            notifications: notifications,
+                            polling: messagingTimeout,
+                        )
+                        for await states: OrderedDictionary<NSRunningApplication, InstanceState> in changes { output.yield((id, .states(states))) }
                     }
                 }
                 group.addTask {
@@ -350,7 +338,7 @@ struct Capture: AsyncParsableCommand {
 
     func capture(_ id: String, _ running: NSRunningApplication) async -> Result<Screenshot, ApplicationFailure> {
         await Result { () async throws(ApplicationFailure) in
-            let file: URL = captures.appending(component: [id, String(running.processIdentifier), window.map(String.init) ?? "windows"].joined(separator: "-") + ".png")
+            let file: URL = captures.appending(component: [id, String(running.processIdentifier), window.map(String.init) ?? "windows"].joined(separator: "-")).appendingPathExtension(for: .png)
             do { try FileManager.default.createDirectory(at: captures, withIntermediateDirectories: true) } catch {
                 throw ApplicationFailure(subject: captures.path(percentEncoded: false), reason: .host(error))
             }
@@ -399,12 +387,12 @@ struct Perform: AsyncParsableCommand {
 
 struct Set: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Sets element AXValue to text, silent unless the element holds no settable AXValue or the write fails"
+        abstract: "Sets element \(kAXValueAttribute) to text, silent unless the element holds no settable \(kAXValueAttribute) or the write fails"
     )
 
     @OptionGroup var target: Target
 
-    @Argument(help: "Text for element AXValue")
+    @Argument(help: "Text for element \(kAXValueAttribute)")
     var value: String
 
     func run() async throws {

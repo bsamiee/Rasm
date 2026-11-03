@@ -18,10 +18,10 @@ class Pricing extends Context.Service<Pricing>()('@app/pricing', {
 - Shapes derive from `make`, members close over the services `make` read, and each member requires nothing
 - Keys are package and module path, followed by the class name where it differs from its file name
 - `make` and its static layer take a parameter for each value the composition root or a `LayerMap` key supplies (a file path, a tenant)
-- Facts the composition fixes (a driver's dialect, a host version) resolve in `make`, and an unsupported one fails the layer build in place of each call
+- Facts the composition fixes (a driver dialect, a host version) resolve in `make`, an unsupported one failing layer build in place of each call
 - Programs bind a service through `yield*`, and a call reaching one member uses `Pricing.use`
 - Service members hold operations reading a resource, a service, or a host value, and computations over arguments stay functions
-- `Context.Reference` with `defaultValue` holds a value every fiber reads with a default a host or standard states (`Intl.DateTimeFormat().resolvedOptions().locale`)
+- `Context.Reference` holds a value every fiber reads, its `defaultValue` from a host or standard (`Intl.DateTimeFormat().resolvedOptions().locale`)
 - `Layer.succeed(reference, value)` overrides a reference for a graph, `Effect.provideService` for one effect
 - `Context.Reference` keys an annotation on a contract (`Tool`, `RpcGroup`), and `Context.get(x.annotations, Key)` reads it with its default
 
@@ -46,8 +46,9 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger', {
 - Fields decode into their domain type (`Schema.URL`, `Schema.Int`, `Schema.DurationFromString`), readers receive the decoded value
 - Separated lists in one variable (`a,b`) read through `Config.Array(schema, path)`, `key=value` pairs through `Config.Record`
 - Secrets are `Schema.Redacted(Schema.String)` fields, rendered as `<redacted>` until `Redacted.value` reads one at the host call
-- `ConfigProvider.ConfigProvider` is a reference defaulting to `fromEnv()`, and a root replaces it to transform paths (`constantCase`, `nested`), read a host record (`fromUnknown`), or add a source (`ConfigProvider.layerAdd`)
-- Configs are effects, `Layer.effect(References.MinimumLogLevel, Config.LogLevel('LOG_LEVEL'))` sets a reference from a setting
+- `ConfigProvider.ConfigProvider` is a reference defaulting to `fromEnv()`
+- Roots replace the provider to transform paths (`constantCase`, `nested`), read a host record (`fromUnknown`), or add a source (`layerAdd`)
+- Configs are effects a layer reads, `Layer.effect(<reference>, <config>)` setting a reference from a setting
 - Implementations a setting selects are `Layer.unwrap` over one table of layers, keyed by a `Schema.Literals(Struct.keys(table))` field
 
 ## [03]-[SCOPED_RESOURCES]
@@ -85,7 +86,7 @@ const Store = Checkout.layer.pipe(Layer.provideMerge(Pricing.layer), Layer.provi
 - Swappable dependencies stay in their reading layer's requirements, and each root provides its host's implementation
 - References stay out of requirements, and a root provides `ConfigProvider` in its last `Layer.provide` to reach every layer
 - Layers memoize by reference within one build, a layer function's result binds to one `const`, `Layer.fresh` builds one per consumer
-- `Effect.provide` reuses a layer an enclosing `provide` or runtime built, `{ local: true }` builds its own, and sibling `provide` calls of one layer each build it
+- `Effect.provide` reuses a layer an enclosing `provide` or runtime built, `{ local: true }` and separate `provide` calls each building their own
 - Graphs a request value selects (a tenant, a region) are one `LayerMap.Service` with a `lookup` mapping the key to a layer
 - `Effect.provide(Tenants.get(tenant))` builds a key's graph on first use and releases it `idleTimeToLive` after its last user
 
@@ -106,6 +107,8 @@ Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, Config
 
 `Api` is a server layer reading `Checkout`, and `runMain` interrupts its program on `SIGINT` or `SIGTERM`, releasing every resource:
 - Host events pass their `AbortSignal` as `signal`, and a canceled event interrupts its run
+- Host callbacks are one `Effect.fnUntraced(body, Effect.scoped, (effect) => runtime.runPromise(effect))` typed by the callback type
+- Hosts running a thunk they own call `Effect.runPromiseWith(yield* Effect.context<R>())(program)`, modules exporting the program as an `Effect`
 - `ManagedRuntime` builds its layer on the first run, later runs read the same services, and a failed build stays cached
 - One runtime serves one host process, created beside its entry point and disposed in its teardown hook
 - `dispose` releases every resource the layer acquired, and later runs fail with a defect

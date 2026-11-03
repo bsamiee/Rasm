@@ -5,16 +5,15 @@ import { motion } from 'motion/react';
 import { type ComponentProps, lazy, type ReactNode, Suspense, useId, useRef } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { descriptionLabel, format, placementTitle } from '#/media/labels';
-import { MediaElement } from '#/media/media-element';
-import { MediaFailure, MediaLoading } from '#/media/status';
-import { mediaUrl } from '#/model/asset';
-import { type Placement, placementRatio } from '#/model/placement';
+import { descriptionLabel, format, placementTitle } from '#/media/labels.ts';
+import { MediaElement } from '#/media/media-element.tsx';
+import { MediaFailure, MediaLoading } from '#/media/status.tsx';
+import { type Placement, placementRatio } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const AnimatedDialog = motion.create(Dialog);
-const ZoomViewer = lazy(() => import('#/media/zoom-viewer').then((module) => ({ default: module.ZoomViewer })));
+const ZoomViewer = lazy(() => import('#/media/zoom-viewer.tsx').then((module) => ({ default: module.ZoomViewer })));
 const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclude<typeof Placement.Type, { kind: 'video' }>; layoutId: string; description: ReactNode }) => (
     <ModalOverlay className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
         <Modal>
@@ -32,7 +31,7 @@ const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclu
                         Scroll, pinch, or press + and − to zoom. Drag or press arrow keys to move
                     </Text>
                 )}
-                <ErrorBoundary fallback={<MediaFailure href={mediaUrl(placement.asset)} linkLabel="Open original" message="Viewer failed to load" />}>
+                <ErrorBoundary fallback={<MediaFailure asset={placement.asset} message="Viewer failed to load" />}>
                     <Suspense fallback={<MediaLoading />}>
                         <ZoomViewer layoutId={layoutId} placement={placement} />
                     </Suspense>
@@ -42,7 +41,7 @@ const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclu
         </Modal>
     </ModalOverlay>
 );
-const MediaFigure = ({ placement, active, presentation, priority = false, renderMedia = true }: { placement: typeof Placement.Type; active: boolean; presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; priority?: boolean; renderMedia?: boolean }) => {
+const MediaFigure = ({ placement, active, presentation, priority, renderMedia }: { placement: typeof Placement.Type; active: boolean; presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; priority: boolean; renderMedia: boolean }) => {
     const layoutId = useId();
     const figure = useRef<HTMLElement>(null);
     const viewer = presentation === 'expandable' && placement.kind !== 'video' ? placement : undefined;
@@ -53,7 +52,7 @@ const MediaFigure = ({ placement, active, presentation, priority = false, render
         </details>
     );
     return (
-        <CustomProperties properties={{ '--media-ratio': placementRatio(placement), ...(placement.kind === 'image' && placement.framing.mode === 'cover' && { '--media-focus': `${placement.framing.x}% ${placement.framing.y}%` }) }}>
+        <CustomProperties properties={{ '--media-ratio': placementRatio(placement), ...(placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' && { '--media-focus-x': `${placement.framing.x}%`, '--media-focus-y': `${placement.framing.y}%` }) }}>
             {(scope) => (
                 <figure aria-hidden={presentation === 'thumbnail'} className="media-figure" ref={figure} {...scope}>
                     <motion.div {...(viewer && { layoutId })} className="bg-surface relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden">
@@ -68,7 +67,7 @@ const MediaFigure = ({ placement, active, presentation, priority = false, render
                                         <span>{placement.asset.name}</span>
                                         <span className="inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
                                             <span className="sr-only">Sheet </span>
-                                            <span className="text-accent-text">{format.numeral(placement.page.number)}</span>
+                                            <span className="text-accent-text">{format.numeral(placement.page.number, placement.asset.pages.length)}</span>
                                             <span aria-hidden="true">/</span>
                                             <span className="sr-only"> of </span>
                                             <span>{format.numeral(placement.asset.pages.length)}</span>

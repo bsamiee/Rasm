@@ -1,4 +1,4 @@
-"""Owned workspaces copied from the open file or appended from a blend file, with add-on filters, declared mode, scene pin and tool, and deferred activation."""
+"""Owned workspaces and their deferred activation."""
 
 from contextlib import ExitStack
 from functools import partial
@@ -11,7 +11,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called, Operation
+from blender.bpy.commands.operators import called, Operation
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
@@ -48,7 +48,7 @@ class Activation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
-    """Saved copy of a source workspace, from the open file or appended from `library`, with mode, scene pin, add-on filter, tab reorder operator (`workspace.reorder_to_front` or `reorder_to_back`), and the tool its mode starts with, by the idname and toolbar space `wm.tool_set_by_id` takes."""
+    """Saved copy of a source workspace, from the open file or appended from `library`, with mode, scene pin, add-on filter, tab reorder operator, and the tool its mode starts with as the idname and toolbar space `wm.tool_set_by_id` takes."""
 
     key: Key
     name: str

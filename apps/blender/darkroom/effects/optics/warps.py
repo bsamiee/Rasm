@@ -229,8 +229,8 @@ def _projected(shell: GraphInputs[Projection]) -> Outcome[Expr]:
     center = vector("MULTIPLY", read(_KALEIDOSCOPE, _CENTER), frame.extent)
     local = frame.point - center
     x, y = folded(local["X"], local["Y"], mirrors=record.mirrors, angle=read(_KALEIDOSCOPE, _ANGLE), zoom=read(_KALEIDOSCOPE, _MAGNIFICATION), ns=EXPRESSIONS)
-    s, t, _ = to_polar((offset["X"] / short + 0.5, offset["Y"] / short + 0.5, unit), (1.0, 1.0), EXPRESSIONS)
-    u, v, _ = from_polar((frame.fraction["X"], frame.fraction["Y"], unit), (1.0, 1.0), EXPRESSIONS)
+    s, t, _ = to_polar((offset["X"] / short + 0.5, offset["Y"] / short + 0.5, unit), EXPRESSIONS)
+    u, v, _ = from_polar((frame.fraction["X"], frame.fraction["Y"], unit), EXPRESSIONS)
     unwrapped = vector("MULTIPLY_ADD", vector("DIVIDE", xyz(u - 0.5, v - 0.5), frame.extent), xyz(short, short, 0.0), (0.5, 0.5, 0.0))
     across, along = (offset["X"], offset["Y"]) if record.panorama.centered else (frame.fraction["X"], frame.fraction["Y"])
     rx, ry, rz, coverage = record.panorama.to_ray((across, along, unit), EXPRESSIONS)

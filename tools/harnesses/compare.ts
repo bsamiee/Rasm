@@ -42,7 +42,7 @@ const imported = Effect.fn('imported')(function* (module: string) {
     return Effect.fnUntraced(function* (pair: Pair) {
         const made = yield* Record.get(loaded, pair.fn).pipe(
             Option.filter(Predicate.isFunction),
-            Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
+            Effect.fromOption(() => HarnessError.unavailable(module)(`exports no function ${pair.fn}`)),
         );
         return yield* Effect.result(Effect.try({ try: () => made(...pair.args), catch: thrown }));
     });

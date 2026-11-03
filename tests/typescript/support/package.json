@@ -1,12 +1,13 @@
 {
     "name": "@rasm/test-support",
     "private": true,
-    "description": "Shared settings for isolated, accessible browser tests",
+    "description": "Storybook settings, a per-worker app fixture and an axe matcher for browser tests",
     "type": "module",
     "exports": {
+        "./main": "./main.ts",
+        "./preview": "./preview.ts",
         "./playwright": "./playwright.ts",
-        "./preset": "./preset.ts",
-        "./preview": "./preview.ts"
+        "./vitest": "./vitest.d.ts"
     },
     "dependencies": {
         "@axe-core/playwright": "catalog:",
@@ -15,7 +16,8 @@
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
         "effect": "catalog:",
-        "vite": "catalog:"
+        "vite": "catalog:",
+        "vitest": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"

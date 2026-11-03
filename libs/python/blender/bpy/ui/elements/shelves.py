@@ -1,4 +1,4 @@
-"""Asset shelves listing marked or accepted assets, with activate and drag operators and context menu rows."""
+"""Asset shelves an extension registers."""
 
 from collections.abc import Callable
 from functools import partial, wraps
@@ -8,8 +8,7 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import Placement, PopupKind, PopupTarget
-from blender.bpy.commands.operators import Answer, Call, Empty, Operator
+from blender.bpy.commands.operators import Answer, Call, Empty, Operator, Placement, PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Tier
@@ -52,7 +51,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
         return Placement(PopupTarget(self.key, PopupKind.SHELF))
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Returns the action operators and menu rows, then the shelf class built when the interface band opens.
+        """Returns the action operators and menu rows, then the shelf class built when the interface tier opens.
 
         Args:
             identity: Extension owning class names and asset marks.
@@ -62,7 +61,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
         """
         dragging = Nothing if isinstance(self.drag, bool) else Some(self.drag)
         actions = tuple(
-            (member, Operator(form=Empty, internal=True, run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
+            (member, Operator(form=Empty, options=frozenset({"INTERNAL"}), run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
             for role, member, offered in (("activate", "bl_activate_operator", self.activate), ("drag", "bl_drag_operator", dragging))
             for use in offered.to_list()
         )

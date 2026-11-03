@@ -1,30 +1,30 @@
-import { Field, Method, ObjectModel } from '@rasm/automation/requests';
+import { ObjectModel } from '@rasm/automation/requests';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Cache, Effect, Option, Predicate, Record, Struct } from 'effect';
-import { undeclared } from '#/dom/dictionary';
+import { Array, Cache, Effect, Option, Predicate, Record } from 'effect';
+import { Dictionary } from '#/dom/dictionary';
 import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const objectModel = Effect.fn('objectModel')(function* (payload: ObjectModel) {
     const model = yield* Model;
-    const { classes, enumerations, enumeration, rows, lineage, members } = model;
+    const { classes, enumerations, enumeration, declarations, parents, members } = model;
     const { Class, Enumeration } = ObjectModel.Result.cases;
     const declaration = Effect.fnUntraced(function* (name: string) {
-        const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
-        const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
+        const declared = yield* Effect.catchTag(Effect.asSome(Cache.get(declarations, name)), 'Unmatched', () => Effect.succeedNone);
+        const { fields, methods, statics } = Option.getOrElse(declared, () => ({ fields: {}, methods: {}, statics: {} }));
         const type: unknown = Reflect.get(model, name);
-        const live = Predicate.isFunction(type) ? Uxp.accessors(type.prototype) : { getters: [], methods: [] };
+        const [live] = Predicate.isFunction(type) ? Uxp.members(type.prototype) : [{ fields: [], methods: [] }];
         return yield* Option.match(enumeration(name), {
             onSome: (found) => Effect.succeed(Enumeration.make({ name, members: Array.map(members(found), (each) => ({ name: String(each), description: Record.get(statics, String(each)) })) })),
             onNone: () =>
                 Effect.map(
                     Effect.all({
-                        parents: Option.isSome(row) ? lineage(name) : Effect.succeed([]),
-                        fields: Effect.forEach(Array.map(live.getters, Struct.get('name')), (key) => Option.match(Record.get(fields, key), { onNone: () => undeclared(Field, key), onSome: Effect.succeed })),
-                        methods: Effect.forEach(live.methods, (key) => Option.match(Record.get(methods, key), { onNone: () => undeclared(Method, key), onSome: Effect.succeed })),
+                        parents: Option.isSome(declared) ? parents(name) : Effect.succeed([]),
+                        fields: Effect.forEach(live.fields, (accessor) => Option.match(Record.get(fields, accessor.name), { onNone: () => Dictionary.undeclared(ObjectModel.Field, accessor), onSome: Effect.succeed })),
+                        methods: Effect.forEach(live.methods, (method) => Option.match(Record.get(methods, method), { onNone: () => Dictionary.undeclared(ObjectModel.Method, { name: method }), onSome: Effect.succeed })),
                     }),
-                    (declared) => Class.make({ name, ...declared }),
+                    (described) => Class.make({ name, ...described }),
                 ),
         });
     });

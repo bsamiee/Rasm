@@ -10,7 +10,7 @@ from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called
+from blender.bpy.commands.operators import called
 from blender.bpy.data.ids.ownership import Mark, Ownership, tracked
 from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Descriptor, written

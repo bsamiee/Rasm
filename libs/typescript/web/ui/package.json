@@ -5,14 +5,12 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.tsx",
-        "#/dialog/open": "./dialog/open.ts"
+        "#/*": "./*.tsx"
     },
     "exports": {
         "./collection/menu-button": "./collection/menu-button.tsx",
         "./collection/reorderable-list": "./collection/reorderable-list.tsx",
         "./custom-properties": "./custom-properties.tsx",
-        "./dialog/open": "./dialog/open.ts",
         "./dialog/overlay": "./dialog/overlay.tsx",
         "./focus": "./focus.ts",
         "./form/choice": "./form/choice.tsx",

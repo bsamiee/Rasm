@@ -13,13 +13,14 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 ```
 
 - `Effect.fromNullishOr` enters a nullable host value into the same chain
-- `Effect.fromOption(option, onNone)` fails with the error `onNone` builds (a `SchemaIssue`, a lookup's candidates), and a rebuilt `NoSuchElementError` restates it
-- Exactly-one lookups fail through `Effect.filterOrFail(lookup, Predicate.isTupleOf(1), onOther)` and map through `Array.headNonEmpty`, at-least-one lookups through `Effect.fromOption(Option.liftPredicate(matches, Array.isReadonlyArrayNonEmpty), onEmpty)`
-- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field in place of converting it through `Option.fromUndefinedOr` to match it
+- `Effect.fromOption(option, onNone)` fails with the `onNone` error (a `SchemaIssue`, lookup candidates), a rebuilt `NoSuchElementError` restating it
+- `Effect.filterOrFail(lookup, Predicate.isTupleOf(1), onOther)` fails an exactly-one lookup, `Array.isReadonlyArrayNonEmpty` an at-least-one lookup
+- `Array.headNonEmpty(String.split(text, separator))` reads the first part with no absent case, a `split(...)[0] ?? text` restating it
+- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field, a conversion to `Option` restating them
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
 - `Array.findFirst` with a function returning `Option` finds and maps in one pass
 - `Effect.transposeOption` runs an effect an `Option` holds and returns an effect of `Option`
-- `Effect.when(effect, condition)` runs `effect` when an effectful `condition` succeeds with `true` and returns an `Option`, a ternary between `Effect.succeedNone` and `Effect.asSome` restating it
+- `Effect.when(effect, condition)` runs `effect` into an `Option` when `condition` yields `true`, a `succeedNone` or `asSome` ternary restating it
 
 ## [02]-[VALIDATION]
 
@@ -56,7 +57,7 @@ const resilient = <A, R>(read: Effect.Effect<A, OrderError | HttpClientError.Htt
 - `Effect.catchReasons` takes a handler per reason, and `Effect.unwrapReason` lifts every reason into `E` for `Effect.catchTags`
 - `Effect.catchIf` keeps what its predicate passes over in `E`, and a refinement narrows `E` past what it matches
 - `Effect.catchTag` takes one tag or a list of tags and `Effect.catchTags` a handler per tag, each removing what it handles from `E`
-- `Effect.catchTag` and `Effect.catchIf` take a third handler for every error the tag or predicate passes over, and `E` holds only what the handlers raise
+- `Effect.catchTag` and `Effect.catchIf` take a third handler for errors the tag or predicate passes over, `E` holding only what the handlers raise
 - Typed recovery skips a cause holding a defect and passes each typed error in it on as a defect
 
 ## [04]-[HOST_VALUES]
@@ -78,8 +79,9 @@ Defects are failures no caller handles (a broken invariant, a host call throwing
 const isolated = <A, E, R>(job: Effect.Effect<A, E, R>) => Effect.catchCauseIf(Effect.asVoid(job), Predicate.not(Cause.hasInterruptsOnly), Effect.logError);
 ```
 
-- `Predicate.not(Cause.hasInterruptsOnly)` leaves an interrupted job's cause an interruption and logs nothing, and a `catchCause` returning `Effect.interrupt` replaces the job's interruption with the current fiber's
-- Causes rendered into a value (an error response, a reply) are a pure `(cause) => A` over `Cause.fail(e)`, an `Effect.flip` over a caught `Effect.fail` restating it as an effect
+- `Predicate.not(Cause.hasInterruptsOnly)` leaves an interrupted job's cause an interruption and logs nothing
+- `catchCause` returning `Effect.interrupt` replaces a job's interruption with the current fiber's
+- Causes rendered to a value (an error response, a reply) are a pure `(cause) => A` over `Cause.fail(e)`, an `Effect.flip` restating it
 - `Effect.logError` attaches a cause argument to its log record
 - `Effect.catchDefect` stands at a boundary recovering defects alone, and typed errors stay for its caller
 - Steps no later step reads (a finalizer, a cleanup) log and discard through `Effect.ignore({ log, message })`, which keeps defects

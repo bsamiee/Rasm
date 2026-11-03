@@ -1,4 +1,4 @@
-"""Image editor views: the displayed image's kind, the editors showing it, the frame it draws in, pointer picks read as frame regions, the render view revealed where the render display preference places it, overlays over the frame, and frame region handles."""
+"""Image editor views of the displayed frame."""
 
 from collections.abc import Callable
 from functools import partial, wraps
@@ -13,9 +13,8 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Pick
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import root_in, rooted
@@ -55,18 +54,18 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
         return Operator(undo=NoUndo(), form=Empty, run=self.show_render_view)
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
-        """Shows the render view, opening one unless an editor shows Render Result, then queues the Sidebar tab the placement's members name, none for a stock panel declaring no category."""
+        """Shows the render view with its Sidebar open at the placement's tab."""
         tabbed = (
             Option
             .of_optional(try_downcast(str, self.at.members(call.identity).get("bl_category")))
             .map(lambda tab: EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,)))
             .default_value(Ok(()))
         )
-        return (
-            paired(revealed(call.context), paired(visibility(bpy.types.SpaceImageEditor, "UI", visible=True), tabbed))
-            .bind(lambda found: call.identity.reports.queued(Arrangement(at=found[0], steps=(found[1][0], *found[1][1]))))
-            .map(lambda _: Done())
-        )
+
+        def queued(at: Located, sidebar: EditorState, tab: tuple[EditorState, ...]) -> Outcome[None]:
+            return call.identity.reports.queued(Arrangement(at=at, steps=(sidebar, *tab)))
+
+        return paired(revealed(call.context), visibility(bpy.types.SpaceImageEditor, "UI", visible=True), tabbed).bind(lambda found: queued(*found)).map(lambda _: Done())
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the command revealing the view."""
@@ -187,7 +186,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
         return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((pair[1].x, pair[1].y, 0.0))))
 
     def caging(self, context: bpy.types.Context) -> tuple[float, ...]:
-        """Returns the cage's frame of the quad column by column, the order of the host's float matrix target, identity while the handle is unplaced, its placement holding any read fault."""
+        """Returns the cage's frame of the quad in column order, identity while the handle is unplaced."""
         frame = self.held(context).to_option().bind(lambda found: found).map(lambda pair: _frame(_pixels(*pair))).default_with(lambda: Matrix.Identity(4))
         return tuple(np.asarray(frame).ravel(order="F").tolist())
 

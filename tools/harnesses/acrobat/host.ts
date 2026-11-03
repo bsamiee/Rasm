@@ -1,17 +1,17 @@
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import type { AppleEventValue } from '@rasm/automation/apple-events';
-import type { Installation } from '@rasm/automation/applications';
+import type { AppleEventValue, Terms } from '@rasm/automation/apple-events';
 import { Automation } from '@rasm/automation/automation';
 import { transformSync } from '@swc/core';
-import { Array, Effect, FileSystem, flow, Option, Path, type PlatformError, Record, Result, Schema, SchemaGetter, Stream, String as Text } from 'effect';
+import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, Struct, String as Text } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import jsesc from 'jsesc';
-import { Answered, BOXES, Engine, HostCase, Lockdown, Outcome, type Placed, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
+import { Answered, BOXES, Engine, fields, HostCase, Lockdown, Outcome, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
 import { HarnessError } from '#/error';
-import { type Batch, type Decoding, type Host as Harness, type Installed, type Live, recorded } from '#/session';
+import { copied } from '#/precondition';
+import { type Batch, type Decoding, filesIn, type Host as Harness, inside, installation, type Live } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -22,7 +22,6 @@ const ELLIPSIS = /(?:…|\.\.\.)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Program = Schema.fromJsonString(Schema.String).annotate({ description: 'Lowered engine as the string literal the do script eval compiles, a syntax error answering as a failure' });
 const Item = Schema.Struct({ seld: Schema.String }).annotate({ description: 'Menu item specifier, its name as the selector' });
 const Modal = Schema.String.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.transform(flow(Text.match(ELLIPSIS), Option.isSome)), encode: SchemaGetter.forbiddenEncoding })).annotate({ description: 'Menu item title ending in an ellipsis, the item opening a dialog' });
 const Objects = Schema.fromJsonString(Schema.Struct({ qpdf: Schema.Tuple([Schema.Unknown, Schema.Record(Schema.String, Schema.Json)]) })).annotate({ description: 'qpdf JSON v2 object table' });
@@ -33,40 +32,29 @@ const Canonical = Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INSTALLATIONS]
-const inside = (outer: Installation, inner: Installation) => inner.url.href !== outer.url.href && inner.url.href.startsWith(outer.url.href);
-const installation = (rows: readonly Installation[]) =>
-    Effect.fn('installation')(function* (row: Installation) {
-        const path = yield* Path.Path;
-        const app = yield* path.fromFileUrl(row.url);
-        const version = yield* Effect.fromOption(row.version, () => HarnessError.make({ reason: { _tag: 'Unavailable', because: 'Launch Services reports no version' }, subject: row.name }));
-        const helpers = Array.dedupe(rows.filter((inner) => inside(row, inner)).map(({ identifier }) => identifier)).filter((identifier) => identifier !== row.identifier);
-        return { identifier: row.identifier, name: row.name, app, version, watched: [row.identifier, ...helpers] } satisfies Installed;
-    });
+const declares = ({ suite, command }: Terms) => suite.some(({ code }) => code === CODES.suite) && command.some(({ code }) => code === CODES.script);
 const installed = Effect.gen(function* () {
     const automation = yield* Automation;
     const rows = yield* automation.installed;
-    const declaring = (row: Installation) =>
-        Effect.map(
-            Effect.option(automation.terms({ url: row.url })),
-            Option.exists(({ suite, command }) => suite.some(({ code }) => code === CODES.suite) && command.some(({ code }) => code === CODES.script)),
-        );
-    const hosts = yield* Effect.filter(
-        rows.filter((row) => row.scriptable && !rows.some((outer) => inside(outer, row))),
-        declaring,
+    const [read, unread] = yield* Effect.partition(
+        rows.filter((row) => row.scriptable && Option.isSome(row.scriptingDefinitionFile) && !rows.some((outer) => inside(outer, row))),
+        (row) => Effect.mapBoth(automation.terms({ url: row.url }), { onSuccess: flow(Option.liftPredicate(declares), Option.as(row)), onFailure: HarnessError.refused(row.name) }),
         { concurrency: 'unbounded' },
     );
-    return yield* Effect.forEach(hosts, installation(rows));
+    return yield* Array.match(Array.getSomes(read), {
+        onEmpty: () => Array.match(unread, { onEmpty: () => Effect.succeed([]), onNonEmpty: (held) => HarnessError.unavailable('scripting dictionaries')(held.map(Struct.get('message')).join('; ')) }),
+        onNonEmpty: (hosts) => Effect.forEach(hosts, (row) => installation(row, rows, [])),
+    });
 });
 const lockdown = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const digest = (yield* fs.exists(LOCKDOWN))
-        ? Option.some(
-              createHash('sha256')
+    return (yield* fs.exists(LOCKDOWN))
+        ? {
+              lockdown: createHash('sha256')
                   .update(yield* fs.readFile(LOCKDOWN))
                   .digest('hex'),
-          )
-        : Option.none<string>();
-    return Option.some<typeof Lockdown.Type>(Option.match(digest, { onNone: () => ({}), onSome: (held) => ({ lockdown: held }) }));
+          }
+        : {};
 });
 
 // --- [CASES]
@@ -75,12 +63,8 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Staged.Type, folde
     const sandbox = path.join('/private/tmp/com.adobe.Acrobat.tmp.sbx', folder);
     yield* fs.remove(sandbox, { recursive: true, force: true });
     yield* fs.makeDirectory(sandbox, { recursive: true });
-    const documents = yield* Effect.forEach(
-        decoded.documents,
-        (document): Effect.Effect<(typeof Placed.Type.documents)[number], PlatformError.PlatformError> =>
-            'open' in document ? Effect.as(fs.copyFile(path.join(product, document.open), path.join(sandbox, path.basename(document.open))), { open: path.join(sandbox, path.basename(document.open)) }) : Effect.succeed(document),
-    );
-    return { precondition: { ...decoded, documents, sandbox }, copies: Array.filterMap(decoded.documents, (document) => ('open' in document ? Result.succeed(path.join(product, document.open)) : Result.failVoid)) };
+    const { precondition: copy, copies } = yield* copied(decoded, sandbox, product);
+    return { precondition: { ...copy, sandbox }, copies };
 });
 const staged = Effect.fn('staged')(function* (hosted: typeof HostCase.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -91,10 +75,8 @@ const staged = Effect.fn('staged')(function* (hosted: typeof HostCase.Type) {
 const collected = Effect.fn('collected')(function* (hosted: typeof HostCase.Type, skipped: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { sandbox } = hosted.precondition;
-    const isFile = (file: string) => Effect.map(fs.stat(file), ({ type }) => type === 'File');
-    const listed = (yield* fs.readDirectory(sandbox, { recursive: true })).map((file) => path.join(sandbox, file));
-    const files = yield* Effect.filter(Array.difference(skipped)(listed), isFile);
-    yield* Effect.forEach(files, (file) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(hosted.folder, path.relative(sandbox, file))), { recursive: true }), fs.copyFile(file, path.join(hosted.folder, path.relative(sandbox, file)))), { discard: true });
+    const into = (file: string) => path.join(hosted.folder, path.relative(sandbox, file));
+    yield* Effect.forEach(Array.difference(skipped)(yield* filesIn(sandbox)), (file) => Effect.andThen(fs.makeDirectory(path.dirname(into(file)), { recursive: true }), fs.copyFile(file, into(file))), { discard: true });
     yield* fs.remove(sandbox, { recursive: true, force: true });
 });
 
@@ -111,16 +93,11 @@ const normalized = Effect.fn('normalized')(function* (file: string) {
         Record.map(table, (entry, key) => Option.match(Record.get(dropped, key), { onNone: () => entry, onSome: (names) => pruned(entry, names) })),
         (_, key) => !Option.contains(metadata, key),
     );
-    const canonical = yield* Schema.encodeEffect(Canonical)(
+    return yield* Schema.encodeEffect(Canonical)(
         Record.keys(kept)
             .toSorted()
             .map((key) => [key, kept[key] ?? null] as const),
     );
-    return createHash('sha256').update(canonical).digest('hex');
-});
-const digest = Effect.fn('digest')(function* (file: string) {
-    const bytes = yield* (yield* FileSystem.FileSystem).readFile(file);
-    return { file, size: bytes.byteLength, sha256: file.endsWith('.pdf') ? yield* normalized(file) : createHash('sha256').update(bytes).digest('hex') };
 });
 
 // --- [TRANSPORT]
@@ -129,7 +106,7 @@ const lowered = Effect.try({ try: () => transformSync(`var engine = ${engine.toS
 const based = () => ({ home: homedir(), boxes: BOXES });
 const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<unknown>>(pid: number, direct: AppleEventValue, schema: S) {
     const automation = yield* Automation;
-    const { reply } = yield* automation.execute({ pid, command: 'get', arguments: { direct }, artifacts: [] });
+    const { reply } = yield* automation.execute({ pid, command: 'get', arguments: { direct } });
     return yield* Schema.decodeEffect(Schema.NullOr(schema))(reply);
 });
 const menu = Effect.fn('menu')(function* (pid: number, index: number) {
@@ -144,14 +121,14 @@ const modalIn = (pid: number) => Effect.map(Stream.runCollect(Stream.paginate(1,
 const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof Request.Type) {
     const [automation, code] = yield* Effect.all([Automation, lowered]);
     const program = `(function (request) {\n${code}\nreturn engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(Request)(request), { json: true })});`;
-    const direct = `try { eval(${yield* Schema.encodeEffect(Program)(program)}); } catch (error) { encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: String(error && error.name) + ': ' + String(error && error.message) + ' at line ' + String(error && error.lineNumber) } })); }`;
-    const { reply } = yield* automation.execute({ pid, command: CODES.script, arguments: { direct }, artifacts: [] });
+    const direct = `try { eval(${jsesc(program, { json: true })}); } catch (error) { encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: String(error && error.name) + ': ' + String(error && error.message) + ' at line ' + String(error && error.lineNumber) } })); }`;
+    const { reply } = yield* automation.script({ pid, direct });
     return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${String(reply)}` }, subject: `process ${pid}`, cause: error }));
 });
 const surveyed = Effect.fn('surveyed')(function* (pid: number, opened: Option.Option<Schema.Json>) {
     const modal = yield* modalIn(pid);
     const held = yield* answered(pid, Surveyed, Request.cases.Survey.make({ ...based(), modal }));
-    const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.make({ reason: { _tag: 'Unavailable', because: reason }, subject: `process ${pid}` }));
+    const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${pid}`)(reason));
     const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Lockdown)(Option.getOrUndefined(opened)));
     return { model: { ...model, modal }, viewer, host } satisfies typeof Survey.Type;
 });
@@ -176,26 +153,22 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Host = {
-    name: 'acrobat',
     Engine,
-    survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey, host: (survey) => Option.some(survey.host) },
+    survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey },
     Case: HostCase,
+    fields,
     shown: ['alerts', 'confirms', 'prompts', 'files', 'windows', 'activations', 'writes', 'events', 'console'],
-    progress: [],
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed,
     refusal: (_, hosted) => (hosted.dialogs === undefined ? Option.none<string>() : Option.some('execDialog answers through windows presses')),
     installed,
-    windowed: () => true,
-    launch: () => Effect.succeed({ fresh: true }),
+    launch: () => Effect.succeed({}),
     opened: () => lockdown,
     send,
-    records: (_, file) => recorded(Recorded)(file),
-    quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } }, artifacts: [] }))),
-    digest,
-    compare: { _tag: 'Imported' },
-} as const satisfies Harness<typeof Survey, typeof HostCase, typeof Engine, typeof Staged.Type>;
+    quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
+    canonical: (file, bytes) => (file.endsWith('.pdf') ? Effect.map(normalized(file), (text) => [text]) : Effect.succeed([bytes])),
+} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Staged.Type, typeof fields>;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

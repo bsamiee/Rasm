@@ -60,7 +60,7 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
         seeds
             .values()
             .any(Option::is_none)
-            .then(|| izip!(0_u32.., sources).map(|(index, source)| source.map(|source| Source { original: None, face: seeds.get(&source).copied().flatten().unwrap_or(index) })).collect::<Vec<_>>())
+            .then(|| izip!(0_u32.., sources).map(|(index, source)| source.map(|source| Source { face: seeds.get(&source).copied().flatten().unwrap_or(index), ..source })).collect::<Vec<_>>())
     };
     let keys = scene.bodies.par_iter().map(keyed).collect::<Vec<_>>();
     let seamed = keys.iter().any(Option::is_some);

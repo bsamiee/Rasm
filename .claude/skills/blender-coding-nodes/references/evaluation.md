@@ -14,7 +14,7 @@ Tree edits reach every user's next evaluation, nested groups included:
 
 ## [02]-[FIELD_VALUES]
 
-Evaluate stock nodes (Noise, Voronoi, Map Range, Color Ramp, Math) for their values in place of a numpy port. Shader texture and converter nodes run in geometry trees, an unlinked texture `Vector` reading `Position`, over one scratch point cloud in one depsgraph pass:
+Evaluate built-in nodes (Noise, Voronoi, Map Range, Color Ramp, Math) for their values in place of a numpy port. Shader texture and converter nodes run in geometry trees, an unlinked texture `Vector` reading `Position`, over one scratch point cloud in one depsgraph pass:
 
 ```python
 def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Callable[[bpy.types.NodeTree], bpy.types.NodeSocket], /) -> Option[Buffer]:
@@ -72,7 +72,7 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
 - `value` holds numbers, strings, data-blocks, and menu item names
 - Menu inputs reaching a Menu Switch list items in `bl_rna.properties["value"].enum_items`
 - `value` writes store numbers past the interface's `min_value` and `max_value`
-- Interface `default_value` writes leave stored values, and `item.property_unset("value")` returns an input to the current default
+- `item.property_unset("value")` returns an input to the current interface default
 - `item.path_from_id("value")` returns the data path keyframes and drivers take on the object
 - `mod[identifier]` and `mod.get(identifier)` raise `TypeError`, modifiers holding no ID properties
 - `SceneCompositorEffect`, `CompositorStrip`, and `SequencerCompositorModifierData` hold their group's values in `properties.inputs` by identifier

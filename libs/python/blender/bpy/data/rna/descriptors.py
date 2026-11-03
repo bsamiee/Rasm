@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable, Mapping
 from functools import partial
 import inspect
 from itertools import pairwise
+import math
 import os
 from pathlib import Path
 from types import MappingProxyType
@@ -205,34 +206,29 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
 
     def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
         """Returns live property owner from item, root, or context."""
-        return (
-            item
-            .filter(lambda value: isinstance(value, self.root))
-            .or_else_with(lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing)
-            .bind(lambda value: struct_at(value, self.owner))
-            .filter(lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and effective(owner))
-        )
+        match item.filter(lambda value: isinstance(value, self.root)).default_value(context):
+            case start if isinstance(start, self.root):
+                found: Option[Native] = Some(start)
+            case bpy.types.Context() as start:
+                found = root_in(self.root, start)
+            case _:
+                found = Nothing
+        return found.bind(lambda value: struct_at(value, self.owner)).filter(lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and effective(owner))
 
-    def leaves(self, compound: tuple[type[Struct], ...] = ()) -> "tuple[Descriptor, ...]":
-        """Expands a setting into the leaf members a snapshot captures, `compound` pointers kept whole."""
-
-        def walked(struct: type[Struct], owner: RnaPath, entered: frozenset[str]) -> tuple[Descriptor, ...]:
-            def member(found: Descriptor) -> tuple[Descriptor, ...]:
-                match found.prop:
-                    case _ if found.valued() or (isinstance(found.prop, bpy.types.PointerProperty) and isinstance(found.prop.fixed_type, compound)):
-                        return (Descriptor(root=self.root, owner=owner, prop=found.prop),)
-                    case bpy.types.PointerProperty(is_readonly=True, fixed_type=bpy.types.bpy_struct() as pointed) if not isinstance(pointed, bpy.types.ID):  # type: ignore[unreachable]
-                        return walked(type(pointed), (*owner, found.prop.identifier), entered | {pointed.identifier}) if pointed.identifier not in entered else ()
-                    case _:
-                        return ()
-
-            return tuple(descriptor for found in Descriptor.saved(struct) for descriptor in member(found))
-
+    def leaves(self, compound: tuple[type[Struct], ...] = (), entered: frozenset[str] = frozenset()) -> "tuple[Descriptor, ...]":
+        """Expands a setting into the leaf members a snapshot captures, `compound` pointers kept whole, a nested member kept when valued and structs in `entered` left out."""
         match self.prop:
             case bpy.types.PointerProperty(is_readonly=True, fixed_type=bpy.types.bpy_struct() as pointed) if not isinstance(pointed, (bpy.types.ID, *compound)):
-                return walked(type(pointed), self.path, frozenset({pointed.identifier}))
-            case _:
+                inside = entered | {pointed.identifier}
+                return (
+                    ()
+                    if pointed.identifier in entered
+                    else tuple(leaf for found in Descriptor.saved(type(pointed)) for leaf in Descriptor(root=self.root, owner=self.path, prop=found.prop).leaves(compound, inside))
+                )
+            case bpy.types.PointerProperty(fixed_type=fixed) if isinstance(fixed, compound):
                 return (self,)
+            case _:
+                return (self,) if self.valued() or not entered else ()
 
     # --- [KINDS]
 
@@ -295,7 +291,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
                 return Option.of_optional(getattr(owner, name)).map(lambda struct: definition(struct).identifier).to_optional()
             case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop, bpy.types.bpy_struct():
                 shape = self.shape(owner)
-                buffer = np.empty(int(np.prod(shape)), DTYPES[type(prop)])
+                buffer = np.empty(math.prod(shape), DTYPES[type(prop)])
                 _uncoerced(owner, name).foreach_get(buffer)
                 return buffer.reshape(shape)[self.coordinates].item() if self.coordinates else tuple(buffer.tolist())
             case bpy.types.BoolProperty(is_array=True), _:
@@ -339,8 +335,8 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
             match self.prop, value:
                 case bpy.types.FloatProperty() as real, _:
                     return _converted(value, float | tuple[float, ...], repr(real)).bind(partial(self.quantized, real)).map(lambda held: tuple(held.tolist()) if held.ndim else float(held))
-                case bpy.types.IntProperty(hard_min=low, hard_max=high) as integer, _:
-                    bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
+                case bpy.types.IntProperty() as integer, _:
+                    bounded = Annotated[int, self.meta]
                     return _converted(value, bounded | tuple[bounded, ...], repr(integer))
                 case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str(encoded):
                     return _converted(encoded, bytes, repr(text)).bind(partial(self.validated, text))

@@ -1,4 +1,4 @@
-"""Member bindings rooted at an owner type or an attachment: their resolution on the root type or a live root, their location at the drawing holder or context, the mixed label across scoped owners, and the binding drawing over every located owner."""
+"""Member bindings rooted at an owner type or an attachment, resolved on the root type or a live root and located at the drawing holder or context."""
 
 from collections.abc import Callable, Mapping
 from functools import partial
@@ -80,13 +80,13 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
                 return Ok(self)
 
     @overload
-    def resolved(self, *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]: ...
+    def resolved(self, *, root: Option[Struct] = Nothing, kinds: _Kinds = ()) -> Outcome[ResolvedMember]: ...
 
     @overload
-    def resolved[P: bpy.types.Property](self, kind: type[P], *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember[P]]: ...
+    def resolved[P: bpy.types.Property](self, kind: type[P], *, root: Option[Struct] = Nothing, kinds: _Kinds = ()) -> Outcome[ResolvedMember[P]]: ...
 
-    def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]:
-        """Resolves metadata on the root type, or on a live `root` of it whose refined definition answers, absent fault for an attachment root no row located."""
+    def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = Nothing, kinds: _Kinds = ()) -> Outcome[ResolvedMember]:
+        """Resolves metadata within `kinds` on the root type, or on a live `root` of it whose refined definition answers, absent fault for an attachment root no row located."""
         match self.root:
             case Attachment(key=key):
                 return Error(Fault.of(Reason.ABSENT, rna(self.path), member=f"located {key} attachment"))
@@ -94,17 +94,17 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
                 held: Outcome[type[Struct] | Struct] = root.map(
                     lambda actual: Ok(actual).filter_with(lambda found: isinstance(found, owner), lambda found: Fault.of(Reason.OUTSIDE, rna(self.path), type(found).__name__, member=owner.__name__))
                 ).default_value(Ok(owner))
-                return held.bind(lambda found: Descriptor.resolve(found, self.path, kind)).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach))
+                return held.bind(lambda found: Descriptor.resolve(found, self.path, kind)).bind(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach).accepts(kinds))
 
     @overload
-    def realized(self, identity: Identity, /) -> Outcome[ResolvedMember]: ...
+    def realized(self, identity: Identity, /, *, kinds: _Kinds = ()) -> Outcome[ResolvedMember]: ...
 
     @overload
-    def realized[P: bpy.types.Property](self, identity: Identity, kind: type[P], /) -> Outcome[ResolvedMember[P]]: ...
+    def realized[P: bpy.types.Property](self, identity: Identity, kind: type[P], /, *, kinds: _Kinds = ()) -> Outcome[ResolvedMember[P]]: ...
 
-    def realized(self, identity: Identity, kind: type[bpy.types.Property] = bpy.types.Property, /) -> Outcome[ResolvedMember]:
-        """Locates the member under the extension's pointers, then resolves its metadata on the root type within kind."""
-        return self.located(identity).bind(lambda found: found.resolved(kind))
+    def realized(self, identity: Identity, kind: type[bpy.types.Property] = bpy.types.Property, /, *, kinds: _Kinds = ()) -> Outcome[ResolvedMember]:
+        """Locates the member under the extension's pointers, then resolves its metadata on the root type within `kind` and `kinds`."""
+        return self.located(identity).bind(lambda found: found.resolved(kind, kinds=kinds))
 
     def bound(self, kinds: _Kinds = (), /) -> Outcome[ResolvedMember | Self]:
         """Resolves a member with no reach once within the kinds, a reached member staying to resolve on its live root each draw."""
@@ -112,11 +112,11 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
             case Option(tag="some"):
                 return Ok(self)
             case _:
-                return self.resolved().bind(lambda held: held.accepts(kinds))
+                return self.resolved(kinds=kinds)
 
     def current(self, kinds: _Kinds, context: bpy.types.Context, /) -> Outcome[Option[ResolvedMember]]:
         """Resolves on the root the reach finds this draw within the kinds, `Nothing` while it finds none."""
-        return self.reach.bind(lambda reach: reach(context)).map(lambda root: self.resolved(root=Some(root)).bind(lambda held: held.accepts(kinds)).map(Some)).default_value(Ok(Nothing))
+        return self.reach.bind(lambda reach: reach(context)).map(lambda root: self.resolved(root=Some(root), kinds=kinds).map(Some)).default_value(Ok(Nothing))
 
     def labelled(self, setting: Descriptor, context: bpy.types.Context) -> Outcome[Mapping[str, str | bool]]:
         """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree, the host labelling the property itself."""

@@ -1,5 +1,7 @@
+import AppKit
 import Applications
 import CasePaths
+import CoreServices
 import CustomDump
 import Encoding
 import Foundation
@@ -102,5 +104,15 @@ struct Installations {
         let unmatched: Unmatched = try #require(failure.reason[case: \.unmatched])
         expectNoDifference(unmatched.query, name)
         expectNoDifference(unmatched.candidates, [])
+    }
+
+    @MainActor
+    @Test(.timeLimit(.minutes(1)))
+    func searchListsRegisteredBundleAtItsPath() async throws {
+        let identifier: String = "com.apple.calculator"
+        let registered: URL = try #require(NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier))
+        let predicate: NSPredicate = NSPredicate(format: "%K == %@", kMDItemCFBundleIdentifier as String, identifier)
+        let listing: Result<[Installation], AggregateError<ApplicationFailure>>? = await Installation.search(predicate, in: [registered.deletingLastPathComponent()]).first { @Sendable _ in true }
+        expectNoDifference(try #require(listing).get(), [try Installation(at: registered)])
     }
 }

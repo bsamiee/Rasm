@@ -1,22 +1,22 @@
 import { RegistryProvider } from '@effect/atom-react';
-import type { Shell } from '@rasm/hosting/page/render';
+import { Shell } from '@rasm/hosting/page/shell';
 import { Option, String } from 'effect';
-import { Bootstrap } from '#/model/bootstrap';
-import { Site } from '#/site/site';
+import { details } from '#/media/labels.ts';
+import { Bootstrap } from '#/model/bootstrap.ts';
+import { Site } from '#/site/site.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const shell = {
+const shell = new Shell({
     root: 'portfolio',
-    data: 'portfolio-data',
     schema: Bootstrap,
-    render: (value: typeof Bootstrap.Type) => (
+    render: (value) => (
         <RegistryProvider>
             <Site {...value} />
         </RegistryProvider>
     ),
-    head: ({ initial: { portfolio } }: typeof Bootstrap.Type) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => `${name} — Architecture`), meta: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) } }),
-} as const satisfies Shell<typeof Bootstrap>;
+    head: ({ published: { portfolio } }) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => details([name, 'Architecture'])), meta: { name: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) }, property: {} } }),
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

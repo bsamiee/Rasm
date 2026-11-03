@@ -32,13 +32,13 @@ async def launch(folder: Path, /, *arguments: str, executable: Executable) -> Ou
 ```
 
 `launch <folder> -- -c <code>` passes `-c` to host, `HOST_PATH` fills an omitted `--executable`, and host status becomes command result. Registration reads a signature at once or at first use:
-- `@app.command` evaluates annotations at registration, `lazy` imports resolve, a later-declared class or `TYPE_CHECKING` import raises `NameError`
+- `@app.command` evaluates annotations at registration: `lazy` imports resolve, later-declared classes and `TYPE_CHECKING` imports raise `NameError`
 - `"<module>:<attr>"` registrations import their module at the command's run, its own `--help`, or an `app["<name>"]` read
 - Root `--help` lists an import-path registration with its `help=` text alone, blank without one, and imports no command module
 - Names derive from `__name__` (lowercase, `_` to `-`, outer `_` stripped), and `name=` replaces a name
 - `alias=` adds runnable names, and `synonym=` adds words that fail with a suggestion of the command
 - `app.command(App(name="<group>"))` nests a command group, `app.command(<app>, name="*")` merges its commands into their parent
-- `async def` commands run under `asyncio.run` from `app()` or trio under `App(backend="trio")`, `await app.run_async(tokens)` inside a loop
+- `async def` commands run under `asyncio.run` from `app()`, trio with `App(backend="trio")`, or `await app.run_async(tokens)` in a running loop
 - Unset `version=` reads the distribution named like the root package, then `__version__`, else `0.0.0`
 - Distributions named apart from their package pass `version=partial(importlib.metadata.version, "<distribution>")`
 
@@ -64,7 +64,7 @@ Bounds are `cyclopts.types` aliases or `validators` members. `Parameter` options
 - `PositiveInt` under `validator=validators.Number(modulo=2)` accepts `-2`, `ExistingPath` under `validator=validators.Path(ext="txt")` a missing file
 - Aliases adding a check restate every check they keep (`validators.Number(gt=0, modulo=2)`)
 - `cyclopts.types` aliases adding `converter=` alone (`ResolvedExistingFile`) keep their inner validator
-- Cyclopts checks `annotated_types` and pydantic `Field` bounds on a plain parameter only while `pydantic` is in `sys.modules`, never `msgspec.Meta`
+- `annotated_types` and pydantic `Field` bounds on plain parameters apply only while `pydantic` is in `sys.modules`, `msgspec.Meta` bounds never apply
 - Validators run on defaults, `n: PositiveInt = -1` fails an empty command line with `ValidationError`
 - `Pair[int]` from `type Pair[T] = tuple[T, T]` drops its `Parameter` and fails every parse with `'typing.TypeAliasType' object is not callable`
 - `negative=()` drops `--no-` and `--empty-` flags, `count=True` on an `int` counts `-vvv`, `allow_leading_hyphen=True` takes values opening with `-`
@@ -238,7 +238,7 @@ def remove(name: Annotated[str, Parameter(completer=entries)], /, *, root: Resol
 ```
 
 `remove --root <folder> <Tab>` offers each entry of `<folder>` with its kind, and offers none until `--root` or `TOOL_ROOT` names a folder:
-- Shell scripts prefix-match every candidate against the typed word, and `context.incomplete` narrows a costly lookup alone
+- Shell scripts prefix-match every candidate against the typed word, and completers read `context.incomplete` only to narrow a costly lookup
 - `context["<name>"].value` holds another argument's coerced value from tokens, environment, or config, or its default when omitted
 - Failed coercion leaves `UNSET` in `value`, and completion runs no validator
 - Completers return a `str`, an iterable of values or `(value, description)` pairs, or a `{value: description}` mapping
@@ -298,7 +298,7 @@ if __name__ == "__main__":
 |  [05]   | Callable                              | Returns a value for its next pipeline step |
 
 - Results with a zero-argument `__cyclopts_returncode__` set the code in every mode that exits or returns one
-- Parse and validation failures print a panel to stderr and exit 2, and `error_formatter=str` prints the bare message
+- Parse and validation failures print a panel to stderr and exit 2, and `error_formatter=str` prints the message alone
 - Help and version print to stdout, exit 0, and pass `None` on
 - Exceptions a command raises escape `app()` under every error setting and exit 1 with a traceback, `KeyboardInterrupt` exits 130
 - `app(tokens, result_action="return_value", exit_on_error=False, print_error=False)` returns command result, raises `CycloptsError` on parse failure

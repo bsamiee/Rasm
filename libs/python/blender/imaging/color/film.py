@@ -69,19 +69,16 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         def logged(value: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             return np.log2(value, out=np.full_like(value, -np.inf), where=value > 0.0)
 
-        scales, rotations, gains = np.array(self.scales), np.array(self.rotations), np.array(self.gains)
-        sectors = (np.array([5.0, 3.0, 1.0]) + 6.0 * (np.arange(3)[:, None] / 3.0 + rotations[:, None] / math.tau)) % 6.0
-        primaries = 1.0 - np.clip(np.minimum(sectors, 4.0 - sectors), 0.0, 1.0) / scales[:, None]
+        sectors = (np.array([5.0, 3.0, 1.0]) + 6.0 * (np.arange(3)[:, None] / 3.0 + np.array(self.rotations)[:, None] / math.tau)) % 6.0
+        primaries = 1.0 - np.clip(np.minimum(sectors, 4.0 - sectors), 0.0, 1.0) / np.array(self.scales)[:, None]
         matrix = primaries / primaries.sum(axis=1, keepdims=True)
         log_matrix = logged(matrix)
         log_weights = np.log2(self.weights)
         log_weights -= np.logaddexp2.reduce(log_weights)
         weights = np.exp2(log_weights)
-        log_gains = np.log2(gains)
+        log_gains = np.log2(self.gains)
         pre = np.array(self.pre_filter)
-        post = np.array(self.post_filter)
-        backlight = np.array(self.backlight)
-        log_backlight = np.logaddexp2.reduce(log_matrix + np.log2(backlight), axis=-1) + log_gains
+        log_backlight = np.logaddexp2.reduce(log_matrix + np.log2(self.backlight), axis=-1) + log_gains
         log_toe = math.log(self.up) - math.log(self.across) + math.log(self.toe_x) - math.log(self.toe_y) + math.log1p(-self.toe_y) - math.log1p(-self.toe_x)
         log_shoulder = math.log(self.up) - math.log(self.across) + math.log1p(-self.across) - math.log1p(-self.up)
         log_maximum = math.log(sys.float_info.max)
@@ -132,7 +129,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         right = np.exp2(log_right + log_scale)
 
         def finished(solved: npt.NDArray[np.inexact]) -> npt.NDArray[np.float32]:
-            formed: npt.NDArray[np.float64] = np.exp2(np.minimum(logged(np.maximum(solved.T.reshape(light.shape), 0.0)) + logged(post) - log_scale, 0.0))
+            formed: npt.NDArray[np.float64] = np.exp2(np.minimum(logged(np.maximum(solved.T.reshape(light.shape), 0.0)) + logged(np.array(self.post_filter)) - log_scale, 0.0))
             peak = formed.max(axis=-1, keepdims=True)
             chroma = peak - formed
             width = chroma.max(axis=-1, keepdims=True)

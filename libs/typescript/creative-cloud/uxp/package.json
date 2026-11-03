@@ -1,16 +1,16 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect programs running inside Adobe hosts",
+    "description": "UXP plugin and script entries, manifests, and the socket link Adobe plugins dial",
     "sideEffects": false,
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
-        "./entrypoints": "./entrypoints.ts",
         "./link": "./link.ts",
         "./manifest": "./manifest.ts",
+        "./plugin": "./plugin.ts",
         "./runtime": "./runtime.ts"
     },
     "dependencies": {

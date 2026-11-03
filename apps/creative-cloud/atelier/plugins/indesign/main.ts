@@ -1,11 +1,11 @@
 import indesign from 'adobe:indesign';
-import { Contract, host } from '@rasm/indesign/host';
-import { plugin } from '@rasm/uxp/entrypoints';
-import { Link } from '@rasm/uxp/link';
+import { host } from '@rasm/indesign/host';
+import { Plugin } from '@rasm/uxp/plugin';
+import type { panels } from '#/panels';
 import { typesetting } from '#/typesetting';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { server, application, local } = host(indesign);
+const { linked, scripted } = host(indesign);
 
-plugin((link) => Link.dial(Contract, server, { ...link, application }), { commands: {}, panels: { typesetting: typesetting(local) } });
+Plugin.serve({ link: linked, panels: { typesetting: typesetting(scripted) } satisfies Record<keyof typeof panels, unknown> });

@@ -6,22 +6,10 @@ const VERSION = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Optional = <S extends Schema.Top>(schema: S) => Schema.OptionFromOptionalKey(schema).pipe(Schema.withConstructorDefault(Effect.succeedNone));
 const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
-const Flag = Optional(Schema.Boolean);
-const Size = Optional(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
-const Icons = Optional(
-    Schema.Array(
-        Schema.Struct({
-            width: Schema.Finite,
-            height: Schema.Finite,
-            path: Schema.String,
-            scale: Schema.Array(Schema.Finite),
-            theme: Optional(Schema.Array(Schema.Literals(['lightest', 'light', 'medium', 'dark', 'darkest', 'all']))),
-            species: Optional(Schema.Array(Schema.String)),
-        }),
-    ),
-);
+const Flag = Schema.optionalKey(Schema.Boolean);
+const Size = Schema.optionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
+const Icon = Schema.Struct({ width: Schema.Finite, height: Schema.Finite, path: Schema.String, scale: Schema.Array(Schema.Finite), theme: Schema.optionalKey(Schema.Array(Schema.Literals(['lightest', 'light', 'medium', 'dark', 'darkest', 'all']))), species: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Entrypoint = Schema.Struct({ id: Schema.String, label: Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]) });
 
 class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>('Manifest')({
@@ -29,26 +17,26 @@ class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>
     id: Schema.String,
     name: Schema.String,
     version: Version,
-    main: Optional(Schema.String),
-    host: Schema.Struct({ app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'XD']), minVersion: Version, maxVersion: Optional(Version), data: Optional(Schema.Struct({ loadEvent: Schema.Literals(['use', 'startup']) })) }),
-    icons: Icons,
+    main: Schema.optionalKey(Schema.String),
+    host: Schema.Struct({ app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'XD']), minVersion: Version, maxVersion: Schema.optionalKey(Version), data: Schema.optionalKey(Schema.Struct({ loadEvent: Schema.Literals(['use', 'startup']) })) }),
+    icons: Schema.optionalKey(Schema.Array(Icon)),
     entrypoints: Schema.Array(
         Schema.Union([
-            Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('command'), shortcut: Optional(Schema.Struct({ mac: Optional(Schema.String), win: Optional(Schema.String) })) })),
-            Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('panel'), minimumSize: Size, maximumSize: Size, preferredDockedSize: Size, preferredFloatingSize: Size, icons: Icons })),
+            Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('command'), shortcut: Schema.optionalKey(Schema.Struct({ mac: Schema.optionalKey(Schema.String), win: Schema.optionalKey(Schema.String) })) })),
+            Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('panel'), minimumSize: Size, maximumSize: Size, preferredDockedSize: Size, preferredFloatingSize: Size, icons: Schema.optionalKey(Schema.Array(Icon)) })),
         ]),
-    ),
+    ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     requiredPermissions: Schema.Struct({
-        localFileSystem: Optional(Schema.Literals(['plugin', 'request', 'fullAccess'])),
-        network: Optional(Schema.Struct({ domains: Schema.NonEmptyArray(Schema.String) })),
-        clipboard: Optional(Schema.Literals(['read', 'readAndWrite'])),
-        launchProcess: Optional(Schema.Struct({ schemes: Optional(Schema.NonEmptyArray(Schema.String)), extensions: Optional(Schema.NonEmptyArray(Schema.String)) })),
-        ipc: Optional(Schema.Struct({ enablePluginCommunication: Schema.Boolean })),
-        webview: Optional(Schema.Struct({ allow: Schema.Literal('yes'), domains: Schema.Union([Schema.NonEmptyArray(Schema.String), Schema.Literal('all')]), enableMessageBridge: Optional(Schema.Literals(['localAndRemote', 'localOnly', 'no'])) })),
+        localFileSystem: Schema.optionalKey(Schema.Literals(['plugin', 'request', 'fullAccess'])),
+        network: Schema.optionalKey(Schema.Struct({ domains: Schema.NonEmptyArray(Schema.String) })),
+        clipboard: Schema.optionalKey(Schema.Literals(['read', 'readAndWrite'])),
+        launchProcess: Schema.optionalKey(Schema.Struct({ schemes: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)), extensions: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)) })),
+        ipc: Schema.optionalKey(Schema.Struct({ enablePluginCommunication: Schema.Boolean })),
+        webview: Schema.optionalKey(Schema.Struct({ allow: Schema.Literal('yes'), domains: Schema.Union([Schema.NonEmptyArray(Schema.String), Schema.Literal('all')]), enableMessageBridge: Schema.optionalKey(Schema.Literals(['localAndRemote', 'localOnly', 'no'])) })),
         allowCodeGenerationFromStrings: Flag,
         enableUserInfo: Flag,
     }),
-    featureFlags: Optional(Schema.Struct(Struct.Record(['unhandledRejection', 'uncaughtException', 'enableFillAsCustomAttribute', 'enableSWCSupport'], Flag))),
+    featureFlags: Schema.optionalKey(Schema.Struct(Struct.Record(['unhandledRejection', 'uncaughtException', 'enableFillAsCustomAttribute', 'enableSWCSupport'], Flag))),
 }) {
     static readonly Version = Version;
     static readonly json = Schema.fromJsonString(Manifest);

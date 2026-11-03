@@ -1,89 +1,42 @@
-import { Array, Cause, Context, Effect, Exit, Function, flow, Option, pipe, Record, Schema, SchemaGetter, Sink, Stream, Struct, Tuple } from 'effect';
-import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import type { Dependency } from '#/resource';
-import { orInternalError, ToolCall, Visible } from '#/server';
+import { Context, Effect, Function, Option, Schema, SchemaGetter } from 'effect';
+import { McpServer, Tool, Toolkit } from 'effect/ai';
+import { Server } from '#/server';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
-    readonly fields: Fields;
-    readonly resolve: (given: Schema.Struct.Type<Fields>) => Effect.Effect<Chosen, Error, R>;
-    readonly depends: (chosen: Chosen, given: Schema.Struct.Type<Fields>) => Effect.Effect<readonly Dependency[], Error, R>;
-    readonly serves: (chosen: Chosen) => boolean;
-    readonly annotations: Context.Context<never>;
-    readonly completion: { readonly [Key in keyof Fields]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R> };
-}
+class Visible extends Context.Service<Visible, Effect.Effect<boolean, Error>>()('@rasm/mcp/tool/Visible') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>, handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>) {
-    const context = yield* Effect.context<R>();
-    const called = (given: P['Type']) => orInternalError(Effect.provide(handle(given), context));
-    const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
-        Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform(called), encode: SchemaGetter.forbiddenEncoding })),
-        Schema.toCodecJson(tool.successSchema),
-    ];
-    const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
-    const visible = Context.get(tool.annotations, Visible);
-    yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide([toolkit.toLayer({ [tool.name]: Function.identity }), McpServer.visibility(() => orInternalError(visible)).layer]));
-});
-const encodeEntries = flow(Record.fromEntries<readonly [string, Schema.Json]>, Schema.encodeEffect(Schema.fromJsonString(Schema.JsonObject)), Effect.orDie);
-const refusalError = flow(
-    encodeEntries,
-    Effect.map((reportText) => new Cause.IllegalArgumentError(reportText)),
-);
-const registerRoutedTool =
-    <Chosen, Fields extends Schema.Struct.Fields, RR>(route: Route<Chosen, Fields, RR>) =>
-    <P extends Schema.Top & { readonly fields: Schema.Struct.Fields }, S extends Schema.Top, R>(
-        tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>,
-        handle: (parameters: P['Type'], chosen: Chosen) => Effect.Effect<S['Type'], Error, R>,
-    ) => {
-        const parts = Schema.toCodecJson(Schema.Tuple([tool.parametersSchema, Schema.Struct(route.fields)]));
-        const annotations = Context.merge(route.annotations, tool.annotations);
-        const fields = { ...tool.parametersSchema.fields, ...route.fields };
-        const reported =
-            (dependencies: readonly Dependency[]) =>
-            <A, E, R2>(self: Effect.Effect<A, E, R2>) =>
-                Effect.onExitIf(
-                    self,
-                    (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
-                    () =>
-                        Effect.gen(function* () {
-                            const [[reports, failed], { add }] = yield* Effect.all([Effect.partition(dependencies, (dependency) => orInternalError(dependency.report), { concurrency: 'unbounded' }), ToolCall]);
-                            const reportText = yield* pipe(reports, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(encodeEntries), Effect.transposeOption);
-                            yield* Effect.forEach([...Option.toArray(reportText), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
-                        }),
-                );
-        const guarded =
-            (dependencies: readonly Dependency[]) =>
-            <A, E, R2>(run: Effect.Effect<A, E, R2>) =>
-                Effect.scoped(
-                    Effect.gen(function* () {
-                        const peeled = yield* Effect.forEach(dependencies, (dependency) => Stream.peel(dependency.refusal, Sink.head()));
-                        yield* Array.match(Array.getSomes(Array.map(peeled, ([first]) => Option.flatten(first))), { onEmpty: () => Effect.void, onNonEmpty: flow(refusalError, Effect.flatMap(Effect.fail)) });
-                        yield* Stream.mergeAll(Array.map(peeled, Tuple.get(1)), { concurrency: 'unbounded' }).pipe(
-                            Stream.filter(Option.isSome),
-                            Stream.take(1),
-                            Stream.mapEffect(({ value }) => refusalError([value])),
-                            Stream.catch(Stream.succeed),
-                            Stream.runForEach((refusal) => ToolCall.use(({ respond }) => respond(refusal))),
-                            Effect.forkScoped,
-                        );
-                        return yield* reported(dependencies)(run);
-                    }),
-                );
-        return registerTool(
-            tool.setParameters(Record.isEmptyRecord(fields) ? Tool.EmptyParams : Schema.toEncoded(Schema.Struct(fields))).annotateMerge(annotations),
-            Effect.fnUntraced(function* (given) {
-                const [parameters, routed] = yield* Schema.decodeEffect(parts)([given, given], { errors: 'all' });
-                const chosen = yield* route.resolve(routed);
-                const dependencies = yield* route.depends(chosen, routed);
-                const run = handle(parameters, chosen);
-                return yield* Context.get(annotations, Tool.Readonly) ? reported(dependencies)(run) : guarded(dependencies)(run);
+const registerTool = Object.assign(
+    Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: typeof Schema.Never; readonly failureMode: Tool.FailureMode }>, handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>) {
+        const [server, context] = yield* Effect.all([Server, Effect.context<R>()]);
+        const called = (given: P['Type']) => Effect.provideContext(handle(given), context);
+        const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
+            Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform(called), encode: SchemaGetter.forbiddenEncoding })),
+            Schema.toCodecJson(tool.successSchema),
+        ];
+        const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
+        const registration = McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
+        yield* server.register(
+            Option.match(Context.getOption(tool.annotations, Visible), {
+                onNone: () => registration,
+                onSome: (visible) =>
+                    Effect.provide(
+                        registration,
+                        McpServer.visibility(() =>
+                            visible.pipe(
+                                Effect.tapCause((cause) => Effect.logError(`${tool.name} hidden after its visibility check failed`, cause)),
+                                Effect.orElseSucceed(() => false),
+                            ),
+                        ).layer,
+                    ),
             }),
         );
-    };
+    }),
+    { Visible },
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Route, registerRoutedTool, registerTool };
+export { registerTool };

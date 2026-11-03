@@ -13,6 +13,7 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 - Every type, export, and helper inside and outside each module states something nothing else does
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
 - Names come from domain vocabulary and members of packages in use, a file takes its concept's name
+- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition
@@ -45,8 +46,10 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Tables crossing varying axes are one `Array.cartesianWith` over the axes, each row computed from its pair
 - Members differing in a number, flag, literal, or applied function are one member taking it as a parameter
 - Parameters default to a value an owner states (a host's resolved option, a standard), and every other parameter is required
+- Parameters every caller passes one value for fold into their owner, and fields no caller acts on go
 - Declarations read once sit inline, a value read twice is a `const` named for its fact
-- Numbers Biome's `noMagicNumbers` refuses come from the package member, standard, or measured property stating them, else from a parameter
+- Constants one relation joins (a width and height, a minimum and maximum, names and their order) are one value
+- Numbers come from the package member, standard, or measured property stating them, else from a parameter
 - Schemas declare at module scope, and each parser caches by its schema's AST
 
 ## [02]-[FUNCTIONS]
@@ -75,13 +78,14 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 ```
 
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
-- Native array members state a direct `filter`, `every`, `join`, or `reduce`, and `Array`, `Record`, `Struct`, and `Iterable` functions every other traversal
-- `Record.collect(record, (key, value) => ...)` maps entries to an array and `Record.filterMap` keeps the entries a lookup finds, key-value pairs from `Object.entries` restating both
+- Native array methods state a direct `filter`, `every`, `join`, or `reduce`, other traversals `Array`, `Record`, `Struct`, and `Iterable` functions
+- `Record.collect` maps entries to an array and `Record.filterMap` keeps entries a lookup finds, `Object.entries` pairs restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
-- `Array.makeBy`, `Array.range`, and `Array.unfold` generate sequences from a length, bounds, or a seed
+- `Array.makeBy` and `Array.range` generate sequences from a length or bounds
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair
-- Callbacks nest one level, a deeper step becomes a `yield*` step or a function named for its result
+- `RegExp.escape(text)` builds a pattern from literal text, a `replaceAll` escape restating it
+- Callbacks nest one level, a deeper step becomes a `yield*` step, a match over the discriminant, or a table, and no decision sits inside an arm
 
 ### [03.1]-[PATTERN_MATCHING]
 
@@ -96,6 +100,7 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 - `Match.when` takes a partial object pattern or a refinement, `Match.not` an exclusion, `Match.whenOr` alternatives
 - Arms sharing one result collapse into `matchOrElse` or `Match.orElse` with the exceptions as arms
 - `Match.valueTags(value, handlers)` folds a `_tag` union with one handler per tag
+- Fields every case derives from the input join once outside the fold, and arms return what their case adds, one value or many through `Array.ensure`
 - Host enums match with an arm per member once decoded
 - Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)`, a `'k' in x` or `type !==` branch restating it
 - Refinements come from `Predicate` (`isRecord`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
@@ -139,14 +144,19 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
 }) {
+    static readonly unavailable = (subject: string) => (cause: unknown) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject, cause });
+
     override get message() {
-        return `${this.reason._tag}: ${this.subject}`;
+        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [String(this.cause)])].join(': ');
     }
 }
 ```
 
+`unavailable(key)` is the `catch` of every host call reaching the store, and the message renders a foreign cause beside reason and subject:
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
-- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged, and a codec run over a value the program built or encoded dies through `Effect.orDie`
+- Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
+- Codecs over a value the program built die through `Effect.orDie`
+- Arity and kind refusals fail with `Cause.IllegalArgumentError`, and a package error declares only failures no host error states
 - Foreign failures become a `cause` where the package adds a subject a caller acts on
 
 ### [05.1]-[COMPOSITION]
@@ -165,14 +175,15 @@ const place = Effect.fn('place')(function* (command: Command) {
 
 Dependency structure and concurrency bound select a traversal over many effects:
 
-| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                                      | [BEHAVIOR]                                |
-| :-----: | :--------------------------- | :----------------------------------------------- | :---------------------------------------- |
-|  [01]   | Independent checks           | `Effect.validate`                                | Runs every check, keeps every failure     |
-|  [02]   | Independent effects          | `Effect.forEach` with `concurrency: 'unbounded'` | Overlaps, interrupts rest on failure      |
-|  [03]   | Dependent or ordered effects | `Effect.forEach` without `concurrency`           | Serial, stops at first failure            |
-|  [04]   | Bounded concurrency          | `Effect.forEach` with `concurrency: <n>`         | At most `<n>` effects at once             |
-|  [05]   | Every effect, failures kept  | `Effect.partition`                               | Runs all, returns successes and failures  |
-|  [06]   | Every outcome kept in order  | `Effect.all` with `mode: 'result'`               | Runs all, returns one `Result` per effect |
+| [INDEX] | [SCENARIO]                   | [TRAVERSAL]                                                | [BEHAVIOR]                                |
+| :-----: | :--------------------------- | :--------------------------------------------------------- | :---------------------------------------- |
+|  [01]   | Independent checks           | `Effect.validate`                                          | Runs every check, keeps every failure     |
+|  [02]   | Independent effects          | `Effect.forEach` with `concurrency: 'unbounded'`           | Overlaps, interrupts rest on failure      |
+|  [03]   | Dependent or ordered effects | `Effect.forEach` without `concurrency`                     | Serial, stops at first failure            |
+|  [04]   | Bounded concurrency          | `Effect.forEach` with `concurrency: <n>`                   | At most `<n>` effects at once             |
+|  [05]   | Every effect, failures kept  | `Effect.partition`                                         | Runs all, returns successes and failures  |
+|  [06]   | Every outcome kept in order  | `Effect.all` with `mode: 'result'`                         | Runs all, returns one `Result` per effect |
+|  [07]   | Every effect, causes joined  | `Effect.forEach` over `Effect.exit`, then `Exit.asVoidAll` | Runs all, fails with every cause in `E`   |
 
 ### [05.2]-[UNIONS]
 
@@ -182,6 +193,7 @@ Each valid state a consumer inspects is one case. Counting the values a type all
 - Folds stand where behavior depends on the case, the union passes onward elsewhere
 - Unions fit a growing set of operations, a service fits a growing set of implementations
 - Absence and failure stay separate where a consumer responds differently
+- Optional fields set together are one optional struct
 
 ```ts
 const Issuance = Schema.TaggedUnion({
@@ -200,21 +212,21 @@ const status = Issuance.match({
 ## [06]-[EFFECTS]
 
 `Effect<A, E, R>` describes a program that succeeds with `A`, fails with `E`, reads services `R`, and performs nothing until a runtime runs it. Promises are eager, enter through `Effect.tryPromise`, and leave through a host runtime call:
-- `Effect.sync` defers a side effect that cannot fail, `Effect.try` one that throws, its `catch` building the package error or a decode's `SchemaIssue` around the throw
+- `Effect.sync` defers an infallible side effect, `Effect.try` a throwing one, its `catch` wrapping the throw in the package error or a `SchemaIssue`
 - `Effect.callback` adapts a callback API, with registration receiving an `AbortSignal` and returning a cleanup effect
 - Listeners completing a `Deferred` the registering function awaits restate `Effect.callback`, except where a host callback must throw to roll back
-- `Effect.tryPromise` passes an `AbortSignal` that interruption aborts to a `try` declaring `(signal)`, a rest or defaulted parameter receives `undefined`
+- `Effect.tryPromise` passes a `try` declaring `(signal)` an `AbortSignal` interruption aborts, a rest or defaulted parameter receiving `undefined`
 - `Effect.abortSignal` yields a signal its scope aborts on close, for a host's `abortSignal` or `{ signal }` option
 
 ```ts
-const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: (cause) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject: key, cause }) }), Effect.map(Option.fromNullOr));
+const read = Effect.fn('read')((key: string) => Effect.tryPromise({ try: (signal) => bucket.get(key, { signal }), catch: StoreError.unavailable(key) }), Effect.map(Option.fromNullOr));
 ```
 
 `bucket.get` is a host call returning `Promise<Uint8Array | null>`.
 
 ### [06.1]-[DEPENDENCIES]
 
-Consumers receive the narrowest dependency they read: a value for a stable snapshot, an effect for an operation run on demand, and a service for a capability a program reads through its environment.
+Consumers receive the narrowest dependency they read: a value for a stable snapshot, an effect for an operation run on demand, and a service for a capability a program reads through its environment. Contracts mark members some implementers lack optional, and functions take `Pick<Contract, '<key>'>`, a stub returning `Option.none()` restating absence.
 
 ### [06.2]-[ERROR_HANDLING]
 
@@ -222,6 +234,8 @@ Failure policies are distinct operations:
 - Fallback runs a lower-priority effect after the preferred one fails, `Effect.catch`
 - Timeout bounds a wait, `Effect.timeout` fails with `Cause.TimeoutError` and `Effect.timeoutOption` returns `Option.none()`
 - Recovery maps a final failure to a value at the host
+- Compensation runs a failed step's inverse, `Effect.onError(step, () => Effect.orDie(inverse))`, keeping the step's failure in `E`
+- Failure causes stay in `E`, and a fallback, default, or retry hiding one is a defect
 
 Libraries return their outcome type with their own error, and the application composes retry schedule, fallback order, and cache around it.
 
@@ -230,18 +244,20 @@ Libraries return their outcome type with their own error, and the application co
 Quantities with a unit are values of their module, a plain number holds a count or a dimensionless ratio:
 - `Duration` holds every elapsed time and timeout, a millisecond number appears at an API taking one
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
-- `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes
+- `BigDecimal` holds money and exact decimal arithmetic, `ByteSize` holds sizes, and `Duration.format` and `ByteSize.format` render both
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
 - `Intl` instances segment words and format numbers, dates, lists, and plurals in a caller locale, else the host's, each built once outside its reader
-- Plural forms are a record over `Intl.LDMLPluralRule` with a required `other`, indexed by the category `select(count)` returns in place of comparing a count or category with one value
+- Plural forms are an `Intl.LDMLPluralRule` record with a required `other`, indexed by the `select(count)` category, a count comparison restating it
 - `Intl.Collator(locale, { usage: 'search', sensitivity: 'accent' }).compare(a, b) === 0` states name equality ignoring case alone
 
 ## [08]-[MODULES]
 
 Modules hold one concept, and a class holds the concept's data with its operations as statics and getters:
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
-- Package types pass whole, and consumers read a returned host handle
+- Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
 - Packages export the values consumers compose
+- Modules loaded by name are a table of `() => import('<path>')` thunks typed by the import, a schema over the loaded module restating it
+- Wrappers, forwarders, re-exports, and aliases merge into the declaration they pass through
 - Modules export named declarations, a default export stands where a host loads one
 - Types, `const` values and operations naming one concept share one name under one `export { X }`, `erasableSyntaxOnly` refuses a `namespace`
 - Package `exports` entries are the import paths consumers use

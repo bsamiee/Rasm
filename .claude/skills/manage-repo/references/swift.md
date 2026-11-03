@@ -27,7 +27,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM locks its scratch path until the command exits, last test included, each SwiftPM target takes `parallelism: false`
 - `test:integration` takes its own `SWIFTPM_BUILD_DIR` so a hung GUI case blocks no build, every other SwiftPM target shares the mise folder
 - `swift test` stdout buffers until exit off a TTY, the `events.jsonl` beside attachments streams one flushed record per event for one test product
-- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`
+- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin`, mise `[env]` states that variable and puts the folder on `_.path`
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]

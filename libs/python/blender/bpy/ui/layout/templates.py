@@ -1,4 +1,4 @@
-"""Rows drawn through UILayout templates over located data: previews, preview icon galleries and the preset gallery applying a listing pick, image format settings, offscreen pictures, key caps, and the grading wheel."""
+"""Rows drawn through `UILayout` templates over located data."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
@@ -33,7 +33,7 @@ from blender.records.faults import Outcome, paired
 
 
 class Preview(Property, frozen=True, kw_only=True):
-    """Data-block pointer drawn as the shaded preview `template_preview` renders for materials, textures, worlds, lights, and line styles, else as the ID's own preview image.
+    """Data-block pointer drawn as its `template_preview` shaded preview where the host renders one, else as the ID's own preview image.
 
     `keywords` hold `template_preview` parameters after the ID, `plain` the `template_icon` parameters after the icon.
     """
@@ -60,7 +60,7 @@ class Preview(Property, frozen=True, kw_only=True):
 
 
 class ImageFormat(Property, frozen=True, kw_only=True):
-    """Image format settings through `template_image_settings`, followed by view settings while the owning scene renders multiview, `keywords` its parameters after the settings."""
+    """Image format settings through `template_image_settings`, then view settings while the owning scene renders multiview."""
 
     function: bpy.types.Function = FUNCTIONS["template_image_settings"]
 
@@ -74,7 +74,7 @@ class ImageFormat(Property, frozen=True, kw_only=True):
 
 
 class Gallery(Property, frozen=True, kw_only=True):
-    """Enum of preview icons drawn through `template_icon_view` in the value cell beside the enum's own name, `keywords` its parameters after the enum, the host labelling each item by default."""
+    """Enum of preview icons drawn through `template_icon_view` in the value cell beside the enum's name, each item labelled by default."""
 
     function: bpy.types.Function = FUNCTIONS["template_icon_view"]
     keywords: Keywords = MappingProxyType({"show_labels": True})
@@ -93,7 +93,7 @@ class _Pick(bpy.types.PropertyGroup):
 
 
 class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict=True):
-    """Listing presets as a gallery of preview icons beside the preset kind's name, a pick applying its preset through the listing as one undo step under the apply command's title.
+    """Listing presets as a gallery of preview icons, a pick applying its preset through the listing as one undo step.
 
     `tile` returns a preset's preview icon over the drawing context, the stock icon while it has none.
     """
@@ -125,7 +125,7 @@ class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True
     def pick(self, identity: Identity, owner: Struct) -> int:
         """Returns the gallery value of the picked preset, the first row's while the pick names none of them."""
         rows, picked = offered(self.presets(identity, None)), Option.of_optional(try_downcast(_Pick, owner)).map(lambda pick: pick.picked)
-        return next((row[4] for row in rows if picked == Some(row[0])), rows[0][4])
+        return next((number for stem, *_, number in rows if picked == Some(stem)), rows[0][4])
 
     @contextmanager
     def picking(self, identity: Identity) -> Generator[Mapping[str, Callbacks]]:
@@ -136,9 +136,9 @@ class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True
             return self.listing.preset.loaded(identity, stem).bind(partial(self.listing.applied, bpy.context)).map(lambda answer: Some(title) if isinstance(answer, operators.Done) else Nothing)
 
         def picked(owner: Struct, value: int) -> None:
-            for pick, row in ((pick, row) for pick in Option.of_optional(try_downcast(_Pick, owner)).to_list() for row in self.presets(identity, None) if row[4] == value):
-                pick.picked = row[0]
-                deferred(row[0])
+            for pick, stem in ((pick, stem) for pick in Option.of_optional(try_downcast(_Pick, owner)).to_list() for stem, *_, number in self.presets(identity, None) if number == value):
+                pick.picked = stem
+                deferred(stem)
 
         with identity.reports.deferred(applied) as deferred:
             yield {"preset": Callbacks(items=lambda _owner, context: offered(self.presets(identity, context)), get=partial(self.pick, identity), set=picked)}

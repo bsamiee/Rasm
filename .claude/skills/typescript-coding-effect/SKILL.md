@@ -5,8 +5,6 @@ description: "Use when calling an Effect module family, covering HTTP and HttpAp
 
 # [TYPESCRIPT_CODING_EFFECT]
 
-Covers Effect's module families.
-
 [REFERENCES]:
 - [01]-[HTTP](references/http.md): HttpApi contracts, handlers, derived clients, and HTTP client policies
 - [02]-[SQL](references/sql.md): Statements, schema queries, transactions, and drivers
@@ -26,7 +24,8 @@ Each runtime supplies the platform services a program reads through published la
 
 - `NodeServices.layer` provides `ChildProcessSpawner`, `FileSystem`, `Path`, `Stdio`, and `Terminal`, the environment a CLI command reads
 - Crypto services have no default layer, the root provides its runtime's layer or a family's `layerWebCrypto`
-- `NodeHttpServer.layerConfig` supplies `HttpPlatform`, `Etag.Generator`, `FileSystem`, and `Path` beside the server, and `HttpServer.layerServices` stands in where no platform does, its `FileSystem` holding no files
+- `NodeHttpServer.layerConfig` supplies `HttpPlatform`, `Etag.Generator`, `FileSystem`, and `Path` beside the server
+- `HttpServer.layerServices` supplies them where no platform does, with a `FileSystem` holding no files
 - `HttpRouter.serve` builds its routes in a fork of the memo map, and services sibling layers share are provided outside it
 
 ## [02]-[TESTS]
@@ -43,13 +42,13 @@ layer(Layer.mock(Store, { read: (key) => StoreError.make({ reason: { _tag: 'Unav
 });
 ```
 
-`Store` is a service with `read(key)` failing with `StoreError`, and `retrying(key, base, retries)` reads through it under `Schedule.exponential(base)` for `retries` retries, waiting `base × (2^retries − 1)` in total. `Layer.mock` implements the members a case reads, and an omitted member dies when called:
+`Store` is a service with `read(key)` failing with `StoreError`, and `retrying(key, base, retries)` reads through it under `Schedule.exponential(base)` for `retries` retries. `Layer.mock` implements the members a case reads, and an omitted member dies when called:
 - `TestClock` starts at epoch 0, a sleeping fiber resumes after `TestClock.adjust` or `setTime`, and a case runs the effect beside the adjustment
 - `it.effect(name, ({ task }) => ...)` receives Vitest's `TestContext`, and `task.name` names what a case writes
-- Shared suites take `Vitest.MethodsNonLive<R>` and call `it.effect` per case, a helper that registers cases hides their assertions from Biome's `useExpect`
+- Shared suites take `Vitest.MethodsNonLive<R>`, and test files call `it.effect` per case so lint rules see each assertion
 - `layer(L, { buildPerTest: true })` builds `L` per case in a fork of the block's memo map, and `it.layer(nested)` adds services over the parent's
-- `it.effect.prop(name, [Schema.Int], ([value]) => ...)` and `it.prop` take schemas or `Arbitrary` values, `Arbitrary.schema(S)` derives a generator from a schema's checks
-- `assertSome`, `assertNone`, `assertSuccess`, `assertFailure`, and `assertExitSuccess` from `@effect/vitest/utils` read `Option`, `Result`, and `Exit`
+- `it.effect.prop(name, [Schema.Int], fn)` and `it.prop` take schemas or `Arbitrary` values, `Arbitrary.schema(S)` deriving generators from checks
+- `assertSome`, `assertNone`, `assertSuccess`, `assertFailure`, and `assertExitSuccess` in `@effect/vitest/utils` read `Option`, `Result`, and `Exit`
 - `TestConsole.logLines` returns what a case printed, and `excludeTestServices: true` keeps the live `Clock` and `Console` for a block
 
 ## [03]-[TELEMETRY]

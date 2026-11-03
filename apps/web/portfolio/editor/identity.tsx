@@ -3,21 +3,22 @@ import { User } from '@rasm/hosting/user';
 import { Field } from '@rasm/ui/form/field';
 import { Optic } from 'effect';
 import { AsyncResult, type Atom } from 'effect/reactivity';
-import { PlacementFields } from '#/editor/placement-fields';
-import { draft, hero, portfolio } from '#/editor/state';
-import { MediaFigure } from '#/media/media-figure';
+import { PlacementFields } from '#/editor/placement-fields.tsx';
+import { draft, hero, portfolio } from '#/editor/state.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import { sites } from '#/model/sites.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Identity = ({ ids, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly ids: string; readonly onChooseHero: () => void }) => {
+const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly idPrefix: string; readonly onChooseHero: () => void }) => {
     const setDraft = useAtomSet(draft);
-    const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${ids}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(AsyncResult.map(Optic.replace(portfolio.key(name), value))) });
+    const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${idPrefix}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(AsyncResult.map(Optic.replace(portfolio.key(name), value))) });
     return (
         <>
             <Field {...field('name')} label="Display name" placeholder="Name or studio" />
             <Field {...field('introduction')} label="Introduction" multiline={true} placeholder="Optional" />
             <Field {...field('email')} label="Public contact email" placeholder="Optional" type="email" />
-            <h3 className="text-heading tracking-display mt-2 outline-none" id={`${ids}hero`} tabIndex={-1}>
+            <h3 className="text-heading tracking-display mt-2 outline-none" id={`${idPrefix}hero`} tabIndex={-1}>
                 Hero
             </h3>
             {state.portfolio.hero === undefined ? (
@@ -39,7 +40,7 @@ const Identity = ({ ids, onChooseHero, ...state }: Pick<Atom.Success<typeof draf
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={User.path('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={User.href(sites, 'signout', '/')} target="_top">
                 Sign out
             </a>
         </>

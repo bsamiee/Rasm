@@ -18,7 +18,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
     const timeout = { timeout: Duration.toMillis('1 minute') };
     const chunked = (bytes: Uint8Array) => Stream.fromIterable(Array.makeBy(Math.ceil(bytes.length / chunk), (index) => bytes.subarray(index * chunk, (index + 1) * chunk)));
     const put = (key: string, size: number, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown> = Function.constant(Effect.void)) =>
-        ObjectStorage.upload({ key, size }).pipe(
+        ObjectStorage.upload({ key, size: ByteSize.bytes(size) }).pipe(
             Effect.tap(({ uploadToken }) => started(uploadToken)),
             Effect.flatMap(({ write }) => write(body)),
             Effect.scoped,
@@ -43,7 +43,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
     const reopened = Effect.map(Layer.build(Layer.fresh(storage)), (built) => Context.get(built, ObjectStorage).uploads);
     const discarded = (uploadToken: string) => ObjectStorage.use(({ uploads }) => Effect.tryPromise(() => uploads.getUploadState(uploadToken)).pipe(Effect.match({ onFailure: ({ cause }) => isUploadNotFoundError(cause), onSuccess: Function.constFalse })));
     it.effect(
-        'serves ranges across multipart boundaries, answers preconditions and carries the caller headers',
+        'serves ranges across multipart boundaries, answers preconditions and sets the caller headers',
         () =>
             Effect.gen(function* () {
                 const [key, size] = ['media/served', content.length];

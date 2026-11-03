@@ -2,36 +2,43 @@ import { Array, Context, Effect, flow, Option, pipe, Record, Schema, Stream } fr
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { Url, UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
-import { type Dependency, type DependencyOptions, resourceValues } from '#/resource';
-import { orInternalError, Scheme } from '#/server';
-import { type Route, registerRoutedTool } from '#/tool';
+import { Resource } from '#/resource';
+import { Route } from '#/route';
+import { Server } from '#/server';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface ToolRow<A> {
+    readonly description: string;
+    readonly annotations?: Context.Context<never> | undefined;
+    readonly success?: Schema.Codec<A, unknown> | undefined;
+}
+type ResourceRow<A, Field extends string> = Parameters<ReturnType<Resource<A>['depend']>>[0] & {
+    readonly description: string;
+    readonly completion: { readonly [Key in Field]?: (success: A) => readonly string[] };
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly payloadSchema: Schema.Codec<Rpc.Payload<Rpcs>, unknown> & { readonly fields: Schema.Struct.Fields }; readonly successSchema: Schema.Codec<Rpc.Success<Rpcs>, unknown> }, Chosen, Fields extends Schema.Struct.Fields, R>(
-    group: RpcGroup.RpcGroup<Rpcs>,
+    group: RpcGroup.RpcGroup<Rpcs & { readonly payloadSchema: { readonly fields: { readonly [Key in keyof Fields]?: never } } }>,
     {
         tools,
         resources,
         route,
         invoke,
     }: {
-        readonly tools: { readonly [Tag in Rpcs['_tag']]?: { readonly description: string; readonly annotations?: Context.Context<never> | undefined; readonly success?: Schema.Codec<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, unknown> | undefined } };
-        readonly resources: {
-            readonly [Tag in Rpcs['_tag']]?: DependencyOptions<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>> & {
-                readonly description: string;
-                readonly complete: { readonly [Field in keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string]?: (success: Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>) => readonly string[] };
-            };
-        };
-        readonly route: (rpc: Rpcs) => Route<Chosen, Fields, R>;
+        readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>> };
+        readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> };
+        readonly route: <Tag extends Rpcs['_tag']>(tag: Tag) => Route<Chosen, Fields, R> & { readonly serves: (chosen: Chosen) => boolean; readonly completion: { readonly [Key in keyof Fields]?: (input: string, given: Partial<Schema.Struct.Type<Fields>>) => Effect.Effect<readonly string[], Error, R> } };
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },
 ) {
-    const [server, scheme, services] = yield* Effect.all([McpServer.McpServer, Scheme, Effect.context<R | Schema.Struct<Fields>['DecodingServices'] | Schema.Struct<Fields>['EncodingServices']>()]);
-    const completionHandler = (completeValues: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R | Schema.Struct<Fields>['DecodingServices']>) => (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
-        completeValues(input, context).pipe(
-            Effect.map((values) => McpSchema.CompleteResult.make({ completion: { values } })),
-            orInternalError,
+    const [server, services] = yield* Effect.all([Server, Effect.context<R | Schema.Struct<Fields>['DecodingServices'] | Schema.Struct<Fields>['EncodingServices']>()]);
+    const answered = (values: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R | Schema.Struct<Fields>['DecodingServices']>) => (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+        values(input, context).pipe(
+            Effect.map((found) => McpSchema.CompleteResult.make({ completion: { values: found } })),
+            Server.orInternalError,
             Effect.provideContext(services),
         );
     const listedRpcs = <Row>(rows: Readonly<Record<string, Row | undefined>>) =>
@@ -44,58 +51,70 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { r
             ),
         );
     const dependencyLookups = yield* Effect.forEach(
-        listedRpcs<DependencyOptions<Rpc.Success<Rpcs>> & { readonly description: string; readonly complete: Readonly<Record<string, ((success: Rpc.Success<Rpcs>) => readonly string[]) | undefined>> }>(resources),
-        Effect.fnUntraced(function* ([rpc, { description, complete, ...options }]) {
-            const routing = route(rpc);
-            const uri = scheme.uri(rpc._tag);
-            const descriptor = { name: rpc._tag, description, mimeType: 'application/json' };
-            const { read, depend } = yield* resourceValues(rpc.successSchema, descriptor.mimeType, Stream.empty);
-            const routeParams = Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(Schema.Struct(routing.fields))));
+        listedRpcs<ResourceRow<Rpc.Success<Rpcs>, string>>(resources),
+        Effect.fnUntraced(function* ([rpc, { description, completion, ...conditions }]) {
+            const routing = route(rpc._tag);
+            const uri = server.uri(rpc._tag);
+            const [base, store] = yield* Effect.all([Effect.fromResult(Url.fromString(uri)), Resource.make({ schema: rpc.successSchema, changes: Stream.empty })]);
+            const descriptor = { name: rpc._tag, description, mimeType: store.mimeType };
             const fields = { ...routing.fields, ...rpc.payloadSchema.fields };
-            const call = Schema.Struct({ route: routeParams, payload: Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(rpc.payloadSchema))) });
-            const decoded = (values: UrlParams.UrlParams) => Schema.decodeEffect(call)({ route: values, payload: values }, { errors: 'all' });
-            const invokeDecoded = ({ route: chosen, payload }: typeof call.Type) => Effect.flatMap(routing.resolve(chosen), (found) => invoke(rpc)(payload, found)).pipe(Effect.provideContext(services));
+            const query = Schema.Struct({ route: Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(Schema.Struct(routing.fields)))), payload: Schema.RecordFromUrlParams.pipe(Schema.decodeTo(Schema.toCodecStringTree(rpc.payloadSchema))) });
+            const decoded = (values: UrlParams.UrlParams) => Schema.decodeEffect(query)({ route: values, payload: values }, { errors: 'all' });
+            const invoked = Effect.fnUntraced(function* (parsed: typeof query.Type) {
+                return yield* invoke(rpc)(parsed.payload, yield* routing.resolve(parsed.route));
+            }, Effect.provideContext(services));
+            const located = Effect.fnUntraced(function* (parsed: typeof query.Type) {
+                const { route: routed, payload } = yield* Effect.orDie(Schema.encodeEffect(query)(parsed));
+                return { key: Url.setUrlParams(base, UrlParams.appendAll(routed, payload)).href, content: invoked(parsed) };
+            });
             const readUri = (at: string) =>
                 Effect.flatMap(Schema.decodeEffect(Schema.URLFromString)(at), flow(Url.urlParams, decoded)).pipe(
                     Effect.mapError(({ message }) => McpSchema.InvalidParams.make({ message })),
-                    Effect.flatMap((parsed) => read(at, invokeDecoded(parsed))),
+                    Effect.flatMap(located),
+                    Effect.flatMap(({ key, content }) => store.read(key, at, content)),
                     Effect.provideContext(services),
                 );
-            const successFromContext = (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.flatMap(decoded(UrlParams.fromInput(context?.arguments ?? {})), invokeDecoded);
+            const cachedSuccess = (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+                decoded(UrlParams.fromInput(context?.arguments ?? {})).pipe(
+                    Effect.flatMap(located),
+                    Effect.flatMap(({ key, content }) => store.cached(key, content)),
+                );
+            const completeRoute = Route.complete(routing.fields);
             const completions = {
-                ...Record.getSomes(Record.map(routing.completion, flow(Option.fromUndefinedOr, Option.map(completionHandler)))),
+                ...Record.getSomes(Record.map(routing.completion, flow(Option.fromUndefinedOr, Option.map(flow(completeRoute, answered))))),
                 ...Record.getSomes(
                     Record.map(
-                        complete,
+                        completion,
                         flow(
                             Option.fromUndefinedOr,
-                            Option.map((select) => completionHandler(flow(successFromContext, Effect.map(select)))),
+                            Option.map((select) => answered(flow(cachedSuccess, Effect.map(select)))),
                         ),
                     ),
                 ),
             };
-            yield* Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? server.addResource({ resource: McpSchema.Resource.make({ ...descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void;
-            yield* Array.match(Record.keys(fields), {
-                onEmpty: () => Effect.void,
-                onNonEmpty: (keys) => server.addResourceTemplate({ template: McpSchema.ResourceTemplate.make({ ...descriptor, uriTemplate: `${uri}{?${keys.join(',')}}` }), routerPath: uri.replace(':', '::'), annotations: group.annotations, completions, handle: readUri }),
-            });
-            const base = yield* Effect.fromResult(Url.fromString(uri));
-            const dependency = (routed: Schema.Struct.Type<Fields>) => {
-                const routeQuery = Effect.provideContext(Schema.encodeEffect(routeParams)(routed), services);
-                return depend(
-                    Effect.map(routeQuery, (params) => Url.setUrlParams(base, params).href),
-                    () => routeQuery.pipe(Effect.flatMap(decoded), Effect.flatMap(invokeDecoded), Effect.provideContext(services)),
-                )(options);
-            };
-            return (chosen: Chosen, routed: Schema.Struct.Type<Fields>): readonly Dependency[] => (routing.serves(chosen) ? [dependency(routed)] : []);
+            yield* server.register(
+                McpServer.McpServer.use((registry) =>
+                    Effect.andThen(
+                        Schema.is(Schema.toEncoded(Schema.Struct(fields)))({}) ? registry.addResource({ resource: McpSchema.Resource.make({ ...descriptor, uri }), annotations: group.annotations, handle: Effect.catchTag(readUri(uri), 'InvalidParams', Effect.die) }) : Effect.void,
+                        Array.match(Record.keys(fields), {
+                            onEmpty: () => Effect.void,
+                            onNonEmpty: (keys) => registry.addResourceTemplate({ template: McpSchema.ResourceTemplate.make({ ...descriptor, uriTemplate: `${uri}{?${keys.join(',')}}` }), routerPath: uri.replace(':', '::'), annotations: group.annotations, completions, handle: readUri }),
+                        }),
+                    ),
+                ),
+            );
+            return Option.as(
+                Option.liftPredicate(conditions, ({ refuse, report }) => refuse !== undefined || report !== undefined),
+                (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => (routing.serves(chosen) ? [store.depend(Schema.encodeEffect(query.fields.route)(routed).pipe(Effect.orDie, Effect.flatMap(decoded), Effect.flatMap(located), Effect.provideContext(services)))(conditions)] : []),
+            );
         }),
     );
-    const routeDependencies = (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => Array.flatMap(dependencyLookups, (dependency) => dependency(chosen, routed));
+    const routeDependencies = (chosen: Chosen, routed: Schema.Struct.Type<Fields>) => Array.flatMap(Array.getSomes(dependencyLookups), (dependency) => dependency(chosen, routed));
     yield* Effect.forEach(
-        listedRpcs<{ readonly description: string; readonly annotations?: Context.Context<never> | undefined; readonly success?: Schema.Codec<Rpc.Success<Rpcs>, unknown> | undefined }>(tools),
+        listedRpcs<ToolRow<Rpc.Success<Rpcs>>>(tools),
         ([rpc, { description, annotations = Context.empty(), success }]) => {
-            const routing = route(rpc);
-            return registerRoutedTool({
+            const routing = route(rpc._tag);
+            return Route.register({
                 ...routing,
                 depends: (chosen, routed) => Effect.map(routing.depends(chosen, routed), Array.appendAll(routeDependencies(chosen, routed))),
             })(Tool.make(rpc._tag, { description, parameters: rpc.payloadSchema, success: success ?? rpc.successSchema }).annotateMerge(Context.merge(group.annotations, annotations)), invoke(rpc));

@@ -37,7 +37,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let body: Body = try decoder.decode(Body.self, from: data.drop { byte in byte != UInt8(ascii: "\n") }.dropFirst())
         self.url = url
         pid = body.pid
-        bundleIdentifier = [header.bundleID, body.bundleInfo?["CFBundleIdentifier"]].lazy.compactMap(\.self).first { identifier in !["", "unknown"].contains(identifier) }
+        bundleIdentifier = [header.bundleID, body.bundleInfo?[kCFBundleIdentifierKey as String]].lazy.compactMap(\.self).first { identifier in !["", "unknown"].contains(identifier) }
         exception = body.exception?.type
     }
 }

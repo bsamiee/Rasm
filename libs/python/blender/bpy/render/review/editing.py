@@ -14,9 +14,8 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Invoke, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Invoke, Operator, Placement, Unchanged
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.data.rna.paths import root_in, rooted

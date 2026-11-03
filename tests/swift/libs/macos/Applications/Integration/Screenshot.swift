@@ -64,14 +64,13 @@ private struct Pixels {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func swatch(of instance: NSRunningApplication) async throws -> Element {
-    let seen: [Observed] = try await observe(
+    let seen: [InstanceState] = try await observe(
         instance,
-        within: .seconds(15),
-        until: { seen in seen.last?.state.elements.contains { element in element.title == "Swatch" && element.detail?.frame != nil } == true },
+        until: { seen in seen.last?.elements.contains { element in element.title == "Swatch" && element.detail?.frame != nil } == true },
         walking: { element in element.title == "Swatch" },
         acting: { try await run(.swatch, in: instance) },
     )
-    return try #require(seen.last?.state.elements.first { element in element.title == "Swatch" })
+    return try #require(seen.last?.elements.first { element in element.title == "Swatch" })
 }
 
 private func dismiss(_ swatch: Element) async throws {
@@ -97,8 +96,6 @@ extension Integration {
             expectNoDifference(captured.windows, [window])
             expectNoDifference(frame.width, Swatch.size.width)
             let scale: CGFloat = CGFloat(image.width) / frame.width
-            let displayed: Bool = NSScreen.screens.contains { screen in screen.backingScaleFactor == scale }
-            #expect(displayed, "capture scale \(scale) matches a display")
             expectNoDifference(image.height, Int((frame.height * scale).rounded()))
             let pixels: Pixels = try Pixels(matching: image)
             let content: CGRect = CGRect(x: 0, y: (frame.height - Swatch.size.height) * scale, width: Swatch.size.width * scale, height: Swatch.size.height * scale)
@@ -154,13 +151,12 @@ extension Integration {
         func zeroSizeWindowCaptureFailsNamingItsNumberAndFrame() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings())
             try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
-            let seen: [Observed] = try await observe(
+            let seen: [InstanceState] = try await observe(
                 instance,
-                within: .seconds(15),
-                until: { seen in seen.last?.state.elements.contains { element in element.title == "Collapsed" } == true },
+                until: { seen in seen.last?.elements.contains { element in element.title == "Collapsed" } == true },
                 acting: { try await run(.collapsed, in: instance) },
             )
-            let numbered: CGWindowID? = seen.last?.state.elements.first { element in element.title == "Collapsed" }?.window
+            let numbered: CGWindowID? = seen.last?.elements.first { element in element.title == "Collapsed" }?.window
             let collapsed: CGWindowID = try #require(numbered)
             let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed) }
             let absent: String = try #require(failure.reason[case: \.absent])

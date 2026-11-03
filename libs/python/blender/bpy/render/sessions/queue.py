@@ -14,9 +14,8 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import BoundBody, Call, confirmed, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import BoundBody, Call, called, confirmed, Done, Empty, NoUndo, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rooted
@@ -237,7 +236,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
             )
             .map(dispatcher.state.started)
             .map(lambda _: dispatcher.host.path(stem, RunFile.PLAN_LOG))
-            .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),), skipped=paused(manager).swap().to_option()))
+            .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),), skipped=paused(manager).swap().default_value(())))
         )
 
     return (
@@ -259,7 +258,7 @@ def resume(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
         resumable = Liveness.STOPPED, Ending.FAILED, Ending.CANCELLED
         return (
             run.target.sent(run.queue, dispatcher.host).map(
-                lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().to_option())
+                lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().default_value(()))
             )
             if phase in resumable
             else Error(Fault.of(Reason.OUTSIDE, str(dispatcher.host.path(run.queue.stem, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))

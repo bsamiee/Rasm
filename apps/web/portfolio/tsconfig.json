@@ -2,7 +2,7 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "lib": [ "esnext", "dom" ],
-        "types": [ "vite/client", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
+        "types": [ "vite/client", "./.cloudflare/types", "@rasm/test-support/vitest" ]
     },
     "include": [ "**/*", ".storybook/*.stories.ts" ]
 }

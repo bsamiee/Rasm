@@ -1,47 +1,71 @@
-import { Array, Effect, Option, Schema } from 'effect';
+import { Array, Data, Duration, Effect, Match, Option, String } from 'effect';
+import { MediaError } from '#/error';
 
-// --- [ERRORS] --------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-class InspectError extends Schema.TaggedError<InspectError, { readonly brand: unique symbol }>()('InspectError', { reason: Schema.TaggedUnion({ Protected: {}, Unreadable: {} }), cause: Schema.Defect() }) {
-    override get message(): string {
-        return InspectError.fields.reason.match(this.reason, { Protected: () => 'PDF is password protected', Unreadable: () => 'Browser cannot read file' });
-    }
-}
+type Inspection = Data.TaggedEnum<{
+    Image: { readonly width: number; readonly height: number; readonly renditions: readonly { readonly width: number; readonly file: File }[] };
+    Video: { readonly width: number; readonly height: number; readonly duration: Duration.Duration };
+    Pdf: { readonly pages: Array.NonEmptyReadonlyArray<{ readonly width: number; readonly height: number; readonly label?: string }> };
+}>;
+type Options = ImageEncodeOptions & { readonly minimumWidth: number; readonly ratio: number; readonly concurrency: number };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const imageRenditions = Effect.fn('imageRenditions')(function* (file: Blob, { minimumWidth, type }: { readonly minimumWidth: number; readonly type: string }) {
-    const source = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => createImageBitmap(file), catch: (cause) => InspectError.make({ reason: { _tag: 'Unreadable' }, cause }) }), (bitmap) => Effect.sync(() => bitmap.close()));
+const { $is, $match, Image, Video, Pdf } = Data.taggedEnum<Inspection>();
+const failure = (_tag: 'Unreadable' | 'Unsupported', file: File) => (cause: unknown) => MediaError.make({ reason: { _tag }, subject: file.name, cause });
+const bitmap = (decode: () => Promise<ImageBitmap>, fail: (cause: unknown) => MediaError) => Effect.acquireRelease(Effect.tryPromise({ try: decode, catch: fail }), (opened) => Effect.sync(() => opened.close()));
+const image = Effect.fnUntraced(function* (file: File, { minimumWidth, ratio, concurrency, ...encoding }: Options) {
+    const unsupported = failure('Unsupported', file);
+    const source = yield* bitmap(() => createImageBitmap(file), failure('Unreadable', file));
     const renditions = yield* Effect.forEach(
-        Array.unfold(Math.floor(source.width / 2), (width) => (width >= minimumWidth ? Option.some([width, Math.floor(width / 2)] as const) : Option.none())),
+        Array.unfold(Math.floor(source.width / ratio), (width) => (width >= minimumWidth ? Option.some([width, Math.floor(width / ratio)] as const) : Option.none())),
         Effect.fnUntraced(function* (width: number) {
-            const bitmap = yield* Effect.tryPromise(() => createImageBitmap(source, { resizeWidth: width, resizeQuality: 'high' }));
-            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-            (yield* Effect.fromNullishOr(canvas.getContext('bitmaprenderer'))).transferFromImageBitmap(bitmap);
-            const blob = yield* Effect.tryPromise(() => canvas.convertToBlob({ type }));
-            return { width, file: new File([blob], String(width), { type: blob.type }) };
-        }),
-        { concurrency: 'unbounded' },
+            const resized = yield* bitmap(() => createImageBitmap(source, { resizeWidth: width, resizeQuality: 'high' }), unsupported);
+            const canvas = new OffscreenCanvas(resized.width, resized.height);
+            (yield* Effect.mapError(Effect.fromNullishOr(canvas.getContext('bitmaprenderer')), unsupported)).transferFromImageBitmap(resized);
+            const blob = yield* Effect.tryPromise({ try: () => canvas.convertToBlob(encoding), catch: unsupported });
+            return { width, file: new File([blob], `${width}`, { type: blob.type }) };
+        }, Effect.scoped),
+        { concurrency },
     );
-    return { width: source.width, height: source.height, renditions: renditions.filter((rendition) => rendition.file.size < file.size) };
+    return Image({ width: source.width, height: source.height, renditions: renditions.filter((rendition) => rendition.file.size < file.size) });
 }, Effect.scoped);
-const videoDimensions = Effect.fn('videoDimensions')(function* (file: Blob) {
+const video = Effect.fnUntraced(function* (file: File) {
     const { element, url } = yield* Effect.acquireRelease(
         Effect.sync(() => ({ element: Object.assign(document.createElement('video'), { preload: 'metadata' }), url: URL.createObjectURL(file) })),
-        (video) =>
+        (opened) =>
             Effect.sync(() => {
-                video.element.removeAttribute('src');
-                video.element.load();
-                URL.revokeObjectURL(video.url);
+                opened.element.removeAttribute('src');
+                opened.element.load();
+                URL.revokeObjectURL(opened.url);
             }),
     );
-    return yield* Effect.callback<{ readonly width: number; readonly height: number }, InspectError>((resume, signal) => {
-        element.addEventListener('loadedmetadata', () => resume(Effect.succeed({ width: element.videoWidth, height: element.videoHeight })), { once: true, signal });
-        element.addEventListener('error', () => resume(Effect.fail(InspectError.make({ reason: { _tag: 'Unreadable' }, cause: element.error }))), { once: true, signal });
+    return yield* Effect.callback<Inspection, MediaError>((resume, signal) => {
+        element.addEventListener(
+            'loadedmetadata',
+            () => resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : MediaError.make({ reason: { _tag: 'Unreadable' }, subject: file.name })),
+            { once: true, signal },
+        );
+        element.addEventListener('error', () => resume(failure('Unreadable', file)(element.error)), { once: true, signal });
         element.src = url;
     });
 }, Effect.scoped);
+const read = Effect.fn('read')((file: File, options: Options) =>
+    Match.value(file.type).pipe(
+        Match.when(String.startsWith('image/'), () => image(file, options)),
+        Match.when(String.startsWith('video/'), () => video(file)),
+        Match.when('application/pdf', () =>
+            Effect.tryPromise(() => import('#/pdf/document')).pipe(
+                Effect.flatMap(({ pdfPages }) => pdfPages(file, options)),
+                Effect.map((pages) => Pdf({ pages })),
+            ),
+        ),
+        Match.orElse(() => MediaError.make({ reason: { _tag: 'Unsupported' }, subject: file.name })),
+    ),
+);
+const Inspection = { read, $is, $match };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InspectError, imageRenditions, videoDimensions };
+export { Inspection };

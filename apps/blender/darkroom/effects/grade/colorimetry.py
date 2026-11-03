@@ -22,7 +22,7 @@ from blender.bpy.render.compositor.inputs import entered, GraphInputs
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import ColorSpace
+from blender.imaging.color.processors import basis, ColorSpace
 from blender.imaging.files.images import ImageFile
 from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Case
@@ -109,9 +109,8 @@ def white_pick(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.Sce
     config = PyOpenColorIO.GetCurrentConfig()
     temperature, tint = _WHITES[0].inputs
     return (
-        finite_mean(config, entry, file)
-        .bind(partial(WhitePoint.of, config))
-        .bind(lambda white: white.to_result_with(partial(unread, entry)))
+        paired(finite_mean(config, entry, file), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))
+        .bind(lambda pair: WhitePoint.of(pair[1] @ pair[0]).to_result_with(partial(unread, entry)))
         .bind(lambda white: entered(identity, entry, {temperature.key: white.temperature, tint.key: tint_of(white)}))
     )
 

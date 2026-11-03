@@ -18,7 +18,7 @@ Observables push notifications to an observer under the protocol `OnNext* (OnCom
 Stream programs have layers, the separation keeps the dataflow composable and shows where effects run and resources are managed:
 1. Acquire sources by adapting callbacks, tasks, collections, or external producers into observables
 2. Describe the dataflow by transforming and combining streams with operators, with no side effect in the layer
-3. Run effects at the boundary, observers on final streams hold output, persistence, and diagnostics, `Source<A>.FoldReduce` returns the host's `IO<S>`
+3. Run effects at the boundary: observers on final streams hold output, persistence, and diagnostics, `FoldReduce` returns the host's `IO<S>`
 
 ## [03]-[CREATION]
 

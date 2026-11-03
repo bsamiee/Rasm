@@ -4,18 +4,13 @@
     "description": "Architectural portfolio website",
     "type": "module",
     "imports": {
-        "#/*": "./*.tsx",
-        "#/*.css": "./*.css",
-        "#/model/*": "./model/*.ts",
-        "#/server/*": "./server/*.ts",
-        "#/*.config": "./*.config.ts"
+        "#/*": "./*"
     },
     "exports": {
-        "./package.json": "./package.json"
+        "./sites": "./model/sites.ts"
     },
     "dependencies": {
         "@effect/atom-react": "catalog:",
-        "@effect/platform-browser": "catalog:",
         "@effect/platform-node": "catalog:",
         "@effect/sql-d1": "catalog:",
         "@effect/sql-sqlite-node": "catalog:",
@@ -34,6 +29,7 @@
         "pdfjs-dist": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
+        "react-dom": "catalog:",
         "react-error-boundary": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
         "tailwindcss": "catalog:",
@@ -41,7 +37,6 @@
         "validator": "catalog:"
     },
     "devDependencies": {
-        "@cloudflare/vitest-plugin": "catalog:",
         "@openai/sites-vite-plugin": "catalog:",
         "@rasm/test-support": "workspace:*",
         "@storybook/react-vite": "catalog:",
@@ -52,7 +47,6 @@
         "@types/validator": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "cf": "catalog:",
-        "react-dom": "catalog:",
         "storybook": "catalog:",
         "vite": "catalog:"
     }

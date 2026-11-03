@@ -687,6 +687,9 @@ catalogs:
     fast-check:
       specifier: 4.10.2
       version: 4.10.2
+    fast-xml-builder:
+      specifier: 1.3.1
+      version: 1.3.1
     fast-xml-parser:
       specifier: 5.11.2
       version: 5.11.2
@@ -864,9 +867,6 @@ catalogs:
     sharp:
       specifier: 0.35.5
       version: 0.35.5
-    shell-quote:
-      specifier: 1.12.0
-      version: 1.12.0
     smol-toml:
       specifier: 1.9.1
       version: 1.9.1
@@ -1692,6 +1692,9 @@ importers:
       fast-check:
         specifier: 'catalog:'
         version: 4.10.2
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
       fast-xml-parser:
         specifier: 'catalog:'
         version: 5.11.2
@@ -1869,9 +1872,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.35.5(@types/node@26.6.6)
-      shell-quote:
-        specifier: 'catalog:'
-        version: 1.12.0
       smol-toml:
         specifier: 'catalog:'
         version: 1.9.1
@@ -1974,12 +1974,18 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@rasm/aftereffects':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/creative-cloud/aftereffects
       '@rasm/automation':
         specifier: workspace:*
         version: link:../../../libs/typescript/creative-cloud/automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../libs/typescript/creative-cloud/cep
+      '@rasm/illustrator':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/creative-cloud/illustrator
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../libs/typescript/creative-cloud/indesign
@@ -2008,18 +2014,9 @@ importers:
         specifier: 'catalog:'
         version: 2.0.4
     devDependencies:
-      '@adobe-uxp-types/photoshop':
-        specifier: 'catalog:'
-        version: 0.1.8(@adobe-uxp-types/uxp@0.1.4)
-      '@adobe-uxp-types/uxp':
-        specifier: 'catalog:'
-        version: 0.1.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      indesign-uxp-types:
-        specifier: 'catalog:'
-        version: 1.0.0(@adobe/cc-ext-uxp-types@7.3.1)
 
   apps/creative-cloud/atelier/plugins/aftereffects:
     dependencies:
@@ -2091,9 +2088,6 @@ importers:
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(react@19.3.0)(scheduler@0.28.0)
-      '@effect/platform-browser':
-        specifier: 'catalog:'
-        version: 4.1.1(effect@4.1.1)
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0))
@@ -2148,6 +2142,9 @@ importers:
       react-aria-components:
         specifier: 'catalog:'
         version: 3.0.0-nightly-99e610236-261006(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.3.0(react@19.3.0)
       react-error-boundary:
         specifier: 'catalog:'
         version: 6.1.6(@types/react@19.3.0)(react@19.3.0)
@@ -2164,9 +2161,6 @@ importers:
         specifier: 'catalog:'
         version: 13.15.35
     devDependencies:
-      '@cloudflare/vitest-plugin':
-        specifier: 'catalog:'
-        version: 1.4.11(@cloudflare/workers-types@5.20261101.1)(@types/node@26.6.6)(vitest@5.1.0-beta.1)
       '@openai/sites-vite-plugin':
         specifier: 'catalog:'
         version: 0.2.0(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))
@@ -2197,9 +2191,6 @@ importers:
       cf:
         specifier: 'catalog:'
         version: 1.0.0-beta.26(@types/node@26.6.6)
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.3.0(react@19.3.0)
       storybook:
         specifier: 'catalog:'
         version: 11.0.0-alpha.6(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.0)
@@ -2225,9 +2216,15 @@ importers:
 
   libs/typescript/creative-cloud/aftereffects:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../cep
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../extendscript
     devDependencies:
       types-for-adobe:
         specifier: 'catalog:'
@@ -2263,6 +2260,15 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.1
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
+
+  libs/typescript/creative-cloud/extendscript:
+    dependencies:
+      '@rasm/cep':
+        specifier: workspace:*
+        version: link:../cep
     devDependencies:
       types-for-adobe:
         specifier: 'catalog:'
@@ -2270,9 +2276,15 @@ importers:
 
   libs/typescript/creative-cloud/illustrator:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../cep
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../extendscript
     devDependencies:
       types-for-adobe:
         specifier: 'catalog:'
@@ -2292,12 +2304,6 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../uxp
-      acorn:
-        specifier: 'catalog:'
-        version: 8.19.0
-      acorn-walk:
-        specifier: 'catalog:'
-        version: 8.3.5
       effect:
         specifier: 'catalog:'
         version: 4.1.1
@@ -2323,6 +2329,9 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../uxp
+      acorn:
+        specifier: 'catalog:'
+        version: 8.19.0
       effect:
         specifier: 'catalog:'
         version: 4.1.1
@@ -2364,6 +2373,9 @@ importers:
       '@effect/sql-pg':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
+      '@effect/sql-pglite':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)
       effect:
         specifier: 'catalog:'
         version: 4.1.1
@@ -2374,9 +2386,6 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(redis@6.2.1(@opentelemetry/api@1.10.0))
-      '@effect/sql-pglite':
-        specifier: 'catalog:'
-        version: 4.1.1(effect@4.1.1)
       '@effect/sql-sqlite-node':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
@@ -2386,6 +2395,9 @@ importers:
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.14
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
       '@testcontainers/postgresql':
         specifier: 'catalog:'
         version: 12.2.1(supports-color@10.2.2)
@@ -2472,6 +2484,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(vitest@5.1.0-beta.1)
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2637,6 +2652,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0-beta.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0-beta.1)(@vitest/coverage-v8@5.1.0-beta.1)(@vitest/ui@5.1.0-beta.1)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

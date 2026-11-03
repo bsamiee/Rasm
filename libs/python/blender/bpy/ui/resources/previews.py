@@ -1,4 +1,4 @@
-"""Preview pixels of one extension: a preview collection holding packaged icons and generated tiles over the theme transparency checker, and half-float GPU preview textures."""
+"""Preview pixels of one extension: its preview collection and GPU preview textures."""
 
 from collections import OrderedDict
 from collections.abc import Generator, Hashable
@@ -90,12 +90,8 @@ class Previews:
         match plane:
             case Option(tag="some", some=pixels):
                 height, width, _ = pixels.shape
-                flat, size = np.ascontiguousarray(pixels[::-1]).reshape(-1), (width, height)
                 preview = Option.of_optional(self.collection.get(slot)).default_with(lambda: self.collection.new(slot))
-                preview.image_size = size  # type: ignore[assignment]
-                preview.image_pixels_float.foreach_set(flat)  # type: ignore[arg-type]
-                preview.icon_size = size  # type: ignore[assignment]
-                preview.icon_pixels_float.foreach_set(flat)  # type: ignore[arg-type]
+                filled(preview, np.ascontiguousarray(pixels[::-1]).reshape(-1), (width, height))
                 self.drawn[slot] = key
                 return redrawn().map(lambda _: Some(preview.icon_id))
             case _:
@@ -165,6 +161,13 @@ class Textures:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def filled(preview: bpy.types.ImagePreview, pixels: npt.NDArray[np.float32], size: tuple[int, int] | bpy.types.bpy_prop_array) -> None:
+    """Writes flat RGBA into a preview's image and icon buffers at one size."""
+    preview.image_size = preview.icon_size = size  # type: ignore[assignment]
+    preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+    preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+
+
 def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
     """Uploads top-first RGBA into a half-float RGBA texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
@@ -186,4 +189,4 @@ TEXTURES: Final = Resource[Textures](made=lambda _identity: nullcontext(Textures
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PREVIEWS", "TEXTURES", "PreviewKey", "Previews", "Textures", "uploaded"]
+__all__ = ["PREVIEWS", "TEXTURES", "PreviewKey", "Previews", "Textures", "filled", "uploaded"]

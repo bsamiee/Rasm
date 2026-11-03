@@ -26,6 +26,10 @@ public struct WatchAppsLine: Decodable, Equatable, Sendable {
         case instances([Int32: Instance])
     }
 
+    private enum EntryKey: String, CodingKey {
+        case fail, reason, memory, thermal
+    }
+
     public let key: String
     public let entry: Entry
 
@@ -35,17 +39,12 @@ public struct WatchAppsLine: Decodable, Equatable, Sendable {
             throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "\(container.allKeys) hold no single key"))
         }
         let fields: KeyedDecodingContainer<FieldKey> = try container.nestedContainer(keyedBy: FieldKey.self, forKey: key)
-        let names: Set<String> = Set(fields.allKeys.map(\.stringValue))
+        let entries: KeyedDecodingContainer<EntryKey> = try container.nestedContainer(keyedBy: EntryKey.self, forKey: key)
         self.key = key.stringValue
         entry =
-            switch names {
-                case ["fail"]:
-                    .fail(reason: try fields.nestedContainer(keyedBy: FieldKey.self, forKey: FieldKey(stringValue: "fail")).decode(String.self, forKey: FieldKey(stringValue: "reason")))
-                case ["memory", "thermal"]:
-                    .system(
-                        memory: try fields.decode(MemoryPressure.self, forKey: FieldKey(stringValue: "memory")),
-                        thermal: try fields.decode(ThermalState.self, forKey: FieldKey(stringValue: "thermal")),
-                    )
+            switch Set(fields.allKeys.map { field in EntryKey(stringValue: field.stringValue) }) {
+                case [.fail]: .fail(reason: try entries.nestedContainer(keyedBy: EntryKey.self, forKey: .fail).decode(String.self, forKey: .reason))
+                case [.memory, .thermal]: .system(memory: try entries.decode(MemoryPressure.self, forKey: .memory), thermal: try entries.decode(ThermalState.self, forKey: .thermal))
                 default:
                     .instances(
                         Dictionary(
@@ -163,34 +162,6 @@ extension WatchAppsLine {
         case responding(elements: [Element], windows: [Window])
         case unresponsive(process: ProcessStatus, windows: [Window])
 
-        private enum CodingKeys: String, CodingKey {
-            case launching
-            case responding
-            case unresponsive
-            case elements
-            case process
-            case windows
-        }
-
-        public init(from decoder: any Decoder) throws {
-            let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-            self =
-                switch container.allKeys {
-                    case [.launching]: .launching
-                    case [.responding]:
-                        try {
-                            let fields: KeyedDecodingContainer<CodingKeys> = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .responding)
-                            return .responding(elements: try fields.decode([Element].self, forKey: .elements), windows: try fields.decode([Window].self, forKey: .windows))
-                        }()
-                    case [.unresponsive]:
-                        try {
-                            let fields: KeyedDecodingContainer<CodingKeys> = try container.nestedContainer(keyedBy: CodingKeys.self, forKey: .unresponsive)
-                            return .unresponsive(process: try fields.decode(ProcessStatus.self, forKey: .process), windows: try fields.decode([Window].self, forKey: .windows))
-                        }()
-                    default: throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "\(container.allKeys) name no status"))
-                }
-        }
-
         public var windows: [Window]? {
             switch self {
                 case .launching: nil
@@ -202,6 +173,7 @@ extension WatchAppsLine {
     public struct Running: Decodable, Equatable, Sendable {
         public let status: Status
         public let usage: Usage?
+        public let usageFailure: String?
     }
 
     public struct Report: Decodable, Equatable, Sendable {

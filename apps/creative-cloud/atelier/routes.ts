@@ -1,24 +1,32 @@
 import { Installation, Pid } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { Instructions, Visible } from '@rasm/mcp/server';
+import { Route } from '@rasm/mcp/route';
+import { registerTool } from '@rasm/mcp/tool';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Link } from '@rasm/uxp/link';
 import { Array, Context, Effect, Match, Option, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
-import type { Library } from '#/features/plugins';
+import type { RpcGroup } from 'effect/rpc';
+import type { Libraries, listening } from '#/features/plugins';
 import type { status } from '#/status';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Links = Effect.Success<typeof listening>;
+type Tag = RpcGroup.Rpcs<typeof Libraries>['_tag'];
 interface Pair {
-    readonly library: Library;
+    readonly library: Links['libraries'][number];
     readonly peer: Link;
 }
 type Holds = (installation: Installation, peers: readonly Pair[]) => boolean;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const EXECUTE_SCRIPT = 'execute_script' as const satisfies Tag;
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const routes = Effect.fnUntraced(function* ({ dialog }: Effect.Success<typeof status>, libraries: readonly Library[]) {
+const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof status>, { libraries, call }: Links) {
     const automation = yield* Automation;
     const current = Effect.all({
         installed: automation.installed,
@@ -34,18 +42,22 @@ const routes = Effect.fnUntraced(function* ({ dialog }: Effect.Success<typeof st
         ),
     });
     const registered = yield* current;
-    const listed = (holds: Holds) => Schema.Literals(Array.dedupe(registered.installed.filter((row) => holds(row, registered.peers)).map(Struct.get('name')))).annotate({ description: 'Installed Adobe application' });
-    const serves =
-        (tag: string, installation: Installation) =>
-        ({ library, peer }: Pair) =>
-            library.Contract.requests.has(tag) && Link.serves(installation.url)(peer);
+    const linking =
+        (installation: Installation) =>
+        ({ peer }: Pair) =>
+            Link.serves(installation.url)(peer);
+    const serves = (tag: Tag, installation: Installation) => (pair: Pair) => pair.library.contract.requests.has(tag) && linking(installation)(pair);
     const connected =
         (installation: Installation) =>
         ({ library }: Pair) =>
-            Effect.map(library.call(Link.serves(installation.url)), (client) => ({ library, client }));
-    const route = <Chosen extends { readonly pid: number }>(holds: Holds, kind: string, chosen: (found: { readonly installation: Installation; readonly pid: number; readonly peers: readonly Pair[] }) => Effect.Effect<Chosen, Error>, served: (chosen: Chosen) => boolean = () => true) => {
-        const pid = Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Selects application when application is absent, required when bundle runs more than one instance' }));
-        const fields = { application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Application running pid, or running in Dock, when absent' })), pid };
+            Effect.map(call(installation.url), (client) => ({ library, client }));
+    const route = <Chosen extends { readonly pid: number }>(holds: Holds, kind: string, chosen: (found: { readonly installation: Installation; readonly pid: number; readonly peers: readonly Pair[] }) => Effect.Effect<Chosen, Error>) => {
+        const listed = Schema.Literals(Array.dedupe(registered.installed.filter((row) => holds(row, registered.peers)).map(Struct.get('name')))).annotate({ description: `Installed ${kind}` });
+        const located = (absent: string) => ({
+            application: Schema.OptionFromOptionalKey(listed.annotate({ description: `Application running pid, ${absent} when absent` })),
+            pid: Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Selects application when application is absent, required when bundle runs more than one instance' })),
+        });
+        const fields = located('or running in Dock,');
         const holding = Effect.map(current, ({ installed, peers }) => installed.filter((row) => holds(row, peers)));
         const resolve = Effect.fnUntraced(function* ({ application: given, pid: wanted }: Schema.Struct.Type<typeof fields>) {
             const { installed, instances, peers } = yield* current;
@@ -64,67 +76,66 @@ const routes = Effect.fnUntraced(function* ({ dialog }: Effect.Success<typeof st
             const running = yield* Unmatched.single(instances.filter(Installation.runs(installation)).map(Struct.get('pid')), `running instance of ${installation.name}`, Option.map(wanted, String), (each) => [String(each)]);
             return yield* chosen({ installation, pid: running, peers });
         });
-        const depends = ({ pid: running }: Chosen) => Effect.succeed([dialog(running)]);
+        const depends = ({ pid }: Chosen) => Effect.succeed([answering(pid)]);
         const annotations = Context.make(Tool.OpenWorld, false).pipe(
-            Context.add(Instructions, ['Specifiers come from results', 'State-changing calls return early when a dialog requires an answer. No tool changes frontmost application']),
             Context.add(
-                Visible,
+                registerTool.Visible,
                 Effect.map(current, ({ installed, instances, peers }) => installed.some((row) => holds(row, peers) && instances.some(Installation.runs(row)))),
             ),
         );
-        const completion = { application: () => Effect.map(holding, Array.map(Struct.get('name'))) };
         return {
             fields,
-            holding,
             resolve,
             depends,
             annotations,
-            completion,
-            serves: served,
-            optional: (fallback: string) => {
-                const optional = { application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: `Application running pid, ${fallback} when absent without pid` })), pid };
-                return {
-                    fields: optional,
-                    resolve: (given: Schema.Struct.Type<typeof optional>) => (Option.isNone(given.application) && Option.isNone(given.pid) ? Effect.succeedNone : Effect.asSome(resolve(given))),
-                    depends: Option.match({ onNone: () => Effect.succeed([]), onSome: depends }),
-                    annotations: Context.add(annotations, Visible, Effect.succeed(true)),
-                    completion,
-                    serves: (picked: Option.Option<Chosen>) => Option.exists(picked, served),
-                };
-            },
+            listed,
+            named: (given: string) =>
+                Effect.flatMap(
+                    holding,
+                    Unmatched.single(`installed ${kind}`, Option.some(given), (row) => [row.name]),
+                ),
+            completion: { application: () => Effect.map(holding, Array.map(Struct.get('name'))) },
+            optional: (fallback: string) => Route.optional({ fields: located(`${fallback} without pid`), resolve, depends, annotations }),
         };
     };
-    const serving = (tag: string) =>
-        route(
+    const serving = <Served extends Tag>(tag: Served) => ({
+        ...route(
             (installation, peers) => peers.some(serves(tag, installation)),
             `Adobe application serving ${tag}`,
-            Effect.fnUntraced(function* ({ installation, pid, peers }) {
-                return { installation, pid, ...(yield* Effect.flatMap(Effect.fromOption(Array.findFirst(peers, serves(tag, installation))), connected(installation))) };
-            }),
-            ({ library }) => library.Contract.requests.has(tag),
-        );
-    const scripting = route(
-        (installation, peers) => installation.scriptable || peers.some(serves('execute_script', installation)),
-        'Adobe application running scripts',
-        Effect.fnUntraced(function* ({ installation, pid, peers }) {
-            const linked = yield* Effect.transposeOption(Option.map(Array.findFirst(peers, serves('execute_script', installation)), connected(installation)));
-            return { installation, pid, linked };
-        }),
-    );
+            ({ installation, pid, peers }) =>
+                Effect.fromOption(Array.findFirst(peers, serves(tag, installation))).pipe(
+                    Effect.flatMap(connected(installation)),
+                    Effect.map((link) => ({ installation, pid, ...link })),
+                ),
+        ),
+        tag,
+        serves: ({ library }: { readonly library: Pair['library'] }) => library.contract.requests.has(tag),
+    });
     return {
         application: route(
             () => true,
             'Adobe application',
             ({ installation, pid }) => Effect.succeed({ installation, pid }),
         ),
-        scriptable: route(
-            (installation) => installation.scriptable,
-            'scriptable Adobe application',
+        dictionary: route(
+            (installation, peers) => installation.scriptable && !peers.some(linking(installation)),
+            'scriptable Adobe application without open link',
             ({ installation, pid }) => Effect.succeed({ installation, pid }),
         ),
-        scripting,
+        script: {
+            ...route(
+                (installation, peers) => installation.scriptable || peers.some(serves(EXECUTE_SCRIPT, installation)),
+                'Adobe application running scripts',
+                ({ installation, pid, peers }) =>
+                    Array.findFirst(peers, serves(EXECUTE_SCRIPT, installation)).pipe(
+                        Option.map(connected(installation)),
+                        Effect.transposeOption,
+                        Effect.map((linked) => ({ installation, pid, linked })),
+                    ),
+            ),
+            tag: EXECUTE_SCRIPT,
+        },
         serving,
-        listed,
     };
 });
 

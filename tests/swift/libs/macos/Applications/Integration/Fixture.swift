@@ -5,9 +5,7 @@ import CustomDump
 import Encoding
 import Foundation
 import Processes
-import Results
 import Subprocess
-import Synchronization
 import System
 import TestSupport
 import Testing
@@ -21,11 +19,6 @@ let heartbeat: Duration = .seconds(1)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Observed: Sendable {
-    let instant: ContinuousClock.Instant
-    let state: InstanceState
-}
-
 @CasePathable
 enum Phase: Equatable, Sendable {
     case launching
@@ -35,12 +28,6 @@ enum Phase: Equatable, Sendable {
     case exited(TerminationStatus)
     case reported(TerminationStatus, exception: String?)
     case unread
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-final class Timeline: Sendable {
-    let entries: Mutex<[Observed]> = Mutex([])
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -97,7 +84,7 @@ func menu(_ title: String, in elements: [Element]) throws -> [Control] {
 }
 
 func run(_ scenario: Scenario, in instance: NSRunningApplication) async throws {
-    let item: Control = try #require(try menu("Scenario", in: try await read(instance)).first { item in item.label == scenario.rawValue })
+    let item: Control = try #require(try menu(String(describing: Scenario.self), in: try await read(instance)).first { item in item.label == scenario.rawValue })
     try await ElementAction.perform(element: item.id, action: kAXPressAction).perform()
 }
 
@@ -120,38 +107,25 @@ func alertButtons() throws -> Set<JSONValue> {
     ]
 }
 
-func phases(_ seen: [Observed]) -> [Phase] {
-    seen.map(\.state.phase).reduce(into: []) { kept, next in
+func phases(_ seen: [InstanceState]) -> [Phase] {
+    seen.map(\.phase).reduce(into: []) { kept, next in
         if kept.last != next { kept.append(next) }
     }
 }
 
 func observe(
     _ instance: NSRunningApplication,
-    within limit: Duration,
-    until done: @escaping @Sendable ([Observed]) -> Bool,
+    until done: ([InstanceState]) -> Bool,
     walking walked: @escaping @Sendable (Element) -> Bool = \.requiresAnswer,
     notifying watched: Set<String> = notifications,
-    acting act: @escaping @Sendable () async throws -> Void = {},
-) async throws -> [Observed] {
-    let timeline: Timeline = Timeline()
-    let clock: ContinuousClock = ContinuousClock()
-    let finished: Result<Void, TestFailure> = await Result { () async throws(TestFailure) in
-        try await withTimeout(limit, expired: TestFailure(subject: "states of \(instance.processIdentifier) within \(limit)", reason: .missing)) { () async throws(TestFailure) in
-            for await state: InstanceState in instance.states(walking: walked, notifications: watched, polling: heartbeat) {
-                let seen: [Observed] = timeline.entries.withLock { entries in
-                    entries.append(Observed(instant: clock.now, state: state))
-                    return entries
-                }
-                if seen.count == 1 {
-                    do { try await act() } catch { throw TestFailure(subject: "act on \(instance.processIdentifier)", reason: .host(error)) }
-                }
-                if done(seen) { return }
-            }
-        }
+    acting act: () async throws -> Void = {},
+) async throws -> [InstanceState] {
+    var seen: [InstanceState] = []
+    for await state: InstanceState in instance.states(walking: walked, notifications: watched, polling: heartbeat) {
+        seen.append(state)
+        if seen.count == 1 { try await act() }
+        if done(seen) { break }
     }
-    let seen: [Observed] = timeline.entries.withLock(\.self)
-    try finished.mapError { failure in TestFailure(subject: "\(failure.subject) after \(phases(seen))", reason: failure.reason) }.get()
     return seen
 }
 
@@ -165,7 +139,7 @@ extension InstanceState {
         }
     }
 
-    var usage: ResourceUsage? { self[case: \.running]?.usage }
+    var usage: Result<ResourceUsage, Errno>? { self[case: \.running]?.usage }
 
     var asking: Element? { elements.first(where: \.requiresAnswer) }
 

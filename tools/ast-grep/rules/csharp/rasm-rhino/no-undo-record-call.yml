@@ -2,8 +2,7 @@
 id: no-undo-record-call
 language: csharplang
 severity: error
-files: ['**/rhino/**']
-ignores: ['**/Rasm.Grasshopper/**']
+files: ['apps/rhino/**', 'eng/dotnet/rhino/**', 'libs/dotnet/rhino/Rasm.Rhino/**']
 rule:
     kind: member_access_expression
     pattern: $CALL

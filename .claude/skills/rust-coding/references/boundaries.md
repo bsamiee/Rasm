@@ -114,7 +114,7 @@ pub struct Frame {
 
 ## [05]-[CONFIGURATION]
 
-Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment into the type each consumer reads, a `value_parser` refusing what its `FromStr` admits and the consumer refuses (an authority without a port), settings files the rest:
+Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment into the type each consumer reads, a `value_parser` refusing what its `FromStr` accepts and the consumer refuses (an authority without a port), settings files the rest:
 
 ```rust
 #[derive(Debug, Parser)]
@@ -253,7 +253,7 @@ pub fn suspended(terminal: &mut DefaultTerminal, modes: &[Mode]) -> Result<(), N
 }
 ```
 
-Escapes leave the alternate screen before raw mode ends. Writers gated on raw mode resume stderr once it ends, and lines written while the alternate screen is up vanish with it. Raw mode refusals leave screen restores applied, where `ratatui::try_restore` stops at its first `?` with the alternate screen still up. `entered` mirrors `released`.
+Escapes leave the alternate screen before raw mode ends. Writers gated on raw mode resume stderr once it ends, and lines written while the alternate screen is up vanish with it. Raw mode refusals leave screen restores applied, where `ratatui::try_restore` stops at its first `?` with the alternate screen up. `entered` reapplies the modes `released` undoes.
 
 Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Encoder failures classify where they enter, an I/O cause converting into the one variant over `io::Error` (serde_json `classify() == Category::Io` through `io::Error::from`, csv `into_kind()` yielding `ErrorKind::Io`), and the exit match holds one arm per variant, a `BrokenPipe` from a closed reader ending output as success. Streamed encoders keep a refused item out of their state and output:
 

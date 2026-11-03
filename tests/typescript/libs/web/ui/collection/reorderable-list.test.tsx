@@ -52,7 +52,7 @@ it('moves selected items as one block in relative order', async () => {
     await move(0, 'Detail');
     expect(order()).toEqual(['detail', 'plan', 'section']);
 });
-it('gathers non-contiguous selection into one block and offers only unselected targets', async () => {
+it('gathers non-contiguous selection into one block placed by its first row and enables only unselected targets', async () => {
     const { select, opened, order } = await _sheets();
     await select('Plan');
     await select('Detail');
@@ -62,11 +62,12 @@ it('gathers non-contiguous selection into one block and offers only unselected t
             page
                 .getByRole('menuitem')
                 .elements()
+                .filter((item) => item.getAttribute('aria-disabled') !== 'true')
                 .map(({ textContent }) => textContent),
         )
         .toEqual(['Section']);
     await page.getByRole('menuitem', { name: 'Section' }).click();
-    expect(order()).toEqual(['plan', 'detail', 'section']);
+    expect(order()).toEqual(['section', 'plan', 'detail']);
 });
 it('moves unselected row alone while selection holds other rows', async () => {
     const { screen, select, move, rows, order } = await _sheets();
@@ -139,6 +140,7 @@ it('drops selection of items the owner removes and lists only present targets', 
             page
                 .getByRole('menuitem')
                 .elements()
+                .filter((item) => item.getAttribute('aria-disabled') !== 'true')
                 .map(({ textContent }) => textContent),
         )
         .toEqual(['Section']);
@@ -148,22 +150,22 @@ it('exposes grid, rows, and row controls by role and name', async () => {
     await expect.element(screen.getByRole('grid', { name: 'Sheets' })).toMatchAriaInlineSnapshot(`
       - grid "Sheets":
         - row "Plan":
-          - gridcell "Select Plan Drag Plan Move Plan":
+          - gridcell "Select Plan Drag Plan Move Plan Plan":
             - checkbox "Select Plan"
             - button "Drag Plan"
-            - button "Move"
+            - button "Move Plan"
             - text: Plan
         - row "Section":
-          - gridcell "Select Section Drag Section Move Section":
+          - gridcell "Select Section Drag Section Move Section Section":
             - checkbox "Select Section"
             - button "Drag Section"
-            - button "Move"
+            - button "Move Section"
             - text: Section
         - row "Detail":
-          - gridcell "Select Detail Drag Detail Move Detail":
+          - gridcell "Select Detail Drag Detail Move Detail Detail":
             - checkbox "Select Detail"
             - button "Drag Detail"
-            - button "Move"
+            - button "Move Detail"
             - text: Detail
     `);
 });

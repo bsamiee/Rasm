@@ -22,7 +22,6 @@ from blender.bpy.nodes.content import Generated
 from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector
 from blender.bpy.nodes.interfaces import Interface, Socket
-from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, uv_mapped
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
@@ -115,7 +114,7 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
                 .map(lambda _: None)
             )
 
-        return Result[ImageFile, Faults].bind(read_file(Path(file.path), config, untagged=Some(UNTAGGED)), displayed)
+        return Result[ImageFile, Faults].bind(read_file(Path(file.path), config), displayed)
 
     diffusing = accumulated(
         captured(identity, entry).map(valued).bind(lambda values: chosen(values, _Method, _METHOD)).map(lambda method: method is _Method.DIFFUSED)

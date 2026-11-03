@@ -88,7 +88,7 @@ CASES: Final[tuple[tuple[Steps, object], ...]] = (
         )
     ),
     ((*ON, "refusal"), "Invalid Context Error: Requires a fixture strip\n"),
-    ((*ON, "answered"), {"all": Ok({"notes": (), "skipped": Nothing}), "some": Ok({"notes": (), "skipped": Some(("ABSENT",))}), "none": Error(("ABSENT", "ABSENT"))}),
+    ((*ON, "answered"), {"all": Ok({"notes": (), "skipped": ()}), "some": Ok({"notes": (), "skipped": ("ABSENT",)}), "none": Error(("ABSENT", "ABSENT"))}),
     ((*ON, "suppressed", "before", "some"), True),
     ((*ON, "suppressed", "ran"), (Ok(("FINISHED",)), 1)),
     ((*ON, "suppressed", "after", "some"), False),

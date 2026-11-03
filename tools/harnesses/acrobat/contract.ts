@@ -1,5 +1,5 @@
 import { Effect, Schema, Struct } from 'effect';
-import { answers, Name, Reads } from '#/cases';
+import { answers } from '#/cases';
 import { Common, hostCase, outcome, record, recorded } from '#/results';
 import { JsonObject } from '#/values';
 
@@ -50,7 +50,7 @@ const Placed = Schema.Struct({
     ...Staged.fields,
     sandbox: Schema.String.annotate({ description: 'Case folder under the absolute-path read-write exception of the Acrobat sandbox entitlement, holding the document copies and every file the case writes until they move to the case folder' }),
 });
-const HostCase = hostCase({ name: Name, precondition: Placed, read: Reads, folder: Schema.String.annotate({ description: 'Case folder the sandbox files move to after the case' }), ...Struct.omit(answers, ['presses']) });
+const HostCase = hostCase({ precondition: Placed, folder: Schema.String.annotate({ description: 'Case folder the sandbox files move to after the case' }), ...Struct.omit(answers, ['presses']) });
 const Parameter = Schema.Struct({ name: Schema.String, type: Schema.String, optional: Schema.Boolean });
 const Model = Schema.Struct({
     members: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Member names each object kind enumerates, keyed by its Object.prototype.toString kind' }),
@@ -90,4 +90,4 @@ const Answered = replied(Schema.Struct({ outcome: Outcome, kept: Schema.Array(Sc
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answered, BOXES, Engine, HostCase, Lockdown, Model, Outcome, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };
+export { Answered, BOXES, Engine, fields, HostCase, Lockdown, Model, Outcome, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };

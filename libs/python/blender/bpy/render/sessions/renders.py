@@ -15,9 +15,8 @@ from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called, PopupKind, PopupTarget
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import BoundBody, Call, Done, NoUndo, Operator
+from blender.bpy.commands.operators import BoundBody, Call, called, Done, NoUndo, Operator, PopupKind, PopupTarget
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Scenes, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written

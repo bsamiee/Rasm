@@ -27,6 +27,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
 - Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules sits in one entry's import graph
+- Host packages hold wire schemas, manifests, and descriptors in a runtime-free `contract` entry, build configs and other runtimes' programs import it in place of `host`
+- ExtendScript code sits in packages whose programs list `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
@@ -42,7 +44,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from `.ts` files with no loader (`process.features.typescript` reads `strip`), `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
 - Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
-- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts/typescript/vitest/<package>` folder `test` outputs
+- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts/typescript/vitest/<project path>` folder `test` outputs
+- `@rasm/test-support/vitest` declares the `ProvidedContext` root `vitest.config.ts` provides, every test program and the root program list it in `types`
 - Suites importing `testcontainers` run in `test:integration`, `test` excludes them
 - Packages depending on `@effect/sql-pg` take `lint:squawk` over the SQL their suites write
 - Bundle configs take `main.ts` beside them as entry, a project's `<folder>/main.ts` outside a nested project runs as target `<folder>`
@@ -53,7 +56,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 [VITE]:
 - Browser projects run in current browsers alone, `worker` builds at `esnext` over Vite's `baseline-widely-available` default
 - Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
-- App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `createVitestConfig` merges it through `loadConfigFromFile`
+- App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `project` from root `vitest.config.ts` merges it through `loadConfigFromFile`
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
 - Vite caches stay in each project's `node_modules/.vite`, `isInNodeModules(importer)` warns on dynamic imports of a dependency optimized elsewhere
 - `@nx/vite` stays out, it infers `serve-static`, a deprecated `serve`, and a `typecheck` beside `typecheck:tsc`
@@ -61,13 +64,13 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 [WORKERS]:
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
-- `worker(<directory>, <plugins>, <hosting>)` drops `<hosting>` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
+- `worker(<directory>, { plugins, hosting })` drops `hosting` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
 - Cloudflare plugin keeps state in `.cache/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
 
 [STORYBOOK]:
-- `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
+- `.storybook/main.ts` spreads `@rasm/test-support/main` `framework` and resolved `addons` beside its `stories`, a preset supplies no `framework`
 - `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`, Storybook reads `addons` and literal `tags` from its source
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
 - Root `package.json` lists no `@storybook/react-vite`, a root row resolves its `typescript` peer to root TypeScript 7 over `docgen` catalog's 6

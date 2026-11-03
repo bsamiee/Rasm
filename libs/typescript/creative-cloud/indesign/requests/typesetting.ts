@@ -1,13 +1,13 @@
-import type { InsertionPoint, Story, Text, TextDefault } from 'adobe:indesign';
+import type { InsertionPoint, Text, TextDefault } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
-import type { Adjust, Kerns, Typeset } from '@rasm/automation/typesetting';
+import type { Adjust, Kerns, Runs, Typeset } from '@rasm/automation/typesetting';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Option, Record, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
-import { reference, Specifier } from '#/dom/specifier';
-import { commit } from '#/dom/transactions';
-import { Change } from '#/requests/change';
+import { Specifier } from '#/dom/specifier';
+import { commit, written } from '#/dom/transactions';
+import { write } from '#/requests/change';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,21 +16,27 @@ type Target = Text | TextDefault;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MARK = /^\p{M}+$/v;
+const LINE_FEED = '\n';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Deltas = Schema.Struct({ kerning: HostSettings.Thousandths, tracking: HostSettings.Thousandths, baselineShift: Schema.Finite, marks: HostSettings.fields.marks });
+const Kerned = Schema.Array(Schema.Struct({ index: Schema.Int, kerning: HostSettings.Thousandths }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [TARGETS]
 
 const resolveTarget = Effect.fnUntraced(function* (path: string) {
-    const [{ app, owning, text }, specifier] = yield* Effect.all([Model, Schema.decodeUnknownEffect(Specifier.Path)(path)]);
+    const [{ app, textContainer, text, textDefault }, specifier] = yield* Effect.all([Model, Schema.decodeUnknownEffect(Specifier.Path)(path)]);
     if (specifier.root) {
         return app.textDefaults;
     }
-    const found = yield* Specifier.object(specifier);
-    if (text(found)) {
+    const found = yield* Model.located(specifier);
+    if (text(found) || textDefault(found)) {
         return found;
     }
-    return yield* owning<Story>('texts')(found) ? Effect.succeed(found.texts.item(0)) : Unmatched.make({ subject: 'text', query: Option.some(path) });
+    return yield* textContainer(found) ? Effect.succeed(found.texts.item(0)) : Unmatched.make({ subject: 'text', query: Option.some(path) });
 });
 const textRange = (target: Target) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
 
@@ -55,55 +61,64 @@ const pointAfterBase = (text: Text) =>
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
     }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
-const kernBy = Effect.fnUntraced(function* (text: Text, em: number) {
-    const [kerningAt, point] = yield* Effect.all([manualKerning, pointAfterBase(text)]);
-    const current = yield* Effect.try({ try: () => kerningAt(point), catch: HostError.refused(`kerning of ${point.toSpecifier()}`) });
-    return yield* Change.write(point, { kerningValue: current + HostSettings.thousandths(em) });
-});
-const adjustText = Effect.fnUntraced(function* (target: Target, { kerning = 0, tracking = 0, baselineShift = 0, marks = { x: 0, y: 0 } }: Adjust['deltas']) {
-    const [{ text }, offsets] = yield* Effect.all([Model, Effect.orDie(Schema.encodeEffect(HostSettings.fields.marks)(marks))]);
-    const amounts = Record.toEntries({ tracking: HostSettings.thousandths(tracking), baselineShift, ...offsets }).filter(([, amount]) => amount !== 0);
-    const sums = yield* Effect.try({
-        try: () => Array.map(text(target) ? target.textStyleRanges.everyItem().getElements() : [target], (run) => [run, Record.fromIterableWith(amounts, ([member, amount]) => [member, run[member] + amount])] as const),
-        catch: HostError.refused(`style runs of ${target.toSpecifier()}`),
-    });
-    const written = yield* Effect.forEach(sums, ([run, values]) => Change.write(run, values));
-    const kerned = kerning === 0 ? [] : yield* Effect.flatMap(textRange(target), (range) => kernBy(range, kerning));
-    return Array.dedupe(Array.flatten([...written, kerned]));
-});
-const writeKerns = Effect.fnUntraced(function* (text: Text, rows: Kerns['kerns']) {
-    const kerningAt = yield* manualKerning;
-    const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
-    const methods = yield* Effect.try({ try: () => text.insertionPoints.everyItem().kerningMethod, catch: refused });
-    const outOfRange = rows.filter(({ index }) => index >= methods.length);
-    yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `insertion point in 0 to ${methods.length - 1}`, query: Option.some(outOfRange.map(({ index }) => index).join(', ')) });
-    const unkerned = yield* Effect.try({ try: () => rows.filter(({ index }) => kerningAt(text.insertionPoints.item(index), methods[index]) === 0), catch: refused });
-    yield* Effect.forEach(unkerned, ({ index, em }) => Change.write(text.insertionPoints.item(index), { kerningValue: HostSettings.thousandths(em) }), { discard: true });
-    return unkerned.length;
-});
 
 // --- [HANDLERS]
 
 const adjust = Effect.fn('adjust')(function* (payload: Adjust) {
-    const target = yield* resolveTarget(payload.target);
-    return yield* commit(
+    const { kerning = 0, tracking = 0, baselineShift = 0, marks = { x: 0, y: 0 } } = payload.deltas;
+    const [{ text }, target, encoded] = yield* Effect.all([Model, resolveTarget(payload.target), Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks }))]);
+    const amounts = Record.toEntries({ tracking: encoded.tracking, baselineShift: encoded.baselineShift, ...encoded.marks }).filter(([, amount]) => amount !== 0);
+    const kerned = Effect.fnUntraced(function* (range: Text) {
+        const [kerningAt, point] = yield* Effect.all([manualKerning, pointAfterBase(range)]);
+        const current = yield* Effect.try({ try: () => kerningAt(point), catch: HostError.refused(`kerning of ${point.toSpecifier()}`) });
+        return yield* write(point, { kerningValue: current + encoded.kerning });
+    });
+    const sums = yield* Effect.try({
+        try: () => Array.map(text(target) ? target.textStyleRanges.everyItem().getElements() : [target], (run) => [run, Record.fromIterableWith(amounts, ([member, amount]) => [member, run[member] + amount])] as const),
+        catch: HostError.refused(`style runs of ${target.toSpecifier()}`),
+    });
+    return yield* written(
         payload.label,
-        Effect.map(adjustText(target, payload.deltas), (written) => ({ ...reference(target), written })),
+        target,
+        Effect.gen(function* () {
+            const summed = yield* Effect.forEach(sums, ([run, values]) => write(run, values));
+            const kerns = kerning === 0 ? [] : yield* Effect.flatMap(textRange(target), kerned);
+            return Array.dedupe(Array.flatten([...summed, kerns]));
+        }),
     );
 });
 const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
-    const text = yield* Effect.flatMap(resolveTarget(payload.target), textRange);
-    return yield* commit(
+    const [text, kerningAt, rows] = yield* Effect.all([Effect.flatMap(resolveTarget(payload.target), textRange), manualKerning, Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);
+    const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
+    return yield* written(
         payload.label,
-        Effect.map(writeKerns(text, payload.kerns), (written) => ({ ...reference(text), written })),
+        text,
+        Effect.gen(function* () {
+            const methods = yield* Effect.try({ try: () => text.insertionPoints.everyItem().kerningMethod, catch: refused });
+            const outOfRange = rows.filter(({ index }) => index >= methods.length);
+            yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `insertion point in 0 to ${methods.length - 1}`, query: Option.some(outOfRange.map(({ index }) => index).join(', ')) });
+            const unkerned = yield* Effect.try({ try: () => rows.filter(({ index }) => kerningAt(text.insertionPoints.item(index), methods[index]) === 0), catch: refused });
+            yield* Effect.forEach(unkerned, ({ index, kerning }) => write(text.insertionPoints.item(index), { kerningValue: kerning }), { discard: true });
+            return unkerned.length;
+        }),
     );
+});
+const runs = Effect.fn('runs')(function* (payload: Runs) {
+    const [{ textContainer }, text] = yield* Effect.all([Model, Effect.flatMap(resolveTarget(payload.target), textRange)]);
+    const container = text.parent;
+    const whole = yield* textContainer(container) ? Effect.succeed(container.texts.item(0)) : Unmatched.make({ subject: 'text container', query: Option.some(payload.target) });
+    const ranges = yield* Effect.try({
+        try: () => Array.map(whole.textStyleRanges.everyItem().getElements(), (run) => ({ text: Predicate.isString(run.contents) ? run.contents : LINE_FEED.repeat(run.length), font: run.appliedFont.name, axes: run.designAxes })),
+        catch: HostError.refused(`style ranges of ${whole.toSpecifier()}`),
+    });
+    return { ...(yield* Model.reference(container)), start: text.index, length: text.length, runs: ranges };
 });
 const typeset = Effect.fn('typeset')(function* (payload: Typeset) {
     const target = yield* resolveTarget(payload.target);
-    yield* Effect.transposeOption(Option.map(payload.settings, (settings) => commit(`Set ${Struct.keys(settings).join(', ')} of ${payload.target}`, HostSettings.write(target, settings))));
+    yield* Effect.transposeOption(Option.map(payload.settings, (settings) => commit(payload.label, HostSettings.write(target, settings))));
     return yield* HostSettings.read(target);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { adjust, adjustText, kerns, typeset, writeKerns };
+export { adjust, kerns, runs, typeset };

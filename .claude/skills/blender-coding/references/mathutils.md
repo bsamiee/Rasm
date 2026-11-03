@@ -51,7 +51,7 @@ Spatial questions take the member that answers them:
 `BVHTree.FromPolygons` takes positions and one index array per face. `overlap` returns face index pairs between trees built from `surface` results:
 
 ```python
-def touching(first: tuple[Buffer, Buffer, Buffer], second: tuple[Buffer, Buffer, Buffer], /) -> tuple[tuple[int, int], ...]:
+def touching(first: Surface, second: Surface, /) -> tuple[tuple[int, int], ...]:
     left, right = (BVHTree.FromPolygons(positions, np.split(corners, starts[1:].tolist())) for positions, corners, starts in (first, second))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     return tuple(left.overlap(right))
 ```

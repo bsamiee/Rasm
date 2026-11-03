@@ -93,12 +93,8 @@ def context_path(owner: Struct, name: str = "", /) -> Option[str]:
     return (
         catch(owner.path_from_module, exception=ValueError)(name)
         .to_option()
-        .filter(lambda path: " ... " not in path)
-        .bind(
-            lambda path: (
-                Some(f"blend_data.{path.removeprefix('bpy.data.')}") if path.startswith("bpy.data.") else Some(path.removeprefix("bpy.context.")) if path.startswith("bpy.context.") else Nothing
-            )
-        )
+        .filter(lambda path: " ... " not in path and path.startswith(("bpy.data.", "bpy.context.")))
+        .map(lambda path: f"blend_data.{path.removeprefix('bpy.data.')}" if path.startswith("bpy.data.") else path.removeprefix("bpy.context."))
     )
 
 

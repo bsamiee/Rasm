@@ -22,7 +22,7 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
     return accumulated(results)
 ```
 
-`accumulated` builds the non-empty tuple `Faults` requires in its `(head, *rest)` arm, and an empty batch returns `Ok(())`. `traverse`, `sequence`, `map2`, `apply`, and `pipeline` keep one error.
+`accumulated` builds the non-empty tuple `Faults` requires in its `(head, *rest)` arm, and an empty batch returns `Ok(())`.
 
 `priced` reads each line against a catalog and reports every unknown SKU at once. `Line` is a decoded record of `sku` and a `Meta`-bounded `count`:
 
@@ -63,7 +63,7 @@ Options combine where every part must be present. `collected` reads each part's 
 ```python
 def collected[T](options: Iterable[Option[T]], /) -> Option[tuple[T, ...]]:
     held = tuple(options)
-    values = tuple(chain.from_iterable(option.to_list() for option in held))
+    values = tuple(*option.to_list() for option in held)
     return Some(values) if len(values) == len(held) else Nothing
 ```
 

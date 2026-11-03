@@ -1,3 +1,4 @@
+import CasePaths
 import CustomDump
 import Subprocess
 import TestSupport
@@ -67,6 +68,25 @@ extension Integration {
             let failures: [Printed] = names.map(Printed.fail(key:))
             expectNoDifference(printed, failures)
             expectNoDifference(run.status, .exited(1))
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
+        func unknownNameFailsWhileWatchFollowsOthers() async throws {
+            let fixture: Fixture = try Fixture()
+            let missing: String = "\(absent).\(fixture.identifier)"
+            let (pid, transcript): (Int32, [WatchAppsLine]) = try await watching([missing, fixture.identifier]) { lines in
+                _ = try await lines.next { line in line.key == fixture.identifier }
+                let pid: Int32 = try await launch(fixture).pid
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
+                return pid
+            }
+            let failed: [Bool] = transcript.filter { line in line.key == missing }.map { line in line.entry.fail != nil }
+            let start: WatchAppsLine.Entry? = transcript.first { line in line.key == fixture.identifier }?.entry
+            let end: [Phase] = phases(of: pid, in: Array(transcript.suffix(1)))
+            expectNoDifference(failed, [true])
+            expectNoDifference(start, .instances([:]))
+            expectNoDifference(end, [.responding])
+            expectNoDifference(pids(in: Array(transcript.suffix(1))), [[pid]])
         }
     }
 }

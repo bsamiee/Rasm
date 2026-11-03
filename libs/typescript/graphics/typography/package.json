@@ -1,7 +1,7 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Font faces, text shaping, kerning, and justification",
+    "description": "OpenType typesetting, from font faces to composed text",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,14 +9,15 @@
     },
     "exports": {
         "./face": "./face.ts",
+        "./justification": "./justification.ts",
+        "./kerning": "./kerning.ts",
+        "./quran": "./quran.ts",
+        "./settings": "./settings.ts",
         "./shaped-text": "./shaped-text.ts",
         "./source": "./source.ts",
-        "./settings": "./composition/settings.ts",
-        "./words": "./text/words.ts",
-        "./kerning": "./composition/kerning.ts",
-        "./justification": "./composition/justification.ts",
-        "./quran": "./text/quran.ts",
-        "./symbols": "./text/symbols.ts"
+        "./symbols": "./symbols.ts",
+        "./typography-error": "./typography-error.ts",
+        "./word": "./word.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

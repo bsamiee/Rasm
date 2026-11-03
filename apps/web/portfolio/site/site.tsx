@@ -1,6 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
 import { User } from '@rasm/hosting/user';
-import { openDialogs } from '@rasm/ui/dialog/open';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { flow, Option, Schema } from 'effect';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
@@ -8,31 +7,37 @@ import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MediaFigure } from '#/media/media-figure';
-import type { Session } from '#/model/bootstrap';
-import type { PortfolioData } from '#/model/portfolio';
-import { Chapter } from '#/site/chapter';
-import { useNavigation } from '#/site/navigation';
-import { StickyBar, WorkIndex } from '#/site/work-index';
+import { details } from '#/media/labels.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import type { Bootstrap } from '#/model/bootstrap.ts';
+import type { PortfolioData } from '#/model/portfolio.ts';
+import { sites } from '#/model/sites.ts';
+import { Chapter } from '#/site/chapter.tsx';
+import { Fragment, useNavigation } from '#/site/navigation.ts';
+import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const edit = 'edit';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const EditRequest = Schema.fromURLSearchParams(Schema.Struct({ edit: Schema.String }));
+const Editing = Schema.fromURLSearchParams(Schema.Struct({ [edit]: Schema.String }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Editor = lazy(() => import('#/editor/editor').then((module) => ({ default: module.Editor })));
-const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; session: typeof Session.Type }) => {
-    const [published, setPublished] = useState(initial);
+const Editor = lazy(() => import('#/editor/editor.tsx').then((module) => ({ default: module.Editor })));
+const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
+    const [published, setPublished] = useState(served);
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
     const requested = useSyncExternalStore(
         () => () => undefined,
-        () => session === 'owner' && Option.isSome(Schema.decodeOption(EditRequest)(new URLSearchParams(location.search))),
+        () => session === 'owner' && Option.isSome(Schema.decodeOption(Editing)(new URLSearchParams(location.search))),
         () => false,
     );
     const [toggled, setToggled] = useState(Option.none<boolean>());
     const open = Option.getOrElse(toggled, () => requested);
-    const modalOpen = useAtomValue(openDialogs, (count) => count > 0);
+    const modalOpen = useAtomValue(ModalOverlay.open, (count) => count > 0);
     const opener = useRef<HTMLButtonElement>(null);
     const work = useRef<HTMLElement>(null);
     const sticky = useRef<HTMLDivElement>(null);
@@ -46,11 +51,11 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
     }, [requested]);
     return (
         <MotionConfig reducedMotion="user">
-            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href="#work">
+            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href={Fragment.work}>
                 Skip to work
             </a>
             <header className="site-header">
-                <a className="site-name" href="#top">
+                <a className="site-name" href={Fragment.top}>
                     {portfolio.name || 'Portfolio'}
                     <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
                 </a>
@@ -97,7 +102,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? User.path('signout', '/') : User.path('signin', '/?edit=1')} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? User.href(sites, 'signout', '/') : User.href(sites, 'signin', `/?${edit}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}
@@ -106,7 +111,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
                 {Option.isSome(preview) && (
                     <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
-                        <span className="max-sm:w-full">Private preview · snapshot</span>
+                        <span className="max-sm:w-full">{details(['Private preview', 'snapshot'])}</span>
                         <Button
                             className="button button-outline ml-auto max-sm:ml-0"
                             onPress={() => {
@@ -136,7 +141,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             <div className="flex flex-col items-start gap-4">
                                 <p className="lead empty:hidden">{portfolio.introduction}</p>
                                 {populated && (
-                                    <a className="plain-link gap-1.5 text-sm" href="#work">
+                                    <a className="plain-link gap-1.5 text-sm" href={Fragment.work}>
                                         View work
                                         <ArrowDown className="size-3" />
                                     </a>
@@ -150,7 +155,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             </div>
                         ) : (
                             <div className="media-h-hero flex min-w-0 justify-center">
-                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} />
+                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} renderMedia={true} />
                             </div>
                         )}
                     </section>
@@ -176,7 +181,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             Contact
                         </a>
                     )}
-                    <a className="plain-link ml-auto gap-1" href="#top">
+                    <a className="plain-link ml-auto gap-1" href={Fragment.top}>
                         Back to top
                         <ArrowUp className="size-5" />
                     </a>

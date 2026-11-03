@@ -9,8 +9,7 @@ import bpy
 from expression import Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import called, Placement, PopupKind, PopupTarget, Setting
-from blender.bpy.commands.operators import Answer, Done
+from blender.bpy.commands.operators import Answer, called, Done, operation, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.data.rna.conditions import Scenes
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rooted
@@ -28,7 +27,7 @@ from blender.bpy.ui.layout.templates import ImageFormat, Preview, Shortcut, whee
 from blender.bpy.ui.layout.values import Listing, Store, StoreCommand
 from blender.records.faults import Outcome
 
-from .commands import COUNTED, KEYS, operation
+from .commands import COUNTED, KEYS
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -212,7 +211,7 @@ def sectioned(identity: Identity) -> dict[str, object]:
     """Realizes sections with and without a header boolean, a store, and holders of each kind."""
 
     def parts[G: bpy.types.PropertyGroup](section: Section[G]) -> object:
-        return section.realized(identity).map(lambda draws: (draws.head.is_some(), draws.tail.is_some()))
+        return section.realized(identity).map(lambda draws: (draws.draw_header.is_some(), draws.draw_header_preset.is_some()))
 
     return {
         "plain": parts(Section(key="plain", rows=(Label(text="Fixture"),))),
@@ -249,14 +248,14 @@ def stored(identity: Identity) -> dict[str, object]:
 
     def ran(command: StoreCommand, values: Mapping[str, Setting]) -> object:
         with bpy.context.temp_override(fixture_look=scene):
-            return called(operation(identity, commands[command]), values)
+            return operation(identity, commands[command]).bind(lambda found: called(found, values))
 
     look.exposure = 2.0
     reset = (ran(StoreCommand.RESET, {}), look.exposure)
     older = (ran(StoreCommand.RESTORE, {"offset": 1}), look.exposure)
     newer = (ran(StoreCommand.RESTORE, {"offset": -1}), look.exposure)
     unchanged = ran(StoreCommand.RESET, {})
-    unhosted = called(operation(identity, commands[StoreCommand.RESET]), {})
+    unhosted = operation(identity, commands[StoreCommand.RESET]).bind(lambda found: called(found, {}))
     return {"commands": tuple(sorted(command.name for command in commands)), "reset": reset, "older": older, "newer": newer, "unchanged": unchanged, "unhosted": unhosted}
 
 
@@ -266,7 +265,7 @@ def preset(identity: Identity) -> dict[str, object]:
     commands = LISTING.commands
 
     def ran(command: StoreCommand, values: Mapping[str, Setting]) -> tuple[object, int]:
-        return called(operation(identity, commands[command]), values), int(scene.get(TONE, 0))
+        return operation(identity, commands[command]).bind(lambda found: called(found, values)), int(scene.get(TONE, 0))
 
     applied = ran(StoreCommand.APPLY, {"stem": "soft"})
     following = ran(StoreCommand.STEP, {"offset": 1})

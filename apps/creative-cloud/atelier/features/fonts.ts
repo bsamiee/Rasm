@@ -1,74 +1,71 @@
 import { Automation } from '@rasm/automation/automation';
-import { AvailableFace } from '@rasm/automation/contract';
-import { Contract } from '@rasm/indesign/host';
-import { registerResource } from '@rasm/mcp/resource';
-import { registerRoutedTool } from '@rasm/mcp/tool';
+import { AvailableFace } from '@rasm/automation/available-face';
+import { Font } from '@rasm/indesign/contract';
+import { Resource } from '@rasm/mcp/resource';
+import { Route } from '@rasm/mcp/route';
 import { Face } from '@rasm/typography/face';
 import { Justification } from '@rasm/typography/justification';
 import { Settings } from '@rasm/typography/settings';
 import { ShapedText } from '@rasm/typography/shaped-text';
 import type { Source } from '@rasm/typography/source';
-import { Array, Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream, Struct } from 'effect';
+import { Effect, FileSystem, Option, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
-import type { Rpc, RpcGroup } from 'effect/rpc';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const specimen = Schema.Struct({
+const Specimen = Schema.Struct({
     face: Face,
-    shaped: ShapedText.annotate({ description: 'Em positions, not application composition or document coordinates' }),
-    justified: Schema.OptionFromOptionalKey(Justification.mapFields(Struct.omit(['shaped'])).annotate({ description: 'Absent without width' })),
+    shaped: Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width' }),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>['resolve']>>['client'], name: string, text: string) {
+    const files = yield* FileSystem.FileSystem;
+    const { view, source } = yield* client('font', { name, text, file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
+    const read = Option.map(source, ({ file, postscriptName }) => Effect.map(files.readFile(file), (data): typeof Source.Type => ({ data, postscriptName })));
+    return { view, source: yield* Effect.transposeOption(read) };
+}, Effect.scoped);
 const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: typeof ShapedText.Run.Type, width: Option.Option<number>, settings: Settings) {
     const face = yield* Face.open(source, instance);
-    const justified = Option.map(width, (line) => Justification.justify(face, run, line, settings));
-    return {
-        face,
-        shaped: Option.match(justified, { onNone: () => ShapedText.of(face, run, settings), onSome: Struct.get('shaped') }).offsetMarks(settings.marks),
-        justified: Option.map(justified, Struct.omit(['shaped'])),
-    };
+    return { face, shaped: Option.match(width, { onNone: () => ShapedText.of(face, run, settings), onSome: (line) => Justification.of(face, run, line, settings) }) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const faces = Automation.use((automation) => registerResource({ path: 'faces', name: 'faces', description: 'CoreText faces with file holding each', mimeType: 'application/json', schema: Schema.Array(AvailableFace), changes: Stream.empty, content: automation.faces() }));
+const faces = Automation.use((automation) => Resource.register({ name: 'faces', description: 'CoreText faces with file holding each', schema: Schema.Array(AvailableFace), changes: Stream.empty, content: automation.faces() }));
 const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
-    const [automation, path, files] = yield* Effect.all([Automation, Path.Path, FileSystem.FileSystem]);
-    const route = serving('font');
-    const { successSchema } = yield* Effect.fromOption(Array.findFirst([...Contract.requests.values()], (rpc): rpc is Rpc.ExtractTag<RpcGroup.Rpcs<typeof Contract>, 'font'> => rpc._tag === 'font'));
-    const tool = Tool.make('font', {
-        description: 'Shapes text in named face or instance, with application returns its font view',
+    const [automation, route] = [yield* Automation, serving('font')];
+    const tool = Tool.make(route.tag, {
+        description: 'Shapes text in CoreText face or instance by name, or returns application font view with its specimen when application is given',
         parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
                 ...ShapedText.Run.fields,
                 text: ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-                name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or application font name or specifier` }),
+                name: AvailableFace.Name.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or application font name or specifier` }),
                 width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
                 settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
-        success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...successSchema.fields.view.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),
+        success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen: Specimen }), Schema.Struct({ ...Font.Result.fields.view.fields, specimen: Schema.OptionFromOptionalKey(Specimen) })]),
     }).annotate(Tool.Readonly, true);
     const typeset = Effect.fnUntraced(function* ({ name, variations, size, width, settings: given, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) {
-        const settings = Settings.make(given);
-        const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.flatMap(files.readFile(file), (data) => composed({ data, postscriptName }, { variations, size }, run, width, settings));
+        const settings = yield* Settings.merge(Settings.make({}), given);
+        const shaped = (source: typeof Source.Type) => composed(source, { variations, size }, run, width, settings);
         const native = Effect.fnUntraced(function* ({ client }: Effect.Success<ReturnType<typeof route.resolve>>) {
-            const { view, source } = yield* client('font', { name, text: run.text, file: path.join(yield* files.makeTempDirectoryScoped(), 'subset.otf') });
-            return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, read)) };
-        }, Effect.scoped);
+            const { view, source } = yield* applicationFont(client, name, run.text);
+            return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, shaped)) };
+        });
         const shaping = Effect.gen(function* () {
             const found = yield* automation.face({ name });
-            return { ...found, specimen: yield* read({ file: yield* path.fromFileUrl(found.file), postscriptName: Option.some(found.postscriptName) }) };
+            return { ...found, specimen: yield* Effect.flatMap(AvailableFace.source(found), shaped) };
         });
         return yield* Option.match(chosen, { onNone: () => shaping, onSome: native });
     });
-    yield* registerRoutedTool(route.optional('CoreText'))(tool, typeset);
+    yield* Route.register(route.optional('CoreText'))(tool, typeset);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { faces, font };
+export { applicationFont, faces, font };

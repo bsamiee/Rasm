@@ -1,13 +1,13 @@
 import { Schema, Struct } from 'effect';
 import { Application, placings } from '#/precondition';
-import { Opened, Placed, type Survey, Template } from '#/rhino/contract';
+import { culture, Opened, Placed, type Survey, Template } from '#/rhino/contract';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const precondition = (survey: typeof Survey.Type) => {
-    const parts = survey.language.culture.split('-').filter((part) => part !== '');
+    const parts = survey.host.language.culture.split('-').filter((part) => part !== '');
     const ancestry = parts.map((_, index) => parts.slice(0, parts.length - index).join('-'));
-    const language = { language: Schema.optionalKey(Schema.Literals(ancestry).annotate({ description: 'Culture the instance runs or one of its parents' })) };
+    const language = { language: culture(Schema.Literals(ancestry)) };
     const placed = { ...Struct.omit(Placed.fields, ['source', 'language']), ...language };
     const scripted = { ...Struct.pick(Placed.fields, ['canvas', 'steps', 'batch']), ...language };
     return placings(

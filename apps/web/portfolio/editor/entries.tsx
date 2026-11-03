@@ -5,28 +5,28 @@ import { Field } from '@rasm/ui/form/field';
 import { Array, Optic, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
-import { Button, type Key } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { draft, portfolio, updateEntry } from '#/editor/state';
-import { Destination, pendingUploads } from '#/editor/uploader';
-import { details, entryTitle, format } from '#/media/labels';
-import { Entry } from '#/model/portfolio';
+import { Button } from 'react-aria-components';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { draft, portfolio, updateEntry } from '#/editor/state.ts';
+import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
+import { choice, details, entryTitle, format } from '#/media/labels.ts';
+import { Entry, type EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: string | undefined; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
+const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: typeof EntryId.Type | undefined; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
     const setDraft = useAtomSet(draft);
-    const setTarget = useAtomSet(Destination);
+    const setTarget = useAtomSet(nextDestination);
     const pending = useAtomValue(pendingUploads);
-    const locked = (keys: ReadonlySet<Key>) => pending.some((target) => target.kind === 'entry' && keys.has(target.id));
-    const remove = (keys: ReadonlySet<Key>) => {
+    const locked = (keys: ReadonlySet<string>) => pending.some((target) => Destination.$is('Entry')(target) && keys.has(target.id));
+    const remove = (keys: ReadonlySet<string>) => {
         setDraft(AsyncResult.map(portfolio.key('entries').modify(Array.filter((candidate) => !keys.has(candidate.id)))));
-        setTarget((target) => (target.kind === 'entry' && keys.has(target.id) ? { kind: 'library' } : target));
+        setTarget((target) => (Destination.$is('Entry')(target) && keys.has(target.id) ? Destination.Library() : target));
         onRemove();
     };
     return (
         <ReorderableList
-            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={`Remove ${format.quantity(keys.size, { one: 'selected entry', other: 'selected entries' })}`} onConfirm={() => remove(keys)} />}
+            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={`Remove ${format.quantity(keys.size, { one: (count) => `${count} selected entry`, other: (count) => `${count} selected entries` })}`} onConfirm={() => remove(keys)} />}
             aria-label="Projects and studies"
             className="editor-sequence"
             items={entries}
@@ -38,7 +38,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
                 <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
                     <Button aria-pressed={selected === item.id} className="aria-pressed:text-accent-text min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
                         {entryTitle(item)}
-                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: 'composition', other: 'compositions' })}</span>
+                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
                     <ConfirmDialog disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>
@@ -56,7 +56,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
             <div className="flex flex-col gap-5 py-3">
                 <div className="field-pair">
                     <Field id={titleId} label="Title" onChange={(title) => update({ title })} value={entry.title} />
-                    <Choice label="Entry type" onChange={({ id }) => update({ kind: id })} options={Entry.fields.kind.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={entry.kind} />
+                    <Choice {...choice} label="Entry type" onChange={({ id }) => update({ kind: id })} options={Entry.fields.kind.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={entry.kind} />
                 </div>
                 <div className="flex flex-col gap-4.5">
                     <div className="field-pair">

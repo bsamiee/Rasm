@@ -1,4 +1,4 @@
-"""Seeded draws, seamless noise tiles, and lens kernels: draw streams, stable uniforms per key, filtered Gaussian tiles, centered rank tiles of provider images, tile statistics, seeded 1/f lens dirt, and spectral diffraction point spreads."""
+"""Seeded draws, seamless noise tiles, and lens kernels."""
 
 from fractions import Fraction
 import math
@@ -48,32 +48,32 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
         aspect = Fraction(pixel_aspect)
         sampling = Fraction(1.22 * 550.0) / (Fraction(self.core) * max(Fraction(frame[0]), frame[1] * aspect) * side)
         edges = np.linspace(-1.0, 1.0, side + 1)
+        pupil = self.iris.coverage(self.squeeze * edges, -edges)
 
-        def computed(weights: npt.NDArray[np.float64]) -> npt.NDArray[np.float32]:
-            pupil = self.iris.coverage(self.squeeze * edges, -edges)
+        def axis(extent: int, frequency: Fraction) -> tuple[ZoomFFT, npt.NDArray[np.float64]]:
+            count = 2 * extent - 1
+            step = float(frequency - round(frequency))
+            first = float((-(extent - 1) * frequency) % 1)
+            offsets = np.arange(-(extent - 1), extent, dtype=np.float64)
+            phase = np.remainder(offsets * step + 0.5, 1.0) - 0.5
+            footprint = np.asarray(
+                np.sinc(offsets * float(frequency)) if frequency <= 1 else np.divide(np.sinc(phase) * phase * float(1 / frequency), offsets, out=np.ones_like(offsets), where=offsets != 0.0),
+                dtype=np.float64,
+            )
+            return ZoomFFT(side, (first, first + count * step), m=count, fs=1.0), footprint
 
-            def axis(extent: int, frequency: Fraction) -> tuple[ZoomFFT, npt.NDArray[np.float64]]:
-                count = 2 * extent - 1
-                step = float(frequency - round(frequency))
-                first = float((-(extent - 1) * frequency) % 1)
-                offsets = np.arange(-(extent - 1), extent, dtype=np.float64)
-                phase = np.remainder(offsets * step + 0.5, 1.0) - 0.5
-                footprint = np.asarray(
-                    np.sinc(offsets * float(frequency)) if frequency <= 1 else np.divide(np.sinc(phase) * phase * float(1 / frequency), offsets, out=np.ones_like(offsets), where=offsets != 0.0),
-                    dtype=np.float64,
-                )
-                return ZoomFFT(side, (first, first + count * step), m=count, fs=1.0), footprint
+        def spread(wavelength: np.float64) -> npt.NDArray[np.float64]:
+            frequency = sampling / int(wavelength)
+            horizontal, xfootprint = axis(size[1], frequency * aspect)
+            vertical, yfootprint = axis(size[0], frequency)
+            power = abs(vertical(horizontal(pupil, axis=1), axis=0) * yfootprint[:, None] * xfootprint[None, :]) ** 2
+            return np.asarray(power / power.sum(), dtype=np.float64)
 
-            def spread(wavelength: np.float64) -> npt.NDArray[np.float64]:
-                frequency = sampling / int(wavelength)
-                horizontal, xfootprint = axis(size[1], frequency * aspect)
-                vertical, yfootprint = axis(size[0], frequency)
-                power = abs(vertical(horizontal(pupil, axis=1), axis=0) * yfootprint[:, None] * xfootprint[None, :]) ** 2
-                return np.asarray(power / power.sum(), dtype=np.float64)
-
-            return sum((np.multiply.outer(spread(wavelength), weight) for wavelength, weight in zip(rows[:, 0].flat, weights)), start=np.zeros(shape, dtype=np.float64)).astype(np.float32)
-
-        return matching(config, PyOpenColorIO.ROLE_SCENE_LINEAR, rows[:, 1:]).map(lambda weights: Some(computed(weights)))
+        return matching(config, PyOpenColorIO.ROLE_SCENE_LINEAR, rows[:, 1:]).map(
+            lambda weights: Some(
+                sum((np.multiply.outer(spread(wavelength), weight) for wavelength, weight in zip(rows[:, 0].flat, weights)), start=np.zeros(shape, dtype=np.float64)).astype(np.float32)
+            )
+        )
 
 
 class Specks(msgspec.Struct, frozen=True, kw_only=True):
@@ -99,10 +99,7 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def stream(*parts: object) -> int:
-    """Returns the draw stream of a key path, below 2**24 so a float32 node coordinate holds it exactly.
-
-    Record fields key by their member descriptor's struct and name, kinds by their qualified name, and integers by their text, parts typed over `object` as checkers read a field on its struct class as the field's value.
-    """
+    """Returns the draw stream of a key path within the float32 significand, record fields keyed by struct and name, kinds by qualified name, and integers by text."""
 
     def spelled(part: object) -> str:
         match part:
@@ -113,7 +110,7 @@ def stream(*parts: object) -> int:
             case _:
                 return str(part)
 
-    return int.from_bytes(content_hash(np.random.SeedSequence, msgspec.msgpack.encode(tuple(map(spelled, parts))))[:3], "little")
+    return int.from_bytes(content_hash(np.random.SeedSequence, msgspec.msgpack.encode(tuple(map(spelled, parts))))[: (np.finfo(np.float32).nmant + 1) // 8], "little")
 
 
 def uniforms(keys: npt.NDArray[np.int64], stream: int, count: int, *, seed: int = 0) -> npt.NDArray[np.float64]:

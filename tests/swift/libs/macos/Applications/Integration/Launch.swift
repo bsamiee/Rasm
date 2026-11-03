@@ -73,14 +73,13 @@ extension Integration {
             let refusing: Settings = Settings(scenario: .singleInstance, hidden: true, status: 3)
             let (installation, first): (Installation, NSRunningApplication) = try await launched(refusing)
             let second: NSRunningApplication = try await NSWorkspace.shared.launch(installation, configuration: configuration(refusing, new: true)).instance
-            let asked: [Observed] = try await observe(second, within: .seconds(20), until: { seen in seen.last?.state.asking != nil })
-            let alert: Element = try #require(asked.last?.state.asking)
+            let asked: [InstanceState] = try await observe(second, until: { seen in seen.last?.asking != nil })
+            let alert: Element = try #require(asked.last?.asking)
             let refused: Bool = alert.detail?.text.contains("Another instance is running") == true
             #expect(refused, "alert text \(alert.detail?.text ?? [])")
             let ok: Control = try #require(alert.detail?.controls.first { control in control.identifier == "action-button-1" })
-            let answered: [Observed] = try await observe(
+            let answered: [InstanceState] = try await observe(
                 second,
-                within: .seconds(20),
                 until: { _ in false },
                 acting: { try await ElementAction.perform(element: ok.id, action: kAXPressAction).perform() },
             )

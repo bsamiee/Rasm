@@ -1,10 +1,9 @@
 import { Schema, Struct } from 'effect';
 import { Page, Staged } from '#/acrobat/contract';
-import { Application, many, placings } from '#/precondition';
+import { Application, many, Open, placings } from '#/precondition';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Open = Schema.NonEmptyString.annotate({ description: 'Document path under the product folder, its copy opened with a window' });
 const rows = Struct.omit(Staged.fields, ['documents']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

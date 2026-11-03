@@ -6,7 +6,7 @@ import bpy
 from expression import Ok, Option, Some
 import numpy as np
 
-from blender.bpy.commands.operators import Answer, Call, Done
+from blender.bpy.commands.operators import Answer, Call, Done, operation
 from blender.bpy.extension.identity import Identity
 from blender.bpy.ui.elements.panels import Sidebar
 from blender.bpy.ui.images.views import Edges, FrameRegion, Masks, overlaid, Picked, picking, RenderView, RESULT, Tint, viewing
@@ -14,7 +14,7 @@ from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.geometry.frames import Quad, Region
 from blender.records.faults import Outcome
 
-from .commands import described, operation
+from .commands import described
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ def viewed(identity: Identity) -> dict[str, object]:
     return {
         "command": bpy.types.Operator.bl_rna_get_subclass_py("FIXTURE_OT_show_render_view") is not None,
         "viewing": viewing(bpy.context).map(lambda at: at.area.type),
-        "operation": callable(operation(identity, WINDOW.command)),
+        "operation": operation(identity, WINDOW.command).is_ok(),
     }
 
 

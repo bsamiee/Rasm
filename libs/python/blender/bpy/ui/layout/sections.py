@@ -1,8 +1,7 @@
-"""Sections over the drawing holder, a bound member, the item a list highlights, or each collection item, with store values popovers and form fields."""
+"""Sections drawn as panels or layout panels over the holder they reach."""
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
-from itertools import starmap
 from types import MappingProxyType
 from typing import Any, Final
 
@@ -12,7 +11,7 @@ import msgspec
 import rna_prop_ui
 
 from blender.bpy.commands import operators
-from blender.bpy.commands.calls import PopupKind, PopupTarget
+from blender.bpy.commands.operators import PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import context_path, definition, root_in, Struct
@@ -111,56 +110,47 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
         return Ok((*(declaration for member in members for declaration in member.prerequisites), *acquired((*self.store.to_list(), *self.children))))
 
     def realized(self, identity: Identity) -> "Outcome[SectionDraws]":
-        """Realizes the layout panel name, header boolean, header rows, store parts, body rows, holder reach, and absent rows once."""
+        """Realizes the layout panel name, header boolean, store parts, header, body, and absent rows, and the holder reach once."""
 
-        def holding() -> Outcome[tuple[_Holders, bool, Option[str]]]:
+        def holding() -> Outcome[_Holders]:
             match self.holder.to_optional():
                 case None:
-                    return Ok((lambda holder, _context: (holder,), False, Nothing))
+                    return Ok(lambda holder, _context: (holder,))
                 case Member() as member:
-                    return member.realized(identity).map(lambda bound: (partial(_held, bound), False, Nothing))
+                    return member.realized(identity).map(lambda bound: partial(_held, bound))
                 case ItemList() as listed:
-                    return listed.picked(identity).map(lambda pointer: (pointer, False, Nothing))
+                    return listed.picked(identity)
                 case Items(collection=collection, expanded=expanded):
-                    return collection.realized(identity, bpy.types.CollectionProperty).bind(lambda bound: flagged(bound, expanded).map(lambda flag: (partial(_held, bound), True, flag)))
+                    return collection.realized(identity, bpy.types.CollectionProperty).bind(lambda bound: flagged(bound, expanded).map(lambda _: partial(_held, bound)))
 
-        def flagged(bound: ResolvedMember[bpy.types.CollectionProperty], expanded: Option[str]) -> Outcome[Option[str]]:
+        def flagged(bound: ResolvedMember[bpy.types.CollectionProperty], expanded: Option[str]) -> Outcome[None]:
             match bound.descriptor.prop.fixed_type, expanded.to_optional():
                 case bpy.types.bpy_struct() as item, str(name):
-                    return Descriptor.resolve(type(item), (name,), bpy.types.BoolProperty).map(lambda held: Some(held.prop.identifier))
+                    return Descriptor.resolve(type(item), (name,), bpy.types.BoolProperty).map(lambda _: None)
                 case _:
-                    return Ok(Nothing)
+                    return Ok(None)
 
         def stored(store: Store[T]) -> Outcome[_Stored]:
             owner = store.attachment.owner
-            host = store.host.map(lambda member: member.realized(identity).bind(lambda bound: bound.accepts((owner,))).map(Some)).default_value(Ok(Nothing))
+            host = store.host.map(lambda member: member.realized(identity, kinds=(owner,)).map(Some)).default_value(Ok(Nothing))
             buttons = (
                 Opens(target=PopupTarget(store.panel, PopupKind.PANEL), keywords={"text": ""}, icon=Some("PRESET")),
                 OperatorButton(target=store.commands[StoreCommand.RESET], keywords={"text": ""}),
             )
-            return paired(store.attached(identity), host, realized(buttons, identity), realized(fields(store.attachment.form, store.attachment.key, store.fields), identity)).map(
+            return paired(store.attachment.bound(identity), host, realized(buttons, identity), realized(fields(store.attachment.form, store.attachment.key, store.fields), identity)).map(
                 lambda parts: (parts[0], partial(_host, parts[1], owner), parts[2], parts[3])
             )
 
-        gate = self.enable.map(lambda member: paired(member.realized(identity, bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)).default_value(
-            Ok(Nothing)
-        )
+        def built(name: str, enable: Option[tuple[ResolvedMember, RowDraw]], store: Option[_Stored], drawn: tuple[RowDraw, RowDraw, RowDraw], reach: _Holders) -> SectionDraws:
+            header, rows, absent = drawn
+            return SectionDraws(section=self, name=name, enable=enable, store=store, header=header, rows=rows, absent=absent, reach=reach)
+
+        enable = self.enable.map(
+            lambda member: paired(member.realized(identity, bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)
+        ).default_value(Ok(Nothing))
         store = self.store.map(lambda held: stored(held).map(Some)).default_value(Ok(Nothing))
-        parts = paired(realized(self.header, identity), realized(self.rows, identity), realized(self.absent, identity))
-        return paired(identity.identifier(self.key), gate, store, parts, holding()).map(
-            lambda found: SectionDraws(
-                section=self,
-                name=found[0],
-                gate=found[1],
-                store=found[2],
-                header=Some(found[3][0]).filter(lambda _: bool(self.header)),
-                rows=found[3][1],
-                absent=Some(found[3][2]).filter(lambda _: bool(self.absent)),
-                reach=found[4][0],
-                itemized=found[4][1],
-                expanded=found[4][2],
-            )
-        )
+        drawn = paired(realized(self.header, identity), realized(self.rows, identity), realized(self.absent, identity))
+        return paired(identity.identifier(self.key), enable, store, drawn, holding()).map(lambda found: built(*found))
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the section as a layout panel per holder in a drawing layout, which the host refuses in menus, pies, and code-built popovers."""
@@ -168,107 +158,110 @@ class Section[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froz
 
 
 class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
-    """Realized section that a panel and a layout panel both draw: layout panel name, header boolean, header rows, store parts, body rows, holder reach, and the per-item panels of a collection section."""
+    """Realized section that a panel and a layout panel both draw."""
 
     section: Section[Any]
     name: str
-    gate: Option[tuple[ResolvedMember, RowDraw]]
+    enable: Option[tuple[ResolvedMember, RowDraw]]
     store: Option[_Stored]
-    header: Option[RowDraw]
+    header: RowDraw
     rows: RowDraw
-    absent: Option[RowDraw]
+    absent: RowDraw
     reach: _Holders
-    itemized: bool
-    expanded: Option[str]
+
+    @property
+    def itemized(self) -> bool:
+        """Whether the section draws one layout panel per collection item."""
+        return isinstance(self.section.holder.to_optional(), Items)
 
     # --- [PANEL]
 
     @property
-    def head(self) -> Option[RowDraw]:
+    def draw_header(self) -> Option[RowDraw]:
         """Panel header boolean over the holder the context reaches, none for a collection section."""
-        return self.gate.filter(lambda _: not self.itemized).map(lambda gate: partial(self.over, gate[1]))
+        return self.enable.filter(lambda _: not self.itemized).starmap(lambda _, draw: partial(self.reached, draw))
 
     @property
-    def tail(self) -> Option[RowDraw]:
+    def draw_header_preset(self) -> Option[RowDraw]:
         """Panel header rows and store buttons over the holder the context reaches, none for a collection section."""
-        return Some(partial(self.over, self.trailed)).filter(lambda _: not self.itemized and (self.header.is_some() or self.store.is_some()))
+        return Some(partial(self.reached, self.header_preset)).filter(lambda _: not self.itemized and bool(self.section.header or self.store.is_some()))
 
     @property
-    def body(self) -> RowDraw:
+    def draw(self) -> RowDraw:
         """Panel body over the holder the context reaches, every item's layout panel for a collection section."""
-        return self.shown if self.itemized else self.paneled
+        return self.shown if self.itemized else self.panel
 
     def present(self, context: bpy.types.Context) -> bool:
         """Whether the panel draws: absent rows declared or a holder reached."""
-        return self.absent.is_some() or bool(self.reach(context, context))
+        return bool(self.section.absent) or bool(self.reach(context, context))
 
-    def over(self, draw: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def reached(self, draw: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws a panel header part over the holder the context reaches, dimmed while the condition fails."""
         for holder in self.reach(context, context):
             self.dimmed(layout, holder, context)
             draw(layout, holder, context)
 
-    def paneled(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def panel(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the panel body over the holder the context reaches, dimmed while the condition fails, absent rows while none is reached."""
         for holder in self.holders(layout, context, context):
             self.dimmed(layout, holder, context)
-            self.inner(layout, holder, context)
+            self.body(layout, holder, context)
 
     # --- [LAYOUT_PANEL]
 
     def shown(self, layout: bpy.types.UILayout, outer: Struct, context: bpy.types.Context) -> None:
-        """Draws one layout panel per reached holder, absent rows while none is reached: header boolean, title, right-aligned header rows, then the open body, dimmed while the condition fails."""
+        """Draws one layout panel per reached holder, absent rows while none is reached, the header holding the boolean, title, and right-aligned header rows."""
         for index, holder in enumerate(self.holders(layout, outer, context)):
             (drawn, body), title, translate = self.opened(layout, holder, index)
             for header in Option.of_optional(drawn).to_list():
                 self.dimmed(header, holder, context)
-                for _, gate in self.gate.to_list():
-                    gate(header, holder, context)
+                for _, enable in self.enable.to_list():
+                    enable(header, holder, context)
                 header.label(text=title, text_ctxt=self.section.translation_context, translate=translate)
                 right = header.row(align=True)
                 right.alignment = "RIGHT"
-                self.trailed(right, holder, context)
+                self.header_preset(right, holder, context)
             for opened in Option.of_optional(body).to_list():
                 self.dimmed(opened, holder, context)
-                self.inner(opened, holder, context)
+                self.body(opened, holder, context)
 
     def opened(self, layout: bpy.types.UILayout, holder: Struct, index: int) -> tuple[tuple[bpy.types.UILayout | None, bpy.types.UILayout | None], str, bool]:
-        """Opens a holder's layout panel with its title and whether it translates: the section's panel, or an item's through its boolean or a region key per item under its untranslated name, the header absent where the host finds no boolean."""
+        """Opens a holder's layout panel, returning its header and body layouts, title, and whether the title translates."""
         section = self.section
-        if not self.itemized:
-            return layout.panel(self.name, default_closed=not section.opened), section.label, True
-        panel = self.expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(
-            lambda: layout.panel(f"{self.name}_{holder.session_uid if isinstance(holder, bpy.types.ID) else index}", default_closed=not section.opened)
-        )
-        named = Option.of_optional(definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
-        return (panel, *named.default_value((section.label, True)))
+        match section.holder.to_optional():
+            case Items(expanded=expanded):
+                panel = expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(
+                    lambda: layout.panel(f"{self.name}_{holder.session_uid if isinstance(holder, bpy.types.ID) else index}", default_closed=not section.opened)
+                )
+                named = Option.of_optional(definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
+                return (panel, *named.default_value((section.label, True)))
+            case _:
+                return layout.panel(self.name, default_closed=not section.opened), section.label, True
 
     # --- [PARTS]
 
     def holders(self, layout: bpy.types.UILayout, outer: Struct, context: bpy.types.Context) -> tuple[Struct, ...]:
         """Holders the outer holder reaches, drawing the absent rows while it reaches none."""
         if not (found := self.reach(outer, context)):
-            for absent in self.absent.to_list():
-                absent(layout, outer, context)
+            self.absent(layout, outer, context)
         return found
 
-    def trailed(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def header_preset(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the header rows, then the unembossed store buttons under the host pointer, in one aligned row."""
-        if self.header.is_none() and self.store.is_none():
+        if not self.section.header and self.store.is_none():
             return
         line = layout.row(align=True)
-        for draw in self.header.to_list():
-            draw(line, holder, context)
+        self.header(line, holder, context)
         for attached, hosting, buttons, _ in self.store.to_list():
             for host in hosting(holder, context).to_list():
                 line.emboss = "NONE"
                 line.context_pointer_set(attached.name, host)
                 buttons(line, holder, context)
 
-    def inner(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def body(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the body dimmed while the header boolean is off: the store host as context pointer, the rows, then the store fields over the hosted group."""
         layout.use_property_split = layout.use_property_decorate = self.section.split
-        layout.active = layout.active and all(starmap(getattr, self.gate.bind(lambda gate: gate[0].at(holder, context)).to_list()))
+        layout.active = layout.active and all(getattr(*at) for bound, _ in self.enable.to_list() for at in bound.at(holder, context).to_list())
         hosts = tuple((attached, host, fielded) for attached, hosting, _, fielded in self.store.to_list() for host in hosting(holder, context).to_list())
         for attached, host, _ in hosts:
             layout.context_pointer_set(attached.name, host)

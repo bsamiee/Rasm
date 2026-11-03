@@ -34,7 +34,7 @@ Governing writes keep every other member and refuse values outside live items:
 - `file_format` writes refuse a format outside the current media with `TypeError`, `MULTI_LAYER_IMAGE` holding `OPEN_EXR_MULTILAYER` alone
 - `linear_colorspace_settings.name` reads `""` with an RNA warning until the first linear format write, and refuses `""` with `TypeError`
 
-Writes follow mapping order, each governing member before the members it resets (`display_settings` before `view_settings`, `file_format` before `color_depth`, `image_settings` before `ffmpeg`). `bl_rna.properties` lists scene `view_settings` first and `look` before `view_transform`. `assigned` writes each differing member and recurses into nested settings, and `captured` reads the same shape back with live arrays copied into tuples. `held` restores prior values on exit and yields what the host kept:
+Writes follow mapping order, each governing member before the members it resets (`display_settings` before `view_settings`, `file_format` before `color_depth`, `image_settings` before `ffmpeg`). `bl_rna.properties` lists scene `view_settings` first and `look` before `view_transform`. `held` restores prior values on exit and yields what the host kept:
 
 ```python
 def assigned(owner: Struct, values: Mapping[str, object], /) -> Outcome[None]:
@@ -95,7 +95,7 @@ Render code writes every member its output reads:
 Colors in code follow the working space and config names:
 - Colors written in code (socket defaults, light colors) are scene-linear in the working space, `COLOR_GAMMA` members (theme colors) sRGB-encoded
 - `mathutils.Color` converts through `from_srgb_to_scene_linear()` and `from_scene_linear_to_<space>()` with no display, view, or look
-- Colorspace writes take config names (`Linear Rec.709`, `Non-Color`), `Linear` and `Raw` raising `TypeError`
+- Colorspace writes take the name `config.getCanonicalName(<name, alias, or role>)` returns, aliases written as is (`Linear`, `Raw`) raising `TypeError`
 - `colorspace_settings.interop_id` and `ColorSpace.getInteropID()` name a space across configs (`data` for `Non-Color`)
 - `bpy.data.colorspace.working_space_interop_id` names the working space across configs
 - `CompositorNodeConvertColorSpace` converts by space name or interop id, `CompositorNodeConvertToDisplay` applying its own view and display settings
@@ -129,7 +129,7 @@ def cubed(config: PyOpenColorIO.Config, space: str, path: Path, /, *, display: s
     return made.map_error(partial(Fault.of, Reason.INVALID, form)).bind(baked)
 ```
 
-`looks` takes OCIO look names, Blender's `None` look baking as `""`, and `size` keeps `Baker`'s -1 default, the format's own cube size. Unknown spaces and looks and sizes below 2 raise at `bake`.
+`looks` takes OCIO look names, Blender's `None` look baking as `""`, and `size` keeps `Baker`'s -1 default, the format's own cube size. Unknown spaces or looks and sizes below 2 raise at `bake`.
 
 LUT bakes hold the OCIO transform alone:
 - `view_settings.exposure`, `gamma`, white balance, and `curve_mapping` stay out of the cube
@@ -179,7 +179,7 @@ Light groups gather emitters into Cycles parts `<layer>.Combined_<group>`, EEVEE
 
 Light linking on an emitter names `light_linking.receiver_collection` and `blocker_collection`, Cycles and EEVEE honoring both:
 - `collection_objects` and `collection_children` items set `light_linking.link_state`, `collection_objects` aligning by index with `objects`
-- Receivers holding an `INCLUDE` member light those members alone, else every object but their `EXCLUDE` members, child collections counting
+- Receivers holding an `INCLUDE` member light their `INCLUDE` members alone, else every object but their `EXCLUDE` members, child collections counting
 - Blocker `EXCLUDE` members cast no shadow from the emitter
 - Scenes honor 64 receiver collections, 64 blocker collections, and 63 distinct memberships, links past them dropping with a stdout line
 
@@ -218,7 +218,7 @@ def stacked(context: bpy.types.Context, scene: bpy.types.Scene, groups: Sequence
 
 `stacked(context, scene, (grade, bloom))` names each effect after its group, and `new` on a taken name suffixes it (`Grade.001`).
 
-`compositing_nodes_essentials.blend` in `bpy.utils.system_resource("DATAFILES", path="assets/nodes")` holds stock groups:
+`compositing_nodes_essentials.blend` in `bpy.utils.system_resource("DATAFILES", path="assets/nodes")` holds built-in groups:
 - Groups with `allow_usage_in_scene_compositor_effect` set are effects (`Bloom`, `Vignette`, `Film Grain`), the rest helpers (`Retime`)
 - Scripted groups run as effects without the flag
 

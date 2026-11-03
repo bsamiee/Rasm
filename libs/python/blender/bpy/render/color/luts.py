@@ -16,9 +16,8 @@ import msgspec
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Call, Done, NoUndo, Operator
+from blender.bpy.commands.operators import Call, called, Done, NoUndo, Operator
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor, Value
@@ -28,11 +27,9 @@ from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import member_paths
-from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.outputs.formats import OutputFormat
 from blender.imaging.color.luts import Lattice, LATTICE_SIZES, LutFormat, LutOutput, Spacing
-from blender.imaging.color.processors import processor
-from blender.imaging.files.buffers import applied
+from blender.imaging.color.processors import converted
 from blender.imaging.files.images import ImageFile, read_file, Storage
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
@@ -124,13 +121,11 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .bind(lambda plane: ImageFile(pixels=plane, colorspace=space).written(folder / "nodes.exr", Storage(), {}, config))
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
                 .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "animation": True}))
-                .bind(lambda _: read_file(Path(scene.render.frame_path(frame=1)), config, untagged=Some(UNTAGGED)))
+                .bind(lambda _: read_file(Path(scene.render.frame_path(frame=1)), config))
             )
 
         def tabled(config: PyOpenColorIO.Config, look: ImageFile) -> Outcome[PyOpenColorIO.GroupTransform]:
-            return processor(config, PyOpenColorIO.ColorSpaceTransform(src=look.colorspace, dst=space)).map(
-                lambda built: lattice.transform(applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(look.pixels[..., :3])))
-            )
+            return converted(config, PyOpenColorIO.ColorSpaceTransform(src=look.colorspace, dst=space), np.ascontiguousarray(look.pixels[..., :3])).map(lattice.transform)
 
         config = PyOpenColorIO.GetCurrentConfig()
         with self.staged(call.identity) as made, TemporaryDirectory(dir=bpy.app.tempdir) as folder:

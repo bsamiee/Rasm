@@ -3,14 +3,14 @@
 ## [01]-[TOOLS]
 
 Tools are schema contracts a `Toolkit` binds to handlers, and one toolkit serves `LanguageModel` and `McpServer` alike:
-- `Tool.make(name, { description, parameters, success, failure, failureMode, dependencies })` declares one, `parameters` defaulting to `Tool.EmptyParams` and `success` to `Schema.Void`
-- `Toolkit` decodes arguments with `parameters` itself, and a parameter with a non-JSON encoded side (`DateTimeUtc`, `BigDecimal`, `Option`) declares `Schema.toCodecJson(X)`
-- `Tool.Readonly`, `Tool.Destructive`, `Tool.Idempotent`, and `Tool.OpenWorld` annotate behavior, an unannotated tool advertising itself destructive and open-world
+- `Tool.make(name, options)` defaults `parameters` to `Tool.EmptyParams` and `success` to `Schema.Void`
+- `Toolkit` decodes arguments, and parameters with a non-JSON encoding (`DateTimeUtc`, `BigDecimal`, `Option`) declare `Schema.toCodecJson(X)`
+- `Tool.Readonly`, `Destructive`, `Idempotent`, and `OpenWorld` annotate behavior, unannotated tools advertising themselves destructive and open-world
 - `Tool.getDescription` returns the text clients list, `description` or else a description annotation on `parameters`
 - `Tool.Strict` rejects excess parameter keys and advertises `additionalProperties: false`
 - `failureMode: 'return'` returns a typed handler failure as the result, and a defect dies
 - `dependencies: [S]` makes `S` a per-request service the handler reads
-- `Toolkit.make(...tools)` builds a toolkit, `Toolkit.merge` joins toolkits, and `kit.toLayer(kit.of({...}))` binds handlers, each handler's parameters typed by its tool
+- `Toolkit.make(...tools)` builds a toolkit, `Toolkit.merge` joins toolkits, and `kit.toLayer(kit.of({...}))` binds handlers typed by their tools
 - Handler layers capture the services read while they build, and every handler reads them with no `Effect.provide`
 - `Tool.Parameters<T>`, `Tool.Success<T>`, `Tool.Failure<T>`, and `Toolkit.Tools<K>` read a tool's types
 
@@ -39,30 +39,31 @@ const Server = McpServer.layerHttp({
 ```
 
 `LedgerError` is the package error, `version` the package version, `Accounts` holds `balance` and `freeze`, and `Tokens.resolve` reads a token to a `Caller` or fails with an `McpSchema.McpErrorBase` error. `Server` requires `HttpRouter`, `Accounts`, and `Tokens` alone, the middleware discharging every `Caller` marker:
-- Services a handler reads become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges and `Layer.provide` leaves in place
+- Handler services become `McpServer.McpRequest<'Requires', S>` markers that middleware or the transport discharges, `Layer.provide` keeping them
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
-- Middleware wraps `tools/call`, `resources/read`, `prompts/get`, and `completion/complete` and reads `{ method, target, payload, headers, sessionId }`
+- Middleware wraps `tools/call`, `resources/read`, `prompts/get`, and `completion/complete`, reading `{ method, target, payload, headers, sessionId }`
 - Middleware receives handler results as opaque values, and a span or metric reading one wraps the registration
 - `m.layer` scopes middleware to the registrations it reaches, and `a.combine(b)` runs `b` outside `a`
 - `McpServer.middleware(fn, { global: true })` runs outside local middleware, middleware provided both ways runs once, and none runs for `initialize`
-- `McpServer.visibility` hides registrations per caller and `McpSchema.EnabledWhen` per client profile, and list requests run middleware around `visibility` alone
+- `McpServer.visibility` hides registrations per caller and `McpSchema.EnabledWhen` per client profile
+- List requests run middleware around `visibility` alone
 - Middleware errors extend `McpSchema.McpErrorBase` with a code in `-32000` to `-32019` and reach the client as JSON-RPC errors
-- Declared `failure` errors reach the client as `isError` text, and other failures reach it as one generic message, a defect logged and sent to `ErrorReporter`
+- Declared `failure` errors reach the client as `isError` text and other failures as one generic message, defects going to the log and `ErrorReporter`
 - Tool results send `structuredContent` with one JSON text block, and a tool returns a struct
-- `McpServer.resource` and its template form take typed `McpSchema.param` segments, and completion handlers return typed values the server encodes and counts
+- `McpServer.resource` templates take typed `McpSchema.param` segments, and completion handlers return typed values the server encodes and counts
 - `McpServer.prompt({ name, parameters, content })` derives argument requirement from field optionality and description from annotations
 - `McpSchema.ProgressToken` decodes `requestMetadata.progressToken` of `Effect.serviceOption(McpSchema.McpRequestContext)`
 - Handlers send each progress step through `server.notifications['notifications/progress']` and drain steps when a caller sends no token
 - `Layer.effect(McpServer.McpServer)` returning `McpServer.McpServer.of({ ...server, addTool })` decorates every registration below it
 - Effects that decorated tools share run once under `Effect.cached`
 - `McpServer.elicit({ message, schema })` decodes an answer and requires the `McpServerClient` a tuple of sessionful protocols supplies
-- `McpServer.layerStdio` with `References.LogToStderr` set `true`, `layerHttp` checking `Origin`, and `layerHttpRequestScoped` for sessionless hosts are the transports
+- `McpServer.layerStdio` needs `References.LogToStderr`, `layerHttp` checks `Origin`, and `layerHttpRequestScoped` serves sessionless hosts
 - `McpTest.makeClient(registrations, { protocols })` runs a client against the server in memory over real encoding
 
 ## [03]-[MCP_CLIENT]
 
 `McpClient` reads a remote server and adapts its tools into a `Toolkit`:
-- `McpClient.layerHttp({ name, version, protocol, url })` reads `HttpClient`, and `layerStdio({ command: ChildProcess.make(...) })` reads `ChildProcessSpawner`
+- `McpClient.layerHttp({ name, version, protocol, url })` reads `HttpClient`, and `layerStdio` spawns a `ChildProcess` through `ChildProcessSpawner`
 - `client.callTool({ tool, arguments, schema })` decodes `structuredContent` through `schema` and fails with reason `ToolError` on `isError`
 - `McpClient.toolkit(client, prefix)` returns a toolkit a language model calls
 
@@ -71,11 +72,12 @@ const Server = McpServer.layerHttp({
 `LanguageModel` generates text, objects, and streams through the provider a layer supplies:
 - `LanguageModel.generateText({ prompt, toolkit, toolChoice })` resolves tool calls through the toolkit, `toolChoice` typed by its tool names
 - `LanguageModel.generateObject({ prompt, schema })` decodes `response.value` through `schema`, failing `AiError` with reason `StructuredOutputError`
-- `LanguageModel.streamText` streams parts narrowed on `part.type`, and a response's `text`, `toolCalls`, `finishReason`, and `usage` getters read its content
+- `LanguageModel.streamText` streams parts narrowed on `part.type`, and responses expose `text`, `toolCalls`, `finishReason`, and `usage` getters
 - `needsApproval` on a tool yields an approval request, answered next turn with `Prompt.toolApprovalResponsePart`
 - `Chat.empty`, `Chat.fromPrompt`, and `Chat.fromJson` start sessions keeping history, and `Chat.layerPersisted({ storeId })` saves each generation
-- `AnthropicClient.layerConfig({ apiKey: Config.Redacted('ANTHROPIC_API_KEY') })` and the other `<Provider>Client` layers read `HttpClient`, `CloudflareClient.layerConfig()` and `TypeSafeClient.layerConfig()` reading their variables by default
-- `<Provider>LanguageModel.model(name, config)` is a layer holding provider and model names, and `ExecutionPlan.make` over models falls back across providers
+- `<Provider>Client` layers read `HttpClient` (`AnthropicClient.layerConfig({ apiKey: Config.Redacted('ANTHROPIC_API_KEY') })`)
+- `CloudflareClient.layerConfig()` and `TypeSafeClient.layerConfig()` read their environment variables by default
+- `<Provider>LanguageModel.model(name, config)` layers hold provider and model names, and `ExecutionPlan.make` over them falls back across providers
 - `AiError.reason` is a tagged union, `isRetryable` holding for a `RateLimitError` with its `retryAfter`
 - `EmbeddingModel` batches concurrent `embed` calls into one `embedMany`
 

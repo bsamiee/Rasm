@@ -63,6 +63,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Members add `build.rs` for work no manifest key or crate does, a build script compiles and runs before its crate on every cold build
 - Cargo targets that compile pass `--locked`, a stale `Cargo.lock` fails the run in place of a rewrite
 - Cargo targets that compile take `parallelism: false`, each cargo run spreads its units across every core through its own jobserver
+- Cargo locks a build-dir profile folder for a whole run, Clippy and Dylint take a `dev`-inheriting profile of their name to run beside `dev` runs
+- Wrappers split member units apart, a separate profile costs one dependency build and no warm rebuild
+- Cargo configs hold no `fine-grain-locking`, concurrent runs dirtying shared units deadlock on unit locks
 - Insta pending snapshots stay beside their test file, `INSTA_PENDING_DIR` panics on a test path holding `..` (`[[test]] path`)
 
 ## [06]-[MEMBERS]

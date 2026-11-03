@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final, override, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -17,7 +17,7 @@ from blender.bpy.extension.events import Change, Handler, located, runtime, Star
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Registration, Tier, Translations
 from blender.bpy.extension.reports import level
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Faults, Outcome, Reason
 
 from .commands import OPERATORS
 
@@ -136,12 +136,12 @@ class Recorder:
         return Ok(tuple((band, self.logged(band)) for band in (Tier.TIMERS, Tier.GROUPS, Tier.INTERFACE)))
 
     @contextmanager
-    def logged(self, band: Tier) -> Generator[None]:
+    def logged(self, band: Tier) -> Generator[Outcome[None]]:
         """Logs the band's scope entry and exit."""
         with ExitStack() as stack:
             self.events.append(f"enter {band.name}")
             stack.callback(self.events.append, f"exit {band.name}")
-            yield
+            yield Result[None, Faults](ok=None)
 
     def loaded(self, path: Option[Path]) -> Outcome[None]:
         """Keeps the loaded file path."""

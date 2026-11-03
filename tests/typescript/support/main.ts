@@ -3,8 +3,11 @@ import { fileURLToPath } from 'node:url';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const addons = ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'].map((name) => dirname(fileURLToPath(import.meta.resolve(`${name}/package.json`))));
+const main = {
+    framework: '@storybook/react-vite',
+    addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'].map((name) => dirname(fileURLToPath(import.meta.resolve(`${name}/package.json`)))),
+} as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { addons };
+export { main };

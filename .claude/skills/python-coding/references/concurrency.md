@@ -67,7 +67,7 @@ Workers run synchronous code off the event loop through one call shape, `await <
 |  [02]   | CPU work holding the GIL                                  | `to_interpreter` | Waits for the worker                                 |
 |  [03]   | Extension without subinterpreter support or able to crash | `to_process`     | Waits, `cancellable=True` kills the process          |
 
-Workers run a whole synchronous pipeline in one call and return its `Result` to the loop as a value. Interpreter workers import the target's module and msgspec refuses to load there, and the module imports package faults `lazy`:
+Workers run a whole synchronous pipeline in one call and return its `Result` to the loop as a value. msgspec refuses to load in a subinterpreter, and a module an interpreter worker imports takes package faults through `lazy` imports:
 
 ```python
 lazy from .faults import Fault, Outcome, Reason

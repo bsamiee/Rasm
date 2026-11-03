@@ -22,13 +22,14 @@ const restarting = Effect.fn('restarting')(function* <K, E, R>(keys: Stream.Stre
 ```
 
 `changed` streams keys and `sync` runs one. Each key restarts its run and interrupts the stale one, and `Layer.effectDiscard(Effect.forkScoped(restarting(changed, sync)))` ends the key stream and every run with the layer scope:
-- Runs no caller joins hold `never` as their error and log their cause through `Effect.tapCause(Effect.logError)`, an unjoined fiber's defect leaving no other record
+- Unjoined runs hold `never` as their error and log their cause through `Effect.tapCause(Effect.logError)`, the only record of a defect they hit
 - `FiberMap.join` fails with a member's first failure where a caller awaits the set
 - `onlyIfMissing: true` on `FiberMap.run` or `FiberHandle.run` keeps the running fiber and discards the new run
 - `FiberSet.makeRuntime<R>()` returns a run function a synchronous host callback calls, every fiber it starts ending with the set's scope
-- `Effect` forks take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway, and `{ startImmediately: true }` runs the fiber to its first suspension before the fork returns
-- Writes outliving a canceled caller fork `Deferred.complete(done, write)` through `Effect.forkIn(scope, { uninterruptible: true })`, and the caller awaits `Effect.raceFirst(Deferred.await(done), Deferred.await(earlyResult))` under `Effect.interruptible` with `Effect.onInterrupt` recording the unfinished write
-- `Exit.hasInterrupts(yield* Fiber.await(fiber))` holds when an interrupt reached the fiber, and a fiber that finished before `Fiber.interrupt` exits with success
+- `Effect` forks take `{ uninterruptible: true }` for a run that leaves state inconsistent when stopped midway
+- `{ startImmediately: true }` on a fork runs the fiber to its first suspension before the fork returns
+- Writes outliving a canceled caller fork through `Effect.forkIn(scope, { uninterruptible: true })` and complete a `Deferred` the caller awaits
+- `Exit.hasInterrupts(yield* Fiber.await(fiber))` holds when an interrupt reached the fiber, one done before `Fiber.interrupt` exiting with success
 
 ## [02]-[STREAMS]
 
@@ -55,10 +56,10 @@ const entries = (root: string, bufferSize: number) => Stream.callback<Entry, Wal
 
 `walk` is a host traversal calling its callback per entry under `root` and failing with `WalkError`. `Queue.into` ends the stream when `walk` succeeds and fails it with `walk`'s error:
 - `Stream.share({ capacity, replay, idleTimeToLive })` multicasts a stream in hand, starting with its first consumer and ending after its last
-- `Stream.filterMap` with `Result.fromOption` keeps the elements a lookup finds
-- Sources a constructor states enter through it: `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, `paginate` for cursors
+- Sources enter through `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, and `paginate` for cursors
 - `Stream.peel(stream, Sink.head())` returns an `Option` of the first element beside a scoped stream of the rest, seeding state first
 - `flow(Effect.fn(body), Stream.unwrap)` returns a stream releasing its acquired resources at its end
+- `Stream.debounce(limit)` emits once a stream stays quiet for `limit`, a `switchMap` to `Effect.sleep` restating it
 
 ## [03]-[SHARED_STATE]
 
@@ -99,7 +100,7 @@ const nodeOf = Effect.map(SqlClient.SqlClient, (sql) => SqlResolver.request(SqlR
 `Node` is a row schema with an `id` field of brand `NodeId`. `nodeOf` yields `lookup`, and `Effect.forEach(ids, lookup, { concurrency: 'unbounded' })` sends one query for the ids its fibers request in the same tick, equal ids sharing one row and an id with no row failing with `NoSuchElementError`:
 - Host batch APIs enter through `RequestResolver.make`, completing each entry through `Request.complete`, and a failed batch call fails every entry
 - `RequestResolver.batchN` caps a batch at the host's limit, `setDelay` widens the window a batch collects over
-- Batches merge callers with different services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
+- Batches merge callers across services, and `RequestResolver.makeGrouped` keys a batch by each value the host call reads (a tenant, a credential)
 - Host state a view observes is a `SubscriptionRef` the host's events set, read through `Atom.subscriptionRef` or its `changes` stream
 - `changes` piped through `Stream.zipWithPrevious` diffs successive states, and `Stream.changesWith(eq)` drops states equal on a projection
 - `SubscriptionRef.modifyEffect` runs a host call and the transition it decides as one update
@@ -116,5 +117,5 @@ const backoff = (base: Duration.Input, cap: Duration.Input, retries: number) => 
 
 `Schedule.min` waits the shorter delay while either schedule recurs, capping the doubling delay at `cap`. The root reads `base`, `cap`, and `retries` through `Config`. `read` fails with `StoreError`, and `read.pipe(Effect.retry({ schedule: backoff(base, cap, retries), while: (error) => error.reason._tag === 'Unavailable' }))` retries the reasons a later attempt can clear and fails at once with every other reason:
 - Initial runs precede the schedule, `times` counts retries after the first run
-- `Schedule.while` stops on a step's `attempt`, `elapsed`, `input`, or `output`, and the retried effect reads the same fields from `Schedule.CurrentMetadata`
+- `Schedule.while` stops on a step's `attempt`, `elapsed`, `input`, or `output`, the retried effect reading them from `Schedule.CurrentMetadata`
 - `ExecutionPlan.make` lists layers with their own `attempts` and `schedule`, and `Effect.withExecutionPlan` reruns an effect across them

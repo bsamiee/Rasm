@@ -25,9 +25,9 @@ extension Integration {
         )
         func crashReadsSignalThenItsReportAndEnds(scenario: Scenario, signal: Int32, exception: String) async throws {
             let (installation, instance): (Installation, NSRunningApplication) = try await launched()
-            let seen: [Observed] = try await observe(instance, within: .seconds(90), until: { _ in false }, acting: { try await run(scenario, in: instance) })
+            let seen: [InstanceState] = try await observe(instance, until: { _ in false }, acting: { try await run(scenario, in: instance) })
             expectNoDifference(phases(seen), [.responding, .exited(.signaled(signal)), .reported(.signaled(signal), exception: exception)])
-            let outcome: Result<CrashReport, ApplicationFailure>? = try #require(seen.last).state[case: \.exited]?.report
+            let outcome: Result<CrashReport, ApplicationFailure>? = try #require(seen.last)[case: \.exited]?.report
             let report: CrashReport = try #require(outcome).get()
             expectNoDifference(report.pid, instance.processIdentifier)
             expectNoDifference(report.bundleIdentifier, installation.identifier)

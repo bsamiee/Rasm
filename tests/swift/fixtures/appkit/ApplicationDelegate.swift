@@ -1,4 +1,6 @@
 import AppKit
+import CurrentProcess
+import Processes
 import Subprocess
 import Synchronization
 import System
@@ -12,7 +14,7 @@ let rowHeight: CGFloat = 20
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-private final class Hang: Sendable {
+final class Hang: Sendable {
     let released: Atomic<Bool> = Atomic(false)
     let waiting: DispatchSemaphore = DispatchSemaphore(value: 0)
     let release: any DispatchSourceSignal = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .global())
@@ -30,13 +32,15 @@ private final class Hang: Sendable {
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource {
     private let settings: Settings
+    private let held: Hang?
     private let logger: Logger = Logger(for: ApplicationDelegate.self)
     private let status: NSTextField = NSTextField(labelWithString: "idle")
     private var windows: [NSWindow] = []
     private var helpers: [Task<Void, Never>] = []
 
-    init(settings: Settings) {
+    init(settings: Settings, held: Hang?) {
         self.settings = settings
+        self.held = held
     }
 
     // --- [LIFECYCLE]
@@ -45,7 +49,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
         let bar: NSMenu = NSMenu()
         let application: NSMenu = NSMenu()
         application.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        let scenarios: NSMenu = NSMenu(title: "Scenario")
+        let scenarios: NSMenu = NSMenu(title: String(describing: Scenario.self))
         for scenario: Scenario in Scenario.allCases where !scenario.atLaunch {
             scenarios.addItem(withTitle: scenario.rawValue, action: #selector(chosen(_:)), keyEquivalent: "").target = self
         }
@@ -163,22 +167,13 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             window.orderFront(nil)
             return window
         }
-        func block(for duration: Duration) {
-            let released: DispatchSemaphore = DispatchSemaphore(value: 0)
-            Task { @concurrent in
-                _ = await Result { try await Task.sleep(for: duration) }
-                released.signal()
-            }
-            released.wait()
-        }
         func deferred(titled title: String, _ work: @escaping @MainActor () -> Void) {
             windows.first?.title = title
             Task { @MainActor in work() }
         }
-        let duration: Duration = settings.duration
         logger.notice("Scenario \(scenario.rawValue, privacy: .public) started")
         switch scenario {
-            case .slowLaunch: block(for: duration)
+            case .slowLaunch: held?.waiting.wait()
             case .launchModal: alert("Launch modal").runModal()
             case .singleInstance:
                 let others: [NSRunningApplication] = (Bundle.main.bundleIdentifier.map(NSRunningApplication.runningApplications(withBundleIdentifier:)) ?? [])
@@ -221,10 +216,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             do {
                 let arguments: [String] = Settings(role: .helper).arguments
                 let executable: FilePath = FilePath(ProcessInfo.processInfo.arguments[0])
-                var session: PlatformOptions = PlatformOptions()
-                session.createSession = true
-                session.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
-                _ = try await Subprocess.run(.path(executable), arguments: Arguments(arguments), platformOptions: session, input: .none, output: .discarded, error: .discarded) {
+                _ = try await Subprocess.run(.path(executable), arguments: Arguments(arguments), platformOptions: .session(), input: .none, output: .discarded, error: .discarded) {
                     execution in logger.notice("Helper \(execution.processIdentifier.value, privacy: .public) started")
                 }
             } catch {
@@ -267,13 +259,5 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
         window.isDocumentEdited = settings.edited
         window.orderFront(nil)
         return window
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension Logger {
-    init(for owner: any Any.Type) {
-        self.init(subsystem: Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName, category: String(reflecting: owner))
     }
 }

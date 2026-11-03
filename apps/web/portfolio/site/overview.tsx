@@ -2,9 +2,9 @@ import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { Array, Option, Predicate } from 'effect';
 import { Grid2x2, X } from 'lucide-react';
 import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, Size, Virtualizer } from 'react-aria-components';
-import { CompositionGrid } from '#/media/composition-grid';
-import { compositionLabel, format } from '#/media/labels';
-import type { Composition } from '#/model/placement';
+import { CompositionGrid } from '#/media/composition-grid.tsx';
+import { compositionLabel, format } from '#/media/labels.ts';
+import type { Composition } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ const Overview = ({ title, compositions, selected, onSelect }: { title: string; 
                                 </div>
                                 <Virtualizer layout={GridLayout} layoutOptions={{ minItemSize: new Size(overviewItem.width, overviewItem.height), maxColumns: 4 }}>
                                     <GridList
-                                        aria-label={`Views in ${title}`}
+                                        aria-label={`Compositions in ${title}`}
                                         autoFocus={true}
                                         className="max-h-overview min-h-0 overflow-auto overscroll-contain outline-none"
                                         escapeKeyBehavior="none"
@@ -53,9 +53,9 @@ const Overview = ({ title, compositions, selected, onSelect }: { title: string; 
                                                 key={composition.id}
                                                 textValue={compositionLabel(composition)}
                                             >
-                                                <CompositionGrid active={false} composition={composition} presentation="thumbnail" />
+                                                <CompositionGrid active={false} composition={composition} presentation="thumbnail" renderMedia={true} />
                                                 <div className="group-selected:underline mt-3 flex flex-col gap-1 text-sm leading-snug underline-offset-4">
-                                                    <span className="eyebrow text-muted">View {format.numeral(slide + 1)}</span>
+                                                    <span className="eyebrow text-muted">Composition {format.numeral(slide + 1, compositions.length)}</span>
                                                     <span className="line-clamp-3 min-w-0 wrap-anywhere">{compositionLabel(composition)}</span>
                                                 </div>
                                             </GridListItem>

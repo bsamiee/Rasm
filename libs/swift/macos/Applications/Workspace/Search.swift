@@ -53,10 +53,9 @@ extension Installation {
         }
         guard registered.isEmpty else { return registered }
         let exact: [Self] = try await listing(.equalTo)
-        guard exact.isEmpty else { return exact }
-        let near: [Self] = try await listing(.contains)
-        let identifiers: OrderedSet<String> = OrderedSet(near.map(\.identifier))
-        guard identifiers.count != 1 else { return near }
+        let found: [Self] = try await exact.isEmpty ? listing(.contains) : exact
+        let identifiers: OrderedSet<String> = OrderedSet(found.map(\.identifier))
+        guard identifiers.count != 1 else { return found }
         throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: Array(identifiers))))
     }
 

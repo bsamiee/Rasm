@@ -5,6 +5,7 @@
     "type": "module",
     "imports": { "#/*": "./*.ts" },
     "exports": {
+        "./error": "./error.ts",
         "./indesign/contract": "./indesign/contract.ts",
         "./results": "./results.ts",
         "./values": "./values.ts"

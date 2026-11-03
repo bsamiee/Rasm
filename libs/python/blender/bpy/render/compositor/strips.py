@@ -13,9 +13,8 @@ from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement, PopupKind, PopupTarget
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Placement, PopupKind, PopupTarget
 from blender.bpy.data.ids.ownership import retained
 from blender.bpy.data.rna.conditions import AllOf, Present, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written

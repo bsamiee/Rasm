@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ignored-removal-errors
+language: python
+severity: error
+rule:
+    kind: call
+    all:
+        - has: {field: function, pattern: $CALL, matches: {python-member-use: {module: {regex: '^shutil$'}, name: {regex: '^rmtree$'}}}}
+        - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^ignore_errors$'}}, {has: {field: value, kind: 'true'}}]}}
+message: '`$CALL` with `ignore_errors=True` discards every removal failure'
+note: 'Call `catch(shutil.rmtree, exception=OSError)` and recover `FileNotFoundError` alone'

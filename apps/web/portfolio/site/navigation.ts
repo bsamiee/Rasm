@@ -1,15 +1,20 @@
-import { Option, Schema } from 'effect';
+import { Array, Option, Schema } from 'effect';
 import { type RefObject, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
-import { Id } from '#/model/asset';
-import type { Entry, Portfolio } from '#/model/portfolio';
+import { CompositionId } from '#/model/placement.ts';
+import { type Entry, EntryId, type Portfolio } from '#/model/portfolio.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Fragment = Schema.fromURLSearchParams(Schema.Struct({ project: Id, composition: Schema.optional(Schema.String) }));
+const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, composition: Schema.optional(CompositionId) }));
+const Fragment = {
+    top: '#top',
+    work: '#work',
+    of: (project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => Fragment.work, onSome: (params) => `#${params}` }),
+    read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
+} as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fragment = (project: string, composition?: string) => Option.match(Schema.encodeOption(Fragment)({ project, composition }), { onNone: () => '#work', onSome: (params) => `#${params}` });
 const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean) => {
     const hash = useSyncExternalStore(
         (notify) => {
@@ -19,20 +24,35 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         () => location.hash,
         () => '',
     );
-    const [selections, setSelections] = useState<Readonly<Record<string, string>>>({});
+    const [selections, setSelections] = useState<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
     const intersections = useRef(new Set<string>());
-    const read = (value: string) => Option.getOrUndefined(Schema.decodeOption(Fragment)(new URLSearchParams(value.slice(1))));
-    const params = read(hash);
-    const current = portfolio.entries.find((item) => item.id === params?.project);
-    const selected = (entry: typeof Entry.Type) => (entry.compositions.find((item) => item.id === ((entry === current && params?.composition) || selections[entry.id])) ?? entry.compositions[0])?.id;
+    const located = Option.flatMap(({ project, composition }: typeof Params.Type) =>
+        Option.map(
+            Array.findFirst(portfolio.entries, ({ id }) => id === project),
+            (entry) => ({ entry, composition }),
+        ),
+    );
+    const current = located(Fragment.read(hash));
+    const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
+    const selected = (entry: typeof Entry.Type) =>
+        first(
+            entry,
+            Option.getOrElse(
+                Option.flatMap(
+                    Option.filter(current, (shown) => shown.entry === entry),
+                    ({ composition }) => Option.fromUndefinedOr(composition),
+                ),
+                () => selections[entry.id],
+            ),
+        );
     const write = (method: 'pushState' | 'replaceState', target: string) => {
-        history.scrollRestoration = target.startsWith('#project') ? 'manual' : 'auto';
+        history.scrollRestoration = Option.isSome(Fragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
             history[method](null, '', target);
         }
     };
-    const select = (project: string, composition: string | undefined) => {
-        write('pushState', fragment(project, composition));
+    const select = (project: typeof EntryId.Type, composition: typeof CompositionId.Type | undefined) => {
+        write('pushState', Fragment.of(project, composition));
         if (composition !== undefined) {
             setSelections((value) => ({ ...value, [project]: composition }));
         }
@@ -52,29 +72,32 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             }
         });
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
-        const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? '#top' : '#work';
-        const shown = current === undefined ? null : document.getElementById(current.id);
-        const held = shown !== null && shown.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
+        const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? Fragment.top : Fragment.work;
+        const held = Option.exists(current, ({ entry: shown }) => {
+            const section = document.getElementById(shown.id);
+            return section !== null && section.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
+        });
         if (foreground && !held) {
-            write('replaceState', entry === undefined ? page : fragment(entry.id, selected(entry)));
+            write('replaceState', entry === undefined ? page : Fragment.of(entry.id, selected(entry)));
         }
     });
     const restore = useEffectEvent((event?: Event) => {
-        const target = read(location.hash);
-        const entry = portfolio.entries.find((item) => item.id === target?.project);
-        if (['', '#top', '#work'].includes(location.hash)) {
+        if (['', Fragment.top, Fragment.work].includes(location.hash)) {
             history.scrollRestoration = 'auto';
             return;
         }
-        if (entry === undefined) {
-            write('replaceState', '#work');
-            work.current?.scrollIntoView({ behavior: 'instant' });
-            return;
-        }
-        if (event === undefined || entry.id !== current?.id) {
-            document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
-        }
-        write('replaceState', fragment(entry.id, (entry.compositions.find((item) => item.id === target?.composition) ?? entry.compositions[0])?.id));
+        Option.match(located(Fragment.read(location.hash)), {
+            onNone: () => {
+                write('replaceState', Fragment.work);
+                work.current?.scrollIntoView({ behavior: 'instant' });
+            },
+            onSome: ({ entry, composition }) => {
+                if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
+                    document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
+                }
+                write('replaceState', Fragment.of(entry.id, first(entry, composition)));
+            },
+        });
     });
     useEffect(() => {
         const { current: bar } = sticky;
@@ -110,9 +133,9 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             size.disconnect();
         };
     }, [portfolio.entries, sticky, work]);
-    return { active: current?.id, selected, select, jump };
+    return { active: Option.getOrUndefined(Option.map(current, ({ entry }) => entry.id)), selected, select, jump };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { fragment, useNavigation };
+export { Fragment, useNavigation };

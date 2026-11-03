@@ -1,4 +1,3 @@
-import { NodeServices } from '@effect/platform-node';
 import { readCachedProjectGraph } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
@@ -7,10 +6,10 @@ import { run } from '#/eng/typescript/process';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const stack = { projectName: 'rasm-infra', stackName: 'rasm' };
-
-const program = Effect.fnUntraced(
-    function* () {
+const stack = {
+    projectName: 'rasm-infra',
+    stackName: 'rasm',
+    program: Effect.gen(function* () {
         const [path, url, graph, nx] = yield* Effect.all([Path.Path, run('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname }), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)]);
         const pattern = yield* Effect.fromNullishOr(nx.release?.releaseTag?.pattern);
         const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
@@ -52,11 +51,9 @@ const program = Effect.fnUntraced(
             }).rulesetId,
             updates: Record.fromIterableWith(feeds, (project) => [project, new Release(`${name}-${project}-updates`, { repository, tagName: `${project}-updates`, name: `${project} updates`, draft: false }, { protect: true }).htmlUrl]),
         };
-    },
-    Effect.provide(NodeServices.layer),
-    Effect.runPromise,
-);
+    }),
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { program, stack };
+export { stack };

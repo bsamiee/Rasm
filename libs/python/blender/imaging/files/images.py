@@ -57,6 +57,7 @@ class Blocks(StrEnum):
 
 interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _interchange: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+UNTAGGED: Final = ("default_byte", "default_float")
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -218,20 +219,21 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def compressions(self) -> tuple[Compression, ...]:
-        """Default compression of each case the writer accepts."""
-        return tuple(form for form in (kind() for kind in typing.get_args(Compression.__value__)) if self.name in form.writers)
+        """Compressions the writer accepts: each plain codec, and every other case at its defaults."""
+        cases = (*(Plain(codec=codec) for codec in Codec), *(kind() for kind in typing.get_args(Compression.__value__) if kind is not Plain))
+        return tuple(form for form in cases if self.name in form.writers)
 
     def stored(self, depth: Depth) -> Outcome[Depth]:
         """Accepts a depth the writer stores unchanged."""
         return Ok(depth).filter_with(self.depths.__contains__, lambda held: Fault.of(Reason.OUTSIDE, self.name, held.name, member=", ".join(member.name for member in self.depths)))
 
 
-class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Subimage(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Written subimage with pixels on demand."""
 
     spec: OpenImageIO.ImageSpec
     attributes: tuple[tuple[str, OpenImageIO.TypeDesc, object], ...]
-    pixels: Callable[[], Outcome[npt.NDArray[D]]]
+    pixels: Callable[[], Outcome[npt.NDArray[Coded]]]
 
 
 class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -245,13 +247,13 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Writes pixels at the storage depth, integer depths coded through its coding, with header, text fields, compression, and colorspace tags to the writer `path` suffix names.
 
         Returns:
-            Path, `UNREADABLE` fault for profile IO, `FAILED` fault for coding, or `UNWRITABLE` fault.
+            Path, `OUTSIDE` fault for a path no writer takes or a depth its writer changes, `UNREADABLE` fault for profile IO, `FAILED` fault for coding, or `UNWRITABLE` fault.
         """
         (height, width, channels), coded = self.pixels.shape, storage.depth in {Depth.UINT8, Depth.UINT16}
         identifier = Option.of_optional(config.getColorSpace(self.colorspace)).map(interop).filter(bool)
         bt709_transfer = 1
 
-        def subimages(output: OpenImageIO.ImageOutput, icc: Option[bytes]) -> tuple[Subimage[Coded], ...]:
+        def subimages(icc: Option[bytes], output: OpenImageIO.ImageOutput) -> tuple[Subimage, ...]:
             tagged = bool(output.supports("cicp"))
             dropped = {"oiio", "iccprofile", "cicp", "colorinteropid", "chromaticities"} | ({row.name for row in Format.readable()} - {output.format_name()})
             attributes = (
@@ -260,7 +262,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 *storage.attributes,
                 ("oiio:UnassociatedAlpha", OpenImageIO.TypeInt, int(coded)),
                 ("tiff:half", OpenImageIO.TypeInt, 1),
-                *(("ICCProfile", OpenImageIO.TypeDesc(f"uint8[{len(data)}]"), np.frombuffer(data, np.uint8)) for data in icc.to_list()),
+                *(("ICCProfile", OpenImageIO.TypeDesc(f"uint8[{len(data)}]"), np.frombuffer(data, np.uint8)) for data in icc.to_list() if channels >= 3),
                 *(
                     ("CICP", OpenImageIO.TypeDesc("int[4]"), (code[0], code[1], 0, 1))
                     for code in identifier
@@ -272,7 +274,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             )
             return (Subimage(spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.TypeDesc(storage.depth.basetype)), attributes=attributes, pixels=lambda: storage.stored(self.pixels)),)
 
-        return profile(config, self.colorspace).bind(lambda icc: emitted(path, lambda output: subimages(output, icc.filter(lambda _: channels >= 3))))
+        return paired(Format.of(path).bind(lambda row: row.stored(storage.depth)), profile(config, self.colorspace)).bind(lambda found: emitted(path, functools.partial(subimages, found[1])))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -280,16 +282,15 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [IO]
 
 
-def read_file(
-    path: pathlib.Path, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, untagged: Option[tuple[str, str]] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing
-) -> Outcome[ImageFile]:
+def read_file(path: pathlib.Path, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[ImageFile]:
     """Reads every channel of first subimage as float32 with its colorspace.
+
+    An untagged file only the default file rule matches reads in the `UNTAGGED` role of its stored type, where the config holds it.
 
     Args:
         path: File to read.
         config: Configuration resolving the colorspace.
         colorspace: Colorspace bypassing tags and file rules.
-        untagged: Integer and float stored colorspaces of a file with no colorspace tag that only the default file rule matches.
         options: Reader configuration.
 
     Returns:
@@ -299,8 +300,9 @@ def read_file(
 
     def decoded(image: OpenImageIO.ImageInput) -> Outcome[ImageFile]:
         spec = image.spec()
-        stored_float = spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE}
-        fallback = untagged.filter(lambda _: config.filepathOnlyMatchesDefaultRule(name)).map(lambda pair: pair[1] if stored_float else pair[0])
+        byte, real = UNTAGGED
+        role = real if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else byte
+        fallback = Some(role).filter(lambda held: config.hasRole(held) and config.filepathOnlyMatchesDefaultRule(name))
         requested = colorspace.or_else(fallback).default_with(lambda: config.getColorSpaceFromFilepath(name)[0])
         tagged = Nothing if colorspace.is_some() else Option.of_optional(config.getColorSpace(spec.get_string_attribute("oiio:ColorSpace")))
         resolved = (
@@ -343,7 +345,7 @@ def written(path: pathlib.Path, write: Callable[[pathlib.Path], object]) -> Outc
     return committed(path, lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, str(path))))
 
 
-def emitted[D: np.float32 | np.uint8 | np.uint16](path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[pathlib.Path]:
+def emitted(path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage, ...]]) -> Outcome[pathlib.Path]:
     """Encodes subimages built for the writer `path` suffix names through one output, closing it before replacing the file.
 
     Returns:
@@ -351,34 +353,33 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: pathlib.Path, subimages:
     """
     refused = functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
 
-    def encode(stage: str) -> Outcome[pathlib.Path]:
-        def into(output: OpenImageIO.ImageOutput) -> Outcome[pathlib.Path]:
-            def answered(*, done: bool) -> Outcome[pathlib.Path]:
-                return Ok(path) if done else Error(refused(output.geterror()))
+    def into(stage: str, output: OpenImageIO.ImageOutput) -> Outcome[pathlib.Path]:
+        def answered(*, done: bool) -> Outcome[pathlib.Path]:
+            return Ok(path) if done else Error(refused(output.geterror()))
 
-            def specified(subimage: Subimage[D]) -> OpenImageIO.ImageSpec:
-                spec = OpenImageIO.ImageSpec(subimage.spec)
-                for name, kind, value in subimage.attributes:
-                    spec.attribute(name, kind, value)
-                return spec
+        def specified(subimage: Subimage) -> OpenImageIO.ImageSpec:
+            spec = OpenImageIO.ImageSpec(subimage.spec)
+            for name, kind, value in subimage.attributes:
+                spec.attribute(name, kind, value)
+            return spec
 
-            def step(written: Outcome[pathlib.Path], indexed: tuple[int, tuple[OpenImageIO.ImageSpec, Subimage[D]]]) -> Outcome[pathlib.Path]:
-                index, (spec, subimage) = indexed
-                return (
-                    written
-                    .bind(lambda _: answered(done=index == 0 or output.open(stage, spec, "AppendSubimage")))
-                    .bind(lambda _: subimage.pixels())
-                    .bind(lambda array: answered(done=output.write_image(array)))
-                )
+        def step(written: Outcome[pathlib.Path], indexed: tuple[int, tuple[OpenImageIO.ImageSpec, Subimage]]) -> Outcome[pathlib.Path]:
+            index, (spec, subimage) = indexed
+            return (
+                written
+                .bind(lambda _: answered(done=index == 0 or output.open(stage, spec, "AppendSubimage")))
+                .bind(lambda _: subimage.pixels())
+                .bind(lambda array: answered(done=output.write_image(array)))
+            )
 
-            with contextlib.closing(output):
-                parts = subimages(output)
-                specs = tuple(specified(part) for part in parts)
-                return functools.reduce(step, enumerate(zip(specs, parts)), answered(done=output.open(stage, list(specs)))).bind(lambda _: answered(done=output.close()))
+        with contextlib.closing(output):
+            parts = subimages(output)
+            specs = tuple(specified(part) for part in parts)
+            return functools.reduce(step, enumerate(zip(specs, parts)), answered(done=output.open(stage, list(specs)))).bind(lambda _: answered(done=output.close()))
 
-        return Option.of_optional(OpenImageIO.ImageOutput.create(str(path))).map(into).default_with(lambda: Error(refused(OpenImageIO.geterror())))
-
-    return committed(path, lambda stage: encode(str(stage)))
+    return committed(
+        path, lambda stage: Option.of_optional(OpenImageIO.ImageOutput.create(str(path))).map(functools.partial(into, str(stage))).default_with(lambda: Error(refused(OpenImageIO.geterror())))
+    )
 
 
 # --- [CODECS]
@@ -431,6 +432,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "UNTAGGED",
     "Blocks",
     "Codec",
     "Compression",

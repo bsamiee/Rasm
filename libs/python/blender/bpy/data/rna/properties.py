@@ -8,13 +8,12 @@ from functools import partial, reduce
 import inspect
 import operator
 import re
-from types import FunctionType, MappingProxyType, MethodType
+from types import FunctionType, MappingProxyType
 from typing import Any, Final, get_args, overload, TYPE_CHECKING, TypeAliasType, TypedDict
 import zlib
 
 import bpy
-from expression import Nothing, Option, Result, try_downcast
-from expression.collections import Block
+from expression import Nothing, Option, Result
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -47,7 +46,6 @@ class Callbacks[T: Struct = Struct](TypedDict, total=False):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EXACT: Final = (1 << 24) - 1
 _NONE: Final[tuple[EnumItem]] = (("NONE", "None", "", "NONE", 0),)
 _ARITIES: Final[Mapping[str, int]] = MappingProxyType({"items": 2, "get": 1, "set": 2, "poll": 2, "update": 2})
 _ARRAYED: Final = frozenset({
@@ -116,22 +114,20 @@ def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -
         ValueError: Two identifiers hash to one value, host items sharing a static value kept.
     """
 
+    def hashed(identifier: str) -> int:
+        return zlib.crc32(identifier.encode()) & ((1 << (np.finfo(np.float32).nmant + 1)) - 1)
+
     def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str]) -> EnumItem:
         match row:
             case bpy.types.EnumPropertyItem() as host:
-                fixed = (
-                    Block
-                    .of_seq(reversed(host.rna_ancestors()))
-                    .choose(lambda parent: Option.of_optional(try_downcast(bpy.types.EnumProperty, parent)))
-                    .filter(lambda prop: host.identifier in prop.enum_items_static)
-                )
-                return (host.identifier, host.name, host.description, host.icon, host.value if fixed.try_head().is_some() else zlib.crc32(host.identifier.encode()) & _EXACT)
+                fixed = any(host.identifier in prop.enum_items_static for prop in host.rna_ancestors() if isinstance(prop, bpy.types.EnumProperty))
+                return (host.identifier, host.name, host.description, host.icon, host.value if fixed else hashed(host.identifier))
             case (identifier, name, description):
-                return (identifier, name, description, "NONE", zlib.crc32(identifier.encode()) & _EXACT)
+                return (identifier, name, description, "NONE", hashed(identifier))
 
     items = tuple(map(item, rows))
     values = tuple(held[4] for held in items)
-    if collided := tuple(held[0] for held in items if values.count(held[4]) > 1 and held[4] == zlib.crc32(held[0].encode()) & _EXACT):
+    if collided := tuple(held[0] for held in items if values.count(held[4]) > 1 and held[4] == hashed(held[0])):
         raise ValueError(collided)
     return items
 
@@ -175,16 +171,13 @@ def titled(kind: type, /) -> str:
 
 def case_choices(union: TypeAliasType) -> tuple[EnumItem, ...]:
     """Returns `choices` over a tagged union alias's cases: tag as identifier, class name in `titled` words as name, docstring as description."""
-    return choices((case.__name__, titled(case), inspect.getdoc(case) or "") for case in get_args(union.__value__))
+    return choices((case.__struct_config__.tag, titled(case), inspect.getdoc(case) or "") for case in get_args(union.__value__))
 
 
 def enum_choices(kind: type[enum.Enum], /) -> tuple[EnumItem, ...]:
     """Returns `EnumProperty` items of an `Enum` type, member name as identifier and name, a `Flag` bit as value, others the value `choices` fixes."""
-    return (
-        tuple((name, bpy.path.display_name(name.lower()), "", "NONE", member.value) for member in kind if (name := member.name) is not None)
-        if issubclass(kind, enum.Flag)
-        else choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind)
-    )
+    rows = tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind)
+    return tuple((*row, "NONE", member.value) for row, member in zip(rows, kind, strict=True)) if issubclass(kind, enum.Flag) else choices(rows)
 
 
 def redeclared(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty | bpy.types.StringProperty | bpy.types.EnumProperty, /) -> bpy.props._PropertyDeferred:
@@ -236,18 +229,16 @@ def declared(definition: bpy.props._PropertyDeferred, callbacks: Mapping[str, ob
     """
 
     def hosted(name: str, callback: object) -> object:
-        parts: tuple[Callable[..., object], tuple[object, ...], Mapping[str, object]]
-        match callback:
-            case partial(func=func, args=args, keywords=keywords):
-                parts = (func, args, keywords)
-            case MethodType(__func__=func, __self__=receiver):
-                parts = (func, (receiver,), {})
-            case Callable() if not isinstance(callback, FunctionType):
-                parts = (callback, (), {})
-            case _:
-                return callback
-        call, bound, named = parts
-        return (lambda owner: call(*bound, owner, **named)) if _ARITIES[name] == 1 else (lambda owner, value: call(*bound, owner, value, **named))
+        if isinstance(callback, FunctionType) or not callable(callback):
+            return callback
+
+        def unary(owner: Struct) -> object:
+            return callback(owner)
+
+        def binary(owner: Struct, value: object) -> object:
+            return callback(owner, value)
+
+        return unary if _ARITIES[name] == 1 else binary
 
     fresh: bpy.props._PropertyDeferred = definition.function(**{**definition.keywords, **{name: hosted(name, callback) for name, callback in callbacks.items()}})
     return fresh

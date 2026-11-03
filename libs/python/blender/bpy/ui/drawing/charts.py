@@ -1,4 +1,4 @@
-"""Charts in the colors of Blender's scopes: marks batched in plot fractions, labels at plot fractions, and the plots of a frame's luminance histogram and chromaticity."""
+"""Charts drawn in the colors of Blender's scopes."""
 
 from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
@@ -57,7 +57,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         blend: Blend = "ALPHA",
         width: float = 1.0,
     ) -> Self:
-        """Batches `(N, 2)` plot-fraction positions in one color or per-vertex `(N, 4)` colors, `indices` naming the vertices of each mark, triangle rows for `TRIS`, lines at a stroke width in points."""
+        """Batches `(N, 2)` plot-fraction positions in one color or per-vertex `(N, 4)` colors, `indices` naming each mark's vertices."""
         match primitive:
             case "POINTS":
                 shader, bind = "POINT_FLAT_COLOR", Canvas.points
@@ -84,7 +84,7 @@ class Label(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Plot of a size in device pixels in the well, rim, and text colors of Blender's scopes, which no theme member holds (`interface_draw.cc` `draw_but_HISTOGRAM`, `draw_scope_end`, `draw_but_WAVEFORM`), the well one pixel wider each side.
+    """Plot of a size in device pixels in the well, rim, and text colors of Blender's scopes, which no theme member holds, the well one pixel wider each side.
 
     Layers draw in order clipped to the plot, labels at plot fractions, and caption lines stack down from the top on the corner's side.
     """

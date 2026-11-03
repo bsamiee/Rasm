@@ -1,7 +1,7 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Adobe applications driven from outside the host",
+    "description": "Apple-event helper client driving Adobe applications, and the request contract their plugins serve",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -11,7 +11,7 @@
         "./apple-events": "./apple-events.ts",
         "./applications": "./applications.ts",
         "./automation": "./automation.ts",
-        "./contract": "./contract.ts",
+        "./available-face": "./available-face.ts",
         "./requests": "./requests.ts",
         "./typesetting": "./typesetting.ts"
     },

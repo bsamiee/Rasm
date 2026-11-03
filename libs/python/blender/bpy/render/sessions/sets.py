@@ -12,9 +12,8 @@ from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import PopupKind, PopupTarget
 from blender.bpy.commands.invocations import Popup, Suppressible
-from blender.bpy.commands.operators import Answer, BoundBody, Call, confirmed, Done, Empty, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, BoundBody, Call, confirmed, Done, Empty, Operator, PopupKind, PopupTarget, Unchanged
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import parsed, rooted
 from blender.bpy.data.rna.properties import enum_choices
@@ -122,7 +121,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         converting = Operator.of(
             Converting, icon=Some("ARROW_LEFTRIGHT"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(partial(confirmed, self.bound, message, ("form",)))
         )
-        locking = Operator.of(Empty, icon=Some("LOCKED"), invoke=Some(Suppressible[Empty](message=lambda _context, _record: "Unlocking never-synced member copies every category from source")))
+        locking = Operator.of(Empty, icon=Some("LOCKED"), invoke=Some(Suppressible[Empty](message=lambda _context, _record: Ok("Unlocking never-synced member copies every category from source"))))
         return MappingProxyType({
             **{step: Operator.of(Empty, icon=Some(icon))(BoundBody(self.bound, step)) for step, icon in icons},
             render_set_convert: converting(BoundBody(self.bound, render_set_convert)),

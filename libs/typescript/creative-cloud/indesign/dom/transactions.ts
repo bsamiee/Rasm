@@ -1,5 +1,6 @@
+import type { InDesignDOMObject } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
-import { Array, Deferred, Effect, Record, Struct } from 'effect';
+import { Array, Deferred, Effect } from 'effect';
 import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -11,13 +12,12 @@ const commit = Effect.fnUntraced(function* <A, E, R>(label: string, body: Effect
     yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: HostError.refused(label) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
     return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
 });
-const preserve = <T extends object>(target: T, replacements: Partial<T>, held: readonly string[] = Struct.keys(replacements)) => {
-    const refused = HostError.refused(`preferences ${held.join(', ')}`);
-    return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(held, (key): readonly [string, unknown] => [key, Reflect.get(target, key)]), catch: refused }), (saved) => Effect.sync(() => Object.assign(target, saved))).pipe(
-        Effect.tap(() => Effect.try({ try: () => Object.assign(target, replacements), catch: refused })),
+const written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>) =>
+    commit(
+        label,
+        Effect.map(Effect.all([body, Model.reference(target)]), ([members, reference]) => ({ ...reference, written: members })),
     );
-};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { commit, preserve };
+export { commit, written };

@@ -1,15 +1,15 @@
 """Installs and enables extension archive in matching Blender GUI session, else through extension CLI."""
 
-lazy from functools import partial
+lazy from itertools import takewhile
 lazy import os
-lazy import subprocess
 lazy import sys
+lazy import traceback
 lazy from typing import Annotated
 
 import msgspec
 lazy import anyio
 lazy from cyclopts import Parameter
-lazy from cyclopts.types import ResolvedExistingDirectory
+lazy from cyclopts.types import ResolvedExistingFile
 lazy from expression import Error, Ok, Result
 lazy from expression.extra.result import catch
 lazy import httpx2
@@ -18,8 +18,8 @@ lazy from mcp.types import TextContent
 lazy import psutil
 lazy from pydantic import ValidationError
 
-lazy from eng.python.blender.assembly import Blender
-lazy from eng.python.blender.faults import Fault, Faults, Reason
+lazy from blender.records.faults import Fault, Outcome, Reason
+lazy from eng.python.blender.assembly import BACKGROUND, Blender, ran
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -39,42 +39,32 @@ class _Failed(_Answer, frozen=True, kw_only=True, tag="error"):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _forwarded(endpoint: str, answer: _Done | _Failed) -> Result[int, Faults]:
-    """Writes remote output, then returns zero, or fault of the remote traceback."""
-    sys.stdout.write(answer.stdout)
-    sys.stderr.write(answer.stderr)
-    return Error(Fault.of(Reason.REMOTE, endpoint, answer.message)) if isinstance(answer, _Failed) else Ok(0)
-
-
-async def install(directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Blender) -> Result[int, Faults]:
+async def install(archive: ResolvedExistingFile, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Blender) -> Outcome[int]:
     """Installs archive `pack` built for host into user repository with extension enabled.
 
     GUI sessions with same profile load extension in place.
 
     Args:
-        directory: Folder with extension archive.
+        archive: Extension archive.
         endpoint: Blender Lab MCP endpoint.
         blender: Blender executable.
 
     Returns:
         Zero, or fault of a failed install, transport, decode, or remote execution.
     """
-    (archive,) = directory.glob("*.zip")
     repository = "user_default"
-    profile = frozendict({name: value for name, value in os.environ.items() if name.startswith("BLENDER_USER_")})
     pids = await anyio.to_thread.run_sync(
         lambda: [
             process.pid
             for process in psutil.process_iter(("exe", "cmdline", "environ"))
             if None not in (info := process.info).values()
-            and {"-b", "--background", "-c", "--command"}.isdisjoint(info["cmdline"])
-            and {name: value for name, value in info["environ"].items() if name.startswith("BLENDER_USER_")} == profile
             and catch(blender.samefile, exception=OSError)(info["exe"]).default_value(value=False)
+            and BACKGROUND.isdisjoint(takewhile(lambda argument: argument != "--", info["cmdline"]))
+            and not any(name.startswith("BLENDER_USER_") for name, _ in os.environ.items() ^ info["environ"].items())
         ]
     )
     if not pids:
-        process = await anyio.run_process((blender, "--command", "extension", "install-file", "--repo", repository, "--enable", archive), stdout=None, stderr=None, check=False)
-        return catch(process.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: 0).map_error(partial(Fault.of, Reason.PROCESS, blender))
+        return (await anyio.to_thread.run_sync(ran, blender, "--command", "extension", "install-file", "--repo", repository, "--enable", archive)).map(lambda _: 0)
     code = (
         f"import os\nimport bpy\nif os.getpid() not in {pids!r}:\n    raise ProcessLookupError(os.getpid())\n"
         f"bpy.ops.extensions.package_install_files(filepath={str(archive)!r}, repo={repository!r})\n"
@@ -84,12 +74,17 @@ async def install(directory: ResolvedExistingDirectory, /, *, endpoint: Annotate
         async with Client(endpoint) as client:
             called = await client.call_tool("execute_blender_code", {"code": code})
     except* (OSError, httpx2.HTTPError, MCPError, ValidationError) as errors:
-        failed = Fault.of(Reason.UNANSWERED, endpoint, errors)
+        failed = Fault.of(Reason.FAILED, endpoint, "".join(traceback.format_exception_only(errors, show_group=True)).rstrip())
     else:
         if called.is_error:
-            return Error(Fault.of(Reason.REMOTE, endpoint, "\n".join(block.text for block in called.content if isinstance(block, TextContent))))
-        answer: Result[_Done | _Failed, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(called.structured_content, type=_Done | _Failed)
-        return answer.map_error(partial(Fault.of, Reason.INVALID, endpoint)).bind(partial(_forwarded, endpoint))
+            return Error(Fault.of(Reason.ANSWERED, endpoint, member="\n".join(block.text for block in called.content if isinstance(block, TextContent))))
+        match catch(msgspec.convert, exception=msgspec.ValidationError)(called.structured_content, type=_Done | _Failed):
+            case Result(tag="ok", ok=answer):
+                sys.stdout.write(answer.stdout)
+                sys.stderr.write(answer.stderr)
+                return Error(Fault.of(Reason.ANSWERED, endpoint, member=answer.message)) if isinstance(answer, _Failed) else Ok(0)
+            case Result(error=error):
+                return Error(Fault.of(Reason.INVALID, endpoint, error))
     return Error(failed)
 
 

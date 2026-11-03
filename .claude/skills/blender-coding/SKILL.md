@@ -5,13 +5,19 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 # [BLENDER_CODING]
 
-Covers `bpy` code from holding a data reference to translating a result at a host entry point. Use `python-coding` for result types, records, pattern matching, and comprehensions
+Covers `bpy` code from holding a data reference to translating a result at a host entry point. Use `python-coding` for result types, records, pattern matching, and comprehensions.
+
+Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string.
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
-- Values that vary are parameters, and kinds, keys, and states come from Blender's own identifiers rather than invented strings
+- Every type, export, and helper states a fact nothing else does, a helper with one reader or a forwarder merging into its owner
+- Values that vary are parameters, and kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)
+- Decisions sit in one `match` over the discriminant or a table, outside combinator arms and extracted helpers
+- Faults keep the host exception as cause, and a guard, fallback, or default hiding a cause is a defect
+- Changes end smaller or more capable, and a move, split, rename, or extracted helper removing nothing is no change
+- Rewrites keep every used behavior, failure cause, public export, and named value, optional fields set together becoming one value
 
 [REFERENCES]:
 - [01]-[DATA](references/data.md): Storage owner per value lifetime, created IDs, library loads, paths, custom property values
@@ -69,7 +75,7 @@ Creation, removal, selection, and scope follow host rules:
 Removing an object leaves its data at zero users, and removals name objects with the data no other user holds in one `batch_remove`:
 
 ```python
-def purged(objects: tuple[bpy.types.Object, ...], /) -> None:
+def removed(objects: tuple[bpy.types.Object, ...], /) -> None:
     held = frozenset(objects)
     users = bpy.data.user_map(subset=tuple(item.data for item in objects if item.data is not None))
     bpy.data.batch_remove(ids=(*objects, *(block for block, holders in users.items() if holders <= held)))
@@ -88,7 +94,7 @@ Identity and lookup follow host keys:
 - `bl_rna.identifier` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
 - Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
 - RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
-- Operators test through `"<name>" in dir(bpy.ops.<module>)`, `hasattr` being true for any name, and `get_rna_type().properties` lists parameters
+- `bpy.ops.<module>.<name>.get_rna_type()` raises `KeyError` for an operator the build lacks, its struct listing parameters in `properties`
 - Dynamic enums (engine, color management, OCIO views) list a placeholder in `enum_items` (`BLENDER_EEVEE`, `NONE`)
 - Bad dynamic enum values raise `TypeError` listing live items
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
@@ -139,39 +145,46 @@ Overrides reach the members an operator reads alone:
 - `temp_override` accepts unknown keywords with no raise
 - Background runs hold `window` and `screen` but no area, editor operators overriding with a `screen.areas` `VIEW_3D` area and its `WINDOW` region
 
-Host exceptions (`RuntimeError`, `TypeError`, or `ValueError` by call) become a fault at the call, the exception kept as `cause`. `object.join` reads `active_object` and `selected_editable_objects` and leaves joined meshes at zero users. One `batch_remove` after the call clears them on a join and nothing on a failure:
+Operator calls fail by raising (`RuntimeError`, `TypeError`) or by a return set holding no success, and `called` turns both into a fault keeping the exception or set as `cause`. `object.join` reads `active_object` and `selected_editable_objects` and leaves joined meshes at zero users, one `batch_remove` after the call clearing them on a join and nothing on a failure:
 
 ```python
+def called(operator: Callable[..., Returns], subject: str, /, **keywords: object) -> Outcome[Returns]:
+    try:
+        answer = operator("EXEC_DEFAULT", **keywords)
+    except (RuntimeError, TypeError) as error:
+        return Error(Fault.of(Reason.FAILED, subject, error))
+    return Ok(answer).filter_with(lambda held: not held.isdisjoint({"FINISHED", "RUNNING_MODAL", "INTERFACE"}), partial(Fault.of, Reason.FAILED, subject))
+
+
 def merged(context: bpy.types.Context, target: bpy.types.Object, items: Sequence[bpy.types.Object], /) -> Outcome[bpy.types.Object]:
     joined = tuple(item.data for item in items if item.data is not None)
     with context.temp_override(active_object=target, selected_editable_objects=[target, *items]):
-        answer = catch(bpy.ops.object.join, exception=RuntimeError)()
+        answer = called(bpy.ops.object.join, target.name)
     bpy.data.batch_remove(ids=tuple(block for block in joined if block.users == 0))
-    return answer.map(lambda _: target).map_error(partial(Fault.of, Reason.FAILED, target.name))
+    return answer.map(lambda _: target)
 ```
 
 Calls and their return sets:
 - Script calls fill unset properties from scene settings (`scene.render.bake` for `object.bake`) and preferences (align, Edit Mode entry)
 - `'INVOKE_DEFAULT'` runs `invoke` in a GUI session, and `wm.call_menu` crashes a background run under either call form
 - Failing or raising `poll` makes the call raise `RuntimeError("Operator bpy.ops.<op>.poll() failed, context is incorrect")`
-- `ERROR`, `ERROR_INVALID_INPUT`, `ERROR_INVALID_CONTEXT`, and `ERROR_OUT_OF_MEMORY` reports raise their text as `RuntimeError` in either return set
+- `ERROR`, `ERROR_INVALID_INPUT`, `ERROR_INVALID_CONTEXT`, and `ERROR_OUT_OF_MEMORY` reports raise as one `RuntimeError` in either return set
 - `FINISHED` means a built-in operator ran (`mesh.fill_grid` on an odd loop adds no face), and dependent work reads the data it wrote
 - Calls return `{'FINISHED'}`, `{'RUNNING_MODAL'}`, `{'INTERFACE'}`, `{'CANCELLED'}`, or `{'PASS_THROUGH'}`
-- `CANCELLED` and `PASS_THROUGH` mean failure
+- `CANCELLED` and `PASS_THROUGH` mean failure, built-in operators returning `CANCELLED` with nothing to act on
 - Work behind `RUNNING_MODAL` or `INTERFACE` finishes after the call in a GUI session, dependent reads running from a later timer step
-- Built-in operators can return `CANCELLED` with nothing to act on, and code tests the selection or data before the call
 - `window.workspace` and file-browser `params` writes apply one event-loop pass later, dependent work running from a timer or modal step
 - `area.type` and `show_region_*` writes apply inside the write
 
 Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`. Raising calls keep their writes, and one function serving every importer removes the created set on a failure:
 
 ```python
-def imported(importer: Callable[..., object], source: Path, /) -> Outcome[frozenset[bpy.types.ID]]:
+def imported(importer: Callable[..., Returns], source: Path, /) -> Outcome[frozenset[bpy.types.ID]]:
     before = frozenset(bpy.data.all_ids)
-    answer = catch(importer, exception=RuntimeError)(filepath=str(source))
+    answer = called(importer, str(source), filepath=str(source))
     created = frozenset(bpy.data.all_ids) - before
     bpy.data.batch_remove(ids=tuple(created if answer.is_error() else ()))
-    return answer.map(lambda _: created).map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
+    return answer.map(lambda _: created)
 ```
 
 `imported(bpy.ops.wm.obj_import, source)` returns the created mesh and object, and an unreadable file returns one fault holding the importer's report.
@@ -221,30 +234,19 @@ Original geometry holds no modifier result, and each read or write takes its pat
 Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value`. Update callbacks act on `self.id_data` in place of the active item:
 
 ```python
-def mirrored(owner: type[Struct], member: str, /, *, update: Callable[[bpy.types.PropertyGroup, bpy.types.Context], None] | None = None) -> bpy.props._PropertyDeferred:
+def copied(owner: type[Struct], member: str, /, **callbacks: Callable[..., object]) -> bpy.props._PropertyDeferred:
     rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    match rna.properties[member]:
-        case bpy.types.EnumProperty() as described:
-            items = tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in described.enum_items)
-            return bpy.props.EnumProperty(name=described.name, description=described.description, items=items, default=described.default, update=update)
-        case bpy.types.BoolProperty(array_length=0) as described:
-            return bpy.props.BoolProperty(name=described.name, description=described.description, default=described.default, update=update)
-        case bpy.types.FloatProperty(array_length=0) as described:
-            return bpy.props.FloatProperty(
-                name=described.name,
-                description=described.description,
-                subtype=described.subtype,
-                unit=described.unit,
-                min=described.hard_min,
-                max=described.hard_max,
-                soft_min=described.soft_min,
-                soft_max=described.soft_max,
-                step=described.step,
-                precision=described.precision,
-                default=described.default,
-                update=update,
-            )
-        case described:
+    described = rna.properties[member]
+    shared = {"name": described.name, "description": described.description, **callbacks}
+    match described:
+        case bpy.types.EnumProperty(enum_items=items, default=default):
+            return bpy.props.EnumProperty(**shared, items=tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in items), default=default)
+        case bpy.types.BoolProperty(array_length=0, default=default):
+            return bpy.props.BoolProperty(**shared, default=default)
+        case bpy.types.FloatProperty(array_length=0) as real:
+            kept = {key: getattr(real, key) for key in ("subtype", "unit", "soft_min", "soft_max", "step", "precision", "default")}
+            return bpy.props.FloatProperty(**shared, **kept, min=real.hard_min, max=real.hard_max)
+        case _:
             raise TypeError(f"{owner.__name__}.{member} is a {described.type} property")
 
 
@@ -253,13 +255,16 @@ def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context, /) -> N
     owner.update_tag()
 
 
+light = partial(copied, bpy.types.Light, update=retagged)
+
+
 class Lamp(bpy.types.PropertyGroup):
-    kind: mirrored(bpy.types.Light, "type", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_reach: mirrored(bpy.types.Light, "use_custom_distance", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    reach: mirrored(bpy.types.Light, "cutoff_distance", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: light("type")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_reach: light("use_custom_distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    reach: light("cutoff_distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 ```
 
-`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `mirrored(<class>, <member>)` copies any RNA enum, boolean, or scalar float.
+`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies any RNA enum, boolean, or scalar float, and `light` binds owner and callback once.
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -282,8 +287,8 @@ Registered values read and write through the host:
 - Values read and write as attributes and sit in system properties outside `ID.keys()`, `bl_system_properties_get()` listing them
 - `ob["prop"] = value` on a registered name creates a separate custom property
 - `property_unset` resets a value, and `is_property_set(name)` counts a value reused from the last run as unset, `ghost=False` counting it as set
-- Writable-member walks reach view state (`cursor_location`, `is_dirty`) and `PASSWORD` tokens (`auth_token`, `access_token`), captures naming members
-- `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` returns whether the member is editable in its current state
+- Captures name members, writable-member walks reach view state (`cursor_location`, `is_dirty`) and `PASSWORD` tokens (`auth_token`, `access_token`)
+- `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` reports the member's read-only state in its current context
 
 ## [05]-[UNDO]
 
@@ -335,19 +340,18 @@ Each entry point translates the result once into the host's form:
 |  [02]   | `execute` with nothing changed  | Reason as `INFO` with `{'CANCELLED'}`                                      |
 |  [03]   | `execute` with faults           | `ERROR` report per fault with `{'CANCELLED'}`, file as the body found it   |
 |  [04]   | `poll`                          | `False` with `poll_message_set` of unmet requirements                      |
-|  [05]   | `draw`, draw handler            | Failed part drawn as an alert row, rest drawn                              |
-|  [06]   | Update callback, handler, timer | Faults stored for the extension to report, a raise printing its traceback  |
-|  [07]   | `register`                      | Host exception as raised, after each `ExitStack` callback runs             |
-|  [08]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling render                                 |
-|  [09]   | `register_cli_command` function | Exit status 0 or 1                                                         |
-|  [10]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
+|  [05]   | Update callback, handler, timer | Faults stored for the extension to report, a raise printing its traceback  |
+|  [06]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling render                                 |
+|  [07]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
 
-Helpers below an operator body return their faults in the result, and the body reports each one once:
+Helpers below an operator body return faults as the error and skipped-item faults as the success value, and the body reports each once:
 
 ```python
-def answered[T](operator: bpy.types.Operator, outcome: Outcome[T], /) -> Answer:
+def answered(operator: bpy.types.Operator, outcome: Outcome[tuple[Fault, ...]], /) -> Returns:
     match outcome:
-        case Result(tag="ok"):
+        case Result(tag="ok", ok=skipped):
+            for fault in skipped:
+                operator.report({"WARNING"}, fault.message)
             return {"FINISHED"}
         case Result(error=faults):
             for fault in faults:
@@ -355,10 +359,10 @@ def answered[T](operator: bpy.types.Operator, outcome: Outcome[T], /) -> Answer:
             return {"CANCELLED"}
 ```
 
-`execute` returns `answered(self, merged(context, target, items))`, and a script caller receives the reports as one `RuntimeError`.
+`--python` scripts read their arguments after `--` in `sys.argv`, Blender's own flags filling the entries before it.
 
 Host calls that raise nothing decide the result through their return:
-- `None` returns (`links.new` across trees) and invalid results (false `NodeLink.is_valid`, targetless `Constraint.is_valid`) are faults at the call
+- `None` returns and invalid results (false `NodeLink.is_valid`, targetless `Constraint.is_valid`) are faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing
 - `modifiers.move` past a pinned modifier keeps the order with no raise or report, and code reads the order after the call

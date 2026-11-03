@@ -93,13 +93,11 @@ private enum Part {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension AXUIElement {
-    func candidates() throws(ApplicationFailure) -> [AXUIElement] {
-        let bar: AXUIElement? = try element(kAXMenuBarAttribute)
-        let windows: [AXUIElement] = try elements(kAXWindowsAttribute).map { window throws(ApplicationFailure) in
+    static func candidates(_ read: [String: CFTypeRef]) throws(ApplicationFailure) -> [AXUIElement] {
+        try (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(checked).map { window throws(ApplicationFailure) in
             try [window] + window.elements(kAXChildrenAttribute).map { child throws(ApplicationFailure) in try child.value(kAXRoleAttribute) == kAXSheetRole ? child : nil }.compactMap(\.self)
         }
-        .flatMap(\.self)
-        return windows + [bar].compactMap(\.self)
+        .flatMap(\.self) + [read[kAXMenuBarAttribute].flatMap(checked)].compactMap(\.self)
     }
 
     private static func children(_ read: [String: CFTypeRef]) -> [AXUIElement] {

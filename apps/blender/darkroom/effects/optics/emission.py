@@ -20,7 +20,7 @@ from blender.bpy.nodes.graphs import Expr, math, menus, mixed, Scalar, vector
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.inputs import GraphInputs, path_key, Step
-from blender.imaging.color import colorimetry, processors
+from blender.imaging.color import colorimetry
 from blender.imaging.color.processors import Stops
 from blender.records.faults import accumulated, Outcome
 from blender.records.fields import Case
@@ -162,8 +162,7 @@ def spectrum(identity: Identity, request: Spectrum, tones: npt.NDArray[np.float6
             gradient = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", W),), content=Some(ramp), socket="Color", socket_type=bpy.types.NodeSocketColor)
             return sampled(identity, {"w": tones}, gradient).map(lambda values: values[0][:, :3].astype(np.float64))
         case Incandescence(cool=cool, hot=hot):
-            tristimulus = colorimetry.blackbody((1.0 - tones) * cool + tones * hot)
-            return processors.basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: np.asarray(np.linalg.solve(matrix, tristimulus.T).T, dtype=np.float64))
+            return colorimetry.rgb(config, PyOpenColorIO.ROLE_SCENE_LINEAR, colorimetry.blackbody((1.0 - tones) * cool + tones * hot))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

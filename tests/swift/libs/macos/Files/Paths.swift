@@ -15,7 +15,7 @@ private func kernelPath(of url: URL) throws -> String {
         let status: Int32 = unsafe fcntl(descriptor.rawValue, F_GETPATH, &buffer)
         let resolved: Bool = status == 0
         try #require(resolved)
-        let path: String? = String(bytes: buffer.prefix { character in character != 0 }.map(UInt8.init(bitPattern:)), encoding: .utf8)
+        let path: String? = String(validating: buffer.prefix { character in character != 0 }, as: UTF8.self)
         return try #require(path)
     }
 }

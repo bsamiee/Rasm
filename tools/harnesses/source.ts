@@ -19,7 +19,6 @@ const ESCAPE = /\\(?<character>.)/gu;
 const INCLUDE = /^[ \t]*(?:\/\/[ \t]*@|#)include[ \t]+["'](?<name>[^"']+)["'][ \t;]*$/u;
 const INCLUDE_PATH = /^[ \t]*(?:\/\/[ \t]*@|#)includepath[ \t]+["'](?<paths>[^"']*)["']/mu;
 const DIRECTIVE = /^[ \t]*#(?:target|targetengine|strict|script)\b/u;
-const INVOCATION = 'harness(arguments[0]);';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -32,8 +31,8 @@ const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.
             searched.map((entry): string => path.resolve(entry, name)),
             (candidate: string) => fs.exists(candidate),
         );
-        const included = yield* Effect.fromOption(found, () => HarnessError.make({ reason: { _tag: 'Unavailable', because: `include ${name} found in none of ${searched.join(', ')}` }, subject: file }));
-        return chain.includes(included) ? yield* HarnessError.make({ reason: { _tag: 'Unavailable', because: `include cycle ${[...chain, included].join(' > ')}` }, subject: file }) : included;
+        const included = yield* Effect.fromOption(found, () => HarnessError.unavailable(file)(`include ${name} found in none of ${searched.join(', ')}`));
+        return chain.includes(included) ? yield* HarnessError.unavailable(file)(`include cycle ${[...chain, included].join(' > ')}`) : included;
     });
     const expanded: (file: string, body: string, chain: readonly string[]) => Effect.Effect<readonly (readonly [string, Mapped])[], HarnessError | PlatformError.PlatformError> = Effect.fnUntraced(function* (file: string, body: string, chain: readonly string[]) {
         const folder = path.dirname(file);
@@ -56,7 +55,6 @@ const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.
     const kept = Option.match(lines, { onNone: () => rows, onSome: (ranges) => ranges.flatMap(([from, to]) => rows.slice(from - 1, to)) });
     return { source: { script, code: kept.map(([line]) => line).join('\n') }, map: kept.map(([, at]) => at), binary: Option.isSome(binary) };
 });
-
 const engineOf =
     <E extends string>(engines: { readonly [K in E]: { readonly extensions: readonly string[] } }, fallback: NoInfer<E>) =>
     (scripts: readonly string[]): Result.Result<E, HarnessError> => {
@@ -65,7 +63,7 @@ const engineOf =
                 Record.findFirst(engines, ({ extensions }) => extensions.some((extension) => script.endsWith(`.${extension}`))),
                 ([engine]) => engine,
             );
-        const unavailable = (because: string) => HarnessError.make({ reason: { _tag: 'Unavailable', because }, subject: scripts.join(', ') });
+        const unavailable = HarnessError.unavailable(scripts.join(', '));
         const unknown = scripts.filter((script) => Option.isNone(held(script)));
         return unknown.length > 0
             ? Result.fail(unavailable(`${unknown.join(', ')} holds no extension of ${Record.collect(engines, (engine, { extensions }) => `${engine} ${extensions.join(' ')}`).join(', ')}`))
@@ -73,8 +71,7 @@ const engineOf =
     };
 const assembled = Effect.fn('assembled')(function* (engine: URL) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const sources = yield* Effect.forEach([new URL('extendscript.jsxinc', import.meta.url), engine], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
-    return [...sources, INVOCATION].join('\n');
+    return (yield* Effect.forEach([new URL('extendscript.jsxinc', import.meta.url), engine], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString))).join('\n');
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

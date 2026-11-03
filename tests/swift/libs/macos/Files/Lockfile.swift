@@ -76,28 +76,16 @@ struct Lockfiles {
         #expect(try !holdsDirectory(at: lock))
     }
 
-    @Test
-    func heldLockFailsSecondHolderWithoutRetry() async throws {
+    @Test(arguments: [nil, Backoff(count: 3, base: .milliseconds(20))] as [Backoff?])
+    func heldLockFailsSecondHolderOnceRetriesRunOut(retry: Backoff?) async throws {
         let lock: URL = try lockPath()
-        let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
-            try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Int in
-                try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Int in 1 }
-            }
-        }
-        expectNoDifference(failure.lockReason?.is(\.held), true)
-        #expect(try !holdsDirectory(at: lock))
-    }
-
-    @Test
-    func exhaustedRetriesFailHeld() async throws {
-        let lock: URL = try lockPath()
-        let retry: Backoff = Backoff(count: 3, base: .milliseconds(20))
         let failure: LockOutcome = try await #require(throws: LockOutcome.self) {
             try await Lockfile.withLocks([Lockfile(lock)]) { () throws(LockOutcome) -> Int in
                 try await Lockfile.withLocks([Lockfile(lock, retry: retry)]) { () throws(LockOutcome) -> Int in 1 }
             }
         }
         expectNoDifference(failure.lockReason?.is(\.held), true)
+        #expect(try !holdsDirectory(at: lock))
     }
 
     @Test

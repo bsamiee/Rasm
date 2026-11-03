@@ -18,10 +18,9 @@ import msgspec
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Save
 from blender.bpy.commands.keymaps import Chord, Keymap
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement, tallied, Unchanged
 from blender.bpy.data.ids.images import fingerprinted, loaded, Tag
 from blender.bpy.data.ids.store import STORES
 from blender.bpy.data.rna.descriptors import written
@@ -30,7 +29,7 @@ from blender.bpy.extension.events import Change, Handler, updated
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.trees import socket_at
-from blender.bpy.render.color.spaces import UNTAGGED, viewed
+from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.results import INTERMEDIATES
 from blender.bpy.render.previews.queue import BACKLOG, Demand, Job, PreviewFeed, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewScene, Readback
@@ -239,7 +238,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     .map(lambda _: True)
                 )
 
-            match read_file(path, config, untagged=Some(UNTAGGED)):
+            match read_file(path, config):
                 case Result(tag="error", error=faults) if all(fault.reason in {Reason.UNREADABLE, Reason.UNWRITABLE} for fault in faults):
                     return Ok(False)
                 case Result(tag="error", error=faults):

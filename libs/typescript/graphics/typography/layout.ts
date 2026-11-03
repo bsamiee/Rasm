@@ -14,14 +14,14 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         description: 'Features each GSUB and GPOS language system enables (locl, vert)',
     }),
 }) {
-    static readonly of = ({ handle, parsed, names }: { readonly handle: Face; readonly parsed: Font; readonly names: Names }) => {
+    static readonly of = ({ handle, sfnt, names }: { readonly handle: Face; readonly sfnt: Font; readonly names: Names }) => {
         const defaultLanguage = 0xff_ff;
         return Layout.make({
             features: Record.collect(
                 Array.groupBy(
                     [
-                        ...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: Option.flatMap(Option.fromUndefinedOr(handle.getFeatureNameIds(table, at)?.uiLabelNameId), (id) => names.byId(id)) }))),
-                        ...parsed.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() })),
+                        ...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: Option.flatMap(Option.fromUndefinedOr(handle.getFeatureNameIds(table, at)?.uiLabelNameId), (id) => names.findById(id)) }))),
+                        ...sfnt.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() })),
                     ],
                     Struct.get('tag'),
                 ),

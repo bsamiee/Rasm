@@ -40,7 +40,7 @@ class Speckles(msgspec.Struct, frozen=True, kw_only=True):
 
     def covered(self, raster: Raster, precision: Precision, clock: float, *, seed: int) -> Outcome[npt.NDArray[np.float64]]:
         """Returns spot and white spot coverage replicates over each pixel, the spots redrawn per whole clock unit."""
-        return self.population.integrated(raster, uniforms, precision=precision, stream=stream(Speckles, int(np.floor(clock)), seed), paint=lambda tone: float(tone < self.white)).map(
+        return self.population.integrated(raster, precision=precision, stream=stream(Speckles, int(np.floor(clock)), seed), paint=lambda tone: float(tone < self.white)).map(
             lambda estimate: estimate.replicates
         )
 

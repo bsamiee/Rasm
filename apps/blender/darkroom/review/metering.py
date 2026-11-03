@@ -14,9 +14,8 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.keymaps import Button, Chord
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement
 from blender.bpy.data.ids.images import fingerprinted
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Job, Setting

@@ -1,13 +1,7 @@
 public import Foundation
+import Processes
 public import Subprocess
 import System
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-public struct TimedLine<Line: Sendable>: Sendable {
-    public let line: Line
-    public let instant: ContinuousClock.Instant
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -50,7 +44,7 @@ public func output(
         let result: ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>> = try await Subprocess.run(
             executable,
             arguments: Arguments(arguments),
-            platformOptions: session(),
+            platformOptions: .session(),
             output: .string(limit: limit),
             error: .string(limit: limit),
         )
@@ -62,28 +56,26 @@ public func output(
 
 public func streamingJSONLines<Line: Decodable & Sendable, Outcome: Sendable>(
     of executable: Executable,
-    within budget: Duration,
     arguments: [String] = [],
     as _: Line.Type = Line.self,
-    _ body: (_ lines: AsyncStream<TimedLine<Line>>) async throws -> Outcome,
-) async throws -> (outcome: Outcome, lines: [TimedLine<Line>], status: TerminationStatus) {
+    _ body: (_ lines: AsyncStream<Line>) async throws -> Outcome,
+) async throws -> (outcome: Outcome, lines: [Line], status: TerminationStatus) {
     let subject: String = ([executable.description] + arguments).joined(separator: " ")
-    let (lines, delivery): (AsyncStream<TimedLine<Line>>, AsyncStream<TimedLine<Line>>.Continuation) =
-        AsyncStream.makeStream()
+    let (lines, delivery): (AsyncStream<Line>, AsyncStream<Line>.Continuation) = AsyncStream.makeStream()
     let (requests, stops): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream()
     @concurrent
-    func decode(_ output: SubprocessOutputSequence) async throws(TestFailure) -> [TimedLine<Line>] {
+    func decode(_ output: SubprocessOutputSequence) async throws(TestFailure) -> [Line] {
         defer {
             delivery.finish()
             stops.finish()
         }
         let decoder: JSONDecoder = JSONDecoder()
-        var transcript: [TimedLine<Line>] = []
+        var transcript: [Line] = []
         do {
             for try await text: String in output.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded) where !text.isEmpty {
-                let timed: TimedLine<Line> = TimedLine(line: try decoder.decode(Line.self, from: Data(text.utf8)), instant: .now)
-                transcript.append(timed)
-                delivery.yield(timed)
+                let line: Line = try decoder.decode(Line.self, from: Data(text.utf8))
+                transcript.append(line)
+                delivery.yield(line)
             }
         } catch let failure as DecodingError {
             throw TestFailure(subject: subject, reason: .undecodable(failure))
@@ -92,22 +84,16 @@ public func streamingJSONLines<Line: Decodable & Sendable, Outcome: Sendable>(
         }
         return transcript
     }
-    @concurrent
-    func expire() async {
-        guard case .success = await Result(catching: { try await Task.sleep(for: budget) }) else { return }
-        stops.yield()
-    }
-    let result: ExecutionResult<(Outcome, [TimedLine<Line>]), SequenceOutput, DiscardedOutput> = try await Subprocess.run(
-        Configuration(executable: executable, arguments: Arguments(arguments), platformOptions: session()),
+    let result: ExecutionResult<(Outcome, [Line]), SequenceOutput, DiscardedOutput> = try await Subprocess.run(
+        Configuration(executable: executable, arguments: Arguments(arguments), platformOptions: .session()),
         input: .none,
         output: .sequence,
         error: .discarded,
     ) { execution in
-        async let transcript: [TimedLine<Line>] = decode(execution.standardOutput)
+        async let transcript: [Line] = decode(execution.standardOutput)
         async let termination: Void = { () async throws(SubprocessError) in
             for await _: Void in requests.prefix(1) { try execution.send(signal: .terminate, toProcessGroup: true) }
         }()
-        async let _: Void = expire()
         let outcome: Outcome = try await body(lines)
         stops.yield()
         try await termination
@@ -118,11 +104,4 @@ public func streamingJSONLines<Line: Decodable & Sendable, Outcome: Sendable>(
 
 extension Executable {
     public static func product(named name: String) throws(TestFailure) -> Self { .path(FilePath(try builtProduct(named: name).path(percentEncoded: false))) }
-}
-
-public func session() -> PlatformOptions {
-    var options: PlatformOptions = PlatformOptions()
-    options.createSession = true
-    options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
-    return options
 }

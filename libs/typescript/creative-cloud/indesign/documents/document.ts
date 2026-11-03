@@ -1,206 +1,138 @@
 import type { Document, Gradient, Layer, Link, MasterSpread, MixedInk, MixedInkGroup, Page, PageItem, PlainColor, PlainSwatch, Spread, Tint } from 'adobe:indesign';
-import { HostError, type Open, Reference } from '@rasm/automation/requests';
-import { Array, Effect, Match, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { HostError, type Open } from '@rasm/automation/requests';
+import { Array, Effect, Match, Number, Option, Path, Predicate, Record, Result, Struct } from 'effect';
+import { DocumentView, Extent, LayerView, LinkView, PageView, SpreadView, SwatchView } from '#/contract';
 import { HostSettings } from '#/documents/settings';
-import { ParagraphAttributes } from '#/documents/text';
+import { paragraphAttributes } from '#/documents/text';
 import { Model } from '#/dom/model';
-import { reference } from '#/dom/specifier';
-import { picked, read } from '#/dom/value';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-// --- [GEOMETRY]
-
-class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), { description: 'Outer stroke bounds in spread points, x 0 at spine or spread center' }) {
-    static readonly of = Effect.fn('Extent.of')(function* (...placed: readonly (Page | PageItem)[]) {
-        const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
-        return yield* Effect.try({
-            try: () => {
-                const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
-                    each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
-                );
-                return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
-            },
-            catch: HostError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
-        });
-    });
-}
-
-// --- [VIEWS]
-
-class LayerView extends Schema.TaggedClass<LayerView, { readonly brand: unique symbol }>()('Layer', {
-    ...Reference.fields,
-    index: Schema.Int,
-    ...Struct.Record(['visible', 'locked', 'printable', 'ignoreWrap'], Schema.Boolean),
-    layerColor: Schema.Json.annotate({ description: 'UIColors member or RGB values' }),
-    items: Schema.Int,
-}) {
-    static readonly matches = (model: typeof Model.Service) => model.owning<Layer>('layerColor');
-    static readonly of = (layer: Layer) => read(LayerView, layer.toSpecifier(), () => ({ ...picked(LayerView.fields)(layer), ...reference(layer), _tag: 'Layer', items: layer.pageItems.length }));
-}
-class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique symbol }>()('Link', {
-    ...Reference.fields,
-    status: Schema.String,
-    filePath: Schema.String,
-    linkResourceURI: Schema.String,
-    linkType: Schema.String,
-    needed: Schema.Boolean,
-    edited: Schema.Boolean,
-    size: Schema.Finite.annotate({ description: 'Source file bytes' }),
-    date: Schema.String.annotate({ description: 'Source file modification date' }),
-    parent: Reference.annotate({ description: 'Placed graphic or story' }),
-}) {
-    static readonly matches = (model: typeof Model.Service) => model.owning<Link>('linkResourceURI');
-    static readonly of = (link: Link) => read(LinkView, link.toSpecifier(), () => ({ ...picked(LinkView.fields)(link), ...reference(link), _tag: 'Link' }));
-}
-class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique symbol }>()('Swatch', {
-    ...Reference.fields,
-    group: Schema.OptionFromOptionalKey(Schema.String).annotate({ description: 'Color group name' }),
-    value: Schema.TaggedUnion({
-        Swatch: {},
-        Color: { model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
-        Tint: { baseColor: Reference, tintValue: Schema.Finite },
-        Gradient: { type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
-        MixedInk: { baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
-    }).annotate({ description: 'Empty Swatch for None and mixed ink groups' }),
-}) {
-    static readonly matches = (model: typeof Model.Service) => model.owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup');
-    static readonly of = (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) => {
-        const { cases } = SwatchView.fields.value;
-        const value = Match.value(swatch).pipe(
-            Match.when({ constructorName: 'Color' }, (color) => ({ ...picked(cases.Color.fields)(color), _tag: 'Color' })),
-            Match.when({ constructorName: 'Tint' }, (tint) => ({ ...picked(cases.Tint.fields)(tint), _tag: 'Tint' })),
-            Match.when({ constructorName: 'Gradient' }, (gradient) => ({ ...picked(cases.Gradient.fields)(gradient), _tag: 'Gradient', gradientStops: Array.map(gradient.gradientStops.everyItem().getElements(), picked(cases.Gradient.fields.gradientStops.value.fields)) })),
-            Match.when({ constructorName: 'MixedInk' }, (ink) => ({ ...picked(cases.MixedInk.fields)(ink), _tag: 'MixedInk' })),
-            Match.orElse(() => ({ _tag: 'Swatch' })),
-        );
-        return read(SwatchView, swatch.toSpecifier(), () => ({ _tag: 'Swatch', ...reference(swatch), group: Option.map(Option.fromNullOr(swatch.parentColorGroup), Struct.get('name')), value }));
-    };
-}
-class PageView extends Schema.TaggedClass<PageView, { readonly brand: unique symbol }>()('Page', {
-    ...Reference.fields,
-    documentOffset: Schema.Int,
-    side: Schema.String,
-    extent: Extent,
-    parent: Reference.annotate({ description: 'Spread or parent spread' }),
-    appliedMaster: Schema.OptionFromOptionalKey(Reference),
-    appliedSection: Reference,
-    margins: Schema.Struct({
-        ...Struct.Record(['top', 'bottom', 'inside', 'outside'], Schema.Finite),
-        columns: Schema.Array(Schema.Tuple([Schema.Finite, Schema.Finite])).annotate({ description: 'Column left and right edges from left margin' }),
-    }),
-    items: Schema.Struct({ own: Schema.Int, inherited: Schema.Int }).annotate({ description: 'Own and parent page item counts' }),
-}) {
-    static readonly matches = (model: typeof Model.Service) => model.page;
-    static readonly of = (page: Page) =>
-        Effect.flatMap(Extent.of(page), (extent) =>
-            read(PageView, page.toSpecifier(), () => {
-                const { marginPreferences: margins } = page;
-                return {
-                    _tag: 'Page',
-                    ...reference(page),
-                    ...Struct.pick(page, ['documentOffset', 'side', 'parent', 'appliedSection']),
-                    extent,
-                    appliedMaster: Option.fromNullOr(page.appliedMaster),
-                    margins: { top: margins.top, bottom: margins.bottom, inside: margins.left, outside: margins.right, columns: Array.chunksOf(margins.columnsPositions, 2) },
-                    items: { own: page.pageItems.length, inherited: page.masterPageItems.length },
-                };
-            }),
-        );
-}
-class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique symbol }>()('Spread', {
-    ...Reference.fields,
-    index: Schema.Int,
-    showMasterItems: Schema.Boolean,
-    appliedMaster: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Applied parent, or base parent of a parent spread' }),
-    kind: Schema.TaggedUnion({ Spread: { allowPageShuffle: Schema.Boolean }, MasterSpread: { namePrefix: Schema.String, baseName: Schema.String } }),
-    pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(PageView.fields, ['side', 'extent'])))).annotate({ description: 'In order' }),
-    items: Schema.Int,
-}) {
-    static readonly matches = (model: typeof Model.Service) => Predicate.or(model.spread, model.owning<MasterSpread>('namePrefix'));
-    static readonly of = (spread: Spread | MasterSpread) =>
-        Effect.flatMap(
-            Effect.forEach(spread.pages.everyItem().getElements(), (page) => Effect.map(Extent.of(page), (extent) => ({ ...reference(page), side: page.side, extent }))),
-            (pages) =>
-                read(SpreadView, spread.toSpecifier(), () => ({
-                    _tag: 'Spread',
-                    ...reference(spread),
-                    index: spread.index,
-                    showMasterItems: spread.showMasterItems,
-                    appliedMaster: Option.fromNullOr(spread.appliedMaster),
-                    kind: spread.constructorName === 'Spread' ? { _tag: 'Spread', allowPageShuffle: spread.allowPageShuffle } : { _tag: 'MasterSpread', namePrefix: spread.namePrefix, baseName: spread.baseName },
-                    pages,
-                    items: spread.pageItems.length,
-                })),
-        );
-}
-class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: unique symbol }>()('Document', {
-    ...Reference.fields,
-    saved: Schema.Boolean,
-    modified: Schema.Boolean,
-    path: Schema.OptionFromOptionalKey(Schema.String),
-    windows: Schema.Array(Schema.String),
-    intent: Schema.String,
-    facingPages: Schema.Boolean,
-    size: Schema.Struct({ width: Schema.Finite, height: Schema.Finite }).annotate({ description: 'Default page size in points' }),
-    units: Schema.Struct({ horizontal: Schema.String, vertical: Schema.String, origin: Schema.String }).annotate({ description: 'Ruler units and origin, results in points' }),
-    pages: Schema.Int,
-    spreads: Schema.Int,
-    parents: Schema.Array(Reference.mapFields(Struct.assign({ pages: Schema.Int }))).annotate({ description: 'Parent (master) spreads' }),
-    sections: Schema.Array(Reference.mapFields(Struct.assign({ start: Schema.String, length: Schema.Int, pageNumberStart: Schema.Int, continueNumbering: Schema.Boolean }))),
-    layers: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(LayerView.fields, ['visible', 'locked', 'printable'])))),
-    stories: Schema.Struct({ count: Schema.Int, overset: Schema.Array(Schema.String) }),
-    links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Count per LinkStatus member' }),
-    fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'FontStatus per font' }),
-    swatches: Schema.Array(Reference),
-    styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Counts with grouped styles' }),
-    preflightOptions: Schema.Struct({
-        ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'], Schema.Boolean),
-        ...Struct.Record(['preflightProfilePolicy', 'preflightWorkingProfile', 'preflightScope', 'preflightWhichLayers'], Schema.String),
-    }),
-    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Absent with live preflight off' }),
-    textDefaults: ParagraphAttributes,
-}) {
-    static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
-    static readonly matches = (model: typeof Model.Service) => model.document;
-    static readonly overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
-    static readonly row = Effect.fn('DocumentView.row')(function* (document: Document) {
-        const { saved } = document;
-        return { ...reference(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
-    });
-    static readonly of = (document: Document) =>
-        Effect.flatMap(Effect.all([DocumentView.row(document), HostSettings.read(document.textDefaults)]), ([row, settings]) =>
-            read(DocumentView, document.toSpecifier(), () => {
-                const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = document;
-                return {
-                    _tag: 'Document',
-                    ...row,
-                    intent: preferences.intent,
-                    facingPages: preferences.facingPages,
-                    size: { width: preferences.pageWidth, height: preferences.pageHeight },
-                    units: { horizontal: view.horizontalMeasurementUnits, vertical: view.verticalMeasurementUnits, origin: view.rulerOrigin },
-                    pages: document.pages.length,
-                    spreads: document.spreads.length,
-                    parents: Array.map(document.masterSpreads.everyItem().getElements(), (each) => ({ ...reference(each), pages: each.pages.length })),
-                    sections: Array.map(document.sections.everyItem().getElements(), (each) => ({ ...reference(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
-                    layers: Array.map(document.layers.everyItem().getElements(), (each) => ({ ...reference(each), visible: each.visible, locked: each.locked, printable: each.printable })),
-                    stories: { count: document.stories.length, overset: DocumentView.overset(document) },
-                    links: Record.map(Array.groupBy(document.links.everyItem().status, String), Array.length),
-                    fonts: Array.zipWith(document.fonts.everyItem().name, document.fonts.everyItem().status, (name, status) => ({ name, status })),
-                    swatches: document.swatches.everyItem().getElements(),
-                    styles: { paragraph: document.allParagraphStyles.length, character: document.allCharacterStyles.length, object: document.allObjectStyles.length, table: document.allTableStyles.length, cell: document.allCellStyles.length },
-                    preflightOptions: { ...picked(DocumentView.fields.preflightOptions.fields)(preflight), preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name },
-                    activeProcess: preflight.preflightOff ? Option.none() : Option.some(document.activeProcess),
-                    textDefaults: ParagraphAttributes.of(document.textDefaults, settings),
-                };
-            }),
-        );
-}
+import { Value } from '#/dom/value';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const open = ({ file }: Open) => Model.use(({ app }) => Effect.try({ try: () => reference(app.open(decodeURIComponent(file.pathname), false)), catch: HostError.refused(`open ${file.href}`) }));
+// --- [GEOMETRY]
+
+const extent = Effect.fn('extent')(function* (...placed: readonly (Page | PageItem)[]) {
+    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
+    return yield* Effect.try({
+        try: () => {
+            const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
+                each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
+            );
+            return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
+        },
+        catch: HostError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
+    });
+});
+
+// --- [VIEWS]
+
+const layerView = Model.view(
+    (model) => model.layer,
+    (layer: Layer) => Model.read(LayerView, layer.toSpecifier(), () => ({ ...Value.picked(LayerView.fields)(layer), ...Model.referenceUnsafe(layer), _tag: 'Layer', items: layer.pageItems.length })),
+);
+const linkView = Model.view(
+    (model) => model.link,
+    (link: Link) => Model.read(LinkView, link.toSpecifier(), () => ({ ...Value.picked(LinkView.fields)(link), ...Model.referenceUnsafe(link), _tag: 'Link' })),
+);
+const swatchView = Model.view(
+    (model) => model.swatch,
+    (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) => {
+        const { cases } = SwatchView.fields.value;
+        return Model.read(SwatchView, swatch.toSpecifier(), () => ({
+            _tag: 'Swatch',
+            ...Model.referenceUnsafe(swatch),
+            group: Option.map(Option.fromNullishOr(swatch.parentColorGroup), Struct.get('name')),
+            value: Match.value(swatch).pipe(
+                Match.when({ constructorName: 'Color' }, (color) => ({ ...Value.picked(cases.Color.fields)(color), _tag: 'Color' })),
+                Match.when({ constructorName: 'Tint' }, (tint) => ({ ...Value.picked(cases.Tint.fields)(tint), _tag: 'Tint' })),
+                Match.when({ constructorName: 'Gradient' }, (gradient) => ({ ...Value.picked(cases.Gradient.fields)(gradient), _tag: 'Gradient', gradientStops: Array.map(gradient.gradientStops.everyItem().getElements(), Value.picked(cases.Gradient.fields.gradientStops.value.fields)) })),
+                Match.when({ constructorName: 'MixedInk' }, (ink) => ({ ...Value.picked(cases.MixedInk.fields)(ink), _tag: 'MixedInk' })),
+                Match.orElse(() => ({ _tag: 'Swatch' })),
+            ),
+        }));
+    },
+);
+const pageView = Model.view(
+    (model) => model.page,
+    (page: Page) =>
+        Effect.flatMap(extent(page), (bounds) =>
+            Model.read(PageView, page.toSpecifier(), () => ({
+                _tag: 'Page',
+                ...Model.referenceUnsafe(page),
+                ...Struct.pick(page, ['documentOffset', 'side', 'parent', 'appliedSection']),
+                extent: bounds,
+                appliedMaster: Option.fromNullishOr(page.appliedMaster),
+                margins: { ...Value.picked(PageView.fields.margins.fields)(page.marginPreferences), columns: Array.chunksOf(page.marginPreferences.columnsPositions, 2) },
+                items: { own: page.pageItems.length, inherited: page.masterPageItems.length },
+            })),
+        ),
+);
+const spreadView = Model.view(
+    (model) => Predicate.or(model.spread, model.masterSpread),
+    Effect.fnUntraced(function* (spread: Spread | MasterSpread) {
+        const pages = yield* Effect.forEach(spread.pages.everyItem().getElements(), (page) => Effect.map(extent(page), (bounds) => ({ page, bounds })));
+        return yield* Model.read(SpreadView, spread.toSpecifier(), () => ({
+            _tag: 'Spread',
+            ...Model.referenceUnsafe(spread),
+            index: spread.index,
+            showMasterItems: spread.showMasterItems,
+            appliedMaster: Option.fromNullishOr(spread.appliedMaster),
+            kind: spread.constructorName === 'Spread' ? { _tag: 'Spread', allowPageShuffle: spread.allowPageShuffle } : { _tag: 'MasterSpread', namePrefix: spread.namePrefix, baseName: spread.baseName },
+            pages: Array.map(pages, ({ page, bounds }) => ({ ...Model.referenceUnsafe(page), side: page.side, extent: bounds })),
+            items: spread.pageItems.length,
+        }));
+    }),
+);
+const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
+const summary = Effect.fn('summary')(function* (document: Document) {
+    const [own, saved] = yield* Effect.all([Model.reference(document), Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) })]);
+    return {
+        ...own,
+        saved,
+        modified: document.modified,
+        path: saved ? yield* Model.file(document, 'fullName') : Option.none(),
+        windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()),
+    };
+});
+const documentView = Model.view(
+    (model) => model.document,
+    Effect.fnUntraced(function* (document: Document) {
+        const [summarized, settings] = yield* Effect.all([summary(document), HostSettings.read(document.textDefaults)]);
+        return yield* Model.read(DocumentView, document.toSpecifier(), () => {
+            const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = document;
+            return {
+                _tag: 'Document',
+                ...summarized,
+                intent: preferences.intent,
+                facingPages: preferences.facingPages,
+                size: { width: preferences.pageWidth, height: preferences.pageHeight },
+                units: { horizontal: view.horizontalMeasurementUnits, vertical: view.verticalMeasurementUnits, origin: view.rulerOrigin },
+                pages: document.pages.length,
+                spreads: document.spreads.length,
+                parents: Array.map(document.masterSpreads.everyItem().getElements(), (each) => ({ ...Model.referenceUnsafe(each), pages: each.pages.length })),
+                sections: Array.map(document.sections.everyItem().getElements(), (each) => ({ ...Model.referenceUnsafe(each), start: each.pageStart.toSpecifier(), length: each.length, pageNumberStart: each.pageNumberStart, continueNumbering: each.continueNumbering })),
+                layers: Array.map(document.layers.everyItem().getElements(), (each) => ({ ...Model.referenceUnsafe(each), visible: each.visible, locked: each.locked, printable: each.printable })),
+                stories: { count: document.stories.length, overset: overset(document) },
+                links: Record.map(Array.groupBy(document.links.everyItem().status, String), Array.length),
+                fonts: Array.zipWith(document.fonts.everyItem().name, document.fonts.everyItem().status, (name, status) => ({ name, status })),
+                swatches: document.swatches.everyItem().getElements(),
+                styles: { paragraph: document.allParagraphStyles.length, character: document.allCharacterStyles.length, object: document.allObjectStyles.length, table: document.allTableStyles.length, cell: document.allCellStyles.length },
+                preflightOptions: { ...Value.picked(DocumentView.fields.preflightOptions.fields)(preflight), preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name },
+                activeProcess: preflight.preflightOff ? Option.none() : Option.some(document.activeProcess),
+                textDefaults: paragraphAttributes(document.textDefaults, settings),
+            };
+        });
+    }),
+);
+
+// --- [HANDLERS]
+
+const open = Effect.fnUntraced(function* (payload: Open) {
+    const [{ app }, path] = yield* Effect.all([Model, Path.Path]);
+    const native = yield* path.fromFileUrl(payload.file);
+    return yield* Model.reference(yield* Effect.try({ try: () => app.open(native, false), catch: HostError.refused(payload.label) }));
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { DocumentView, Extent, LayerView, LinkView, open, PageView, SpreadView, SwatchView };
+export { documentView, extent, layerView, linkView, open, overset, pageView, spreadView, summary, swatchView };

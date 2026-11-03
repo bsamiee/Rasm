@@ -42,7 +42,7 @@ xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
-- Installed version, `<lib>` is `$NUGET_PACKAGES/<id>/<version>/lib/<tfm>`
+- Installed version, `<lib>` is `~/.nuget/packages/<id>/<version>/lib/<tfm>`
 - Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 
 ```bash
@@ -172,7 +172,7 @@ curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" 
 Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
-rg -n -A6 '<term>' $NUGET_PACKAGES/<id>/<version> --glob '*.md'
+rg -n -A6 '<term>' ~/.nuget/packages/<id>/<version> --glob '*.md'
 rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.md'
 ```
 
@@ -194,7 +194,7 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
 3. Cited lines of a file at the tag, any size
 
 ```bash
-rg -o '<(repository|projectUrl)[^<]*' $NUGET_PACKAGES/<id>/<version>/<id>.nuspec
+rg -o '<(repository|projectUrl)[^<]*' ~/.nuget/packages/<id>/<version>/<id>.nuspec
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
 curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
 cargo info <crate>@<version> | rg '^repository:'

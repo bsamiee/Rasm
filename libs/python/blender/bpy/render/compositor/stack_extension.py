@@ -11,9 +11,8 @@ from expression import Nothing, Ok, Option, Some
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.commands.calls import Command, Placement, PopupKind, PopupTarget
 from blender.bpy.commands.invocations import Open, Popup
-from blender.bpy.commands.operators import Answer, BoundBody, Call, Done, Empty, Invoke, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, BoundBody, Call, Command, Done, Empty, Invoke, Operator, Placement, PopupKind, PopupTarget, Unchanged
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.paths import id_data, root_in, rooted, Struct
 from blender.bpy.data.rna.properties import Callbacks, Changed, choices, EnumItem, held_choices, IconedItem, rebound, titled
@@ -74,7 +73,7 @@ from blender.bpy.ui.layout.templates import Gallery
 from blender.bpy.ui.layout.values import Listing
 from blender.bpy.ui.resources.icons import Icons
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.buffers import Coded, Depth
+from blender.imaging.files.buffers import Depth
 from blender.imaging.files.documents import Document
 from blender.imaging.files.multilayer import Multilayer
 from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
@@ -296,12 +295,7 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         )
         return (
             Menu(key=_ADD_LAYER, description="Add layer source to stack", body=Dropdown(entries=tuple(OperatorButton(target=operators[body]) for body in _LAYER_SOURCES))),
-            Menu(
-                key=_ADD_EFFECT,
-                title=Some("Add Effect"),
-                description="Add effect to selected layer",
-                body=Submenus(entries=effects) if len(dict.fromkeys(key for key, _ in effects)) > 1 else Dropdown(entries=tuple(button for _, button in effects), search=True),
-            ),
+            Menu(key=_ADD_EFFECT, title=Some("Add Effect"), description="Add effect to selected layer", body=Submenus(entries=effects)),
             Menu(key=_SPECIALS, description="Stack and layer commands beside the layer rows", body=Dropdown(entries=tuple(OperatorButton(target=operators[body]) for body in _STACK_COMMANDS))),
         )
 
@@ -321,7 +315,7 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
     # --- [DOCUMENTS]
 
-    def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
+    def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
         """Layered document of the scene's head stack at a saved frame, formed through the stack view, else the scene's."""
         return paired(self.bound(identity), self.view(identity, scene)).bind(lambda parts: layered(parts[0], parts[1].default_with(lambda: viewed(scene)), scene, frame, depth))
 

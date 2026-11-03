@@ -5,13 +5,14 @@ description: "Use when writing or reviewing Python, covering functional design w
 
 # [PYTHON_CODING]
 
-Examples use Expression, msgspec, anyio, and numpy types as standard library.
+Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, comprehension unpacking), or the release of the embedded interpreter running it. Examples use Expression, msgspec, anyio, and numpy types as standard library.
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Surface stays minimal inside and outside each module, and every type, export, and helper states something nothing else does
-- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
+- Every type, export, and helper states a fact nothing else does, a helper with one reader, forwarder, or alias merges into its owner
+- Values that vary are parameters, a value every caller passes alike folds into its owner
+- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, topological order, and pipelines
@@ -86,6 +87,9 @@ Build a returned value in one expression (a comprehension, conditional expressio
 - Functions return a `tuple`, `frozenset`, or `frozendict` from every arm, a generator stays where laziness bounds memory
 - `Option` values flatten through `to_list()` (`tuple(*o.to_list() for o in options)`), `bind(identity)` flattens a nested `Option`
 - Reductions take the operator's own member: `sum(terms, start=zero)` over numbers and arrays, `math.prod`, `math.fsum`, `"".join`
+- Mapping views are sets: `a.items() ^ b.items()` holds every differing pair, `a.keys() - b.keys()` every key `b` lacks
+- Functions that parse return every value one parse yields together, in place of a second reader re-parsing the source
+- Callbacks nest one level, and deeper logic reshapes into a `match`, a table, or a relation in place of an extracted helper
 
 Comprehension unpacking flattens each element's parts into one collection, and a walrus binds what a filter tests and the element reads:
 
@@ -96,7 +100,7 @@ def keys(pattern: re.Pattern[str], lines: Iterable[str], /) -> frozenset[str]:
 
 ### [02.1]-[PATTERN_MATCHING]
 
-Pattern matching selects a result by a value's type, shape, or fields, and keeps extraction, guards, and results together. `toggled` derives each transition from the case it receives, with no signal naming it:
+Pattern matching selects a result by a value's type, shape, or fields, and keeps extraction, guards, and results together. `toggled` derives each transition from the case it receives:
 
 ```python
 type Watch = Running | Paused
@@ -153,6 +157,7 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
 - Transitions keep every invariant by construction (`mirrored` maps a unit interval onto itself), or return `Outcome[Self]`
 - Fields hold frozen typed values (`tuple[T, ...]`, `frozenset[T]`, `frozendict[K, V]`, a frozen record), hashing a record hashes every field
 - Absence is an `Option[T]` property over a decoded `T | None` field
+- Fields no consumer reads apart from another merge into it, and optional fields set together are one optional record
 - Code reads fields by attribute, `msgspec.structs.fields` and `msgspec.inspect` serve a codec alone
 - `functools.cached_property` on a record needs `dict=True`
 - `hash()` salts `str` and `bytes` per process, and keys that outlive a process hash a deterministic encoding
@@ -210,6 +215,8 @@ class Tier(IntEnum):
 - `StrEnum` with `auto()` takes each wire token from its member name, an explicit value holds a datum consumers read (a template)
 - Tables take each key from the entry's own declaration: a member, a class, or a function's `__name__`
 - Class facts derive at class build through `__init_subclass__` and `__set_name__`
+- Constants hold what no owner derives, and values one relation joins (a minimum and maximum, names and their order) are one value
+- Code reads facts a tool resolves (canonical names, workspace members, constraints) from its lock file or output in place of re-deriving them
 
 ## [04]-[RESULTS]
 
@@ -260,26 +267,26 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
         return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 ```
 
-`reason` takes a member of any package's reason enum, and a new failure kind adds one member with its template:
+`reason` takes a member of any package's reason enum, with one member and its template per failure a consumer handles apart:
 - `subject` names the refused value, `member` the member or bound it misses, and a caught exception stays as `cause`
 - `partial(Fault.of, <reason>, <subject>)` serves `map_error` and `filter_with` with the refused value as `cause`, and `to_result_with` with none
 - Consumers classify a fault by its `reason` member or by a class pattern on its `cause`
 - Suppressed or warned conditions become an `Error` or a `Result` holding the degraded value
 
-`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` applies one fault builder to a failed launch and a failed exit, and a failed child's `CompletedProcess` stays as cause:
+`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` applies one fault builder to a failed launch and a failed exit, and a failed exit holds the standard library's `CalledProcessError` as cause:
 
 ```python
-@catch(exception=OSError)
-def _launched(argv: tuple[str, ...], /) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, capture_output=True, text=True, check=False)
-
-
-def ran(argv: tuple[str, ...], /) -> Outcome[str]:
+def ran(*argv: str, stdout: int | None = None) -> Outcome[subprocess.CompletedProcess[bytes]]:
     failed = partial(Fault.of, Reason.FAILED, argv[0])
-    return _launched(argv).map_error(failed).filter_with(lambda done: done.returncode == 0, failed).map(lambda done: done.stdout)
+
+    @catch(exception=OSError)
+    def launched() -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(argv, stdout=stdout, check=False)
+
+    return launched().map_error(failed).filter_with(lambda done: done.returncode == 0, lambda done: failed(subprocess.CalledProcessError(done.returncode, done.args, done.stdout, done.stderr)))
 ```
 
-`catch` names the exception its call's contract raises and erases parameters to `...`. Overloaded calls take a typed `def` under `@catch` that fixes the return type.
+`catch` types one exception class and erases parameters to `...`. Overloaded calls take a typed `def` under `@catch`, and calls raising unrelated classes take a `try`.
 
 ### [04.2]-[COMPOSITION]
 
@@ -331,12 +338,15 @@ def exited(outcome: Outcome[int], /) -> int:
     match outcome:
         case Result(tag="ok", ok=code):
             return code
+        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=code)) as fault,)):
+            sys.stderr.write(f"{fault.message}\n")
+            return code
         case Result(error=faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
             return EXITS[faults[0].reason]
 ```
 
-`EXITS` maps every reason the command's packages raise to its `sysexits` status, the first fault exits with its reason's status, and a reason with no row raises `KeyError` as a defect.
+`EXITS` maps every reason the command's packages raise to its `sysexits` status. A lone failed child exits with its own status, other faults with the first fault's reason status, and a reason with no row raises `KeyError` as a defect.
 
 ## [05]-[BOUNDARIES]
 
@@ -393,6 +403,7 @@ async def loaded(path: anyio.Path, /) -> Outcome[bytes]:
 
 `await anyio.amap(loaded, paths)` returns each path's outcome in input order, a missing file's fault beside its siblings' bytes:
 - Blocking calls inside a coroutine take their anyio member (`anyio.Path`, `anyio.open_file`, `anyio.run_process`, `anyio.sleep`)
+- `except*` handlers hold no `return`, a handler binds the fault and the function returns it after the `try`
 
 ### [05.4]-[TIME]
 
@@ -416,16 +427,28 @@ class Lease(msgspec.Struct, frozen=True, kw_only=True):
 - Datetimes sharing one `ZoneInfo` subtract as wall clocks (`1 day` across a 23-hour DST day), elapsed spans subtract in UTC
 - Elapsed intervals read a monotonic clock (`time.monotonic_ns()`, `anyio.current_time()`) no wall clock adjustment moves
 
-## [06]-[NUMERICS]
+## [06]-[MODULES]
 
-Numeric facts come from the package that states them, and array code runs whole-array operations:
-- Specialized members state a composed operation once (`np.vecdot(rows, rows)` for each row's squared norm)
-- Arrays build once (`np.fromiter(items, dtype, count=n)`, one `np.concatenate`)
+Each module holds one owner, and imports point down its layers. Names a class statement, base, decorator, or record annotation reads import eagerly, and every other import is `lazy`:
 
-## [07]-[MODULES]
+```python
+import msgspec
+lazy import numpy as np
+lazy from expression import Ok
 
-Each module holds one owner, and imports point down its layers:
-- Imports a module body does not evaluate at load are `lazy`, names a class body, base, decorator, or record annotation reads stay eager
+lazy from .faults import Outcome
+
+
+class Window(msgspec.Struct, frozen=True, kw_only=True):
+    width: int
+
+
+def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
+    return Ok(np.convolve(values, np.full(window.width, 1 / window.width), mode="same"))
+```
+
+`msgspec` loads with the module for the base `Window` reads, and `numpy`, `Ok`, and `Outcome` load at the first call reading them:
+- `lazy` imports sit at module top level, and one inside `try` or a function raises `SyntaxError`
 - `__all__` lists what importers compose, and names one module reads alone take a `_` prefix
 - Unused public capability stays exported
 - Files existing to break an import cycle merge, and the cycle goes at its root
@@ -433,3 +456,4 @@ Each module holds one owner, and imports point down its layers:
 - Entry modules hold boundary code alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them
 - Use `python-coding-cyclopts` for command-line applications
 - Use `python-document` for docstrings
+- Use `clean-prose` for names, messages, and descriptions

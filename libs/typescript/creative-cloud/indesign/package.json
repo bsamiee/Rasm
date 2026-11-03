@@ -8,8 +8,11 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./contract": "./contract.ts",
         "./change": "./requests/change.ts",
+        "./font": "./requests/font.ts",
         "./host": "./host.ts",
+        "./inspect": "./requests/inspect.ts",
         "./model": "./dom/model.ts",
         "./settings": "./documents/settings.ts",
         "./transactions": "./dom/transactions.ts",
@@ -20,8 +23,6 @@
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
-        "acorn": "catalog:",
-        "acorn-walk": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {

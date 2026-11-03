@@ -16,11 +16,6 @@ dependencies = [
     "numpy",      # Arrays for fixture images and captured pixels
 ]
 
-# --- [UV] -------------------------------------------------------------------------------
-
-[tool.uv]
-package = false
-
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]

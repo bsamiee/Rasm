@@ -35,7 +35,7 @@ from .colorimetry import finite_mean, unread
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Knots = tuple[Knot[float, float], ...]
+type Knots = tuple[Knot, ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -216,7 +216,7 @@ def _editors(record: Curves | HueCurves) -> tuple[Expr, ...]:
         rows = tuple(record.rows[index] for index in positions)
         first = rows[0]
         clip = first.view.default_with(lambda: (min(row.inputs[0] for row in rows), min(row.outputs[0] for row in rows), max(row.inputs[1] for row in rows), max(row.outputs[1] for row in rows)))
-        first_map, *rest = (tuple((float(knot.x), row.axes.shown(knot.x, knot.y)) for knot in record.curves[index]) for row, index in zip(rows, positions))
+        first_map, *rest = (tuple((knot.x, row.axes.shown(knot.x, knot.y)) for knot in record.curves[index]) for row, index in zip(rows, positions))
         return Expr(kind=first.node, content=Some(CurvePoints(maps=(first_map, *rest), clip=Some(clip), handle="AUTO", clipped=True))).keyed(first.key)
 
     return tuple(map(editor, _shared(record.rows)))

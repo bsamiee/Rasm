@@ -11,14 +11,13 @@ from types import MappingProxyType
 from typing import Annotated, Self
 
 from expression import Nothing, Ok, Option, Some
-from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.imaging.files.buffers import Coded, Depth
+from blender.imaging.files.buffers import Depth
 from blender.imaging.files.images import Compression, Deflate, emitted, opened, Storage, Subimage
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 
@@ -139,11 +138,10 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
     def picked(self, names: tuple[str, ...], channels: tuple[str, ...], /) -> Outcome[npt.NDArray[np.float32]]:
         """Reads named channels of the first layer of `names` the file holds, `ABSENT` fault naming the last name."""
+        layers = self.layers
         return (
-            Block
-            .of_seq(names)
-            .choose(lambda name: Block.of_seq(self.layers).filter(lambda found: found.name == name).try_head())
-            .try_head()
+            Option
+            .of_optional(next((layer for name in names for layer in layers if layer.name == name), None))
             .to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.path), member=f"{names[-1]} layer"))
             .bind(lambda layer: self.plane(layer, channels))
         )
@@ -160,7 +158,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         groups = tuple((item,) for item in passes) if layout is PassLayout.PARTS else (passes,)
         lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
 
-        def subimage(group: tuple[Pass, ...]) -> Subimage[Coded]:
+        def subimage(group: tuple[Pass, ...]) -> Subimage:
             channels = tuple((f"{item.layer}.{channel}", OpenImageIO.TypeDesc((Depth.FLOAT if item.role is PassRole.DATA else storage.depth).basetype)) for item in group for channel in item.channels)
             spec = OpenImageIO.ImageSpec(*size, len(channels), channels[0][1])
             spec.channelnames = tuple(name for name, _ in channels)
@@ -183,7 +181,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             Path, or `UNREADABLE` or `UNWRITABLE` fault.
         """
 
-        def parts(image: OpenImageIO.ImageInput) -> Outcome[Option[tuple[Subimage[np.float32], ...]]]:
+        def parts(image: OpenImageIO.ImageInput) -> Outcome[Option[tuple[Subimage, ...]]]:
             specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
             renamed = tuple(channels(spec.channelnames) for spec in specs)
             return (
@@ -195,7 +193,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )
 
-        def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage[np.float32]:
+        def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage:
             for frame in display.to_list():
                 spec.x, spec.y, spec.full_x, spec.full_y, spec.full_width, spec.full_height = -frame.xbegin, -frame.ybegin, 0, 0, frame.width, frame.height
             spec.channelnames = names

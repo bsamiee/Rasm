@@ -1,4 +1,4 @@
-"""Draw callbacks with cached reads, owned refresh sources, and scoped draw and paint cursor handles."""
+"""Region draw callbacks and the refresh sources their reads follow."""
 
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, ExitStack, nullcontext
@@ -6,7 +6,7 @@ from functools import cache, partial
 from typing import ClassVar, Final, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Setting
@@ -18,7 +18,7 @@ from blender.bpy.extension.registration import Acquisitions, scoped, Tier
 from blender.bpy.ui.drawing.canvas import Canvas, DrawType, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -167,12 +167,12 @@ class Signal:
         self.refreshes: list[Callable[[], Outcome[None]]] = []
 
     @contextmanager
-    def followed(self, refresh: Callable[[], Outcome[None]]) -> Generator[None]:
+    def followed(self, refresh: Callable[[], Outcome[None]]) -> Generator[Outcome[None]]:
         """Holds drawing refresh until release."""
         with ExitStack() as stack:
             self.refreshes.append(refresh)
             stack.callback(self.refreshes.remove, refresh)
-            yield
+            yield Result[None, Faults](ok=None)
 
     def fired(self) -> Outcome[None]:
         """Refreshes every following drawing, accumulating failures."""
@@ -218,7 +218,7 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
             later()
             return Ok(None)
 
-        def held(refresh: Refresh) -> Outcome[AbstractContextManager[None]]:
+        def held(refresh: Refresh) -> Outcome[AbstractContextManager[Outcome[None]]]:
             """Builds the scope of one source."""
             match refresh:
                 case HandlerRefresh(handlers=handlers, ids=()):
@@ -235,10 +235,7 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
                         .to_result_with(partial(Fault.of, Reason.ABSENT, owner.__name__, member=member))
                     )
 
-        scopes = accumulated(map(held, refreshes))
-        for scope in (scope for entered in scopes.to_option().to_list() for scope in entered):
-            stack.enter_context(scope)
-        yield scopes.map(lambda _: None)
+        yield accumulated(map(held, refreshes)).bind(lambda scopes: accumulated(map(stack.enter_context, scopes))).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

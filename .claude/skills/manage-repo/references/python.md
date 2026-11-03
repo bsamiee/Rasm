@@ -6,7 +6,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
-- Host `pyproject.toml` files are virtual uv members (`[tool.uv] package = false`) with `name`, static `version`, floor, dependencies, Ruff `extend`
+- Host `pyproject.toml` files are virtual uv members with no `[build-system]`, holding `name`, static `version`, floor, dependencies, Ruff `extend`
 - `blender` is a packaged workspace member
 - `blender` `[project] dependencies` name every package its modules import
 - Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`

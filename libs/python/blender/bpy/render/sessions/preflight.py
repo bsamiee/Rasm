@@ -13,9 +13,8 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement
 from blender.bpy.data.ids.evaluation import evaluated, instances
 from blender.bpy.data.ids.store import embedded, resolved
 from blender.bpy.data.rna import conditions
@@ -101,7 +100,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def audit_file(_call: Call[Empty]) -> Outcome[Answer]:
         """Reports missing files, empty material slots, and empty group or image nodes."""
-        return Ok(Done(skipped=audited().swap().to_option()))
+        return Ok(Done(skipped=audited().swap().default_value(())))
 
     @staticmethod
     def list_users(call: Call[Empty]) -> Outcome[Answer]:

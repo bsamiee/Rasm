@@ -8,16 +8,17 @@
 - `dotnet:<id>` rows install a .NET tool package's command, `dotnet dnx` resolves the feed on each launch and keeps a CLI parent process beside the tool
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
+- `auto_install = false` fails a shim, `mise exec`, or hook naming a missing tool in place of a download mid-command
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
 - `[settings]` holds no `lockfile` row, lock entries replay recorded versions and `conda:` closures in place of `latest`
-- .NET SDKs install into one root Parametric Forge names, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
+- .NET SDKs install into mise's one `dotnet-root`, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
 - Shared root holds runtimes of installed SDKs alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
 - Restores share NuGet's default `~/.nuget/packages`
 - `pypi:git+` rows off GitHub name a tag prefix, at `latest` mise runs `git ls-remote` per `mise exec`, reads missing in shells, and fails offline
 - Install side effects sit in their tool row's `postinstall`, a failing command fails the install
 - Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
-- Tools a target calls keep their row where Parametric Forge installs the same tool machine-wide, CI runners and other hosts hold no Forge
+- Tools a target calls keep their row and read settings from repository files alone, machine setup installs tools and configures none
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
 - `mise install` keeps a `conda:` closure while its package version holds, `mise install --force <tool>` takes a conda-forge dependency rebuild
 

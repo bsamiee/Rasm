@@ -196,11 +196,16 @@ class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
         return across * grow + 0.5, up * grow + 0.5, ns.where(covered, coverage, 0.0)
 
 
-class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
-    """Thin lens focal length, f-number, focus distance, and sensor width, lengths in meters."""
+class Optics(msgspec.Struct, frozen=True, kw_only=True):
+    """Lens focal length in meters and f-number."""
 
     focal_length: Positive
     f_number: Positive
+
+
+class ThinLens(Optics, frozen=True, kw_only=True):
+    """Thin lens focus distance and sensor width in meters."""
+
     focus: Positive
     sensor: Positive
 
@@ -220,4 +225,4 @@ def fringed[V: Elementwise, B](shift: V, ns: Namespace[V, B]) -> tuple[V, V, V]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Aperture", "Radial", "ThinLens", "fringed"]
+__all__ = ["Aperture", "Optics", "Radial", "ThinLens", "fringed"]

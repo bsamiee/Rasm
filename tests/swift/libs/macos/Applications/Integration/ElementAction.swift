@@ -66,15 +66,29 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
+        func performNamesRemovedElementAndOtherProcessAsCause() async throws {
+            let (_, instance): (Installation, NSRunningApplication) = try await launched()
+            let (window, listed): (Element, [Control]) = try await controls(of: instance)
+            let press: Control = try #require(listed.first { control in control.identifier == "press" })
+            let foreign: ApplicationFailure = try await #require(throws: ApplicationFailure.self) {
+                try await ElementAction.perform(element: press.id, action: kAXPressAction).perform(in: getpid())
+            }
+            expectNoDifference(foreign.reason[case: \.foreign], getpid())
+            try await ElementAction.perform(element: try #require(listed.first { control in control.attribute == kAXCloseButtonAttribute }).id, action: kAXPressAction).perform()
+            let closed: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await ElementAction.perform(element: window.id, action: kAXPressAction).perform() }
+            let unresolved: Bool = closed.reason.is(\.unresolved)
+            #expect(unresolved, "closed window id failed \(closed.reason): \(closed.localizedDescription)")
+        }
+
+        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func menuItemOfBackgroundAppOpensWindowThatWatchReads() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let seen: [Observed] = try await observe(
+            let seen: [InstanceState] = try await observe(
                 instance,
-                within: .seconds(15),
-                until: { seen in seen.last?.state.elements.contains { element in element.title == "Fixture 1" } == true },
+                until: { seen in seen.last?.elements.contains { element in element.title == "Fixture 1" } == true },
                 acting: { try await run(.window, in: instance) },
             )
-            expectNoDifference(Set(try #require(seen.last).state.elements.filter { element in element.role == kAXWindowRole }.compactMap(\.title)), ["Fixture 0", "Fixture 1"])
+            expectNoDifference(Set(try #require(seen.last).elements.filter { element in element.role == kAXWindowRole }.compactMap(\.title)), ["Fixture 0", "Fixture 1"])
             #expect(!instance.isActive, "fixture stays in background")
         }
     }

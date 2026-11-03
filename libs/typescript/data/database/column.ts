@@ -14,11 +14,6 @@ type Projection = Data.TaggedEnum<{
     Path: { readonly from: string; readonly path: Array.NonEmptyReadonlyArray<string>; readonly jsonPath: string };
     Where: { readonly where: readonly { readonly column: string; readonly predicate: Exclude<Where<Fields>[string], undefined> }[] };
 }>;
-type Bound = Data.TaggedEnum<{
-    Compare: { readonly op: '>' | '>=' | '<' | '<='; readonly value: number | bigint | Date; readonly subject: 'value' | 'codePoints' };
-    MultipleOf: { readonly divisor: number };
-    Cased: { readonly case: 'lower' | 'upper' };
-}>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,7 +33,11 @@ class Column extends Data.Class<{
     readonly refusal: Option.Option<'unbounded' | 'mixed'>;
     readonly nullable: boolean;
     readonly literals: readonly SchemaAST.LiteralValue[];
-    readonly bounds: readonly Bound[];
+    readonly bounds: readonly Data.TaggedEnum<{
+        Compare: { readonly op: '>' | '>=' | '<' | '<='; readonly value: number | bigint | Date; readonly subject: 'value' | 'codePoints' };
+        MultipleOf: { readonly divisor: number };
+        Cased: { readonly case: 'lower' | 'upper' };
+    }>[];
     readonly default: Option.Option<string | number>;
     readonly projection: Option.Option<Projection>;
     readonly renamedFrom: Option.Option<string>;
@@ -47,7 +46,7 @@ class Column extends Data.Class<{
 }> {
     static readonly transforms = { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel, transformJson: false };
     static readonly Projection = Data.taggedEnum<Projection>();
-    static readonly Bound = Data.taggedEnum<Bound>();
+    static readonly Bound = Data.taggedEnum<Column['bounds'][number]>();
     static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: byteMaximum })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
     static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
     static readonly conditions = (where: Where<Fields>) => Array.getSomes(Record.collect(where, (field, predicate) => Option.map(Option.fromUndefinedOr(predicate), (rule) => ({ column: String.camelToSnake(field), predicate: rule }))));
@@ -68,15 +67,15 @@ class Column extends Data.Class<{
         const [stored, typed] = [payloads(values), payloads(decoded)];
         const numbers = textual ? typed : stored;
         const has = flow(stored, Array.isReadonlyArrayNonEmpty);
-        const limits = <P>(read: typeof stored, reviver: SchemaRepresentation.FilterReviver<P>, ...bounds: ReadonlyArray<(payload: P) => Bound>) => read(reviver).flatMap((payload) => bounds.map((bound) => bound(payload)));
-        const compare = (subject: 'value' | 'codePoints') => (op: '>' | '>=' | '<' | '<=', value: number | bigint | Date) => Column.Bound.Compare({ op, value, subject });
+        const limits = <P, B>(read: typeof stored, reviver: SchemaRepresentation.FilterReviver<P>, ...bounds: ReadonlyArray<(payload: P) => B>) => read(reviver).flatMap((payload) => bounds.map((bound) => bound(payload)));
+        const compare = (subject: 'value' | 'codePoints') => (op: '>' | '>=' | '<' | '<=', limit: number | bigint | Date) => Column.Bound.Compare({ op, value: limit, subject });
         const [value, points] = [compare('value'), compare('codePoints')];
         const lower =
-            <V extends number | bigint | Date>(bound: (op: '>' | '>=', limit: V) => Bound) =>
+            <V extends number | bigint | Date, B>(bound: (op: '>' | '>=', limit: V) => B) =>
             ({ minimum, exclusiveMinimum }: { readonly minimum: V; readonly exclusiveMinimum?: true | undefined }) =>
                 bound(exclusiveMinimum === true ? '>' : '>=', minimum);
         const upper =
-            <V extends number | bigint | Date>(bound: (op: '<' | '<=', limit: V) => Bound) =>
+            <V extends number | bigint | Date, B>(bound: (op: '<' | '<=', limit: V) => B) =>
             ({ maximum, exclusiveMaximum }: { readonly maximum: V; readonly exclusiveMaximum?: true | undefined }) =>
                 bound(exclusiveMaximum === true ? '<' : '<=', maximum);
         const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
@@ -123,9 +122,9 @@ class Column extends Data.Class<{
             textual,
             ascii: has(SchemaRepresentation.isAsciiReviver),
             refusal: Match.value({ mixed: Array.dedupe(values.flatMap(storage)).length > 1, unbounded: number && !(finite || integer) }).pipe(
-                Match.when({ mixed: true }, () => Option.some('mixed' as const)),
-                Match.when({ unbounded: true }, () => Option.some('unbounded' as const)),
-                Match.orElse(() => Option.none()),
+                Match.when({ mixed: true }, () => 'mixed' as const),
+                Match.when({ unbounded: true }, () => 'unbounded' as const),
+                Match.option,
             ),
             nullable: Array.isReadonlyArrayNonEmpty(nulls),
             literals,

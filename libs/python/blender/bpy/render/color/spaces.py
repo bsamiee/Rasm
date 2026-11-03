@@ -34,7 +34,6 @@ CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, 
 EXPOSURE: Final = Descriptor.declared(bpy.types.ColorManagedViewSettings, ("exposure",), bpy.types.FloatProperty)
 NO_LOOK: Final[str] = "None"
 TINT_PER_DUV: Final = 3000.0
-UNTAGGED: Final = ("default_byte", "default_float")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -317,7 +316,6 @@ __all__ = [
     "EXPOSURE",
     "NO_LOOK",
     "TINT_PER_DUV",
-    "UNTAGGED",
     "ColorManagement",
     "ConfigInstall",
     "ConfigView",

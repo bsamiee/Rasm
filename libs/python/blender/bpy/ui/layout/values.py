@@ -1,4 +1,4 @@
-"""Value stores over attached form groups and preset catalogs: value sets held as history, clipboard copies, member locks, and presets applied, saved, imported, exported, replaced, renamed, deleted, and stepped through, with the commands their operators share."""
+"""Value stores over attached form groups and the preset catalogs they list."""
 
 from collections.abc import Callable, Mapping
 import datetime
@@ -15,7 +15,7 @@ from expression.collections import Block
 import msgspec
 
 from blender.bpy.commands import invocations, operators
-from blender.bpy.commands.calls import Command, Placement
+from blender.bpy.commands.operators import Command, Placement
 from blender.bpy.data.rna.conditions import Scoped
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import definition, rna, RnaPath, rooted, Struct
@@ -42,7 +42,7 @@ type Replacement = Callable[[Member], RowContent]
 
 @unique
 class StoreCommand(Enum):
-    """Store or preset command with the icon its operators and buttons share and the undo step of its runs, none for a command writing outside the blend file alone, each operator keyed `<command>_<stem>`."""
+    """Store or preset command with the icon its buttons share and the undo step of its runs, none for a command writing outside the blend file alone, each operator keyed `<command>_<stem>`."""
 
     RESET = ("LOOP_BACK", operators.UndoStep())
     COPY = ("COPYDOWN", operators.NoUndo())
@@ -72,7 +72,7 @@ class StoreCommand(Enum):
         seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing,
     ) -> operators.Operator[T]:
         """Builds the internal operator over a store or preset stem under the command's undo step."""
-        return operators.Operator(icon=Some(self.icon), internal=True, form=form, run=run, undo=self.undo, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
+        return operators.Operator(icon=Some(self.icon), options=frozenset({"INTERNAL"}), undo=self.undo, form=form, run=run, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -174,15 +174,11 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         step = call.properties.offset
         if not (values := tuple(self.preset.read(source) for source in self.preset.listed(call.identity).values())):
             return Ok(operators.Unchanged(reason="No presets"))
-        return (
-            paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list())))
-            .map(lambda pair: tuple(zip(pair[0], pair[1])))
-            .bind(
-                lambda rows: self.applied(
-                    call.context, rows[Block.of_seq(enumerate(rows)).filter(lambda pair: pair[1][1]).try_head().map(lambda pair: (pair[0] + step) % len(rows)).default_value(0 if step > 0 else -1)][0]
-                )
-            )
-        )
+
+        def stepped(stored: tuple[T, ...], marks: tuple[bool, ...]) -> Outcome[operators.Answer]:
+            return self.applied(call.context, stored[next(((index + step) % len(stored) for index, matched in enumerate(marks) if matched), 0 if step > 0 else -1)])
+
+        return paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list()))).bind(lambda pair: stepped(*pair))
 
     def save_preset(self, call: operators.Call[_Saved]) -> Outcome[operators.Answer]:
         """Saves the current values as a preset, replacing the saved preset of that name."""
@@ -230,7 +226,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         return realized(footer, identity).map(lambda buttons: partial(self.shown, identity, buttons))
 
     def shown(self, identity: Identity, footer: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws one apply button per listed preset under its untranslated name, checked while the current values match it, the file buttons its kind offers beside it, then the footer buttons."""
+        """Draws one apply button per listed preset, checked while the current values match it, beside its file buttons, then the footer buttons."""
         commands = self.commands
         catalog = tuple((stem, kept, self.preset.read(kept)) for stem, kept in self.preset.listed(identity).items())
         valid = tuple((stem, held) for stem, _, value in catalog for held in value.to_option().to_list())
@@ -311,6 +307,12 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
     scope: Option[Scoped[Host]] = Nothing
     fields: Mapping[str, Replacement] = MappingProxyType({})
 
+    def __post_init__(self) -> None:
+        """Refuses a scope whose owners never hold the attachment."""
+        owner = self.attachment.owner
+        for scope in self.scope.filter(lambda scope: not issubclass(scope.owner_type, owner)).to_list():
+            raise ValueError(f"{scope.owner_type.__name__} scope holds no {owner.__name__} attachment {self.attachment.key}")
+
     @property
     def panel(self) -> Key:
         """Key of the values popover."""
@@ -321,20 +323,9 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
         """Attachment the store binds."""
         return (self.attachment,)
 
-    def attached(self, identity: Identity) -> Outcome[Attached[T]]:
-        """Binds the attachment, refusing a scope whose owners never hold it."""
-        return self.attachment.bound(identity).bind(
-            lambda attached: (
-                self.scope
-                .filter(lambda scope: not issubclass(scope.owner_type, attached.owner))
-                .map(lambda scope: Error(Fault.of(Reason.OUTSIDE, attached.name, scope.owner_type.__name__, member=attached.owner.__name__)))
-                .default_value(Ok(attached))
-            )
-        )
-
     def listing(self, identity: Identity) -> Outcome[Option[Listing[Snapshot]]]:
         """Preset catalog over the host the context pointer names, locked members kept, a preset's unlocked members applied as one history step."""
-        return self.attached(identity).map(
+        return self.attachment.bound(identity).map(
             lambda attached: self.presets.map(
                 lambda preset: Listing(
                     preset=preset,
@@ -431,7 +422,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
 
     def _held(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Attached[T], Host]]:
         """Binds the attachment and reads the host the context pointer names."""
-        return self.attached(identity).bind(lambda attached: hosted(attached.name, context).map(lambda host: (attached, host)))
+        return self.attachment.bound(identity).bind(lambda attached: hosted(attached.name, context).map(lambda host: (attached, host)))
 
     def _kept(self, identity: Identity) -> Outcome[Retention]:
         """History retention the store reads, the default while it states none."""
@@ -455,7 +446,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
             for buttons in (tuple(OperatorButton(target=commands[command]) for command in (StoreCommand.COPY, StoreCommand.PASTE)), _steps(commands[StoreCommand.RESTORE], 1))
         )
         listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
-        return paired(self.attached(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
+        return paired(self.attachment.bound(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
 
     def shown(self, identity: Identity, attached: Attached[T], listing: Option[RowDraw], lines: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the catalog and member locks, the clipboard and history step lines, then one restore and forget line per history entry, times untranslated."""
@@ -504,19 +495,19 @@ def menu_key[T: msgspec.Struct](preset: Preset[T], /) -> Key:
     return f"{preset.key}_presets"
 
 
-def _reported(template: str, stem: str) -> str:
-    """Report text of a translated template over a preset's typed name."""
-    return bpy.app.translations.pgettext_rpt(template).format(bpy.path.display_name(stem, title_case=False))
-
-
-def _asked(template: str, _context: bpy.types.Context, properties: _Named) -> Outcome[str]:
-    """Confirmation text of a translated template over the preset's typed name."""
-    return Ok(bpy.app.translations.pgettext_iface(template).format(bpy.path.display_name(properties.stem, title_case=False)))
+def _reported(template: str, stem: str, translate: Callable[[str], str] = bpy.app.translations.pgettext_rpt) -> str:
+    """Translated template over a preset's typed name, report text unless `translate` states another context."""
+    return translate(template).format(bpy.path.display_name(stem, title_case=False))
 
 
 def _steps(command: Command, back: int, keywords: Keywords = MappingProxyType({})) -> tuple[OperatorButton, ...]:
     """Step buttons over a command's signed offset, the one moving back first."""
     return tuple(OperatorButton(target=Placement(command, {"offset": offset}), keywords=keywords, icon=Some("BACK" if offset == back else "FORWARD")) for offset in (back, -back))
+
+
+def _asked(template: str, _context: bpy.types.Context, properties: _Named, /) -> Outcome[str]:
+    """Confirmation text of a translated template over the preset's typed name."""
+    return Ok(_reported(template, properties.stem, bpy.app.translations.pgettext_iface))
 
 
 # --- [FILES]

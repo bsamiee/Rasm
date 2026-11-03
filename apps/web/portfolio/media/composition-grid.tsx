@@ -1,12 +1,12 @@
 import { CustomProperties } from '@rasm/ui/custom-properties';
 import { Array, Number } from 'effect';
 import type { ComponentProps } from 'react';
-import { MediaFigure } from '#/media/media-figure';
-import { type Composition, placementRatio } from '#/model/placement';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import { type Composition, placementRatio } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionGrid = ({ composition, active, presentation, renderMedia = true }: { composition: typeof Composition.Type; active: boolean; presentation: ComponentProps<typeof MediaFigure>['presentation']; renderMedia?: boolean }) => {
+const CompositionGrid = ({ composition, active, presentation, renderMedia }: { composition: typeof Composition.Type; active: boolean; presentation: ComponentProps<typeof MediaFigure>['presentation']; renderMedia: boolean }) => {
     const [first, second] = composition.items;
     const ratios = Array.map(composition.items, placementRatio);
     return (
@@ -14,8 +14,8 @@ const CompositionGrid = ({ composition, active, presentation, renderMedia = true
             <CustomProperties properties={{ '--ratio-max': Array.max(ratios, Number.Order), '--ratio-sum': Number.sumAll(ratios), '--pair-columns': ratios.map((ratio) => `minmax(0, ${ratio / Array.min(ratios, Number.Order)}fr)`).join(' ') }}>
                 {(scope) => (
                     <div className="composition-items" {...scope}>
-                        <MediaFigure active={active} placement={first} presentation={presentation} renderMedia={renderMedia} />
-                        {second && <MediaFigure active={active} placement={second} presentation={presentation} renderMedia={renderMedia} />}
+                        <MediaFigure active={active} placement={first} presentation={presentation} priority={false} renderMedia={renderMedia} />
+                        {second && <MediaFigure active={active} placement={second} presentation={presentation} priority={false} renderMedia={renderMedia} />}
                     </div>
                 )}
             </CustomProperties>

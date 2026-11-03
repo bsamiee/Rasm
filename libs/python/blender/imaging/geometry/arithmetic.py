@@ -1,7 +1,7 @@
 """Elementwise protocols under Array API names, numpy serving as a namespace, and periodic, normal, and Hermite maps over them."""
 
 import math
-from typing import Final, Literal, Protocol, Self
+from typing import Literal, Protocol, Self
 
 import numpy as np
 
@@ -105,10 +105,6 @@ class Namespace[V: Elementwise, B](Protocol):
         """`x1` where `condition` holds, else `x2`."""
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_EPSILON: Final = float(np.finfo(np.float32).eps)
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -134,7 +130,8 @@ def gaussian[V: Elementwise, B](radius: V, angle: V, ns: Namespace[V, B]) -> tup
     Returns:
         Normals over one radius and phase.
     """
-    spread = ns.sqrt(ns.log((radius + _EPSILON) / (1.0 + 2.0 * _EPSILON)) * -2.0)
+    epsilon = float(np.finfo(np.float32).eps)
+    spread = ns.sqrt(ns.log((radius + epsilon) / (1.0 + 2.0 * epsilon)) * -2.0)
     phase = angle * math.tau
     return spread * ns.cos(phase), spread * ns.sin(phase)
 

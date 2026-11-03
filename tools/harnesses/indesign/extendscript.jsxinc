@@ -1,14 +1,9 @@
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-var harness = (function () {
+(function () {
     var realApp = app;
     var RealFile = File;
     var RealFolder = Folder;
-    var realDollar = $;
-    var RealWindow = Window;
-    var read = shared.read, append = shared.append, quote = shared.quote, tag = shared.tag, number = shared.number, iso = shared.iso, literal = shared.literal, tagged = shared.tagged;
-    var run = shared.run, descendants = shared.descendants, nameOf = shared.nameOf, listing = shared.listing, match = shared.match, fill = shared.fill, tree = shared.tree, next = shared.next;
-    var patched = shared.patched, globals = shared.globals, released = shared.released, thrown = shared.thrown, attempt = shared.attempt;
 
     // --- [CODEC]
     var owners = {};
@@ -42,146 +37,28 @@ var harness = (function () {
         for (var i = 1; i < found.length; i++) { if (Number(found[i][1]) !== Number(found[0][1])) { throw new Error("enum:" + path + " names enumerators of " + (owners[path] || []).join(", ") + " with different codes"); } }
         return found[0][1];
     }
-    function reflected(value) {
-        if (!(value instanceof ReflectionInfo)) {
-            var rows = { name: String(value.name), properties: [], methods: [] };
-            for (var p = 0; p < value.properties.length; p++) { rows.properties.push(reflected(value.properties[p])); }
-            for (var m = 0; m < value.methods.length; m++) { rows.methods.push(reflected(value.methods[m])); }
-            return rows;
-        }
-        var info = { name: String(value.name), type: String(value.type), dataType: String(value.dataType), isCollection: value.isCollection === true, min: value.min === undefined ? null : String(value.min), max: value.max === undefined ? null : String(value.max), defaultValue: value.defaultValue === undefined ? null : String(value.defaultValue), arguments: [] };
-        for (var a = 0; String(value.type) === "method" && a < value.arguments.length; a++) { info.arguments.push(reflected(value.arguments[a])); }
-        return info;
-    }
-    function special(value) {
-        if (value instanceof Date) { return { $: "date:" + iso(value) }; }
-        if (value instanceof Reflection || value instanceof ReflectionInfo) { return reflected(value); }
-        return null;
-    }
-    function named(value) {
-        if (value.constructor && value.constructor.name === "Enumerator") { return qualified(value); }
-        if (typeof value.toSpecifier !== "function") { return null; }
-        try { return "object:" + value.toSpecifier(); } catch (error) { return null; }
-    }
-    function json(value) {
-        if (value === undefined) { return tag("undefined"); }
-        if (value === null) { return "null"; }
-        var kind = typeof value;
-        if (kind === "number") { return number(value); }
-        if (kind === "boolean") { return String(value); }
-        if (kind === "string") { return quote(value); }
-        if (kind === "function") { return '"<function>"'; }
-        if (value instanceof Array) {
-            var items = [];
-            for (var i = 0; i < value.length; i++) { items.push(json(value[i])); }
-            return "[" + items.join(",") + "]";
-        }
-        if (value.constructor === Object) {
-            var parts = [];
-            for (var key in value) { if (value.hasOwnProperty(key)) { parts.push(quote(key) + ":" + json(value[key])); } }
-            return "{" + parts.join(",") + "}";
-        }
-        var plain = special(value);
-        if (plain !== null) { return json(plain); }
-        var host = named(value);
-        return host === null ? quote(String(value)) : tag(host);
-    }
-    function kept(value) {
-        if (value === null || typeof value !== "object") { return value; }
-        if (value instanceof Array) {
-            var items = [];
-            for (var i = 0; i < value.length; i++) { items.push(kept(value[i])); }
-            return items;
-        }
-        if (value.constructor === Object) {
-            var object = {};
-            for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = kept(value[key]); } }
-            return object;
-        }
-        var plain = special(value);
-        if (plain !== null) { return plain; }
-        var host = named(value);
-        return host === null ? String(value) : { $: host };
-    }
-    function revive(value) {
-        if (value instanceof Array) {
-            var list = [];
-            for (var i = 0; i < value.length; i++) { list.push(revive(value[i])); }
-            return list;
-        }
-        if (value === null || typeof value !== "object") { return value; }
-        var count = 0;
-        for (var probe in value) { if (value.hasOwnProperty(probe)) { count += 1; } }
-        if (count === 1 && value.hasOwnProperty("$")) {
-            var text = String(value.$);
-            var found = literal(text);
-            if (found !== null) { return found.value; }
-            if (text.indexOf("enum:") === 0) { return resolved(text.slice(5)); }
-            if (text.indexOf("object:") === 0) { return resolve(text.slice(7)); }
-            return text;
-        }
-        var object = {};
-        for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = revive(value[key]); } }
-        return object;
-    }
-
-    // --- [SCRIPTUI]
-    function press(root, key) {
-        var control = match(root, key);
-        run(control.onClick, control);
-        return nameOf(control) === "cancel" || control.text === "Cancel" ? 2 : 1;
-    }
-    function shown(session, root) {
-        var answer = session.windowAnswers[session.windowShown] || {};
-        session.windowShown++;
-        root.layout.layout(true);
-        if (root.location === undefined) { root.center(); }
-        session.record.windows.push({ title: root.text, type: root.type, tree: tree(root) });
-        run(root.onShow, root);
-        if (root.type === "palette") {
-            session.palettes.push({ window: root, answer: answer });
-            return 0;
-        }
-        return answered(session, root, answer);
-    }
-    function answered(session, root, answer) {
-        var result = answer.answer === undefined ? 1 : answer.answer;
-        if (answer.fields) { fill(root, answer.fields); }
-        var presses = answer.presses || [];
-        for (var i = 0; i < presses.length; i++) { result = press(root, presses[i]); }
-        session.record.windows[session.record.windows.length - 1].filled = tree(root);
-        return result;
-    }
-    function windows(session) {
-        function Window(type, title, bounds, properties) {
-            var made = arguments.length === 1 ? new RealWindow(type) : (arguments.length === 2 ? new RealWindow(type, title) : (arguments.length === 3 ? new RealWindow(type, title, bounds) : new RealWindow(type, title, bounds, properties)));
-            session.created.push(made);
-            made.show = function () { return shown(session, made); };
-            return made;
-        }
-        Window.prototype = RealWindow.prototype;
-        Window.alert = shared.alerted(session);
-        Window.confirm = shared.confirmed(session);
-        Window.prompt = shared.prompted(session);
-        Window.find = function () { return RealWindow.find.apply(RealWindow, arguments); };
-        Window.update = function () { return RealWindow.update.apply(RealWindow, arguments); };
-        Window.frameworkName = RealWindow.frameworkName;
-        Window.version = RealWindow.version;
-        return Window;
-    }
+    var codec = shared.codec({
+        named: function (value) {
+            if (value.constructor && value.constructor.name === "Enumerator") { return qualified(value); }
+            if (typeof value.toSpecifier !== "function") { return null; }
+            try { return "object:" + value.toSpecifier(); } catch (error) { return "unreadable:" + error.message; }
+        },
+        enumerator: resolved,
+        located: function (path) { return resolve(path); }
+    });
 
     // --- [DIALOGS]
-    var valueMember = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
-    var containers = ["dialogColumns", "dialogRows", "borderPanels", "enablingGroups", "radiobuttonGroups"];
-    var widgets = ["staticTexts", "textEditboxes", "measurementEditboxes", "integerEditboxes", "realEditboxes", "percentEditboxes", "angleEditboxes", "comboboxes", "integerComboboxes", "realComboboxes", "percentComboboxes", "angleComboboxes", "measurementComboboxes", "dropdowns", "checkboxControls", "radiobuttonControls"];
+    var VALUED = { textEditboxes: "editContents", measurementEditboxes: "editValue", integerEditboxes: "editValue", realEditboxes: "editValue", percentEditboxes: "editValue", angleEditboxes: "editValue", comboboxes: "editContents", integerComboboxes: "editValue", realComboboxes: "editValue", percentComboboxes: "editValue", angleComboboxes: "editValue", measurementComboboxes: "editValue", dropdowns: "selectedIndex", checkboxControls: "checkedState", radiobuttonGroups: "selectedButton", enablingGroups: "checkedState" };
+    var CONTAINERS = ["dialogColumns", "dialogRows", "borderPanels", "enablingGroups", "radiobuttonGroups"];
+    var WIDGETS = ["staticTexts", "textEditboxes", "measurementEditboxes", "integerEditboxes", "realEditboxes", "percentEditboxes", "angleEditboxes", "comboboxes", "integerComboboxes", "realComboboxes", "percentComboboxes", "angleComboboxes", "measurementComboboxes", "dropdowns", "checkboxControls", "radiobuttonControls"];
     function collection(kind, owner, dialog) {
         var list = [];
         list.kind = kind;
         list.add = function (props) {
-            var made = makeNode(kind, owner, dialog);
+            var made = node(kind, owner, dialog);
             props = props || {};
             for (var key in props) { made[key] = props[key]; }
-            if (kind === "radiobuttonControls" && props && props.checkedState === true) { owner.selectedButton = list.length; }
+            if (kind === "radiobuttonControls" && props.checkedState === true) { owner.selectedButton = list.length; }
             list.push(made);
             dialog.flat.push({ kind: kind, node: made });
             return made;
@@ -192,36 +69,30 @@ var harness = (function () {
         list.everyItem = function () { return { getElements: function () { return list.slice(0); } }; };
         return list;
     }
-    function makeNode(kind, owner, dialog) {
-        var node = { parent: owner, isValid: true, kind: kind, destroy: function () { node.isValid = false; }, staticLabel: "", editContents: "", editValue: 0, selectedIndex: 0, stringList: [], checkedState: false, selectedButton: 0, minWidth: 0, minimumValue: 0, maximumValue: 0, smallNudge: 1, largeNudge: 10 };
-        var i;
-        for (i = 0; i < containers.length; i++) { node[containers[i]] = collection(containers[i], node, dialog || node); }
-        for (i = 0; i < widgets.length; i++) { node[widgets[i]] = collection(widgets[i], node, dialog || node); }
-        if (kind === "enablingGroups") { node.checkedState = true; }
-        return node;
+    function node(kind, owner, dialog) {
+        var made = { parent: owner, isValid: true, kind: kind, destroy: function () { made.isValid = false; }, staticLabel: "", editContents: "", editValue: 0, selectedIndex: 0, stringList: [], checkedState: kind === "enablingGroups", selectedButton: 0, minWidth: 0, minimumValue: 0, maximumValue: 0, smallNudge: 1, largeNudge: 10 };
+        var kinds = CONTAINERS.concat(WIDGETS);
+        for (var i = 0; i < kinds.length; i++) { made[kinds[i]] = collection(kinds[i], made, dialog || made); }
+        return made;
     }
     function fakeDialogs(session) {
         var list = [];
         list.add = function (props) {
-            var dialog = makeNode("dialog", realApp, null);
+            var dialog = node("dialog", realApp, null);
             dialog.flat = [];
-            var i;
-            for (i = 0; i < containers.length; i++) { dialog[containers[i]] = collection(containers[i], dialog, dialog); }
-            for (i = 0; i < widgets.length; i++) { dialog[widgets[i]] = collection(widgets[i], dialog, dialog); }
             dialog.name = "";
             dialog.canCancel = true;
             dialog.label = "";
             props = props || {};
             for (var key in props) { dialog[key] = props[key]; }
             dialog.show = function () {
-                var answer = session.dialogAnswers[session.dialogShown] || {};
-                session.dialogShown++;
+                var answer = session.dialogs.shift() || {};
                 var values = answer.fields || {};
                 var counters = {};
                 var before = [];
                 for (var i = 0; i < dialog.flat.length; i++) {
                     var row = dialog.flat[i];
-                    var member = valueMember[row.kind];
+                    var member = VALUED[row.kind];
                     var seen = counters[row.kind] || 0;
                     counters[row.kind] = seen + 1;
                     var rowKey = row.kind + "#" + seen;
@@ -284,79 +155,76 @@ var harness = (function () {
         try { return work(); } finally { realApp.scriptPreferences.measurementUnit = unit; }
     }
     function snapshot(found) {
-        return pinned(function () { return snapshotted(found); });
-    }
-    function snapshotted(found) {
-        var held = { preferences: [], collections: [] };
-        var i;
-        for (i = 0; i < found.preferences.length; i++) {
-            var target = realApp[found.preferences[i]];
-            var saved = target.properties;
-            var encoded = {};
-            for (var key in saved) {
-                var text = Object.prototype.hasOwnProperty.call(saved, key) && key !== "measurementUnit" ? json(saved[key]) : "";
-                if (text !== "" && text.indexOf("{\"$\":\"object:/document") !== 0) { encoded[key] = text; }
+        return pinned(function () {
+            var held = { preferences: [], collections: [] };
+            var i;
+            for (i = 0; i < found.preferences.length; i++) {
+                var target = realApp[found.preferences[i]];
+                var saved = target.properties;
+                var encoded = {};
+                for (var key in saved) {
+                    var text = Object.prototype.hasOwnProperty.call(saved, key) && key !== "measurementUnit" ? codec.json(saved[key]) : "";
+                    if (text !== "" && text.indexOf("{\"$\":\"object:/document") !== 0) { encoded[key] = text; }
+                }
+                held.preferences.push({ name: found.preferences[i], target: target, saved: saved, encoded: encoded });
             }
-            held.preferences.push({ name: found.preferences[i], target: target, saved: saved, encoded: encoded });
-        }
-        for (i = 0; i < found.collections.length; i++) {
-            var row = found.collections[i];
-            var list = realApp[row.name];
-            var present = list.everyItem()[row.key];
-            var known = {};
-            for (var j = 0; j < present.length; j++) { known[present[j]] = true; }
-            held.collections.push({ name: row.name, key: row.key, list: list, known: known });
-        }
-        return held;
+            for (i = 0; i < found.collections.length; i++) {
+                var row = found.collections[i];
+                var list = realApp[row.name];
+                var present = list.everyItem()[row.key];
+                var known = {};
+                for (var j = 0; j < present.length; j++) { known[present[j]] = true; }
+                held.collections.push({ name: row.name, key: row.key, list: list, known: known });
+            }
+            return held;
+        });
     }
     function differences(held) {
-        return pinned(function () { return different(held); });
-    }
-    function different(held) {
-        var rows = [];
-        var i;
-        for (i = 0; i < held.preferences.length; i++) {
-            var row = held.preferences[i];
-            var current = row.target.properties;
-            for (var key in row.encoded) {
-                var now = row.encoded.hasOwnProperty(key) ? json(current[key]) : "";
-                if (now !== "" && now.indexOf("{\"$\":\"object:/document") !== 0 && now !== row.encoded[key]) { rows.push({ member: row.name + "." + key, before: row.saved[key], after: current[key], target: row.target, key: key }); }
-            }
-        }
-        for (i = 0; i < held.collections.length; i++) {
-            var list = held.collections[i];
-            var present = list.list.everyItem()[list.key];
-            var seen = {};
-            for (var j = 0; j < present.length; j++) {
-                seen[present[j]] = true;
-                if (!list.known[present[j]]) {
-                    var item = list.key === "id" ? list.list.itemByID(present[j]) : list.list.itemByName(present[j]);
-                    rows.push({ member: list.name, after: item, item: item });
+        return pinned(function () {
+            var rows = [];
+            var i;
+            for (i = 0; i < held.preferences.length; i++) {
+                var row = held.preferences[i];
+                var current = row.target.properties;
+                for (var key in row.encoded) {
+                    var now = row.encoded.hasOwnProperty(key) ? codec.json(current[key]) : "";
+                    if (now !== "" && now.indexOf("{\"$\":\"object:/document") !== 0 && now !== row.encoded[key]) { rows.push({ member: row.name + "." + key, before: row.saved[key], after: current[key], target: row.target, key: key }); }
                 }
             }
-            for (var gone in list.known) { if (list.known.hasOwnProperty(gone) && !seen[gone]) { rows.push({ member: list.name + "." + list.key + "=" + gone, before: gone, after: null }); } }
-        }
-        return rows;
+            for (i = 0; i < held.collections.length; i++) {
+                var list = held.collections[i];
+                var present = list.list.everyItem()[list.key];
+                var seen = {};
+                for (var j = 0; j < present.length; j++) {
+                    seen[present[j]] = true;
+                    if (!list.known[present[j]]) {
+                        var item = list.key === "id" ? list.list.itemByID(present[j]) : list.list.itemByName(present[j]);
+                        rows.push({ member: list.name, after: item, item: item });
+                    }
+                }
+                for (var gone in list.known) { if (list.known.hasOwnProperty(gone) && !seen[gone]) { rows.push({ member: list.name + "." + list.key + "=" + gone, before: gone, after: null }); } }
+            }
+            return rows;
+        });
     }
     function written(rows) {
         var out = [];
-        for (var i = 0; i < rows.length; i++) { out.push(rows[i].before === undefined ? { member: rows[i].member, after: kept(rows[i].after) } : { member: rows[i].member, before: kept(rows[i].before), after: kept(rows[i].after) }); }
+        for (var i = 0; i < rows.length; i++) { out.push(rows[i].before === undefined ? { member: rows[i].member, after: codec.kept(rows[i].after) } : { member: rows[i].member, before: codec.kept(rows[i].before), after: codec.kept(rows[i].after) }); }
         return out;
     }
     function restore(held) {
-        return pinned(function () { return restored(held); });
-    }
-    function restored(held) {
-        var leaked = [];
-        var rows = differences(held);
-        for (var i = 0; i < rows.length; i++) {
-            try {
-                if (rows[i].target === realApp.scriptPreferences) { rows[i].target[rows[i].key] = rows[i].before; } else if (rows[i].item) { rows[i].item.remove(); }
-            } catch (error) { leaked.push(rows[i].member + ": " + error.message); }
-        }
-        var left = differences(held);
-        for (var j = 0; j < left.length; j++) { leaked.push(left[j].member); }
-        return leaked;
+        return pinned(function () {
+            var leaked = [];
+            var rows = differences(held);
+            for (var i = 0; i < rows.length; i++) {
+                try {
+                    if (rows[i].target === realApp.scriptPreferences) { rows[i].target[rows[i].key] = rows[i].before; } else if (rows[i].item) { rows[i].item.remove(); }
+                } catch (error) { leaked.push(rows[i].member + ": " + error.message); }
+            }
+            var left = differences(held);
+            for (var j = 0; j < left.length; j++) { leaked.push(left[j].member); }
+            return leaked;
+        });
     }
     function docIds() {
         var ids = {};
@@ -364,8 +232,8 @@ var harness = (function () {
         for (var i = 0; i < found.length; i++) { ids[found[i]] = true; }
         return ids;
     }
-    function activeId() {
-        try { return realApp.documents.length ? realApp.activeDocument.id : null; } catch (error) { return null; }
+    function activeOf() {
+        try { return realApp.documents.length ? realApp.activeDocument : null; } catch (error) { return null; }
     }
     function owns(session, doc) {
         for (var i = 0; i < session.documents.length; i++) { if (session.documents[i].isValid && doc.isValid && session.documents[i].id === doc.id) { return true; } }
@@ -374,33 +242,9 @@ var harness = (function () {
 
     // --- [APP]
     var LIVE = ["activeDocument", "activeWindow", "layoutWindows", "windows", "selection"];
-    function forwarded(real) {
-        return function (key, previous, next) {
-            real[key] = next;
-            return real[key];
-        };
-    }
-    function statics(fake, real, own) {
-        var plain = function () {};
-        var lists = [real.reflect.properties, real.reflect.methods];
-        for (var l = 0; l < lists.length; l++) {
-            for (var i = 0; i < lists[l].length; i++) {
-                var name = lists[l][i].name;
-                if (name in plain || own.hasOwnProperty(name)) { continue; }
-                if (l === 1) {
-                    fake[name] = (function (method) { return function () { return real[method].apply(real, arguments); }; })(name);
-                } else {
-                    try { fake[name] = real[name]; } catch (error) { continue; }
-                    fake.watch(name, forwarded(real));
-                }
-            }
-        }
-        for (var key in own) { if (own.hasOwnProperty(key)) { fake[key] = own[key]; } }
-        return fake;
-    }
-    function fakeDollar(session, item) {
-        function printed(text) { session.record.console.push(String(text)); }
-        return statics({}, realDollar, { write: printed, writeln: printed, fileName: item.source === undefined ? "" : item.source.script, evalFile: function (file) { return session.evaluate(read(file instanceof RealFile ? file.fsName : String(file)), []); } });
+    function forwarded(key, previous, next) {
+        realApp[key] = next;
+        return realApp[key];
     }
     function fakeDocuments(session) {
         var list = [];
@@ -507,7 +351,7 @@ var harness = (function () {
             doScript: function (script, language, withArguments) {
                 if (typeof script === "function") { return realApp.doScript.apply(realApp, arguments); }
                 if (language !== undefined && language !== ScriptLanguage.JAVASCRIPT) { throw new Error("doScript in " + String(language) + " runs outside the harness shadow"); }
-                return session.evaluate(script instanceof RealFile ? read(script.fsName) : String(script), withArguments || []);
+                return session.evaluate(script instanceof RealFile ? shared.read(script.fsName) : String(script), withArguments || []);
             },
             open: function (file, showing, options) {
                 var opened = realApp.open(file, showing === undefined ? true : showing, options);
@@ -538,8 +382,7 @@ var harness = (function () {
             return kept;
         }
         function refresh() {
-            var active = null;
-            try { active = realApp.documents.length ? realApp.activeDocument : null; } catch (error) {}
+            var active = activeOf();
             var owned = active !== null && owns(session, active);
             var fallback;
             for (var i = session.documents.length - 1; i >= 0 && fallback === undefined; i--) { if (session.documents[i].isValid && session.documents[i].reflect.name === "Document") { fallback = session.documents[i]; } }
@@ -555,9 +398,9 @@ var harness = (function () {
         var i;
         for (i = 0; i < reflected.properties.length; i++) {
             var name = reflected.properties[i].name;
-            if (name === "__proto__" || own.hasOwnProperty(name) || ("," + LIVE.join(",") + ",").indexOf("," + name + ",") >= 0) { continue; }
+            if (name === "__proto__" || own.hasOwnProperty(name) || shared.holds(LIVE, name)) { continue; }
             try { fake[name] = realApp[name]; } catch (error) { continue; }
-            fake.watch(name, forwarded(realApp));
+            fake.watch(name, forwarded);
         }
         for (i = 0; i < reflected.methods.length; i++) {
             (function (method) {
@@ -577,37 +420,28 @@ var harness = (function () {
 
     // --- [PRECONDITION]
     function evaluated(session, expression, doc, made, statement) { return new Function("doc", "app", "made", statement ? expression : "return (" + expression + ");")(doc, session.app, made); }
-    function assign(session, target, value, doc, made) {
-        var at = target.indexOf("[*]");
-        var count = at < 0 ? 1 : evaluated(session, target.slice(0, at), doc, made).length;
-        for (var i = 0; i < count; i++) {
-            var path = target.split("[*]").join("[" + i + "]");
-            var dot = path.lastIndexOf(".");
-            evaluated(session, path.slice(0, dot), doc, made)[path.slice(dot + 1)] = revive(value);
-        }
-    }
     function differing(target, wanted, path) {
-        if (wanted !== null && typeof wanted === "object" && !(wanted instanceof Array) && !tagged(wanted)) {
+        if (wanted !== null && typeof wanted === "object" && !(wanted instanceof Array) && !shared.tagged(wanted)) {
             var rows = [];
             for (var key in wanted) { if (wanted.hasOwnProperty(key)) { rows = rows.concat(differing(target[key], wanted[key], path + "." + key)); } }
             return rows;
         }
-        var same = wanted !== null && typeof wanted === "object" && tagged(wanted) && wanted.$.indexOf("enum:") === 0 ? Number(target) === Number(revive(wanted)) : json(target) === json(wanted) || (typeof wanted === "string" && target !== null && typeof target === "object" && target.name === wanted);
-        return same ? [] : [path + " reads " + json(target) + " where the precondition asks " + json(wanted)];
+        var same = wanted !== null && typeof wanted === "object" && shared.tagged(wanted) && wanted.$.indexOf("enum:") === 0 ? Number(target) === Number(codec.revive(wanted)) : codec.json(target) === codec.json(wanted) || (typeof wanted === "string" && target !== null && typeof target === "object" && target.name === wanted);
+        return same ? [] : [path + " reads " + codec.json(target) + " where the precondition asks " + codec.json(wanted)];
     }
     function opened(session, item, batch) {
         var condition = item.precondition;
-        realApp.scriptPreferences.measurementUnit = revive(condition.units.script);
+        realApp.scriptPreferences.measurementUnit = codec.revive(condition.units.script);
         var docs = [];
         var i;
         for (i = 0; i < condition.documents.length; i++) {
             var row = condition.documents[i];
-            var doc = row.open === undefined ? realApp.documents.add(true, undefined, revive(row.properties)) : realApp.open(new RealFile(row.open), true);
+            var doc = row.open === undefined ? realApp.documents.add(true, undefined, codec.revive(row.properties)) : realApp.open(new RealFile(row.open), true);
             session.documents.push(doc);
             doc.insertLabel(batch.label, batch.records);
             if (row.open !== undefined) {
-                doc.viewPreferences.horizontalMeasurementUnits = revive(condition.units.horizontal);
-                doc.viewPreferences.verticalMeasurementUnits = revive(condition.units.vertical);
+                doc.viewPreferences.horizontalMeasurementUnits = codec.revive(condition.units.horizontal);
+                doc.viewPreferences.verticalMeasurementUnits = codec.revive(condition.units.vertical);
             }
             var wrong = row.open === undefined ? differing(doc, row.properties, "document " + i) : [];
             if (wrong.length) { throw new Error(wrong.join(", ")); }
@@ -641,21 +475,19 @@ var harness = (function () {
         row.appliedLanguage = doc.textDefaults.appliedLanguage.name;
         row.fonts = { names: doc.fonts.everyItem().name, status: doc.fonts.everyItem().status };
         row.links = { names: doc.links.everyItem().name, status: doc.links.everyItem().status };
-        return kept(row);
+        return codec.kept(row);
     }
     function prepare(session, doc, condition, made) {
-        var i;
+        function evaluate(expression) { return evaluated(session, expression, doc, made); }
         var labels = condition.labels || {};
-        for (var label in labels) { if (labels.hasOwnProperty(label)) { doc.insertLabel(label, labels[label]); } }
-        var sets = condition.set || [];
-        for (i = 0; i < sets.length; i++) { assign(session, sets[i][0], sets[i][1], doc, made); }
-        var adds = condition.add || [];
-        for (i = 0; i < adds.length; i++) { made[adds[i].as] = evaluated(session, adds[i].to, doc, made)[adds[i].kind].add(revive(adds[i].properties || {})); }
-        var steps = condition.steps || [];
-        for (i = 0; i < steps.length; i++) { evaluated(session, steps[i], doc, made, true); }
         var selected = [];
-        var picks = condition.select || [];
-        for (i = 0; i < picks.length; i++) { selected.push(evaluated(session, picks[i], doc, made)); }
+        for (var label in labels) { if (labels.hasOwnProperty(label)) { doc.insertLabel(label, labels[label]); } }
+        shared.prepared([
+            ["set", condition.set, function (row) { shared.assign(row[0], row[1], evaluate, codec.revive); }],
+            ["add", condition.add, function (row) { made[row.as] = evaluate(row.to)[row.kind].add(codec.revive(row.properties || {})); }],
+            ["steps", condition.steps, function (step) { evaluated(session, step, doc, made, true); }],
+            ["select", condition.select, function (pick) { selected.push(evaluate(pick)); }]
+        ]);
         if (selected.length) { realApp.select(selected); }
         session.refresh();
     }
@@ -670,13 +502,8 @@ var harness = (function () {
             docs[i].viewPreferences.rulerOrigin = RulerOrigin.PAGE_ORIGIN;
             docs[i].zeroPoint = [0, 0];
         }
-        var values = {};
-        var failed = {};
         try {
-            for (var key in wanted) {
-                if (!wanted.hasOwnProperty(key)) { continue; }
-                try { values[key] = evaluated(session, wanted[key], docs[0], made); } catch (error) { failed[key] = String(error.message); }
-            }
+            return shared.reads(wanted, function (expression) { return evaluated(session, expression, docs[0], made); }, codec.kept);
         } finally {
             for (i = 0; i < frames.length; i++) {
                 if (!frames[i][0].isValid) { continue; }
@@ -685,7 +512,6 @@ var harness = (function () {
             }
             realApp.scriptPreferences.measurementUnit = unit;
         }
-        return { state: kept(values), failed: failed };
     }
     function exported(item, docs, moment) {
         if (item.precondition.idml !== true) { return; }
@@ -699,11 +525,16 @@ var harness = (function () {
     }
     function body(item) {
         if (item._tag === "Probe") { return "(function (doc, made) { return (" + item.evaluate + "); }).apply(undefined, arguments);"; }
-        if (item._tag === "Call") { return (item.source === undefined ? "" : (item.source.code.indexOf("@JSXBIN@") === 0 ? "eval(" + quote(item.source.code) + ");" : item.source.code)) +"\n;(" + item.call + ").apply(undefined, arguments);"; }
+        if (item._tag === "Call") { return (item.source === undefined ? "" : (item.source.code.indexOf("@JSXBIN@") === 0 ? "eval(" + shared.quote(item.source.code) + ");" : item.source.code)) + "\n;(" + item.call + ").apply(undefined, arguments);"; }
         return item.source.code;
     }
     function sessionFor(item) {
-        return { palettes: [], created: [], actions: [], documents: [], windowShown: 0, dialogShown: 0, exited: false, menus: item.precondition.menus === true, windowAnswers: item.windows || [], dialogAnswers: item.dialogs || [], confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], logs: [], writes: [], undo: [], opened: [] } };
+        var session = shared.session(item, ["dialogs", "menus", "undo"]);
+        session.actions = [];
+        session.dialogs = (item.dialogs || []).slice(0);
+        session.exited = false;
+        session.menus = item.precondition.menus === true;
+        return session;
     }
     function interacting(item, work) {
         if (item.interact !== true) { return work(); }
@@ -713,49 +544,43 @@ var harness = (function () {
     function ran(session, item, extra, result) {
         try {
             var value = interacting(item, function () { return session.evaluate(body(item), extra); });
-            for (var p = 0; p < session.palettes.length; p++) { answered(session, session.palettes[p].window, session.palettes[p].answer); }
+            shared.palettes(session);
             for (var a = 0; a < session.actions.length; a++) {
                 var handler = session.actions[a].listeners.onInvoke;
                 session.record.menus.push({ title: session.actions[a].title, invoked: typeof handler === "function" });
                 if (typeof handler === "function") { handler.call(session.actions[a], { eventType: "onInvoke" }); }
             }
-            if (item._tag !== "Run") { result.value = kept(value); }
+            if (item._tag !== "Run") { result.value = codec.kept(value); }
             return { _tag: "Ran" };
         } catch (error) {
-            return error instanceof Exited || session.exited ? { _tag: "Exited" } : thrown(error);
+            return error instanceof Exited || session.exited ? { _tag: "Exited" } : shared.thrown(error);
         }
     }
     function outcome(item, batch, found) {
         var session = sessionFor(item);
-        var result = { name: item.name, completion: { _tag: "Failed", reason: "case did not finish" } };
+        var result = shared.started(item);
         var leaked = [];
         var unit = realApp.scriptPreferences.measurementUnit;
-        var active = activeId();
+        var active = activeOf();
+        var activeId = active === null ? null : active.id;
         var known = docIds();
         var held = null;
-        var global = globals();
+        var global = shared.globals();
         var release = function () {};
         var made = {};
         try {
             held = snapshot(found);
-            var shadows = [
-                windows(session),
-                function (message, title) { if (!session.exited) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); } },
-                shared.confirmed(session),
-                shared.prompted(session),
-                fakeApp(session, item),
-                RealFile,
-                RealFolder,
-                function () { session.exited = true; throw new Exited(); },
-                fakeDollar(session, item)
-            ];
+            var Fake = shared.windows(session, shared.clicked);
+            var shadows = [Fake, Fake.alert, Fake.confirm, Fake.prompt, fakeApp(session, item), RealFile, RealFolder, function () { session.exited = true; throw new Exited(); }, shared.dollar(session, item)];
             session.app = shadows[4];
             session.evaluate = function (code, extra) { return scoped.apply(undefined, shadows.concat([session.app.activeDocument, code, extra])); };
-            release = patched(session);
+            release = shared.patched(session);
             var docs = opened(session, item, batch);
             for (var s = 0; s < docs.length; s++) { session.record.opened.push(state(docs[s])); }
             prepare(session, docs[0], item.precondition, made);
-            result.before = reads(session, docs, item.read, made).state;
+            var before = reads(session, docs, item.read, made);
+            result.before = before.state;
+            result.beforeFailed = before.failed;
             var inner = {};
             try {
                 realApp.doScript(function () {
@@ -764,7 +589,7 @@ var harness = (function () {
                         var history = [];
                         var d;
                         for (d = 0; d < docs.length; d++) { history.push(docs[d].undoHistory.length); }
-                        inner.completion = ran(session, item, item._tag === "Probe" ? [docs[0], made] : revive(item.args), result);
+                        inner.completion = ran(session, item, item._tag === "Probe" ? [docs[0], made] : codec.revive(item.args), result);
                         inner.undo = [];
                         for (d = 0; d < docs.length; d++) {
                             if (!docs[d].isValid) { continue; }
@@ -787,25 +612,25 @@ var harness = (function () {
             session.record.writes = inner.writes;
             session.record.undo = inner.undo;
         } catch (outer) {
-            result.completion = { _tag: "Failed", reason: String(outer.message) + (outer.line ? " at line " + outer.line : "") };
+            result.completion = { _tag: "Failed", reason: shared.failed(outer) };
         }
-        attempt(leaked, "prototypes", release);
-        for (var w = 0; w < session.created.length; w++) { attempt(leaked, "window", (function (made) { return function () { made.close(); }; })(session.created[w])); }
+        shared.attempt(leaked, "prototypes", release);
+        for (var w = 0; w < session.created.length; w++) { shared.attempt(leaked, "window", (function (shown) { return function () { shown.close(); }; })(session.created[w])); }
         for (var c = 0; c < session.documents.length; c++) {
-            attempt(leaked, "close", (function (open) { return function () { if (open.isValid) { if (open.reflect.name === "Library") { open.close(); } else { open.close(SaveOptions.NO); } } }; })(session.documents[c]));
+            shared.attempt(leaked, "close", (function (open) { return function () { if (open.isValid) { if (open.reflect.name === "Library") { open.close(); } else { open.close(SaveOptions.NO); } } }; })(session.documents[c]));
         }
-        attempt(leaked, "documents", function () {
+        shared.attempt(leaked, "documents", function () {
             var open = realApp.documents.everyItem().getElements();
             for (var o = 0; o < open.length; o++) { if (!known[open[o].id]) { leaked.push("document " + open[o].name + (owns(session, open[o]) ? " stays open after close" : " opened outside the case")); } }
         });
-        attempt(leaked, "restore", function () { if (held !== null) { leaked = leaked.concat(restore(held)); } });
-        attempt(leaked, "globals", function () { leaked = leaked.concat(released(global)); });
-        attempt(leaked, "scriptPreferences", function () { realApp.scriptPreferences.measurementUnit = unit; });
-        attempt(leaked, "activeDocument", function () { if (active !== null && activeId() !== active) { realApp.activeDocument = realApp.documents.itemByID(active); } });
-        var record = session.record;
-        result.alerts = record.alerts; result.confirms = record.confirms; result.prompts = record.prompts; result.windows = record.windows; result.dialogs = record.dialogs; result.files = record.files; result.menus = record.menus;
-        result.activations = record.activations; result.console = record.console; result.logs = record.logs; result.writes = record.writes; result.undo = record.undo; result.opened = record.opened; result.written = []; result.answered = []; result.leaked = leaked;
-        return result;
+        shared.attempt(leaked, "restore", function () { if (held !== null) { leaked = leaked.concat(restore(held)); } });
+        shared.attempt(leaked, "globals", function () { leaked = leaked.concat(shared.released(global)); });
+        shared.attempt(leaked, "scriptPreferences", function () { realApp.scriptPreferences.measurementUnit = unit; });
+        shared.attempt(leaked, "activeDocument", function () {
+            var now = activeOf();
+            if (activeId !== null && (now === null || now.id !== activeId)) { realApp.activeDocument = realApp.documents.itemByID(activeId); }
+        });
+        return shared.finished(result, session.record, leaked);
     }
     function header(found) {
         var defaults = {};
@@ -827,15 +652,12 @@ var harness = (function () {
             recovered(batch.label);
             var found = members();
             var answer = header(found);
-            for (var i = 0; i < batch.cases.length; i++) {
-                append(batch.records, json({ _tag: "Started", index: i }) + "\n");
-                append(batch.records, json({ _tag: "Finished", outcome: outcome(batch.cases[i], batch, found) }) + "\n");
-            }
-            return json(answer);
+            shared.batched(batch, codec, function (item) { return outcome(item, batch, found); });
+            return codec.json(answer);
         } catch (error) {
-            return json({ failed: String(error.message) + (error.line ? " at line " + error.line : "") });
+            return codec.json({ failed: shared.failed(error) });
         } finally {
             realApp.scriptPreferences.userInteractionLevel = level;
         }
     };
-})();
+})()(arguments[0]);

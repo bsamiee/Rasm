@@ -12,6 +12,7 @@
         "./node": "./node.ts",
         "./progress": "./progress.ts",
         "./resource": "./resource.ts",
+        "./route": "./route.ts",
         "./rpc": "./rpc.ts",
         "./server": "./server.ts",
         "./tool": "./tool.ts"

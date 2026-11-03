@@ -1,5 +1,6 @@
+import { main } from '@rasm/test-support/main';
 import { defineMain } from '@storybook/react-vite/node';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineMain({ framework: '@storybook/react-vite', stories: ['./*.stories.ts'], addons: ['@rasm/test-support/preset'] });
+export default defineMain({ ...main, stories: ['./*.stories.ts'] });

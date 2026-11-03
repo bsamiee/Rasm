@@ -1,5 +1,4 @@
 import { RegistryContext } from '@effect/atom-react';
-import { openDialogs } from '@rasm/ui/dialog/open';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { AtomRegistry } from 'effect/reactivity';
 import { type ReactNode, StrictMode } from 'react';
@@ -14,7 +13,7 @@ const _registered = async (tree: ReactNode) => {
     const registry = AtomRegistry.make();
     const scoped = (node: ReactNode) => <RegistryContext.Provider value={registry}>{node}</RegistryContext.Provider>;
     const screen = await render(scoped(tree));
-    return { screen, rerender: (node: ReactNode) => screen.rerender(scoped(node)), open: () => registry.get(openDialogs) };
+    return { screen, rerender: (node: ReactNode) => screen.rerender(scoped(node)), open: () => registry.get(ModalOverlay.open) };
 };
 const _controlled = (label: string, isOpen: boolean) => (
     <ModalOverlay isOpen={isOpen}>

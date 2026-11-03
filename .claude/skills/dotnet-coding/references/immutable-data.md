@@ -69,9 +69,9 @@ Partial immutability leaves mutation reachable:
 - Immutable top-level objects holding a mutable list are mutable, a shallow copy is safe only when every shared referenced value is immutable
 - Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation
 
-## [05]-[COPIES]
+## [05]-[LIMITS]
 
-Lenses update a nested field without a chain of `with` expressions. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
+Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
 
 ## [06]-[COST]
 

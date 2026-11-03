@@ -89,7 +89,7 @@ func value<Value: Sendable, Failure: Error, C: Clock>(
 `expired` is the caller's deadline failure. A wait an event ends early passes the event's stream as the work and its own deadline reason as `expired`. `cancelAll()` stops the losing child, and the group returns once that child ends. Work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, a group never ends with nothing left, and a fallback outcome naming `expired` reports a timeout that never happened.
 
 - Steps with a budget of their own and no deadline handed down (one child process, one request) take a `Duration` and sleep `for:` it
-- Rivals that end only by failing (a lease heartbeat) return `Never`, and a closure calling one fills the `Value` slot of a two-child race
+- Race children that end only by failing (a lease heartbeat) return `Never` and fill the `Value` slot of a two-child race
 
 ## [04]-[ACTORS]
 

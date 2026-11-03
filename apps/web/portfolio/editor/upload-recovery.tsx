@@ -1,25 +1,25 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { RequestAlert } from '#/editor/request-alert';
-import { discardRequest, pendingRequest } from '#/editor/state';
-import { queue } from '#/editor/uploader';
-import { details } from '#/media/labels';
-import type { PendingUpload } from '#/model/api';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { RequestAlert } from '#/editor/request-alert.tsx';
+import { discardRequest, recoveryRequest } from '#/editor/state.ts';
+import { queue } from '#/editor/uploader.ts';
+import { details } from '#/media/labels.ts';
+import type { Recovery } from '#/model/api.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const UploadRecovery = () => {
     const files = Object.values(useAtomValue(queue));
-    const recovery = useAtomValue(pendingRequest);
-    const refreshRecovery = useAtomRefresh(pendingRequest);
+    const recovery = useAtomValue(recoveryRequest);
+    const refreshRecovery = useAtomRefresh(recoveryRequest);
     const [discarded, discard] = useAtom(discardRequest);
     const actions = {
         incomplete: { label: 'Discard incomplete upload', description: 'Deletes partial upload data. Add original file again to upload it' },
         cleanup: { label: 'Remove leftover upload data', description: 'Uploaded file and its placements stay' },
         removing: { label: 'Finish removal', description: 'Deletes remaining upload data of removed file' },
-    } satisfies Record<(typeof PendingUpload.Type)['status'], { readonly label: string; readonly description: string }>;
+    } satisfies Record<(typeof Recovery.Type)['status'], { readonly label: string; readonly description: string }>;
     const queuedUploads = new Set(Array.filterMap(files, (file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? Result.succeed(file.meta.prepared.asset.id) : Result.failVoid)));
     return (
         <section className="border-line border-t pt-5">
@@ -38,7 +38,7 @@ const UploadRecovery = () => {
                 .onError(({ upload, error }) => (
                     <div className="mt-3">
                         <p className="hint mb-2 wrap-anywhere">{upload.name}</p>
-                        <RequestAlert conflict="Upload changed in another request. Refresh list and retry" error={error} />
+                        <RequestAlert error={error} />
                     </div>
                 ))
                 .orNull()}

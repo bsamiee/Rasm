@@ -29,7 +29,10 @@ let modules: [Target] = [
     .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
     .target(
         name: "Files",
-        dependencies: ["CurrentProcess", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths")],
+        dependencies: [
+            "CurrentProcess", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"),
+        ],
         path: "libs/swift/macos/Files",
     ),
     .target(
@@ -72,12 +75,12 @@ let executables: [Target] = [
 let support: [Target] = [
     .target(
         name: "TestSupport",
-        dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: ["Processes", .product(name: "Subprocess", package: "swift-subprocess")],
         path: "tests/swift/support",
     ),
     .executableTarget(
         name: "AppKitFixture",
-        dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: ["CurrentProcess", "Processes", .product(name: "Subprocess", package: "swift-subprocess")],
         path: "tests/swift/fixtures/appkit",
     ),
     .target(name: "WatchAppsWire", dependencies: [.product(name: "CasePaths", package: "swift-case-paths")], path: "tests/swift/tools/watch-apps/Wire"),

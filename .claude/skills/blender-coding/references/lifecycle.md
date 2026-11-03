@@ -36,9 +36,11 @@ class Write[**P](Protocol):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> bool: ...
 
 
-def scheduled[**P](ready: Callable[[], bool], interval: float, write: Write[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
+def scheduled[**P](live: threading.Event, ready: Callable[[], bool], interval: float, write: Write[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
     def step() -> float | None:
         manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        if not live.is_set():
+            return None
         if manager.is_interface_locked or not ready():
             return interval
         if write(*args, **kwargs):
@@ -51,7 +53,7 @@ def scheduled[**P](ready: Callable[[], bool], interval: float, write: Write[P], 
         bpy.app.timers.register(step)
 ```
 
-`depsgraph_update_post` handlers copy each transformed original's `session_uid` and call `scheduled(lambda: True, interval, grounded, uids)`. The step pushes a `Grounded` undo step when `grounded` lifts a sunk object to `z = 0` and returns `True`.
+`depsgraph_update_post` handlers copy each transformed original's `session_uid` and call `scheduled(live, lambda: True, interval, grounded, uids)`. The step pushes a `Grounded` undo step when `grounded` lifts a sunk object to `z = 0` and returns `True`. `register()` sets `live` and `unregister()` clears it, and steps queued before `unregister()` return without writing through unloaded code.
 
 Writes end their own update cycle:
 - Update callbacks fire on every assignment, equal values included, and writes assign only differing values
@@ -63,9 +65,9 @@ Writes end their own update cycle:
 Work outlasting one callback runs as a `sys.executable` process (bundled Python without `bpy`), its result applied as a write once the process exits:
 
 ```python
-def spawned(argv: tuple[str, ...], interval: float, applied: Write[[subprocess.Popen[bytes]]], /) -> None:
+def spawned(live: threading.Event, argv: tuple[str, ...], interval: float, applied: Write[[subprocess.Popen[bytes]]], /) -> None:
     worker = subprocess.Popen((sys.executable, *argv))
-    scheduled(lambda: worker.poll() is not None, interval, applied, worker)
+    scheduled(live, lambda: worker.poll() is not None, interval, applied, worker)
 ```
 
 `applied` reads its result file and calls `worker.wait()`, returning at once in a timer step and blocking a background run until exit. Process pools (`multiprocessing`, `concurrent.futures`) fail before work starts, each child re-running `__main__` from `__file__` (`<blender string>`, a `--python` script).
@@ -74,26 +76,24 @@ def spawned(argv: tuple[str, ...], interval: float, applied: Write[[subprocess.P
 
 Frame and `render_*` handlers run on the render job thread beside viewport drawing in a GUI render, on the calling thread under `EXEC_DEFAULT` `render.render`:
 - Handlers changing data the viewport reads run under `RenderSettings.use_lock_interface`
-- `render_init` runs once before the render reads the scene and holds job-wide writes and per-job state
-- Restores run from both `render_complete` and `render_cancel`
+- `render_init` holds job-wide writes and per-job state, and both `render_complete` and `render_cancel` restore them
 - Timers registered from the job thread run on the main thread at the next event-loop pass while the render continues
 - `scheduled` writes leave the job thread through a timer registered from the job thread
 
 ## [05]-[DRIVERS]
 
-Drivers read sources through variables, each target writing `id_type` from its source before `id`:
+Drivers read sources through variables, `targeted` deriving each target's ID and path from a struct and its member:
 
 ```python
-def driven(owner: bpy.types.ID, path: str, source: bpy.types.ID, source_path: str, /, *, index: int = -1) -> bpy.types.Driver:
-    driver: bpy.types.Driver = owner.driver_add(path, index).driver  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
+def driven(owner: Struct, member: str, source: Struct, read: str, /, *, index: int = -1) -> bpy.types.Driver:
+    driver: bpy.types.Driver = owner.driver_add(member, index).driver  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
     variable = driver.variables.new()
-    target = variable.targets[0]
-    target.id_type, target.id, target.data_path = source.id_type, source, source_path
+    targeted(variable.targets[0], source, read)
     driver.expression = variable.name
     return driver
 ```
 
-`index` names an array channel and stays `-1` for a scalar, an array driven at `-1` returning a list of every channel's F-curve.
+`index` names an array channel and stays `-1` for a scalar, an array driven at `-1` returning a list of every channel's F-curve:
 - `variables.new()` returns a `SINGLE_PROP` variable named `var` with an `OBJECT` target, and an `id` not matching `id_type` raises `TypeError`
 - `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Python-created driver F-curves hold keys at (0, 0) and (1, 1) that remap the driver value as they move

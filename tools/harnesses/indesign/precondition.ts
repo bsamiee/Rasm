@@ -1,7 +1,7 @@
 import { Schema, SchemaGetter, Struct } from 'effect';
 import { Expression } from '#/cases';
 import { Placed, type Survey } from '#/indesign/contract';
-import { Application, enumerators, many, member, merged, placings } from '#/precondition';
+import { Application, enumerators, many, member, merged, Open, placings } from '#/precondition';
 import { JsonObject } from '#/values';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -21,7 +21,6 @@ const precondition = (survey: typeof Survey.Type) => {
         language: Schema.Literals(survey.languages).annotate({ description: 'Language name the host lists, applied to the text defaults' }),
         properties: Schema.optionalKey(Properties.annotate({ description: 'Further documents.add properties, {"$": "enum:<Enumeration>.<MEMBER>"} naming an enumerator' })),
     });
-    const Open = Schema.NonEmptyString.annotate({ description: 'Document path under the product folder, its copy opened with a window' });
     const rows = {
         ...Struct.omit(Placed.fields, ['documents']),
         units: Units,

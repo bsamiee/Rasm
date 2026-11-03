@@ -1,32 +1,29 @@
-import { layer } from '@effect/vitest';
-import { client } from '@rasm/database/pg';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { Context, Effect, Layer, Redacted } from 'effect';
+import { it } from '@effect/vitest';
+import { layer } from '@rasm/database/pg';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { type Cause, Context, Effect, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
 import { cases } from '#/tests/typescript/libs/data/database/cases';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Postgres extends Context.Service<Postgres, StartedPostgreSqlContainer>()('rasm/tests/typescript/libs/data/database/postgres.test/Postgres') {}
+class Container extends Context.Service<Container, { readonly restore: Effect.Effect<void, Cause.UnknownError>; readonly url: Redacted.Redacted }>()('rasm/tests/typescript/libs/data/database/postgres.test/Container') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const restored = () =>
-    Layer.unwrap(
-        Postgres.use((started) =>
-            Effect.as(
-                Effect.tryPromise(() => started.restoreSnapshot()),
-                client({ url: Redacted.make(started.getConnectionUri()) }),
-            ),
-        ),
-    );
-
-layer(
+it.layer(
     Layer.effect(
-        Postgres,
+        Container,
         Effect.acquireDisposable(Effect.tryPromise(() => new PostgreSqlContainer('postgres:latest').withPullPolicy(PullPolicy.alwaysPull()).withEnvironment({ POSTGRES_INITDB_ARGS: '--locale-provider=builtin --builtin-locale=PG_UNICODE_FAST' }).start())).pipe(
             Effect.tap((started) => Effect.tryPromise(() => started.snapshot())),
+            Effect.map((started) => ({ restore: Effect.tryPromise(() => started.restoreSnapshot()), url: Redacted.make(started.getConnectionUri()) })),
         ),
     ),
     { timeout: '5 minutes' },
-)('container', (methods) => cases(methods, restored, () => Effect.void));
+)('container', (methods) =>
+    cases(
+        methods,
+        (options) => Layer.unwrap(Container.use(({ restore, url }) => Effect.as(restore, layer({ url, ...options })))),
+        () => Effect.void,
+    ),
+);

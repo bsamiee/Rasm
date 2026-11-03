@@ -15,7 +15,7 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import rna_keymap_ui
 
-from blender.bpy.commands.calls import filled, Pairs, Placement, PopupKind, PopupTarget, Setting
+from blender.bpy.commands.operators import filled, Pairs, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable, Tier
@@ -174,24 +174,25 @@ def nesting(name: str, /) -> Outcome[tuple[Location, ...]]:
     return Ok(found).filter_with(bool, lambda _: Fault.of(Reason.ABSENT, "bl_keymap_utils.keymap_hierarchy", member=name))
 
 
-def parameters(manager: bpy.types.WindowManager, /) -> Outcome[Parameters]:
-    """Returns the default keymap's `Params` over the active keyconfig's preferences, absent fault for a default keyconfig with no preset.
-
-    Default keyconfig's preset loads its keymap data from `keymap_data/blender_default.py` beside it, the module read here.
-    """
+def parameters(context: bpy.types.Context, /) -> Outcome[Parameters]:
+    """Returns the default keymap's `Params` as the default keyconfig preset builds them over the active keyconfig's preferences, absent fault for a default keyconfig with no preset."""
+    manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    inputs: bpy.types.PreferencesInput = context.preferences.inputs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     default: bpy.types.KeyConfig = manager.keyconfigs.default  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
     def built(preset: str) -> Parameters:
         module: ModuleType = bpy.utils.execfile(str(Path(preset).parent / "keymap_data" / "blender_default.py"))  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
         accepted = inspect.signature(module.Params).parameters
-        keywords = (
+        stated: dict[str, object] = (
             Option
             .of_optional(manager.keyconfigs.active)
             .bind(lambda config: Option.of_optional(config.preferences))
-            .map(lambda held: {name: getattr(held, name) for name in accepted if name in definition(held).properties})
+            .map(lambda held: {prop.identifier: getattr(held, prop.identifier) for prop in definition(held).properties})
             .default_value({})
         )
-        params: Parameters = module.Params(**keywords)
+        emulated = inputs.use_mouse_emulate_3_button and inputs.mouse_emulate_3_button_modifier == "ALT"
+        alternate = bool(stated.get("use_alt_tool" if stated.get("select_mouse") == "LEFT" else "use_alt_cursor"))
+        params: Parameters = module.Params(**{name: stated[name] for name in accepted if name in stated}, use_alt_tool_or_cursor=not emulated and alternate)
         return params
 
     return Option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")).map(built)
@@ -216,8 +217,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
         darwin: KeyconfigData = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
         return tuple(item for _, _, block in darwin for item in block["items"])
 
-    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return parameters(manager).bind(lambda held: accumulated(placement.resolved(identity).map(partial(row, held, chord, placement)) for chord, placement in bindings).map(doubled))
+    return parameters(bpy.context).bind(lambda held: accumulated(placement.resolved(identity).map(partial(row, held, chord, placement)) for chord, placement in bindings).map(doubled))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,18 +1,18 @@
 import { useAtomSet } from '@effect/atom-react';
 import { MenuButton } from '@rasm/ui/collection/menu-button';
 import { focus } from '@rasm/ui/focus';
-import { Array, Match, Optic, Option, Predicate, Record, Schema } from 'effect';
+import { Array, ByteSize, Optic, Option, Record } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { deleteRequest, draft, hero } from '#/editor/state';
-import { details, entryTitle, format } from '#/media/labels';
-import { MediaFigure } from '#/media/media-figure';
-import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '#/model/asset';
-import { placementsFor } from '#/model/placement';
-import { assetIds, type Portfolio } from '#/model/portfolio';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { deleteRequest, draft, hero } from '#/editor/state.ts';
+import { details, entryTitle, format } from '#/media/labels.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
+import { placementsFor } from '#/model/placement.ts';
+import { assetIds, type EntryId, type Portfolio } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -20,27 +20,27 @@ const Library = ({
     assets,
     portfolio,
     published,
-    sourceId,
+    assetId,
     onSelect,
-    onUse,
+    onPlace,
 }: {
-    assets: typeof AssetCollection.Type;
+    assets: typeof Assets.Service;
     portfolio: typeof Portfolio.Type;
     published: typeof Portfolio.Type;
-    sourceId: Option.Option<string>;
-    onSelect: (id: Option.Option<string>) => void;
-    onUse: (entryId: string, assetId: string) => void;
+    assetId: Option.Option<typeof AssetId.Type>;
+    onSelect: (id: Option.Option<typeof AssetId.Type>) => void;
+    onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void;
 }) => {
     const ids = useId();
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
-    const selected = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [format.bytes(asset.size), Schema.is(PdfAsset)(asset) ? format.quantity(asset.pages.length, { one: 'sheet', other: 'sheets' }) : undefined];
+    const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
+    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
     return (
         <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: 'file', other: 'files' })}</span>
+                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
             </div>
             <div className="editor:grid-cols-2 grid min-w-0 gap-6">
                 <GridList
@@ -50,21 +50,24 @@ const Library = ({
                     id={`${ids}library`}
                     items={Object.values(assets)}
                     onSelectionChange={(keys) => {
-                        const chosen = Array.findFirst(keys === 'all' ? [] : keys, Predicate.isString);
+                        const chosen = Option.map(
+                            Array.findFirst(Object.values(assets), ({ id }) => keys !== 'all' && keys.has(id)),
+                            ({ id }) => id,
+                        );
                         onSelect(chosen);
-                        Option.map(chosen, () => focus(`${ids}source`));
+                        Option.map(chosen, () => focus(`${ids}place`));
                     }}
-                    selectedKeys={Option.toArray(sourceId)}
+                    selectedKeys={Option.toArray(assetId)}
                     selectionMode="single"
                 >
                     {(asset) => (
                         <GridListItem className="border-line focus-visible:outline-accent-text selected:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2" id={asset.id} textValue={asset.name}>
                             <div className="media-h-30 bg-surface pointer-events-none grid aspect-4/3 place-items-center">
-                                {Match.value(asset).pipe(
-                                    Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, () => <FileText className="text-muted size-6" />),
-                                    Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, () => <Film className="text-muted size-6" />),
-                                    Match.orElse((image) => <MediaFigure active={false} placement={Array.headNonEmpty(placementsFor(image))} presentation="thumbnail" priority={false} renderMedia={true} />),
-                                )}
+                                {Asset.match(asset, {
+                                    pdf: () => <FileText className="text-muted size-6" />,
+                                    video: () => <Film className="text-muted size-6" />,
+                                    image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(placementsFor(image))} presentation="thumbnail" priority={false} renderMedia={true} />,
+                                })}
                             </div>
                             <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
                             <span className="meta-line">{details(summary(asset))}</span>
@@ -87,7 +90,7 @@ const Library = ({
                                 >
                                     Back to files
                                 </button>
-                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${ids}source`} tabIndex={-1}>
+                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${ids}place`} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
                                 <div className="media-h-70 bg-surface grid place-items-center p-3">
@@ -95,7 +98,7 @@ const Library = ({
                                 </div>
                                 <div className="actions">
                                     {portfolio.entries.length > 0 && (
-                                        <MenuButton onAction={({ id }) => onUse(id, asset.id)} options={portfolio.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
+                                        <MenuButton onAction={({ id }) => onPlace(id, asset.id)} options={portfolio.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
                                             Add to entry
                                         </MenuButton>
                                     )}

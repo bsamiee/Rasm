@@ -27,7 +27,7 @@ def normalized(values: NDArray[np.float64], /) -> NDArray[np.float64]:
 `normalized(np.zeros(3))` fails with `normalized failed. invalid value encountered in divide`, and `normalized` keeps the body's parameter types:
 - `P` and `T` in a factory's return type alone bind once per decorated function
 - `Callable` declares no `__qualname__`, `call.__qualname__` names the subject, and a method fails as `<Owner>.<method>`
-- `catch` passes a `Result` its body returns through unchanged while typing it nested, a body under `caught` returns a plain value
+- Bodies under `caught` return a plain value
 - Scopes around a call are `@contextmanager` and `@asynccontextmanager` generators applied as `@<scope>()`
 - Each call enters a fresh scope at its first step and leaves it when a decorated generator exhausts or a coroutine returns
 - `np.errstate` scopes a plain `def` alone, and a generator or `async def` body enters it through `with`

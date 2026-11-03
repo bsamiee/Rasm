@@ -14,6 +14,7 @@ from scipy.stats import qmc, sem
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
 from blender.imaging.geometry.frames import Raster, Region
+from blender.imaging.sampling.tiles import uniforms
 from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import NonNegative, Positive, Seed, Unit
 from blender.records.stores import content_hash, rng
@@ -21,7 +22,6 @@ from blender.records.stores import content_hash, rng
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
-type _Draws = Callable[[npt.NDArray[np.int64], int, int], npt.NDArray[np.float64]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ class Disc(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Population(msgspec.Struct, frozen=True, kw_only=True):
-    """Soft discs in square cells with presence, size, fade, and edge, each cell drawing stable uniforms from a caller draw source of (keys, stream, count)."""
+    """Soft discs in square cells with presence, size, fade, and edge, each cell drawing stable uniforms from a draw stream."""
 
     spacing: Annotated[Positive, msgspec.Meta(description="Cell width")] = 0.01
     density: Annotated[Unit, msgspec.Meta(description="Share of cells holding a disc")] = 0.5
@@ -85,9 +85,9 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         rows = np.arange(math.floor(bounds.bottom / self.spacing - radius) - 1, math.floor(bounds.top / self.spacing + radius) + 1)
         return np.stack(np.meshgrid(columns, rows), axis=-1).reshape(-1, 2)
 
-    def occupied(self, cells: npt.NDArray[np.int64], draws: _Draws, stream: int) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    def occupied(self, cells: npt.NDArray[np.int64], stream: int) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
         """Returns the cells holding a disc with their six uniforms: presence, size, gain, tone, and two center offsets."""
-        values = draws(cells, stream, 6)
+        values = uniforms(cells, stream, 6)
         kept = values[:, 0] < self.density
         return cells[kept], values[kept]
 
@@ -95,16 +95,16 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms at lattice `spacing` and depth `scale`, over any namespace."""
         return placement(cell, draws, ns, spacing=spacing, diameter=self.spacing * self.size, variation=self.variation, spread=self.spread, scale=scale)
 
-    def discs(self, bounds: Region, draws: _Draws, stream: int = 0) -> tuple[Disc, ...]:
+    def discs(self, bounds: Region, stream: int = 0) -> tuple[Disc, ...]:
         """Returns occupied members of cells covering global bounds, in cell order."""
-        cells, values = self.occupied(self.covering(bounds), draws, stream)
+        cells, values = self.occupied(self.covering(bounds), stream)
         centers, radii, gains = self._placements(cells, values)
         return tuple(
             Disc(cell=tuple(cell), center=(center[0], center[1]), radius=radius, gain=gain, tone=tone)
             for cell, center, radius, gain, tone in zip(cells.tolist(), centers.tolist(), radii.tolist(), gains.tolist(), values[:, 3].tolist())
         )
 
-    def integrated(self, raster: Raster, draws: _Draws, *, precision: Precision, stream: int = 0, paint: Callable[[float], float] = float) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
+    def integrated(self, raster: Raster, *, precision: Precision, stream: int = 0, paint: Callable[[float], float] = float) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
         """Estimates mean disc coverage and covered `paint` tone over each pixel of `raster`, each disc's Sobol net rotated by its own draws.
 
         Returns:
@@ -114,29 +114,25 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         @catch(exception=FloatingPointError)
         @np.errstate(over="raise", divide="raise", invalid="raise")
         def computed() -> Estimate[npt.NDArray[np.float64]]:
-            cells, values = self.occupied(self.covering(raster.bounds), draws, stream)
+            cells, values = self.occupied(self.covering(raster.bounds), stream)
             centers, radii, gains = self._placements(cells, values)
             paints = np.column_stack((np.ones(len(values)), np.array([paint(tone) for tone in values[:, 3].tolist()], dtype=np.float64).reshape(-1)))
-            area = float(np.prod(raster.step))
+            step, (height, width) = raster.step, raster.shape
+            area = float(np.prod(step))
 
-            def deposited(points: npt.NDArray[np.float64], masses: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-                height, width = raster.shape
-                step = raster.step
+            def replicated(replicate: int) -> npt.NDArray[np.float64]:
+                rotation = uniforms(np.column_stack((cells, np.full((len(cells), 2), (precision.seed, replicate)))), stream, 2)
+                net = (precision.points(2, replicate) + rotation[:, None]) % 1.0
+                radial, angle = np.sqrt(net[..., 0]), math.tau * net[..., 1]
+                points = (centers[:, None] + radii[:, None, None] * radial[..., None] * np.stack((np.cos(angle), np.sin(angle)), axis=-1)).reshape(-1, 2)
+                profile = np.ones_like(radial) if self.softness == 0.0 else smoothstep(np.minimum((1.0 - radial) / self.softness, 1.0))
+                masses = ((profile * (math.pi * radii**2 * gains / (area * net.shape[1]))[:, None])[..., None] * paints[:, None]).reshape(-1, 2)
                 columns = np.floor((points[:, 0] - raster.bounds.left) / step[0]).astype(np.intp)
                 rows = height - 1 - np.floor((points[:, 1] - raster.bounds.bottom) / step[1]).astype(np.intp)
                 inside = (columns >= 0) & (columns < width) & (rows >= 0) & (rows < height)
-                sums = np.zeros((height * width, masses.shape[-1]), dtype=np.float64)
+                sums = np.zeros((height * width, 2), dtype=np.float64)
                 np.add.at(sums, (rows * width + columns)[inside], masses[inside])
-                return sums.reshape(height, width, -1)
-
-            def replicated(replicate: int) -> npt.NDArray[np.float64]:
-                rotation = draws(np.column_stack((cells, np.full((len(cells), 2), (precision.seed, replicate)))), stream, 2)
-                net = (precision.points(2, replicate) + rotation[:, None]) % 1.0
-                radial, angle = np.sqrt(net[..., 0]), math.tau * net[..., 1]
-                points = centers[:, None] + radii[:, None, None] * radial[..., None] * np.stack((np.cos(angle), np.sin(angle)), axis=-1)
-                profile = np.ones_like(radial) if self.softness == 0.0 else smoothstep(np.minimum((1.0 - radial) / self.softness, 1.0))
-                mass = profile * (math.pi * radii**2 * gains / (area * net.shape[1]))[:, None]
-                return deposited(points.reshape(-1, 2), (mass[..., None] * paints[:, None]).reshape(-1, 2))
+                return sums.reshape(height, width, 2)
 
             return Estimate.of(np.stack([replicated(replicate) for replicate in range(precision.replicates)]), precision)
 

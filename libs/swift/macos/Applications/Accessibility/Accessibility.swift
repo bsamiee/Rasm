@@ -93,10 +93,6 @@ extension AXUIElement {
         try values([attribute])[attribute] as? Value
     }
 
-    func element(_ attribute: String) throws(ApplicationFailure) -> AXUIElement? {
-        try values([attribute])[attribute].flatMap(Self.checked)
-    }
-
     func elements(_ attribute: String) throws(ApplicationFailure) -> [AXUIElement] {
         (try values([attribute])[attribute] as? [CFTypeRef] ?? []).compactMap(Self.checked)
     }

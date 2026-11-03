@@ -1,5 +1,5 @@
 import { Array, Effect, Equal, Function, Graph, Match, Option, Order, Result, Schema, String, Struct } from 'effect';
-import type { SqlClient, Statement } from 'effect/sql';
+import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import type { Engine } from '#/engine';
@@ -23,10 +23,8 @@ interface Reference {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const identifierBytes = 63;
-const radix = 36;
 const digestBase = 257;
-const digestModulus = 2 ** 31 - 1;
-const referentialActions = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'] as const;
+const digestModulus = 2_147_483_647;
 const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,15 +39,11 @@ const literal = (text: string) => `'${text.replaceAll("'", "''")}'`;
 const digest = (text: string) => new TextEncoder().encode(text).reduce((hash, byte) => (hash * digestBase + byte) % digestModulus, 0);
 const identifier = (parts: readonly string[]) => {
     const name = parts.map(String.camelToSnake).join('_');
+    const radix = 36;
     const suffix = `_${digest(name).toString(radix)}`;
     const encoder = new TextEncoder();
     return encoder.encode(name).length <= identifierBytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(identifierBytes - suffix.length)).read)}${suffix}`;
 };
-const constant = ({ kind }: Column, value: string | number) =>
-    Match.value(kind).pipe(
-        Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
-        Match.orElse(() => literal(`${value}`)),
-    );
 
 // --- [REFUSALS]
 const finding = (table: string, columns: readonly string[], reason: Finding['reason']): Finding => ({ table, columns, reason });
@@ -89,7 +83,13 @@ const declaredRefusals = ({ name: owner, key, references, columns, indexes, sear
 };
 const refusals = ({ tables }: Catalog) => {
     const names = tables.map(({ name }) => name);
-    const kinds = (relation: Relation, parts: readonly string[]) => parts.map((part) => Option.map(Array.findFirst(Object.values(relation.columns), ({ name }) => name === part), Struct.get('kind')));
+    const kinds = (relation: Relation, parts: readonly string[]) =>
+        parts.map((part) =>
+            Option.map(
+                Array.findFirst(Object.values(relation.columns), ({ name }) => name === part),
+                Struct.get('kind'),
+            ),
+        );
     const references = (relation: Relation) =>
         relation.references.flatMap(({ columns, table }) =>
             Option.match(
@@ -103,9 +103,7 @@ const refusals = ({ tables }: Catalog) => {
     return [
         ...tables.flatMap(declaredRefusals),
         ...tables.flatMap(references),
-        ...Array.dedupe(tables.filter((relation, index) => names.indexOf(relation.name) !== index || Option.exists(relation.renamedFrom, (from) => from !== relation.name && names.includes(from))).map(({ name }) => name)).map((name) =>
-            finding(name, [], { _tag: 'Unsupported', refusal: 'duplicate' }),
-        ),
+        ...Array.dedupe(tables.filter((relation, index) => names.indexOf(relation.name) !== index || Option.exists(relation.renamedFrom, (from) => from !== relation.name && names.includes(from))).map(({ name }) => name)).map((name) => finding(name, [], { _tag: 'Unsupported', refusal: 'duplicate' })),
     ];
 };
 
@@ -158,12 +156,12 @@ const render = (
         };
     };
     const definitions = entries.map((entry) => {
-        const [type, fallback, name] = [engine.types[entry.kind], Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
+        const [type, defaulted, name] = [engine.types[entry.kind], Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
         const checked = (subject: Statement.Fragment) =>
             Column.Bound.$match({
                 Compare: ({ op, value, subject: measured }) => spaced([measured === 'codePoints' ? engine.codePoints(sql, subject) : subject, op, value instanceof Date ? literal(value.toISOString()) : `${value}`]),
                 MultipleOf: ({ divisor }) => spaced([subject, '%', `${divisor}`, '= 0']),
-                Cased: ({ case: casing }) => {
+                Cased: ({ case: casing }): Statement.Fragment => {
                     const text = engine.text(sql, subject, entry.kind);
                     return sql`${sql.literal(casing)}(${text}) = ${text}`;
                 },
@@ -182,7 +180,7 @@ const render = (
                 (all) => spaced(['CHECK', sql`(${conjunction(all)})`]),
             );
         const checkName = label([entry.name, 'check']);
-        const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(fallback).map((value) => `DEFAULT ${value}`)];
+        const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
         const stamp = Option.getOrElse(identities(entry.name), () => ({ origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation }));
         const hashed = digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject')))])}`.compile(true)[0]);
         const comment = engine.comment(sql, entry.name, { origin: stamp.origin, generation: stamp.generation, digest: hashed });
@@ -190,7 +188,7 @@ const render = (
             ...entry,
             type,
             check: Option.map(rule(name), (text) => ({ ...checkName, text })),
-            default: fallback,
+            default: defaulted,
             identity: stamp,
             digest: hashed,
             comment,
@@ -221,7 +219,7 @@ const render = (
         links,
         indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (prefix: string) => index.text(prefix, relation), declared: Option.none<Relation['indexes'][number]>() })))],
         virtual: Option.flatMap(searched, Struct.get('virtual')),
-        policy: Option.flatMap(tenant, ({ column }) => Option.map(engine.policy(sql, owner, column.name, engine.types[column.kind], tenant.pipe(Option.map(Struct.get('setting')), Option.getOrElse(() => ''))), (rule) => ({ ...rule, text: (role: Statement.Fragment) => rule.text(relation, role) }))),
+        policy: Option.flatMap(tenant, ({ column, setting }) => Option.map(engine.policy(sql, owner, column.name, engine.types[column.kind], setting), (rule) => ({ ...rule, text: (role: Statement.Fragment) => rule.text(relation, role) }))),
         create: sql`CREATE TABLE ${relation}${comment.inline} (${sql.csv([...definitions.map(({ text }) => text), ...elements, spaced(['PRIMARY KEY', sql`(${list(key)}${sql.literal(autoincrement ? ' AUTOINCREMENT' : '')})`]), ...links.filter(inline).map(({ name, text }) => engine.constraint(sql, name, text))])})${sql.literal(engine.suffix(withoutRowid))}`,
         comments: [...comment.statements(relation, Option.none()), ...definitions.flatMap(({ name, comment: stamped }) => stamped.statements(relation, Option.some(name)))],
     };
@@ -243,9 +241,21 @@ const diff = <L extends Live, C extends Live>(
         type Candidate = (typeof standing)[number];
         const unclaimed: readonly Candidate[] = [];
         const owns = (item: D, candidate: Candidate) => candidate.generation === item.identity.generation && [candidate.row.name, candidate.origin].some((name) => name === item.name || Option.contains(item.renamedFrom, name));
-        const take = (claimed: readonly Candidate[], chosen: Option.Option<Candidate>) => [Option.match(chosen, { onNone: () => claimed, onSome: (candidate) => [...claimed, candidate] }), chosen] as const;
-        const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => take(claimed, Array.findFirst(standing, (candidate) => !claimed.includes(candidate) && owns(item, candidate))));
-        const [, chosen] = Array.mapAccum(Array.zip(declared, owned), owners, (claimed, [item, own]) => (Option.isSome(own) ? ([claimed, own] as const) : take(claimed, Array.findFirst(standing, (candidate) => !claimed.includes(candidate) && candidate.row.name === item.name))));
+        const take = (claimed: readonly Candidate[], pick: Option.Option<Candidate>) => [Option.match(pick, { onNone: () => claimed, onSome: (candidate) => [...claimed, candidate] }), pick] as const;
+        const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) =>
+            take(
+                claimed,
+                Array.findFirst(standing, (candidate) => !claimed.includes(candidate) && owns(item, candidate)),
+            ),
+        );
+        const [, chosen] = Array.mapAccum(Array.zip(declared, owned), owners, (claimed, [item, own]) =>
+            Option.isSome(own)
+                ? ([claimed, own] as const)
+                : take(
+                      claimed,
+                      Array.findFirst(standing, (candidate) => !claimed.includes(candidate) && candidate.row.name === item.name),
+                  ),
+        );
         const found = Array.zip(declared, chosen).map(([item, choice]) => ({
             item,
             row: Option.map(choice, Struct.get('row')),
@@ -299,18 +309,18 @@ const diff = <L extends Live, C extends Live>(
                 .map((parent) => ({ parent, child, link })),
         ),
     );
-    const graph = (kept: typeof edges) =>
+    const graph = (included: typeof edges) =>
         Graph.directed<number, number>((mutable) => {
             unordered.forEach((_, index) => {
                 Graph.addNode(mutable, index);
             });
-            kept.forEach(({ parent, child }) => {
+            included.forEach(({ parent, child }) => {
                 Graph.addEdge(mutable, parent, child, child);
             });
         });
     const components = Graph.stronglyConnectedComponents(graph(edges));
     const cyclic = edges.filter(({ parent, child }) => components.some((component) => component.includes(parent) && component.includes(child)));
-    const created = Array.from(Graph.values(Graph.topo()(graph(Array.difference(edges, cyclic))))).flatMap((index) =>
+    const created = Array.fromIterable(Graph.values(Graph.topo()(graph(Array.difference(edges, cyclic))))).flatMap((index) =>
         Option.toArray(Array.get(unordered, index)).map((entry) => ({
             ...entry,
             deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')),
@@ -318,11 +328,19 @@ const diff = <L extends Live, C extends Live>(
     );
     const kept = Array.difference(tables, [...located.retiring, ...located.claimed]);
     const removed = located.retiring.map(({ name }) => name);
+    const occupied = SqlSchema.findOne({ Request: Schema.String, Result: Schema.Struct({ populated: Schema.BooleanFromBit }), execute: (name) => sql`SELECT EXISTS (SELECT 1 FROM ${sql(name)}) AS populated` });
     return {
         created,
         matched,
         removed,
         kept,
+        populated: Effect.map(
+            Effect.forEach(
+                matched.filter(({ required }) => Array.isReadonlyArrayNonEmpty(required)).map(({ live }) => live.name),
+                (name) => Effect.map(occupied(name), ({ populated }) => (populated ? [name] : [])),
+            ),
+            Array.flatten,
+        ),
         referenced: (live: string) =>
             Option.match(
                 Array.findFirst(matched, (entry) => entry.live.name === live),
@@ -340,19 +358,21 @@ const diff = <L extends Live, C extends Live>(
         ) => {
             const dropped = [...removed, ...parts.replaced];
             const findings = [
-                ...matched
-                    .filter(({ live }) => parts.populated.includes(live.name))
-                    .flatMap(({ declared, required }) => Array.match(required.map(Struct.get('name')), { onEmpty: (): readonly Finding[] => [], onNonEmpty: (named) => [finding(declared.name, named, { _tag: 'Required' })] })),
+                ...matched.filter(({ live }) => parts.populated.includes(live.name)).flatMap(({ declared, required }) => Array.match(required.map(Struct.get('name')), { onEmpty: (): readonly Finding[] => [], onNonEmpty: (named) => [finding(declared.name, named, { _tag: 'Required' })] })),
                 ...matched.flatMap((entry) =>
                     Array.match(
                         entry.fields.filter((field) => entry.owned && field.owned && !field.definition.retype && parts.drifted(entry, field)).map(({ definition }) => definition.name),
                         { onEmpty: (): readonly Finding[] => [], onNonEmpty: (moved) => [finding(entry.declared.name, moved, { _tag: 'Retype' })] },
                     ),
                 ),
-                ...kept.flatMap((row) => references(row).filter(({ target }) => dropped.includes(target)).map(({ columns: linked, target }) => finding(row.name, linked, { _tag: 'RetainedReference', target }))),
+                ...kept.flatMap((row) =>
+                    references(row)
+                        .filter(({ target }) => dropped.includes(target))
+                        .map(({ columns: linked, target }) => finding(row.name, linked, { _tag: 'RetainedReference', target })),
+                ),
                 ...matched.flatMap((entry) =>
                     references(entry.live)
-                        .filter(({ columns: linked, target }) => removed.includes(target) && !linked.some((name) => entry.dropping.some((column) => column.name === name)))
+                        .filter(({ columns: linked, target }) => removed.includes(target) && Array.isReadonlyArrayEmpty(Array.intersection(linked, entry.dropping.map(Struct.get('name')))))
                         .map((reference) => ({ ...reference, columns: Array.map(reference.columns, entry.renamed) }))
                         .filter(({ columns: linked }) => !entry.rendered.links.some((link) => Equal.equals(link.columns, linked)))
                         .map(({ columns: linked, target }) => finding(entry.declared.name, linked, { _tag: 'RetainedReference', target })),
@@ -364,8 +384,8 @@ const diff = <L extends Live, C extends Live>(
                 statements: [
                     ...parts.opening,
                     ...removed.map((name) => sql`DROP TABLE ${sql(name)}`),
-                    ...matched.filter(({ live, declared }) => live.name !== declared.name).map(({ live, rendered: drawn }) => sql`ALTER TABLE ${sql(live.name)} RENAME TO ${drawn.relation}`),
-                    ...matched.flatMap(({ rendered: drawn, renames }) => renames.map(({ from, to }) => sql`ALTER TABLE ${drawn.relation} RENAME COLUMN ${sql(from)} TO ${sql(to)}`)),
+                    ...matched.filter(({ live, declared }) => live.name !== declared.name).map(({ live, rendered: { relation } }) => sql`ALTER TABLE ${sql(live.name)} RENAME TO ${relation}`),
+                    ...matched.flatMap(({ rendered: { relation }, renames }) => renames.map(({ from, to }) => sql`ALTER TABLE ${relation} RENAME COLUMN ${sql(from)} TO ${sql(to)}`)),
                     ...parts.statements,
                 ],
                 concurrent: parts.concurrent,
@@ -377,8 +397,24 @@ const diff = <L extends Live, C extends Live>(
     };
 };
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [RECONCILE]
+const Reconcile = {
+    literal,
+    identifier,
+    constant: ({ kind }: Column, value: string | number) =>
+        Match.value(kind).pipe(
+            Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
+            Match.orElse(() => literal(`${value}`)),
+        ),
+    unsupported,
+    refusals,
+    render,
+    diff,
+    Identity,
+    referentialActions: ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'],
+    methods,
+} as const;
 
-const Reconcile = { literal, digest, identifier, constant, unsupported, refusals, render, diff, Identity, referentialActions, methods } as const;
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Reconcile };

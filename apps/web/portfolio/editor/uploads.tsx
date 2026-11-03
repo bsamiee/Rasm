@@ -1,41 +1,43 @@
-import { useAtom, useAtomValue } from '@effect/atom-react';
+import { useAtom, useAtomMount, useAtomValue } from '@effect/atom-react';
 import { MenuButton } from '@rasm/ui/collection/menu-button';
 import { Choice } from '@rasm/ui/form/choice';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Predicate, Schema, String, Struct } from 'effect';
+import { Predicate, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { Destination, pendingUploads, queue, uppy } from '#/editor/uploader';
-import { details, entryTitle, format } from '#/media/labels';
-import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
-import type { Entry } from '#/model/portfolio';
+import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
+import { choice, details, entryTitle, format } from '#/media/labels.ts';
+import { type AssetId, type Assets, mediaTypes, uploadLimit } from '#/model/asset.ts';
+import type { Entry, EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection.Type; entries: readonly (typeof Entry.Type)[]; onChoose: (entryId: string, assetId: string) => void }) => {
+const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; entries: readonly (typeof Entry.Type)[]; onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
     const uploader = useAtomValue(uppy);
+    useAtomMount(preprocessing);
     const files = Object.values(useAtomValue(queue));
     const pending = useAtomValue(pendingUploads);
     const batches = useUppyState(uploader, Struct.get('currentUploads'));
     const notices = useUppyState(uploader, Struct.get('info'));
     const [selected, setSelected] = useState<string>();
-    const [target, setTarget] = useAtom(Destination);
-    const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
-    const options = [{ target: { kind: 'library' } as const, label: 'Library' }, { target: { kind: 'hero' } as const, label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: details([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
+    const [target, setTarget] = useAtom(nextDestination);
+    const key = (value: Destination): string => (Destination.$is('Entry')(value) ? value.id : String.uncapitalize(value._tag));
+    const options = [{ target: Destination.Library(), label: 'Library' }, { target: Destination.Hero(), label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: Destination.Entry({ id: entry.id }), label: details([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
         ...option,
         id: key(option.target),
     }));
     const documents = files.flatMap((file) => {
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
-        const entry = entries.find((item) => file.meta.destination.kind === 'entry' && item.id === file.meta.destination.id);
-        return file.progress.uploadComplete === true && Schema.is(PdfAsset)(asset) && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
+        const { destination } = file.meta;
+        const entry = entries.find((item) => Destination.$is('Entry')(destination) && item.id === destination.id);
+        return file.progress.uploadComplete === true && asset?.kind === 'pdf' && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
     });
     const selectedFile = files.find((file) => file.id === selected);
     return (
         <>
-            <Choice label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
+            <Choice {...choice} label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
             {files.length > 0 && (
                 <MenuButton onAction={(item) => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
                     File destinations
@@ -46,9 +48,10 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                     <p className="hint mb-2 wrap-anywhere">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <Choice
+                            {...choice}
                             label="File destination"
                             onChange={(option) => uploader.setFileMeta(selectedFile.id, { destination: option.target })}
-                            options={options.filter((option) => option.target.kind !== 'hero' || !files.some((item) => item.id !== selectedFile.id && item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true))}
+                            options={options.map((option) => ({ ...option, isDisabled: Destination.$is('Hero')(option.target) && files.some((item) => item.id !== selectedFile.id && Destination.$is('Hero')(item.meta.destination) && item.progress.uploadComplete !== true) }))}
                             value={key(selectedFile.meta.destination)}
                         />
                     ) : (
@@ -71,7 +74,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                 </div>
                 {notices
                     .filter(({ isHidden }) => isHidden !== true)
-                    .map(({ message, details }) => [message, ...(Predicate.isString(details) ? [details] : Object.values(details ?? {}))].filter(String.isNonEmpty).join(' '))
+                    .map(({ message, details: detail }) => [message, ...(Predicate.isString(detail) ? [detail] : Object.values(detail ?? {}))].filter(String.isNonEmpty).join(' '))
                     .map((text) => (
                         <p className="hint mt-3 wrap-anywhere" key={text} role="alert">
                             {text}
@@ -79,7 +82,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                     ))}
                 {documents.length > 0 && (
                     <div className="mt-3">
-                        <MenuButton onAction={({ entryId, assetId }) => onChoose(entryId, assetId)} options={documents}>
+                        <MenuButton onAction={({ entryId, assetId }) => onPlace(entryId, assetId)} options={documents}>
                             Choose uploaded sheets
                         </MenuButton>
                     </div>

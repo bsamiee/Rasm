@@ -1,6 +1,6 @@
 """RNA channel keyframes, drivers, modifiers, and sampling."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from functools import partial
 from types import MappingProxyType
 from typing import Final, TYPE_CHECKING
@@ -100,7 +100,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """
         refused = partial(Fault.of, Reason.REFUSED, f"{block!r}.{rna(self.path)}")
 
-        def keyed(curve: bpy.types.FCurve, points: NDArray[np.float32]) -> Outcome[bool]:
+        def keyed(points: NDArray[np.float32], curve: bpy.types.FCurve) -> Outcome[bool]:
             held = np.empty(len(curve.keyframe_points) * 2, np.float32)
             curve.keyframe_points.foreach_get("co", held)
             if np.array_equal(held.reshape(-1, 2), points):
@@ -112,7 +112,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             curve.update()
             return Ok(True)
 
-        def driven(curve: bpy.types.FCurve, source: Driven) -> Outcome[bool]:
+        def driven(source: Driven, curve: bpy.types.FCurve) -> Outcome[bool]:
             def variables(driver: bpy.types.Driver) -> Outcome[bool]:
                 if len(driver.variables) == len(source.variables) and not any(map(differing, driver.variables, source.variables)):
                     return Ok(False)
@@ -145,54 +145,46 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda _: True)
             )
 
-        def curve_of(data: bpy.types.AnimData, struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
-            text, index = rna(descriptor.member), descriptor.index.default_value(-1)
-            match self.source:
-                case Keys():
-                    return (
-                        Option
-                        .of_optional(data.action)
-                        .map(Ok)
-                        .default_with(
-                            lambda: (
-                                catch(bpy.data.actions.new, exception=RuntimeError)(f"{block.name}Action")
-                                .map_error(refused)
-                                .bind(lambda action: written(data, ("action",), action).map(lambda _: action))
-                            )
-                        )
-                        .bind(lambda action: catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(block, text, index=index).map_error(refused))
+        def keyframed(data: bpy.types.AnimData, _struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
+            return (
+                Option
+                .of_optional(data.action)
+                .map(Ok)
+                .default_with(
+                    lambda: catch(bpy.data.actions.new, exception=RuntimeError)(f"{block.name}Action").map_error(refused).bind(lambda action: written(data, ("action",), action).map(lambda _: action))
+                )
+                .bind(lambda action: catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(block, rna(descriptor.member), index=descriptor.index.default_value(-1)).map_error(refused))
+            )
+
+        def driver(data: bpy.types.AnimData, struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
+            return (
+                Option
+                .of_optional(data.drivers.find(rna(descriptor.member), index=descriptor.index.default_value(0)))
+                .map(Ok)
+                .default_with(
+                    lambda: (
+                        catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, descriptor.index.default_value(-1))
+                        .map_error(refused)
+                        .bind(lambda made: Option.of_optional(try_downcast(bpy.types.FCurve, made)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(struct), member="driver")))
                     )
-                case Driven():
-                    return (
-                        Option
-                        .of_optional(data.drivers.find(text, index=descriptor.index.default_value(0)))
-                        .map(Ok)
-                        .default_with(
-                            lambda: (
-                                catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, index)
-                                .map_error(refused)
-                                .bind(lambda made: Option.of_optional(try_downcast(bpy.types.FCurve, made)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(struct), member="driver")))
-                            )
-                        )
-                    )
+                )
+            )
 
-        def reconciled(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
-            content = driven(curve, source) if isinstance(source, Driven) else keyed(curve, source)
-            return accumulated((content, written(curve, ("mute",), False).map(Option.is_some), modified(curve))).map(any)
+        content: Outcome[Callable[[bpy.types.FCurve], Outcome[bool]]]
+        curve_of: Callable[[bpy.types.AnimData, Struct, Descriptor], Outcome[bpy.types.FCurve]]
+        match self.source:
+            case Keys(points=points):
+                content, curve_of = Descriptor.quantized(_CO.prop, np.asarray(points, dtype=np.float64).reshape(-1, 2)).map(lambda held: partial(keyed, held)), keyframed
+            case Driven() as source:
+                content, curve_of = Ok(partial(driven, source)), driver
 
-        def prepared() -> Outcome[NDArray[np.float32] | Driven]:
-            match self.source:
-                case Keys(points=points):
-                    return Descriptor.quantized(_CO.prop, np.asarray(points, dtype=np.float64).reshape(-1, 2))
-                case Driven() as source:
-                    return Ok(source)
-
-        return paired(self.channel(block), prepared()).bind(
+        return paired(self.channel(block), content).bind(
             lambda found: (
                 Option
                 .of_optional(block.animation_data_create())
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member="animation_data"))
-                .bind(lambda data: curve_of(data, *found[0]).bind(lambda curve: reconciled(curve, found[1])))
+                .bind(lambda data: curve_of(data, *found[0]))
+                .bind(lambda curve: accumulated((found[1](curve), written(curve, ("mute",), False).map(Option.is_some), modified(curve))).map(any))
             )
         )
 

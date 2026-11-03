@@ -19,7 +19,6 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     let arguments: [String]
     let launches: Bool
     let activationPolicy: NSApplication.ActivationPolicy
-    let indexed: Bool
 
     public var isRecursive: Bool { true }
 
@@ -28,12 +27,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
         let name: String = named ?? "\(product) \(tag.prefix(8))"
         let identifier: String = "\(product).\(tag)"
         let process: String = "\(product)-\(tag.prefix(8))"
-        let folder: URL =
-            if indexed {
-                try FileManager.default.url(for: .userDirectory, in: .localDomainMask, appropriateFor: nil, create: false).appending(components: "Shared", identifier, directoryHint: .isDirectory)
-            } else {
-                try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appending(component: identifier, directoryHint: .isDirectory)
-            }
+        let folder: URL = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appending(component: identifier, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         let bundle: URL = folder.appending(component: "\(name).app", directoryHint: .isDirectory)
         func succeed(_ executable: Executable, _ arguments: [String]) async throws {
@@ -101,7 +95,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             let length: Int = confstr(_CS_DARWIN_USER_CACHE_DIR, nil, 0)
             var cache: [CChar] = Array(repeating: 0, count: length)
             let written: Int = unsafe confstr(_CS_DARWIN_USER_CACHE_DIR, &cache, length)
-            if written > 0, let caches: String = String(bytes: cache.prefix { byte in byte != 0 }.map(UInt8.init(bitPattern:)), encoding: .utf8) {
+            if written > 0, let caches: String = String(validating: cache.prefix { byte in byte != 0 }, as: UTF8.self) {
                 remove(entries(of: URL(filePath: caches)).filter { entry in entry.lastPathComponent == identifier })
             }
             do {
@@ -126,7 +120,6 @@ extension Trait where Self == TestApplication {
         arguments: [String] = [],
         launches: Bool = true,
         activationPolicy: NSApplication.ActivationPolicy = .accessory,
-        indexed: Bool = false,
     ) -> Self {
         let product: String = String(String(reflecting: entry).prefix { character in character != "." })
         return Self(
@@ -135,7 +128,6 @@ extension Trait where Self == TestApplication {
             arguments: arguments,
             launches: launches,
             activationPolicy: activationPolicy,
-            indexed: indexed,
         )
     }
 }

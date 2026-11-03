@@ -24,23 +24,21 @@ private func titled(_ title: String, in elements: [Element]) throws -> Element {
 }
 
 private func asked(_ instance: NSRunningApplication, by scenario: Scenario, showing controls: Set<String>) async throws -> Element {
-    let seen: [Observed] = try await observe(
+    let seen: [InstanceState] = try await observe(
         instance,
-        within: .seconds(15),
-        until: { seen in controls.isSubset(of: seen.last?.state.asking?.detail?.controls.compactMap(\.identifier) ?? []) },
+        until: { seen in controls.isSubset(of: seen.last?.asking?.detail?.controls.compactMap(\.identifier) ?? []) },
         acting: { try await run(scenario, in: instance) },
     )
-    return try #require(seen.last?.state.asking)
+    return try #require(seen.last?.asking)
 }
 
 private func dismissed(_ instance: NSRunningApplication, pressing control: Control) async throws {
-    let seen: [Observed] = try await observe(
+    let seen: [InstanceState] = try await observe(
         instance,
-        within: .seconds(15),
-        until: { seen in seen.count > 1 && seen.last?.state.elements.contains(where: \.requiresAnswer) == false },
+        until: { seen in seen.count > 1 && seen.last?.elements.contains(where: \.requiresAnswer) == false },
         acting: { try await ElementAction.perform(element: control.id, action: kAXPressAction).perform() },
     )
-    expectNoDifference(seen.last?.state.elements.filter(\.requiresAnswer).map(\.role), [])
+    expectNoDifference(seen.last?.elements.filter(\.requiresAnswer).map(\.role), [])
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -61,7 +59,7 @@ extension Integration {
             let numbered: Bool = window.window != nil
             #expect(numbered, "window holds its CoreGraphics window number")
             let detail: Element.Detail = try #require(window.detail)
-            expectNoDifference(detail.frame?.size.width, 400)
+            expectNoDifference(detail.frame?.size.width, windowSize.width)
             expectNoDifference(Set(detail.text), ["idle", "Fixture 0"])
             let declared: [JSONValue] = try detail.controls.filter { control in control.identifier != nil || control.attribute == kAXCloseButtonAttribute || control.label == "Check" }
                 .map { control in try shape(control, dropping: ["id", "items", "actions", "subrole"]) }
@@ -99,8 +97,9 @@ extension Integration {
             let bar: Element = try #require(elements.first { element in element.role == kAXMenuBarRole })
             expectNoDifference(bar.window, nil)
             expectNoDifference(bar.requiresAnswer, false)
-            expectNoDifference(bar.detail?.controls.compactMap(\.label), [installation.name, "Scenario"])
-            let items: [Control] = try menu("Scenario", in: elements)
+            let scenarios: String = String(describing: Scenario.self)
+            expectNoDifference(bar.detail?.controls.compactMap(\.label), [installation.name, scenarios])
+            let items: [Control] = try menu(scenarios, in: elements)
             let runtime: [String] = Scenario.allCases.filter { scenario in !scenario.atLaunch }.map(\.rawValue)
             expectNoDifference(items.map(\.label), (runtime + ["disabled"]).map(Optional.some))
             expectNoDifference(items.filter { item in !item.enabled }.compactMap(\.label), ["disabled"])
@@ -114,13 +113,13 @@ extension Integration {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             let sheet: Element = try await asked(instance, by: .sheet, showing: alertControls)
             expectNoDifference(try shape(sheet), try json(#"{"role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"requiresAnswer":true}"#))
-            expectNoDifference(sheet.detail?.text, ["Sheet alert", "sheet"])
+            expectNoDifference(sheet.detail?.text, ["Sheet alert", Scenario.sheet.rawValue])
             expectNoDifference(try sheet.detail.map { detail in Set(try detail.controls.map { control in try shape(control) }) }, try alertButtons())
             let cancel: Control = try #require(sheet.detail?.controls.first { control in control.identifier == "action-button-2" })
             try await dismissed(instance, pressing: cancel)
             let stale: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await ElementAction.perform(element: cancel.id, action: kAXPressAction).perform() }
-            let absent: Bool = stale.reason.is(\.absent)
-            #expect(absent, "stale id failed \(stale.reason): \(stale.localizedDescription)")
+            let unresolved: Bool = stale.reason.is(\.unresolved)
+            #expect(unresolved, "stale id failed \(stale.reason): \(stale.localizedDescription)")
         }
 
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
@@ -131,7 +130,7 @@ extension Integration {
                 try shape(modal),
                 try json(#"{"role":"AXWindow","subrole":"AXDialog","modal":true,"identifier":"_NS:87","description":"alert","minimized":false,"actions":[],"requiresAnswer":true}"#),
             )
-            expectNoDifference(modal.detail?.text, ["Modal alert", "modal"])
+            expectNoDifference(modal.detail?.text, ["Modal alert", Scenario.modal.rawValue])
             expectNoDifference(try modal.detail.map { detail in Set(try detail.controls.map { control in try shape(control) }) }, try alertButtons())
             try await dismissed(instance, pressing: try #require(modal.detail?.controls.first { control in control.identifier == "action-button-1" }))
         }
@@ -161,13 +160,12 @@ extension Integration {
         @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
         func floatingPanelRequiresNoAnswer() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
-            let seen: [Observed] = try await observe(
+            let seen: [InstanceState] = try await observe(
                 instance,
-                within: .seconds(15),
-                until: { seen in seen.last?.state.elements.contains { element in element.title == "Floating panel" } == true },
+                until: { seen in seen.last?.elements.contains { element in element.title == "Floating panel" } == true },
                 acting: { try await run(.floatingPanel, in: instance) },
             )
-            let panel: Element = try titled("Floating panel", in: try #require(seen.last).state.elements)
+            let panel: Element = try titled("Floating panel", in: try #require(seen.last).elements)
             let line: String = #"{"role":"AXWindow","subrole":"AXFloatingWindow","title":"Floating panel","minimized":false,"actions":[],"requiresAnswer":false}"#
             expectNoDifference(try shape(panel, dropping: ["id", "window", "detail", "modal"]), try json(line))
         }

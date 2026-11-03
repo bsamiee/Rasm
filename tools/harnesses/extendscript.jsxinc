@@ -3,6 +3,8 @@
 var shared = (function () {
     var RealFile = File;
     var RealFolder = Folder;
+    var RealWindow = Window;
+    var realDollar = $;
     var realGlobal = $.global;
     var BUILTINS = [Object.prototype, Array.prototype, String.prototype, Number.prototype, Boolean.prototype, Function.prototype, Date.prototype, RegExp.prototype, Error.prototype];
 
@@ -14,13 +16,6 @@ var shared = (function () {
         var text = file.read();
         file.close();
         return text;
-    }
-    function write(path, text) {
-        var file = new RealFile(path);
-        file.encoding = "UTF-8";
-        if (!file.open("w")) { throw new Error("cannot write " + path); }
-        file.write(text);
-        file.close();
     }
     function append(path, text) {
         var file = new RealFile(path);
@@ -76,11 +71,92 @@ var shared = (function () {
         if (dated) { return { value: parsed(dated[1]) }; }
         return null;
     }
+    function serialized(value) {
+        if (value === undefined) { return tag("undefined"); }
+        if (value === null) { return "null"; }
+        var kind = typeof value;
+        if (kind === "number") { return number(value); }
+        if (kind === "boolean") { return String(value); }
+        if (kind === "string") { return quote(value); }
+        if (kind === "function") { return '"<function>"'; }
+        var parts = [];
+        if (value instanceof Array) {
+            for (var i = 0; i < value.length; i++) { parts.push(serialized(value[i])); }
+            return "[" + parts.join(",") + "]";
+        }
+        for (var key in value) { if (value.hasOwnProperty(key)) { parts.push(quote(key) + ":" + serialized(value[key])); } }
+        return "{" + parts.join(",") + "}";
+    }
+    function reflected(value) {
+        if (!(value instanceof ReflectionInfo)) {
+            var rows = { name: String(value.name), properties: [], methods: [] };
+            for (var p = 0; p < value.properties.length; p++) { rows.properties.push(reflected(value.properties[p])); }
+            for (var m = 0; m < value.methods.length; m++) { rows.methods.push(reflected(value.methods[m])); }
+            return rows;
+        }
+        var info = { name: String(value.name), type: String(value.type), dataType: String(value.dataType), isCollection: value.isCollection === true, min: value.min === undefined ? null : String(value.min), max: value.max === undefined ? null : String(value.max), defaultValue: value.defaultValue === undefined ? null : String(value.defaultValue), arguments: [] };
+        for (var a = 0; String(value.type) === "method" && a < value.arguments.length; a++) { info.arguments.push(reflected(value.arguments[a])); }
+        return info;
+    }
+    function enumerated(path) {
+        var dot = path.indexOf(".");
+        var owner = dot < 0 ? undefined : realGlobal[path.slice(0, dot)];
+        var member = owner === undefined || owner === null ? undefined : owner[path.slice(dot + 1)];
+        if (member === undefined) { throw new Error("enum:" + path + " names no enumerator"); }
+        return member;
+    }
+    function codec(host) {
+        var enumerator = host.enumerator || enumerated;
+        function kept(value, path) {
+            if (value === null || typeof value !== "object") { return value; }
+            var i;
+            if (value instanceof Array) {
+                var items = [];
+                for (i = 0; i < value.length; i++) { items.push(kept(value[i], path)); }
+                return items;
+            }
+            var named = host.named(value);
+            if (named !== null) { return { $: named }; }
+            if (value.constructor === Object) {
+                var object = {};
+                for (var key in value) { if (value.hasOwnProperty(key)) { object[key] = kept(value[key], path); } }
+                return object;
+            }
+            if (value instanceof Date) { return { $: "date:" + iso(value) }; }
+            if (value instanceof Reflection || value instanceof ReflectionInfo) { return reflected(value); }
+            var plain = host.plain === undefined ? null : host.plain(value, path || []);
+            return plain === null ? String(value) : plain;
+        }
+        function revive(value) {
+            if (value instanceof Array) {
+                var list = [];
+                for (var i = 0; i < value.length; i++) { list.push(revive(value[i])); }
+                return list;
+            }
+            if (value === null || typeof value !== "object") { return value; }
+            if (tagged(value)) {
+                var text = String(value.$);
+                var found = literal(text);
+                if (found !== null) { return found.value; }
+                if (text.indexOf("enum:") === 0) { return enumerator(text.slice(5)); }
+                if (text.indexOf("object:") === 0) { return host.located(text.slice(7)); }
+                return text;
+            }
+            var Kind = host.constructed === true && typeof value.typename === "string" ? realGlobal[value.typename] : undefined;
+            var made = typeof Kind === "function";
+            var object = made ? new Kind() : {};
+            for (var key in value) { if (value.hasOwnProperty(key) && !(made && key === "typename")) { object[key] = revive(value[key]); } }
+            return object;
+        }
+        return { kept: kept, revive: revive, json: function (value) { return serialized(kept(value, [])); } };
+    }
 
     // --- [SCRIPTUI]
     function run(handler, target) {
         if (typeof handler === "function") { return handler.call(target); }
     }
+    function clicked(control) { run(control.onClick, control); }
+    function notified(control) { control.notify("onClick"); }
     function descendants(root) {
         var rows = [];
         function walk(control) {
@@ -100,6 +176,14 @@ var shared = (function () {
             if (parts ? rows[i].type === parts[1] && counter++ === Number(parts[2]) : nameOf(rows[i]) === key || rows[i].text === key || rows[i].title === key) { return rows[i]; }
         }
         throw new Error("no control " + key + " in " + root.text);
+    }
+    function cancelling(root) {
+        if (root.cancelElement) { return root.cancelElement; }
+        var rows = descendants(root);
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].type === "button" && (nameOf(rows[i]).toLowerCase() === "cancel" || String(rows[i].text).toLowerCase() === "cancel")) { return rows[i]; }
+        }
+        return null;
     }
     function fill(root, fields) {
         for (var key in fields) {
@@ -136,14 +220,105 @@ var shared = (function () {
         return rows;
     }
     function next(queue, fallback) { return queue && queue.length ? queue.shift() : fallback; }
+    function answered(shown) {
+        var result = shown.answer.answer === undefined ? 1 : shown.answer.answer;
+        if (shown.answer.fields) { fill(shown.window, shown.answer.fields); }
+        var presses = shown.answer.presses || [];
+        for (var i = 0; i < presses.length; i++) {
+            var control = match(shown.window, presses[i]);
+            shown.click(control);
+            result = control === cancelling(shown.window) ? 2 : 1;
+        }
+        shown.row.filled = tree(shown.window);
+        return result;
+    }
+    function palettes(session) {
+        for (var i = 0; i < session.palettes.length; i++) { answered(session.palettes[i]); }
+    }
     function alerted(session) {
-        return function (message, title) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); };
+        return function (message, title) { if (!session.exited) { session.record.alerts.push(title === undefined ? { text: String(message) } : { text: String(message), title: String(title) }); } };
     }
     function confirmed(session) {
         return function (message) { session.record.confirms.push(String(message)); return next(session.confirms, true); };
     }
     function prompted(session) {
         return function (message, initial) { session.record.prompts.push(String(message)); return next(session.prompts, initial); };
+    }
+    function windows(session, click) {
+        function Window(type, title, bounds, properties) {
+            var made = arguments.length < 2 ? new RealWindow(type) : arguments.length < 3 ? new RealWindow(type, title) : arguments.length < 4 ? new RealWindow(type, title, bounds) : new RealWindow(type, title, bounds, properties);
+            session.created.push(made);
+            made.show = function () {
+                made.layout.layout(true);
+                if (made.location === undefined) { made.center(); }
+                var shown = { window: made, answer: next(session.windows, {}), click: click, row: { title: made.text, type: made.type, tree: tree(made) } };
+                session.record.windows.push(shown.row);
+                run(made.onShow, made);
+                if (made.type !== "palette") { return answered(shown); }
+                session.palettes.push(shown);
+                return 0;
+            };
+            return made;
+        }
+        Window.prototype = RealWindow.prototype;
+        return statics(Window, RealWindow, { alert: alerted(session), confirm: confirmed(session), prompt: prompted(session) }, false);
+    }
+
+    // --- [STAND_INS]
+    function holds(list, key) {
+        for (var i = 0; i < list.length; i++) { if (list[i] === key) { return true; } }
+        return false;
+    }
+    function statics(fake, real, own, forwarding) {
+        var callable = function () {};
+        var lists = [real.reflect.properties, real.reflect.methods];
+        function forwarded(key, previous, next) {
+            real[key] = next;
+            return real[key];
+        }
+        for (var l = 0; l < lists.length; l++) {
+            for (var i = 0; i < lists[l].length; i++) {
+                var name = lists[l][i].name;
+                if (name in callable || own.hasOwnProperty(name)) { continue; }
+                if (l === 1) {
+                    if (typeof real[name] === "function") { fake[name] = (function (method) { return function () { return real[method].apply(real, arguments); }; })(name); }
+                } else {
+                    try { fake[name] = real[name]; } catch (error) { continue; }
+                    if (forwarding) { fake.watch(name, forwarded); }
+                }
+            }
+        }
+        for (var key in own) { if (own.hasOwnProperty(key)) { fake[key] = own[key]; } }
+        return fake;
+    }
+    function refusing(session, name) {
+        return function () {
+            var parts = [name];
+            for (var i = 0; i < arguments.length; i++) { parts.push(String(arguments[i])); }
+            session.record.activations.push(parts.join(" "));
+        };
+    }
+    function bridgeTalk(session) {
+        var RealBridgeTalk = realGlobal.BridgeTalk;
+        function BridgeTalk() {}
+        BridgeTalk.prototype.send = function () { session.record.activations.push("BridgeTalk.send " + String(this.target)); return false; };
+        return statics(BridgeTalk, RealBridgeTalk, { launch: refusing(session, "BridgeTalk.launch"), bringToFront: refusing(session, "BridgeTalk.bringToFront"), ping: refusing(session, "BridgeTalk.ping") }, false);
+    }
+    function dollar(session, item, global) {
+        function printed() { session.record.console.push(Array.prototype.join.call(arguments, "")); }
+        var own = { write: printed, writeln: printed, fileName: item.source === undefined ? "" : item.source.script, evalFile: function (file) { return session.evaluate(read(file instanceof RealFile ? file.fsName : String(file))); } };
+        if (global !== undefined) { own.global = global; }
+        return statics({}, realDollar, own, global === undefined);
+    }
+    function scope(session, item, shadows) {
+        var global = {};
+        var properties = realGlobal.reflect.properties;
+        for (var i = 0; i < properties.length; i++) {
+            if (properties[i].name !== "__proto__") { try { global[properties[i].name] = realGlobal[properties[i].name]; } catch (error) {} }
+        }
+        shadows.$ = dollar(session, item, global);
+        for (var key in shadows) { if (shadows.hasOwnProperty(key)) { global[key] = shadows[key]; } }
+        return global;
     }
 
     // --- [PICKERS]
@@ -199,7 +374,56 @@ var shared = (function () {
         return leaked;
     }
 
+    // --- [PRECONDITION]
+    function indexed(text, index) { return text.split("[*]").join("[" + index + "]"); }
+    function spread(expression, evaluate) {
+        var at = expression.indexOf("[*]");
+        if (at < 0) { return [expression]; }
+        var paths = [];
+        var count = evaluate(expression.slice(0, at)).length;
+        for (var i = 0; i < count; i++) { paths.push(indexed(expression, i)); }
+        return paths;
+    }
+    function assign(target, value, evaluate, revive) {
+        var paths = spread(target, evaluate);
+        for (var i = 0; i < paths.length; i++) {
+            var dot = paths[i].lastIndexOf(".");
+            evaluate(paths[i].slice(0, dot))[paths[i].slice(dot + 1)] = revive(value);
+        }
+    }
+    function prepared(rows) {
+        for (var r = 0; r < rows.length; r++) {
+            var list = rows[r][1] || [];
+            for (var i = 0; i < list.length; i++) {
+                try { rows[r][2](list[i], i); } catch (error) { throw new Error(rows[r][0] + "[" + i + "]: " + failed(error)); }
+            }
+        }
+    }
+    function reads(wanted, evaluate, kept) {
+        var values = {};
+        var lost = {};
+        for (var key in wanted) {
+            if (!wanted.hasOwnProperty(key)) { continue; }
+            try {
+                var paths = spread(wanted[key], evaluate);
+                var listed = wanted[key].indexOf("[*]") >= 0;
+                var each = listed && key.indexOf("[*]") >= 0;
+                var list = [];
+                for (var i = 0; i < paths.length; i++) {
+                    if (each) {
+                        try { values[indexed(key, i)] = evaluate(paths[i]); } catch (inner) { lost[indexed(key, i)] = String(inner.message); }
+                    } else {
+                        list.push(evaluate(paths[i]));
+                    }
+                }
+                if (!each) { values[key] = listed ? list : list[0]; }
+            } catch (error) { lost[key] = String(error.message); }
+        }
+        return { state: kept(values, []), failed: lost };
+    }
+
     // --- [RUN]
+    function failed(error) { return String(error.message) + (error.line ? " at line " + error.line : ""); }
     function thrown(error) {
         if (error === null || typeof error !== "object") { return { _tag: "Thrown", message: String(error) }; }
         var completion = { _tag: "Thrown", message: (error.name ? error.name + ": " : "") + String(error.message) };
@@ -210,5 +434,26 @@ var shared = (function () {
     function attempt(leaked, label, work) {
         try { work(); } catch (error) { leaked.push(label + ": " + String(error.message)); }
     }
-    return { BUILTINS: BUILTINS, read: read, write: write, append: append, exponent: exponent, quote: quote, tag: tag, number: number, iso: iso, parsed: parsed, tagged: tagged, literal: literal, run: run, descendants: descendants, nameOf: nameOf, listing: listing, match: match, fill: fill, tree: tree, next: next, alerted: alerted, confirmed: confirmed, prompted: prompted, picked: picked, patched: patched, globals: globals, released: released, thrown: thrown, attempt: attempt };
+    function session(item, recorded) {
+        var record = { alerts: [], confirms: [], prompts: [], windows: [], files: [], activations: [], console: [], writes: [], opened: [] };
+        for (var i = 0; i < recorded.length; i++) { record[recorded[i]] = []; }
+        return { palettes: [], created: [], documents: [], windows: (item.windows || []).slice(0), confirms: (item.confirms || []).slice(0), prompts: (item.prompts || []).slice(0), files: (item.files || []).slice(0), record: record };
+    }
+    function started(item) { return { name: item.name, completion: { _tag: "Failed", reason: "case did not finish" } }; }
+    function finished(result, record, leaked) {
+        for (var key in record) { if (record.hasOwnProperty(key)) { result[key] = record[key]; } }
+        result.leaked = leaked;
+        return result;
+    }
+    function batched(batch, coded, outcome) {
+        for (var i = 0; i < batch.cases.length; i++) {
+            append(batch.records, coded.json({ _tag: "Started", index: i }) + "\n");
+            append(batch.records, coded.json({ _tag: "Finished", outcome: outcome(batch.cases[i], i) }) + "\n");
+        }
+    }
+    return {
+        read: read, holds: holds, quote: quote, tagged: tagged, codec: codec, clicked: clicked, notified: notified, palettes: palettes, windows: windows, statics: statics, refusing: refusing,
+        bridgeTalk: bridgeTalk, dollar: dollar, scope: scope, picked: picked, patched: patched, globals: globals, released: released, assign: assign, prepared: prepared, reads: reads,
+        failed: failed, thrown: thrown, attempt: attempt, session: session, started: started, finished: finished, batched: batched
+    };
 })();

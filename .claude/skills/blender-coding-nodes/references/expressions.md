@@ -44,7 +44,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 ```
 
 `position * 2.0 + Expr(kind=bpy.types.ShaderNodeCombineXYZ, inputs=(None, None, abs(height) + 1))` over `position = Expr(kind=bpy.types.GeometryNodeInputPosition)` and `height = Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(position,), output=2)` is one graph value:
-- `kind.__name__` is the `bl_idname` `nodes.new` takes, stock classes reading `bl_idname` as `None` at class level
+- `kind.__name__` is the idname `nodes.new` takes for a built-in class
 - `inputs` and `output` count sockets `settings` enables: Math `ABSOLUTE` takes one operand, Vector Math `DOT_PRODUCT` output 0 is `Value`
 - `None` operands keep an input's default (`inputs=(coordinates, None, 4.0)`)
 - Operators bind operations Math and Vector Math both hold, Vector Math lacking `FLOORED_MODULO`, `TRUNC`, and the comparisons
@@ -55,7 +55,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 - `cached_property` holds the key under `dict=True`, equality and hashing staying by fields
 - Group nodes are records with `settings=(("node_tree", group),)`, bodies lowering with Group Output sockets as roots
 - `Expr(kind=bpy.types.NodeGroupInput, output=n)` reads group input `n` inside a body
-- Geometry, shader, and compositor trees take Math, Vector Math, Mix, and Separate XYZ, and texture trees take `TextureNode*` classes alone
+- Geometry, shader, and compositor trees take Math, Vector Math, Mix, and Separate XYZ
 
 ## [02]-[LOWERING]
 

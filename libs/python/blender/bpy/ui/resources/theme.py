@@ -1,4 +1,4 @@
-"""Region and widget theme colors, region overlap, and interface metrics."""
+"""Theme colors, region overlap, and interface metrics."""
 
 from collections.abc import Iterable
 from enum import IntEnum
@@ -20,7 +20,7 @@ type Shade = mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]
 
 
 class Spacing(IntEnum):
-    """Unscaled uiStyle spacings no RNA member exposes, each truncated to device pixels after interface scaling as `UI_style_get_dpi` does, equal spacings sharing one member."""
+    """Unscaled interface style spacings no RNA member exposes, truncated to device pixels after interface scaling."""
 
     COLUMN = 8
     TEMPLATE = 5
@@ -89,12 +89,12 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def margin(self) -> float:
-        """Panel inset from a region edge in device pixels, Blender's `UI_PANEL_MARGIN_X` of 0.4 widget units."""
+        """Panel inset from a region edge in device pixels, 0.4 widget units."""
         return self.unit * 0.4
 
     @property
     def preview(self) -> float:
-        """Preview height in device pixels, the 7.6 widget units `uiTemplatePreview` opens a preview at."""
+        """Height in device pixels `template_preview` opens a preview at, 7.6 widget units."""
         return self.unit * 7.6
 
     def line(self, width: float) -> float:
@@ -124,7 +124,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:
-        """Editor theme space by Blender's `ui_get_theme_colorptr` rule, Project Settings reading Preferences and the 3D View answering a space the theme lacks."""
+        """Editor theme space, Project Settings reading Preferences and the 3D View answering a space the theme lacks."""
         theme = self.preferences.themes[0]
         member = "preferences" if self.space == "PROJECT" else self.space.lower()
         match getattr(theme, member).space if member in theme.bl_rna.properties else None:
@@ -135,7 +135,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def text(self) -> Color:
-        """Text color by Blender's TH_TEXT rule."""
+        """Text color."""
         theme = self.preferences.themes[0]
         match self.space, self.region:
             case (_, "UI" | "TOOLS") | ("PROPERTIES" | "PREFERENCES" | "PROJECT", _):
@@ -147,13 +147,13 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def text_hi(self) -> Color:
-        """Highlighted text color by Blender's TH_TEXT_HI rule."""
+        """Highlighted text color."""
         regions = self.preferences.themes[0].regions
         return color(regions.channels.text_selected if self.region == "CHANNELS" else self.editor.text_hi)
 
     @property
     def back(self) -> Color:
-        """Region background display color by Blender's `region_background_color_id` and TH_BACK rules, opaque unless the region overlaps."""
+        """Region background display color, opaque unless the region overlaps."""
         theme, space = self.preferences.themes[0], self.editor
         stored: Shade
         match self.space, self.region:
@@ -181,7 +181,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeItems", region: "rna_enums.RegionTypeItems") -> bool:
-    """Returns whether a region of the editor draws over its window region, by Blender's `ED_region_is_overlap` over the region overlap preference and the 3D View header alpha."""
+    """Returns whether a region of the editor draws over its window region under the region overlap preference and the 3D View header alpha."""
     match space, region:
         case _, "HUD":
             return True
@@ -199,12 +199,8 @@ def overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeItem
 
 def color(values: Shade) -> Color:
     """Returns RGB or RGBA as display RGBA, alpha 1 when absent."""
-    match values:
-        case mathutils.Color():
-            return (values.r, values.g, values.b, 1.0)
-        case _:
-            red, green, blue, *alpha = values  # type: ignore[misc]  # ty: ignore[not-iterable]
-            return (red, green, blue, alpha[0] if alpha else 1.0)
+    red, green, blue, *alpha = values  # type: ignore[misc]  # ty: ignore[not-iterable]
+    return (red, green, blue, alpha[0] if alpha else 1.0)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

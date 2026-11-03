@@ -1,4 +1,4 @@
-import CoreGraphics
+import ApplicationServices
 import CustomDump
 import Encoding
 import Foundation
@@ -14,7 +14,7 @@ import Testing
 private let sheet: Element = Element(
     id: Data([1, 2, 3]),
     window: 77,
-    role: "AXSheet",
+    role: kAXSheetRole,
     subrole: nil,
     modal: nil,
     identifier: "_NS:87",
@@ -85,11 +85,15 @@ struct InstanceStates {
     @Test(arguments: statuses)
     func usageSitsBesideStatus(status: ApplicationStatus) throws {
         let usage: ResourceUsage = try ResourceUsage(of: getpid())
-        let encoded: JSONValue = try wire(InstanceState.running(status, usage: usage))
+        let encoded: JSONValue = try wire(InstanceState.running(status, usage: .success(usage)))
         let expectedUsage: JSONValue = .object([
             "cpu": .number(Double(usage.cpu.components.seconds) + Double(usage.cpu.components.attoseconds) / 1e18), "footprint": .number(Double(usage.footprint)),
             "threads": .number(Double(usage.threads)),
         ])
         expectNoDifference(encoded, .object(["running": .object(["status": try wire(status), "usage": expectedUsage])]))
+        expectNoDifference(
+            try wire(InstanceState.running(status, usage: .failure(.noSuchProcess))),
+            .object(["running": .object(["status": try wire(status), "usageFailure": .string(Errno.noSuchProcess.description)])]),
+        )
     }
 }

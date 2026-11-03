@@ -7,14 +7,13 @@ import pathlib
 from typing import Final, Self
 
 from expression import Ok, Option
-from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
 from blender.imaging.color.processors import called, processor
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.stores import committed, files_copied, folder_made
+from blender.records.faults import accumulated, Outcome, paired
+from blender.records.stores import committed, files_copied
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -174,15 +173,8 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         return called(authored, str(stage)).bind(
             lambda texts: paired(
                 called(_MERGE, str(stage), self.merge, base, rows).bind(lambda merged: called(viewed, str(stage), merged)),
-                folder_made(stage).bind(
-                    lambda _: paired(
-                        files_copied(copies),
-                        accumulated(
-                            catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(partial(Fault.of, Reason.UNWRITABLE, str(stage)))
-                            for name, text in dict(texts).items()
-                        ),
-                    )
-                ),
+                files_copied(copies),
+                accumulated(committed(stage / name, text.encode()) for name, text in dict(texts).items()),
             ).map(lambda pair: pair[0])
         )
 
@@ -200,15 +192,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Installed config path, or `FAILED` and `UNWRITABLE` faults.
         """
-
-        def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[None]:
-            return (
-                catch((stage / "config.ocio").write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
-                .map(lambda _: None)
-                .map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
-            )
-
-        return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config))).map(lambda installed: installed / "config.ocio")
+        return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: committed(stage / "config.ocio", config.serialize().encode()))).map(
+            lambda installed: installed / "config.ocio"
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -12,9 +12,9 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
+import PyOpenColorIO
 from skimage.metrics import normalized_root_mse, structural_similarity
 
-from blender.imaging.color.processors import Domain
 from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Frozen, NonNegative
@@ -79,7 +79,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     structural: Option[npt.NDArray[np.float64]]
 
     @classmethod
-    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: float) -> Outcome["Comparison"]:
+    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: PyOpenColorIO.ReferenceSpaceType, *, data_range: float) -> Outcome["Comparison"]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
             return Error(Fault.of(Reason.OUTSIDE, cls.__name__, str(test.shape), member=f"test planes of the reference shape {reference.shape}"))
@@ -109,7 +109,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
                 lambda result: not result.error, lambda _: Fault.of(Reason.FAILED, f"comparison of {reference.shape} planes", OpenImageIO.geterror())
             ),
             checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(pixels),
-            checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
+            checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain == PyOpenColorIO.REFERENCE_SPACE_SCENE))).bind(pixels),
         ).map(measured)
 
     def severity(self, bars: Iterable[Threshold]) -> Severity:

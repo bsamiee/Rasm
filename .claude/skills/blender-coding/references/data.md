@@ -37,8 +37,7 @@ Created IDs take their saved lifetime from their users and links:
 - `use_fake_user = True` keeps an ID saved as one counted user
 - `<old>.user_remap(<new>)` moves every user, fake user included, before removing `<old>`
 - `objects.link` and `children.link` of a linked item raise `RuntimeError`, and `in` tests on them take the item's `name`, an ID raising `TypeError`
-- `children.link` of a parent or ancestor raises already-in-collection `RuntimeError`
-- Collection links test `parent in (child, *child.children_recursive)` first
+- `children.link` of a parent or ancestor raises already-in-collection `RuntimeError`, a fault at the call
 - `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera)
 - `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine and makes the new scene the window's scene
 - Appends and links fire `blend_import_pre` and `blend_import_post` with a `BlendImportContext`
@@ -95,7 +94,7 @@ Path properties hold blend-relative paths:
 - Unsaved files resolve `//` against the process working directory in `bpy.path.abspath` (`tex.png` for `//tex.png`) and in render writes
 - Script writes, path rewrites included, leave `bpy.data.is_dirty` false in GUI and background runs
 - `wm.save_as_mainfile` rewrites `//` paths for the new folder (`//tex.png` from `a/` into `b/deep/` reads `//../../a/tex.png`)
-- `relative_remap=False` keeps each `//` path's text and so retargets it
+- `relative_remap=False` keeps each `//` path's text, retargeting it against the new folder
 - `copy=True` remaps the written copy and leaves session paths and `bpy.data.filepath` unchanged
 - Saves with `compress` unset keep a saved file's compression and read `use_file_compression` for a file never saved
 - Portable files pack external data through `file.pack_all`, and images from a temporary source pack before the source's removal

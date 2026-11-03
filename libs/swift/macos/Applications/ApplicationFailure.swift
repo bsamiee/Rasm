@@ -17,6 +17,9 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case hidden(Duration)
         case unreadable(FailedRead)
         case absent(String)
+        case unresolved
+        case foreign(pid_t)
+        case closed
         case activating
         case disabled
         case refused(AXError)
@@ -45,6 +48,9 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
             case .absent(let missing): "\(subject) has no \(missing)"
+            case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
+            case .foreign(let process): "\(subject) belongs to a process other than \(process)"
+            case .closed: "\(subject) sits in a closed window, read the app again for a current id"
             case .activating: "\(subject) not sent, raising a window takes focus from the frontmost app"
             case .disabled: "\(subject) not sent to disabled element"
             case .refused(let error): "\(subject) refused with AXError \(error.rawValue)"
@@ -63,7 +69,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .unanswered, .hidden, .unreadable, .absent, .activating, .disabled, .refused, .cancelled: [:]
+            case .untrusted, .unanswered, .hidden, .unreadable, .absent, .unresolved, .foreign, .closed, .activating, .disabled, .refused, .cancelled: [:]
         }
     }
 }
@@ -81,6 +87,6 @@ extension ApplicationFailure {
     }
 
     init(_ error: Errno, process: pid_t) {
-        self = error == .noSuchProcess ? Self(subject: String(process), reason: .noProcess) : Self(subject: String(process), reason: .process(error))
+        self = Self(subject: String(process), reason: error == .noSuchProcess ? .noProcess : .process(error))
     }
 }

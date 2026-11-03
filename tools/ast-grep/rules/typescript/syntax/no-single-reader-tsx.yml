@@ -144,7 +144,7 @@ rule:
                         - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}]}}}]}}
                         - not: {has: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}, {has: {stopBy: end, matches: later-reference}}]}}
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its reader as a local where its name states a fact, else inline it'
+note: 'Move the declaration into its only reader as a local, inline it only where its value is another name'
 labels:
     READER: {style: secondary, message: Only reader}
     HOLDER: {style: secondary, message: Only reader}

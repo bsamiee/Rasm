@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-es5-construct
+language: tsx
+severity: error
+utils:
+    extendscript-file:
+        kind: program
+        any:
+            - has: {kind: import_statement, has: {field: source, regex: '^.@rasm/extendscript/handle.$'}}
+            - has: {stopBy: end, kind: member_expression, regex: '^\$\.global$'}
+rule:
+    pattern: $NODE
+    inside: {kind: program, stopBy: end, matches: extendscript-file}
+    any:
+        - {kind: spread_element, inside: {kind: object}}
+        - {kind: rest_pattern, inside: {kind: object_pattern}}
+        - kind: call_expression
+          has: {field: function, regex: '^(Object\.(keys|values|entries|assign|create|freeze|seal|defineProperty|defineProperties|getOwnPropertyNames|getOwnPropertyDescriptor|getPrototypeOf|setPrototypeOf|fromEntries|hasOwn|is)|Array\.(isArray|from|of)|Number\.(parseInt|parseFloat|isFinite|isNaN|isInteger|isSafeInteger)|JSON\.\w+|Date\.now)$'}
+        - kind: call_expression
+          has:
+            field: function
+            kind: member_expression
+            has: {field: property, regex: '^(map|forEach|filter|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|includes|lastIndexOf|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|at|flat|flatMap|fill|bind|toISOString)$'}
+message: '`$NODE` reads a member or helper ExtendScript lacks, and swc lowers syntax alone'
+note: 'Write the ES3 form: an index loop, a `for in` over own keys, `charAt` and `slice`, or a direct field write per key'

@@ -22,6 +22,8 @@ Select the member by the fact a pass computes:
 |  [14]   | Grouped extreme                             | `np.maximum.at(<filled buffer>, keys, values)`                                           |
 |  [15]   | Window statistic                            | Named `sp.ndimage` filter or `sp.ndimage.vectorized_filter(values, <reduction>, size=n)` |
 |  [16]   | Row-wise dot, stacked matrix-vector product | `np.vecdot`, `np.matvec`                                                                 |
+|  [17]   | Range or precision of a dtype               | `np.iinfo(<dtype>).max`, `np.finfo(<dtype>).eps`                                         |
+|  [18]   | Orientation per polygon of `(n, k, 2)`      | `shapely.is_ccw(shapely.linearrings(<coords>))`                                          |
 
 Loops that converge, bisect, step, or sum a series are calls to the member for their fact. `roots` expands a bracket from each guess and refines every element, one call each:
 
@@ -73,6 +75,7 @@ def kernel(offsets: Samples, width: float, /) -> Samples:
 - `astype(<dtype>, copy=False)` returns the array itself when its dtype matches
 - `sliding_window_view` and `broadcast_to` return read-only views
 - Writes reach `a` through one index expression on `a` itself (`a[mask] = value`)
+- Arrays build once (`np.fromiter(items, dtype, count=n)`, one `np.concatenate`)
 - Ufuncs buffer overlapping operands, `np.add(a[:-1], a[1:], out=a[1:])` over an owned `a` returns sums of the original values
 
 ## [04]-[FLOATING_POINT]

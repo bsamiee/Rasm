@@ -22,8 +22,9 @@ enum FixtureApplication {
         switch settings.role {
             case .helper: withExtendedLifetime(watchdog) { dispatchMain() }
             case .application:
+                let held: Hang? = settings.scenario == .slowLaunch ? Hang() : nil
                 let application: NSApplication = NSApplication.shared
-                let delegate: ApplicationDelegate = ApplicationDelegate(settings: settings)
+                let delegate: ApplicationDelegate = ApplicationDelegate(settings: settings, held: held)
                 application.delegate = delegate
                 withExtendedLifetime((watchdog, delegate)) { application.run() }
         }

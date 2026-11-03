@@ -14,9 +14,8 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, answered, Call, called, Done, Empty, NoUndo, Operator
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
@@ -40,7 +39,7 @@ from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import color, Metrics
 from blender.bpy.ui.screens.areas import EditorState
 from blender.imaging.analysis.comparison import Comparison, Metric, Severity, Threshold
-from blender.imaging.color.processors import DisplayView, Domain
+from blender.imaging.color.processors import DisplayView
 from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.stores import ContentHash
 from blender.records.trees import Deleted, diff, Edit, Inserted, Moved, Reparametrized
@@ -222,7 +221,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             self
             .browsed(identity, context)
             .bind(lambda browser: paired(self.side(identity, context, Baseline[browser.baseline]), shown))
-            .bind(lambda planes: Comparison.of(planes[0].plane, planes[1], Domain.DISPLAY, data_range=1.0))
+            .bind(lambda planes: Comparison.of(planes[0].plane, planes[1], PyOpenColorIO.REFERENCE_SPACE_DISPLAY, data_range=1.0))
         )
 
     def difference(self, identity: Identity, metrics: Metrics) -> Outcome[Option[tuple[Tint, ...]]]:

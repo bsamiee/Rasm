@@ -1,4 +1,4 @@
-"""Located editors, editor queries, revertable editor state, node editor state, screen arrangements applied one host pass per step, and region bounds, visibility, alignment, and editor coordinates."""
+"""Editor areas and regions of window screens."""
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial, reduce
@@ -10,7 +10,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.commands.calls import called, Operation, Setting
+from blender.bpy.commands.operators import called, Operation, Setting
 from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct, struct_at
@@ -276,7 +276,7 @@ def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located],
 
 
 def visible_bounds(area: bpy.types.Area, region: bpy.types.Region) -> _Bounds:
-    """Returns the region's `(x, y, width, height)` in its own pixels less overlapping siblings, each inset from the bounds earlier siblings left, by Blender's `region_visible_rect_calc`."""
+    """Returns the region's `(x, y, width, height)` in its own pixels less the siblings overlapping it."""
     preferences = Metrics.read().preferences
 
     def inset(bounds: _Bounds, sibling: bpy.types.Region) -> _Bounds:
@@ -299,22 +299,22 @@ def visible_bounds(area: bpy.types.Area, region: bpy.types.Region) -> _Bounds:
 
 
 def visibility(space: type[bpy.types.Space], kind: "rna_enums.RegionTypeItems", *, visible: bool) -> Outcome[EditorState]:
-    """Returns the editor state showing or hiding regions of a type through the space's `show_region_<type>` member, the toolbar and asset shelf header named apart, absent fault for a member the space lacks."""
+    """Returns the editor state showing or hiding regions of a type through the space's `show_region_<type>` member, absent fault for a member the space lacks."""
     return EditorState.of(space, {(f"show_region_{_RENAMED.get(kind, kind.lower())}",): visible})
 
 
 def flipped(located: Located, side: _Edge) -> Outcome[None]:
     """Moves the located region to `side` across its axis."""
+    axis = next(axis for axis in _AXES if side in axis)
 
     def moved(region: bpy.types.Region) -> Outcome[None]:
-        aligned = region.alignment
-        match Block.of_seq(_AXES).filter(lambda axis: aligned in axis).try_head().default_value(()):
-            case _ if aligned == side:
+        match region.alignment:
+            case aligned if aligned == side:
                 return Ok(None)
-            case axis if side in axis:
+            case aligned if aligned in axis:
                 return located.run(bpy.ops.screen.region_flip, {})
-            case axis:
-                return Error(Fault.of(Reason.OUTSIDE, repr(located.area), str(side), member=", ".join(axis)))
+            case aligned:
+                return Error(Fault.of(Reason.OUTSIDE, repr(located.area), aligned, member=", ".join(axis)))
 
     return located.region.to_result_with(partial(Fault.of, Reason.ABSENT, repr(located.area), member="region")).bind(moved)
 

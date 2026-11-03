@@ -1,9 +1,9 @@
-import { Array, Filter, Result } from 'effect';
+import { Array, Filter } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
 import { MenuButton } from '#/collection/menu-button';
-import { Checkbox } from '#/form/field';
+import { Field } from '#/form/field';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -19,12 +19,12 @@ const ReorderableList = <T extends { readonly id: string }>({
     readonly items: readonly T[];
     readonly onChange: (items: readonly T[]) => void;
     readonly textValue: (item: T) => string;
-    readonly actions: (keys: ReadonlySet<Key>) => ReactNode;
+    readonly actions: (keys: ReadonlySet<T['id']>) => ReactNode;
     readonly children: (item: T) => ReactNode;
     readonly moveLabel: string;
 }) => {
     const [selection, setSelection] = useState<Selection>(new Set());
-    const selected: ReadonlySet<Key> = new Set(Array.filterMap(items, ({ id }) => (selection === 'all' || selection.has(id) ? Result.succeed(id) : Result.failVoid)));
+    const selected: ReadonlySet<T['id']> = new Set(items.filter(({ id }) => selection === 'all' || selection.has(id)).map(({ id }) => id));
     const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) => {
         const [moved, kept] = Array.partition(
             items,
@@ -44,17 +44,21 @@ const ReorderableList = <T extends { readonly id: string }>({
     return (
         <>
             {selected.size > 0 && actions(selected)}
-            <GridList {...props} dependencies={[items, children, textValue, selected]} dragAndDropHooks={dragAndDropHooks} items={items} onSelectionChange={setSelection} selectedKeys={selection} selectionMode="multiple">
+            <GridList {...props} dependencies={[selection, items, children, textValue, onChange, moveLabel]} dragAndDropHooks={dragAndDropHooks} items={items} onSelectionChange={setSelection} selectedKeys={selection} selectionMode="multiple">
                 {(item) => {
-                    const moved = selected.has(item.id) ? selected : new Set([item.id]);
-                    const position = items.indexOf(item);
+                    const moved: ReadonlySet<T['id']> = selected.has(item.id) ? selected : new Set([item.id]);
                     return (
                         <GridListItem id={item.id} textValue={textValue(item)}>
-                            <Checkbox slot="selection" />
+                            <Field.Checkbox slot="selection" />
                             <Button slot="drag">
                                 <GripVertical />
                             </Button>
-                            <MenuButton onAction={({ id, index }) => reorder(moved, { key: id, dropPosition: index < position ? 'before' : 'after' })} options={targets.filter(({ id }) => !moved.has(id))}>
+                            <MenuButton
+                                disabledKeys={moved}
+                                onAction={({ id, index }) => reorder(moved, { key: id, dropPosition: index < items.findIndex((candidate) => moved.has(candidate.id)) ? 'before' : 'after' })}
+                                options={targets}
+                                trigger={{ 'aria-label': `${moveLabel} ${textValue(item)}` }}
+                            >
                                 {moveLabel}
                             </MenuButton>
                             {children(item)}

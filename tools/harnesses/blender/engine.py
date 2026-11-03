@@ -51,6 +51,13 @@ class Extended(Protocol):
         ...
 
 
+@runtime_checkable
+class Drawing(Protocol):
+    """Interface class resolving `draw` through its own or an inherited namespace, which the `Header`, `Menu`, and `Panel` bases lack."""
+
+    draw: object
+
+
 class Callee(Protocol):
     """Original function or operator a call case runs."""
 
@@ -86,9 +93,7 @@ TAGS: Mapping[str, str] = {repr(special): tag for tag, special in SPECIAL.items(
 SAFE = 2**sys.float_info.mant_dig - 1
 REPOSITORY = "harness"
 MANIFEST: str = addon_utils._ext_manifest_filename_toml  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-HOST = "host.json"
 STDOUT = "stdout.txt"
-STDERR = "stderr.txt"
 PASS = 0.0
 LOGGED = re.compile(r"^\S+\s+(?P<category>\S+)\s+\| (?P<message>.*)$")
 COLUMNS: Mapping[str, str] = {"FLOAT": "d", "INT": "i", "BOOLEAN": "b"}
@@ -99,7 +104,7 @@ FLAGS = tuple(prop.identifier.removeprefix(UPDATED) for prop in bpy.types.Depsgr
 
 
 class Document(TypedDict, total=False):
-    """Case document: the case folder copy `open` names with its `wm.open_mainfile` options, else an empty file in `working_space`, then scene members."""
+    """Case document the engine opens or creates, then the scene members it writes."""
 
     open: str
     options: dict[str, Json]
@@ -202,10 +207,12 @@ class Override(TypedDict):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Instance:
-    """State of this Blender process across sessions: the scratch folder, the log file, the batch extension repository, the owner's user resources, and depsgraph updates."""
+    """State of this Blender process across the sessions its scratch folder receives."""
 
     scratch: Path
-    log: Path
+    session: Path
+    ended: Path
+    streams: tuple[Path, Path, Path]
     repository: Path
     owner: Path
     updates: Updates
@@ -286,7 +293,7 @@ def items(owner: type[Struct], member: str, /) -> list[Json]:
 
 
 def buried(value: object, /) -> Json:
-    """Returns the JSON form of a host value, its own struct walked through RNA members, IDs and RNA types referenced, a repeated struct referencing its first place."""
+    """Returns the JSON form of a host value, its structs walked through RNA and IDs referenced."""
     seen: dict[tuple[int, type], str] = {}
 
     def walked(item: object, at: str, /, *, top: bool = False) -> Json:
@@ -355,7 +362,7 @@ def buried(value: object, /) -> Json:
 
 
 def gathered(collection: Collection, prop: bpy.types.Property, size: int, /) -> array[int] | array[float] | None:
-    """Returns one scalar or vector RNA member of every collection item through one `foreach_get`, flattened, and nothing for a member raw access refuses (a dynamic array)."""
+    """Returns one RNA member of every collection item through one `foreach_get`, nothing where raw access refuses it."""
     buffer = array(COLUMNS[prop.type], [0]) * size
     try:
         collection.foreach_get(prop.identifier, buffer)
@@ -370,7 +377,7 @@ def exact(value: float, /) -> Json:
 
 
 def located(struct: Struct, unplaced: str, tag: str = "", /) -> str:
-    """Returns the reference to an ID or repeated struct: its full data path after `tag`, else `unplaced` for one outside every module path (an evaluated ID, a struct the walk wrote earlier)."""
+    """Returns the full data path of a struct after `tag`, `unplaced` where it has none."""
     try:
         return f"{tag}{struct.path_from_module()}"
     except ValueError:
@@ -457,7 +464,7 @@ def described(error: BaseException, /) -> str:
 
 
 def thrown(error: BaseException, script: str | None, /) -> dict[str, Json]:
-    """Returns the completion of a raising original: the exception line, and the frames innermost first, a prepared source frame by its line alone and every other by file and line."""
+    """Returns the completion of a raising original with its frames innermost first, a prepared source frame by line alone."""
     frames: list[dict[str, Json]] = [
         {"line": frame.lineno, **({} if frame.filename == script else {"file": frame.filename})}
         for frame in reversed(traceback.extract_tb(error.__traceback__))
@@ -484,20 +491,20 @@ def replaced(target: Path, line: Mapping[str, Json], /) -> None:
     staged.replace(target)
 
 
-def offsets(instance: Instance, /) -> tuple[int, int, int]:
+def offsets(instance: Instance, /) -> tuple[int, ...]:
     """Flushes Python output and returns the output, error, and log file sizes."""
     sys.stdout.flush()
     sys.stderr.flush()
-    return os.fstat(1).st_size, os.fstat(2).st_size, instance.log.stat().st_size
+    return tuple(stream.stat().st_size for stream in instance.streams)
 
 
-def printed(instance: Instance, start: tuple[int, int, int], /) -> dict[str, Json]:
+def printed(instance: Instance, start: tuple[int, ...], /) -> dict[str, Json]:
     """Returns what the process wrote to its output, error, and log files since `start`, C-level output included, log lines without their clock."""
 
     def tail(name: Path, at: int, /) -> list[Json]:
         with name.open("rb") as source:
             source.seek(at)
-            return source.read().decode(errors="replace").splitlines()
+            return list[Json](source.read().decode(errors="replace").splitlines())
 
     def logged(lines: tuple[Json, ...], line: str, /) -> tuple[Json, ...]:
         match LOGGED.match(line), lines:
@@ -509,8 +516,9 @@ def printed(instance: Instance, start: tuple[int, int, int], /) -> dict[str, Jso
                 return lines
 
     offsets(instance)
-    folded: tuple[Json, ...] = reduce(logged, [str(line) for line in tail(instance.log, start[2])], ())
-    return {"console": tail(instance.scratch / STDOUT, start[0]), "stderr": tail(instance.scratch / STDERR, start[1]), "log": list(folded)}
+    console, errors, log = starmap(tail, zip(instance.streams, start, strict=True))
+    folded: tuple[Json, ...] = reduce(logged, [str(line) for line in log], ())
+    return {"console": console, "stderr": errors, "log": list(folded)}
 
 
 # --- [ISOLATION]
@@ -524,7 +532,7 @@ def entries(collection: Items, /) -> list[tuple[object, str, Struct]]:
 
 
 def settings() -> dict[str, object]:
-    """Returns each writable preferences member by path and each removable preferences collection's item identities, walking pointer members through their RNA."""
+    """Returns each writable preferences member and each removable collection's item identities by path."""
 
     def walked(owner: Struct, prefix: str, /) -> Iterable[tuple[str, object]]:
         for prop in owner.bl_rna.properties:
@@ -590,12 +598,12 @@ def interfaces() -> Iterator[Interface]:
         pending.extend(held.__subclasses__())
 
 
-def drawn(owner: Interface, /) -> tuple[object, ...]:
-    """Returns the draw functions a class resolves through its own and inherited namespaces, none where no namespace declares `draw` (`Header`)."""
-    match [vars(base)["draw"] for base in owner.__mro__ if "draw" in vars(base)]:
-        case [Extended() as draw, *_]:
+def drawn(owner: object, /) -> tuple[object, ...]:
+    """Returns the draw functions an interface class resolves, none where no namespace declares `draw`."""
+    match owner:
+        case Drawing(draw=Extended() as draw):
             return tuple(draw._draw_funcs)
-        case [draw, *_]:
+        case Drawing(draw=draw):
             return (draw,)
         case _:
             return ()
@@ -664,7 +672,7 @@ def raised(error: BaseException, /) -> None:
 
 
 def packaged(script: Path, /) -> Path | None:
-    """Returns the extension or legacy add-on folder a case's `__init__.py` source belongs to, read through its manifest or a module-level `bl_info` assignment, and nothing for a plain script."""
+    """Returns the extension or `bl_info` add-on folder an `__init__.py` source belongs to, nothing for a plain script."""
     declares = script.name == "__init__.py" and (
         (script.parent / MANIFEST).is_file()
         or any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "bl_info" for target in node.targets) for node in ast.parse(script.read_bytes()).body)
@@ -673,7 +681,7 @@ def packaged(script: Path, /) -> Path | None:
 
 
 def addon(folder: Path, repository: Path, stack: ExitStack, /) -> str:
-    """Links an extension folder into the batch repository or a `bl_info` folder onto the user add-on path, returning the module Blender lists for the link."""
+    """Links an add-on folder where Blender finds it and returns the module Blender lists for it."""
     link = repository / folder.name if (folder / MANIFEST).is_file() else Path(bpy.utils.user_resource("SCRIPTS", path="addons", create=True), folder.name)
     link.symlink_to(folder)
     stack.callback(link.unlink)
@@ -697,7 +705,7 @@ def disabled(module_name: str, /) -> None:
 
 
 def enabled(folder: Path, repository: Path, stack: ExitStack, /) -> Namespace:
-    """Enables an extension or legacy add-on as Blender enables one, disabling it and dropping its modules when the case ends, and returns its namespace."""
+    """Enables an add-on until the case ends and returns its namespace."""
     module_name = addon(folder, repository, stack)
     stack.callback(disabled, module_name)
     addon_utils.enable(module_name, default_set=True, handle_error=raised)
@@ -740,7 +748,7 @@ def sourced(case: Case, /) -> Source | None:
 
 
 def document(row: Literal["none"] | Document, folder: Path, made: Namespace, /) -> None:
-    """Loads the case document: a factory home file for `none`, the case folder copy `open` names, or an empty file saved in its working color space, its scene members written."""
+    """Loads the case document and writes its scene members."""
     filepaths = preferences().filepaths
     match row:
         case "none":
@@ -774,7 +782,7 @@ def loaded(precondition: Precondition, folder: Path, made: Namespace, /) -> Step
 
 
 def overridden(row: Area | None, /) -> Override:
-    """Resolves the case override once: the window, and the area of the asked type (the largest area turned to it when none has it) with its region."""
+    """Resolves the window, area, and region a case runs under, turning the largest area to the asked type when none has it."""
     window = manager().windows[0]
     if row is None:
         return {"window": window}
@@ -823,7 +831,7 @@ def contextual(value: object, /) -> bool:
 
 
 def documented(override: Override, /) -> Json:
-    """Returns the document state a case runs on: units, color management, working color space, output size and rate, frame, context members, file version, path, and edited state."""
+    """Returns the document state a case runs on."""
     scene = override["window"].scene
     with bpy.context.temp_override(**override):
         context = {key: value for key, value in bpy.context.copy().items() if contextual(value)}
@@ -861,7 +869,7 @@ def reads(case: Case, override: Override, names: Namespace, /) -> tuple[dict[str
 
 
 def executed(case: Case, product: Namespace, names: Namespace, made: Namespace, /) -> dict[str, Json]:
-    """Runs the case body and returns its value: an expression, a call on decoded arguments, or a plain script run as `__main__`, an enabled add-on's registration having run already."""
+    """Runs the case body and returns its value, an enabled add-on having registered already."""
     match case:
         case {"_tag": "Probe", "evaluate": str(expression)}:
             return {"value": buried(evaluated(expression, names))}
@@ -896,7 +904,7 @@ def pressed(window: bpy.types.Window, kind: str, /) -> Steps:
 
 
 def settled(timers: Timers, window: bpy.types.Window, /) -> Steps:
-    """Evaluates the view layer, then passes the event loop until no job runs and every case timer fell due and ran once, a background run holding no event loop to pass."""
+    """Evaluates the view layer, then passes a windowed event loop until no job runs and every case timer ran once."""
     window.view_layer.update()
     due = max((at for _, at in timers), default=0.0)
     while not bpy.app.background and (any(bpy.app.is_job_running(job) for job in jobs()) or time.monotonic() < due):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
@@ -919,7 +927,7 @@ def answered(window: bpy.types.Window, area: bpy.types.Area, space: bpy.types.Sp
 
 
 def picked(rows: list[str | None], /) -> Generator[float, None, tuple[list[Json], list[Json]]]:
-    """Answers each file browser window in order with the next `files` row, then closes the windows past the first, returning each window's area types and each browser's operator."""
+    """Answers each file browser with the next `files` row and closes every window past the first, returning their areas and operators."""
     answers = iter(rows)
     windows: list[Json] = []
     pickers: list[Json] = []
@@ -947,7 +955,7 @@ def pushed() -> list[str]:
 
 
 def changed(before: Mapping[int, str], steps: int, updates: Updates, /) -> dict[str, Json]:
-    """Returns what the case changed: IDs created and removed by data path, IDs the depsgraph updated with each update kind, undo steps pushed, and the file's edited state."""
+    """Returns the IDs, depsgraph updates, undo steps, and edited state the case changed."""
     after = {item.session_uid: item for item in bpy.data.all_ids}
     updated: dict[str, frozenset[str]] = {}
     for path, flags in updates:
@@ -962,7 +970,7 @@ def changed(before: Mapping[int, str], steps: int, updates: Updates, /) -> dict[
 
 
 def arranged(case: Case, instance: Instance, folder: Path, stack: ExitStack, /) -> Generator[float, None, tuple[Override, Namespace, Namespace, Namespace]]:
-    """Enables the case's extensions and add-on, loads its document, applies its preconditions, and runs a call case's plain script as its module, then passes the event loop once."""
+    """Enables the case's add-ons, loads its document, applies its preconditions, and runs a call case's plain script as its module."""
     precondition, made = case["precondition"], dict[str, object]()
     for name in precondition.get("extensions", []):
         enabled(installed(instance.owner, name), instance.repository, stack)
@@ -1015,7 +1023,7 @@ def acted(case: Case, instance: Instance, stack: ExitStack, timers: Timers, read
 
 
 def stepped(instance: Instance, index: int, case: Case, stream: IO[str], /) -> Steps:
-    """Runs one case to its outcome line, its output read from after its preconditions, a failure anywhere recorded as `Failed`, and undoes what the case left registered."""
+    """Runs one case to its outcome line and undoes what the case left registered."""
     recorded(stream, {"_tag": "Started", "index": index})
     held = Held(
         handlers={name: tuple(callbacks) for name in dir(bpy.app.handlers) if isinstance(callbacks := getattr(bpy.app.handlers, name), list)},
@@ -1045,7 +1053,7 @@ def stepped(instance: Instance, index: int, case: Case, stream: IO[str], /) -> S
 
 
 def batch(instance: Instance, session: Session, /) -> Steps:
-    """Steps every case of one session into its records file, then writes the reply: the application and version, with the host state and the RNA items precondition rows name when the survey is asked, else the failure outside every case."""
+    """Steps every case of one session into its records file, then writes the reply."""
     reply: dict[str, Json]
     try:
         with Path(session["records"]).open("a", encoding="utf-8") as stream:
@@ -1065,11 +1073,11 @@ def batch(instance: Instance, session: Session, /) -> Steps:
 
 
 def batches(instance: Instance, noted: Callable[[bpy.types.Scene, bpy.types.Depsgraph], None], /) -> Steps:
-    """Records depsgraph updates through `noted` while running each session file the scratch folder receives in order, idling between them, until the quit file appears."""
+    """Runs each session file the scratch folder receives in order until the quit file appears."""
     bpy.app.handlers.depsgraph_update_post.append(noted)
     seen: set[Path] = set()
-    while not (instance.scratch / "quit").exists():
-        pending = sorted(path for path in instance.scratch.glob("*/session.json") if path not in seen)
+    while not instance.ended.exists():
+        pending = sorted(path for path in instance.scratch.glob(f"*/{glob.escape(instance.session.name)}") if path not in seen)
         seen.update(pending)
         for path in pending:
             yield from batch(instance, json.loads(path.read_text(encoding="utf-8")))
@@ -1092,10 +1100,11 @@ def stepping(steps: Steps, /) -> float | None:
 
 
 def main() -> None:
-    """Moves process output into the scratch folder, writes the host state, then runs the sessions to their end in a background run and on a persistent timer in a windowed one."""
-    scratch = Path(sys.argv[sys.argv.index("--") + 1])
-    for descriptor, name in ((1, STDOUT), (2, STDERR)):
-        os.dup2(os.open(scratch / name, os.O_WRONLY | os.O_CREAT | os.O_APPEND), descriptor)
+    """Writes the host state, then runs the sessions inline in a background run and on a timer in a windowed one."""
+    scratch, written, errors, session, ended = map(Path, sys.argv[sys.argv.index("--") + 1 :])
+    streams = (scratch / STDOUT, scratch / errors, Path(sys.argv[sys.argv.index("--log-file") + 1]))
+    for descriptor, stream in enumerate(streams[:2], start=1):
+        os.dup2(os.open(stream, os.O_WRONLY | os.O_CREAT | os.O_APPEND), descriptor)
     sys.pycache_prefix = os.environ.get("PYTHONPYCACHEPREFIX")
     held = preferences()
     held.view.show_splash = False
@@ -1114,8 +1123,8 @@ def main() -> None:
 
     if bpy.app.background:
         gpu.init()
-    replaced(scratch / HOST, host())
-    steps = batches(Instance(scratch=scratch, log=Path(sys.argv[sys.argv.index("--log-file") + 1]), repository=repository, owner=owned(), updates=updates), noted)
+    replaced(scratch / written, host())
+    steps = batches(Instance(scratch=scratch, session=session, ended=scratch / ended, streams=streams, repository=repository, owner=owned(), updates=updates), noted)
     if bpy.app.background:
         for pause in steps:
             time.sleep(pause)

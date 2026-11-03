@@ -1,4 +1,4 @@
-"""Region draw state, text, built-in shader binds and batches, cached GPU programs, and offscreen buffers with framebuffer reads."""
+"""GPU drawing in editor regions and offscreen buffers."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
@@ -91,7 +91,7 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, style: bpy.types.ThemeFontStyle) -> Option[Self]:
-        """Reads a theme font style's shadow, Nothing for a style drawing none, as `fontstyle_draw_ex` reads it, a type `blf.shadow` lacks drawing unblurred."""
+        """Reads a theme font style's shadow, Nothing for a style drawing none, a type `blf.shadow` lacks drawing unblurred."""
         gray = style.shadow_value
         return (
             Some(cls(level=style.shadow if style.shadow in _BLURS else 0, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y)))
@@ -101,7 +101,7 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FontStyle(msgspec.Struct, frozen=True, kw_only=True):
-    """Text size in device pixels or a theme font style's scaled size, its alignment along the rotation, and its `blf` options, `shadow` the theme style's while unstated and `Some(Nothing)` none."""
+    """Text size in device pixels or a theme font style's, with alignment and `blf` options, `shadow` the theme style's while unstated and `Some(Nothing)` none."""
 
     size: float | bpy.types.ThemeFontStyle
     align: Align = Align.START
@@ -113,7 +113,7 @@ class FontStyle(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
-    """Draw state of one region: interface metrics, visible extent, the editor and region drawn in, the clip planes of a clipping 3D View while drawing in its world space, and the window pointer a cursor drawing draws at."""
+    """Draw state of one region, with the clip planes of a clipping 3D View and the pointer of a cursor drawing."""
 
     metrics: Metrics
     extent: Rect
@@ -126,7 +126,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = Nothing) -> Self:
-        """Reads region extent less overlapping siblings, in window pixels while a pointer is given, with the clip planes a view phase of a 3D View clipping its solid or wireframe shading draws under, by Blender's `RV3D_CLIPPING_ENABLED`."""
+        """Reads the region's visible extent, in window pixels while a pointer is given, and the clip planes a view phase of a clipping 3D View draws under."""
         space: bpy.types.Space = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         x, y, width, height = visible_bounds(area, region)
         origin_x, origin_y = pointer.map(lambda _: (region.x, region.y)).default_value((0, 0))
@@ -228,7 +228,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def batched(
         shader: str | gpu.types.GPUShader, primitive: _Primitive, attributes: Mapping[str, npt.NDArray[np.float32]], *, indices: Option[npt.NDArray[np.uint32]] = Nothing
     ) -> gpu.types.GPUBatch:
-        """Batches vertex attributes in the format a shader or a built-in shader by name reads, a built-in's clipped configuration reading the same format, `indices` naming the vertices of each primitive."""
+        """Batches vertex attributes in the format a shader, or a built-in shader by name, reads, `indices` naming each primitive's vertices."""
         return _BATCH_FOR_SHADER(gpu.shader.from_builtin(shader) if isinstance(shader, str) else shader, primitive, attributes, indices=indices.to_optional())
 
     # --- [TEXT]

@@ -94,13 +94,6 @@ final class Observer: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension AXUIElement {
-    func windows() throws(ApplicationFailure) -> [Data?] {
-        let read: [String: CFTypeRef] = try values([kAXWindowsAttribute, kAXFocusedWindowAttribute])
-        return (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(Self.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(Self.checked)?.token]
-    }
-}
-
 extension NSRunningApplication {
     func processStatus() throws(ApplicationFailure) -> ProcessStatus {
         do { return try ProcessStatus(of: processIdentifier, mainThread: true) } catch { throw ApplicationFailure(error, process: processIdentifier) }
@@ -112,28 +105,25 @@ extension NSRunningApplication {
         observer: Result<Observer, ApplicationFailure>? = nil,
         after last: (elements: [Element], windows: [Data?])? = nil,
     ) async -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: [Data?]?) {
-        await withTaskExecutorPreference(accessibility) {
+        await withTaskExecutorPreference(accessibility) { () -> (status: Result<ApplicationStatus, ApplicationFailure>, windows: [Data?]?) in
             let owned: [Window] = Window.owned(by: processIdentifier)
             let responding: ([Element]) -> ApplicationStatus = { elements in
                 let described: Set<CGWindowID> = Set(elements.compactMap(\.window))
                 return .responding(elements: elements, windows: owned.filter { window in !described.contains(window.number) })
             }
-            let read: Result<(status: ApplicationStatus, windows: [Data?]?), ApplicationFailure> = Result { () throws(ApplicationFailure) in
-                guard try processStatus() != .stopped else { return (.unresponsive(process: .stopped, windows: owned), nil) }
+            do throws(ApplicationFailure) {
+                guard try processStatus() != .stopped else { return (.success(.unresponsive(process: .stopped, windows: owned)), nil) }
                 try observer?.get().register()
-                let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-                let windows: [Data?] = try application.windows()
-                if let last, last.windows == windows { return (responding(last.elements), windows) }
-                let elements: [Element] = try application.candidates().map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
-                return (isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? responding(elements) : .launching, windows)
-            }
-            let status: Result<ApplicationStatus, ApplicationFailure> = read.map(\.status).flatMapError { failure in
-                failure.reason.is(\.unanswered)
-                    ? Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus(), windows: owned) : .launching } : .failure(failure)
-            }
-            return switch read {
-                case .success(let read): (status, read.windows)
-                case .failure: (status, nil)
+                let read: [String: CFTypeRef] = try AXUIElementCreateApplication(processIdentifier).values([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXMenuBarAttribute])
+                let windows: [Data?] =
+                    (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
+                if let last, last.windows == windows { return (.success(responding(last.elements)), windows) }
+                let elements: [Element] = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in try candidate.described(walking: walked) }.compactMap(\.self)
+                return (.success(isFinishedLaunching || elements.contains(where: \.requiresAnswer) ? responding(elements) : .launching), windows)
+            } catch let failure where failure.reason.is(\.unanswered) {
+                return (Result { () throws(ApplicationFailure) in isFinishedLaunching ? .unresponsive(process: try processStatus(), windows: owned) : .launching }, nil)
+            } catch {
+                return (.failure(error), nil)
             }
         }
     }

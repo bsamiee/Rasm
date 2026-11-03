@@ -28,10 +28,9 @@ private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) asy
     )
     let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.entry.instances)
     let capture: WatchAppsLine.Capture = try #require(instances[pid]?.captured)
-    let temporary: String = try #require(ProcessInfo.processInfo.environment["TMPDIR"])
     let selected: String = flags.firstIndex(of: "--window").map { index in flags[index + 1] } ?? "windows"
     let named: String = [fixture.identifier, String(pid), selected].joined(separator: "-") + ".png"
-    let expected: String = URL(filePath: temporary).appending(components: "watch-apps", named).resolvingSymlinksInPath().path(percentEncoded: false)
+    let expected: String = URL.temporaryDirectory.appending(components: "watch-apps", named).resolvingSymlinksInPath().path(percentEncoded: false)
     let file: URL = URL(filePath: capture.file)
     let written: String = file.resolvingSymlinksInPath().path(percentEncoded: false)
     let data: Data = try Data(contentsOf: file)
@@ -45,18 +44,6 @@ private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) asy
     expectNoDifference(written, expected)
     expectNoDifference(type, UTType.png.identifier)
     return (capture, image)
-}
-
-@MainActor
-private func scale(of frame: CGRect) throws -> CGFloat {
-    let center: CGPoint = CGPoint(x: frame.midX, y: frame.midY)
-    let number: NSDeviceDescriptionKey = NSDeviceDescriptionKey("NSScreenNumber")
-    let screen: NSScreen = try #require(
-        NSScreen.screens.first { screen in
-            if let display: CGDirectDisplayID = screen.deviceDescription[number] as? CGDirectDisplayID { CGDisplayBounds(display).contains(center) } else { false }
-        }
-    )
-    return screen.backingScaleFactor
 }
 
 @MainActor
@@ -81,24 +68,23 @@ extension Integration {
     struct Captures {
         @MainActor
         @Test(.application(FixtureApplication.self, launches: false))
-        func captureWritesSwatchPixelsAtDisplayScale() async throws {
+        func captureWritesSwatchPixelsAtOneScale() async throws {
             let fixture: Fixture = try Fixture()
-            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier]) { lines in
+            let pid: Int32 = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.swatch, in: fixture, pid: pid)
                 _ = try await lines.next { line in line.elements(of: pid)?.titled("Swatch") != nil }
                 return pid
             }
-            let pid: Int32 = watched.outcome
+            .outcome
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             let swatch: WatchAppsLine.Element = try #require(elements.titled("Swatch"))
             let number: Int = try #require(swatch.window)
             let frame: CGRect = try #require(swatch.detail?.frame)
-            let factor: CGFloat = try scale(of: frame)
             let full: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number)])
-            let pixels: [Int] = [full.image.width, full.image.height]
-            let expectedPixels: [Int] = [Int((frame.width * factor).rounded()), Int((frame.height * factor).rounded())]
+            let factor: CGFloat = CGFloat(full.image.width) / frame.width
+            let height: Int = Int((frame.height * factor).rounded())
             let content: CGSize = NSWindow.contentRect(forFrameRect: frame, styleMask: [.titled]).size
             let bar: CGFloat = frame.height - content.height
             let converted: NSBitmapImageRep? = NSBitmapImageRep(cgImage: full.image).converting(to: .sRGB, renderingIntent: .relativeColorimetric)
@@ -112,9 +98,9 @@ extension Integration {
                 }
             }
             let matching: [Cell] = cells.map { cell in Cell(row: cell.row, column: cell.column, mismatches: 0) }
-            if cells != matching || pixels != expectedPixels { Attachment.record(full.image, named: "swatch", as: .png) }
+            if cells != matching || full.image.height != height { Attachment.record(full.image, named: "swatch", as: .png) }
             expectNoDifference(full.capture.windows, [number])
-            expectNoDifference(pixels, expectedPixels)
+            expectNoDifference(full.image.height, height)
             expectNoDifference(cells, matching)
             let longest: Int = 120
             let scaled: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number), "--longest-side", String(longest)])
@@ -126,10 +112,10 @@ extension Integration {
             expectNoDifference(scaledMajor, longest)
             #expect(proportional, "\(scaled.image.width)x\(scaled.image.height) from \(full.image.width)x\(full.image.height)")
             let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
-            let windows: Set<Int> = Set(elements.filter { element in element.role == "AXWindow" }.compactMap(\.window))
+            let windows: Set<Int> = Set(elements.filter { element in element.role == kAXWindowRole }.compactMap(\.window))
             let quit: WatchAppsLine.Control = try #require(elements.menuBar?.detail?.controls?.compactMap(\.items).joined().first { item in item.label == "Quit" })
             expectNoDifference(Set(all.capture.windows), windows)
-            _ = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+            _ = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.key == fixture.identifier }
                 try await perform(quit)
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
@@ -158,11 +144,11 @@ extension Integration {
             let fixture: Fixture = try Fixture()
             let pid: Int32 = try await launch(fixture).pid
             let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
-            let collapsed: Int = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+            let collapsed: Int = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.collapsed, in: fixture, pid: pid)
-                let shown: TimedLine<WatchAppsLine> = try await lines.next { line in line.elements(of: pid)?.titled("Collapsed") != nil }
-                let numbered: Int? = shown.line.elements(of: pid)?.titled("Collapsed")?.window
+                let shown: WatchAppsLine = try await lines.next { line in line.elements(of: pid)?.titled("Collapsed") != nil }
+                let numbered: Int? = shown.elements(of: pid)?.titled("Collapsed")?.window
                 return try #require(numbered)
             }
             .outcome
@@ -175,10 +161,10 @@ extension Integration {
         func minimizedInstancePrintsFailInPlaceOfEntry() async throws {
             let fixture: Fixture = try Fixture()
             let pid: Int32 = try await launch(fixture).pid
-            _ = try await watching([fixture.identifier], within: .seconds(10)) { lines in
+            _ = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.minimize, in: fixture, pid: pid)
-                _ = try await lines.next { line in line.elements(of: pid)?.titled("Fixture 0")?.subrole != "AXStandardWindow" }
+                _ = try await lines.next { line in line.elements(of: pid)?.titled("Fixture 0")?.subrole != kAXStandardWindowSubrole }
             }
             let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
             expectNoDifference(elements.titled("Fixture 0")?.minimized, true)

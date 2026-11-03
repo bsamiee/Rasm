@@ -10,8 +10,7 @@ from expression import Nothing, Ok, Option, Some
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.commands.calls import Placement
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Placement, tallied, Unchanged
 from blender.bpy.data.rna.paths import parsed, rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key

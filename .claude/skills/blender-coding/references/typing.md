@@ -10,7 +10,6 @@ Blender's Python 3.13 evaluates module, class, and signature annotations as thei
 - Signatures name earlier declarations and aliases, a quote holding a later declaration
 - Unresolvable annotations raise at `register_class` on `PropertyGroup` and `AddonPreferences` classes or bases, and leave `Operator` with no property
 - Registrable classes annotate `bpy.props` calls and runtime-bound names alone
-- Python 3.13 reads annotations through `inspect.get_annotations(owner, eval_str=True)`, keeps imports eager, and takes `typing_extensions.TypeForm`
 - Blender's main thread flushes subnormal floats to zero where worker threads keep them, and `msgspec.Meta(gt=0.0)` accepts `0.0` on the main thread
 - Positive bounds take `ge=sys.float_info.min` for one result on every thread
 
@@ -18,11 +17,11 @@ Blender's Python 3.13 evaluates module, class, and signature annotations as thei
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import OperatorReturnItems
 
-type Answer = set[OperatorReturnItems]
+type Returns = set[OperatorReturnItems]
 type Elements[T] = bpy.types.bpy_prop_collection[T]
 ```
 
-Both aliases import and run in Blender, `Answer` typing `execute`, `invoke`, and `modal` returns and `Elements[bpy.types.Object]` a `collection.objects` parameter.
+Both aliases import and run in Blender, `Returns` typing `execute`, `invoke`, and `modal` returns and `Elements[bpy.types.Object]` a `collection.objects` parameter. `rna_enums` literals type every static host enum value (`OperatorReturnItems`, `EventTypeItems`, `OperatorTypeFlagItems`).
 
 ## [02]-[STUB_DEFECTS]
 

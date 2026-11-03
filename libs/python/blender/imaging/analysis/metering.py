@@ -52,12 +52,10 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
         """Covered pixels with finite luminance."""
         return np.asarray(self.covered & np.isfinite(self.luminance), dtype=np.bool)
 
-    def peak(self) -> Outcome[Option[float]]:
-        """Returns covered percentile PQ peak in cd/m², decoded through the OCIO ST-2084 curve, absent without covered samples."""
-        if not (found := (greatest := self.color.max(axis=-1))[self.covered & np.isfinite(greatest)]).size:
-            return Ok(Nothing)
-        code = np.full((1, 3), np.clip(np.percentile(found, Extent.percentile, method="inverted_cdf"), 0.0, 1.0), dtype=np.float32)
-        return converted(PyOpenColorIO.Config(), PyOpenColorIO.BuiltinTransform(style="CURVE - ST-2084_to_LINEAR"), code).map(lambda linear: Some(100.0 * float(linear[0, 0])))
+    def peak(self) -> Option[float]:
+        """Returns covered percentile PQ peak in cd/m² through the SMPTE ST 2084 EOTF, absent without covered samples."""
+        found = (greatest := self.color.max(axis=-1))[self.covered & np.isfinite(greatest)]
+        return Some(found).filter(lambda held: held.size > 0).map(lambda held: float(colour.models.eotf_ST2084(np.clip(np.percentile(held, Extent.percentile, method="inverted_cdf"), 0.0, 1.0))))
 
     def percentile(self, rank: float) -> Option[float]:
         """Returns covered luminance at `rank` percentile."""

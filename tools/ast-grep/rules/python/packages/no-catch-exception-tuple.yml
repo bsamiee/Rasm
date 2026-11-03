@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-catch-exception-tuple
+language: python
+severity: error
+rule:
+    kind: call
+    all:
+        - has: {field: function, matches: {expression-member: {name: {regex: '^catch$'}}}}
+        - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^exception$'}}, {has: {field: value, kind: tuple}}]}}
+message: '`catch` types one exception class, a tuple of classes takes a `type: ignore`'
+note: 'Write `try` over the call with one handler for the tuple returning `Error(<fault>)`'

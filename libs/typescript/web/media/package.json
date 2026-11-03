@@ -1,7 +1,7 @@
 {
     "name": "@rasm/media",
     "private": true,
-    "description": "Browser-side inspection, upload preprocessing, and PDF viewing of media",
+    "description": "Media inspection, Uppy upload preprocessing, and pdf.js document viewing in the browser, with the Vite copy of pdf.js assets",
     "sideEffects": false,
     "type": "module",
     "imports": {

@@ -237,22 +237,18 @@ class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             kept = accumulated(prior.map(lambda at: Ok(items[at])).default_with(lambda: fresh(items[index])) for prior in order)
             moved = max((position for position, prior in enumerate(order) if prior == Some(index)), default=index if edit is Edit.RESET else max(index - 1, 0))
             active = moved if isinstance(target, LayerAt) else target.layer
-            return kept.bind(lambda changed: amended(self, lens, lambda _: changed).to_result_with(absent).map(lambda stack: (stack, active, order)))
+            return kept.bind(lambda changed: amended(tuple, self, lens, lambda _: changed).to_result_with(absent).map(lambda stack: (stack, active, order)))
 
-        found = focused(self, lens).bind(lambda held: Option.of_optional(try_downcast(tuple, held))).filter(lambda items: 0 <= index < len(items))
+        found = focused(tuple, self, lens).filter(lambda items: 0 <= index < len(items))
         return found.to_result_with(absent).bind(written)
 
     def blended(self, target: Target) -> Option[Blend]:
         """Returns the blend a target edits, the layer's or its effect's."""
-        return focused(self, _blend_lens(target)).bind(lambda held: Option.of_optional(try_downcast(Blend, held)))
+        return focused(Blend, self, _blend_lens(target))
 
     def masked(self, target: Target, change: int) -> Outcome[Self]:
         """Changes the mask count of the targeted blend by `change`, never below zero, the last mask leaving first."""
-        changed = amended(
-            self,
-            _blend_lens(target),
-            lambda held: Option.of_optional(try_downcast(Blend, held)).map(lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0))).default_value(held),
-        )
+        changed = amended(Blend, self, _blend_lens(target), lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0)))
         return changed.to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=repr(target)))
 
 

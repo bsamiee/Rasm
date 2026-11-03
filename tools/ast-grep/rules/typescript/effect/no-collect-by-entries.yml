@@ -16,10 +16,10 @@ rule:
             - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: entries}}, {has: {field: property, regex: '^map$'}}]}
             - has: {field: arguments, has: {nthChild: 1, not: {matches: indexed-callback}}}
         - all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^map$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^(map|filterMap)$'}}}}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: entries}}, {has: {nthChild: 2, not: {matches: indexed-callback}}}]}
         - all:
             - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: entries}}, {has: {nthChild: 2, not: {matches: indexed-callback}}}]}
 message: '`$ENTRIES` builds key-value pairs to map entries to an array'
-note: 'Call `Record.collect(<record>, (<key>, <value>) => <element>)`, `Record.keys` or `Record.values` for keys or values alone, `Record.mapEntries` to build a record'
+note: 'Call `Record.collect(<record>, (<key>, <value>) => <element>)` over a `Record.filter` for a filtered map, `Record.keys` or `Record.values` for keys or values alone, `Record.mapEntries` to build a record'

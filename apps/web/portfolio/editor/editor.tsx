@@ -1,29 +1,31 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
 import { ModalOverlay } from '@rasm/ui/dialog/overlay';
 import { focus } from '@rasm/ui/focus';
-import { FieldIssues } from '@rasm/ui/form/issues';
-import { Array, Match, Option } from 'effect';
+import { Issues } from '@rasm/ui/form/issues';
+import { Array, Match, Option, Predicate } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, Heading, type Key, Modal, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
-import { Compositions } from '#/editor/compositions';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { EntryFields, EntryList } from '#/editor/entries';
-import { Identity } from '#/editor/identity';
-import { Library } from '#/editor/library';
-import { RequestAlert } from '#/editor/request-alert';
-import { ReuseFile } from '#/editor/reuse-file';
-import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
-import { UploadRecovery } from '#/editor/upload-recovery';
-import { Destination, pendingUploads } from '#/editor/uploader';
-import { entryTitle, format } from '#/media/labels';
-import { Entry, type Portfolio, type PortfolioData } from '#/model/portfolio';
+import { Compositions } from '#/editor/compositions.tsx';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { EntryFields, EntryList } from '#/editor/entries.tsx';
+import { Identity } from '#/editor/identity.tsx';
+import { Library } from '#/editor/library.tsx';
+import { PlaceFile } from '#/editor/place-file.tsx';
+import { RequestAlert } from '#/editor/request-alert.tsx';
+import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state.ts';
+import { UploadRecovery } from '#/editor/upload-recovery.tsx';
+import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
+import { entryTitle, format } from '#/media/labels.ts';
+import type { AssetId } from '#/model/asset.ts';
+import type { CompositionId } from '#/model/placement.ts';
+import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Uploads = lazy(() => import('#/editor/uploads').then((module) => ({ default: module.Uploads })));
+const Uploads = lazy(() => import('#/editor/uploads.tsx').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
     <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
         <Modal>
@@ -47,20 +49,20 @@ const EditorDialog = ({ description, busy, children }: { description?: string; b
     </ModalOverlay>
 );
 const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof draft> & { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void }) => {
-    const ids = useId();
+    const idPrefix = useId();
     const publish = useRef<HTMLButtonElement>(null);
     const save = useRef<HTMLButtonElement>(null);
     const setDraft = useAtomSet(draft);
-    const setTarget = useAtomSet(Destination);
+    const setTarget = useAtomSet(nextDestination);
     const pending = useAtomValue(pendingUploads);
     const deletion = useAtomValue(deleteRequest);
     const [operation, submit] = useAtom(saveRequest);
     const [reloading, reload] = useAtom(reloadRequest);
-    const [selected, setSelected] = useState<string>();
-    const [workspace, setWorkspace] = useState<'projects' | 'entry' | 'sources'>('projects');
-    const [composition, setComposition] = useState<string>();
-    const [source, setSource] = useState(Option.none<string>());
-    const [tab, setTab] = useState<Key>(`${ids}entries`);
+    const [selected, setSelected] = useState<typeof EntryId.Type>();
+    const [workspace, setWorkspace] = useState<'entries' | 'entry' | 'place'>('entries');
+    const [composition, setComposition] = useState<typeof CompositionId.Type>();
+    const [assetId, setAssetId] = useState(Option.none<typeof AssetId.Type>());
+    const [tab, setTab] = useState<Key>(`${idPrefix}entries`);
     useEffect(() => {
         if (AsyncResult.isSuccess(reloading) && !reloading.waiting) {
             save.current?.focus();
@@ -68,50 +70,56 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     }, [reloading]);
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
     const current = state.portfolio.entries.find((item) => item.id === selected);
-    const show = (name: 'entries' | 'files' | 'identity') => setTab(`${ids}${name}`);
-    const openEntry = (id: string) => {
+    const show = (name: 'entries' | 'files' | 'identity') => setTab(`${idPrefix}${name}`);
+    const openEntry = (id: typeof EntryId.Type, target = `${idPrefix}entry`) => {
         setSelected(id);
         setWorkspace('entry');
-        focus(`${ids}entry`);
+        focus(target);
     };
-    const chooseSource = (entryId: string, assetId: string) => {
+    const place = (entryId: typeof EntryId.Type, placed: typeof AssetId.Type) => {
         setSelected(entryId);
-        setTarget({ kind: 'entry', id: entryId });
-        setSource(Option.some(assetId));
-        setWorkspace('sources');
+        setTarget(Destination.Entry({ id: entryId }));
+        setAssetId(Option.some(placed));
+        setWorkspace('place');
         show('entries');
-        focus(`${ids}source`);
+        focus(`${idPrefix}place`);
     };
     const create = (kind: typeof Entry.Type.kind) => {
-        const created = Entry.make({ id: SecureRandom.uuidV7Unsafe(), kind });
+        const created = Entry.make({ id: EntryId.make(SecureRandom.uuidV7Unsafe()), kind });
         setDraft(AsyncResult.map(portfolio.key('entries').modify(Array.append(created))));
         setSelected(created.id);
         setWorkspace('entry');
-        setTarget({ kind: 'entry', id: created.id });
-        focus(`${ids}title`);
+        setTarget(Destination.Entry({ id: created.id }));
+        focus(`${idPrefix}title`);
     };
-    const locate = ([head, entryIndex, part, compositionIndex]: readonly PropertyKey[], snapshot: typeof Portfolio.Type) =>
-        Match.value({ head, entry: Array.findFirst(snapshot.entries, (_, index) => index === entryIndex) }).pipe(
-            Match.when({ head: 'entries', entry: { _tag: 'Some' } }, ({ entry: { value } }) => {
-                show('entries');
-                openEntry(value.id);
-                Option.map(
-                    Array.findFirst(value.compositions, (_, index) => part === 'compositions' && index === compositionIndex),
-                    ({ id }) => {
-                        setComposition(id);
-                        focus(id);
-                    },
-                );
-            }),
-            Match.when({ head: 'entries' }, () => {
-                show('entries');
-                setWorkspace('projects');
-            }),
-            Match.orElse(() => {
-                show('identity');
-                focus(`${ids}${String(head)}`);
-            }),
+    const locate = ([head, entryIndex, part, compositionIndex]: readonly PropertyKey[], snapshot: typeof Portfolio.Type) => {
+        if (head !== 'entries') {
+            show('identity');
+            focus(`${idPrefix}${String(head)}`);
+            return;
+        }
+        show('entries');
+        Option.match(
+            Option.flatMap(Option.liftPredicate(entryIndex, Predicate.isNumber), (index) => Array.get(snapshot.entries, index)),
+            {
+                onNone: () => setWorkspace('entries'),
+                onSome: (entry) =>
+                    Option.match(
+                        Option.flatMap(
+                            Option.liftPredicate(compositionIndex, (index) => part === 'compositions' && Predicate.isNumber(index)),
+                            (index) => Array.get(entry.compositions, Number(index)),
+                        ),
+                        {
+                            onNone: () => openEntry(entry.id, part === 'title' ? `${idPrefix}title` : `${idPrefix}entry`),
+                            onSome: ({ id }) => {
+                                openEntry(entry.id, id);
+                                setComposition(id);
+                            },
+                        },
+                    ),
+            },
         );
+    };
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
         Match.when({ reloading: true }, () => 'Loading latest draft…'),
         Match.when({ saving: true }, () => 'Saving…'),
@@ -123,13 +131,13 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     return (
         <EditorDialog busy={busy}>
             <div className="border-line flex flex-wrap items-center gap-2 border-b px-9 pb-4 max-sm:px-5">
-                <button className="button button-ghost" disabled={busy} form={`${ids}form`} ref={save} type="submit">
+                <button className="button button-ghost" disabled={busy} form={`${idPrefix}form`} ref={save} type="submit">
                     Save draft
                 </button>
                 <Button className="button button-ghost" isDisabled={busy} onPress={() => onPreview(state)} slot="close">
                     Preview draft
                 </Button>
-                <button aria-describedby={pending.length > 0 ? `${ids}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${ids}form`} ref={publish} type="submit">
+                <button aria-describedby={pending.length > 0 ? `${idPrefix}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${idPrefix}form`} ref={publish} type="submit">
                     Publish
                 </button>
                 <p className="text-caption text-muted min-h-4.5 w-full" role="status">
@@ -138,8 +146,13 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                 {AsyncResult.builder(operation)
                     .onError(({ error, portfolio: submitted }) => (
                         <div className="w-full">
-                            <RequestAlert conflict="Draft uses file missing from library. Remove its placement or upload it again" error={error} onField={(path) => locate(path, submitted)} />
-                            {error._tag === 'PreconditionFailed' && <ConfirmDialog description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />}
+                            <RequestAlert error={error} onField={(path) => locate(path, submitted)} />
+                            {error._tag === 'PreconditionFailed' && (
+                                <div className="actions">
+                                    <ConfirmDialog description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />
+                                    <ConfirmDialog description={`Saves these edits over draft revision ${error.revision}. Published work changes on next publish`} disabled={busy} label="Replace newer draft" onConfirm={() => submit({ ...state, revision: error.revision, publish: false })} />
+                                </div>
+                            )}
                         </div>
                     ))
                     .orNull()}
@@ -150,8 +163,8 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .onError((error) => <RequestAlert conflict="Saved or published work uses file. Remove its placements and publish before deleting" error={error} />)
                     .orNull()}
                 {pending.length > 0 && (
-                    <p className="text-caption text-muted w-full" id={`${ids}uploads`}>
-                        {format.quantity(pending.length, { one: 'file', other: 'files' })} not uploaded. Upload or remove before publishing or reloading{' '}
+                    <p className="text-caption text-muted w-full" id={`${idPrefix}uploads`}>
+                        {format.quantity(pending.length, { one: (count) => `${count} file`, other: (count) => `${count} files` })} not uploaded. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
                         </button>
@@ -161,22 +174,22 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
             <fieldset className="max-sm:pb-safe m-0 border-0 px-9 pt-3 pb-15 max-sm:px-5" disabled={busy}>
                 <Tabs isDisabled={busy} onSelectionChange={setTab} selectedKey={tab}>
                     <TabList aria-label="Portfolio editing" className="border-line mb-6 flex gap-1.5 border-b max-sm:w-full max-sm:flex-wrap">
-                        <Tab className="editor-tab" id={`${ids}entries`}>
+                        <Tab className="editor-tab" id={`${idPrefix}entries`}>
                             Projects and studies
                         </Tab>
-                        <Tab className="editor-tab" id={`${ids}files`}>
+                        <Tab className="editor-tab" id={`${idPrefix}files`}>
                             Files{pending.length > 0 ? ` (${pending.length})` : ''}
                         </Tab>
-                        <Tab className="editor-tab" id={`${ids}identity`}>
+                        <Tab className="editor-tab" id={`${idPrefix}identity`}>
                             Identity and hero
                         </Tab>
                     </TabList>
-                    <TabPanel className="editor-panel" id={`${ids}entries`}>
+                    <TabPanel className="editor-panel" id={`${idPrefix}entries`}>
                         {Match.value({ workspace, current }).pipe(
-                            Match.when({ workspace: 'sources', current: Match.defined }, ({ current: entry }) => (
+                            Match.when({ workspace: 'place', current: Match.defined }, ({ current: entry }) => (
                                 <>
                                     <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <h3 className="text-xl tracking-tight wrap-anywhere outline-none" id={`${ids}source`} tabIndex={-1}>
+                                        <h3 className="text-xl tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
                                             Add to {entryTitle(entry)}
                                         </h3>
                                         <button className="button button-ghost" onClick={() => openEntry(entry.id)} type="button">
@@ -184,40 +197,40 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                             Back to entry
                                         </button>
                                     </div>
-                                    <ReuseFile
+                                    <PlaceFile
+                                        assetId={assetId}
                                         assets={state.assets}
                                         entryId={entry.id}
-                                        key={Option.getOrUndefined(source)}
+                                        key={Option.getOrUndefined(assetId)}
                                         onAdd={(id) => {
                                             setComposition(id);
                                             openEntry(entry.id);
                                         }}
-                                        onSource={setSource}
-                                        sourceId={source}
+                                        onSelect={setAssetId}
                                     />
                                 </>
                             )),
                             Match.when({ workspace: 'entry', current: Match.defined }, ({ current: entry }) => (
                                 <div className="flex flex-col gap-5" key={entry.id}>
                                     <div className="border-line flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-                                        <h3 className="min-w-0 flex-1 text-xl tracking-tight wrap-anywhere outline-none" id={`${ids}entry`} tabIndex={-1}>
+                                        <h3 className="min-w-0 flex-1 text-xl tracking-tight wrap-anywhere outline-none" id={`${idPrefix}entry`} tabIndex={-1}>
                                             {entryTitle(entry)}
                                         </h3>
-                                        <button className="button button-ghost" onClick={() => setWorkspace('projects')} type="button">
+                                        <button className="button button-ghost" onClick={() => setWorkspace('entries')} type="button">
                                             Back to entries
                                         </button>
                                     </div>
-                                    <EntryFields entry={entry} titleId={`${ids}title`} />
+                                    <EntryFields entry={entry} titleId={`${idPrefix}title`} />
                                     <Compositions
                                         assets={state.assets}
                                         entry={entry}
-                                        onLibrary={() => {
-                                            setWorkspace('sources');
-                                            focus(`${ids}source`);
+                                        onPlace={() => {
+                                            setWorkspace('place');
+                                            focus(`${idPrefix}place`);
                                         }}
                                         onSelect={setComposition}
                                         onUpload={() => {
-                                            setTarget({ kind: 'entry', id: entry.id });
+                                            setTarget(Destination.Entry({ id: entry.id }));
                                             show('files');
                                         }}
                                         selected={composition}
@@ -227,7 +240,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             Match.orElse(() => (
                                 <>
                                     <div className="actions">
-                                        <button className="button button-outline" id={`${ids}new`} onClick={() => create('project')} type="button">
+                                        <button className="button button-outline" id={`${idPrefix}new`} onClick={() => create('project')} type="button">
                                             New project
                                         </button>
                                         <button className="button button-ghost" onClick={() => create('study')} type="button">
@@ -236,10 +249,10 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                     </div>
                                     <EntryList
                                         entries={state.portfolio.entries}
-                                        onRemove={() => focus(`${ids}new`)}
+                                        onRemove={() => focus(`${idPrefix}new`)}
                                         onSelect={(item) => {
                                             openEntry(item.id);
-                                            setTarget({ kind: 'entry', id: item.id });
+                                            setTarget(Destination.Entry({ id: item.id }));
                                         }}
                                         selected={selected}
                                     />
@@ -248,17 +261,17 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             )),
                         )}
                     </TabPanel>
-                    <TabPanel className="editor-panel" id={`${ids}files`}>
+                    <TabPanel className="editor-panel" id={`${idPrefix}files`}>
                         <Suspense fallback={<p role="status">Loading files…</p>}>
-                            <Uploads assets={state.assets} entries={state.portfolio.entries} onChoose={chooseSource} />
+                            <Uploads assets={state.assets} entries={state.portfolio.entries} onPlace={place} />
                         </Suspense>
                         <UploadRecovery />
-                        <Library assets={state.assets} onSelect={setSource} onUse={chooseSource} portfolio={state.portfolio} published={published} sourceId={source} />
+                        <Library assetId={assetId} assets={state.assets} onPlace={place} onSelect={setAssetId} portfolio={state.portfolio} published={published} />
                     </TabPanel>
-                    <TabPanel className="editor-panel" id={`${ids}identity`} shouldForceMount={true}>
+                    <TabPanel className="editor-panel" id={`${idPrefix}identity`} shouldForceMount={true}>
                         <form
                             className="flex flex-col gap-5"
-                            id={`${ids}form`}
+                            id={`${idPrefix}form`}
                             onInvalidCapture={(event) => {
                                 event.preventDefault();
                                 show('identity');
@@ -269,7 +282,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                 submit({ ...state, publish: event.submitter === publish.current });
                             }}
                         >
-                            <FieldIssues
+                            <Issues.Fields
                                 issue={AsyncResult.error(operation).pipe(
                                     Option.flatMap(({ error }) =>
                                         Match.value(error).pipe(
@@ -281,14 +294,14 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             >
                                 <Identity
                                     assets={state.assets}
-                                    ids={ids}
+                                    idPrefix={idPrefix}
                                     onChooseHero={() => {
-                                        setTarget({ kind: 'hero' });
+                                        setTarget(Destination.Hero());
                                         show('files');
                                     }}
                                     portfolio={state.portfolio}
                                 />
-                            </FieldIssues>
+                            </Issues.Fields>
                         </form>
                     </TabPanel>
                 </Tabs>

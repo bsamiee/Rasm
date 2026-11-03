@@ -7,14 +7,15 @@ description: "Use when writing or reviewing Swift, covering functional design wi
 
 Code uses each module's types wherever they state a value:
 - Toolchain: standard library, Swift Concurrency, `Observation`, `Synchronization`, `System`
-- Packages: `Collections`, `AsyncAlgorithms`, `CasePaths`, `Subprocess`, `ArgumentParser`
+- Packages: `Collections`, `AsyncAlgorithms`, `CasePaths` (`CasePathsCore` for code that reads case paths alone), `Subprocess`, `ArgumentParser`
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide
-- Every type, export, and helper inside and outside each module states something nothing else does
-- Values that vary are parameters
+- Every type, export, and helper states something nothing else does, and a helper with one reader or a forwarder merges into its caller
+- Values that vary are parameters, a value every caller passes alike folds into its owner, and a field no reader acts on goes
 - Names come from domain vocabulary and members of the packages in use, and a file takes the name of the concept it holds
+- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
@@ -41,7 +42,7 @@ Function types state each effect of a call on the function that performs it:
 |  [06]   | `@isolated(any)`         | Keeps the isolation the closure was formed in                          |
 |  [07]   | `borrowing`, `consuming` | Reads the argument, or takes ownership of it                           |
 
-- Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter, overloads serve other input types
+- Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter, and overloads serve other input types
 - Declarations stay `internal` until another module calls them, `package` within one package, `public` for a product's API
 - `public import` names a module whose types a public signature states, every other import stays internal
 
@@ -64,15 +65,9 @@ func total<E: Error>(of lines: [Line], pricedBy price: (Line) throws(E) -> Decim
 
 Current instant, user locale, and random source (`inout some RandomNumberGenerator`) enter as arguments, and a function that waits or measures takes `some Clock<Duration>`.
 
-### [01.3]-[DEPENDENCIES]
-
-Dependencies are operations a consumer reads, and their count over one resource selects the form:
-- One operation is a function value: a lookup `(Key) async throws(E) -> Item?`, a persistence step `(Item) async throws(E) -> Void`
-- Operations that share one resource are a protocol, consumed as `some Store<Item>`
-
 ## [02]-[EXPRESSIONS]
 
-`if` and `switch` are expressions when each branch is one expression, and a binding, `return`, or property takes it whole. Branches needing statements call a function:
+`if` and `switch` are expressions when each branch is one expression, and a binding, `return`, or property takes it whole. Branches needing statements make the `if` or `switch` a statement. Closures nest one level, and a decision over a discriminant becomes a tuple `switch` or a table:
 - `let <name>: <Type> = switch <subject> { ... }` binds a value each arm selects, a `throw` arm stays in place
 - `count(where:)` counts, `indices(where:)` returns a `RangeSet` that `removeSubranges` and the `subranges` subscript take whole
 
@@ -81,16 +76,16 @@ Dependencies are operations a consumer reads, and their count over one resource 
 `switch` keeps recognition, extraction, guards, and results together. A tuple subject makes one table where each arm names a combination of its values:
 
 ```swift
-func retryDelay(status: Int, retryAfter: Duration?, attempt: Int, schedule: some Collection<Duration>) -> Duration? {
-    switch (status, retryAfter, schedule.dropFirst(attempt).first) {
-        case (429, let wait?, _?): wait
-        case (429, nil, let delay?), (500..<600, _, let delay?): delay
+func access(of role: Role, owning: Bool, to state: Document.State) -> Access? {
+    switch (role, owning, state) {
+        case (.admin, _, _), (_, true, .draft): .write
+        case (.editor, _, .review), (_, _, .published): .read
         default: nil
     }
 }
 ```
 
-- `schedule` holds the caller's delay per attempt and bounds attempts by its count (`(0..<5).lazy.map { step in Duration.seconds(1) * (1 << step) }`)
+`Role`, `Document.State`, and `Access` are module enums:
 - Switches over a module's own enum list every case, and a new case fails to compile until each switch handles it
 - Values every arm reads join the tuple subject, a `where` clause holds a test one pattern alone reads
 
@@ -108,7 +103,7 @@ Swift guarantees no tail calls, and depth bound and successor sharing select the
 
 ## [03]-[DATA]
 
-Values take the type that the standard library, Foundation, or a core package declares for their fact. Declarations add only a rule no such type states:
+Values take the type that the standard library, Foundation, or a package in use declares for their fact. Declarations add only a rule no such type states:
 
 | [INDEX] | [FACT]                   | [TYPE]                                |
 | :-----: | :----------------------- | :------------------------------------ |
@@ -124,10 +119,11 @@ Values take the type that the standard library, Foundation, or a core package de
 |  [10]   | Vector                   | `SIMD2<Double>`                       |
 |  [11]   | Rendered text            | `FormatStyle` of the value's type     |
 
-- `RawRepresentable` structs hold a value's rule in `init?(rawValue:)`, and synthesized `Codable` and `ExpressibleByArgument` apply it at boundaries
-- Integer generic parameters state one rule for all bounds (`Bounded<1, 999>`), and records of bounded fields synthesize each initializer and coder
+- `RawRepresentable` structs (`Bounded<low, high>`) hold a value's rule in `init?(rawValue:)`
+- Records of `RawRepresentable` fields synthesize each initializer and coder
 - Enums declare a closed set, and each per-case fact is a computed property over the case
 - Kinds, keys, and states are enum cases and key paths, a string holds text a person reads or a token a wire fixes
+- Wire tokens come from their owner (`kCFBundleIdentifierKey`, `UTType`, `String(describing: T.self)`, a `rawValue`) in place of a literal
 - `Comparable` synthesis orders the cases of an enum with no raw type, a `String` raw value holds an external spelling
 - Per-case values that follow a rule compute from case order and parameters the caller passes:
 
@@ -165,7 +161,7 @@ Each state a consumer inspects is a distinct case. Counting a type's values (str
 - Fields every case holds sit once in the struct that stores the enum, and the enum holds what differs between cases
 - Flags whose companion fields mean something for one value become one case per state
 - Outcomes one case holds side by side are one `Result` each, an optional pair or a reason string loses which outcome failed
-- `@CasePathable` with `@dynamicMemberLookup` reads one case (`\.inTransit`, `is(\.pending)`, `[case:]`), and a decision over every case or a tuple payload is a `switch`
+- `@CasePathable` with `@dynamicMemberLookup` reads one case (`\.inTransit`, `[case:]`), and `switch` decides every case or tuple associated value
 - Absence and failure stay separate when the consumer responds differently to each
 
 ## [04]-[RESULTS]
@@ -195,7 +191,7 @@ Step signatures and the dependence between steps select the operator:
 |  [05]   | `[T]` with `T throws(E) -> U`   | `map` with a throwing closure | Stops at the first failure                           |
 |  [06]   | `[T]` with an aggregate step    | `traverse`                    | Runs every step, keeps every success or failure      |
 
-`AggregateError`, `combine`, and `traverse` sit once in a module every throwing module imports, and `aggregated` lifts one step's failure into an aggregate.
+`AggregateError`, `combine`, and `traverse` are declared once for every throwing module, and `aggregated` lifts one step's failure into an aggregate.
 
 - Steps stay in one outcome form through the pipeline
 - Nested optionals and nested results stay nested, and consumers match the inner layer once
@@ -230,18 +226,16 @@ struct OrderError: LocalizedError, CustomNSError {
 - `localizedDescription` and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
 - `Error` refines `Sendable`, every reason fact is `Sendable`, and a cause crosses tasks whole
 - Reason cases name the rule, and a case holds a fact only where some of its failures have one (a shortfall, a host cause)
+- Guards checking separate rules each throw their own reason, and a shared reason loses which rule failed
 - Subjects name the rejected value as the caller wrote it with the facts its reason reads (`"debit 120 against 100"`)
 - Host causes stay whole in a reason case of the host's thrown type (`Errno`, `DecodingError`, `AXError`), an untyped `throws` in an `any Error` case
 - Host calls convert at the call, `do` holds the host call alone and its `catch` throws the module error
-- Fallbacks answering one failure catch its pattern (`catch DecodingError.typeMismatch`, `catch let error where error.reason.is(\.missing)`), the rest propagate
+- Fallbacks answering one failure catch its pattern in one `do throws(E)` (`catch let error where error.reason.is(\.missing)`), and the rest propagate
+- Guards, defaults, retries, and `try?` hiding a cause go, and a `Result` field keeps a cause a reader reports
 - `CancellationError` passes through as the cancelled outcome
 - Consumers classify by `reason`
 
-## [05]-[OWNERSHIP]
-
-Values with one owner at a time are `~Copyable`: the compiler checks every hand-off, and `deinit` releases owned resources on every abandoned path.
-
-## [06]-[CONCURRENCY]
+## [05]-[CONCURRENCY]
 
 Isolation decides where code runs and what it touches, and the state a value shares selects the form:
 
@@ -262,9 +256,8 @@ Child tasks follow the shape of the work, and each child returns its typed `Resu
 |  [02]   | Dynamic number of steps with results | `withTaskGroup` over `Result<T, E>` |
 |  [03]   | Dynamic number of steps, no results  | `withDiscardingTaskGroup`           |
 |  [04]   | Work that outlives the calling scope | `Task` its owner stores and cancels |
-|  [05]   | Cleanup that finishes after cancel   | `withTaskCancellationShield`        |
 
-## [07]-[STREAMS]
+## [06]-[STREAMS]
 
 Delivery shape selects source and operator:
 
@@ -279,10 +272,11 @@ Delivery shape selects source and operator:
 |  [07]   | Producer paced by the consumer        | `AsyncChannel`                                       |
 |  [08]   | Consumers sharing one source          | `share(bufferingPolicy:)`                            |
 |  [09]   | Lines of a child process              | `strings(separatedBy:bufferingPolicy:)`              |
+|  [10]   | State with no event                   | `AsyncTimerSequence(interval:clock:).first(where:)`  |
 
 Request-response work and one-shot waits stay an `async throws(E)` function. One-shot waits whose typed failure has no cancelled case (`Errno`) are a one-element stream, and a cancelled consumer ends it with no element.
 
-## [08]-[BOUNDARIES]
+## [07]-[BOUNDARIES]
 
 Values entering a module decode once into their model type, and values leaving encode from it. Wire enums that grow use one generic field type with a `RawRepresentable` conformance that supplies `Codable` and writes unknown spellings back:
 
@@ -305,13 +299,16 @@ enum Lenient<Known: RawRepresentable<String> & Sendable>: RawRepresentable, Coda
 ```
 
 - Synthesized `Codable` holds every wire mapping, and `init(from:)` is hand-written only where a stored type lacks `Codable` or a field names the case
+- Hand-written `encode(to:)` writes through a keyed container over `CodingKeys`, and a dictionary literal drops fields it omits
 - Untyped host values (`Any`, `CFTypeRef`) decode through one generic read that checks the type
 - Host types stand where they state the value: a caller passes the host's configuration and receives its output whole
 - Host enums stay the host's type, and a model holding one writes it in its own `encode(to:)`, `@unknown default` writing the raw value
 - Names a host enumerates (attribute names, actions, settability) derive from its query at the read
+- One host query reads every attribute a pass needs, and consumers take the read record
+- Formats derive from their target (`UTType(filenameExtension: file.pathExtension)`) in place of a format parameter restating it
 - `FileDescriptor` and `Errno` from System state the host's file API and its failures
 
-## [09]-[GENERICS]
+## [08]-[GENERICS]
 
 Generic code states the capability it reads, and the call site's knowledge of the concrete type selects the form:
 

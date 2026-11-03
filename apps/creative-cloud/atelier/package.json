@@ -10,8 +10,10 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@rasm/aftereffects": "workspace:*",
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",
+        "@rasm/illustrator": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/photoshop": "workspace:*",
@@ -23,9 +25,6 @@
         "image-size": "catalog:"
     },
     "devDependencies": {
-        "@adobe-uxp-types/photoshop": "catalog:",
-        "@adobe-uxp-types/uxp": "catalog:",
-        "@types/node": "catalog:",
-        "indesign-uxp-types": "catalog:"
+        "@types/node": "catalog:"
     }
 }

@@ -6,20 +6,6 @@ import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension NSAppleEventDescriptor {
-    fileprivate func coreEvent(_ event: AEEventID, setting option: AEKeyword, to value: OSType) -> NSAppleEventDescriptor {
-        let core: NSAppleEventDescriptor = NSAppleEventDescriptor(
-            eventClass: AEEventClass(kCoreEventClass),
-            eventID: event,
-            targetDescriptor: self,
-            returnID: AEReturnID(kAutoGenerateReturnID),
-            transactionID: AETransactionID(kAnyTransactionID),
-        )
-        core.setParam(NSAppleEventDescriptor(enumCode: value), forKeyword: option)
-        return core
-    }
-}
-
 extension NSWorkspace {
     public func launch(
         _ installation: Installation,
@@ -36,7 +22,14 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         if documents.isEmpty {
-            configuration.appleEvent = NSAppleEventDescriptor(applicationURL: url).coreEvent(kAEOpenApplication, setting: keyAERestoreAppState, to: kAENo)
+            configuration.appleEvent = NSAppleEventDescriptor(
+                eventClass: AEEventClass(kCoreEventClass),
+                eventID: kAEOpenApplication,
+                targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
+                returnID: AEReturnID(kAutoGenerateReturnID),
+                transactionID: AETransactionID(kAnyTransactionID),
+            )
+            configuration.appleEvent?.setParam(NSAppleEventDescriptor(enumCode: kAENo), forKeyword: keyAERestoreAppState)
         }
         do {
             let instance: NSRunningApplication =

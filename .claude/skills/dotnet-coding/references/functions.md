@@ -47,7 +47,7 @@ internal static class Reports {
 }
 ```
 
-Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling while only the selector and the name vary, small named wrappers preserve intent. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation. `Seq.Map` is deferred, the functions run when the result is enumerated:
+Broader higher-order functions centralize retrieval, empty-result handling, transmission, and error handling, and callers supply the selector and name. Collections of transformations apply many views to one input, assemble at runtime, extend by one element, and stay separate from the aggregation. `Seq.Map` is deferred, the functions run when the result is enumerated:
 
 ```csharp
 internal static class Descriptions {

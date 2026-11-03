@@ -1,30 +1,34 @@
 import { SourceMap } from 'node:module';
+import { AfterEffects } from '@rasm/aftereffects/contract';
 import type { Installation } from '@rasm/automation/applications';
 import { Automation } from '@rasm/automation/automation';
-import { ExecuteScript, HostError, Reference, Render, Requests } from '@rasm/automation/requests';
-import { Manifest as Extension } from '@rasm/cep/manifest';
-import { Contract as InDesign } from '@rasm/indesign/host';
+import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation/requests';
+import { answered, Reply } from '@rasm/cep/contract';
+import { ExtensionManifest } from '@rasm/cep/manifest';
+import { Illustrator } from '@rasm/illustrator/contract';
+import { InDesign } from '@rasm/indesign/contract';
+import { Route } from '@rasm/mcp/route';
 import { registerRpcGroup } from '@rasm/mcp/rpc';
-import { Instructions } from '@rasm/mcp/server';
-import { registerRoutedTool } from '@rasm/mcp/tool';
-import { Contract as Photoshop } from '@rasm/photoshop/host';
+import { Server } from '@rasm/mcp/server';
+import { Photoshop } from '@rasm/photoshop/contract';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Link } from '@rasm/uxp/link';
-import { Manifest } from '@rasm/uxp/manifest';
 import { type JscTarget, transformSync } from '@swc/core';
-import { Array, Context, Effect, Layer, Match, Option, Path, Schema, SchemaGetter, Stream, Struct, Tuple } from 'effect';
+import { Array, Context, Duration, Effect, Layer, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
-import { RpcGroup } from 'effect/rpc';
+import type { RpcGroup } from 'effect/rpc';
+import { AbsolutePath } from '#/absolute-path';
 import { Capture } from '#/features/applications';
+import { link } from '#/link';
 import type { routes } from '#/routes';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-type Library = Effect.Success<typeof linked>['libraries'][number];
+const LINK_WAIT = Duration.minutes(2);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Libraries = RpcGroup.make().merge(InDesign, Photoshop);
+const Libraries = InDesign.Contract.merge(Photoshop.Contract);
 const Mapping = Schema.fromJsonString(
     Schema.Struct({
         version: Schema.Int,
@@ -38,17 +42,14 @@ const Mapping = Schema.fromJsonString(
 );
 const Entry = Schema.Struct({ originalLine: Schema.Int });
 const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
-const Returned = Schema.TaggedStruct('Returned', ExecuteScript.Result.fields);
-const Scripted = Schema.Union([
-    Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(Schema.toType(Returned), { decode: SchemaGetter.succeed({ _tag: 'Returned' as const, result: Option.none() }), encode: SchemaGetter.forbiddenEncoding })),
-    Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Union([Schema.TaggedStruct('Failed', { failed: Schema.Struct({ message: Schema.String, line: Schema.OptionFromNullOr(Schema.Int) }) }), Returned])))),
-]);
+const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
+const Result = Schema.toCodecJson(ExecuteScript.Result);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, awaits: boolean) {
     const { code: source, map } = yield* Effect.try({
-        try: () => transformSync(`(${awaits ? 'async ' : ''}function body() {\n${code}\n})`, { jsc: { target, parser: { syntax: 'typescript' }, assumptions: { iterableIsArray: true } }, sourceMaps: true }),
+        try: () => transformSync(ExecuteScript.expression(code, awaits), { jsc: { target, parser: { syntax: 'typescript' }, assumptions: { iterableIsArray: true } }, sourceMaps: true }),
         catch: (cause) =>
             Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
                 onNone: () => HostError.refused('TypeScript transform of body')(cause),
@@ -56,136 +57,115 @@ const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, aw
             }),
     });
     const mapping = new SourceMap(yield* Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)));
-    const relined = ({ line }: { readonly line: number }, error: HostError) =>
-        Effect.fail(HostError.make({ ...error, reason: Option.match(Schema.decodeUnknownOption(Entry)(mapping.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), { onNone: () => ({ _tag: 'Refused' }) as const, onSome: ({ originalLine }) => ({ _tag: 'Thrown', line: originalLine }) as const }) }));
+    const original = (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(mapping.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), Struct.get('originalLine'));
+    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.match(error.reason, { Refused: () => error, Thrown: ({ line }) => HostError.thrown(error.subject, Option.flatMap(line, original))(error.cause) }));
     return { source, relined };
 });
 
-const declaring =
-    (commands: readonly { readonly name: string; readonly code: string }[]) =>
-    (event: string): Option.Option<{ readonly name: string; readonly code: string }> =>
-        Array.findFirst(commands, ({ code }) => code.endsWith(event));
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const linked = Effect.gen(function* () {
-    const [automation, link] = yield* Effect.all([Automation, Link.listen(Libraries, { middleware: Layer.empty })]);
-    const serving = (installed: readonly Installation[], identifier: string) => (peer: Link) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer));
-    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter(serving(installed, identifier)));
-    const libraries = Array.map(
-        [
-            { identifier: 'com.adobe.InDesign', Contract: InDesign, target: Manifest.target },
-            { identifier: 'com.adobe.Photoshop', Contract: Photoshop, target: Manifest.target },
-            { identifier: 'com.adobe.illustrator', Contract: Requests, target: Extension.target },
-            { identifier: 'com.adobe.AfterEffects', Contract: Requests, target: Extension.target },
-        ] as const satisfies readonly { readonly identifier: string; readonly Contract: RpcGroup.Any; readonly target: JscTarget }[],
-        (library) => ({ ...library, peers: Effect.flatMap(link.peers, owned(library.identifier)), changes: Stream.mapEffect(link.changes, owned(library.identifier)), call: link.call }),
-    );
-    return { libraries, changes: link.changes };
+const listening = Effect.gen(function* () {
+    const [automation, listened] = yield* Effect.all([Automation, Link.listen(Libraries, { path: link.path, middleware: Layer.empty })]);
+    const owns = (installed: readonly Installation[], identifier: string) => (peer: Link) => installed.some((row) => row.identifier.startsWith(identifier) && Link.serves(row.url)(peer));
+    const owned = (identifier: string) => (peers: readonly Link[]) => Effect.map(automation.installed, (installed) => peers.filter(owns(installed, identifier)));
+    const libraries = Array.map([InDesign, Photoshop, Illustrator, AfterEffects] as const satisfies readonly { readonly identifier: string; readonly Contract: RpcGroup.Any; readonly target: JscTarget }[], ({ identifier, Contract: contract, target }) => ({
+        identifier,
+        contract,
+        target,
+        peers: Effect.flatMap(listened.peers, owned(identifier)),
+        changes: Stream.mapEffect(listened.changes, owned(identifier)),
+    }));
+    return { libraries, changes: listened.changes, call: listened.call };
 });
-const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Success<ReturnType<typeof routes>>, links: readonly Library[]) {
+const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, { libraries, call }: Effect.Success<typeof listening>) {
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
-    const opened = serving('open');
+    const [opened, rendered] = [serving('open'), serving('render')];
     const opening = (row: Installation) =>
         Array.map(
-            links.filter((library) => library.Contract.requests.has('open') && row.identifier.startsWith(library.identifier)),
+            libraries.filter((library) => library.contract.requests.has(opened.tag) && row.identifier.startsWith(library.identifier)),
             (library) => ({ installation: row, library }),
         );
     const linking = ({ installation, library }: ReturnType<typeof opening>[number]) => Effect.map(library.peers, Array.some(Link.serves(installation.url)));
-    const launched = ({ installation, library }: ReturnType<typeof opening>[number]) => automation.launch({ url: installation.url }).pipe(Effect.andThen(Stream.runHead(Stream.filter(library.changes, Array.some(Link.serves(installation.url))))), Effect.timeout('2 minutes'));
-    const routed = Effect.fnUntraced(function* (file: URL) {
-        const [urls, installed] = yield* Effect.all([automation.applications({ toOpen: file }), automation.installed]);
-        const candidates = Array.flatMap(
-            installed.filter((row) => Array.contains(Array.map(urls, Struct.get('href')), row.url.href)),
-            opening,
-        );
-        const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(urls, Struct.get('href')) }));
-        const ready = yield* Effect.findFirst(candidates, linking);
-        const chosen = Option.getOrElse(ready, () => first);
-        yield* Option.isSome(ready) ? Effect.void : launched(chosen);
-        return yield* chosen.library.call(Link.serves(chosen.installation.url));
+    const launched = ({ installation, library }: ReturnType<typeof opening>[number]) =>
+        automation
+            .launch({ url: installation.url })
+            .pipe(Effect.andThen(Stream.runHead(Stream.filter(library.changes, Array.some(Link.serves(installation.url))))), Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`${library.identifier} link from ${installation.name} within ${Duration.format(LINK_WAIT)}`)()) }));
+    const opener = Effect.fnUntraced(function* (file: URL) {
+        const rows = yield* automation.opening(file);
+        const candidates = Array.flatMap(rows, opening);
+        const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
+        const { installation } = yield* Option.match(yield* Effect.findFirst(candidates, linking), { onSome: Effect.succeed, onNone: () => Effect.as(launched(first), first) });
+        return yield* call(installation.url);
     });
-    const scripted = Effect.fnUntraced(function* (code: string, { installation, pid }: { readonly installation: Installation; readonly pid: number }) {
-        const { source, relined } = yield* lowered(code, Extension.target, false);
-        const terms = yield* automation.terms({ url: installation.url });
-        const { name } = yield* Effect.fromOption(Array.findFirst(['DjxM', 'dosc'], declaring(terms.command)), () => Unmatched.make({ subject: 'script command', candidates: Array.map(terms.command, Struct.get('name')) }));
-        const definition = yield* automation.definition({ url: installation.url, kind: 'command', name });
-        const { reply } = yield* automation.execute({
+    const scripted = Effect.fnUntraced(function* (code: string, { pid }: { readonly pid: number }) {
+        const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
+        const { reply } = yield* automation.script({
             pid,
-            command: name,
-            arguments: {
-                direct: `(function (body) {
+            direct: `(function () { var body = ${source}
     function encoded(value) {
         var parts = [], key, at, kind;
         if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
         if (typeof value === "number" || typeof value === "boolean") return String(value);
-        if (typeof value === "string") return '"' + value.replace(/[\\x00-\\x1f"\\\\]/g, function (c) { return "\\\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
+        if (typeof value === "string") return '"' + value.replace(/[\\x00-\\x1f"\\\\\\u2028\\u2029]/g, function (c) { return "\\\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
         kind = Object.prototype.toString.call(value);
         if (kind === "[object Array]") { for (at = 0; at < value.length; at++) parts.push(encoded(value[at])); return "[" + parts.join(",") + "]"; }
         if (kind !== "[object Object]") return encoded(String(value));
-        for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
+        for (key in value) if (value[key] !== undefined) parts.push(encoded(key) + ":" + encoded(value[key]));
         return "{" + parts.join(",") + "}";
     }
     try {
-        var value = eval(body).call(this);
-        return value === undefined ? "" : encodeURIComponent('{"_tag":"Returned","result":' + encoded(value) + '}');
+        var value = body.call(this);
+        return encodeURIComponent('{"_tag":"Value","value":{' + (value === undefined ? "" : '"result":' + encoded(value)) + '}}');
     } catch (error) {
-        return encodeURIComponent('{"_tag":"Failed","failed":' + encoded({ message: String(error && error.message !== undefined ? error.message : error), line: error && (error.line || error.lineNumber) }) + '}');
-    }
-}).call(this, arguments[0])`,
-                'with arguments': [source],
-                ...(definition.includes('code="doLg"') ? { doLg: { _tag: 'enumerator', name: 'JSLg' } as const } : {}),
-            },
-            artifacts: [],
+        return encodeURIComponent(encoded({ _tag: "Thrown", message: String(error && error.message !== undefined ? error.message : error), number: error && error.number, line: error && (error.line || error.lineNumber) }));
+    }\n}).call(this)`,
         });
-        return yield* Match.valueTags(yield* Schema.decodeUnknownEffect(Scripted)(reply), {
-            Failed: ({ failed }) => Effect.catchReason(Effect.fail(HostError.thrown(failed.message, failed.line)(failed)), 'HostError', 'Thrown', relined),
-            Returned: ({ result }) => Effect.succeed({ result }),
-        });
+        return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(answered(Result, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });
-    yield* registerRoutedTool(scripting)(
-        Tool.make('execute_script', {
+    yield* Route.register(script)(
+        Tool.make(script.tag, {
             description: 'Runs TypeScript function body in application, returns its result as JSON, failures name body line',
             parameters: Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) }),
             success: ExecuteScript.Result,
-        }).annotate(Instructions, [
-            'execute_script: linked InDesign runs body synchronously in one undo step, a throw rolls it back and awaited work runs after the answer. Linked Photoshop awaits body in one history state. Applications without a link run it through their dictionary script command as ExtendScript or Acrobat JavaScript',
-            'execute_script results encode InDesign enumerators by name, InDesign and Photoshop objects as {type, specifier, name, valid}, InDesign collections as {type, specifier, length}',
+        }).annotate(Server.Instructions, [
+            `${script.tag} runs body in linked InDesign synchronously in one undo step that a throw rolls back`,
+            `${script.tag} runs awaited work of a linked InDesign body after the answer`,
+            `${script.tag} awaits body in linked Photoshop in one history state per open document`,
+            `${script.tag} runs body in linked Illustrator synchronously with alerts off in one undo step`,
+            `${script.tag} runs body without a link through the dictionary script command as ExtendScript or Acrobat JavaScript`,
+            `${script.tag} results encode InDesign enumerators by name and InDesign collections as {type, specifier, length}`,
+            `${script.tag} results encode InDesign, Photoshop, and Illustrator objects as {type, specifier, name, valid}`,
         ]),
         ({ code }, chosen) =>
             Option.match(chosen.linked, {
                 onNone: () => scripted(code, chosen),
                 onSome: Effect.fnUntraced(function* ({ library, client }) {
-                    const { source, relined } = yield* lowered(code, library.target, Context.get(library.Contract.annotations, ExecuteScript.Awaits));
-                    return yield* Effect.catchReason(client('execute_script', { code: source }), 'HostError', 'Thrown', relined);
+                    const { source, relined } = yield* lowered(code, library.target, Context.get(library.contract.annotations, ExecuteScript.Awaits));
+                    return yield* Effect.catchTag(client(script.tag, { code: source }), 'HostError', relined);
                 }),
             }),
     );
-    yield* registerRoutedTool(opened.optional('linked application Launch Services picks for file'))(
-        Tool.make('open', {
-            description: 'Opens document without dialogs and returns its reference, without window where application allows. Without application or pid, launches linked application Launch Services picks when none runs and waits for its link. After Effects replaces its open project',
-            parameters: Schema.Struct({ file: Schema.String.annotate({ description: 'Document path' }) }),
+    yield* Route.register(opened.optional('linked application Launch Services picks for file'))(
+        Tool.make(opened.tag, {
+            description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
+            parameters: Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) }),
             success: Reference,
         }),
         Effect.fnUntraced(function* ({ file }, chosen) {
             const url = yield* path.toFileUrl(file);
-            const opener = yield* Option.match(chosen, { onSome: ({ client }) => Effect.succeed(client), onNone: () => routed(url) });
-            return yield* opener('open', { file: url });
+            const client = yield* Option.match(chosen, { onSome: (picked) => Effect.succeed(picked.client), onNone: () => opener(url) });
+            return yield* client(opened.tag, { file: url });
         }),
     );
-    yield* registerRoutedTool(serving('render'))(
-        Tool.make('render', {
-            description: 'Renders document target as PNG through application exporter, InDesign page items alone and their page or spread with context. Use screenshot for panels, dialogs, and pasteboard',
+    yield* Route.register(rendered)(
+        Tool.make(rendered.tag, {
+            description: 'Renders document target as PNG, an InDesign page item or Photoshop layer without the rest of its page, spread, or document. Use screenshot for panels, dialogs, and pasteboard',
             parameters: Schema.Struct(Struct.omit(Render.fields, ['file'])),
             success: Capture,
         }).annotate(Tool.Readonly, true),
         (payload, { client }) =>
             Effect.map(
-                Capture.written(
-                    Effect.fnUntraced(function* (file) {
-                        return yield* client('render', { ...payload, file: yield* path.toFileUrl(file) });
-                    }),
-                ),
+                Capture.written((file) => client(rendered.tag, { ...payload, file })),
                 Tuple.get(0),
             ),
     );
@@ -196,23 +176,23 @@ const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Succ
             call: { description: 'Calls object or collection method in one undo step, object_model lists parameters' },
             find_change: { description: 'Finds or changes matches in one undo step and restores search preferences, values take change forms' },
             invoke: { description: 'Invokes menu action in one undo step, menu lists actions by id, name, and area' },
-            adjust: { description: 'Adds kerning, tracking, baseline shift or mark offsets to selected text' },
+            adjust: { description: 'Adds kerning, tracking, baseline shift or mark offsets to target text, / for text defaults' },
             kerns: { description: 'Writes pair kerns at insertion indexes or restores metrics kerning' },
-            typeset: { description: 'Reads or sets direction, digits, kashida, mark offsets, features and spacing of selected text' },
+            typeset: { description: 'Reads or sets direction, digits, kashida, mark offsets, features and spacing of target text, / for text defaults' },
         },
         resources: {
             object_model: {
                 description: 'Class and enumeration names of the linked application, or one declaration with its members',
-                complete: { name: Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) },
+                completion: { name: ObjectModel.Result.match({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) },
             },
-            menu: { description: 'Menu actions of one area or every area', complete: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } },
+            menu: { description: 'Menu actions of one area or every area', completion: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } },
             preflight: {
                 description: 'Preflight rows per document, finished live results without profile. Reads wait on a process that restarts every live check',
-                complete: { document: Array.map((process) => process.targetObject.specifier) },
+                completion: { document: Array.map((process) => process.targetObject.specifier) },
                 report: Array.some(({ aggregatedResults }) => Array.isReadonlyArrayNonEmpty(aggregatedResults)),
             },
         },
-        route: (rpc) => serving(rpc._tag),
+        route: serving,
         invoke:
             (rpc) =>
             (payload, { client }) =>
@@ -222,4 +202,4 @@ const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Succ
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Library, linked, plugins };
+export { Libraries, listening, plugins };

@@ -1,10 +1,6 @@
-import photoshop from 'adobe:photoshop';
-import { Contract, host } from '@rasm/photoshop/host';
-import { plugin } from '@rasm/uxp/entrypoints';
-import { Link } from '@rasm/uxp/link';
+import { linked } from '@rasm/photoshop/host';
+import { Plugin } from '@rasm/uxp/plugin';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { server, application } = host(photoshop);
-
-plugin((link) => Link.dial(Contract, server, { ...link, application }));
+Plugin.serve({ link: linked });

@@ -11,8 +11,7 @@ from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Answer, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, called, tallied, Unchanged
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import rooted, Struct

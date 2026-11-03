@@ -20,7 +20,7 @@ from expression.extra.result import catch
 import msgspec
 import numpy as np
 
-from blender.bpy.commands.calls import called, Operation, Setting
+from blender.bpy.commands.operators import called, Operation, Setting
 from blender.bpy.data.ids.ownership import retained, tracked
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Value

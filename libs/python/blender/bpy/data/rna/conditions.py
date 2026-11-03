@@ -339,12 +339,12 @@ def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
 
 def scope_choice(default: type[Scope]) -> bpy.props._PropertyDeferred:
     """Returns the scope enum an operator form declares beside `SCOPE_COLLECTION`, defaulting to one case."""
-    return bpy.props.EnumProperty(name="Scope", description="Owners the operator reaches", items=SCOPES, default=default.__name__)
+    return bpy.props.EnumProperty(name="Scope", description="Owners the operator reaches", items=SCOPES, default=default.__struct_config__.tag)
 
 
 def chosen(form: ScopeForm) -> Scope:
     """Returns the scope a form's choice names, a collection's objects by its name."""
-    held: Scope = msgspec.convert({"kind": form.scope, "collection": form.collection}, Scope)
+    held: Scope = msgspec.convert({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope)
     return held
 
 

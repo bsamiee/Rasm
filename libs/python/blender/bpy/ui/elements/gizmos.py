@@ -1,4 +1,4 @@
-"""Gizmo groups of stock and custom-shaped gizmos bound to members, handlers, or operators and themed at each draw."""
+"""Gizmo groups an extension registers."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
@@ -13,9 +13,9 @@ from expression.extra.result import catch
 import mathutils
 import msgspec
 
-from blender.bpy.commands.calls import filled, Pairs, Placement
 from blender.bpy.commands.keymaps import Location, nesting
 from blender.bpy.commands.modal import Press, Travel
+from blender.bpy.commands.operators import filled, Pairs, Placement
 from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import assign
 from blender.bpy.data.rna.paths import rna
@@ -74,7 +74,7 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
         return identity.name(bpy.types.Gizmo, self.key)
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns the gizmo type class drawing the shape, batched on its first draw, and dragging through `drag` while one is stated, its press state held on the gizmo as Blender's custom gizmo template holds it."""
+        """Returns the gizmo type class drawing the shape, dragging through `drag` while one is stated."""
         batch = cache(partial(bpy.types.Gizmo.new_custom_shape, self.primitive, self.vertices))
         hold, targets, drags = identity.reports.hold, self.targets, self.drag
 
@@ -172,7 +172,7 @@ class GizmoGroup(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(held for part in self.gizmos for held in (*icon_prerequisites(part.icon), *(part.bind.prerequisites if isinstance(part.bind, Member) else ())))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns each custom shape, then the group class built when the interface band opens and its icons resolve."""
+        """Returns each custom shape, then the group class built when the interface tier opens and its icons resolve."""
         kinds = accumulated(part.kind.named(identity) if isinstance(part.kind, Shape) else Ok(part.kind) for part in self.gizmos)
         bound = accumulated(part.bound(identity) for part in self.gizmos)
         located = self.keymap.map(lambda name: nesting(name).map(lambda found: Some(found[0]))).default_value(Ok(Nothing))

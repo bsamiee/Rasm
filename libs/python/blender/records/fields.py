@@ -1,4 +1,4 @@
-"""Record field domains and names, record bases, curve points, dated histories under retention, and record lenses reading and rebuilding nested values."""
+"""Record field domains, record bases, dated histories, and record lenses."""
 
 from collections.abc import Callable
 import datetime
@@ -35,11 +35,11 @@ SEED_BOUND: Final = 2 ** (np.finfo(np.float32).nmant + 1)
 # --- [BASES]
 
 
-class Knot[X: float, Y: float](msgspec.Struct, frozen=True, kw_only=True, array_like=True):
-    """Curve point with per-axis constraints."""
+class Knot(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
+    """Curve point."""
 
-    x: X
-    y: Y
+    x: float
+    y: float
 
 
 class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -47,12 +47,8 @@ class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def __post_init__(self) -> None:
         """Marks every array field read-only."""
-        for value in msgspec.structs.astuple(self):
-            match value:
-                case (np.ndarray() as array) | Option(tag="some", some=np.ndarray() as array):
-                    array.setflags(write=False)
-                case _:
-                    pass
+        for array in (held for value in msgspec.structs.astuple(self) for held in (value.to_list() if isinstance(value, Option) else (value,)) if isinstance(held, np.ndarray)):
+            array.setflags(write=False)
 
 
 class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=True):
@@ -88,7 +84,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
             case (head, *rest) if not self.future and head.value != entry.value and datetime.timedelta() <= entry.moment - head.moment < retention.interval:
                 past = (msgspec.structs.replace(head, moment=entry.moment), *rest)
             case _:
-                past = (entry, *(present for present in self.past if present.value != entry.value))
+                past = (entry, *self.remove(entry.value).past)
         return type(self)(past=past[: retention.capacity])
 
     def at(self, offset: int) -> Option[Dated[T]]:
@@ -97,14 +93,12 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
         return Some(source[distance - 1]) if 0 < distance <= len(source) else Nothing
 
     def step(self, offset: int, current: Dated[T], retention: Retention) -> Option[tuple[T, Self, Self]]:
-        """Returns the value at a signed one-based offset, the history arriving there with current across, and the history a refused write keeps with both branches and current across."""
-        distance = abs(offset)
-        source, other = (self.past, self.future) if offset > 0 else (self.future, self.past)
-
-        def oriented(near: tuple[Dated[T], ...], far: tuple[Dated[T], ...]) -> tuple[tuple[Dated[T], ...], tuple[Dated[T], ...]]:
-            return (near, far[: retention.capacity]) if offset > 0 else (far[: retention.capacity], near)
-
-        (arrived_past, arrived_future), (kept_past, kept_future) = oriented(source[distance:], (*reversed(source[: distance - 1]), current, *other)), oriented(source, (current, *other))
+        """Returns the value at a signed one-based offset, the history arriving there, and the history a refused write keeps, both holding current."""
+        order, distance = 1 if offset > 0 else -1, abs(offset)
+        source, other = (self.past, self.future)[::order]
+        (arrived_past, arrived_future), (kept_past, kept_future) = (
+            (near, far[: retention.capacity])[::order] for near, far in ((source[distance:], (*reversed(source[: distance - 1]), current, *other)), (source, (current, *other)))
+        )
         return self.at(offset).map(
             lambda entry: (entry.value, msgspec.structs.replace(self, past=arrived_past, future=arrived_future), msgspec.structs.replace(self, past=kept_past, future=kept_future))
         )
@@ -118,30 +112,30 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
 
 
 def member[T: msgspec.Struct](kind: type[T], read: Callable[[type[T]], object]) -> object:
-    """Returns a field read on a struct class through a `type[...]` receiver, the member descriptor a lens step or key part holds, which checkers type as the field's value and refuse on a generic struct's class."""
+    """Returns the member descriptor a field read on a struct class yields, which checkers refuse on a generic struct's class."""
     return read(kind)
 
 
-def _walked(value: object, lens: Lens) -> Option[tuple[object, Callable[[object], object]]]:
+def _walked[V](kind: type[V], value: object, lens: Lens) -> Option[tuple[V, Callable[[object], object]]]:
     match lens, value:
         case (), _:
-            return Some((value, lambda new: new))
+            return Option.of_optional(try_downcast(kind, value)).map(lambda held: (held, lambda new: new))
         case (MemberDescriptorType() as field, *rest), msgspec.Struct() if isinstance(value, field.__objclass__):
-            return _walked(field.__get__(value), tuple(rest)).map(lambda found: (found[0], lambda new: msgspec.structs.replace(value, **{field.__name__: found[1](new)})))
+            return _walked(kind, field.__get__(value), tuple(rest)).map(lambda found: (found[0], lambda new: msgspec.structs.replace(value, **{field.__name__: found[1](new)})))
         case (int(index), *rest), tuple() if 0 <= index < len(value):
-            return _walked(value[index], tuple(rest)).map(lambda found: (found[0], lambda new: (*value[:index], found[1](new), *value[index + 1 :])))
+            return _walked(kind, value[index], tuple(rest)).map(lambda found: (found[0], lambda new: (*value[:index], found[1](new), *value[index + 1 :])))
         case _:
             return Nothing
 
 
-def focused(value: object, lens: Lens) -> Option[object]:
-    """Returns the value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a field's struct misses the held value or an index falls outside its tuple."""
-    return _walked(value, lens).map(lambda found: found[0])
+def focused[V](kind: type[V], value: object, lens: Lens) -> Option[V]:
+    """Returns the `kind` value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a step or the value's class misses."""
+    return _walked(kind, value, lens).map(lambda found: found[0])
 
 
-def amended[T: msgspec.Struct](record: T, lens: Lens, change: Callable[[object], object]) -> Option[T]:
-    """Returns record with the value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where the lens reaches nothing."""
-    return _walked(record, lens).bind(lambda found: Option.of_optional(try_downcast(type(record), found[1](change(found[0])))))
+def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: Callable[[V], object]) -> Option[T]:
+    """Returns record with the `kind` value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where a step or the value's class misses."""
+    return _walked(kind, record, lens).bind(lambda found: Option.of_optional(try_downcast(type(record), found[1](change(found[0])))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

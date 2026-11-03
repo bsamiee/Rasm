@@ -384,7 +384,7 @@ def leveled(levels: Mapping[RnaPath, Value], scope: Scope, context: bpy.types.Co
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@Operator.of(LevelEdit, presets=True)
+@Operator.of(LevelEdit, options=frozenset({"PRESET"}))
 def subdivision_levels(call: Call[LevelEdit]) -> Outcome[Answer]:
     """Writes subdivision levels to the modifiers in scope."""
     return leveled({("levels",): call.properties.levels, ("render_levels",): call.properties.render_levels}, chosen(call.properties), call.context)

@@ -33,16 +33,14 @@ class WhitePoint(msgspec.Struct, frozen=True, kw_only=True):
         return np.asarray(colour.xy_to_XYZ(colour.UCS_uv_to_xy(colour.temperature.CCT_to_uv_Robertson1968(np.array((self.temperature, self.duv))))), dtype=np.float64)
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, color: npt.NDArray[np.float64]) -> Outcome[Option[Self]]:
-        """Solves the white point of a scene-linear neutral pick of shape `(3,)`, absent off the uv plane, at or past the hottest isotherm, or outside field bounds."""
+    def of(cls, tristimulus: npt.NDArray[np.float64]) -> Option[Self]:
+        """Solves the white point of a neutral XYZ pick of shape `(3,)`, absent off the uv plane, at or past the hottest isotherm, or outside field bounds."""
 
         def solved(ucs: NDArrayFloat) -> Option[Self]:
             temperature, duv = colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist()
             return catch(msgspec.convert, exception=msgspec.ValidationError)({"temperature": temperature, "duv": duv}, type=cls).to_option()
 
-        return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(
-            lambda matrix: Some(colour.XYZ_to_UCS(matrix @ color)).filter(lambda ucs: float(ucs.sum()) > 0.0).bind(solved).filter(lambda white: white.temperature < cls.hottest)
-        )
+        return Some(colour.XYZ_to_UCS(tristimulus)).filter(lambda ucs: float(ucs.sum()) > 0.0).bind(solved).filter(lambda white: white.temperature < cls.hottest)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -104,12 +102,18 @@ def chromaticities(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDAr
 # --- [MATCHING]
 
 
-def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns signed RGB matching weights of observer `tristimulus` rows in `space`, each channel integrating to one."""
+def rgb(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+    """Returns linear RGB rows in `space` of XYZ `tristimulus` rows, or `FAILED` fault for a singular basis."""
 
     @catch(exception=np.linalg.LinAlgError)
     def solved(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return np.asarray(np.linalg.solve(values, tristimulus.T).T, dtype=np.float64)
+
+    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, Reason.FAILED, space)))
+
+
+def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+    """Returns signed RGB matching weights of observer `tristimulus` rows in `space`, each channel integrating to one."""
 
     @np.errstate(all="ignore")
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
@@ -117,7 +121,7 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
         held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
         return Ok(weights / integral) if held else Error(Fault.of(Reason.INVALID, space, f"spectral matching cannot normalize RGB integrals {integral}"))
 
-    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, Reason.FAILED, str(values)))).bind(normalized)
+    return rgb(config, space, tristimulus).bind(normalized)
 
 
 def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -127,4 +131,4 @@ def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64])
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "diagram_extent", "locus", "matching", "observer", "spectral_samples"]
+__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "diagram_extent", "locus", "matching", "observer", "rgb", "spectral_samples"]

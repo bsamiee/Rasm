@@ -1,20 +1,25 @@
 import { NodeServices } from '@effect/platform-node';
-import { Array, Config, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
+import { Array, Config, Effect, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
 import { loadConfigFromFile } from 'vite';
 import { mergeConfig, type ViteUserConfig, type ViteUserConfigFnPromise } from 'vitest/config';
-import { parse } from 'yaml';
+import { decodeFile, Package } from '#/eng/typescript/manifest';
+import { Yaml } from '#/eng/typescript/parsed';
+import { located } from '#/vite.shared';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [CONSTANTS]-----------------------------------------------------------------------
 
-const _ROOT = import.meta.dirname;
+const ROOT = import.meta.dirname;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Workspace = Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _project = Effect.fnUntraced(function* (directory: string) {
-    const [fs, path, ci] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('CI'), false)]);
-    const { name, devDependencies } = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ name: Schema.String, devDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) })))(yield* fs.readFileString(path.join(directory, 'package.json')));
-    const results = path.join(_ROOT, '.artifacts', 'typescript', 'vitest', name);
-    const segments = path.relative(_ROOT, directory).split(path.sep);
+const defaults = Effect.fnUntraced(function* (directory: string) {
+    const [path, ci, { devDependencies }] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('CI'), false), Package.read(directory)]);
+    const results = located(path.join('.artifacts', 'typescript', 'vitest'), directory);
+    const tests = path.join(ROOT, 'tests', 'typescript');
     return {
         test: {
             attachmentsDir: path.join(results, 'attachments'),
@@ -30,7 +35,13 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                   }
                 : {}),
             chaiConfig: { includeStack: true, truncateThreshold: 0 },
-            dir: path.join(_ROOT, 'tests', 'typescript', ...segments.filter((segment) => segment !== 'typescript')),
+            dir: path.join(
+                tests,
+                ...path
+                    .relative(ROOT, directory)
+                    .split(path.sep)
+                    .filter((segment) => segment !== path.basename(tests)),
+            ),
             coverage: {
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 include: ['**/*.{ts,tsx,mts,cts}'],
@@ -39,7 +50,7 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                 reportsDirectory: path.join(results, 'coverage'),
                 skipFull: true,
             },
-            fsModuleCachePath: path.join(_ROOT, '.cache', 'vitest', name, 'modules'),
+            fsModuleCachePath: path.join(located(path.join('.cache', 'vitest'), directory), 'modules'),
             hideSkippedTests: ci,
             maxWorkers: '50%',
             pool: 'threads',
@@ -55,16 +66,16 @@ const _project = Effect.fnUntraced(function* (directory: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createVitestConfig =
-    (directory: string, config: ViteUserConfig): ViteUserConfigFnPromise =>
+const project =
+    (directory: string, config: ViteUserConfig = {}): ViteUserConfigFnPromise =>
     (env) =>
         Effect.gen(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const storybook = path.join(directory, '.storybook');
-            const [app, project, stories] = yield* Effect.all(
+            const [app, base, stories] = yield* Effect.all(
                 [
                     Effect.promise(() => loadConfigFromFile(env, undefined, directory)),
-                    _project(directory),
+                    defaults(directory),
                     Effect.when(
                         Effect.promise(() => import('@storybook/addon-vitest/vitest-plugin')),
                         fs.exists(path.join(storybook, 'main.ts')),
@@ -72,24 +83,23 @@ const createVitestConfig =
                 ],
                 { concurrency: 'unbounded' },
             );
-            const layers = [
-                ...Option.toArray(Option.map(Option.fromNullishOr(app), ({ config: loaded }) => loaded)),
-                project,
+            const configs = [
+                ...Option.toArray(Option.map(Option.fromNullishOr(app), Struct.get('config'))),
+                base,
                 config,
                 ...Option.toArray(Option.map(stories, ({ storybookTest }) => ({ test: { projects: [{ plugins: [storybookTest({ configDir: storybook })], test: { name: 'storybook', dir: storybook, browser: { enabled: true }, api: { allowWrite: true } } }] } }))),
             ];
-            return layers.reduce((merged: ViteUserConfig, layer) => mergeConfig(merged, layer), {});
+            return configs.reduce((merged: ViteUserConfig, next) => mergeConfig(merged, next), {});
         }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
 
 const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
     function* () {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [project, { packages }] = yield* Effect.all([_project(_ROOT), Effect.flatMap(Effect.map(fs.readFileString(path.join(_ROOT, 'pnpm-workspace.yaml')), parse), Schema.decodeUnknownEffect(Schema.Struct({ packages: Schema.Array(Schema.String) })))], { concurrency: 'unbounded' });
+        const [base, { packages }] = yield* Effect.all([defaults(ROOT), decodeFile(Workspace, ROOT, 'pnpm-workspace.yaml')], { concurrency: 'unbounded' });
         return {
-            ...project,
+            ...base,
             test: {
-                ...project.test,
-                coverage: { ...project.test.coverage, include: Array.flatMap(packages, (glob) => Array.map(project.test.coverage.include, (pattern) => `${glob}/${pattern}`)) },
+                ...base.test,
+                coverage: { ...base.test.coverage, include: Array.cartesianWith(packages, base.test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) },
                 projects: Array.map(packages, (glob) => `${glob}/vitest.config.ts`),
             },
         };
@@ -100,5 +110,5 @@ const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createVitestConfig };
+export { project };
 export default rootConfig;

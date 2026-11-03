@@ -51,7 +51,7 @@ class Import(bpy.types.Operator, ImportHelper):
         return self.invoke_popup(context)
 
     @override
-    def execute(self, context: bpy.types.Context) -> Answer:
+    def execute(self, context: bpy.types.Context) -> Returns:
         data: bpy.types.BlendData = context.blend_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         paths = tuple(Path(self.directory, file.name) for file in self.files) or (Path(self.filepath),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         created = tuple(data.objects.new(path.stem, None) for path in paths)

@@ -15,7 +15,7 @@ internal static class Kernels {
 }
 ```
 
-- Constants enter through `T.CreateChecked` where they must fit and `T.CreateSaturating` where they clamp, `T.CreateTruncating` keeps an integer's low bits and clamps a floating value
+- Constants enter through `T.CreateChecked` to fit, `T.CreateSaturating` to clamp, `T.CreateTruncating` for integer low bits or a clamped float
 - Integer arithmetic meant to wrap (hash mixing, generator steps) sits inside `unchecked(…)` and keeps its meaning under a build that checks overflow
 - `where TState : allows ref struct` accepts a span as state a generic member passes to its `Func<TState, R>` callback
 
@@ -79,7 +79,7 @@ internal static class Stages {
 
 - Defaults dispatch through a type parameter alone, `Gain.Inputs` names no member (`CS0117`)
 - `TStage.Inputs` converts to a `Func<TStage, Seq<string>>` method group, one generic factory turns each implementer into functions a registry holds
-- Behavior one implementer adds is a `static virtual` member of the constraint in place of a type test on a type parameter (`state is Masked`, `typeof(TStage) == typeof(Masked)`)
+- Behavior one implementer adds is a `static virtual` constraint member replacing a type test (`state is Masked`, `typeof(TStage) == typeof(Masked)`)
 
 ## [03]-[EXTENSION_MEMBERS]
 
@@ -104,7 +104,7 @@ internal static class Arrays {
 - Span receivers take arrays and spans through the implicit span conversion, one `ReadOnlySpan<T>` block in place of one per buffer type
 - Blocks without a receiver name hold static members (operators, factories) callers reach through the type name
 - Blocks on one receiver with and without a constraint overload a member, the constrained form drops an argument its constraint supplies
-- Receivers constrained on generator-emitted interfaces (`ISmartEnum<TKey, T, TValidationError>`, `IObjectFactory<T, TValue, TValidationError>`) give one member to every generated type
+- Receivers constrained on `ISmartEnum<TKey, T, TValidationError>` or `IObjectFactory<T, TValue, TValidationError>` reach every generated type
 - Extension members satisfy no interface constraint, a generic algorithm calling a member takes an interface the type implements
 
 ## [04]-[FIELD_BACKED_PROPERTIES]
@@ -202,6 +202,6 @@ internal static class Searches {
 }
 ```
 
-- Delegate parameters capture the whole lambda text, `[CallerArgumentExpression(nameof(add))]` on `Action<EventHandler<TArgs>> add` labels a host event `h => view.Changed += h`
+- `[CallerArgumentExpression(nameof(add))]` on a delegate parameter `add` captures whole lambda text (`h => view.Changed += h` labels a host event)
 - Delegates wrapping one host call pass as a method group (`store.Delete`), and the captured text names that member
-- Overloads without a caller information parameter win over one with it, `[OverloadResolutionPriority(-1)]` on them binds source calls to the caller information form
+- Overloads without caller information win resolution, `[OverloadResolutionPriority(-1)]` on them binds source calls to the caller information form

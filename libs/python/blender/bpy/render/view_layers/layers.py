@@ -16,8 +16,7 @@ from expression.extra.result import catch
 import mathutils
 import numpy as np
 
-from blender.bpy.commands.calls import Placement
-from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator, Placement, Unchanged
 from blender.bpy.data.rna.conditions import Scenes, ViewLayers
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import rooted
@@ -283,7 +282,7 @@ def _seeded(_properties: CollectionState, event: bpy.types.Event, _identity: Ide
     return {"extent": (Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE).name}
 
 
-@Operator.of(CollectionState, internal=True, seed=Some(_seeded))
+@Operator.of(CollectionState, options=frozenset({"INTERNAL"}), seed=Some(_seeded))
 def collection_state(call: Call[CollectionState]) -> Outcome[Answer]:
     """Set collection restriction, Ctrl to isolate, Shift to include children."""
     held = call.properties

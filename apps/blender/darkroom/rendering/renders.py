@@ -14,7 +14,7 @@ from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetS
 from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes
 from expression import Some
 
-from blender.bpy.commands.calls import PopupKind, PopupTarget
+from blender.bpy.commands.operators import PopupKind, PopupTarget
 from blender.bpy.render.outputs.exports import Export
 from blender.bpy.render.outputs.formats import format_listing
 from blender.bpy.render.outputs.framing import camera_border, FrameSize, Framing, selection_border

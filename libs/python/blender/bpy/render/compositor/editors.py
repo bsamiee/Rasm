@@ -15,9 +15,8 @@ import msgspec
 import msgspec.inspect
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.invocations import Open, Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Placement, Unchanged
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.properties import Callbacks, EnumItem, held_choices, rebound

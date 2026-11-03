@@ -1,17 +1,17 @@
 {
     "name": "@rasm/illustrator",
     "private": true,
-    "description": "Illustrator requests served from a CEP extension",
+    "description": "Shared automation requests as Illustrator ExtendScript host code",
     "sideEffects": false,
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
+        "./contract": "./contract.ts",
         "./host": "./host.ts"
     },
     "dependencies": {
-        "@rasm/cep": "workspace:*"
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/extendscript": "workspace:*"
     },
     "devDependencies": {
         "types-for-adobe": "catalog:"

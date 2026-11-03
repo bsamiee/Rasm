@@ -1,6 +1,7 @@
 import { Schema, Struct } from 'effect';
-import { answers, Expression, Name, Reads } from '#/cases';
-import { Common, Enumerated, hostCase, outcome, record, recorded, reply } from '#/results';
+import { answers, Expression } from '#/cases';
+import { Assignments, added, Copy, documents, Steps } from '#/precondition';
+import { Common, Enumerated, hostCase, Records, recorded, reply, Surveying } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -22,17 +23,17 @@ const Created = Schema.Struct({
 }).annotate({ description: 'app.documents.add arguments, each one the document states read back after the add, a mismatch failing the case' });
 const Document = Schema.TaggedUnion({
     Made: { arguments: Created },
-    Opened: { open: Schema.NonEmptyString.annotate({ description: 'Absolute path of the case copy the engine opens' }) },
+    Opened: { open: Copy },
 });
 const Placed = Schema.Struct({
-    documents: Schema.Array(Document).annotate({ description: 'Case documents opened with a window in order, the first one active, none for an application case' }),
-    units: Schema.Struct({ ruler: Enumerated, type: Enumerated }).annotate({ description: 'app.preferences rulerUnits and typeUnits, restored after the case since both persist across a relaunch' }),
+    documents: documents(Document),
+    units: Schema.Struct({ ruler: Enumerated, type: Enumerated }).annotate({ description: 'app.preferences rulerUnits and typeUnits, restored after the case' }),
     colorSettings: Schema.optionalKey(Schema.String.annotate({ description: 'app.colorSettings the case runs under, restored after it' })),
     features: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean).annotate({ description: 'app.featureEnabled answer each flag must give, the case failing on another' })),
     fonts: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'PostScript names app.fonts must hold, the case failing on a missing one' })),
-    add: Schema.optionalKey(Schema.Array(Schema.Struct({ as: Schema.NonEmptyString, to: Expression, kind: Schema.NonEmptyString.annotate({ description: 'Collection member of the target, as artLayers' }), properties: Schema.optionalKey(JsonObject) })).annotate({ description: 'Items added and named as made.<as>' })),
-    set: Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json])).annotate({ description: 'Member path and value written in order, [*] spreading over a collection' })),
-    steps: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Statements run in order after set and add' })),
+    add: added('artLayers', {}),
+    set: Assignments,
+    steps: Steps,
     select: Schema.optionalKey(
         Schema.Struct({
             layers: Schema.optionalKey(Schema.Array(Expression).annotate({ description: 'Layers one select event targets by identifier in the first document' })),
@@ -41,16 +42,14 @@ const Placed = Schema.Struct({
     ),
 }).check(Schema.makeFilter((placed) => placed.documents.length > 0 || (placed.add === undefined && placed.select === undefined) || 'add and select need a case document'));
 const HostCase = hostCase({
-    name: Name,
     precondition: Placed,
-    read: Reads,
     folder: Schema.String.annotate({ description: 'Case folder holding document copies and every file the case writes, outside/<path> for a write the original aimed elsewhere' }),
     ...Struct.pick(answers, ['windows', 'confirms', 'prompts', 'files']),
 });
 const Batch = Schema.Struct({
-    records: Schema.String.annotate({ description: 'Records file the engine appends a Started line to before each case and a Finished line after it' }),
+    records: Records,
     label: Schema.String.annotate({ description: 'Name prefix of every created case document' }),
-    survey: Schema.Boolean.annotate({ description: 'Reply carries the installation survey' }),
+    survey: Surveying,
     cases: Schema.Array(HostCase),
 });
 const Survey = Schema.Struct({
@@ -68,8 +67,7 @@ const State = Schema.Struct({
     unlisted: Schema.Array(Schema.String).annotate({ description: 'Application member the engine shadows that app.reflect declares no method for' }),
     defaults: JsonObject.annotate({ description: 'Application descriptor read whole at batch start, Action JSON' }),
 }).annotate({ description: 'Instance state at batch start' });
-const Header = Schema.Struct({ application: Schema.String, version: Schema.String, state: State, survey: Schema.optionalKey(Survey) });
-const Reply = reply(Header);
+const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
 const fields = {
     ...Common.fields,
     writes: recorded(
@@ -98,11 +96,9 @@ const fields = {
         }).annotate({ description: 'PSErrorLog.txt entry the instance wrote while the case ran' }),
     ),
 };
-const Outcome = outcome(fields);
-const Recorded = record(Outcome);
 const Encoded = Schema.fromJsonString(Batch);
 const Quit = Schema.fromJsonString(Schema.Struct({ quit: Schema.Literal(true) })).annotate({ description: 'Batch end: the engine closes every document without saving and sends the quit event with DialogModes.NO' });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Created, Document, Encoded, Engine, fields, Header, HostCase, Outcome, Placed, Quit, Recorded, Reply, SURVEY, Survey };
+export { Created, Document, Encoded, Engine, fields, HostCase, Placed, Quit, Reply, SURVEY, Survey };

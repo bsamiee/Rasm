@@ -1,4 +1,4 @@
-"""Layout rows realized once per extension identity over member bindings, each declaring what it reads: bound members, operator placements, registered popups, sub-layouts, live labels, separators, and reports, and the containers rows open."""
+"""Layout rows drawn once per extension identity, each declaring what it reads, and the containers rows open."""
 
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager
@@ -12,8 +12,7 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import Command, filled, idname, Pairs, Placement, PopupTarget
-from blender.bpy.commands.operators import dismiss_reports, Operator
+from blender.bpy.commands.operators import Command, dismiss_reports, filled, idname, Operator, Pairs, Placement, PopupTarget
 from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Descriptor, Scalar
 from blender.bpy.data.rna.paths import definition, Struct
@@ -83,7 +82,7 @@ class ConditionalRow(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Layout(ConditionalRow, frozen=True, kw_only=True):
-    """Rows drawn in the sub-layout `container` opens, the drawing layout while unset, with the context members it publishes, hidden while `shown` fails.
+    """Rows drawn in the sub-layout `container` opens, the drawing layout while unset, with the context members it publishes, hidden while `visible` fails.
 
     Rows an identity builder returns realize once the extension registers, the declarations they hold registering as the layout's `prerequisites`.
     """
@@ -109,7 +108,7 @@ class Layout(ConditionalRow, frozen=True, kw_only=True):
         return rows.bind(lambda found: realized(found, identity)).map(lambda draw: partial(self.opened, draw))
 
     def opened(self, draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Opens the container with its context members and draws the rows into it while `shown` holds."""
+        """Opens the container with its context members and draws the rows into it while `visible` holds."""
         if satisfied(self.visible, context, Some(holder)):
             inner = self.container.map(lambda container: container(layout)).default_value(layout)
             _published(self.published, inner, holder, context)
@@ -117,9 +116,10 @@ class Layout(ConditionalRow, frozen=True, kw_only=True):
 
 
 class Iconed(ConditionalRow, frozen=True, kw_only=True):
-    """Row drawn under an optional icon, declaring the icon set a packaged icon reads."""
+    """Row drawn under an optional icon with its layout function's `keywords`, declaring the icon set a packaged icon reads."""
 
     icon: Option[Icon] = Nothing
+    keywords: Keywords = MappingProxyType({})
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
@@ -137,7 +137,6 @@ class Property(Iconed, frozen=True, kw_only=True):
 
     target: Member
     function: bpy.types.Function = FUNCTIONS["prop"]
-    keywords: Keywords = MappingProxyType({})
     search: Option[Member] = Nothing
 
     @property
@@ -178,7 +177,6 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
 
     target: Placement | Command
     function: bpy.types.Function = FUNCTIONS["operator"]
-    keywords: Keywords = MappingProxyType({})
     published: Mapping[str, ContextMember] = MappingProxyType({})
 
     @property
@@ -211,7 +209,6 @@ class Opens(Iconed, frozen=True, kw_only=True):
     """Layout button opening a stock or extension menu, panel, or asset shelf through the button its kind names, `keywords` its parameters after the opened name."""
 
     target: PopupTarget
-    keywords: Keywords = MappingProxyType({})
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the opened name, button, icon, and keywords once, refusing a kind that opens through its operator alone."""
@@ -236,7 +233,6 @@ class Label(Iconed, frozen=True, kw_only=True):
 
     text: str | Callable[[bpy.types.Context], Iterable[str | Keywords]]
     function: bpy.types.Function = FUNCTIONS["label_multiline"]
-    keywords: Keywords = MappingProxyType({})
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the icon and keywords once, returning the draw reading live text each redraw."""

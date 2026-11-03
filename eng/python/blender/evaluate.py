@@ -9,23 +9,22 @@ lazy import sys
 lazy from typing import Annotated
 
 lazy from cyclopts import Parameter
-lazy from expression import Result
 lazy from expression.extra.result import catch
 lazy import msgspec
 
-lazy from eng.python.blender.assembly import Blender, reset, site
-lazy from eng.python.blender.faults import Fault, Faults, Reason
+lazy from blender.records.faults import Fault, Outcome, Reason
+lazy from eng.python.blender.assembly import BACKGROUND, Blender, reset, site
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def instances(line: bytes, /) -> dict[str, object] | None:
+def _instances(line: bytes, /) -> dict[str, object] | None:
     """Reads the instances of one `watch-apps` line keyed by process ID, None for a `system` or `fail` line."""
     held = msgspec.json.decode(line, type=dict[str, dict[str, object]])
     return next((states for key, states in held.items() if key != "system" and all(pid.isdigit() for pid in states)), None)
 
 
-def ended(state: object, /) -> int | None:
+def _ended(state: object, /) -> int | None:
     """Reads an instance's exit status from its state, 1 for a signal, an unread status, or an instance no longer listed, None while it runs."""
     match state:
         case {"exited": {"status": int(status)}}:
@@ -36,18 +35,18 @@ def ended(state: object, /) -> int | None:
             return None
 
 
-def exited(app: Path, pid: str, /) -> int:
+def _exited(app: Path, pid: str, /) -> int:
     """Reads `watch-apps watch` lines until the instance exits or leaves the listing, returning its exit status."""
     reading, writing = os.pipe()
     with subprocess.Popen(("watch-apps", "watch", app), stdin=subprocess.DEVNULL, stdout=writing) as watch, os.fdopen(reading, "rb") as lines:
         os.close(writing)
-        status = next((code for line in lines if (states := instances(line)) is not None and (code := ended(states.get(pid))) is not None), 1)
+        status = next((code for line in lines if (states := _instances(line)) is not None and (code := _ended(states.get(pid))) is not None), 1)
         watch.terminate()
         return status
 
 
-def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]) -> Result[int, Faults]:
-    """Runs Blender with `--python-use-system-env` in a fresh user base, headless on `-b` or `--background` before any `--`, else as GUI.
+def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]) -> Outcome[int]:
+    """Runs Blender with `--python-use-system-env` in a fresh user base, headless on a background flag before any `--`, else as GUI.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.
     macOS GUIs start as a new hidden instance through `watch-apps launch`, and the run returns once that instance exits, which the runner's own quit call ends.
@@ -69,26 +68,24 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
 
     @catch(exception=OSError)
     def launched() -> int:
-        given = ("--python-use-system-env", *arguments)
         log = folder / "blender.log"
-        direct = sys.platform != "darwin" or not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
         written = f"import os; os.dup2(os.open({str(log)!r}, os.O_WRONLY | os.O_APPEND | os.O_CREAT), 1); os.dup2(1, 2)"
-        variables = chain.from_iterable(("--environment", f"{name}={value}") for name, value in environment.items())
-        relayed = chain.from_iterable(("--arguments", argument) for argument in (*given[:1], "--python-expr", written, *given[1:]))
+        variables = chain.from_iterable(("--environment", f"{key}={value}") for key, value in environment.items())
+        relayed = chain.from_iterable(("--arguments", argument) for argument in ("--python-use-system-env", "--python-expr", written, *arguments))
         app = blender.parents[2]
-        if direct:
+        if sys.platform != "darwin" or not BACKGROUND.isdisjoint(takewhile(lambda argument: argument != "--", arguments)):
             with log.open("ab") as sink:
-                code = subprocess.run((blender, *given), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
+                code = subprocess.run((blender, "--python-use-system-env", *arguments), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
         else:
             opened = subprocess.run(("watch-apps", "launch", app, "--new", *variables, *relayed), stdin=subprocess.DEVNULL, capture_output=True, check=False)
             with log.open("ab") as sink:
                 sink.write(opened.stdout + opened.stderr)
-            started = [pid for line in opened.stdout.splitlines() if (states := instances(line)) is not None for pid in states]
-            code = exited(app, started[-1]) if opened.returncode == 0 and started else max(opened.returncode, 1)
+            started = [pid for line in opened.stdout.splitlines() if (states := _instances(line)) is not None for pid in states]
+            code = _exited(app, started[-1]) if opened.returncode == 0 and started else max(opened.returncode, 1)
         sys.stdout.buffer.write(log.read_bytes())
         return code
 
-    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(lambda _: launched().map_error(partial(Fault.of, Reason.PROCESS, blender)))
+    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(lambda _: launched().map_error(partial(Fault.of, Reason.FAILED, str(blender))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

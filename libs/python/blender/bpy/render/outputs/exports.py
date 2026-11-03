@@ -25,14 +25,15 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.properties import case_choices, choices
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.render.color.spaces import UNTAGGED, viewed
+from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.results import built, combined, RENDER_ORIGINS, RenderOrigin, ResultKind, saved
 from blender.bpy.ui.images.views import RESULT
 from blender.imaging.color.processors import basis, converted, DisplayView
 from blender.imaging.files.buffers import Depth, fitted
-from blender.imaging.files.documents import Document, LinearRaw, Optics
+from blender.imaging.files.documents import Document, LinearRaw
 from blender.imaging.files.images import Compression, Format, ImageFile, read_file, Storage
 from blender.imaging.files.multilayer import Multilayer
+from blender.imaging.geometry.lenses import Optics
 from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
@@ -69,7 +70,7 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Layered TIFF export of the document a builder makes of the saved frame, its command keyed `export_<key>`."""
 
     key: Key
-    document: Callable[[Identity, bpy.types.Scene, Multilayer, Depth], Outcome[Document[np.uint8 | np.uint16 | np.float32]]]
+    document: Callable[[Identity, bpy.types.Scene, Multilayer, Depth], Outcome[Document]]
 
     @cached_property
     def command(self) -> Operator[Sheet]:
@@ -204,11 +205,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         return (
-            Format
-            .writer(properties.format)
-            .to_result_with(partial(Fault.of, Reason.ABSENT, "OpenImageIO.extension_list", member=properties.format))
-            .bind(lambda chosen: chosen.stored(storage.depth))
-            .bind(lambda _: built(properties.source))
+            built(properties.source)
             .bind(lambda native: RenderOrigin.shown(call.identity, native).bind(lambda origin: image(native, origin)))
             .bind(encoded)
             .bind(lambda file: file.written(target, storage, call.identity.manifest.stamp, config))
@@ -271,7 +268,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
     def sourced(key: str) -> Outcome[Option[str]]:
         source = Path(Option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library)))
         return Format.of(source).bind(
-            lambda row: read_file(source, config, untagged=Some(UNTAGGED)).bind(
+            lambda row: read_file(source, config).bind(
                 lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing))
             )
         )

@@ -50,10 +50,19 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public let eventID: AEEventID
         public let parameters: [Term]
 
+        enum Keys: String, CodingKey {
+            case name
+            case code
+            case parameters
+        }
+
         public var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
 
         public func encode(to encoder: any Encoder) throws {
-            try ["name": name, "code": code.sdef].encode(to: encoder)
+            var row: KeyedEncodingContainer<Keys> = encoder.container(keyedBy: Keys.self)
+            try row.encode(name, forKey: .name)
+            try row.encode(code.sdef, forKey: .code)
+            try row.encode(parameters, forKey: .parameters)
         }
     }
 

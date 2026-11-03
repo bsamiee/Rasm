@@ -27,14 +27,15 @@ extension ElementAction {
     @concurrent
     public func perform(in process: pid_t? = nil) async throws(ApplicationFailure) {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            let absent: ApplicationFailure = ApplicationFailure(subject: "element \(element.base64EncodedString())", reason: .absent("open window"))
-            guard let node: AXUIElement = AXUIElement.element(element), process == nil || node.process == process else { throw absent }
+            let subject: String = "element \(element.base64EncodedString())"
+            guard let node: AXUIElement = AXUIElement.element(element) else { throw ApplicationFailure(subject: subject, reason: .unresolved) }
+            if let process, node.process != process { throw ApplicationFailure(subject: subject, reason: .foreign(process)) }
             let read: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXWindowAttribute, kAXEnabledAttribute])
             let window: AXUIElement? = read[kAXRoleAttribute] as? String == kAXWindowRole ? node : read[kAXWindowAttribute].flatMap(AXUIElement.checked)
             let open: Bool? = try window.map { window throws(ApplicationFailure) in
                 try node.process.map(AXUIElementCreateApplication)?.elements(kAXWindowsAttribute).contains(window) ?? false
             }
-            guard open != false else { throw absent }
+            guard open != false else { throw ApplicationFailure(subject: subject, reason: .closed) }
             let outcome: AXError =
                 switch (self, read[kAXEnabledAttribute] as? Bool) {
                     case (.perform(_, kAXRaiseAction), _): throw ApplicationFailure(subject: description, reason: .activating)
@@ -44,7 +45,7 @@ extension ElementAction {
                 }
             guard outcome != .success else { return }
             throw ApplicationFailure(outcome, subject: description, process: node.process, answering: self) {
-                outcome == .invalidUIElement ? absent : ApplicationFailure(subject: description, reason: .refused(outcome))
+                outcome == .invalidUIElement ? ApplicationFailure(subject: subject, reason: .unresolved) : ApplicationFailure(subject: description, reason: .refused(outcome))
             }
         }
     }

@@ -14,45 +14,47 @@ import psdtags
 import PyOpenColorIO
 import tifffile
 
+from blender.imaging.files.buffers import Coded
 from blender.imaging.files.images import profile, written
+from blender.imaging.geometry.lenses import Optics
 from blender.records.faults import Fault, Outcome, paired, Reason
-from blender.records.fields import Finite, Positive
+from blender.records.fields import Finite
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type DocumentLayers[D: np.uint8 | np.uint16 | np.float32] = tuple[PixelLayer[D] | LayerGroup[D], ...]
+type DocumentLayers = tuple[PixelLayer | LayerGroup, ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PixelLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class PixelLayer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Pixel layer in unassociated color with alpha."""
 
     name: str
-    color: npt.NDArray[D]
-    alpha: npt.NDArray[D]
-    mask: Option[npt.NDArray[D]] = Nothing
+    color: npt.NDArray[Coded]
+    alpha: npt.NDArray[Coded]
+    mask: Option[npt.NDArray[Coded]] = Nothing
     mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.NORMAL
     opacity: float = 1.0
     visible: bool = True
 
 
-class LayerGroup[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class LayerGroup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Layer group, layers bottom first."""
 
     name: str
-    layers: DocumentLayers[D]
-    mode: Option[psdtags.PsdBlendMode] = Nothing
+    layers: DocumentLayers
+    mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.PASS_THROUGH
     opacity: float = 1.0
     visible: bool = True
 
 
-class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Document(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Layers bottom first and density in pixels per meter."""
 
-    layers: DocumentLayers[D]
-    composite: npt.NDArray[D]
+    layers: DocumentLayers
+    composite: npt.NDArray[Coded]
     colorspace: str
     density: float
 
@@ -72,7 +74,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             *,
             blend: tuple[psdtags.PsdBlendMode, float],
             visible: bool,
-            channels: tuple[tuple[psdtags.PsdChannelId, npt.NDArray[D]], ...],
+            channels: tuple[tuple[psdtags.PsdChannelId, npt.NDArray[Coded]], ...],
             rectangle: psdtags.PsdRectangle,
             mask: psdtags.PsdLayerMask | None,
             info: tuple[psdtags.PsdKeyABC, ...],
@@ -88,20 +90,19 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
                 info=[psdtags.PsdString(psdtags.PsdKey.UNICODE_LAYER_NAME, name), *info],
             )
 
-        def records(node: PixelLayer[D] | LayerGroup[D]) -> tuple[psdtags.PsdLayer, ...]:
+        def records(node: PixelLayer | LayerGroup) -> tuple[psdtags.PsdLayer, ...]:
             match node:
                 case PixelLayer():
                     channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
                     mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).to_optional()
                     return (record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
                 case LayerGroup():
-                    blend = (node.mode.default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)
                     bounding = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER)
-                    section = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.OPEN_FOLDER, blend[0])
+                    section = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.OPEN_FOLDER, node.mode)
                     return (
                         record("</Layer group>", blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=True, channels=empty, rectangle=void, mask=None, info=(bounding,)),
                         *(layer for child in node.layers for layer in records(child)),
-                        record(node.name, blend=blend, visible=node.visible, channels=empty, rectangle=void, mask=None, info=(section,)),
+                        record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=empty, rectangle=void, mask=None, info=(section,)),
                     )
 
         source = psdtags.TiffImageSourceData(
@@ -141,13 +142,6 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
         )
 
 
-class Optics(msgspec.Struct, frozen=True, kw_only=True):
-    """Source camera focal length in meters and f-number."""
-
-    focal_length: Positive
-    f_number: Positive
-
-
 class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     """Camera and exposure tags of Linear Raw DNG."""
 
@@ -167,7 +161,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
             bound = int(np.iinfo(np.int32).max)
             return tuple(fractions.Fraction(value).limit_denominator(min(bound, int(bound / abs(value)))).as_integer_ratio() if value else (0, 1) for value in values)
 
-        def tags(matrix: npt.NDArray[np.float64]) -> list[tuple[int, int, int, object, bool]]:
+        def tags(matrix: npt.NDArray[np.float64]) -> list[tuple[str, int, int, object, bool]]:
             rows = (
                 ("Make", tifffile.DATATYPE.ASCII, 0, self.make),
                 ("Model", tifffile.DATATYPE.ASCII, 0, self.model),
@@ -187,7 +181,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
                     )
                 ),
             )
-            return [(tifffile.TIFF.TAGS[name], kind, count, value, True) for name, kind, count, value in rows]
+            return [(name, kind, count, value, True) for name, kind, count, value in rows]
 
         return (
             catch(np.linalg.inv, exception=np.linalg.LinAlgError)(basis)
@@ -213,4 +207,4 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Document", "DocumentLayers", "LayerGroup", "LinearRaw", "Optics", "PixelLayer"]
+__all__ = ["Document", "DocumentLayers", "LayerGroup", "LinearRaw", "PixelLayer"]

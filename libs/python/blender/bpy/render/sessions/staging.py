@@ -14,7 +14,7 @@ import numpy as np
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
+from blender.bpy.commands.operators import called
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import IdName
@@ -211,7 +211,7 @@ class _Job:
         headed = len(views) > 1
         self.files.add(path)
 
-        def parts(_output: OpenImageIO.ImageOutput) -> tuple[Subimage[np.float32], ...]:
+        def parts(_output: OpenImageIO.ImageOutput) -> tuple[Subimage, ...]:
             return tuple(
                 Subimage(
                     spec=buffer.spec(),
@@ -354,9 +354,11 @@ class _Job:
         original = accumulated(_Authored.of(held.entry) for held, _ in staged)
 
         def completed() -> Outcome[_Returned]:
-            self.scope.enter_context(Handler(handlers=bpy.app.handlers.frame_change_pre, body=self.selected).held(self.identity))
-            scene.frame_set(frames[0], subframe=sample)
-            return native(self.identity, scene, call)
+            def framed(_: None) -> Outcome[_Returned]:
+                scene.frame_set(frames[0], subframe=sample)
+                return native(self.identity, scene, call)
+
+            return self.scope.enter_context(Handler(handlers=bpy.app.handlers.frame_change_pre, body=self.selected).held(self.identity)).bind(framed)
 
         def prepared(authored: tuple[_Authored, ...]) -> Outcome[_Returned]:
             self.scope.callback(self.identity.reports.reported(self.restored), authored)

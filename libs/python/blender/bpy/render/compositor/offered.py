@@ -16,9 +16,8 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.commands.calls import Placement, PopupKind, PopupTarget
 from blender.bpy.commands.invocations import Open
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement, PopupKind, PopupTarget, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, retained
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
@@ -38,7 +37,7 @@ from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import RENDER_ORIGINS, RenderOrigin
 from blender.bpy.scene import cameras
 from blender.bpy.settings.attachments import Stored
-from blender.bpy.ui.elements.menus import Append, Dropdown, Menu, Submenus
+from blender.bpy.ui.elements.menus import Append, Menu, Submenus
 from blender.bpy.ui.layout.rows import Opens, OperatorButton
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
 from blender.records.fields import Case
@@ -392,8 +391,7 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
             for rank in phase.ranked
             for row in rank
         )
-        body = Submenus(entries=buttons) if len(self.phases) > 1 else Dropdown(entries=tuple(button for _, button in buttons), search=True)
-        return Menu(key=self.adding.key, description=self.adding.description, body=body)
+        return Menu(key=self.adding.key, description=self.adding.description, body=Submenus(entries=buttons))
 
     def add_effect(self, call: Call[Choice]) -> Outcome[Answer]:
         """Add the chosen effect at its rank."""

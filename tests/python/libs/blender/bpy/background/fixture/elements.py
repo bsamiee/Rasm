@@ -15,8 +15,8 @@ from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 from mathutils import Matrix
 
-from blender.bpy.commands.calls import called, Placement
 from blender.bpy.commands.keymaps import Chord
+from blender.bpy.commands.operators import called, Placement
 from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Declaration, Gathering, Registration

@@ -45,17 +45,18 @@ class Tier(Enum):
     REGISTRIES = auto()
 
 
-type Acquisition = type | AbstractContextManager[Outcome[None] | None] | Callable[[], Outcome[tuple[type, ...]]]
+type Acquisition = type | AbstractContextManager[Outcome[None]] | Callable[[], Outcome[tuple[type, ...]]]
 type Declaration = Registrable | Resource[Any] | Handler | Subscription | Timer
 type _Banded = tuple[Tier, Acquisition]
 type Acquisitions = tuple[Declaration | type | _Banded, ...]
+type _Answer = Outcome[Acquisitions] | AbstractContextManager[Outcome[Acquisitions]]
 
 
 @runtime_checkable
 class Registrable(Protocol):
     """Row building its acquisitions under extension identity."""
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions] | AbstractContextManager[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity, /) -> _Answer:
         """Builds acquisitions under the extension identity, directly or yielded by a construction scope."""
 
 
@@ -79,7 +80,7 @@ class Gathering(Protocol):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EAGER: Final = (Tier.GROUPS, Tier.ATTACHMENTS, Tier.RESOURCES)
-_EVENTS: Final[Mapping[type[Handler | Subscription | Timer], Tier]] = MappingProxyType({Handler: Tier.APP_HANDLERS, Subscription: Tier.SUBSCRIPTIONS, Timer: Tier.TIMERS})
+_EVENTS: Final[Mapping[type, Tier]] = MappingProxyType({Handler: Tier.APP_HANDLERS, Subscription: Tier.SUBSCRIPTIONS, Timer: Tier.TIMERS})
 _BANDS: Final[Mapping[type, Tier]] = MappingProxyType({
     bpy.types.PropertyGroup: Tier.GROUPS,
     bpy.types.AddonPreferences: Tier.PREFERENCES,
@@ -139,17 +140,12 @@ class Registration:
     Refused registration raises one `RuntimeError` of rendered faults after every acquisition before it released.
     """
 
-    __slots__ = ("_declarations", "_held", "_pairs", "_stacks", "package", "rows", "unregister")
+    __slots__ = ("_held", "package", "rows", "unregister")
 
     def __init__(self, package: str, rows: tuple[Declaration | Gathering | type | _Banded, ...], /) -> None:
         """Holds the package `Identity.read` reads and the rows, with nothing registered, `unregister` releasing every registration in reverse."""
         self.package, self.rows, self._held = package, rows, ExitStack()
         self.unregister: Callable[[], None] = self._held.close
-        self._declarations: list[Declaration | Gathering] = []
-        self._pairs: dict[tuple[Tier, Acquisition], bool] = {}
-        self._stacks: dict[Tier, ExitStack] = {}
-
-    # --- [LIFECYCLE]
 
     def register(self) -> None:
         """Acquires every row's registrations, holding their releases until `unregister`, a refusal raising the `RuntimeError` of every rendered fault."""
@@ -162,74 +158,61 @@ class Registration:
             manager.keyconfigs.update(keep_properties=True)
 
         def registered(stack: ExitStack, identity: Identity) -> Outcome[None]:
-            """Enters keymap merge, reports, and band stacks with the manual map hook of a manifest website, builds rows, and enters the remaining bands."""
+            """Enters keymap merge, reports, and band stacks with the manual map hook of a manifest website, builds rows, and enters every band."""
 
             def manual(website: str) -> AbstractContextManager[Outcome[None]]:
                 hook = partial(_mapped, identity, website)
                 return scoped(website, partial(bpy.utils.register_manual_map, hook), lambda _: bpy.utils.unregister_manual_map(hook))
 
+            def opened(band: Tier) -> Outcome[None]:
+                fresh = tuple((kind, acquisition) for (kind, acquisition), done in pairs.items() if kind is band and not done)
+                return entered(stacks[band], tuple(acquisition for _, acquisition in fresh)).map(lambda _: pairs.update(dict.fromkeys(fresh, True)))
+
+            def declared(declaration: Declaration | Gathering, answer: _Answer) -> Outcome[Acquisitions]:
+                declarations.append(declaration)
+                return stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+
+            def built(row: Declaration | Gathering | type | _Banded) -> Outcome[None]:
+                answer: Callable[[], _Answer]
+                match row:
+                    case type() as cls:
+                        return (
+                            Block
+                            .of_seq(cls.__mro__)
+                            .choose(lambda base: Option.of_optional(_BANDS.get(base)))
+                            .try_head()
+                            .to_result_with(partial(Fault.of, Reason.ABSENT, cls.__name__, member="registrable host base"))
+                            .map(lambda band: pairs.setdefault((band, cls), False))
+                            .map(lambda _: None)
+                        )
+                    case _ if row in declarations:
+                        return Ok(None)
+                    case Resource() as resource:
+                        answer = lambda: Ok((
+                            (Tier.RESOURCES, identity.resources.holding(resource, partial(resource.made, identity))),
+                            *(Handler(handlers=bpy.app.handlers.load_post, body=partial(identity.resources.renewed, resource, renew)) for renew in resource.renewed.to_list()),
+                        ))
+                    case Handler() | Subscription() | Timer() as event:
+                        answer = lambda: Ok(((_EVENTS[type(event)], event.held(identity)),))
+                    case Gathering() as gathering:
+                        answer = lambda: gathering.gathered(identity, tuple(declarations))
+                    case Registrable() as registrable:
+                        answer = partial(registrable.acquisitions, identity)
+                    case _:
+                        pairs.setdefault(row, False)
+                        return Ok(None)
+                return _each(built, _prerequisites(row)).bind(lambda _: _each(opened, _EAGER)).bind(lambda _: declared(row, answer())).bind(partial(_each, built)).bind(lambda _: _each(opened, _EAGER))
+
             stack.callback(merged)
             stack.enter_context(identity.reports)
-            self._stacks = {band: stack.enter_context(ExitStack()) for band in Tier}
-            self._declarations = []
-            self._pairs = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
-            built = partial(self._built, stack, identity)
+            stacks = {band: stack.enter_context(ExitStack()) for band in Tier}
+            declarations: list[Declaration | Gathering] = []
+            pairs: dict[tuple[Tier, Acquisition], bool] = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
             prerequisites = chain.from_iterable(map(_prerequisites, self.rows))
-            return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(
-                lambda _: _each(self._opened, (band for band in Tier if band not in _EAGER))
-            )
+            return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(lambda _: _each(opened, Tier))
 
         with ExitStack() as stack:
             Identity.read(self.package).bind(partial(registered, stack)).map(lambda _: self._held.push(stack.pop_all())).default_with(refused)
-
-    # --- [BUILD]
-
-    def _built(self, stack: ExitStack, identity: Identity, row: Declaration | Gathering | type | _Banded, /) -> Outcome[None]:
-        """Pairs a class with its nearest host base's band, or builds a declaration once after its prerequisites and enters the eager bands it fills."""
-        built = partial(self._built, stack, identity)
-
-        def declared(declaration: Declaration | Gathering) -> Outcome[Acquisitions]:
-            answer: Outcome[Acquisitions] | AbstractContextManager[Outcome[Acquisitions]]
-            match declaration:
-                case Resource():
-                    answer = Ok((
-                        (Tier.RESOURCES, identity.resources.holding(declaration, partial(declaration.made, identity))),
-                        *(Handler(handlers=bpy.app.handlers.load_post, body=partial(identity.resources.renewed, declaration, renew)) for renew in declaration.renewed.to_list()),
-                    ))
-                case Handler() | Subscription() | Timer():
-                    answer = Ok(((_EVENTS[type(declaration)], declaration.held(identity)),))
-                case Gathering():
-                    answer = declaration.gathered(identity, tuple(self._declarations))
-                case _:
-                    answer = declaration.acquisitions(identity)
-            self._declarations.append(declaration)
-            return stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
-
-        match row:
-            case type() as cls:
-                return (
-                    Block
-                    .of_seq(cls.__mro__)
-                    .choose(lambda base: Option.of_optional(_BANDS.get(base)))
-                    .try_head()
-                    .to_result_with(partial(Fault.of, Reason.ABSENT, cls.__name__, member="registrable host base"))
-                    .map(lambda band: self._pairs.setdefault((band, cls), False))
-                    .map(lambda _: None)
-                )
-            case _ if row in self._declarations:
-                return Ok(None)
-            case Resource() | Handler() | Subscription() | Timer() | Gathering() | Registrable():
-                return (
-                    _each(built, _prerequisites(row)).bind(lambda _: _each(self._opened, _EAGER)).bind(lambda _: declared(row)).bind(partial(_each, built)).bind(lambda _: _each(self._opened, _EAGER))
-                )
-            case _:
-                self._pairs.setdefault(row, False)
-                return Ok(None)
-
-    def _opened(self, band: Tier, /) -> Outcome[None]:
-        """Enters the band's pairs not yet entered, marking them entered."""
-        fresh = tuple((kind, acquisition) for (kind, acquisition), done in self._pairs.items() if kind is band and not done)
-        return entered(self._stacks[band], tuple(acquisition for _, acquisition in fresh)).map(lambda _: self._pairs.update(dict.fromkeys(fresh, True)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -245,18 +228,7 @@ def _prerequisites(row: object, /) -> tuple[Declaration, ...]:
 
 
 def entered(stack: ExitStack, acquisitions: tuple[Acquisition, ...], /) -> Outcome[None]:
-    """Registers classes in dependency order, then enters managers and runs deferred builds, onto stack until first refusal.
-
-    Classes order after pointer and collection targets and parent panels, a panel keyed by `bl_idname`, else class name, with parent `bl_parent_id`.
-    Dependency cycle returns a unregistered fault.
-
-    Args:
-        stack: Registration stack each release goes on.
-        acquisitions: Classes, managers, and deferred builds of one band.
-
-    Returns:
-        Ok(None) once every acquisition entered, the first refusal's unregistered fault, or a unregistered fault naming the classes of a dependency cycle.
-    """
+    """Registers a band's classes after the pointer targets and parent panels they name, then its managers and deferred builds, onto stack until the first refusal or dependency cycle."""
     classes = tuple(acquisition for acquisition in acquisitions if isinstance(acquisition, type) and issubclass(acquisition, bpy.types.bpy_struct))
     declared = {cls: {name: value for base in reversed(cls.__mro__) for name, value in vars(base).items()} for cls in classes}
     panels: dict[object, type[Struct]] = {declared[panel].get("bl_idname", panel.__name__): panel for panel in classes if issubclass(panel, bpy.types.Panel)}
@@ -275,20 +247,23 @@ def entered(stack: ExitStack, acquisitions: tuple[Acquisition, ...], /) -> Outco
 
 
 def _acquired(stack: ExitStack, acquisition: Acquisition, /) -> Outcome[None]:
-    """Registers a class after pushing its release, enters a manager, or registers the classes a deferred build returns."""
+    """Registers a class and pushes its release, enters a manager, or registers the classes a deferred build returns."""
     match acquisition:
         case type() as cls:
 
             def released() -> None:
-                """Unregisters class while the host holds it, a class whose `register` raised included."""
+                """Unregisters class while the host holds it, a class whose property or `register` raised after the host took it included."""
                 if "bl_rna" in vars(cls):
                     bpy.utils.unregister_class(cls)  # ty: ignore[invalid-argument-type]
 
             stack.callback(released)
-            register: Callable[[type], Result[object, Exception]] = catch(catch(catch(bpy.utils.register_class, exception=ValueError), exception=RuntimeError), exception=AttributeError)
-            return register(cls).map(lambda _: None).map_error(partial(Fault.of, Reason.UNREGISTERED, cls.__name__))
+            try:
+                bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
+            except (ValueError, RuntimeError, AttributeError) as error:
+                return Error(Fault.of(Reason.UNREGISTERED, cls.__name__, error))
+            return Ok(None)
         case AbstractContextManager() as manager:
-            return Option.of_optional(stack.enter_context(manager)).default_value(Ok(None))
+            return stack.enter_context(manager)
         case build:
             return build().bind(partial(entered, stack))
 

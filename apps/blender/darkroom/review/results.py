@@ -13,8 +13,8 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.keymaps import Chord, Keymap
+from blender.bpy.commands.operators import Placement
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.properties import annotated
 from blender.bpy.extension.identity import Identity, Resource

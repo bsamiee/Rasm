@@ -1,6 +1,7 @@
 #![feature(cmp_minmax, default_field_values)]
 
 use core::iter;
+use std::sync::Arc;
 
 use kurbo::{Affine, Point, Rect};
 use manifold_rust::cancel::{self, CancelToken};
@@ -61,7 +62,7 @@ impl Frame {
 #[derive(Debug, Clone)]
 struct Prepared {
     body: usize,
-    mesh: TriMesh,
+    mesh: Arc<TriMesh>,
     sources: Vec<Option<Source>>,
     surface: bool,
 }
@@ -107,7 +108,7 @@ impl View {
             };
             ViewsError::from(ProximityError::NonFinite { indices: indices.into_nonempty_iter().map(|index| bodies.get(index).map_or(index, |prepared| prepared.body)).collect() })
         };
-        let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape::new(prepared.mesh.clone()))))
+        let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape(prepared.mesh.clone()))))
             .map_err(|errors| errors.into_nonempty_iter().map(renumbered).collect::<NEVec<_>>())?;
         let scene = Scene { bodies, assembly };
         (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;

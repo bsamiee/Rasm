@@ -17,9 +17,9 @@ func values<Value: Sendable, Token: Sendable>(
 }
 ```
 
-- `values(bufferingPolicy: .bufferingNewest(1), observe: monitor.observe, remove: monitor.remove)` registers at the call, and the stream holds the token until its consumer stops
+- Host members enter as `observe: monitor.observe, remove: monitor.remove`, and `values` registers at the call and removes when the consumer stops
 - Wake signals are an `AsyncStream<Void>` at `.bufferingNewest(1)`, and wakes arriving between reads coalesce into one
-- C callbacks take `Unmanaged.passUnretained(owner).toOpaque()` as context and yield through `fromOpaque(_:).takeUnretainedValue()`, the owner removing the source in `deinit`
+- C callbacks pass `Unmanaged.passUnretained(owner).toOpaque()` as context and read through `takeUnretainedValue()`, and `deinit` removes the source
 - `yield` returns `.terminated` after the consumer stops, and a producer on a thread of its own reads it to stop producing
 
 ## [02]-[TYPED_FAILURE]
@@ -91,7 +91,7 @@ func totals(of cart: Cart) -> some AsyncSequence<Decimal, Never> {
 
 ## [05]-[BACK_PRESSURE]
 
-Back pressure concerns push producers, a pull source producing only when its consumer calls `next()`. The producer's ability to wait selects the form:
+Back pressure concerns push producers, and a pull source produces only when its consumer calls `next()`. The producer's ability to wait selects the form:
 
 | [INDEX] | [PRODUCER]                                      | [FORM]                                                                 |
 | :-----: | :---------------------------------------------- | :--------------------------------------------------------------------- |

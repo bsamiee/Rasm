@@ -18,6 +18,7 @@ utils:
         all:
             - has: {field: value, pattern: $_}
             - not: {has: {regex: '^\*$'}}
+            - not: {has: {field: value, any: [{kind: tuple}, {kind: as_pattern, has: {kind: tuple}}]}}
             - has:
                 kind: block
                 all:

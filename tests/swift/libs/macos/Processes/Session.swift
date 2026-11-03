@@ -55,16 +55,10 @@ struct Sessions {
         #expect(getpgrp() != result.processIdentifier.value)
     }
 
-    @Test
-    func nonzeroExitThrowsExitStatus() async throws {
-        let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell("exit 3").run(output: .discarded, within: .seconds(30)) }
-        expectNoDifference(failure.reason[case: \.exit], .exited(3))
-    }
-
-    @Test
-    func signalThrowsSignalStatus() async throws {
-        let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell("kill -TERM $$").run(output: .discarded, within: .seconds(30)) }
-        expectNoDifference(failure.reason[case: \.exit], .signaled(SIGTERM))
+    @Test(arguments: [("exit 3", TerminationStatus.exited(3)), ("kill -TERM $$", .signaled(SIGTERM))])
+    func nonzeroExitOrSignalThrowsItsStatus(script: String, status: TerminationStatus) async throws {
+        let failure: ProcessFailure = try await #require(throws: ProcessFailure.self) { try await shell(script).run(output: .discarded, within: .seconds(30)) }
+        expectNoDifference(failure.reason[case: \.exit], status)
     }
 
     @Test

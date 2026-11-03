@@ -3,12 +3,12 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
 import { type KeyboardEvent, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
-import { CompositionGrid } from '#/media/composition-grid';
-import { entryTitle } from '#/media/labels';
-import { MediaFigure } from '#/media/media-figure';
-import type { Entry } from '#/model/portfolio';
-import type { useNavigation } from '#/site/navigation';
-import { Overview } from '#/site/overview';
+import { CompositionGrid } from '#/media/composition-grid.tsx';
+import { entryTitle } from '#/media/labels.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import type { Entry } from '#/model/portfolio.ts';
+import type { useNavigation } from '#/site/navigation.ts';
+import { Overview } from '#/site/overview.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -84,19 +84,19 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
                 <p className="chapter-lead empty:hidden">{entry.description}</p>
             </div>
             {entry.compositions.length > 0 ? (
-                <section aria-label={`${title} views`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
+                <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
                     <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : ''}>
                         {carousel && (
                             <>
                                 <Overview compositions={entry.compositions} onSelect={api.goTo} selected={selectedSnap} title={title} />
-                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous view" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-2 row-start-1 size-11 p-0" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
+                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous composition" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-2 row-start-1 size-11 p-0" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
                                     <ArrowLeft aria-hidden="true" className="size-5" />
                                 </button>
-                                <button aria-disabled={!api.canGoToNext()} aria-label="Next view" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-3 row-start-1 size-11 p-0" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
+                                <button aria-disabled={!api.canGoToNext()} aria-label="Next composition" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-3 row-start-1 size-11 p-0" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
                                     <ArrowRight aria-hidden="true" className="size-5" />
                                 </button>
                                 <span aria-atomic="true" aria-live="polite" className="sr-only">
-                                    View {selectedSnap + 1} of {entry.compositions.length}
+                                    Composition {selectedSnap + 1} of {entry.compositions.length}
                                 </span>
                             </>
                         )}
@@ -113,7 +113,7 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
                 </section>
             ) : (
                 <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                    <h4 className="text-xl">No views yet</h4>
+                    <h4 className="text-xl">No compositions yet</h4>
                 </div>
             )}
             {details.length > 0 && (

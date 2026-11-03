@@ -11,7 +11,7 @@ Draw handler types decide coordinates, and a region the space lacks or `args=Non
 |  [03]   | `BACKDROP`              | Node editor `WINDOW` region pixels before the backdrop         |
 
 Handlers receive what they draw and draw over editor state they restore:
-- Handlers run in every area of their space type in every window, read their editor as `context.area`, and Blender refuses none of their data writes
+- Handlers read their editor as `context.area`, and Blender refuses none of their data writes
 - `args` holds batches built from a timer or operator in a GUI session, and a drawn data change replaces the handler with new batches
 - `partial(<handler>, <keyword>=<value>)` registers keyword values, `args` passing positional values alone
 - Handlers draw while overlays are off, and overlay handlers return early on a false `space.overlay.show_overlays`
@@ -157,7 +157,7 @@ def framed(rows: NDArray[np.void], /) -> gpu.types.GPUBatch:
     return batch_for_shader(boxed(), "TRIS", {"corner": corners} | {name: np.repeat(rows[name], 6, axis=0) for name in WIDTHS})  # ty: ignore[invalid-argument-type]
 ```
 
-`framed(np.array(<rows>, BOX))` takes one row per frame: `rect` as pixel origin and size, `fill` and `edge` as sRGB colors, `shape` as corner radius and line width. Each `WIDTHS` entry derives its attribute slot, `flat` member, vertex-source copy, and batch content, fragment GLSL being its one hand-written use. Fragments write premultiplied color, and `framed(rows).draw(boxed())` runs under `ALPHA_PREMULT` in a scope restoring the entry blend mode like `stroked`. `fwidth` of the signed distance keeps edges one pixel soft at any scale. `boxed` compiles at first call inside a GPU context, and a raise caches nothing.
+`framed(np.array(<rows>, BOX))` takes one row per frame: `rect` as pixel origin and size, `fill` and `edge` as sRGB colors, `shape` as corner radius and line width. Fragments write premultiplied color, and `framed(rows).draw(boxed())` runs under `ALPHA_PREMULT` in a scope restoring the entry blend mode like `stroked`. `fwidth` of the signed distance keeps edges one pixel soft at any scale. `boxed` compiles at first call inside a GPU context, and a raise caches nothing.
 
 ## [06]-[OFFSCREEN]
 
@@ -171,7 +171,7 @@ Offscreen buffers draw outside a window:
 - `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` uses `view3d` shading and overlays
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
 
-Panels show a custom drawing as a preview icon drawn offscreen at Blender's preview and icon render sizes, its pixels bottom row first as preview buffers store them:
+Panels show a custom drawing as a preview icon rendered offscreen once at Blender's preview render size, pixels bottom row first as preview buffers store them:
 
 ```python
 def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[np.float32]:
@@ -191,10 +191,12 @@ def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[n
 
 def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, draw: Callable[[], None], extent: float, /) -> int:
     preview: bpy.types.ImagePreview = previews.get(name) or previews.new(name)
-    preview.image_size, preview.icon_size = (bpy.app.render_preview_size,) * 2, (bpy.app.render_icon_size,) * 2  # type: ignore[assignment]
-    preview.image_pixels_float.foreach_set(rendered(draw, extent, bpy.app.render_preview_size))  # type: ignore[arg-type]
-    preview.icon_pixels_float.foreach_set(rendered(draw, extent, bpy.app.render_icon_size))  # type: ignore[arg-type]
+    size = bpy.app.render_preview_size
+    pixels = rendered(draw, extent, size)
+    preview.image_size = preview.icon_size = (size, size)  # type: ignore[assignment]
+    preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+    preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
     return preview.icon_id
 ```
 
-Panel `draw` calls `pictured(previews, <name>, partial(stroked, batch, width=<pixels>, color=lambda ui: ui.<member>), <extent>)` once per change of drawn data or interface scale and shows the returned id through `layout.template_icon(icon_value=<id>, scale=<n>)`. Projection maps drawing coordinates over `[0, extent]` on both axes onto each buffer, and both matrix stacks return to caller values, a draw handler's included.
+Panel `draw` calls `pictured(previews, <name>, partial(stroked, batch, width=<pixels>, color=lambda ui: ui.<member>), <extent>)` once per change of drawn data or interface scale and shows the returned id through `layout.template_icon(icon_value=<id>, scale=<n>)`. Projection maps drawing coordinates over `[0, extent]` on both axes onto the buffer, and both matrix stacks return to caller values, a draw handler's included.

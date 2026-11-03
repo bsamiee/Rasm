@@ -52,33 +52,28 @@ Callback bodies run at each redraw over state other code stored:
 - Values a `draw` shows derive from stored state at the read, `property_unset` calling no `update` callback
 - Failing operator `poll` grays its button without hiding it, and `draw` hides a button by skipping it
 
-Raises in `draw`, `draw_header`, `draw_prepare`, or a draw handler print a traceback on every redraw and leave the class or handler running. Draw bodies read a fallible value once and draw its faults as alert rows in place of its rows:
+Raises in `draw`, `draw_header`, `draw_prepare`, or a draw handler print a traceback on every redraw and leave the class or handler running. Draw bodies read a fallible value once, map it to its rows, and draw its faults as alert rows in their place:
 
 ```python
-def shown[T](layout: bpy.types.UILayout, draw: Callable[[bpy.types.UILayout, T], None], outcome: Outcome[T], /) -> None:
-    match outcome:
-        case Result(tag="ok", ok=value):
-            draw(layout, value)
-        case Result(error=faults):
-            column = layout.column()
-            column.alert = True
-            for fault in faults:
-                column.label(text=fault.message, icon="ERROR")
+def alerted[T](layout: bpy.types.UILayout, outcome: Outcome[T], /) -> None:
+    for faults in outcome.swap().to_option().to_list():
+        column = layout.column(align=True)
+        column.alert = True
+        for fault in faults:
+            column.label(text=fault.message, icon="ERROR")
 ```
 
-`partial(shown, self.layout, drawn)` draws each settings outcome a panel reads, its faults in place of its rows.
+`alerted(self.layout, outcome.map(partial(drawn, self.layout)))` draws a settings outcome a panel reads.
 
 ## [02]-[PANELS]
 
 Registration checks panel placement:
-- Classes registered without `bl_idname` (panels, menus, lists) hold no `bl_idname` attribute, and code reads their name from `cls.bl_rna.identifier`
 - Sidebar (`UI`) panels name an existing tab exactly (`Tool`, `View`, `Item`) or a new one in `bl_category`, an empty one filing them under `Misc`
 - `bl_category` on a region without tabs fails registration in 3D View, Image, Node, and Sequencer editors, other spaces ignoring it
 - Child panels set `bl_parent_id` and repeat parent `bl_space_type` and `bl_region_type`, a mismatch raising `parent '<id>' for '<id>' not found`
 - Child panels draw under their parent whatever their `bl_category`
 - `region.active_panel_category = <category>` opens a tab after the region draws its tabs, raising `AttributeError` before
 - Panels registered outside `register()` store an empty `bl_owner_id` and pass every workspace add-on filter
-- Render engines show built-in Properties panels by adding their `bl_idname` to `COMPAT_ENGINES` of each panel holding `BLENDER_RENDER`
 
 `bl_options` flags answer one need each:
 
@@ -118,10 +113,10 @@ Layout panels fold sections inside a draw:
 
 ## [03]-[LAYOUT]
 
-Settings draw a struct's own properties in declaration order with the label, tooltip, unit, and range each `bpy.props` call states. A `use_<name>` boolean beside `<name>` draws in the value's row under its heading, dimming the value while off. Collections draw as a list over `<name>_index`, nested groups as a layout panel:
+Settings draw a struct's own properties in declaration order with the label, tooltip, unit, and range each `bpy.props` call states. `use_<name>` booleans beside `<name>` draw in the value's row under its heading, dimming the value while off. Collections draw as a list over `<name>_index`, nested groups as a layout panel:
 
 ```python
-def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{}", index: str = "{}_index", listing: str = UI_UL_list.__name__) -> None:
+def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{}", index: str = "{}_index", listtype_name: str = UI_UL_list.__name__) -> None:
     rna: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     inherited: Elements[bpy.types.Property] = rna.base.properties  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     declared = tuple(prop.identifier for prop in rna.properties if prop.identifier not in inherited and not prop.is_hidden)
@@ -133,9 +128,9 @@ def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{
                 header, body = layout.panel(name)
                 header.label(text=rna.properties[name].name)
                 if body:
-                    drawn(body, group, switch=switch, index=index, listing=listing)
+                    drawn(body, group, switch=switch, index=index, listtype_name=listtype_name)
             case bpy.types.bpy_prop_collection():
-                layout.template_list(listing, name, struct, name, struct, index.format(name))
+                layout.template_list(listtype_name, name, struct, name, struct, index.format(name))
             case _ if switch.format(name) in declared:
                 row = layout.row(heading=rna.properties[name].name)
                 row.prop(struct, switch.format(name), text="")
@@ -149,7 +144,7 @@ def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{
 `drawn(self.layout, <group>)` draws a panel, `drawn(self.layout, self.properties)` an operator dialog, and `drawn(layout, window_manager.operator_properties_last(<idname>))` the settings an operator's next run takes:
 - `bl_rna.base.properties` holds base members (`rna_type`, `name`, `bl_idname`), and each `PropertyGroup` subclass lists its own runtime `name` last
 - `options={'HIDDEN'}` takes a property out of the draw and out of Blender's redo panel
-- Lone `use_` booleans draw as checkboxes, and `listing` names a custom list class
+- Lone `use_` booleans draw as checkboxes, and `listtype_name` names a custom list class
 - Operator properties draw with no keyframe decorator, and group properties on an ID draw one under `use_property_split`
 - `layout.prop` on a collection draws a read-only item count, and on a nested group an empty pointer field
 
@@ -222,6 +217,7 @@ Functions appended to a menu, panel, or header draw in their own context:
 - `workspace.use_filter_by_owner` hides functions of an excluded owner unless the extended class sets `bl_owner_use_filter = False`
 - Prepended functions run ahead of their class's `draw` and its `use_property_split`, setting the split they need
 - `<Menu>.is_extended()` reports whether a class holds appended functions
+- `append` replaces a class's own `draw`, and `vars(cls)` reads that `draw` where `cls.draw` resolves a base's (`Header` declares none)
 
 Right-click entries append to the context menu a click opens:
 - Each mode opens its menu (`VIEW3D_MT_object_context_menu`, `VIEW3D_MT_edit_mesh_context_menu`, `NODE_MT_context_menu`, `OUTLINER_MT_context_menu`)
@@ -254,7 +250,7 @@ Lists without `filter_items` filter by name and sort by name under `use_filter_s
 - Name sorts return `UI_UL_list.sort_items_by_name(<items>)` under `use_filter_sort_alpha` and an empty `order` otherwise
 - `UI_UL_list.filter_items_by_name` matches a case-insensitive glob with `*` implied at both ends and returns an empty list for an empty filter
 
-List classes take a CapWords name and a `_UL_` `bl_idname`, and `filter_items` reads every item through `foreach_get` and returns plain lists the stub types as arrays:
+List classes take a CapWords name and a `_UL_` `bl_idname`, and `filter_items` reads every item through `foreach_get` and returns plain lists where the stubs declare arrays:
 
 ```python
 class WeightedList(bpy.types.UIList):
@@ -286,11 +282,11 @@ class WeightedList(bpy.types.UIList):
         return np.where(hidden, self.bitflag_item_never_show, named or self.bitflag_filter_item).tolist(), ranks.tolist()
 ```
 
-`hidden` and `weight` stand for a `BoolProperty` and a `FloatProperty` on the item's group, and sort permutation ranks are display positions. `drawn(layout, <owner>, listing=WeightedList.bl_idname)` draws every owner collection through it.
+`hidden` and `weight` stand for a `BoolProperty` and a `FloatProperty` on the item's group, and sort permutation ranks are display positions. `drawn(layout, <owner>, listtype_name=WeightedList.bl_idname)` draws every owner collection through it.
 
 ## [06]-[MODAL_FEEDBACK]
 
-Modal operators show state through their window, and each write outlives the operator until code clears it:
+Modal operators show state through their window:
 - `context.area.header_text_set(<text>)` writes into an area's visible tool header, else its header, the other header keeping its layout
 - `context.workspace.status_text_set(<text>)` writes the status bar's left side, and `None` on either call restores its text
 - `status_text_set(<draw>)` with a `(header, context)` function replaces `STATUSBAR_HT_header.draw` for every window until a call with text or `None`
@@ -439,7 +435,8 @@ Blender translates interface text at draw time in the interface language:
 - `pgettext_tip`, imported as `tip_`, follows `use_translate_tooltips`
 - `pgettext_rpt`, imported as `rpt_`, follows `use_translate_reports`
 - `pgettext_data`, imported as `data_`, follows `use_translate_new_dataname`
-- `data_` names new data-blocks and group sockets, and `pgettext` ignores every flag
+- `data_` names new data-blocks and group sockets
+- `pgettext` ignores every flag
 - `pgettext_n(<text>, <context>)`, imported as `n_`, marks table strings for extraction untranslated, and `iface_` translates them at draw
 - `UILayout.enum_item_name` and `enum_item_description` return translated item text, and `enum_items[<identifier>].name` holds source text
 - `bpy.app.handlers.translation_update_post` runs after each language or translation flag change, and translated text caches rebuild there

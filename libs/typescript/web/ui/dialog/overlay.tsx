@@ -1,24 +1,31 @@
 import { useAtomSet } from '@effect/atom-react';
+import { Atom } from 'effect/reactivity';
 import { type ReactNode, useEffect } from 'react';
 import { composeRenderProps, type ModalOverlayProps, ModalOverlay as Overlay } from 'react-aria-components';
-import { openDialogs } from '#/dialog/open';
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+const mounted = Atom.make(0);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Open = ({ children }: { readonly children: ReactNode }) => {
-    const count = useAtomSet(openDialogs);
+const Counted = ({ children }: { readonly children: ReactNode }) => {
+    const setMounted = useAtomSet(mounted);
     useEffect(() => {
-        count((open) => open + 1);
-        return () => count((open) => open - 1);
-    }, [count]);
+        setMounted((count) => count + 1);
+        return () => setMounted((count) => count - 1);
+    }, [setMounted]);
     return children;
 };
-const ModalOverlay = ({ children, ...props }: ModalOverlayProps) => (
-    <Overlay {...props}>
-        {composeRenderProps(children, (content) => (
-            <Open>{content}</Open>
-        ))}
-    </Overlay>
+const ModalOverlay = Object.assign(
+    ({ children, ...props }: ModalOverlayProps) => (
+        <Overlay {...props}>
+            {composeRenderProps(children, (content) => (
+                <Counted>{content}</Counted>
+            ))}
+        </Overlay>
+    ),
+    { open: Atom.readable((get) => get(mounted)) },
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -18,8 +18,8 @@ class Color extends Schema.Class<Color, { readonly brand: unique symbol }>('Colo
     static readonly of = ({ handle, names }: { readonly handle: Face; readonly names: Names }) =>
         Color.make({
             palettes: handle.getColorPalettes().map(({ colors, nameId, flags }) => ({
-                name: Option.flatMap(Option.fromUndefinedOr(nameId), (id) => names.byId(id)),
-                colors: colors.map(({ nameId: label, ...channels }) => ({ ...channels, name: Option.flatMap(Option.fromUndefinedOr(label), (id) => names.byId(id)) })),
+                name: Option.flatMap(Option.fromUndefinedOr(nameId), (id) => names.findById(id)),
+                colors: colors.map(({ nameId: label, ...channels }) => ({ ...channels, name: Option.flatMap(Option.fromUndefinedOr(label), (id) => names.findById(id)) })),
                 ...Record.map({ light: ColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND, dark: ColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND }, (flag) => (flags & flag) !== 0),
             })),
             layers: handle.hasColorLayers(),

@@ -362,18 +362,18 @@ def folded[V: Elementwise, B](x: V, y: V, *, mirrors: int, angle: V | float, zoo
     return radius * ns.cos(bearing), radius * ns.sin(bearing)
 
 
-def to_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float], ns: Namespace[V, B]) -> ImagePoint[V]:
-    """Wraps a full rectangular turn into the frame's inscribed disc, seam above center, for frame sides `span` over the greater side."""
+def to_polar[V: Elementwise, B](point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
+    """Wraps a full rectangular turn into the unit square's inscribed disc, seam above center."""
     s, t, coverage = point
-    across, up, short = (s - 0.5) * span[0], (t - 0.5) * span[1], min(span)
-    return ns.atan2(across, up) % math.tau / math.tau, 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
+    across, up = s - 0.5, t - 0.5
+    return ns.atan2(across, up) % math.tau / math.tau, 1.0 - ns.hypot(across, up) * 2.0, coverage
 
 
-def from_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float], ns: Namespace[V, B]) -> ImagePoint[V]:
-    """Unwraps the frame's inscribed disc into a full rectangular turn, inverse of `to_polar`."""
+def from_polar[V: Elementwise, B](point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
+    """Unwraps the unit square's inscribed disc into a full rectangular turn, inverse of `to_polar`."""
     s, t, coverage = point
-    bearing, radius = s * math.tau, (1.0 - t) * (min(span) / 2.0)
-    return radius * ns.sin(bearing) / span[0] + 0.5, radius * ns.cos(bearing) / span[1] + 0.5, coverage
+    bearing, radius = s * math.tau, (1.0 - t) / 2.0
+    return radius * ns.sin(bearing) + 0.5, radius * ns.cos(bearing) + 0.5, coverage
 
 
 # --- [ARITHMETIC]

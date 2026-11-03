@@ -30,12 +30,12 @@ from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Planes = tuple[DocumentLayers[Coded], npt.NDArray[np.float32]]
+type _Planes = tuple[DocumentLayers, npt.NDArray[np.float32]]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
+def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
     """Layered document of formed color and raw mask coverage of the scene's head stack at a saved frame, formed through the view, nested stacks as groups.
 
     Returns:
@@ -74,7 +74,7 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
                 read = partial(item_key, layer.key, LAYER_BLEND)
                 return paired(valued(read(MODE.key)), valued(read(OPACITY.key)).bind(partial(typed, float, layer.key)))
 
-            def each(layer: StackLayer[M]) -> Outcome[PixelLayer[Coded] | LayerGroup[Coded]]:
+            def each(layer: StackLayer[M]) -> Outcome[PixelLayer | LayerGroup]:
                 visible = layer.key in shown
                 if isinstance(layer.source, Adjustment):
                     return color(layer.composite_part).map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
@@ -85,7 +85,7 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
                     .map(
                         lambda inner: paired(stacking.read(inner), blend(layer)).bind(
                             lambda parts: read_tree(inner, parts[0], at, partial(grouped_value, identity, inner, owned(tree, identity)[layer.node])).map(
-                                lambda held: LayerGroup(name=layer.name, layers=held[0], mode=Some(photoshop(str(parts[1][0]))), opacity=parts[1][1], visible=visible)
+                                lambda held: LayerGroup(name=layer.name, layers=held[0], mode=photoshop(str(parts[1][0])), opacity=parts[1][1], visible=visible)
                             )
                         )
                     )
@@ -100,7 +100,7 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
 
         return path.bind(Multilayer.read).bind(planes)
 
-    def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack[M], at: int) -> Outcome[Document[Coded]]:
+    def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack[M], at: int) -> Outcome[Document]:
         density = scene.render.ppm_factor / scene.render.ppm_base
         space = view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}"))
         return paired(read_tree(tree, record, at, partial(entry_value, identity, entry)), space).bind(

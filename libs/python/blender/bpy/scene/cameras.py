@@ -13,7 +13,7 @@ from mathutils import Vector
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.calls import PopupKind, PopupTarget
+from blender.bpy.commands.operators import PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import RnaPath, Struct

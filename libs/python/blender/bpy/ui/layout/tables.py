@@ -1,4 +1,4 @@
-"""Tables over layout rows: setting cells across scoped owners, path trees, and tree rows with one cell per column owner."""
+"""Tables of setting cells and tree rows over layout rows."""
 
 from collections.abc import Callable
 from functools import partial
@@ -27,7 +27,7 @@ type Branch[L: Struct, C: Struct] = tuple[int, L, tuple[Option[C], ...]]
 
 
 class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
-    """Setting rows across the owners of an edit scope under the owners' names, each compound pointer drawn through its host editor under the cell action, each field beside it.
+    """Setting rows across the owners of an edit scope, each compound pointer drawn through its host editor under the cell action, each field beside it.
 
     Rows a cell action draws register through their owner.
     """
@@ -38,7 +38,7 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
     action: Option[Callable[[Identity, Descriptor], Outcome[RowDraw]]] = Nothing
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Resolves leaf settings, their cells, and the owner name property once into the table draw, each cell its compound editor under the action or its field beside the action."""
+        """Resolves the leaf settings, their cells, and the owner name property once into the table draw."""
         owner_type = self.scope.owner_type
         kinds = tuple(kind for kind, _ in self.compound)
 

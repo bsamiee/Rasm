@@ -144,9 +144,9 @@ Products reach a person through separate levels:
 |  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
 |  [20]   | Shared Vite configuration      | `vite.shared.ts`                                                                                     |
 |  [21]   | Shared Vitest configuration    | `vitest.config.ts`, browser settings and the story project every package derives                     |
-|  [22]   | Shared Storybook addons        | `@rasm/test-support/preset` and `@rasm/test-support/preview` entries                                 |
-|  [23]   | Shared Playwright settings     | `@rasm/test-support/playwright` entry                                                                |
-|  [24]   | Test MCP suites                | `tests/typescript/playwright.config.ts`                                                              |
+|  [22]   | Shared Storybook settings      | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
+|  [23]   | Playwright settings and suites | `tests/typescript/playwright.config.ts`                                                              |
+|  [24]   | App fixture and axe matcher    | `@rasm/test-support/playwright` entry                                                                |
 |  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
 |  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
 |  [27]   | Product version                | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
@@ -163,7 +163,6 @@ Products reach a person through separate levels:
 
 - Libraries group under `libs/<language>/<group>/`
 - Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
-- Shared Swift test support and fixtures import no Rasm library, a suite passes library steps to them as function values
 - Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module also for each `Package.swift` platform naming an `apps/` folder
 - .NET build takes Rhino hosts from the `rhino/` path folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none

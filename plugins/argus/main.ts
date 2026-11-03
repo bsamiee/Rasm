@@ -216,15 +216,18 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
         config.startupTimeout,
     );
     const sync = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
-    const declared = Array.filterMap(
-        Object.entries({
-            [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
-            [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
-            [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
-            [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
-            [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
-        }),
-        ([method, registerOptions]) => (Predicate.isObject(registerOptions) ? Result.succeed([method, { id: method, method, registerOptions }] as const) : Result.failVoid),
+    const declared = Record.collect(
+        Record.filter(
+            {
+                [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
+                [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
+                [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
+                [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
+                [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
+            },
+            Predicate.isObject,
+        ),
+        (method, registerOptions) => [method, { id: method, method, registerOptions }] as const,
     );
     yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, declared) }));
     yield* notify(InitializedNotification.type, {});
@@ -407,4 +410,4 @@ const initialize = Effect.fn('initialize')(function* () {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-main(plugin, Layer.effectDiscard(initialize()));
+main(plugin, { retention: Duration.hours(1), instructions: [] }, Layer.effectDiscard(initialize()));

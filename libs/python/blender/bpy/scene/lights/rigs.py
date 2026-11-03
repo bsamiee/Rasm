@@ -14,9 +14,8 @@ import msgspec
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Call, called, Done, Empty, Operator
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.images import lighting, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, released, retained, Saved

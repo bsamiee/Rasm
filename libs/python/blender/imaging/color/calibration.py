@@ -22,11 +22,10 @@ from blender.imaging.color.processors import basis, converted, matrix, Stops, xy
 from blender.imaging.geometry.frames import Homography, Quad, StMap
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.records.faults import Fault, Outcome, paired, Reason
-from blender.records.fields import Case
+from blender.records.fields import Case, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Rgb = tuple[float, float, float]
 type Colors = tuple[Rgb, ...]
 
 
@@ -71,7 +70,8 @@ class PublishedChart(IntEnum):
                     "E6 (Black 2)": (0.0248551698, 0.0258980980, 0.0222499522),
                 }
                 values = np.array(tuple(patches.values()), dtype=np.float64)
-                return ColourChecker("SpyderCheckr 24", dict(zip(patches, np.unstack(colour.XYZ_to_xyY(values)))), np.array((0.3457, 0.3585), dtype=np.float64), 4, 6)
+                white = np.asarray(colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D50"], dtype=np.float64)
+                return ColourChecker("SpyderCheckr 24", dict(zip(patches, np.unstack(colour.XYZ_to_xyY(values)))), white, 4, 6)
 
     @property
     def neutral(self) -> int:
@@ -99,7 +99,7 @@ class PublishedChart(IntEnum):
                     patches.astype(np.float32),
                 )
             )
-            .map(lambda rgb: msgspec.convert(rgb.tolist(), Colors))
+            .bind(_colors)
         )
 
 
@@ -228,7 +228,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .warp(plane)
                 .map(lambda warped: warped.reshape(shape[1], side, shape[0], side, channels).sum(axis=(1, 3), dtype=np.float64).reshape(-1, channels))
                 .map(lambda sums: np.divide(sums[:, :3], sums[:, 3:], out=np.zeros_like(sums[:, :3]), where=sums[:, 3:] > 0.0))
-                .map(lambda means: msgspec.convert(means.tolist(), Colors))
+                .bind(_colors)
             )
 
         return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing)))
@@ -304,6 +304,13 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         return matrix(np.array(self.color_matrix, dtype=np.float64))
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _colors(values: npt.NDArray[np.float32 | np.float64]) -> Outcome[Colors]:
+    return catch(msgspec.convert, exception=msgspec.ValidationError)(values.tolist(), Colors).map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibration", "ChartPlacement", "Clipped", "Colors", "Finding", "PublishedChart", "Reversed", "Rgb", "Skewed", "Wide"]
+__all__ = ["Calibration", "ChartPlacement", "Clipped", "Colors", "Finding", "PublishedChart", "Reversed", "Skewed", "Wide"]

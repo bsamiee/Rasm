@@ -1,56 +1,52 @@
-import { Execute, Kind, Terms } from '@rasm/automation/apple-events';
+import { Execute, Terms } from '@rasm/automation/apple-events';
 import { Automation } from '@rasm/automation/automation';
-import { Attachment } from '@rasm/mcp/content';
-import { registerResourceTemplate } from '@rasm/mcp/resource';
-import { registerRoutedTool } from '@rasm/mcp/tool';
-import { Unmatched } from '@rasm/search/unmatched';
+import { Content } from '@rasm/mcp/content';
+import { Resource } from '@rasm/mcp/resource';
+import { Route } from '@rasm/mcp/route';
 import { Array, Effect, Option, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Dictionary = Schema.Struct({ application: McpSchema.param('application', Schema.String), kind: McpSchema.param('kind', Kind) });
+const Application = McpSchema.param('application', Schema.String);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const dictionaries = Effect.fnUntraced(function* ({ scriptable }: Effect.Success<ReturnType<typeof routes>>) {
+const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) {
     const automation = yield* Automation;
-    const described = (given: string) => scriptable.holding.pipe(Effect.flatMap(Unmatched.single('scriptable Adobe application', Option.some(given), (row) => [row.name])));
-    const completion = { application: () => Effect.map(scriptable.holding, Array.map(Struct.get('name'))) };
-    yield* registerResourceTemplate`dictionary/${Dictionary.fields.application}`({
+    yield* Resource.template`dictionary/${Application}`({
         name: 'dictionary',
-        description: SchemaAST.resolveDescription(Terms.ast),
-        mimeType: 'application/json',
         schema: Terms,
-        completion,
+        completion: dictionary.completion,
         changes: SubscriptionRef.changes(automation.installations),
-        content: (_, given) => Effect.flatMap(described(given), automation.terms),
+        content: (_, given) => Effect.flatMap(dictionary.named(given), automation.terms),
     });
-    yield* registerResourceTemplate`dictionary/${Dictionary.fields.application}/${Dictionary.fields.kind}/${McpSchema.param('name', Schema.String)}`({
+    yield* Resource.template`dictionary/${Application}/${McpSchema.param('kind', Terms.Kind)}/${McpSchema.param('name', Schema.String)}`({
         name: 'dictionary_term',
         description: 'Scripting definition XML matching kind and name',
         mimeType: 'application/xml',
         schema: Schema.String,
         changes: SubscriptionRef.changes(automation.installations),
         completion: {
-            ...completion,
-            kind: () => Effect.succeed([...Kind.literals]),
-            name: Effect.fnUntraced(function* (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) {
-                const chosen = yield* Schema.decodeEffect(Schema.toCodecStringTree(Dictionary))(context?.arguments);
-                return Array.map((yield* automation.terms(yield* described(chosen.application)))[chosen.kind], Struct.get('name'));
-            }),
+            ...dictionary.completion,
+            kind: () => Effect.succeed([...Terms.Kind.literals]),
+            name: (_, { application, kind }) =>
+                Option.match(Option.all([Option.fromUndefinedOr(application), Option.fromUndefinedOr(kind)]), {
+                    onNone: () => Effect.succeed([]),
+                    onSome: ([given, selected]) => Effect.map(Effect.flatMap(dictionary.named(given), automation.terms), (terms) => Array.map(terms[selected], Struct.get('name'))),
+                }),
         },
-        content: (_, given, selected, term) => Effect.flatMap(described(given), ({ url }) => automation.definition({ url, kind: selected, name: term })),
+        content: (_, given, selected, term) => Effect.flatMap(dictionary.named(given), ({ url }) => automation.definition({ url, kind: selected, name: term })),
     });
 });
-const command = ({ scriptable }: Effect.Success<ReturnType<typeof routes>>) =>
+const command = ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) =>
     Automation.use((automation) =>
-        registerRoutedTool(scriptable)(
+        Route.register(dictionary)(
             Tool.make('command', {
                 description: 'Sends scripting dictionary command, refused while a dialog requires an answer',
                 parameters: Execute,
-                success: Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment(Execute.Artifact), Schema.ErrorInstance())) })),
+                success: Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Content.attachment(Execute.Artifact), Schema.ErrorInstance())).annotate({ description: SchemaAST.resolveDescription(Execute.Result.fields.artifacts.ast) }) })),
             }),
             (given, { pid }) => automation.execute({ ...given, pid }),
         ),

@@ -1,3 +1,4 @@
+import ApplicationServices
 import CasePaths
 import CustomDump
 import Foundation
@@ -11,12 +12,11 @@ import WatchAppsWire
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Fixture {
-    let bundle: URL
     let identifier: String
     let name: String
 
     init() throws {
-        bundle = try #require(TestApplication.current)
+        let bundle: URL = try #require(TestApplication.current)
         let info: Bundle = try #require(Bundle(url: bundle))
         identifier = try #require(info.bundleIdentifier)
         name = try #require(info.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String)
@@ -24,6 +24,10 @@ struct Fixture {
 }
 
 struct Button: Hashable {
+    static let alert: Set<Self> = [
+        Self(identifier: "action-button-1", label: "OK", attribute: kAXDefaultButtonAttribute), Self(identifier: "action-button-2", label: "Cancel", attribute: kAXCancelButtonAttribute),
+    ]
+
     let identifier: String?
     let label: String?
     let attribute: String?
@@ -53,7 +57,7 @@ struct Answer: Equatable {
         identifier = element.identifier
         requiresAnswer = element.requiresAnswer
         buttons = Set(
-            (element.detail?.controls ?? []).filter { control in control.role == "AXButton" && control.subrole == nil }
+            (element.detail?.controls ?? []).filter { control in control.role == kAXButtonRole && control.subrole == nil }
                 .map { control in Button(identifier: control.identifier, label: control.label, attribute: control.attribute) }
         )
     }
@@ -99,7 +103,7 @@ extension WatchAppsLine.Instance {
 extension [WatchAppsLine.Element] {
     var answers: [WatchAppsLine.Element] { filter { element in element.requiresAnswer == true } }
 
-    var menuBar: WatchAppsLine.Element? { first { element in element.role == "AXMenuBar" } }
+    var menuBar: WatchAppsLine.Element? { first { element in element.role == kAXMenuBarRole } }
 
     func titled(_ title: String) -> WatchAppsLine.Element? { first { element in element.title == title } }
 }
@@ -109,19 +113,19 @@ extension WatchAppsLine.Element {
 
     func control(labeled label: String) -> WatchAppsLine.Control? { detail?.controls?.first { control in control.label == label } }
 
-    func item(_ scenario: Scenario) -> WatchAppsLine.Control? { control(labeled: "Scenario")?.items?.first { item in item.label == scenario.rawValue } }
+    func item(_ scenario: Scenario) -> WatchAppsLine.Control? { control(labeled: String(describing: Scenario.self))?.items?.first { item in item.label == scenario.rawValue } }
 }
 
-extension AsyncStream<TimedLine<WatchAppsLine>>.Iterator {
-    mutating func next(sourceLocation: SourceLocation = #_sourceLocation, where matches: (WatchAppsLine) -> Bool) async throws -> TimedLine<WatchAppsLine> {
-        let seen: [TimedLine<WatchAppsLine>] = await collect { seen in seen.last.map(matches) == true }
-        let matched: TimedLine<WatchAppsLine>? = seen.last.flatMap { timed in matches(timed.line) ? timed : nil }
-        return try #require(matched, "watch output ended after \(seen.count) lines with none matching, last \(seen.suffix(3).map(\.line))", sourceLocation: sourceLocation)
+extension AsyncStream<WatchAppsLine>.Iterator {
+    mutating func next(sourceLocation: SourceLocation = #_sourceLocation, where matches: (WatchAppsLine) -> Bool) async throws -> WatchAppsLine {
+        let seen: [WatchAppsLine] = await collect { seen in seen.last.map(matches) == true }
+        let matched: WatchAppsLine? = seen.last.flatMap { line in matches(line) ? line : nil }
+        return try #require(matched, "watch output ended after \(seen.count) lines with none matching, last \(seen.suffix(3))", sourceLocation: sourceLocation)
     }
 
-    mutating func collect(until done: ([WatchAppsLine]) -> Bool, after seen: [TimedLine<WatchAppsLine>] = []) async -> [TimedLine<WatchAppsLine>] {
-        if !done(seen.map(\.line)), let timed: TimedLine<WatchAppsLine> = await next(isolation: #isolation) {
-            await collect(until: done, after: seen + [timed])
+    mutating func collect(until done: ([WatchAppsLine]) -> Bool, after seen: [WatchAppsLine] = []) async -> [WatchAppsLine] {
+        if !done(seen), let line: WatchAppsLine = await next(isolation: #isolation) {
+            await collect(until: done, after: seen + [line])
         } else {
             seen
         }
@@ -164,19 +168,17 @@ func expectRefusal(
 
 func watching<Outcome: Sendable>(
     _ names: [String],
-    within budget: Duration = .seconds(60),
-    _ body: (_ lines: inout AsyncStream<TimedLine<WatchAppsLine>>.Iterator) async throws -> Outcome,
-) async throws -> (outcome: Outcome, lines: [TimedLine<WatchAppsLine>]) {
-    let session: (outcome: Outcome, lines: [TimedLine<WatchAppsLine>], status: TerminationStatus) = try await streamingJSONLines(
+    _ body: (_ lines: inout AsyncStream<WatchAppsLine>.Iterator) async throws -> Outcome,
+) async throws -> (outcome: Outcome, lines: [WatchAppsLine]) {
+    let session: (outcome: Outcome, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
         of: .product(named: "watch-apps"),
-        within: budget,
         arguments: ["watch"] + names,
         as: WatchAppsLine.self,
     ) { lines in
-        var iterator: AsyncStream<TimedLine<WatchAppsLine>>.Iterator = lines.makeAsyncIterator()
+        var iterator: AsyncStream<WatchAppsLine>.Iterator = lines.makeAsyncIterator()
         return try await body(&iterator)
     }
-    let keyed: [String: [WatchAppsLine]] = Dictionary(grouping: session.lines.map(\.line), by: \.key)
+    let keyed: [String: [WatchAppsLine]] = Dictionary(grouping: session.lines, by: \.key)
     expectNoDifference(keyed.filter { _, lines in zip(lines, lines.dropFirst()).contains { pair in pair.0 == pair.1 } }, [:])
     return (session.outcome, session.lines)
 }
@@ -217,7 +219,7 @@ func read(_ fixture: Fixture, pid: Int32) async throws -> [WatchAppsLine.Element
     try #require(try await status(of: fixture, pid: pid).responding?.elements)
 }
 
-func perform(_ control: WatchAppsLine.Control, _ action: String = "AXPress") async throws {
+func perform(_ control: WatchAppsLine.Control, _ action: String = kAXPressAction) async throws {
     let performed: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
         of: .product(named: "watch-apps"),
         arguments: ["perform", control.id, action],

@@ -99,25 +99,25 @@ rule:
         - kind: object_creation_expression
           all:
             - has: {field: type, pattern: $TYPE}
-            - matches: declared-type
             - any:
                 - has: {kind: argument_list, has: {matches: paired-projection}}
                 - has: {matches: paired-initializer}
+            - matches: declared-type
         - kind: implicit_object_creation_expression
           all:
+            - any:
+                - has: {kind: argument_list, has: {matches: paired-projection}}
+                - has: {matches: paired-initializer}
             - any:
                 - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
                 - inside: {kind: return_statement, inside: {stopBy: end, kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
                 - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, pattern: $TYPE}}}
             - matches: declared-type
-            - any:
-                - has: {kind: argument_list, has: {matches: paired-projection}}
-                - has: {matches: paired-initializer}
         - kind: invocation_expression
           all:
             - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $TYPE}}
-            - matches: declared-type
             - has: {field: arguments, has: {matches: paired-projection}}
+            - matches: declared-type
         - matches: published-tuple
           has: {matches: paired-projection}
 message: '`$ROWS` splits into one parallel projection per argument'

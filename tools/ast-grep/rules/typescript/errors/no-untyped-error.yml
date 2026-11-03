@@ -22,6 +22,10 @@ utils:
             - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {matches: untagged-error}
             - matches: native-error
+            - kind: new_expression
+              all:
+                - has: {field: constructor, matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^UnknownError$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: undefined}}
             - any:
                 - kind: new_expression
                   has: {field: 'constructor', not: {matches: typescript-package-reference}}
@@ -114,9 +118,10 @@ rule:
                     - any:
                         - has: {nthChild: 3}
                         - has: {nthChild: 1, kind: 'arrow_function, function_expression'}
+                        - has: {nthChild: {position: 1, reverse: true}, has: {field: body, kind: new_expression}}
             - has: {field: function, pattern: $FAIL, matches: filter-constructor}
         - all:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
 message: '`$FAIL` fails with `$ERROR`, a literal or an error built from text'
-note: 'Fail with a tagged variant of typed fields, or with the error `Effect.tryPromise` or `Effect.fromOption` types'
+note: 'Fail with a tagged variant of typed fields, the error `Effect.tryPromise` or `Effect.fromOption` types, or an error holding the refused value as `cause`'

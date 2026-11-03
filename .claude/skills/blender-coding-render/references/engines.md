@@ -5,7 +5,7 @@
 Engine classes subclass `bpy.types.RenderEngine`, and code selects one through `scene.render.engine = Engine.bl_idname`. Flags decide which host stages run around the engine:
 - `bl_use_postprocess` (on) runs compositor effects and the sequencer on each layer's result, and off hands the engine the whole frame with neither
 - `bl_use_image_save = False` skips Blender's still and animation writes while `bl_use_postprocess` is on, and Blender writes files while it is off
-- `bl_use_shading_nodes_custom` (on) hides Cycles and EEVEE shader nodes in the node editor, and engines reading stock materials turn it off
+- `bl_use_shading_nodes_custom` (on) hides Cycles and EEVEE shader nodes in the node editor, and engines reading built-in materials turn it off
 - `bl_use_preview` renders material, light, and world previews in the engine at 128 by 128 with `is_preview` true and no compositor or render handler
 - `bl_use_eevee_viewport` draws Material Preview shading through EEVEE
 - `bl_use_gpu_context` runs `update` and `render` inside a GPU context, `gpu` offscreen drawing working in both
@@ -13,7 +13,7 @@ Engine classes subclass `bpy.types.RenderEngine`, and code selects one through `
 
 Final renders construct the class twice per frame and keep one instance across that frame's view layers, `render.use_persistent_data` or `bl_use_gpu_context` keeping it across frames. `__init__(self, *args, **kwargs)` calls `super().__init__(*args, **kwargs)` and acquires nothing, and `update` acquires render state and holds it on `self`.
 
-Stock property panels poll `context.engine in cls.COMPAT_ENGINES`, and engines show a stock engine's panels by joining their sets in `register` and leaving them with `apply=set.discard` in `unregister`:
+Built-in property panels poll `context.engine in cls.COMPAT_ENGINES`, and engines show a built-in engine's panels by joining their sets in `register` and leaving them with `apply=set.discard` in `unregister`:
 
 ```python
 def joined(engine: str, /, *, like: str, apply: Callable[[set[str], str], None] = set.add) -> None:
@@ -90,7 +90,7 @@ class Engine(bpy.types.RenderEngine):
         frame = np.array((self.resolution_x, self.resolution_y), np.float32)
         origin = np.floor(np.array((scene.render.border_min_x, scene.render.border_min_y), np.float32) * frame) * scene.render.use_border
         if (result := self.begin_result(0, 0, self.resolution_x, self.resolution_y, layer=layer.name)) is None:
-            return
+            return self.report({"ERROR"}, f"{layer.name} allocated no render result")
         uv = np.moveaxis(np.indices((result.resolution_y, result.resolution_x), np.float32)[::-1] + (origin + 0.5)[:, None, None], 0, -1) / frame
         for rendered in result.layers[0].passes:
             _, fill = self.passes[rendered.name]
@@ -101,7 +101,7 @@ class Engine(bpy.types.RenderEngine):
     def bake(self, depsgraph: bpy.types.Depsgraph, _object: bpy.types.Object, _pass_type: str, _pass_filter: int, width: int, height: int) -> None:  # type: ignore[override]  # ty: ignore[invalid-method-override]
         layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         if (result := self.begin_result(0, 0, width, height, layer=layer.name)) is None:
-            return
+            return self.report({"ERROR"}, f"{layer.name} allocated no render result")
         primitive = np.empty((width * height, 3), np.float32)
         result.layers[0].passes["BakePrimitive"].rect.foreach_get(primitive.ravel())
         _, fill = self.passes["Combined"]
@@ -109,9 +109,7 @@ class Engine(bpy.types.RenderEngine):
         self.end_result(result)
 ```
 
-Stereo border renders write both eyes of each layer inside the border, `Coverage` reading each pixel center's horizontal frame position, and bakes write each texel's surface UV:
-- Stubs declare `render` as a `RenderSettings` member and as a method, and the method line suppresses `override`
-- Fills receive `(height, width, 2)` arrays in renders and `(texels, 2)` arrays in bakes, each indexing its last axis
+Stereo border renders write both eyes of each layer inside the border, `Coverage` reading each pixel center's horizontal frame position, and bakes write each texel's surface UV. Fills receive `(height, width, 2)` arrays in renders and `(texels, 2)` arrays in bakes, each indexing its last axis. `bpy` stubs declare `render` as a `RenderSettings` member and as a method, and the method line suppresses `override`.
 
 ## [04]-[VIEWPORT]
 

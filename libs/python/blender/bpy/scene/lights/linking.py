@@ -8,8 +8,7 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import called, Operation, Placement
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, called, Done, Operation, Operator, Placement, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import root_in, rooted, Struct, struct_at

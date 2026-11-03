@@ -18,13 +18,12 @@ lazy from asttokens.util import replace
 lazy from coloraide import Color
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingDirectory, ResolvedExistingFile, ResolvedPath
-lazy from expression import Error, Result
+lazy from expression import Error, Ok
 lazy from expression.extra.result import catch
 lazy from fontTools.pens.basePen import BasePen
 lazy import numpy as np
 lazy import numpy.typing as npt
-lazy from packaging.requirements import Requirement
-lazy from packaging.utils import canonicalize_name, parse_wheel_filename
+lazy from packaging.utils import parse_wheel_filename
 lazy from picosvg.geometric_types import Rect
 lazy from picosvg.svg import SVG
 lazy from picosvg.svg_pathops import skia_path
@@ -33,12 +32,16 @@ lazy from picosvg.svg_types import SVGShape
 lazy import shapely
 lazy import tomlkit
 
-lazy from eng.python.blender.faults import Fault, Faults, Reason
+lazy from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Blender = Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 type _Point = tuple[float, float]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+BACKGROUND = frozenset({"-b", "--background", "-c", "--command"})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -51,43 +54,42 @@ class _Interpreter(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _accumulated[T](head: Result[T, Faults], *others: Result[object, Faults]) -> Result[T, Faults]:
-    """Returns `head`, else fault of every failed independent outcome."""
-    failures = tuple(*outcome.swap().default_value(()) for outcome in (head, *others))
-    return Error(failures) if failures else head
+def ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Outcome[subprocess.CompletedProcess[bytes]]:
+    """Runs a child process, a failed launch or nonzero exit as fault.
 
+    Args:
+        command: Executable and its arguments.
+        stdout: Output stream target, inherited when None.
+        stderr: Error stream target, inherited when None.
 
-def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], Faults]:
-    """Runs child process, failed launch or nonzero exit as fault."""
-    refused = partial(Fault.of, Reason.PROCESS, command[0])
+    Returns:
+        Finished process, or fault of a failed launch or of the nonzero exit's `CalledProcessError`.
+    """
+    refused = partial(Fault.of, Reason.FAILED, str(command[0]))
 
     @catch(exception=OSError)
     def launched() -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(command, stdout=stdout, stderr=stderr, check=False)
 
-    return launched().map_error(refused).bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done).map_error(refused))
+    return launched().map_error(refused).filter_with(lambda done: done.returncode == 0, lambda done: refused(subprocess.CalledProcessError(done.returncode, done.args, done.stdout, done.stderr)))
 
 
-def _interpreter(blender: Path) -> Result[_Interpreter, Faults]:
+def _interpreter(blender: Path) -> Outcome[_Interpreter]:
     """Returns Blender Python executable and host extension platform."""
     probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
-    return _ran(blender, "-b", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(lambda host: msgspec.json.decode(host.stderr, type=_Interpreter))
+    return ran(blender, "-b", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).bind(
+        lambda host: catch(msgspec.json.Decoder(_Interpreter).decode, exception=msgspec.DecodeError)(host.stderr).map_error(partial(Fault.of, Reason.INVALID, str(blender)))
+    )
 
 
-def _exported(lock: Path, *options: str) -> Result[Path, Faults]:
-    """Returns `lock` holding the locked runtime closure of the project `options` select, workspace members and distributions Blender bundles left out."""
-    bundled = (*("--no-emit-package", Requirement(entry).name) for entry in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["constraint-dependencies"])
-    return _ran("uv", "export", "--locked", "--no-default-groups", "--no-hashes", *bundled, *options, "--output-file", lock, stdout=subprocess.DEVNULL).map(lambda _: lock)
+def _exported(lock: Path, *options: str) -> Outcome[subprocess.CompletedProcess[bytes]]:
+    """Writes to `lock` the locked runtime closure of the project `options` select, workspace members and distributions Blender bundles left out."""
+    bundled = (*("--no-emit-package", constraint["name"]) for constraint in msgspec.toml.decode(Path("uv.lock").read_bytes())["manifest"]["constraints"])
+    return ran("uv", "export", "--locked", "--no-default-groups", "--no-hashes", *bundled, *options, "--output-file", lock, stdout=subprocess.DEVNULL)
 
 
-def _normalized(master: Path) -> SVG:
-    """Parses a master with `currentColor` painted white and inline styles as attributes, the one document its geometry icon and its staged preview both read."""
-    normalized: SVG = SVG.fromstring(re.sub(r"currentcolor", "white", master.read_text(encoding="utf-8-sig"), flags=re.IGNORECASE)).apply_style_attributes()
-    return normalized
-
-
-def encoded(master: Path) -> bytes:
-    """Encodes master solid paints as Blender geometry icon triangles.
+def encoded(master: Path) -> tuple[str, bytes]:
+    """Encodes master as the picosvg preview Blender's nanosvg loader rasterizes and as geometry icon triangles of its solid paints.
 
     Icon files hold `VCO` header, byte XY corners per triangle over -1..1 square, then sRGB byte RGBA per corner, in SVG draw order.
     `currentColor` paints white.
@@ -97,12 +99,12 @@ def encoded(master: Path) -> bytes:
         master: WorkSpaceTool SVG master.
 
     Returns:
-        Icon file bytes.
+        Preview document text and icon file bytes.
 
     Raises:
         ValueError: If master has no viewport dimensions or holds a nonliteral paint.
     """
-    size = 255
+    size = np.iinfo(np.uint8).max
 
     class Rings(BasePen):
         """Collects closed contours as polylines within half a byte step of each cubic."""
@@ -136,11 +138,11 @@ def encoded(master: Path) -> bytes:
         region = shapely.build_area(shapely.GeometryCollection([shapely.LinearRing(ring) for ring in pen.rings])).intersection(shapely.box(-1, -1, 1, 1))
         triangles = shapely.get_coordinates(shapely.orient_polygons(shapely.get_parts(shapely.constrained_delaunay_triangles(region)))).reshape(-1, 4, 2)[:, :3]
         corners = np.rint((triangles + 1) / 2 * size).astype(np.int64)
-        (first, second, third) = corners.transpose(1, 0, 2)
-        kept = corners[(first[:, 0] - second[:, 0]) * (second[:, 1] - third[:, 1]) + (first[:, 1] - second[:, 1]) * (third[:, 0] - second[:, 0]) > 0]
+        kept = corners[shapely.is_ccw(shapely.linearrings(corners))]
         return rgba * kept.shape[0] * 3, kept.astype(np.uint8)
 
-    if (viewbox := (svg := (styled := _normalized(master)).topicosvg()).view_box()) is None:
+    styled: SVG = SVG.fromstring(re.sub(r"currentcolor", "white", master.read_text(encoding="utf-8-sig"), flags=re.IGNORECASE)).apply_style_attributes()
+    if (viewbox := (svg := styled.topicosvg()).view_box()) is None:
         raise ValueError(f"SVG master {master} has no viewport dimensions")
     transform = Affine2D.flip_y() @ Affine2D.rect_to_rect(viewbox, Rect(-1, -1, 2, 2), svg.svg_root.get("preserveAspectRatio", "xMidYMid meet"))
     paints = tuple(
@@ -148,10 +150,10 @@ def encoded(master: Path) -> bytes:
         for context in svg.depth_first()
         if context.is_shape()
     )
-    return b"".join((b"VCO\x00", bytes((size, size, 0, 0)), *(corners.tobytes() for _, corners in paints), *(colors for colors, _ in paints)))
+    return str(svg.tostring()), b"".join((b"VCO\x00", bytes((size, size, 0, 0)), *(corners.tobytes() for _, corners in paints), *(colors for colors, _ in paints)))
 
 
-def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Blender) -> Result[int, Faults]:
+def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Blender) -> Outcome[int]:
     """Builds host platform extension archive, first-party packages as submodules and the extension's locked dependency closure as wheels.
 
     Args:
@@ -163,19 +165,18 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
         blender: Blender executable.
 
     Returns:
-        Zero, or fault of every failed child process, icon master, and archive placement.
+        Zero, or fault of every failed child process, icon master, and folder reset.
     """
-    workspace = frozenset(
-        canonicalize_name(msgspec.toml.decode(Path(member, "pyproject.toml").read_bytes())["project"]["name"])
-        for member in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["workspace"]["members"]
-    )
-    icons = source / "icons"
+    workspace = frozenset(msgspec.toml.decode(Path("uv.lock").read_bytes())["manifest"]["members"])
 
-    def previewed(master: Path) -> str:
-        """Returns the normalized master in the picosvg subset Blender's nanosvg preview loader rasterizes, references, clips, and transforms resolved."""
-        return str(_normalized(master).topicosvg().tostring())
+    def iconed(master: Path) -> Outcome[int]:
+        try:
+            preview, icon = encoded(master)
+        except (ValueError, SyntaxError) as error:
+            return Error(Fault.of(Reason.INVALID, str(master), error))
+        return Ok((target := stage / master.relative_to(source)).write_text(preview) + target.with_suffix(".dat").write_bytes(icon))
 
-    def staged(stage: Path, interpreter: _Interpreter) -> None:
+    def staged(interpreter: _Interpreter) -> None:
         wheels = stage / "wheels"
         roots: set[str] = set()
         for member in [wheel for wheel in wheels.glob("*.whl") if parse_wheel_filename(wheel.name)[0] in workspace]:
@@ -209,47 +210,41 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
 
     with tempfile.TemporaryDirectory() as folder:
         stage, lock, built = Path(folder, "stage"), Path(folder, "requirements.txt"), Path(folder, "archives")
-        staged_icons = stage / icons.name
         shutil.copytree(source, stage, ignore=shutil.ignore_patterns("pyproject.toml", "*.svg"))
         built.mkdir()
         return (
-            _accumulated(
-                _interpreter(blender),
-                _exported(lock, "--no-editable", "--project", str(source)),
-                *(
-                    *(
-                        catch(encoded, exception=ValueError)(master).map((staged_icons / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.of, Reason.INVALID, master)),
-                        catch(previewed, exception=ValueError)(master).map((staged_icons / master.name).write_text).map_error(partial(Fault.of, Reason.INVALID, master)),
-                    )
-                    for master in icons.glob("*.svg")
-                ),
-            )
+            paired(_interpreter(blender), _exported(lock, "--no-editable", "--project", str(source)), accumulated(map(iconed, source.glob("icons/*.svg"))))
             .bind(
-                lambda interpreter: _ran("pip", "--python", interpreter.executable, "--disable-pip-version-check", "wheel", "--wheel-dir", stage / "wheels", "--no-deps", "--requirement", lock).map(
-                    lambda _: staged(stage, interpreter)
+                lambda held: ran("pip", "--python", held[0].executable, "--disable-pip-version-check", "wheel", "--wheel-dir", stage / "wheels", "--no-deps", "--requirement", lock).map(
+                    lambda _: staged(held[0])
                 )
             )
-            .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
+            .bind(lambda _: ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
             .bind(lambda _: reset(directory, built.move))
             .map(lambda _: 0)
         )
 
 
-def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Faults]:
-    """Removes `folder` with its tree, removal errors ignored, then makes it through `made` under created parents.
+def reset[T](folder: Path, made: Callable[[Path], T], /) -> Outcome[T]:
+    """Removes `folder` with its tree, then makes it through `made` under created parents.
 
     Args:
         folder: Folder replaced.
         made: Call making `folder` from its path.
 
     Returns:
-        What `made` returns, or fault of a failed parent creation or `made` call.
+        What `made` returns, or fault of a failed removal, parent creation, or `made` call.
     """
-    shutil.rmtree(folder, ignore_errors=True)
-    return catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True).bind(lambda _: catch(made, exception=OSError)(folder)).map_error(partial(Fault.of, Reason.UNWRITABLE, folder))
+    return (
+        catch(shutil.rmtree, exception=OSError)(folder)
+        .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
+        .bind(lambda _: catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True))
+        .bind(lambda _: catch(made, exception=OSError)(folder))
+        .map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
+    )
 
 
-def site(target: ResolvedPath, /, *, blender: Blender) -> Result[int, Faults]:
+def site(target: ResolvedPath, /, *, blender: Blender) -> Outcome[int]:
     """Syncs Blender import folder to distributions `pack` bundles, reinstalling only on version or tag change.
 
     Args:
@@ -262,12 +257,10 @@ def site(target: ResolvedPath, /, *, blender: Blender) -> Result[int, Faults]:
     with tempfile.TemporaryDirectory() as folder:
         lock = Path(folder, "requirements.txt")
         return (
-            _accumulated(_interpreter(blender), _exported(lock, "--no-emit-workspace"))
-            .bind(lambda interpreter: _ran("uv", "pip", "sync", "--python", interpreter.executable, "--target", target, lock))
-            .map(lambda _: 0)
+            paired(_interpreter(blender), _exported(lock, "--no-emit-workspace")).bind(lambda held: ran("uv", "pip", "sync", "--python", held[0].executable, "--target", target, lock)).map(lambda _: 0)
         )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Blender", "encoded", "pack", "reset", "site"]
+__all__ = ["BACKGROUND", "Blender", "encoded", "pack", "ran", "reset", "site"]

@@ -117,6 +117,7 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
     const isDate = (value: unknown): value is Date => kindOf(value) === 'Date';
     const isDoc = (value: unknown): value is Doc => isMembers(value) && kindOf(value) === 'Doc';
     const isMemberList = (value: unknown): value is readonly Members[] => Array.isArray(value) && value.every(isMembers);
+    const isListed = (value: unknown): value is Members & { readonly length: number } => isMembers(value) && typeof value.length === 'number';
     const shaped = <T>(value: unknown, is: (held: unknown) => held is T, what: string): T => {
         if (is(value)) {
             return value;
@@ -288,13 +289,14 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                     held.apply(target, [acrohelp]);
                 } catch (error) {
                     const fault = faultOf(error);
-                    if (fault.name === 'HelpError') {
-                        made[`${kind}.${member}`] = String(fault.extMessage)
-                            .split('\n')
-                            .filter((line) => starts(line, HELP))
-                            .map((line) => ({ parts: line.slice(HELP.length).replace('[', '').replace(']', '').split(':'), optional: line.charAt(HELP.length) === '[' }))
-                            .map(({ parts: [name = '', type = ''], optional }) => ({ name: name.trim(), type: type.trim(), optional }));
+                    if (fault.name !== 'HelpError') {
+                        throw error;
                     }
+                    made[`${kind}.${member}`] = String(fault.extMessage)
+                        .split('\n')
+                        .filter((line) => starts(line, HELP))
+                        .map((line) => ({ parts: line.slice(HELP.length).replace('[', '').replace(']', '').split(':'), optional: line.charAt(HELP.length) === '[' }))
+                        .map(({ parts: [name = '', type = ''], optional }) => ({ name: name.trim(), type: type.trim(), optional }));
                 }
             });
         });
@@ -541,9 +543,9 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
         if (at < 0) {
             return evaluate(expression);
         }
-        const list = evaluate(expression.slice(0, at));
-        const count = isMembers(list) && typeof list.length === 'number' ? list.length : 0;
-        return counted(count, (index) => spread(indexed(expression, at, index), evaluate));
+        const head = expression.slice(0, at);
+        const list = evaluate(head);
+        return counted(list === null || list === undefined ? 0 : shaped(list, isListed, head).length, (index) => spread(indexed(expression, at, index), evaluate));
     };
     const reads = (item: Item, evaluate: (code: string) => unknown): Reads => {
         const read: Record<string, Schema.Json> = {};
@@ -766,11 +768,9 @@ const engine = function (this: unknown, request: typeof Request.Type): string {
                 name: item.name,
                 ...ended,
                 ...completion,
-                ...(held.before === undefined ? {} : { before: held.before.read }),
+                ...(held.before === undefined ? {} : { before: held.before.read, beforeFailed: held.before.failed }),
                 read: held.after?.read ?? {},
-                readFailed: { ...held.before?.failed, ...held.after?.failed },
-                answered: [],
-                written: [],
+                readFailed: held.after?.failed ?? {},
                 writes,
                 ...session.records,
             },

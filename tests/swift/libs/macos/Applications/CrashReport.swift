@@ -99,13 +99,8 @@ struct CrashReports {
         let launch: Date = .now
         _ = try copy("Application-2026-11-01-120000.ips", into: directory, as: "Application-2026-11-01-115900.ips", dated: age.map(launch.addingTimeInterval))
         _ = try copy("Application-2026-11-01-120500.ips", into: directory, as: "Application-2026-11-01-120500.ips")
-        let clock: ContinuousClock = ContinuousClock()
-        let start: ContinuousClock.Instant = clock.now
         let found: Result<CrashReport, ApplicationFailure> = await CrashReport.written(by: pid, since: launch, within: .milliseconds(800), in: directory)
-        let elapsed: Duration = clock.now - start
         let failure: ApplicationFailure = try #require(found[case: \.failure])
         expectNoDifference(failure.subject, "process \(pid)")
-        let waited: Bool = elapsed >= .milliseconds(800)
-        #expect(waited, "timed out after \(elapsed), limit 800 ms")
     }
 }

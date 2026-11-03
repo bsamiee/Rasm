@@ -2,13 +2,13 @@
 
 from collections.abc import Iterable, Mapping
 from enum import IntEnum
+from itertools import starmap
 import math
 import pathlib
 import sys
 from typing import Annotated, Final, Self
 
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.collections import Block
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -135,7 +135,7 @@ class Uniform(Case, frozen=True, kw_only=True):
     @property
     def shaper(self) -> Option[PyOpenColorIO.Transform]:
         """Node encoding, absent for zero-to-one nodes."""
-        return Nothing if (self.low, self.high) == (0.0, 1.0) else Some(PyOpenColorIO.AllocationTransform(allocation=PyOpenColorIO.ALLOCATION_UNIFORM, vars=[self.low, self.high]))
+        return Nothing if self == Uniform() else Some(PyOpenColorIO.AllocationTransform(allocation=PyOpenColorIO.ALLOCATION_UNIFORM, vars=[self.low, self.high]))
 
 
 class Logarithmic(Case, frozen=True, kw_only=True):
@@ -225,15 +225,13 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
                 shaperSpace=shapers[0].getName() if shapers else "",
             ).bake()
 
-        def encoded(item: tuple[pathlib.Path, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[pathlib.Path, str]]:
-            path, source = item
+        def exact(source: PyOpenColorIO.GroupTransform) -> str:
+            return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
 
-            def exact() -> str:
-                return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
+        def encoded(path: pathlib.Path, source: PyOpenColorIO.GroupTransform) -> Outcome[tuple[pathlib.Path, str]]:
+            return self.lattice.map(lambda lattice: called(baked, str(path), source, lattice)).default_with(lambda: called(exact, str(path), source)).map(lambda text: (path, text))
 
-            return self.lattice.map(lambda lattice: called(baked, str(path), source, lattice)).default_with(lambda: called(exact, str(path))).map(lambda text: (path, text))
-
-        return accumulated(map(encoded, sources.items())).bind(lambda texts: accumulated(committed(path, text.encode()) for path, text in texts))
+        return accumulated(starmap(encoded, sources.items())).bind(lambda texts: accumulated(committed(path, text.encode()) for path, text in texts))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -256,21 +254,17 @@ def cube_split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform)
 
     def sampled(built: PyOpenColorIO.Processor) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
         operations = list(built.createGroupTransform())
-        return (
-            Block
-            .of_seq(enumerate(operations))
-            .choose(lambda pair: Option.of_optional(try_downcast(PyOpenColorIO.Lut3DTransform, pair[1])).map(lambda table: (pair[0], Lattice(size=table.getGridSize()))))
-            .try_head()
-            .map(
-                lambda found: (
-                    found[1]
+        match next(((index, operation) for index, operation in enumerate(operations) if isinstance(operation, PyOpenColorIO.Lut3DTransform)), None):
+            case (index, PyOpenColorIO.Lut3DTransform() as table):
+                lattice = Lattice(size=table.getGridSize())
+                return (
+                    lattice
                     .samples()
-                    .bind(lambda samples: converted(PyOpenColorIO.Config(), PyOpenColorIO.GroupTransform(transforms=operations[found[0] :]), samples))
-                    .map(lambda outputs: (PyOpenColorIO.GroupTransform(transforms=operations[: found[0]]), Some((found[1], outputs))))
+                    .bind(lambda samples: converted(PyOpenColorIO.Config(), PyOpenColorIO.GroupTransform(transforms=operations[index:]), samples))
+                    .map(lambda outputs: (PyOpenColorIO.GroupTransform(transforms=operations[:index]), Some((lattice, outputs))))
                 )
-            )
-            .default_with(lambda: Ok((PyOpenColorIO.GroupTransform(transforms=operations), Nothing)))
-        )
+            case _:
+                return Ok((PyOpenColorIO.GroupTransform(transforms=operations), Nothing))
 
     return processor(config, transform).bind(sampled)
 

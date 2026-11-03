@@ -1,9 +1,8 @@
 """Rectangles, pixel rasters, and quads from the bottom left, projective maps from the unit plane onto convex quads, ST maps, filtered warps, and displacement through smoothed, sloped, and tapped fields."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 import math
-from types import MappingProxyType
-from typing import Final, Literal, Self
+from typing import Literal, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
@@ -16,14 +15,6 @@ from skimage.transform import ProjectiveTransform
 from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Count, Finite, Frozen
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_PADDING: Final[Mapping[OpenImageIO.Wrap, Literal["wrap", "symmetric", "edge"]]] = MappingProxyType({
-    OpenImageIO.Wrap.Periodic: "wrap",
-    OpenImageIO.Wrap.Mirror: "symmetric",
-    OpenImageIO.Wrap.Clamp: "edge",
-})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -126,7 +117,7 @@ class Homography(Frozen, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, quad: Quad) -> Outcome[Option[Self]]:
-        """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners admit no projective map."""
+        """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners allow no projective map."""
         if not quad.convex:
             return Ok(Nothing)
         match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
@@ -189,9 +180,10 @@ class StMap(Frozen, frozen=True, kw_only=True, eq=False):
         height, width, channels = plane.shape
         x, y = self.extension
         border = math.ceil(filterwidth / 2.0)
+        padding: dict[OpenImageIO.Wrap, Literal["wrap", "symmetric", "edge"]] = {OpenImageIO.Wrap.Periodic: "wrap", OpenImageIO.Wrap.Mirror: "symmetric", OpenImageIO.Wrap.Clamp: "edge"}
         margin = np.array((border, border, 0.0))
         size = np.array((width, height, 1.0))
-        source = OpenImageIO.ImageBuf(np.pad(np.pad(plane, ((0, 0), (border, border), (0, 0)), mode=_PADDING.get(x, "constant")), ((border, border), (0, 0), (0, 0)), mode=_PADDING.get(y, "constant")))
+        source = OpenImageIO.ImageBuf(np.pad(np.pad(plane, ((0, 0), (border, border), (0, 0)), mode=padding.get(x, "constant")), ((border, border), (0, 0), (0, 0)), mode=padding.get(y, "constant")))
         st = OpenImageIO.ImageBuf(np.ascontiguousarray((self.plane[..., :3] * size + margin) / (size + 2.0 * margin), dtype=np.float32))
         roi = OpenImageIO.ROI(0, self.plane.shape[1], 0, self.plane.shape[0], 0, 1, 0, channels)
         return (

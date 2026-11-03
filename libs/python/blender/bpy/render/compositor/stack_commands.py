@@ -190,7 +190,7 @@ def select_output[M: Case](stacking: LayerStackService[M], call: Call[OutputChoi
     def chosen(held: Selection[M], layer: StackLayer[M]) -> Outcome[bool]:
         match layer.source:
             case RenderPass() | NodeSource() as source:
-                return stacking.rewritten(call.context, held, (LAYERS, index, SOURCE), lambda _: msgspec.structs.replace(source, output=output), index)
+                return stacking.rewritten(call.context, held, object, (LAYERS, index, SOURCE), lambda _: msgspec.structs.replace(source, output=output), index)
             case _:
                 return Ok(False)
 

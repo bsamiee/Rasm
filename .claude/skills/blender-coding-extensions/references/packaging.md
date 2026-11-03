@@ -12,7 +12,7 @@
 ## [02]-[WHEELS]
 
 Wheels of enabled extensions alone install into one shared `<extensions>/.local/lib/<python>/site-packages`:
-- Blender reads no wheel `METADATA`, and manifests list a wheel per closure distribution, except ones Blender bundles at an accepted version
+- Blender reads no wheel `METADATA`, and manifests list a wheel per transitive dependency, except ones Blender bundles at an accepted version
 - Shared folders present at startup sit ahead of Blender's `site-packages`, and a session's first wheel install appends the folder last until restart
 - Wheels ahead of Blender's `site-packages` replace bundled copies process-wide
 - Shared folders join `sys.path` without `site.addsitedir`, and a `.pth` file there adds no path and runs no code

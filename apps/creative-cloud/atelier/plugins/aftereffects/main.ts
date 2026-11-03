@@ -2,4 +2,4 @@ import { extension } from '@rasm/cep/entrypoints';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-extension();
+extension(import.meta.env.LINK);

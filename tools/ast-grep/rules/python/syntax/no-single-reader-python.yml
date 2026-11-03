@@ -207,6 +207,6 @@ rule:
                                 - all: [{matches: mention}, {not: {inside: {stopBy: end, pattern: $READER, matches: function-owner}}}]
                                 - all: [{matches: rebinding}, {not: {inside: {kind: function_definition, pattern: $DECLARATION}}}]
 message: '`$NAME` has one reader'
-note: 'Inline into its reader as the returned expression, `match` over eight rows or fewer, `in` set display, or literal'
+note: 'Move into its only reader as a named local, its returned expression, a `match` over eight rows or fewer, or an `in` set display'
 labels:
     READER: {style: secondary, message: Only reader}

@@ -10,7 +10,22 @@ const balanced = (depth) => (depth === 0 ? '[^{}]' : `(?:[^{}]|\\{${balanced(dep
 export default grammar(sqlite, {
     name: sqlite.grammar.name,
     rules: {
-        source_file: ($, original) => choice(original, seq('`', choice(original, $._expression, alias(seq($._expression, choice(keyword('asc'), keyword('desc'))), $.order_term), $.upsert_clause), '`')),
+        source_file: ($, original) =>
+            choice(
+                original,
+                seq(
+                    '`',
+                    choice(
+                        original,
+                        $._expression,
+                        alias(seq($._expression, choice(keyword('asc'), keyword('desc'))), $.order_term),
+                        alias(seq(field('expression', $._expression), keyword('as'), field('alias', $._id)), $.expression_result_column),
+                        seq($.template_substitution, choice(seq(field('order_by', $.order_by_clause), optional(field('limit', $.limit_clause))), field('limit', $.limit_clause))),
+                        $.upsert_clause,
+                    ),
+                    '`',
+                ),
+            ),
         upsert_clause: ($, original) => choice(original, $.template_substitution),
         template_substitution: () => {
             const nesting = 4;

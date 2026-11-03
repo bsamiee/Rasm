@@ -1,6 +1,6 @@
 """Invoke forms over window manager popups, suppressible confirmation, file and folder browsers, and cursor picks."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from functools import partial
 import inspect
 from pathlib import Path
@@ -19,7 +19,7 @@ from blender.bpy.data.rna.paths import definition, preferred
 from blender.bpy.data.rna.properties import annotated
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.reports import rendered
+from blender.bpy.extension.reports import alerted, rendered
 from blender.records.faults import Fault, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
     draw: Option[Callable[[bpy.types.UILayout, bpy.types.Context, Identity], None]] = Nothing
 
     def classed(self, body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
-        """Derives the class invoking the bound host function, unregistered fault for keywords or a draw the function does not take."""
+        """Derives the class invoking the bound host function, unregistered fault for keywords the function does not take or a draw apart from its `draw_func`."""
 
         def painted(popup: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, context: bpy.types.Context) -> None:
             layout: bpy.types.UILayout = popup.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -54,37 +54,29 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
                 draw(layout, context, body.identity)
 
         def opened(names: tuple[str, ...], operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> Outcome[Returns]:
-            arguments = {"self": context.window_manager, "operator": operator, "event": event, "draw_func": painted}
             return (
                 self.message
                 .map(lambda compute: compute(context, body.properties(operator)).map(lambda text: {"message": text}))
                 .default_value(Ok({}))
-                .bind(
-                    lambda keywords: (
-                        catch(self.call, exception=TypeError)(*(arguments[name] for name in names), **keywords).map(answered).map_error(partial(Fault.of, Reason.REFUSED, repr(self.call.func)))
-                    )
-                )
+                .bind(lambda keywords: _opened(self.call, names, {"self": context.window_manager, "operator": operator, "event": event, "draw_func": painted}, **keywords))
             )
-
-        def answered(answer: Returns | None) -> Returns:
-            return {"INTERFACE"} if answer is None else answer
 
         def built(names: tuple[str, ...]) -> Acquisitions:
             redo = {"bl_options": base.bl_options | {"UNDO"}} if self.call.func == bpy.types.WindowManager.invoke_props_popup else {}
-            return (_derived(base, body, {"invoke": body.invoking(partial(opened, names)), **redo}),)
+            return (body.derived(base, {"invoke": body.invoking(partial(opened, names)), **redo}),)
 
         return (
             _accepted(self.call.func, (*self.call.keywords, *(("message",) if self.message.is_some() else ())))
-            .filter_with(lambda names: "draw_func" not in names or self.draw.is_some(), lambda _: Fault.of(Reason.UNREGISTERED, repr(self.call.func), member="draw"))
+            .filter_with(lambda names: ("draw_func" in names) == self.draw.is_some(), lambda _: Fault.of(Reason.UNREGISTERED, repr(self.call.func), "draw_func"))
             .map(built)
         )
 
 
 class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Properties dialog over a computed message while the add-on preferences' `ask_<key>` flag holds, its checkbox clearing the flag after a run."""
+    """Properties dialog over a computed message, its faults drawn as alert rows, while the add-on preferences' `ask_<key>` flag holds, a declared flag drawing the checkbox that clears it after a run."""
 
     asks: ClassVar[bool] = True
-    message: Callable[[bpy.types.Context, T], str]
+    message: Callable[[bpy.types.Context, T], Outcome[str]]
     icon: "rna_enums.IconItems" = "NONE"
     dialog: partial[set["rna_enums.OperatorReturnItems"]] = partial(bpy.types.WindowManager.invoke_props_dialog)
 
@@ -97,8 +89,8 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
         """Derives the class asking while the flag holds or no flag is declared, running the body directly otherwise."""
         flag, form = self.flag(body.command.key), annotated(body.command.form)
 
-        def asked() -> bool:
-            return body.identity.preferences(bpy.types.AddonPreferences).filter(lambda held: flag in definition(held).properties).map(lambda held: bool(getattr(held, flag))).default_value(True)
+        def declared() -> Option[bpy.types.AddonPreferences]:
+            return body.identity.preferences(bpy.types.AddonPreferences).filter(lambda held: flag in definition(held).properties)
 
         def cleared(operator: bpy.types.Operator, context: bpy.types.Context) -> Outcome[None]:
             suppressed: bool = operator.suppress  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -115,21 +107,28 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
             layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            message = self.message(context, body.properties(operator))
             layout.use_property_split = True
-            layout.label_multiline(text=self.message(context, body.properties(operator)), icon=self.icon)
+            for text in message.to_option().to_list():
+                layout.label_multiline(text=text, icon=self.icon)
+            alerted(layout, message)
             body.command.draw.default_value(listed)(layout, context, body.properties(operator), body.identity)
-            layout.prop(operator.properties, "suppress")
+            for _ in declared().to_list():
+                layout.prop(operator.properties, "suppress")
 
-        def built(_names: tuple[str, ...]) -> Acquisitions:
+        def asked(names: tuple[str, ...], operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> Outcome[Returns]:
+            asking = declared().map(lambda held: bool(getattr(held, flag))).default_value(True)
+            return _opened(self.dialog, names, {"self": context.window_manager, "operator": operator, "event": event}) if asking else Ok(execute(operator, context))
+
+        def built(names: tuple[str, ...]) -> Acquisitions:
             return (
-                _derived(
+                body.derived(
                     base,
-                    body,
                     {
                         "__annotations__": {"suppress": bpy.props.BoolProperty(name="Do not show again", options={"SKIP_SAVE"})},
                         "draw": draw,
                         "execute": execute,
-                        "invoke": body.invoking(lambda operator, context, _event: Ok(self.dialog(operator) if asked() else execute(operator, context))),
+                        "invoke": body.invoking(partial(asked, names)),
                     },
                 ),
             )
@@ -154,9 +153,8 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             return body.chose(operator, context, tuple(Path(directory, item.name) for item in files if item.name) or tuple(Path(path) for path in (filepath,) if path))
 
         return Ok((
-            _derived(
+            body.derived(
                 base,
-                body,
                 {
                     "__annotations__": {
                         "filter_glob": _globbed(self.extensions),
@@ -167,7 +165,7 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "execute": execute,
                     "invoke": body.invoking(lambda operator, context, _event: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=self.confirm_text))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 },
-                mixins=(ImportHelper,),
+                ImportHelper,
             ),
         ))
 
@@ -190,9 +188,8 @@ class Folder(msgspec.Struct, frozen=True):
             return Ok({"RUNNING_MODAL"})
 
         return Ok((
-            _derived(
+            body.derived(
                 base,
-                body,
                 {
                     "__annotations__": {"directory": _DIRECTORY, "filter_folder": bpy.props.BoolProperty(default=True, options={"HIDDEN", "SKIP_SAVE"})},
                     "execute": execute,
@@ -235,9 +232,8 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         destined = {"check_existing": bpy.props.BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"}), "replacing": bpy.props.BoolProperty(options={"HIDDEN", "SKIP_SAVE"})}
         return Ok((
-            _derived(
+            body.derived(
                 base,
-                body,
                 {
                     "__annotations__": {"filter_glob": _globbed(self.extensions), **(destined if self.destinations.is_some() else {})},
                     "filename_ext": property(extension),
@@ -245,7 +241,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "execute": execute,
                     "invoke": body.invoking(lambda operator, context, event: Ok(ExportHelper.invoke(operator, context, event))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 },
-                mixins=(ExportHelper,),
+                ExportHelper,
             ),
         ))
 
@@ -258,16 +254,10 @@ class Pick(msgspec.Struct, frozen=True, kw_only=True):
 
     def classed[T: bpy.types.PropertyGroup](self, body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
         """Derives the class declaring `DEPENDS_ON_CURSOR` with the pending cursor."""
-        return Ok((_derived(base, body, {"bl_options": base.bl_options | {"DEPENDS_ON_CURSOR"}, "bl_cursor_pending": self.cursor}),))
+        return Ok((body.derived(base, {"bl_options": base.bl_options | {"DEPENDS_ON_CURSOR"}, "bl_cursor_pending": self.cursor}),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _derived[T: bpy.types.PropertyGroup](base: type[bpy.types.Operator], body: Body[T], namespace: dict[str, object], /, *, mixins: tuple[type, ...] = ()) -> type[bpy.types.Operator]:
-    """Returns the class an invoke form registers for base, after the mixins, restating `bl_property`, read from a class's own namespace."""
-    derived: type[bpy.types.Operator] = type(base.__name__, (*mixins, base), {**body.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
-    return derived
 
 
 def _accepted(function: Callable[..., object], named: tuple[str, ...], /) -> Outcome[tuple[str, ...]]:
@@ -275,26 +265,22 @@ def _accepted(function: Callable[..., object], named: tuple[str, ...], /) -> Out
 
     RNA class functions take required inputs positionally and others as keywords, script methods leading parameters positionally and the rest as keywords.
     """
-    positional, keywords = (
+    parameters = (
         Block
         .of_seq(definition(bpy.types.WindowManager).functions)
         .filter(lambda candidate: not candidate.use_self and getattr(bpy.types.WindowManager, candidate.identifier) == function)
         .try_head()
-        .map(
-            lambda found: (
-                tuple(parameter.identifier for parameter in found.parameters if parameter.is_required),
-                frozenset(parameter.identifier for parameter in found.parameters if not parameter.is_required and not parameter.is_output),
-            )
-        )
+        .map(lambda found: tuple((parameter.identifier, parameter.is_required) for parameter in found.parameters if not parameter.is_output))
         .default_with(
-            lambda: (
-                tuple(name for name, parameter in inspect.signature(function).parameters.items() if parameter.kind is parameter.POSITIONAL_OR_KEYWORD),
-                frozenset(name for name, parameter in inspect.signature(function).parameters.items() if parameter.kind is parameter.KEYWORD_ONLY),
+            lambda: tuple(
+                (name, parameter.kind is parameter.POSITIONAL_OR_KEYWORD)
+                for name, parameter in inspect.signature(function).parameters.items()
+                if parameter.kind in {parameter.POSITIONAL_OR_KEYWORD, parameter.KEYWORD_ONLY}
             )
         )
     )
-    unknown = frozenset(named) - keywords
-    return Ok(positional).filter_with(lambda _: not unknown, lambda _: Fault.of(Reason.UNREGISTERED, repr(function), ", ".join(sorted(unknown))))
+    unknown = frozenset(named) - frozenset(name for name, positional in parameters if not positional)
+    return Ok(tuple(name for name, positional in parameters if positional)).filter_with(lambda _: not unknown, lambda _: Fault.of(Reason.UNREGISTERED, repr(function), ", ".join(sorted(unknown))))
 
 
 def _checking[T: bpy.types.PropertyGroup](helper: type[ImportHelper | ExportHelper], body: Body[T], /) -> Callable[[bpy.types.Operator, bpy.types.Context], bool]:
@@ -309,6 +295,11 @@ def _globbed[T: bpy.types.PropertyGroup](extensions: Callable[[T], tuple[str, ..
         return ";".join(f"*{extension}" for extension in extensions(properties))
 
     return bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"}, get=glob)
+
+
+def _opened(call: partial[Returns] | partial[None], names: tuple[str, ...], arguments: Mapping[str, object], /, **keywords: str) -> Outcome[Returns]:
+    """Calls a window manager function over the arguments it takes positionally, a script method's `None` read as `INTERFACE`, refused fault for a raise."""
+    return catch(call, exception=TypeError)(*(arguments[name] for name in names), **keywords).map(lambda answer: answer or {"INTERFACE"}).map_error(partial(Fault.of, Reason.REFUSED, repr(call.func)))
 
 
 @catch(exception=OSError)

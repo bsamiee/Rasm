@@ -1,7 +1,6 @@
-"""Display formation, colorspace transforms and readings, encoding domains, RGB geometry, and the typed OCIO grading members the stubs lack."""
+"""Display formation, colorspace transforms and readings, RGB geometry, and the typed OCIO grading members the stubs lack."""
 
 from collections.abc import Callable
-from enum import auto, Enum
 from functools import partial
 from typing import Annotated, Final, Protocol, Self
 
@@ -20,13 +19,6 @@ from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Name, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Domain(Enum):
-    """Encoding a plane holds."""
-
-    SCENE_LINEAR = auto()
-    DISPLAY = auto()
 
 
 class HueCurve(Protocol):
@@ -108,8 +100,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def encoding(cls, config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
         """Returns the colorspace name of a display's first lookless matrix-only scene view in native view order."""
-        found: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = cls.for_encoding(config, display)
-        return found.bind(
+        return cls.for_encoding(config, display).bind(
             lambda choice: (
                 choice
                 .bind(lambda pair: pair[0].colorspace(config))
@@ -288,7 +279,6 @@ __all__ = [
     "SET_SPLINE_TYPE",
     "ColorSpace",
     "DisplayView",
-    "Domain",
     "HueCurve",
     "Stops",
     "basis",

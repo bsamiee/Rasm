@@ -1,6 +1,6 @@
-import { Schema } from 'effect';
-import { answers, Expression, Name, Reads } from '#/cases';
-import { Common, hostCase, outcome, record, recorded, reply } from '#/results';
+import { Schema, Struct } from 'effect';
+import { answers, Expression, Keywords, Name } from '#/cases';
+import { Common, hostCase, Records, recorded, reply, Surveying } from '#/results';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -42,18 +42,16 @@ const Placed = Schema.Struct({
     edited: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Push an undo step so the document reads edited' })),
 });
 const HostCase = hostCase({
-    name: Name,
     precondition: Placed,
-    read: Reads,
     folder: Schema.String.annotate({ description: 'Case folder holding the document copy and every file the case writes' }),
-    keywords: Schema.optionalKey(JsonObject.annotate({ description: 'Keyword arguments beside args, operator properties among them' })),
+    keywords: Schema.optionalKey(Keywords),
     confirms: Schema.optionalKey(Schema.Array(Schema.Boolean).annotate({ description: 'Return or Escape posted to the window for each popup in order' })),
     files: answers.files,
 });
 const Session = Schema.Struct({
-    records: Schema.String.annotate({ description: 'Records file the engine appends a Started line to before each case and a Finished line after it' }),
+    records: Records,
     reply: Schema.String.annotate({ description: 'Reply file the engine writes once every case ran' }),
-    survey: Schema.Boolean.annotate({ description: 'Reply carries the installation survey' }),
+    survey: Surveying,
     cases: Schema.Array(HostCase),
 });
 const Encoded = Schema.fromJsonString(Session);
@@ -74,12 +72,9 @@ const Survey = Schema.Struct({
     areas: Schema.Array(Schema.String).annotate({ description: 'Area type identifiers' }),
     regions: Schema.Array(Schema.String).annotate({ description: 'Region type identifiers' }),
 }).annotate({ description: 'Installation facts the index holds per bundle identifier and version' });
-const Header = Schema.Struct({ application: Schema.String, version: Schema.String, survey: Schema.optionalKey(Survey) });
-const Reply = reply(Header);
+const Reply = reply({ survey: Schema.optionalKey(Survey) });
 const fields = {
-    console: Common.fields.console,
-    files: Common.fields.files,
-    opened: Common.fields.opened,
+    ...Struct.pick(Common.fields, ['console', 'files', 'opened']),
     windows: recorded(Schema.Array(Schema.String).annotate({ description: 'Area types of one window the case opened, closed after it' })),
     stderr: recorded(Schema.String.annotate({ description: 'Line the original wrote to the error stream' })),
     log: recorded(Schema.Struct({ category: Schema.String, message: Schema.String }).annotate({ description: 'Blender operator log line of the case body, each call with its properties' })),
@@ -94,12 +89,9 @@ const fields = {
             dirty: Schema.Boolean,
         }).annotate({ description: 'IDs created and removed by data path, IDs the depsgraph updated with each update kind, undo steps pushed, and the edited state after the case' }),
     ),
-    beforeFailed: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Reads that failed before the case ran' })),
 };
-const Outcome = outcome(fields);
-const Recorded = record(Outcome);
 const Engine = Schema.Literal('python');
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Encoded, Engine, HostCase, Outcome, Placed, Recorded, Reply, SURVEY, Survey, Written };
+export { Encoded, Engine, fields, HostCase, Placed, Reply, SURVEY, Survey, Written };

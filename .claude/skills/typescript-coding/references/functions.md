@@ -87,7 +87,7 @@ const Casing = Schema.Literals(['camelCase', 'constantCase', 'kebabCase', 'pasca
 `String[casing]` types as the union of the accepted members, each `(self: string) => string`, and `Array.map(rows, Record.mapKeys(String[casing]))` renames every row's keys through the member a decoded `Casing` selects. `satisfies` checks each name against the module, and a new casing is one name in the list:
 - Rows hold a function or module where behavior differs by case, rows of data one shared function reads are a lookup table
 - Rows no module holds are an `as const` object keyed by the encoded token, with typed handles as values
-- `satisfies Record<Extract<keyof typeof Enum, Uppercase<string>>, A>` requires a row per host enumeration member, and `Extract` drops reverse-mapped numeric keys
+- `satisfies Record<Extract<keyof typeof Enum, Uppercase<string>>, A>` requires a row per host enum member, minus reverse-mapped numeric keys
 
 ## [06]-[EFFECTFUL_FUNCTIONS]
 

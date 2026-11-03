@@ -11,8 +11,7 @@ from expression.collections import Block
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import Placement
-from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, NoUndo, Operator, Placement, Unchanged
 from blender.bpy.data.ids.images import read
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle
@@ -209,12 +208,12 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def viewing(self) -> Operator[ViewTarget]:
         """Command showing an entry's group output."""
-        return Operator(form=ViewTarget, run=self.view_output, internal=True)
+        return Operator(form=ViewTarget, run=self.view_output, options=frozenset({"INTERNAL"}))
 
     @cached_property
     def clearing(self) -> Operator[Named]:
         """Command removing an entry's owned Viewer."""
-        return Operator(form=Named, run=self.clear_viewer, internal=True)
+        return Operator(form=Named, run=self.clear_viewer, options=frozenset({"INTERNAL"}))
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the entering-frame read and the view and clear commands."""

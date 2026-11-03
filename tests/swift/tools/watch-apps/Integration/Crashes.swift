@@ -15,15 +15,14 @@ extension Integration {
         @Test(.application(FixtureApplication.self, launches: false))
         func crashPrintsSignalThenReportWithMachException() async throws {
             let fixture: Fixture = try Fixture()
-            let watched: (outcome: Int32, lines: [TimedLine<WatchAppsLine>]) = try await watching([fixture.identifier], within: .seconds(90)) { lines in
+            let (pid, transcript): (Int32, [WatchAppsLine]) = try await watching([fixture.identifier]) { lines in
                 let pid: Int32 = try await launch(fixture).pid
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.fault, in: fixture, pid: pid)
                 _ = await lines.collect { seen in seen.contains { line in line.entry.instances?[pid]?.exited?.report != nil || line.entry.instances?[pid]?.exited?.reportFailure != nil } }
                 return pid
             }
-            let pid: Int32 = watched.outcome
-            let exits: [WatchAppsLine.Exit] = watched.lines.compactMap { timed in timed.line.entry.instances?[pid]?.exited }
+            let exits: [WatchAppsLine.Exit] = transcript.compactMap { line in line.entry.instances?[pid]?.exited }
             let report: WatchAppsLine.Report = try #require(exits.last?.report)
             let readable: Bool = FileManager.default.isReadableFile(atPath: report.url.path(percentEncoded: false))
             expectNoDifference(exits.map(\.signal), [SIGSEGV, SIGSEGV])
@@ -42,7 +41,7 @@ extension Integration {
                 let created: CFUserNotification? = CFUserNotificationCreate(nil, 0, kCFUserNotificationPlainAlertLevel, nil, header as CFDictionary)
                 let alert: CFUserNotification = try #require(created)
                 defer { CFUserNotificationCancel(alert) }
-                let prompt: WatchAppsLine = try await lines.next { line in line.prompts(besides: fixture.identifier) }.line
+                let prompt: WatchAppsLine = try await lines.next { line in line.prompts(besides: fixture.identifier) }
                 CFUserNotificationCancel(alert)
                 _ = try await lines.next { line in line.key == prompt.key && line.entry == .instances([:]) }
                 return (prompt.key, (prompt.entry.instances ?? [:]).values.compactMap(\.running?.status.responding?.elements).joined().map(\.self))

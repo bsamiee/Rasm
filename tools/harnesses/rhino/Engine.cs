@@ -164,6 +164,7 @@ internal sealed record DocumentSnapshot(uint Serial, string? Path, string? Templ
 internal sealed record Outcome(string Name, Completion Completion) {
     public JsonNode? Value { get; init; }
     public JsonObject? Before { get; init; }
+    public JsonObject? BeforeFailed { get; init; }
     public JsonObject? Read { get; init; }
     public JsonObject? ReadFailed { get; init; }
     public ImmutableArray<string> Leaked { get; init; } = [];
@@ -428,21 +429,7 @@ internal static class Documents {
             : FrozenDictionary<string, string>.Empty).GetValueOrDefault(identifier);
 }
 
-internal static class Commits {
-    public static IO<A> Commit<A>(RhinoDoc doc, string name, IO<A> body) =>
-        from serial in IO.lift(() => doc.BeginUndoRecord(name))
-        from value in body.Finally(IO.lift(() => doc.EndUndoRecord(serial)))
-        select value;
-}
-
 public static class Engine {
-    private static readonly JsonSerializerOptions Codec = new(JsonSerializerDefaults.Web) {
-        RespectNullableAnnotations = true,
-        RespectRequiredConstructorParameters = true,
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-        Converters = { new Tagged<double>(), new Tagged<float>(), new JsonStringEnumConverter(allowIntegerValues: false), new Native(), new Described(), new Answers(), new Refused() },
-    };
-
     internal static readonly JsonSerializerOptions Data = new(JsonSerializerDefaults.Web) {
         RespectNullableAnnotations = true,
         RespectRequiredConstructorParameters = true,
@@ -450,14 +437,16 @@ public static class Engine {
         Converters = { new Tagged<double>(), new Tagged<float>(), new JsonStringEnumConverter(allowIntegerValues: false) },
     };
 
+    private static readonly JsonSerializerOptions Codec = new(Data) { Converters = { new Native(), new Described(), new Answers(), new Refused() } };
+
     // --- [BATCH]
     public static void Run(string[] args, ImmutableArray<Expressions> codes, Func<ICanvases> canvases) =>
-        (from paths in IO.lift(() => (File: args[0], Records: args[1]))
+        (from paths in IO.lift(() => (File: args[0], Records: args[1], Reply: args[2]))
          from folder in IO.lift(() => Optional(Path.GetDirectoryName(paths.Records)).ToFin(Error.New($"{paths.Records} sits in no folder")))
          from reply in Batch(paths.File, paths.Records, folder, codes, canvases)
              .Map(static held => new Reply(Plugins(), held.PlugIn.ValueUnsafe(), held.Grasshopper.ValueUnsafe()))
              .Catch(static (Error error) => IO.pure(new Reply(Plugins(), Failed: Message(error)))).As()
-         from written in IO.lift(() => Written(folder, reply))
+         from written in IO.lift(() => Written(paths.Reply, reply))
          select unit).Run();
 
     public static object? Call(Delegate function, ImmutableArray<JsonElement> args) =>
@@ -514,10 +503,10 @@ public static class Engine {
             ? IO.lift(() => surface.Value).Bind(static made => IO.lift(() => made.Start())).Map(static made => Some(made))
             : IO.pure(current);
 
-    private static Unit Written(string folder, Reply reply) {
-        string draft = Path.Combine(folder, "reply.tmp");
+    private static Unit Written(string file, Reply reply) {
+        string draft = Path.ChangeExtension(file, ".tmp");
         File.WriteAllText(draft, JsonSerializer.Serialize(reply, Wire.Default.Reply));
-        File.Move(draft, Path.Combine(folder, "reply.json"), overwrite: true);
+        File.Move(draft, file, overwrite: true);
         return unit;
     }
 
@@ -542,13 +531,14 @@ public static class Engine {
              .Catch((Error error) => IO.pure((Outcome: new Outcome(@case.Name, new Completion.Failed(Message(error))), Doc: Option<RhinoDoc>.None))).As()
          from leaked in IO.lift(() => Settings.Changed(settings))
          from current in IO.lift(() => RhinoDoc.OpenDocuments().Select(static doc => doc.RuntimeSerialNumber).Where(serial => !open.Contains(serial)).ToImmutableArray())
-         select (outcome.Outcome with { Leaked = leaked }, outcome.Doc.IsSome ? current : [.. previous, .. current])).Bracket();
+         select (outcome.Outcome with { Leaked = [.. outcome.Outcome.Leaked, .. leaked] }, outcome.Doc.IsSome ? current : [.. previous, .. current])).Bracket();
 
     private static IO<(Outcome Outcome, Option<RhinoDoc> Doc)> Attempt(Case @case, Expressions.Compiled code, Recorder recorder, ImmutableArray<uint> previous, Option<ICanvases> canvases, Captured captured) =>
         from folder in IO.lift(() => Directory.CreateDirectory(@case.Folder).FullName)
-        from doc in Document(@case, previous)
-        from outcome in Observed(@case, code, recorder, canvases, captured, doc, folder)
-        select (doc.Match(Some: held => outcome with { Document = State(held), Saved = Save(held, Path.Combine(@case.Folder, "after.3dm")) }, None: () => outcome), doc);
+        from opened in Document(@case, previous)
+        from outcome in Observed(@case, code, recorder, canvases, captured, opened.Doc, folder)
+        from reported in IO.lift(() => opened.Doc.Match(Some: held => Reported(held, outcome, Path.Combine(@case.Folder, "after.3dm")), None: () => outcome))
+        select (reported with { Leaked = [.. opened.Unclosed, .. reported.Leaked] }, opened.Doc);
 
     private static IO<Outcome> Observed(Case @case, Expressions.Compiled code, Recorder recorder, Option<ICanvases> canvases, Captured captured, Option<RhinoDoc> doc, string folder) =>
         (from observed in (
@@ -593,6 +583,7 @@ public static class Engine {
         select new Outcome(@case.Name, result.Completion) {
             Value = result.Value,
             Before = Empty(before.Values),
+            BeforeFailed = Empty(before.Failures),
             Read = Empty(read.Values),
             ReadFailed = Empty(read.Failures),
             Macros = macros.IsEmpty ? null : macros,
@@ -601,7 +592,13 @@ public static class Engine {
     private static ImmutableArray<Macro> Macros(Case @case, Option<RhinoDoc> doc) =>
         [.. @case.Macros.Select(macro => new Macro(macro, doc.Match(Some: held => RhinoApp.RunScript(held.RuntimeSerialNumber, macro, echo: true), None: () => RhinoApp.RunScript(macro, echo: true))))];
 
-    private static IO<A> Recorded<A>(Option<RhinoDoc> doc, string label, IO<A> work) => doc.Match(Some: held => Commits.Commit(held, label, work), None: () => work);
+    private static IO<A> Recorded<A>(Option<RhinoDoc> doc, string label, IO<A> work) =>
+        doc.Match(
+            Some: held =>
+                from serial in IO.lift(() => held.BeginUndoRecord(label))
+                from value in work.Finally(IO.lift(() => held.EndUndoRecord(serial)))
+                select value,
+            None: () => work);
 
     private static IO<Unit> Run(string path, Option<RhinoDoc> doc) =>
         (from source in IO.lift(() => new SourceCode(new Uri(path)))
@@ -653,12 +650,12 @@ public static class Engine {
         });
 
     // --- [PRECONDITIONS]
-    private static IO<Option<RhinoDoc>> Document(Case @case, ImmutableArray<uint> previous) =>
-        @case.Precondition.Source.Switch<ImmutableArray<uint>, IO<Option<RhinoDoc>>>(
+    private static IO<(Option<RhinoDoc> Doc, ImmutableArray<string> Unclosed)> Document(Case @case, ImmutableArray<uint> previous) =>
+        @case.Precondition.Source.Switch<ImmutableArray<uint>, IO<(Option<RhinoDoc> Doc, ImmutableArray<string> Unclosed)>>(
             previous,
             template: static (state, template) => Opened(Path.Combine(FileSettings.TemplateFolder, template.Name), state, () => Error.New($"template {template.Name} is absent from {FileSettings.TemplateFolder}, which holds {string.Join(", ", Directory.EnumerateFiles(FileSettings.TemplateFolder, "*.3dm").Select(Path.GetFileName))}")),
             open: static (state, source) => Opened(source.Path, state, () => Error.New($"document {source.Path} does not exist")),
-            application: static (_, _) => IO.pure(Option<RhinoDoc>.None));
+            application: static (_, _) => IO.pure((Doc: Option<RhinoDoc>.None, Unclosed: ImmutableArray<string>.Empty)));
 
     private static (Option<UnitSystem> Units, Option<Tolerances> Tolerance) Measures(DocumentSource source) =>
         source.Switch<(Option<UnitSystem> Units, Option<Tolerances> Tolerance)>(
@@ -666,11 +663,11 @@ public static class Engine {
             open: static open => (Optional(open.Units), Optional(open.Tolerance)),
             application: static _ => (None, None));
 
-    private static IO<Option<RhinoDoc>> Opened(string source, ImmutableArray<uint> previous, Func<Error> absent) =>
+    private static IO<(Option<RhinoDoc> Doc, ImmutableArray<string> Unclosed)> Opened(string source, ImmutableArray<uint> previous, Func<Error> absent) =>
         from path in IO.lift(() => Present(source, absent))
         from doc in New(path)
-        from closed in IO.lift(() => toSeq(previous).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Iter(Close))
-        select Some(doc);
+        from unclosed in IO.lift(() => toSeq(previous).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Choose(Unclosed).ToImmutableArray())
+        select (Doc: Some(doc), Unclosed: unclosed);
 
     private static Fin<string> Present(string path, Func<Error> absent) => File.Exists(path) ? path : absent();
 
@@ -687,7 +684,7 @@ public static class Engine {
         from shown in Optional(placed.View).Traverse(view => IO.lift(() => Show(doc, view))).As()
         from paged in Optional(placed.Layout).Traverse(page => IO.lift(() => AddPage(doc, page))).As()
         from layered in toSeq(placed.Layers).TraverseM(row => IO.lift(() => Layered(doc, row))).As()
-        from written in IO.lift(() => Written(doc, file))
+        from written in IO.lift(() => Written(doc, file, adopted: true))
         select doc;
 
     private static Unit Adjusted(RhinoDoc doc, Option<UnitSystem> units, Option<Tolerances> tolerance) {
@@ -700,10 +697,10 @@ public static class Engine {
         return unit;
     }
 
-    private static Fin<Unit> Written(RhinoDoc doc, string file) {
-        using FileWriteOptions options = new() { UpdateDocumentPath = true, SuppressDialogBoxes = true, IncludePreviewImage = false };
+    private static Fin<Unit> Written(RhinoDoc doc, string file, bool adopted) {
+        using FileWriteOptions options = new() { UpdateDocumentPath = adopted, SuppressDialogBoxes = true, IncludePreviewImage = false };
         if (!doc.WriteFile(file, options)) return Error.New($"document {doc.RuntimeSerialNumber} did not write {file}");
-        doc.Modified = false;
+        doc.Modified = doc.Modified && !adopted;
         return unit;
     }
 
@@ -739,28 +736,14 @@ public static class Engine {
             .Map(static _ => unit);
     }
 
-    private static Fin<int> Layered(RhinoDoc doc, string path) =>
-        doc.Layers.FindByFullPath(path, notFoundReturnValue: -1) switch {
-            >= 0 and var found => found,
-            _ => path.LastIndexOf(ModelComponent.NamePathSeparator, StringComparison.Ordinal) switch {
-                < 0 => Added(doc, path, Guid.Empty),
-                var cut => Layered(doc, path[..cut]).Bind(parent => Added(doc, path[(cut + ModelComponent.NamePathSeparator.Length)..], doc.Layers[parent].Id)),
-            },
-        };
-
-    private static Fin<int> Added(RhinoDoc doc, string name, Guid parent) =>
-        doc.Layers.Add(new Layer { Name = name, ParentLayerId = parent }) switch {
-            >= 0 and var made => made,
-            _ => Error.New($"layer {name} was not added"),
-        };
-
-    private static Fin<Unit> Layered(RhinoDoc doc, LayerRow row) =>
-        Layered(doc, row.Path).Map(index => {
-            Layer layer = doc.Layers[index];
-            _ = Optional(row.Color).Iter(color => layer.Color = ColorTranslator.FromHtml(color));
-            _ = Optional(row.Locked).Iter(locked => layer.IsLocked = locked);
-            return unit;
-        });
+    private static Fin<Unit> Layered(RhinoDoc doc, LayerRow row) {
+        int index = doc.Layers.FindByFullPath(row.Path, notFoundReturnValue: -1) is >= 0 and var found ? found : doc.Layers.AddPath(row.Path);
+        if (index < 0) return Error.New($"layer {row.Path} was not added");
+        Layer layer = doc.Layers[index];
+        _ = Optional(row.Color).Iter(color => layer.Color = ColorTranslator.FromHtml(color));
+        _ = Optional(row.Locked).Iter(locked => layer.IsLocked = locked);
+        return unit;
+    }
 
     private static IO<Guid> Add(Scope scope, Added row, Func<Scope, GeometryBase> geometry) =>
         (from doc in IO.lift(() => scope.Doc)
@@ -812,16 +795,18 @@ public static class Engine {
         return new Viewed(viewport.Name, mode.EnglishName, viewport.IsParallelProjection);
     }
 
-    private static Saved? Save(RhinoDoc doc, string after) {
-        using FileWriteOptions options = new() { UpdateDocumentPath = false, SuppressDialogBoxes = true, IncludePreviewImage = false };
-        return doc.WriteFile(after, options) ? new Saved(doc.Path, after) : null;
+    private static Outcome Reported(RhinoDoc doc, Outcome outcome, string after) {
+        Outcome stated = outcome with { Document = State(doc) };
+        return Written(doc, after, adopted: false).Match(
+            Succ: _ => stated with { Saved = new Saved(doc.Path, after) },
+            Fail: error => stated with { Leaked = [.. stated.Leaked, Message(error)] });
     }
 
-    private static void Close(RhinoDoc doc) {
+    private static Option<string> Unclosed(RhinoDoc doc) {
         doc.Modified = false;
-        _ = RhinoApp.RunScript(doc.RuntimeSerialNumber, string.IsNullOrEmpty(doc.Path) ? "_-Close" : $"""
+        return RhinoApp.RunScript(doc.RuntimeSerialNumber, string.IsNullOrEmpty(doc.Path) ? "_-Close" : $"""
             _-Close "{doc.Path}"
-            """, echo: false);
+            """, echo: false) ? Option<string>.None : Some($"document {doc.RuntimeSerialNumber} stayed open, _-Close answered false");
     }
 
     // --- [PLUG_INS]

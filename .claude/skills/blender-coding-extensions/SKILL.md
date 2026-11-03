@@ -20,9 +20,10 @@ Covers what an extension acquires and releases across its lifecycle, with its ma
 
 Registration runs under host rules:
 - Import and `register()` run under `RestrictBlend`: `bpy.context` holds `window_manager` and `preferences` alone, `bpy.data` raises `AttributeError`
-- Module-level `from bpy import context, data` binds the restricted stand-ins for good, and code reads `bpy.context` and `bpy.data` per call
-- Raising `register()` gets no `unregister()` and drops only its top module from `sys.modules`, its classes, handlers, and timers staying registered
+- Module-level `from bpy import context, data` binds the restricted stand-ins permanently, and code reads `bpy.context` and `bpy.data` per call
+- Raising `register()` gets no `unregister()`, its classes, handlers, and timers staying registered
 - Classes register once, a second `register_class` raising `ValueError` and a second `unregister_class` `RuntimeError`
+- Classes whose `register` classmethod raises stay registered with `bl_rna` in their own namespace
 
 Acquisitions follow host dependency order and releases reverse it, an attachment naming an unregistered group crashing Blender at its next read:
 
@@ -32,7 +33,7 @@ Acquisitions follow host dependency order and releases reverse it, an attachment
 |  [02]   | Parent panel    | Panel naming it in `bl_parent_id`                        | `RuntimeError` at registration                |
 |  [03]   | Operator        | Keymap item calling it                                   | Item property writes raising `AttributeError` |
 
-`registered` registers each class after the groups and parent panel it names, and pushes each release onto the caller's stack after its acquisition. `keyconfigs.update(keep_properties=True)` goes on first to run after every class release, and keymap releases remove the items `keyconfig_init_from_data` added:
+`registered` registers each class after the groups and parent panel it names, and pushes each release onto the caller's stack, a class's release ahead of its `register_class` call. Keymap releases remove the items `keyconfig_init_from_data` added:
 
 ```python
 type Registrable = type[bpy.types.PropertyGroup | bpy.types.AddonPreferences | bpy.types.Operator | bpy.types.Panel | bpy.types.Menu | bpy.types.UIList | bpy.types.FileHandler]
@@ -53,8 +54,8 @@ def registered(stack: ExitStack, classes: Collection[Registrable], /, *, attache
     }
     stack.callback(keyconfigs.update, keep_properties=True)
     for cls in graphlib.TopologicalSorter(graph).static_order():
+        stack.callback(lambda cls=cls: "bl_rna" in vars(cls) and bpy.utils.unregister_class(cls))
         bpy.utils.register_class(cls)
-        stack.callback(bpy.utils.unregister_class, cls)
     for owner, name, prop in attached:
         setattr(owner, name, prop)
         stack.callback(delattr, owner, name)
@@ -84,7 +85,9 @@ def register() -> None:
 unregister = held.close
 ```
 
-`CLASSES` lists classes in any order, and a raise inside the `with` block releases every earlier acquisition, then reaches Blender as raised:
+`CLASSES` lists classes in any order. A raise inside the `with` block releases every earlier acquisition, then reaches Blender as raised.
+
+Attachments follow host rules:
 - `attached` takes any `bpy.props` definition onto a host type, `delattr` releasing it
 - Group storage on an ID starts at its first read, saves with files, and outlives a release, reading back once the group attaches again
 - Static RNA members (`render`, `frame_current`) refuse an attachment with `ValueError`, and `name`, RNA functions, and `bl_rna` take a shadowing one
@@ -98,7 +101,7 @@ Registered classes take the forms Blender checks at `register_class` and at each
 - Panel, menu, list, and render engine idnames register cut to 63 bytes, and a class under a taken idname replaces the earlier one with an `Info` line
 - Callbacks with a positional parameter count other than the host's raise `ValueError` at registration, `*args` counting none (Panel `draw` takes 2)
 - Panels and menus build a new instance per draw, and state between draws goes in a property
-- Classes without `bl_idname` register under their class name
+- Classes without `bl_idname` register under their class name, and code reads it from `cls.bl_rna.identifier`
 - Panels shared across editors register one `type(f"{base.__name__}_{space.lower()}", (base,), {"bl_space_type": space})` per space
 - Shared panel bases hold `draw` and other `bl_*` members
 
@@ -142,7 +145,7 @@ Presets resolve through host paths:
 - Arguments before `--command` (`.blend`, `--python`) run first, a `.blend` leaving `context.window` `None` beside one `window_manager.windows` entry
 - Commands reach extensions enabled in preferences or through `--addons` placed before `--command`, and `--factory-startup` alone drops them
 - Every `unregister()` runs after `fn` returns, `sys.exit` included
-- Second registrations of a registered id, stock `extension` included, abort that command with exit 1 until either handle releases
+- Second registrations of a registered id, built-in `extension` included, abort that command with exit 1 until either handle releases
 
 ## [05]-[TRANSLATIONS]
 
@@ -152,17 +155,17 @@ Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per packa
 - Locale keys take a `bpy.app.translations.locales` code or a shorter form
 - Lookups read one dict per table, trying the full locale, `language_country`, `language@variant`, then `language`
 - Tables key each language once, a full code beside a shorter form (`pt_BR` beside `pt`) answering from the shorter form after an earlier table misses
-- Tables translate only msgids the stock catalog leaves untranslated, and `en_US` entries relabel stock English text
+- Tables translate only msgids the built-in catalog leaves untranslated, and `en_US` entries relabel built-in English text
 - Shared keys answer from the first registered table, and second registrations of one package raise `ValueError`
 - `_bl_i18n_utils.bl_extract_messages.dump_addon_messages(<package>, False, <settings>)` returns a `.pot` keyed by `(context, msgid)`
 - Extraction settings set `SOURCE_DIR` to `bpy.utils.resource_path("LOCAL")`
-- Extraction returns extension RNA strings, literal `text=` and report strings, manifest `name` and `tagline`, and stock definition strings
+- Extraction returns extension RNA strings, literal `text=` and report strings, manifest `name` and `tagline`, and built-in definition strings
 - Extraction leaves out panel `bl_label` and `bl_category`
 
 ## [06]-[MANUAL_MAPS]
 
 Online Manual lookups call manual map functions returning `(<url prefix>, ((<pattern>, <url suffix>), ...))`:
-- Lookups call functions newest first and stock map last, first matching pattern answering, and specific patterns precede wildcards
+- Lookups call functions newest first and built-in map last, first matching pattern answering, and specific patterns precede wildcards
 - Lookup ids lowercase before `fnmatchcase`, and patterns are lowercase
 - URLs join prefix and suffix with no separator
 - Operator buttons and their property buttons resolve to `bpy.ops.<category>.<name>`

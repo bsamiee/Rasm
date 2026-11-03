@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/extendscript",
+    "private": true,
+    "description": "ExtendScript handler answering CEP extension requests inside the host",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        "./handle": "./handle.ts"
+    },
+    "dependencies": {
+        "@rasm/cep": "workspace:*"
+    },
+    "devDependencies": {
+        "types-for-adobe": "catalog:"
+    }
+}

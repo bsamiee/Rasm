@@ -13,8 +13,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 ## [02]-[MODEL]
 
 [SCHEMA]: Effect `Schema` under `model/` defines every value Worker, page, and editor exchange:
-- Media kinds are `Schema.Class` members of `Asset`, accepted media types derive from member `mime` literals
-- ALWAYS derive options, upload restrictions, and `Match.is` arms from schema `.literals` and `.members`
+- Media kinds are `Schema.Class` members of `Asset` tagged by `kind`, accepted media types derive from member `mime` literals
+- ALWAYS derive options and upload restrictions from schema `.literals` and `.members`, and fold assets through `Asset.match` and `Asset.guards`
+- `AssetId`, `EntryId`, and `CompositionId` brand every id, a swapped id fails to compile
+- Document fields a later build adds take `Schema.withDecodingDefaultKey`, bodies older builds stored still decode
 - Stored forms are the `Schema.toEncoded` side of resolved schemas, with no second declaration
 - `Placement` resolves stored asset ids through `Schema.decodeTo` and `SchemaGetter.transformEffect` against an `Assets` service
 - Dangling or mistyped asset references fail decoding with `SchemaIssue.InvalidValue` and an owner-readable message
@@ -25,31 +27,32 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [CONTRACT]: `HttpApiBuilder` serves and `AtomHttpApi` calls one `Api` over `StoredPortfolio`, editor encodes resolved `Portfolio` into each payload:
 - Expected failures are `HttpApiError` variants and `Schema.TaggedError` classes with `httpApiStatus`, clients match `_tag`
-- `Owner` is an `HttpApiMiddleware.Service` over every endpoint, accepting owner sessions and refusing a body-carrying request whose `Sec-Fetch-Site` is not `same-origin`
-- Answers a contract cannot type (rendered page, ranged media bytes) are `HttpRouter` routes beside API groups
+- `Owner` is an `HttpApiMiddleware.Service` over every endpoint except asset `read`, accepting owner sessions and refusing a body-carrying request whose `Sec-Fetch-Site` is not `same-origin`
+- Asset `read` types its path and failures in `Api` and answers with the ranged `HttpServerResponse` from `ObjectStorage.serve`, the rendered page alone is an `HttpRouter` route
+- Multipart field names are `uploadField` in `model/api.ts`, editor and Worker read them, refused parts fail with an `UploadRefused` reason
 
 ## [03]-[WORKER]
 
-[HANDLERS]: Worker is one Effect `Layer` graph that `HttpRouter.toWebHandler` turns into a fetch handler:
+[HANDLERS]: Worker is one Effect `Layer` graph, `@rasm/hosting/cloudflare` `worker` builds its handler once per isolate on its first request:
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
 - `SqlClient` stores complete encoded documents and assets as JSON, object storage holds media bytes
 - Store reads decode joined JSON documents and asset collections through `PortfolioData` at store boundaries
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
 - Placement references derive through one query over stored documents and the incoming draft
 - Draft and published documents each store one JSON body and a revision
-- `Revision` encodes draft revisions as strong ETags, a write with a stale `If-Match` revision fails with `PreconditionFailed` unless the stored draft already holds its body, which answers with the stored revision
-- One `atomic` batch upserts
+- `Revision` encodes draft revisions as strong ETags, a stale `If-Match` answers the stored revision, as success when the draft holds the body, else in `PreconditionFailed`
+- Draft saves, their publish, and the stored revision read share one `atomic` batch, as do each release sweep and its object list
+- Drafts placing a missing, mistyped, or out-of-range file fail with `PlacementConflict` naming each placement path
 - `@rasm/hosting/storage` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
-- Upload bodies send the `asset` field, then each rendition named by its width in asset order, then the original, each part typed with its declared media type
+- Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
-- Media reads serve assets placed in published work to anyone, every other asset to the owner alone
+- Asset reads serve assets placed in published work to anyone, every other asset to the owner alone and `NotFound` to visitors
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/page/render` `Page.render`, browsers hydrate the same `Site` through `hydratePage`:
+[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/page/render` `Page.render`, browsers hydrate the same `Site` through `@rasm/hosting/page/hydrate` `hydrate`:
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
-- `site/shell.tsx` `shell` names the root, data script, `Bootstrap` schema, the `Site` render and the title and description its head writes
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
 - At page end, where the tracking line cannot reach last sections, scrolling keeps current fragment while its section stays in view
@@ -59,7 +62,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Class names take theme tokens and spacing steps, a value one utility reads stays a declaration in that utility
 - Presentation components name visual roles, typed `data-*` attributes select composition layouts
 - Elements carry no `style` attribute, theme rules hold visual choices and the formulas over media values
-- `@rasm/ui` `CustomProperties` sets media values as custom properties in a hoisted `<style precedence>` rule its `data-properties` attribute selects
+- `@rasm/ui` `CustomProperties` sets media values as custom properties, one hoisted `<style precedence>` rule per declaration that a `data-properties` token selects
 - Figures reserve their box before media loads, server rendering emits each hoisted rule ahead of the markup it sizes
 - React Aria state variants come from `tailwindcss-react-aria-components`
 - `react-aria-components` owns composite controls, focus, selection, and overlays sized to its `--visual-viewport-height`
@@ -70,7 +73,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [FIGURES]: `MediaFigure` renders every placement from its resolved asset, presentation decides loading, chrome, and expansion:
 - `Match.discriminatorsExhaustive` over placement `kind` selects each renderer
-- Display text and alt text derive once in `media/labels.tsx`, media URLs in `model/asset.ts`, and image source sets in `media/media-element.tsx`
+- Display text and alt text derive once in `media/labels.ts`, asset URLs from `Api` through `assetUrl` in `model/api.ts`, and image source sets in `media/media-element.tsx`
 - Presentation, priority, and in-view proximity decide media loading and video playback
 - Image renditions fill `srcSet`, expanded views load the original
 - Renditions share their source's authorization, publication, and removal
@@ -78,50 +81,49 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `react-error-boundary` fallbacks catch chunk and render failures
 - `react-zoom-pan-pinch` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
-- `@rasm/media/pdf/document` `pdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
-- `@rasm/media/pdf/viewer` `usePdfViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
-- Sheet previews draw annotations without a text layer, the sheet viewer writes page, scale, and rotation through `PdfViewer.assign` and restores find highlights when Find reopens
+- `@rasm/media/pdf/document` `PdfDocument.family` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
+- `@rasm/media/pdf/viewer` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
+- Sheet previews draw annotations without a text layer, the sheet viewer writes page and scale through `PdfViewer.assign`, rotation through `PdfViewer.rotate`, and restores find highlights when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]
 
-[STATE]: Editor state is Effect `Atom` values over `AsyncResult` in `editor/state.tsx`, with one writable draft atom every request atom updates:
+[STATE]: Editor state is Effect `Atom` values over `AsyncResult` in `editor/state.ts`, with one writable draft atom every request atom updates:
 - Mutations are `runtime.fn` atoms of an `AtomHttpApi.Service` runtime, their `AsyncResult` drives busy state, status, and alerts
 - Draft, mutation, and upload atoms are `Atom.keepAlive`, closing the editor keeps edits, results, and queued files
 - Draft edits are `Optic` modifications returning a new portfolio, identity against the last saved or loaded snapshot marks unsaved work
 - Save failures hold their submitted snapshot, schema issue paths select the failing entry in it
-- Precondition failures keep local edits and offer a confirmed reload
+- Precondition failures keep local edits and offer a confirmed reload or a save over the stored revision
 - Pending uploads block publish and reload
 - ALWAYS map typed failures to owner text in the view, stating what was kept and which step comes next
 - ALWAYS state in owner copy each consequence code cannot enforce (whole PDF public, captions burned in, tab open during uploads)
 
 [UPLOADS]: Uppy owns the upload queue from one instance in an `Atom.keepAlive` atom with a finalizer:
-- Preprocessing measures each file in the browser, renders image renditions, and decodes an `Asset` before upload
-- Preprocessing failures name their remedy: an unlocked export for a protected PDF, a new export for a file its kind cannot read or measure, a retry for a failed load
+- Preprocessing measures each file and renders image renditions through `@rasm/media/inspection` `Inspection.read`, then decodes an `Asset` before upload
+- `Uploads.preprocess` runs in a `SecureRandom` runtime atom the uploads view mounts, its scope removes the preprocessor
+- Preprocessing failures name their remedy: an unlocked export for a protected PDF, a new export for a refused file, a retry for a failed load
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
 - Upload recovery lists incomplete uploads and removals, each with one discard action the owner confirms
-- Uppy retries a failed request three times before the queue shows a failure and its retry action
-- Dashboard 6.0.2 renders its Informer twice, the view passes `disableInformer` and renders Uppy `info` state as one alert per message
+- Uppy retries a request failing without a status or with a 5xx, an `UploadRefused` body fails it with its reason
+- Until Dashboard renders one Informer, the view passes `disableInformer` and renders Uppy `info` state as one alert per message
 
 ## [07]-[HOSTING]
 
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names:
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `server/worker.ts` reads bindings from `cloudflare:workers` `env`, and `@rasm/hosting/cloudflare` `worker` builds the handler once per isolate on its first request
-- `server/app.ts` composes routes both entries serve, with D1 and `ObjectStorage.r2` in `server/worker.ts`, SQLite and path-style `ObjectStorage.s3` in `server/node.ts`
+- `server/worker.ts` and `server/node.ts` pass `cloudflare.config.ts` and an `env` callback to a host providing `Page` from the assets binding
+- `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
 - `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
-- Sites, Cloudflare Access through `@rasm/hosting/cloudflare` `Access`, or Docker proxy send user id and email as `@rasm/hosting/user` `User.sites` headers
+- Sites, `@rasm/hosting/cloudflare/access` `Access.middleware`, or Docker proxy send user id and email as `model/sites.ts` `sites` headers
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
 - Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them in `server/store/<aggregate>.ts`:
+[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
 - `@rasm/database` `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
-- `catalog` retires `reconcile_revision` and excludes `_cf_` from reconcile
 - Queries name a multi-word column through `sql('objectKey')` or a `Relation` static
 - With older and newer builds on one database, queries name every column and new required columns carry a default
-
-Asset availability is the `assets` VIRTUAL column `available`, declared over `objectKey` and `removing`, and document and asset reads, the draft save, the release sweep, and the pending-upload listing read it
+- Asset availability is the VIRTUAL column `available` over `objectKey` and `removing`

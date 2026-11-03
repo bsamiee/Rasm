@@ -4,7 +4,7 @@ ruleDirs:
 utilDirs:
     - tools/ast-grep/utils
 languageGlobs:
-    tsx: ["*.ts", "*.js", "*.mjs", "*.cjs", "*.jsx"]
+    tsx: ["*.ts", "*.js"]
     xml: ["NuGet.config"]
 customLanguages:
     xml:

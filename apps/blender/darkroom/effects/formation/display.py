@@ -152,8 +152,7 @@ def encoding(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.C
     """Returns the encoding view of the current view's display with its processor."""
 
     def found(view: DisplayView) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
-        listed: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, view.display)
-        return listed.bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, view.display, member="encoding view")))
+        return DisplayView.for_encoding(config, view.display).bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, view.display, member="encoding view")))
 
     return current_view(identity, scene).bind(found)
 
@@ -198,7 +197,7 @@ def measure_peak(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.S
     return (
         Samples
         .of(PyOpenColorIO.GetCurrentConfig(), file.pixels)
-        .bind(Samples.peak)
+        .map(Samples.peak)
         .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {_SOURCE_PEAK.key: value})).default_value(Ok(False)))
     )
 

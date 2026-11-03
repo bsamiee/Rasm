@@ -1,80 +1,75 @@
-import { handle, illegal } from '@rasm/cep/extendscript';
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const owner = (found: PageItem): Document | undefined => {
-    let above: unknown = found.layer;
-    while (typeof above === 'object' && above !== null && 'typename' in above && above.typename === 'Layer' && 'parent' in above) {
-        above = above.parent;
-    }
-    for (const document of app.documents) {
-        if (document === above) {
-            return document;
-        }
-    }
-    return undefined;
-};
-const located = (found: unknown): { readonly document: Document; readonly index: number } | undefined => {
-    for (const document of app.documents) {
-        if (document === found) {
-            return { document, index: document.artboards.getActiveArtboardIndex() };
-        }
-        for (let index = 0; index < document.artboards.length; index += 1) {
-            if (document.artboards[index] === found) {
-                return { document, index };
-            }
-        }
-    }
-    return undefined;
-};
+import { handle } from '@rasm/extendscript/handle';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-// biome-ignore lint/style/noDefaultExport: the CEP bundle assigns the default export to global handle
 export default handle({
-    base: 0,
-    suppressed: (body) => {
-        const level = app.userInteractionLevel;
-        app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
-        try {
-            return body();
-        } finally {
+    indexBase: 0,
+    dialogs: {
+        suppress: () => {
+            const level = app.userInteractionLevel;
+            app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+            return level;
+        },
+        restore: (level) => {
             app.userInteractionLevel = level;
-        }
+        },
     },
-    undone: (_label, body) => body(),
-    open: ({ file: url }, { path }) => {
-        const document = app.open(new File(path(url)));
-        return { type: document.typename, specifier: `/document[@name="${document.name}"]`, name: document.name, valid: true };
-    },
-    render: ({ target, longestSide, options, file: url }, { resolve, assign, path }) => {
-        const found = resolve(target);
-        const percent = 100;
-        const pointsPerInch = 72;
-        const extent = (bounds: Rect) => Math.max(bounds[2] - bounds[0], bounds[1] - bounds[3]);
-        const item = (value: unknown): value is PageItem => typeof value === 'object' && value !== null && 'layer' in value && 'visibleBounds' in value;
-        if (item(found)) {
-            const owning = owner(found);
-            if (owning === undefined) {
-                throw illegal(`${target} lies on no document`);
+    specifier: (value, { step, indexed, read }) => {
+        const isDocument = (above: unknown): above is Document => read(above, 'typename') === 'Document';
+        const owner = (above: unknown): Document | undefined => {
+            if (above === undefined || above === app) {
+                return;
             }
-            const capture = assign(assign(new ImageCaptureOptions(), { antiAliasing: true, transparency: true, resolution: (longestSide * pointsPerInch) / extent(found.visibleBounds) }), options ?? {});
-            owning.imageCapture(new File(path(url)), found.visibleBounds, capture);
+            return isDocument(above) ? above : owner(read(above, 'parent'));
+        };
+        const document = owner(value);
+        const uuid = read(value, 'layer') === undefined ? undefined : read(value, 'uuid');
+        if (document === undefined) {
             return;
         }
-        const placed = located(found);
-        const rect = placed?.document.artboards[placed.index]?.artboardRect;
-        if (placed === undefined || rect === undefined) {
-            throw illegal(`${target} names no document, artboard, or page item`);
+        const reference = step('document', ['fullName', String(document.fullName)]);
+        if (typeof uuid === 'string') {
+            return `${reference}${step('pageItem', ['uuid', uuid])}`;
         }
-        const scale = (longestSide / extent(rect)) * percent;
-        const png = assign(assign(new ExportOptionsPNG24(), { artBoardClipping: true, horizontalScale: scale, verticalScale: scale }), options ?? {});
-        const active = placed.document.artboards.getActiveArtboardIndex();
-        placed.document.artboards.setActiveArtboardIndex(placed.index);
+        if (document === value) {
+            return reference;
+        }
+        let found: string | undefined;
+        for (const [kind, collection] of [
+            ['artboard', document.artboards],
+            ['layer', document.layers],
+        ] as const) {
+            for (let index = 0; index < collection.length && found === undefined; index += 1) {
+                found = collection[index] === value ? `${reference}${indexed(kind, index)}` : undefined;
+            }
+        }
+        return found;
+    },
+    open: ({ file: url }, { file }) => app.open(file(url)),
+    render: ({ target, longestSide, options, file: url }, { resolve, assign, file, read, illegal }) => {
+        const isDocument = (value: unknown): value is Document => read(value, 'typename') === 'Document';
+        const isArtboard = (value: unknown): value is Artboard => read(value, 'typename') === 'Artboard';
+        const isPageItem = (value: unknown): value is PageItem => read(value, 'layer') !== undefined && read(value, 'visibleBounds') !== undefined;
+        const chain = resolve(target);
+        const [document] = chain;
+        const found = chain[chain.length - 1];
+        const bounds = isDocument(found) || isPageItem(found) ? found.visibleBounds : undefined;
+        const rect = isArtboard(found) ? found.artboardRect : bounds;
+        if (!isDocument(document) || rect === undefined) {
+            throw illegal(`${target} names a ${String(read(found, 'typename'))} with no bounds`);
+        }
+        const percent = 100;
+        const longest = Math.max(rect[2] - rect[0], rect[1] - rect[3]);
+        const scale = (longestSide / longest) * percent;
+        const { artboards } = document;
+        const active = artboards.getActiveArtboardIndex();
+        const added = artboards.add(rect);
+        artboards.setActiveArtboardIndex(artboards.length - 1);
         try {
-            placed.document.exportFile(new File(path(url)), ExportType.PNG24, png);
+            document.exportFile(file(url), ExportType.PNG24, assign(new ExportOptionsPNG24(), options, { artBoardClipping: true, horizontalScale: scale, verticalScale: scale }));
         } finally {
-            placed.document.artboards.setActiveArtboardIndex(active);
+            added.remove();
+            artboards.setActiveArtboardIndex(active);
         }
     },
 });

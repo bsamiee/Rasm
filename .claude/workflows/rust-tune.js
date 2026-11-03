@@ -34,6 +34,6 @@ const [checked, prose] = await parallel([
   () => agent(`Load Skill(use-ast-grep) first. Checks close over the rules this launch changed:
 ${tuned[0] ?? ''}
 Run \`nx run lints:check\` and \`nx run rasm:lint:ast-grep -- libs/rust tools/bridge tools/dylint\` once, fix every finding at its cause once (never an allow, expect or lowered lint), then run them once more. Return at most 8 lines: findings fixed and any that remain.`, { label: 'close:checks', phase: 'Close' }),
-  () => agent(`Load Skill(clean-prose) first. Prose close over the lines this launch changed in .claude/skills/rust-coding (\`git diff -- .claude/skills/rust-coding\`): remove framing and restated context, rebuild each oversized or sheared line whole, keep each fact once. Run \`uv run python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check .claude/skills/rust-coding\` once and fix what it reports on changed lines. Return at most 6 lines.`, { label: 'close:prose', phase: 'Close' }),
+  () => agent(`Load Skill(clean-prose) first. Prose close over the lines this launch changed in .claude/skills/rust-coding (\`git diff -- .claude/skills/rust-coding\`): remove framing and restated context, rebuild each oversized or sheared line whole, keep each fact once. Run \`python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check .claude/skills/rust-coding\` once and fix what it reports on changed lines. Return at most 6 lines.`, { label: 'close:prose', phase: 'Close' }),
 ])
 return { tuned, checked, prose }

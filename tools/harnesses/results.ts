@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
-import { Expression } from '#/cases';
+import { Expression, Name, Reads } from '#/cases';
 import { HarnessError } from '#/error';
+import type { Any } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -31,10 +32,16 @@ const Crash = Schema.Struct({
     type: Schema.optionalKey(Schema.String.annotate({ description: 'Mach exception type and signal the report names' })),
     frames: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Faulting thread frames of the crash report' })),
 }).annotate({ description: 'Exit of the instance while the case ran, remaining cases not run' });
-const Hang = Schema.Struct({ cpu: Schema.Literals(['busy', 'blocked']), sample: Schema.String.annotate({ description: 'sample report path of the instance' }), pid: Pid }).annotate({
+const Hang = Schema.Struct({
+    cpu: Schema.Literals(['busy', 'blocked']),
+    sample: Schema.String.annotate({ description: 'sample report path of the instance' }),
+    frames: recorded(Schema.String.annotate({ description: 'Main thread frame along the heaviest sample path, leaf first' })),
+    pid: Pid,
+}).annotate({
     description: 'Case past the limit with no record, the instance sampled and left running',
 });
 const Enumerated = Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String, '.', Schema.String]) }).annotate({ description: 'Enumerator the surveyed enumerations declare' });
+const Enumerator = Schema.TemplateLiteralParser(Enumerated.fields.$.parts);
 const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path the case answers as the running script' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
 const Written = Schema.Struct({ file: Schema.String, size: Schema.Int, sha256: Schema.String }).annotate({ description: 'File the case wrote into its folder' });
 const Common = Schema.Struct({
@@ -48,6 +55,9 @@ const Common = Schema.Struct({
     writes: recorded(Schema.Struct({ member: Schema.String, before: Schema.optionalKey(Schema.Json), after: Schema.Json }).annotate({ description: 'Application member the original changed, restored after the case' })),
     opened: recorded(Schema.Json.annotate({ description: 'Case document starting state' })),
 }).annotate({ description: 'Outcome fields every scripted host records' });
+const Records = Schema.String.annotate({ description: 'Records file the engine appends a Started line to before each case and a Finished line after it' });
+const Surveying = Schema.Boolean.annotate({ description: 'Reply carries the installation survey' });
+const Failed = Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) });
 const Difference = Schema.Struct({ path: Schema.String, host: Schema.Json, rebuilt: Schema.Json });
 const Compare = Schema.Struct({
     module: Schema.String.annotate({ description: 'Rebuilt module the host answers were compared against' }),
@@ -58,12 +68,19 @@ const Compare = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const deciding = <E extends Schema.Top>(engine: E) => ({
+    identifier: Schema.NonEmptyString.annotate({ description: 'Bundle identifier of the installation' }),
+    version: Schema.NonEmptyString.annotate({ description: 'Version the installation reports' }),
+    engine,
+    host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
+});
 const outcome = <F extends Schema.Struct.Fields>(fields: F) =>
     Schema.Struct({
         name: Schema.String,
         completion: Completion,
         value: Schema.optionalKey(Schema.Json),
         before: Schema.optionalKey(JsonObject),
+        beforeFailed: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Reads that failed before the case ran' })),
         read: Schema.optionalKey(JsonObject),
         readFailed: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
         answered: recorded(Answered),
@@ -76,29 +93,30 @@ const outcome = <F extends Schema.Struct.Fields>(fields: F) =>
     });
 const hostCase = <S extends Schema.Struct.Fields>(shared: S) =>
     Schema.TaggedUnion({
-        Run: { ...shared, source: Source, args: Schema.Array(Schema.Json) },
-        Call: { ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
-        Probe: { ...shared, evaluate: Expression },
+        Run: { name: Name, read: Reads, ...shared, source: Source, args: Schema.Array(Schema.Json) },
+        Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
+        Probe: { name: Name, read: Reads, ...shared, evaluate: Expression },
     });
-const reply = <H extends Schema.Top>(header: H) => Schema.fromJsonString(Schema.Union([header, Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) })])).annotate({ description: 'Engine answer to one batch, case outcomes sitting in the records file' });
+const reply = <F extends Schema.Struct.Fields>(fields: F) =>
+    Schema.fromJsonString(Schema.Union([Schema.Struct({ application: Schema.String, version: Schema.String, ...fields }), Failed])).annotate({
+        description: 'Engine answer to one batch, case outcomes sitting in the records file',
+    });
 const replied =
     (subject: string) =>
-    <H extends object>(answer: H | { readonly failed: string }): Effect.Effect<H, HarnessError> =>
-        'failed' in answer ? Effect.fail(HarnessError.make({ reason: { _tag: 'Unavailable', because: String(answer.failed) }, subject })) : Effect.succeed(answer);
+    <H extends object>(answer: H | typeof Failed.Type): Effect.Effect<H, HarnessError> =>
+        Schema.is(Failed)(answer) ? Effect.fail(HarnessError.unavailable(subject)(answer.failed)) : Effect.succeed(answer);
 const record = <O extends Schema.Top>(held: O) => Schema.fromJsonString(Schema.TaggedUnion({ Started: { index: Schema.Int }, Finished: { outcome: held } })).annotate({ description: 'Records line the engine appends before each case and after it' });
 const Outcome = Schema.StructWithRest(outcome({}), [Schema.Record(Schema.String, Schema.Unknown)]).annotate({ description: 'Outcome of any host, host-only fields kept as they were recorded' });
-const results = <E extends Schema.Top, H extends Schema.Struct.Fields, O extends Schema.Top>(engine: E, header: H, held: O) =>
+const results = (engine: Any) =>
     Schema.fromJsonString(
         Schema.Struct({
             application: Schema.String.annotate({ description: 'Name the host reports' }),
-            identifier: Schema.String.annotate({ description: 'Bundle identifier of the installation' }),
-            version: Schema.String.annotate({ description: 'Version the host reports' }),
-            engine,
-            ...header,
+            ...deciding(engine),
+            state: Schema.optionalKey(Schema.Json.annotate({ description: 'Instance state at batch start' })),
             shared: recorded(Pid).annotate({ description: 'Instances other processes ran before the run, left as they were' }),
             failed: Schema.optionalKey(Schema.String.annotate({ description: 'Why the run ended before every case ran, naming the instance left running' })),
             answered: recorded(Answered).annotate({ description: 'Host dialogs the run expected and answered before the first case started' }),
-            cases: Schema.Array(held),
+            cases: Schema.Array(Outcome),
             compare: Schema.optionalKey(Compare),
         }),
         { space: 2 },
@@ -106,4 +124,4 @@ const results = <E extends Schema.Top, H extends Schema.Struct.Fields, O extends
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Answered, Common, Compare, Completion, Crash, Dialog, Enumerated, Hang, hostCase, Outcome, outcome, Pid, record, recorded, replied, reply, results, Source };
+export { Answer, Answered, Common, Compare, Completion, Crash, Dialog, deciding, Enumerated, Enumerator, Hang, hostCase, Outcome, outcome, Pid, Records, record, recorded, replied, reply, results, Source, Surveying, Written };

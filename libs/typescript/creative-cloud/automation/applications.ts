@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation, Struct } from 'effect';
+import { Duration, Schema, SchemaTransformation, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -8,10 +8,10 @@ interface Control extends Schema.Struct.Type<typeof controlFields> {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Pid = Schema.Int.annotate({ description: 'Running process ID' });
+const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' });
-const ElementID = Schema.String.annotate({ description: 'Base64 remote token, absent once element closes' });
+const ElementID = Schema.String.annotate({ description: 'Base64 remote token, valid while status lists its element' });
 const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
 const Window = Schema.Struct({
     number: WindowID,
@@ -64,10 +64,15 @@ const elements = {
 };
 const usage = {
     usage: Schema.optionalKey(
-        Schema.Struct({ cpu: Schema.Finite.annotate({ description: 'CPU seconds' }), footprint: Schema.Int.annotate({ description: 'Physical footprint bytes' }), threads: Schema.Int }).annotate({
+        Schema.Struct({
+            cpu: Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.transform({ decode: Duration.seconds, encode: Duration.toSeconds }))).annotate({ description: 'CPU time' }),
+            footprint: Schema.ByteSizeFromNumber.annotate({ description: 'Physical footprint' }),
+            threads: Schema.Int,
+        }).annotate({
             description: 'On read and on turning unresponsive',
         }),
     ),
+    usageFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Usage read failure' })),
 };
 const unresponsive = {
     process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state, sleeping while waiting, stopped by signal or debugger' }),
@@ -83,28 +88,28 @@ const exit = {
 const State = Schema.Union([
     Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct({}) }), ...usage }) }).pipe(
         Schema.decodeTo(
-            Schema.TaggedStruct('Launching', usage),
+            Schema.toType(Schema.TaggedStruct('Launching', usage)),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, ['usage']) }),
-                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, ['usage']) } }),
+                decode: ({ running }) => ({ _tag: 'Launching' as const, ...Struct.pick(running, ['usage', 'usageFailure']) }),
+                encode: (launching) => ({ running: { status: { launching: {} }, ...Struct.pick(launching, ['usage', 'usageFailure']) } }),
             }),
         ),
     ),
     Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }), ...usage }) }).pipe(
         Schema.decodeTo(
-            Schema.TaggedStruct('Responding', { ...elements, ...usage }),
+            Schema.toType(Schema.TaggedStruct('Responding', { ...elements, ...usage, answering: Schema.Boolean.annotate({ description: 'An element requires an answer' }) })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, ...Struct.pick(running, ['usage']) }),
-                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, ['usage']) } }),
+                decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding, answering: running.status.responding.elements.some(Struct.get('requiresAnswer')), ...Struct.pick(running, ['usage', 'usageFailure']) }),
+                encode: (responding) => ({ running: { status: { responding: Struct.pick(responding, ['elements', 'windows']) }, ...Struct.pick(responding, ['usage', 'usageFailure']) } }),
             }),
         ),
     ),
     Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct(unresponsive) }), ...usage }) }).pipe(
         Schema.decodeTo(
-            Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage }),
+            Schema.toType(Schema.TaggedStruct('Unresponsive', { ...unresponsive, ...usage })),
             SchemaTransformation.transform({
-                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, ['usage']) }),
-                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, ['usage']) } }),
+                decode: ({ running }) => ({ _tag: 'Unresponsive' as const, ...running.status.unresponsive, ...Struct.pick(running, ['usage', 'usageFailure']) }),
+                encode: (value) => ({ running: { status: { unresponsive: Struct.pick(value, ['process', 'windows']) }, ...Struct.pick(value, ['usage', 'usageFailure']) } }),
             }),
         ),
     ),
@@ -133,10 +138,10 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
     agent: Schema.Boolean.annotate({ description: 'LSUIElement, runs without Dock icon' }),
 }) {
-    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.isAnyOf(['Exited'])(instance.state);
+    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.guards.Exited(instance.state);
 }
 class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbol }>('Screenshot')({
-    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent captures every on-screen window on display showing most' })),
+    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent captures on-screen windows of display holding most of their area' })),
     longestSide: Schema.OptionFromOptionalKey(LongestSide),
 }) {
     static readonly Result = Schema.Struct({ windows: Schema.Array(WindowID) });

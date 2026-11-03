@@ -99,7 +99,6 @@ enum Request: Decodable, Sendable {
                 return await .stream(
                     NSWorkspace.shared.instanceStates(
                         of: { instance in instance.bundleIdentifier?.hasPrefix(adobePrefix) == true },
-                        walking: \.requiresAnswer,
                         notifications: notifications,
                         polling: messagingTimeout,
                     )
@@ -130,7 +129,7 @@ enum Request: Decodable, Sendable {
                     dictionary.command(command, taking: Set(arguments.keys)),
                     arguments: arguments,
                     target: NSAppleEventDescriptor(processIdentifier: pid),
-                    refusing: activating(of: installation),
+                    refusing: Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []),
                 )
                 return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
             case .screenshot(let pid, let window, let longestSide, let file):

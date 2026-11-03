@@ -16,9 +16,8 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Suppressible
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, tallied, Unchanged, UndoGroup
+from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, NoUndo, Operator, tallied, Unchanged, UndoGroup
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
@@ -375,10 +374,8 @@ def _applied(renames: tuple[Rename, ...], unmatched: str) -> Outcome[Answer]:
     icon=Some("FILE_REFRESH"),
     invoke=Some(
         Suppressible[Replace](
-            message=lambda context, properties: (
-                planned(context.selected_nodes, properties)
-                .map(lambda renames: "\n".join(f"{rename.node.name} · {rename.before} → {rename.stored}" for rename in renames))
-                .default_with(lambda faults: "\n".join(fault.message for fault in faults))
+            message=lambda context, properties: planned(context.selected_nodes, properties).map(
+                lambda renames: "\n".join(f"{rename.node.name} · {rename.before} → {rename.stored}" for rename in renames)
             ),
             dialog=partial(bpy.types.WindowManager.invoke_props_dialog, width=400),
         )

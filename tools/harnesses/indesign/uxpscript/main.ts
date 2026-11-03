@@ -1,8 +1,9 @@
 import fs from 'adobe:fs';
-import indesign, { type ScriptLanguage } from 'adobe:indesign';
+import indesign, { type Enumerator, type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
-import { Encoded, type fields, type HostCase, Outcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
-import { bury, JsonObject, type Reference, revive } from '@rasm/harnesses/values';
+import { thrown } from '@rasm/harnesses/error';
+import { Encoded, fields, type HostCase, Outcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
+import { bury, JsonObject, revive, Tagged } from '@rasm/harnesses/values';
 import { Equal, Iterable, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -77,16 +78,14 @@ const invoked = (target: unknown, key: string, args: readonly unknown[]): unknow
 };
 const items = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Schema.Array(Schema.String))(value), () => []);
-const elements = (list: unknown) => items(invoked(invoked(list, 'everyItem', []), 'getElements', []));
-const called = (made: unknown, args: readonly unknown[]): unknown => Option.getOrThrow(Option.liftPredicate(made, Predicate.isFunction))(...args);
-const enumerator = (value: unknown): value is object => value instanceof indesign.Enumerator;
-const equal = (left: unknown, right: unknown) => enumerator(left) && enumerator(right) && invoked(left, 'equals', [right]) === true;
+const enumerator = (value: unknown): value is Enumerator => value instanceof indesign.Enumerator;
+const equal = (left: unknown, right: unknown) => enumerator(left) && enumerator(right) && left.equals(right);
 const members = (enumeration: unknown) => Object.getOwnPropertyNames(Object.getPrototypeOf(enumeration)).filter((key) => enumerator(field(enumeration, key)) && String(field(enumeration, key)) === key);
 const codecOf = (enumerations: Batch['enumerations']): Codec => {
     const owners = new Map<string, readonly string[]>();
     Object.entries(enumerations).forEach(([enumeration, listed]) => listed.forEach((member) => owners.set(member, [...(owners.get(member) ?? []), enumeration])));
-    const qualified = (held: object) => {
-        const name = String(invoked(held, 'toString', []));
+    const qualified = (held: Enumerator) => {
+        const name = held.toString();
         const holding = (owners.get(name) ?? []).filter((enumeration) => equal(field(field(indesign, enumeration), name), held));
         return Option.match(
             Option.filter(Option.fromUndefinedOr(holding[0]), () => holding.length === 1),
@@ -111,12 +110,7 @@ const codecOf = (enumerations: Batch['enumerations']): Codec => {
             () => new Error(`enum:${path} names ${first === undefined ? 'no enumerator' : `enumerators of ${(owners.get(path) ?? []).join(', ')} with different codes`}`),
         );
     };
-    const located = ({ kind, path }: Reference): unknown =>
-        Match.value(kind).pipe(
-            Match.when('enum', () => resolved(path)),
-            Match.when('object', () => app.doScript('resolve(arguments[0])', indesign.ScriptLanguage.JAVASCRIPT, [path])),
-            Match.orElse(() => ({ $: `${kind}:${path}` })),
-        );
+    const located = { enum: resolved, object: (path: string): unknown => app.doScript('resolve(arguments[0])', indesign.ScriptLanguage.JAVASCRIPT, [path]) };
     const encoded = (value: unknown) => bury(value, named);
     return { encoded, record: Record.map(encoded), revived: (value) => revive(value, located) };
 };
@@ -126,7 +120,7 @@ const compiled = (parameters: readonly string[], code: string) =>
 const lines = (error: unknown) => Array.from(String(field(error, 'stack') ?? '').matchAll(STACK_LINE), (found) => Number(found.groups?.line));
 const HEAD = (() => {
     try {
-        called(compiled([], 'return function () {throw new Error();\n};')(), []);
+        compiled([], 'return function () {throw new Error();\n};')()();
         return 0;
     } catch (error) {
         return (lines(error)[0] ?? 1) - 1;
@@ -155,6 +149,7 @@ const keyOf = (list: unknown): Option.Option<string> =>
         }),
     );
 const preferences = (target: unknown) => Object.keys(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(target))).filter((name) => name !== 'parent' && name !== 'properties' && !Array.from<string>(LIVE).includes(name));
+const activeOf = () => Result.getSuccess(Result.try(() => app.activeDocument));
 const pinned = <A>(work: () => A): A => {
     const unit = app.scriptPreferences.measurementUnit;
     app.scriptPreferences.measurementUnit = indesign.MeasurementUnits.POINTS;
@@ -170,7 +165,7 @@ const survey = () => {
         enumerations: Object.fromEntries(names.filter((name) => Reflect.get(indesign, name) instanceof indesign.Enumeration).map((name) => [name, members(Reflect.get(indesign, name))])),
         cmyk: settings.workingSpaceCMYKList,
         rgb: settings.workingSpaceRGBList,
-        languages: Result.getOrThrow(Schema.decodeUnknownResult(Schema.Array(Schema.String))(field(invoked(app.languagesWithVendors, 'everyItem', []), 'name'))),
+        languages: Result.getOrThrow(Schema.decodeResult(Schema.Array(Schema.String))(app.languagesWithVendors.everyItem().name)),
         host: { locale: String(app.locale), featureSet: String(app.featureSet), dom: String(app.scriptPreferences.version) },
     };
 };
@@ -322,7 +317,7 @@ const dialogs = (session: Session): unknown[] => {
 };
 const documents = (session: Session) => {
     const open = () => session.documents.filter((doc) => field(doc, 'isValid') === true && field(doc, 'constructorName') === 'Document');
-    const missing = () => invoked(app.documents, 'itemByID', [-1]);
+    const missing = () => app.documents.itemByID(-1);
     const at = (index: number) => open().at(index) ?? missing();
     const position = (doc: unknown) => open().findIndex((held) => field(held, 'id') === field(doc, 'id'));
     return {
@@ -331,7 +326,7 @@ const documents = (session: Session) => {
         },
         count: () => open().length,
         add: (...args: unknown[]) => {
-            const made = invoked(app.documents, 'add', Predicate.isObject(args[0]) ? [true, undefined, args[0]] : args);
+            const made: unknown = Reflect.apply(app.documents.add, app.documents, Predicate.isObject(args[0]) ? [true, undefined, args[0]] : args);
             session.documents.push(made);
             return made;
         },
@@ -392,17 +387,17 @@ const installed = (session: Session) => {
     };
     const evaluate = (code: string, extra: readonly unknown[]): unknown => {
         const { keys, values } = scope({ ...answering, app: fake, require: required });
-        return called(compiled(keys, `return function () {${code}\n};`)(...values), extra);
+        return compiled(keys, `return function () {${code}\n};`)(...values)(...extra);
     };
     const ours = (doc: unknown) => session.documents.some((held) => field(held, 'isValid') === true && field(held, 'id') === field(doc, 'id'));
-    const activeOf = () => Option.filter(Result.getSuccess(Result.try(() => app.activeDocument)), ours);
-    const windowed = (list: unknown) => elements(list).filter((window) => ours(field(window, 'parent')));
+    const owning = () => Option.filter(activeOf(), ours);
+    const windowed = (listed: readonly { readonly parent: unknown }[]) => listed.filter((window) => ours(window.parent));
     const live: { readonly [K in (typeof LIVE)[number]]: () => unknown } = {
-        activeDocument: () => Option.getOrElse(activeOf(), () => session.documents.findLast((doc) => field(doc, 'isValid') === true && field(doc, 'constructorName') === 'Document')),
-        activeWindow: () => Option.getOrUndefined(Option.map(activeOf(), () => app.activeWindow)),
-        selection: () => Option.match(activeOf(), { onNone: () => [], onSome: () => app.selection }),
-        layoutWindows: () => windowed(app.layoutWindows),
-        windows: () => windowed(app.windows),
+        activeDocument: () => Option.getOrElse(owning(), () => session.documents.findLast((doc) => field(doc, 'isValid') === true && field(doc, 'constructorName') === 'Document')),
+        activeWindow: () => Option.getOrUndefined(Option.map(owning(), () => app.activeWindow)),
+        selection: () => Option.match(owning(), { onNone: () => [], onSome: () => app.selection }),
+        layoutWindows: () => windowed(app.layoutWindows.everyItem().getElements()),
+        windows: () => windowed(app.windows.everyItem().getElements()),
     };
     const own: Node = {
         dialogs: dialogs(session),
@@ -416,7 +411,7 @@ const installed = (session: Session) => {
         quit: () => session.record.activations.push('quit'),
         doScript: (source: unknown, language: ScriptLanguage | undefined, withArguments: unknown, ...rest: readonly unknown[]) => {
             if (Predicate.isFunction(source)) {
-                return invoked(app, 'doScript', [source, language, withArguments, ...rest]);
+                return Reflect.apply(app.doScript, app, [source, language, withArguments, ...rest]);
             }
             if (language !== undefined && !indesign.ScriptLanguage.UXPSCRIPT.equals(language)) {
                 throw new Error(`doScript in ${String(language)} runs outside the harness shadow`);
@@ -425,7 +420,7 @@ const installed = (session: Session) => {
             return evaluate(code, Array.isArray(withArguments) ? withArguments : []);
         },
         open: (file: unknown, showing: unknown, options: unknown) => {
-            const opened = invoked(app, 'open', [file, showing ?? true, options]);
+            const opened: unknown = Reflect.apply(app.open, app, [file, showing ?? true, options]);
             session.documents.push(...(Array.isArray(opened) ? opened : [opened]));
             return opened;
         },
@@ -471,7 +466,7 @@ const assign = (fake: unknown, target: string, value: unknown, doc: unknown, mad
 const differing = (codec: Codec, target: unknown, wanted: Schema.Json, path: string): readonly string[] => {
     const holds = Match.value(wanted).pipe(
         Match.when(Schema.is(Schema.Struct({ $: Schema.TemplateLiteral(['enum:', Schema.String]) })), (tag) => equal(target, codec.revived(tag))),
-        Match.when(Schema.is(Schema.Struct({ $: Schema.String })), () => same(codec.encoded(target), wanted)),
+        Match.when(Schema.is(Tagged), () => same(codec.encoded(target), wanted)),
         Match.when(Schema.is(JsonObject), () => true),
         Match.when(Predicate.isString, (name) => same(codec.encoded(target), wanted) || field(target, 'name') === name),
         Match.orElse(() => same(codec.encoded(target), wanted)),
@@ -483,7 +478,7 @@ const opened = (session: Session): readonly unknown[] => {
     const { units, documents: rows, fonts = [] } = session.item.precondition;
     Reflect.set(app.scriptPreferences, 'measurementUnit', session.codec.revived(units.script));
     const docs = rows.map((row, index) => {
-        const doc = 'open' in row ? invoked(app, 'open', [row.open, true]) : invoked(app.documents, 'add', [true, undefined, session.codec.revived(row.properties)]);
+        const doc: unknown = 'open' in row ? app.open(row.open, true) : Reflect.apply(app.documents.add, app.documents, [true, undefined, session.codec.revived(row.properties)]);
         session.documents.push(doc);
         invoked(doc, 'insertLabel', [session.batch.label, session.batch.records]);
         if ('open' in row) {
@@ -496,9 +491,8 @@ const opened = (session: Session): readonly unknown[] => {
         return doc;
     });
     const missing = fonts.flatMap((name) => {
-        const font = invoked(app.fonts, 'itemByName', [name]);
-        const status = field(font, 'isValid') === true ? field(font, 'status') : undefined;
-        return equal(status, indesign.FontStatus.INSTALLED) ? [] : [`${name} ${String(status ?? 'absent')}`];
+        const font = app.fonts.itemByName(name);
+        return font.isValid && indesign.FontStatus.INSTALLED.equals(font.status) ? [] : [`${name} ${font.isValid ? String(font.status) : 'absent'}`];
     });
     if (missing.length > 0) {
         throw new Error(`fonts not installed: ${missing.join(', ')}`);
@@ -570,9 +564,9 @@ const exported = (session: Session, docs: readonly unknown[], moment: string) =>
 // --- [RUN]
 const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Node) => {
     const { item } = session;
-    const thrown = (error: unknown) => {
+    const threw = (error: unknown) => {
         const stack = lines(error).map((line) => ({ line: line - HEAD }));
-        return { _tag: 'Thrown' as const, message: `${String(field(error, 'name') ?? 'Error')}: ${message(error)}`, ...(stack.length === 0 ? {} : { line: stack[0]?.line ?? 0, stack }) };
+        return { _tag: 'Thrown' as const, message: thrown(error), ...(stack.length === 0 ? {} : { line: stack[0]?.line ?? 0, stack }) };
     };
     try {
         app.scriptPreferences.userInteractionLevel = item.interact ? indesign.UserInteractionLevels.INTERACT_WITH_ALL : indesign.UserInteractionLevels.NEVER_INTERACT;
@@ -599,7 +593,7 @@ const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>,
         });
         return { completion: { _tag: 'Ran' as const }, value: session.codec.encoded(item._tag === 'Run' ? Option.getOrUndefined(session.value) : value) };
     } catch (error) {
-        return { completion: thrown(error) };
+        return { completion: threw(error) };
     }
 };
 const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof Outcome.Type => {
@@ -612,12 +606,12 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
         prompts: [...(item.prompts ?? [])],
         files: [...(item.files ?? [])],
         actions: [],
-        record: { alerts: [], confirms: [], prompts: [], windows: [], dialogs: [], files: [], menus: [], activations: [], console: [], writes: [], undo: [], opened: [] },
+        record: Record.map(fields, () => []),
         dialogs: [...(item.dialogs ?? [])],
         value: Option.none(),
     };
     const unit = app.scriptPreferences.measurementUnit;
-    const active = Option.getOrUndefined(Result.getSuccess(Result.try(() => field(app.activeDocument, 'id'))));
+    const active = Option.map(activeOf(), ({ id }) => id);
     const held = snapshot(found, codec);
     const unglobal = globals();
     const leaked: string[] = [];
@@ -635,7 +629,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
             const docs = opened(session);
             session.record.opened = docs.map((doc) => state(codec, doc));
             prepare(shadows.fake, docs[0], session, made);
-            const before = reads(session, shadows.fake, docs, made).state;
+            const before = reads(session, shadows.fake, docs, made);
             const inner: { done?: ReturnType<typeof ran>; after?: ReturnType<typeof reads> } = {};
             const rolled = Result.try(() =>
                 app.doScript(
@@ -659,7 +653,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
                 Option.zipWith(Option.fromUndefinedOr(inner.done), Option.fromUndefinedOr(inner.after), (finished, read) => ({ done: finished, after: read })),
                 () => Result.match(rolled, { onFailure: identity, onSuccess: () => new Error('case did not finish') }),
             );
-            return { ...done, before, read: after.state, readFailed: after.failed };
+            return { ...done, before: before.state, beforeFailed: before.failed, read: after.state, readFailed: after.failed };
         } catch (error) {
             return { completion: { _tag: 'Failed', reason: message(error) } };
         }
@@ -670,7 +664,12 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
     attempt('scriptPreferences', () => Object.assign(app.scriptPreferences, { measurementUnit: unit }));
     attempt('restore', () => leaked.push(...restore(held, codec)));
     attempt('globals', () => leaked.push(...unglobal()));
-    attempt('activeDocument', () => (active !== undefined && app.documents.length > 0 && field(app.activeDocument, 'id') !== active ? Object.assign(app, { activeDocument: invoked(app.documents, 'itemByID', [active]) }) : undefined));
+    attempt('activeDocument', () =>
+        Option.map(
+            Option.filter(active, (id) => app.documents.length > 0 && app.activeDocument.id !== id),
+            (id) => Object.assign(app, { activeDocument: app.documents.itemByID(id) }),
+        ),
+    );
     return Outcome.make({ name: item.name, ...result, ...session.record, leaked });
 };
 const respond = ({ script: host }: typeof Host.Type) => {
@@ -679,9 +678,11 @@ const respond = ({ script: host }: typeof Host.Type) => {
         const level = app.scriptPreferences.userInteractionLevel;
         app.scriptPreferences.userInteractionLevel = indesign.UserInteractionLevels.NEVER_INTERACT;
         try {
-            elements(app.documents)
-                .filter((doc) => !app.modalState && invoked(doc, 'extractLabel', [batch.label]) !== '')
-                .forEach((doc) => invoked(doc, 'close', [indesign.SaveOptions.NO]));
+            app.documents
+                .everyItem()
+                .getElements()
+                .filter((doc) => !app.modalState && doc.extractLabel(batch.label) !== '')
+                .forEach((doc) => doc.close(indesign.SaveOptions.NO));
             const found = scanned();
             const coder = codecOf(batch.enumerations);
             const settings = app.colorSettings;
@@ -708,4 +709,4 @@ const respond = ({ script: host }: typeof Host.Type) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Result.match(Schema.decodeUnknownResult(Host)(uxp), { onFailure: () => undefined, onSuccess: respond });
+respond(Result.getOrThrow(Schema.decodeUnknownResult(Host)(uxp)));

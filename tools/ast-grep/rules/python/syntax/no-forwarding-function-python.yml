@@ -17,7 +17,7 @@ utils:
                 - not:
                     inside:
                         kind: function_definition
-                        stopBy: {kind: 'function_definition, lambda'}
+                        stopBy: end
                         has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $ROOT}}}}}
                 - regex: '^(self|cls)$'
                   all:

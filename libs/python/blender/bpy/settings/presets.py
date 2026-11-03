@@ -82,7 +82,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def saved(self, identity: Identity, name: str, value: T) -> Outcome[Path]:
         """Creates user preset file under a valid preset name, refusing a name a file holds."""
-        return _named(name).bind(lambda valid: RecordFile(path=self.folder(identity) / f"{AddPresetBase.as_filename(valid)}.json", form=self.form).written(value, exclusive=True))
+        return _named(name).bind(lambda valid: RecordFile(path=self.folder(identity) / f"{AddPresetBase.as_filename(valid)}.json", form=self.form).written(value, place=move_atomic))
 
     @staticmethod
     def renamed(source: Path, name: str) -> Outcome[Path]:

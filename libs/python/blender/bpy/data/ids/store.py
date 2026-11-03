@@ -77,9 +77,9 @@ def member(kind: type[bpy.types.ID]) -> str:
     return Block.of_seq(kind.__mro__).choose(lambda parent: Option.of_optional(STORES.get(parent))).head()
 
 
-def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T, ...]:
+def blocks[T: bpy.types.ID](kind: type[T]) -> tuple[T, ...]:
     """Returns blocks of kind in collection order."""
-    return tuple(block for block in getattr(data, member(kind)) if isinstance(block, kind))
+    return tuple(block for block in getattr(bpy.data, member(kind)) if isinstance(block, kind))
 
 
 def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, ...]]:

@@ -1,4 +1,4 @@
-"""Before/after compare in the image editor: a before frame wiped across or set beside the shown image in the editor's display channels, its split handle, header toggles, and the commands a consumer's keys bind."""
+"""Before and after compare in the image editor."""
 
 from collections.abc import Callable, Mapping
 from enum import auto, Enum
@@ -59,7 +59,7 @@ class Compare(bpy.types.PropertyGroup):
     """Screen compare: the before frame's layout, split, and side."""
 
     mode: bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    split: bpy.props.FloatProperty(name="Split", description="CompareOverlay position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    split: bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     swapped: bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -115,7 +115,7 @@ class CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
-    """Part drawing the before frame in the editor's display channels under the screen's compare, its rule and captions in the theme's image metadata text color under the widget font style's shadow."""
+    """Part drawing the before frame in the editor's display channels under the screen's compare, with its split rule and captions."""
 
     draw_type: ClassVar[DrawType] = "POST_PIXEL"
     source: Callable[[Metrics], Outcome[Option[Before]]]
@@ -177,7 +177,7 @@ class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Before frame over images of `kinds` under each screen's compare, with its split handle, header toggles, and the show, mirror, and swap commands a consumer's keymap binds, each command keyed after the view."""
+    """Before frame over images of `kinds` under each screen's compare, with its split handle, header toggles, and show, mirror, and swap commands."""
 
     key: Key
     icon: Icon
@@ -246,19 +246,19 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def wiped(self, attached: Attached[Compare], context: bpy.types.Context) -> Option[tuple[Compare, Rect, tuple[float, float]]]:
         """Returns a shown wipe with the frame and the visible frame middle from the frame origin, Nothing beside or hidden."""
 
-        def middle(region: bpy.types.Region, frame: Rect) -> tuple[float, float]:
-            return ((max(frame.x, 0.0) + min(frame.x + frame.width, region.width)) / 2 - frame.x, (max(frame.y, 0.0) + min(frame.y + frame.height, region.height)) / 2 - frame.y)
+        def measured(held: Compare, region: bpy.types.Region, frame: Rect) -> tuple[Compare, Rect, tuple[float, float]]:
+            return held, frame, ((max(frame.x, 0.0) + min(frame.x + frame.width, region.width)) / 2 - frame.x, (max(frame.y, 0.0) + min(frame.y + frame.height, region.height)) / 2 - frame.y)
 
         return (
             self
             .compared(attached, context)
             .filter(lambda held: Mode[held.mode] is not Mode.SIDE_BY_SIDE)
-            .bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: (held, framed(region), middle(region, framed(region)))))
+            .bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: measured(held, region, framed(region))))
         )
 
     def handle(self, attached: Attached[Compare], context: bpy.types.Context) -> Outcome[Option[Matrix]]:
         """Places the split handle at the frame origin while a wipe shows."""
-        return Ok(self.wiped(attached, context).map(lambda found: Matrix.Translation((found[1].x, found[1].y, 0.0))))
+        return Ok(self.wiped(attached, context).starmap(lambda _held, frame, _middle: Matrix.Translation((frame.x, frame.y, 0.0))))
 
     def offset(self, attached: Attached[Compare], context: bpy.types.Context) -> tuple[float, ...]:
         """Returns the split handle's offset from the frame origin, on the split at the visible frame middle, zero while no wipe shows."""
@@ -266,15 +266,15 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def placed(held: Compare, frame: Rect, middle: tuple[float, float]) -> tuple[float, ...]:
             return (held.split * frame.width, middle[1], 0.0) if Mode[held.mode] is Mode.VERTICAL_WIPE else (middle[0], (1.0 - held.split) * frame.height, 0.0)
 
-        return self.wiped(attached, context).map(lambda found: placed(*found)).default_value((0.0, 0.0, 0.0))
+        return self.wiped(attached, context).starmap(placed).default_value((0.0, 0.0, 0.0))
 
     def moved(self, attached: Attached[Compare], context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
         """Writes the split the handle's offset along the wipe axis gives, the property bounds keeping it on the frame."""
 
-        def split(held: Compare, frame: Rect) -> float:
-            return values[0] / frame.width if Mode[held.mode] is Mode.VERTICAL_WIPE else 1.0 - values[1] / frame.height
+        def split(held: Compare, frame: Rect, _middle: tuple[float, float]) -> Outcome[None]:
+            return written(held, ("split",), values[0] / frame.width if Mode[held.mode] is Mode.VERTICAL_WIPE else 1.0 - values[1] / frame.height).map(lambda _: None)
 
-        return self.wiped(attached, context).map(lambda found: written(found[0], ("split",), split(found[0], found[1])).map(lambda _: None)).default_value(Ok(None))
+        return self.wiped(attached, context).starmap(split).default_value(Ok(None))
 
     # --- [ROWS]
 

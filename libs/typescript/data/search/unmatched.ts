@@ -1,4 +1,4 @@
-import { Array, Effect, Equivalence, Function, Option, Predicate, pipe, Schema } from 'effect';
+import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
 import { rank } from '#/rank';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,8 +13,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     query: Schema.OptionFromOptionalKey(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     candidates: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
-    static readonly named: Equivalence.Equivalence<string> = Equivalence.make((left, right) => COLLATOR.compare(left, right) === 0);
-    static readonly #listed = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, (candidate) => Array.headNonEmpty(names(candidate))));
+    static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
     static readonly matching: {
         <A>(subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): (candidates: Iterable<A>) => Effect.Effect<readonly A[], Unmatched>;
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): Effect.Effect<readonly A[], Unmatched>;
@@ -26,7 +25,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
                 Effect.filterOrFail(
                     Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))),
                     Array.isReadonlyArrayNonEmpty,
-                    () => Unmatched.make({ subject, query, candidates: Unmatched.#listed(all, names) }),
+                    () => Unmatched.make({ subject, query, candidates: Array.dedupe(Array.map(all, flow(names, Array.headNonEmpty))) }),
                 ),
         });
     });
@@ -35,14 +34,14 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): Effect.Effect<A, Unmatched>;
     } = Function.dual(4, <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) =>
         Effect.map(
-            Effect.filterOrFail(Unmatched.matching(candidates, subject, query, names), Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Unmatched.#listed(matched, names) })),
+            Effect.filterOrFail(Unmatched.matching(candidates, subject, query, names), Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Array.map(matched, flow(names, Array.headNonEmpty)) })),
             ([only]) => only,
         ),
     );
 
     override get message(): string {
         const listedCandidates = 100;
-        const matching = Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` });
+        const refused = `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}`;
         const ordered = pipe(
             this.query,
             Option.map((query) => rank(query, this.candidates)),
@@ -51,7 +50,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         );
         const shown = Array.take(ordered, listedCandidates);
         const rest = this.candidates.length - shown.length;
-        return Array.isReadonlyArrayEmpty(this.candidates) ? `No ${this.subject}${matching}` : `No ${this.subject}${matching}, candidates: ${LISTING.format([...shown, ...(rest === 0 ? [] : [`${rest} more`])])}`;
+        return Array.isReadonlyArrayEmpty(this.candidates) ? refused : `${refused}, candidates: ${LISTING.format([...shown, ...(rest === 0 ? [] : [`${rest} more`])])}`;
     }
 }
 

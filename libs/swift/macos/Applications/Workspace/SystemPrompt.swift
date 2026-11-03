@@ -28,7 +28,7 @@ extension NSWorkspace {
             return asking.isEmpty ? nil : .running(.responding(elements: asking, windows: windows), usage: usage)
         }
         func prompts(of host: String) -> some AsyncSequence<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>), Never> & Sendable {
-            instanceStates(of: { instance in instance.bundleIdentifier == host }, walking: \.requiresAnswer, notifications: notifications, polling: interval, clock: clock)
+            instanceStates(of: { instance in instance.bundleIdentifier == host }, notifications: notifications, polling: interval, clock: clock)
                 .map { held in held.compactMapValues(prompting) }.drop(while: \.isEmpty).map { held in (host, held) }
         }
         return merge(

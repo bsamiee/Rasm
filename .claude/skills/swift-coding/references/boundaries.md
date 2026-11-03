@@ -33,20 +33,24 @@ enum Event: Decodable, Sendable {
         case reason
     }
 
+    private enum Kind: String, Sendable {
+        case placed
+        case cancelled
+    }
+
     init(from decoder: any Decoder) throws {
         let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
-        let kind: String = try container.decode(String.self, forKey: .kind)
         self =
-            switch kind {
-                case "placed": .placed(try Line(from: decoder))
-                case "cancelled": .cancelled(reason: try container.decode(String.self, forKey: .reason))
-                default: .unknown(kind: kind)
+            switch try container.decode(Lenient<Kind>.self, forKey: .kind) {
+                case .known(.placed): .placed(try Line(from: decoder))
+                case .known(.cancelled): .cancelled(reason: try container.decode(String.self, forKey: .reason))
+                case .unknown(let kind): .unknown(kind: kind)
             }
     }
 }
 ```
 
-- `Line(from: decoder)` reads `Line` fields beside `kind`
+- `Line(from: decoder)` reads `Line` fields beside `kind`, and `Lenient<Kind>` types the discriminator with no string literal
 - `unknown(kind:)` keeps a case a newer producer sends as data, and every switch over `Event` handles it
 
 ## [02]-[PATHS]
@@ -63,6 +67,7 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 - `FileDescriptor.open(root, .readOnly, options: .directory)` opens the root once, and a rename of its path after the open moves no read
 - `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
 - C calls fail by returned status (`posix_spawn*`) or by `-1` or `NULL` with global `errno`, read as `Errno(rawValue:)`
+- NUL-terminated C buffers read as `String(validating: buffer.prefix { unit in unit != 0 }, as: UTF8.self)`
 
 ## [03]-[PROCESSES]
 
@@ -107,7 +112,7 @@ let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { ha
 - `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
-- Processes the caller can signal report exit through `kqueue` `EVFILT_PROC` `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status and `NOTE_EXIT_DETAIL_MASK` bits
+- Signalable processes report exit through `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status
 
 ## [04]-[COMMAND_LINES]
 

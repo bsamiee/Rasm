@@ -13,11 +13,13 @@ Return types infer from the body, and every type a consumer names derives at its
 |  [05]   | Field map          | `Schema.Struct.Type<typeof fields>`                                 |
 |  [06]   | Schema union       | `typeof X.cases.<Case>.Type`                                        |
 |  [07]   | Tagged enum        | `Data.TaggedEnum.Value<X, '<Case>'>`                                |
+|  [08]   | Command config     | `Command.Command.Config.Infer<typeof config>`                       |
 
 - Aliases and interfaces stand where no schema, table, or function states the shape, and a `Schema.Class` names its own type
 - Package option types pass whole as `Omit<Options, '<supplied>'> & { readonly <added>: A }`, omitting the keys the calling layer fills
 - Host member types read by indexed access (`Viewer['scale']`, `Parameters<Events['error']>[1]`), a restated field type drifting from its host
 - Annotations over a value typed `any` (`(): T =>` over a host `any`, `decodeTo(Schema.Any)`) are casts no check sees, a schema decodes the value
+- Key shapes are `Pick<typeof X.Type, '<key>'>`, a hand interface restating fields
 - `Types.ExtractTag<E, '<Case>'>` reads one case of an error channel joining errors from other packages
 - `Types.ExtractReason<E, '<Reason>'>` reads one reason of an error with a tagged union `reason`
 
@@ -39,7 +41,7 @@ const placement =
 `Region` is a literal schema of deployment regions, and `placement(Region.literals, replicaBase)` gives each durability level a replica count from one base and every region up to its rank. New levels are one literal at their rank:
 - `Durability.pick(['regional', 'global'])` derives a subset schema with its own decoder and type
 - Ordered literals holding data no rule decides are `as const` table rows, `Struct.keys(table)` returning cases in rank order
-- `Schema.TemplateLiteral([Durability, ':', Region])` joins case axes into one encoded key typed as their cross product, with a decoder checking each part
+- `Schema.TemplateLiteral([Durability, ':', Region])` types a key as the axes' cross product, `TemplateLiteralParser(Key.parts)` decoding its parts
 
 ## [03]-[BRANDS]
 
@@ -52,7 +54,8 @@ const Quantity = Amount.check(Schema.isInt()).pipe(Schema.brand('Quantity'));
 
 `typeof Quantity.Type` is `number & Brand<'Amount'> & Brand<'Quantity'>`, a quantity passes to every parameter taking an amount, and decoding one runs both checks:
 - Checks one record field reads stay field checks, brands mark a value signatures across a package take
-- Bounds use their module's ordered check (`Schema.isBetweenDate`, `Schema.isGreaterThanBigDecimal`), `Schema.makeIsGreaterThan({ order })` builds one for another `Order`, and `Schema.makeFilter` states a rule no order states
+- Bounds use their module's check (`Schema.isBetweenDate`, `isGreaterThanBigDecimal`), or `Schema.makeIsGreaterThan({ order })` for another `Order`
+- `Schema.makeFilter` states a rule no `Order` states
 - Identities kept apart from same-typed values are a brand over their format check (`Schema.isULID()`) decoded at their source, typed `typeof Id.Type`
 - Arithmetic on a branded number yields `number`, and `Quantity.makeOption(sum)` reruns every check and returns the branded value or `Option.none()`
 

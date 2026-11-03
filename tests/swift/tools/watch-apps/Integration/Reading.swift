@@ -36,7 +36,8 @@ private struct Shown: Equatable {
 
 private struct Placed: Equatable {
     let title: String?
-    let frame: CGRect?
+    let left: CGFloat?
+    let size: CGSize?
     let minimized: Bool?
     let document: URL?
     let edited: Bool?
@@ -62,22 +63,20 @@ extension Integration {
             let elements: [WatchAppsLine.Element] = try #require(instances[pid]?.running?.status.responding?.elements)
             let style: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
             let size: CGSize = NSWindow.frameRect(forContentRect: NSRect(origin: .zero, size: windowSize), styleMask: style).size
-            let windows: [WatchAppsLine.Element] = elements.filter { element in element.role == "AXWindow" }
+            let windows: [WatchAppsLine.Element] = elements.filter { element in element.role == kAXWindowRole }
             let expected: [String: Placed] = Dictionary(
-                uniqueKeysWithValues: try (0..<2).map { index in
+                uniqueKeysWithValues: (0..<2).map { (index: Int) -> (String, Placed) in
                     let title: String = "Fixture \(index)"
-                    let number: Int = try #require(windows.titled(title)?.window)
-                    let listed: [[String: Any]] = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(number)) as? [[String: Any]] ?? []
-                    let bounds: CGRect = try #require(
-                        listed.first.flatMap { info in (info[kCGWindowBounds as String] as? [String: Any]).flatMap { bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) } }
-                    )
-                    expectNoDifference([bounds.minX, bounds.width, bounds.height], [CGFloat(200 + index * 40), size.width, size.height])
-                    return (title, Placed(title: title, frame: bounds, minimized: false, document: document, edited: true))
+                    let left: CGFloat = 200 + CGFloat(index) * 40
+                    return (title, Placed(title: title, left: left, size: size, minimized: false, document: document, edited: true))
                 }
             )
             let placed: [String: Placed] = Dictionary(
                 windows.map { window in
-                    (window.title ?? window.id, Placed(title: window.title, frame: window.detail?.frame, minimized: window.minimized, document: window.document, edited: window.edited))
+                    (
+                        window.title ?? window.id,
+                        Placed(title: window.title, left: window.detail?.frame?.minX, size: window.detail?.frame?.size, minimized: window.minimized, document: window.document, edited: window.edited),
+                    )
                 },
                 uniquingKeysWith: { first, _ in first },
             )
@@ -85,12 +84,12 @@ extension Integration {
             let text: [String] = windows.compactMap(\.detail?.text).joined().map(\.self)
             let first: WatchAppsLine.Element = try #require(windows.titled("Fixture 0"))
             let shown: [Shown] = (first.detail?.controls ?? []).filter { control in control.subrole == nil }.map(Shown.init)
-            let close: String? = first.detail?.controls?.first { control in control.subrole == "AXCloseButton" }?.attribute
+            let close: String? = first.detail?.controls?.first { control in control.subrole == kAXCloseButtonSubrole }?.attribute
             let ids: [String] = elements.compactMap(\.detail?.controls).joined().map(\.id)
             let bar: WatchAppsLine.Element = try #require(elements.menuBar)
             let menus: [WatchAppsLine.Control] = try #require(bar.detail?.controls)
             let apple: [String?] = menus.filter { menu in menu.label == "Apple" || menu.items?.contains { item in item.label == "About This Mac" } == true }.map(\.label)
-            let items: [WatchAppsLine.Control] = bar.control(labeled: "Scenario")?.items ?? []
+            let items: [WatchAppsLine.Control] = bar.control(labeled: String(describing: Scenario.self))?.items ?? []
             let menuScenarios: [String?] = Scenario.allCases.filter { scenario in !scenario.atLaunch }.map(\.rawValue)
             let scenarios: [String?] = items.map(\.label).filter { label in menuScenarios.contains(label) }
             let enablement: [Bool?] = [items.first { item in item.label == "disabled" }?.enabled, items.first { item in item.label == Scenario.window.rawValue }?.enabled]
@@ -104,24 +103,25 @@ extension Integration {
             expectNoDifference(
                 shown,
                 [
-                    Shown(identifier: "press", role: "AXButton", label: "Press", value: nil, items: nil), Shown(identifier: "field", role: "AXTextField", label: nil, value: .text(""), items: nil),
-                    Shown(identifier: nil, role: "AXCheckBox", label: "Check", value: .number(0), items: nil),
-                    Shown(identifier: nil, role: "AXPopUpButton", label: nil, value: .text("One"), items: nil),
+                    Shown(identifier: "press", role: kAXButtonRole, label: "Press", value: nil, items: nil),
+                    Shown(identifier: "field", role: kAXTextFieldRole, label: nil, value: .text(""), items: nil),
+                    Shown(identifier: nil, role: kAXCheckBoxRole, label: "Check", value: .number(0), items: nil),
+                    Shown(identifier: nil, role: kAXPopUpButtonRole, label: nil, value: .text("One"), items: nil),
                 ],
             )
-            expectNoDifference(close, "AXCloseButton")
+            expectNoDifference(close, kAXCloseButtonAttribute)
             expectNoDifference(Set(ids).count, ids.count)
             expectNoDifference(bar.window, nil)
             expectNoDifference(apple, [])
             expectNoDifference(scenarios, menuScenarios)
             expectNoDifference(enablement, [false, true])
             #expect(quits)
-            let popUp: WatchAppsLine.Control = try #require(first.detail?.controls?.first { control in control.role == "AXPopUpButton" })
-            try await perform(popUp, "AXShowMenu")
+            let popUp: WatchAppsLine.Control = try #require(first.detail?.controls?.first { control in control.role == kAXPopUpButtonRole })
+            try await perform(popUp, kAXShowMenuAction)
             let opened: [WatchAppsLine.Element] = try await watch_appsIntegrationTests.read(fixture, pid: pid)
             let open: WatchAppsLine.Control? = opened.titled("Fixture 0")?.detail?.controls?.first { control in control.id == popUp.id }
             expectNoDifference(open?.items?.compactMap(\.label), ["One", "Two", "Three"])
-            try await perform(try #require(open?.items?.first), "AXCancel")
+            try await perform(try #require(open?.items?.first), kAXCancelAction)
         }
 
         @MainActor
@@ -131,10 +131,10 @@ extension Integration {
             try #require(CGPreflightScreenCaptureAccess(), "window titles need Screen Recording grant")
             let pid: Int32 = try await launch(fixture).pid
             let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
-            let shown: WatchAppsLine = try await watching([fixture.identifier], within: .seconds(15)) { lines in
+            let shown: WatchAppsLine = try await watching([fixture.identifier]) { lines in
                 _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
                 try await press(.undescribed, in: fixture, pid: pid)
-                return try await lines.next { line in line.windows(of: pid)?.contains { window in window.title == "Undescribed" } == true }.line
+                return try await lines.next { line in line.windows(of: pid)?.contains { window in window.title == "Undescribed" } == true }
             }
             .outcome
             let status: WatchAppsLine.Status = try await status(of: fixture, pid: pid)

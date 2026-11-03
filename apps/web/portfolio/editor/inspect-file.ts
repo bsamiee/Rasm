@@ -1,42 +1,26 @@
-import { imageRenditions, videoDimensions } from '@rasm/media/inspection';
-import { Cause, Effect, Match, Schema, Struct } from 'effect';
-import { Asset, ImageAsset, PdfAsset, VideoAsset } from '#/model/asset';
+import { Inspection } from '@rasm/media/inspection';
+import { Array, Effect, Schema, String, Struct } from 'effect';
+import { Asset, ImageAsset } from '#/model/asset.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inspectFile = Effect.fn('inspectFile')(
-    function* ({ data, id, name, mime }: { readonly data: Blob; readonly id: string; readonly name: string; readonly mime: string }) {
-        const { renditions, ...metadata } = yield* Match.value(mime).pipe(
-            Match.when(Match.is(...PdfAsset.fields.mime.literals), () =>
-                Effect.tryPromise(() => import('@rasm/media/pdf/document')).pipe(
-                    Effect.flatMap(({ pdfPages }) => pdfPages(data)),
-                    Effect.map((measured) => ({ ...measured, renditions: [] })),
-                ),
-            ),
-            Match.when(Match.is(...ImageAsset.fields.mime.literals), (type) => imageRenditions(data, { minimumWidth: 256, type: type === 'image/jpeg' ? type : 'image/png' })),
-            Match.orElse(() => videoDimensions(data).pipe(Effect.map((measured) => ({ ...measured, renditions: [] })))),
-        );
-        return {
-            asset: yield* Schema.decodeUnknownEffect(Asset)({ id, name, size: data.size, mime, ...metadata, ...(renditions.length > 0 && { renditions: renditions.map((rendition) => ({ width: rendition.width, size: rendition.file.size, mime: rendition.file.type })) }) }),
-            renditions: renditions.map(Struct.get('file')),
-        };
-    },
-    (effect, { mime }) =>
-        Effect.mapError(
-            effect,
-            (error) =>
-                new Cause.UnknownError(
-                    error,
-                    Match.value({ error, mime }).pipe(
-                        Match.when({ error: { _tag: 'InspectError', reason: { _tag: 'Protected' } } }, () => 'PDF is password protected. Remove it and add unlocked export'),
-                        Match.when({ error: { _tag: 'UnknownError' } }, () => 'Browser cannot read file. Retry or add it again'),
-                        Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, () => 'Browser cannot read PDF. Remove it and add new export'),
-                        Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
-                        Match.orElse(() => 'Browser cannot read image. Remove it and add new export'),
-                    ),
-                ),
-        ),
-);
+const inspectFile = Effect.fn('inspectFile')(function* (file: File, id: string) {
+    const { mime } = ImageAsset.Rendition.fields;
+    const inspection = yield* Inspection.read(file, { minimumWidth: 256, ratio: 2, concurrency: 8, type: Schema.is(mime)(file.type) ? file.type : Array.lastNonEmpty(mime.literals) });
+    const { _tag, renditions, ...measured } = Inspection.$is('Image')(inspection) ? inspection : { ...inspection, renditions: [] };
+    return {
+        asset: yield* Schema.decodeUnknownEffect(Asset)({
+            ...measured,
+            kind: String.uncapitalize(_tag),
+            id,
+            name: file.name,
+            size: file.size,
+            mime: file.type,
+            ...(Array.isReadonlyArrayNonEmpty(renditions) && { renditions: renditions.map((rendition) => ({ width: rendition.width, size: rendition.file.size, mime: rendition.file.type })) }),
+        }),
+        renditions: Array.map(renditions, Struct.get('file')),
+    };
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

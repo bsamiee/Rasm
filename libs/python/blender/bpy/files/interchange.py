@@ -14,8 +14,7 @@ from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called, Operation, Setting
-from blender.bpy.commands.operators import Operator
+from blender.bpy.commands.operators import called, Operation, Operator, Setting
 from blender.bpy.data.ids.ownership import retained, tracked
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import definition, subclass

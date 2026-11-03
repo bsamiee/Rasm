@@ -1,5 +1,5 @@
 import AsyncAlgorithms
-import CasePaths
+import CasePathsCore
 import CurrentProcess
 public import Foundation
 import Results

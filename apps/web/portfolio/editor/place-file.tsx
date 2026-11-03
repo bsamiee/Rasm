@@ -1,42 +1,55 @@
 import { useAtomSet } from '@effect/atom-react';
 import { MenuButton } from '@rasm/ui/collection/menu-button';
-import { Checkbox } from '@rasm/ui/form/field';
+import { Field } from '@rasm/ui/form/field';
 import { Array, Option, Record, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
-import { draft, updateEntry } from '#/editor/state';
-import { details, format, sheetLabel } from '#/media/labels';
-import { MediaFigure } from '#/media/media-figure';
-import type { AssetCollection } from '#/model/asset';
-import { Composition, placementsFor } from '#/model/placement';
+import { draft, updateEntry } from '#/editor/state.ts';
+import { details, format, sheetLabel } from '#/media/labels.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
+import type { AssetId, Assets } from '#/model/asset.ts';
+import { Composition, CompositionId, placementsFor } from '#/model/placement.ts';
+import type { EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { readonly assets: typeof AssetCollection.Type; readonly entryId: string; readonly sourceId: Option.Option<string>; readonly onSource: (id: Option.Option<string>) => void; readonly onAdd: (compositionId: string) => void }) => {
+const PlaceFile = ({
+    assets,
+    entryId,
+    assetId,
+    onSelect,
+    onAdd,
+}: {
+    readonly assets: typeof Assets.Service;
+    readonly entryId: typeof EntryId.Type;
+    readonly assetId: Option.Option<typeof AssetId.Type>;
+    readonly onSelect: (id: Option.Option<typeof AssetId.Type>) => void;
+    readonly onAdd: (compositionId: typeof CompositionId.Type) => void;
+}) => {
     const setDraft = useAtomSet(draft);
     const [order, setOrder] = useState<string[]>([]);
-    const source = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const placements = Option.toArray(source).flatMap(placementsFor);
+    const file = Option.flatMap(assetId, (id) => Record.get(assets, id));
+    const placements = Option.toArray(file).flatMap(placementsFor);
     const pages = placements.filter((placement) => placement.kind === 'pdf');
     const chosen = pages.length > 0 ? Array.getSomes(order.map((number) => Array.findFirst(pages, ({ page }) => String(page.number) === number))) : placements;
     const add = () => {
-        const compositions = chosen.map((placement) => Composition.make({ id: SecureRandom.uuidV7Unsafe(), items: [placement] }));
+        const compositions = chosen.map((placement) => Composition.make({ id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
         setDraft(AsyncResult.map(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) }))));
-        onSource(Option.none());
+        onSelect(Option.none());
         Option.map(Array.head(compositions), ({ id }) => onAdd(id));
     };
     return (
         <div className="flex min-w-0 flex-col gap-4">
             {pages.length > 0 && <p className="hint">Select sheets in presentation order. Publishing any sheet makes whole PDF public</p>}
-            <MenuButton aria-label="Source file" onAction={({ asset }) => onSource(Option.some(asset.id))} options={Object.values(assets).map((asset) => ({ id: asset.id, label: asset.name, asset }))}>
-                {Option.match(source, { onNone: () => 'Select file', onSome: Struct.get('name') })}
+            <MenuButton aria-label="Source file" onAction={({ asset }) => onSelect(Option.some(asset.id))} options={Object.values(assets).map((asset) => ({ id: asset.id, label: asset.name, asset }))}>
+                {Option.match(file, { onNone: () => 'Select file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="hint">{details([format.quantity(chosen.length, { other: 'selected' }), pages.length > 0 ? format.quantity(pages.length, { one: 'sheet', other: 'sheets' }) : undefined])}</p>
+                <p className="hint">{details([format.quantity(chosen.length, { other: (count) => `${count} selected` }), pages.length > 0 ? format.quantity(pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined])}</p>
                 <button className="button button-outline" disabled={chosen.length === 0} onClick={add} type="button">
-                    Add {format.quantity(chosen.length, { one: 'composition', other: 'compositions' })}
+                    Add {format.quantity(chosen.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}
                 </button>
             </div>
             {pages.length > 0 ? (
@@ -54,12 +67,12 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { readonly as
                         return (
                             <div className="bg-background min-w-0 p-3" key={placement.page.number}>
                                 <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
-                                <Checkbox value={String(placement.page.number)}>
+                                <Field.Checkbox value={String(placement.page.number)}>
                                     <span className="min-w-0 text-sm wrap-anywhere">
                                         {sheetLabel(placement.page, pages.length)}
                                         {position >= 0 && <span className="text-muted block text-xs">Order {position + 1}</span>}
                                     </span>
-                                </Checkbox>
+                                </Field.Checkbox>
                             </div>
                         );
                     })}
@@ -77,4 +90,4 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { readonly as
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ReuseFile };
+export { PlaceFile };

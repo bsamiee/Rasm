@@ -1,8 +1,5 @@
 {
     "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "types": [ "node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol" ],
-        "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
-    },
+    "compilerOptions": { "types": [ "node" ] },
     "include": [ "*.ts", "features/*.ts" ]
 }

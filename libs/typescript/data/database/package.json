@@ -8,25 +8,26 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./atomic": "./atomic.ts",
         "./catalog": "./catalog.ts",
         "./column": "./column.ts",
         "./finding": "./finding.ts",
         "./pg": "./pg.ts",
-        "./relation": "./relation.ts",
-        "./transaction": "./transaction.ts"
+        "./relation": "./relation.ts"
     },
     "dependencies": {
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
+        "@effect/sql-pglite": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/platform-node": "catalog:",
-        "@effect/sql-pglite": "catalog:",
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@electric-sql/pglite": "catalog:",
+        "@rasm/test-support": "workspace:*",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",

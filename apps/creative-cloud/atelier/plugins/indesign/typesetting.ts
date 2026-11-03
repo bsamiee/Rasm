@@ -1,16 +1,24 @@
-import type { Text } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
+import { Adjust, Typeset } from '@rasm/automation/typesetting';
 import type { host } from '@rasm/indesign/host';
 import { Model } from '@rasm/indesign/model';
-import { HostSettings, KASHIDA_WIDTH, LONGEST_KASHIDA_WIDTH } from '@rasm/indesign/settings';
-import { commit } from '@rasm/indesign/transactions';
-import { adjustText } from '@rasm/indesign/typesetting';
+import { HostSettings } from '@rasm/indesign/settings';
+import { adjust, typeset } from '@rasm/indesign/typesetting';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Cause, Console, Effect, FiberSet, flow, Option, Record, Ref, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Number, Option, Record, Schema, Struct } from 'effect';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Steps = Required<Pick<Adjust['deltas'], 'kerning' | 'baselineShift'>>;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const SHORTCUT_MULTIPLE = 5;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const logged = flow(Cause.pretty, Console.error);
+// --- [CONTROLS]
+
 const row = (...children: readonly HTMLElement[]) => {
     const element = document.createElement('div');
     element.style.display = 'flex';
@@ -19,111 +27,99 @@ const row = (...children: readonly HTMLElement[]) => {
     children.forEach((child) => element.appendChild(child));
     return element;
 };
-const picker = <L extends string>(literals: readonly L[], chosen: (value: L) => void) => {
+const picker = <A>(options: readonly (readonly [string, A])[]) => {
     const element = document.createElement('select');
-    literals.forEach((literal) => element.appendChild(Object.assign(document.createElement('option'), { value: literal, textContent: literal })));
-    element.addEventListener('change', () =>
-        Option.map(
-            Array.findFirst(literals, (literal) => literal === element.value),
-            chosen,
-        ),
-    );
-    return element;
+    options.forEach(([text]) => element.appendChild(Object.assign(document.createElement('option'), { textContent: text })));
+    return { element, read: () => Option.map(Array.get(options, element.selectedIndex), ([, value]) => value), show: (value: unknown) => Object.assign(element, { selectedIndex: options.findIndex(([, each]) => each === value) }) };
 };
-const counter = (title: string, max: number, chosen: (value: number) => void) => {
-    const element = Object.assign(document.createElement('input'), { type: 'number', title, min: '0', max: `${max}`, step: '1' });
-    element.addEventListener('change', () => Option.map(Schema.decodeOption(KASHIDA_WIDTH)(element.valueAsNumber), chosen));
-    return element;
-};
+
+// --- [REQUESTS]
+
+const target = Effect.map(Model.selection, (item) => item.toSpecifier());
+const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(target, (path) => typeset(Typeset.make({ target: path, settings })));
+const steps = Effect.fnUntraced(function* (multiple: number) {
+    const { app } = yield* Model;
+    const { kerning, baselineShift } = yield* Effect.try({
+        try: () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: multiple * app.textPreferences.baselineShiftKeyIncrement }),
+        catch: HostError.refused('text preferences'),
+    });
+    return { kerning: yield* Effect.orDie(Schema.decodeEffect(HostSettings.Thousandths)(kerning)), baselineShift } satisfies Steps;
+});
+const nudged = (deltas: Option.Option<(steps: Steps) => Adjust['deltas']>, multiple: number) => Effect.flatMap(Effect.all([target, steps(multiple), Effect.fromOption(deltas)]), ([path, step, delta]) => adjust(Adjust.make({ target: path, deltas: delta(step) })));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const typesetting = (local: ReturnType<typeof host>['local']) => {
-    const shortcutMultiple = 5;
-    const selectionChanged = 'afterSelectionChanged';
-    const modes = {
-        Marks: { horizontal: 'markX', vertical: 'markY' },
-        Kerning: { horizontal: 'kerning', vertical: 'baseline' },
-        Tracking: { horizontal: 'tracking', vertical: 'baseline' },
-    } as const;
-    const arrows = [
-        { label: '←', axis: 'horizontal', sign: -1 },
-        { label: '→', axis: 'horizontal', sign: 1 },
-        { label: '↑', axis: 'vertical', sign: 1 },
-        { label: '↓', axis: 'vertical', sign: -1 },
-    ] as const;
-    const selected = Model.use(({ app, text }) => Effect.try({ try: () => Option.filter(Array.head(app.selection), text), catch: HostError.refused('selection') }));
-    const written = <A, E, R>(label: string, write: (text: Text) => Effect.Effect<A, E, R>) =>
-        Effect.flatMap(
-            selected,
-            Option.match({
-                onNone: () => Effect.void,
-                onSome: (text) => Effect.asVoid(commit(label, write(text))),
-            }),
+const typesetting = (scripted: ReturnType<typeof host>['scripted']) =>
+    Effect.fnUntraced(function* (root: HTMLElement, fork: (work: Effect.Effect<unknown, unknown>) => void) {
+        const { app } = yield* Model;
+        const status = document.createElement('div');
+        const noted = (text: string) => Effect.sync(() => Object.assign(status, { textContent: text }));
+        const acted = <E>(work: Effect.Effect<unknown, E, Model>) =>
+            fork(
+                scripted(work).pipe(
+                    Effect.tap(() => noted('')),
+                    Effect.tapCause(flow(Cause.pretty, noted)),
+                ),
+            );
+        const written = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => acted(change.pipe(Effect.flatMap(typesetSelection), Effect.flatMap(displayed)));
+        const mode = picker(
+            Record.toEntries({
+                Marks: { horizontal: ({ kerning }) => ({ marks: { x: kerning, y: 0 } }), vertical: ({ kerning }) => ({ marks: { x: 0, y: kerning } }) },
+                Kerning: { horizontal: ({ kerning }) => ({ kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
+                Tracking: { horizontal: ({ kerning }) => ({ tracking: kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
+            } as const satisfies Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (steps: Steps) => Adjust['deltas']>>),
         );
-    const kashida = (change: Partial<typeof Settings.Type.kashida>) => written('Set kashida', (text) => Effect.flatMap(HostSettings.read(text), (settings) => HostSettings.write(text, { kashida: { ...settings.kashida, ...change } })));
-    const stylistic = (tag: string, enabled: boolean) => written(`Set ${tag}`, (text) => Effect.flatMap(HostSettings.read(text), ({ features }) => HostSettings.write(text, { features: enabled ? Record.set(features, tag, 1) : Record.remove(features, tag) })));
-    const nudged = (axis: 'horizontal' | 'vertical', multiple: number) =>
-        Effect.fnUntraced(function* (mode: keyof typeof modes) {
-            const { app } = yield* Model;
-            const em = HostSettings.em(multiple * app.textPreferences.kerningKeyIncrement);
-            const deltas = {
-                markX: { marks: { x: em, y: 0 } },
-                markY: { marks: { x: 0, y: em } },
-                kerning: { kerning: em },
-                tracking: { tracking: em },
-                baseline: { baselineShift: multiple * app.textPreferences.baselineShiftKeyIncrement },
-            }[modes[mode][axis]];
-            return yield* written(`Adjust ${Struct.keys(deltas).join(', ')}`, (text) => adjustText(text, deltas));
-        });
-    const shown = Effect.fnUntraced(function* (root: HTMLElement) {
-        const [{ app }, fork, mode] = yield* Effect.all([Model, FiberSet.makeRuntime<never, void, never>(), Ref.make<keyof typeof modes>('Marks')]);
-        const acted = <E>(work: Effect.Effect<unknown, E, Model>) => fork(local(Effect.andThen(work, refresh)).pipe(Effect.catchCause(logged)));
-        const insertion = picker(Settings.fields.kashida.schema.fields.insertion.schema.literals, (value) => acted(kashida({ insertion: value })));
-        const width = counter('Kashida width, a fixed elongation degree and bound', LONGEST_KASHIDA_WIDTH, (value) => acted(kashida({ degree: value, upper: value })));
+        const elongation = picker(Array.map(Struct.keys(Settings.fields.kashida.schema.cases), (tag) => [tag, tag] as const));
+        const width = picker(Record.toEntries(HostSettings.kashidaWidths).filter(([, each]) => each !== HostSettings.kashidaWidths.None));
+        const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: kashida._tag !== 'None' && kashida.fractional } }));
+        [elongation, width].forEach(({ element }) => element.addEventListener('change', () => written(Effect.map(typesetSelection(Option.none()), elongated))));
         const sets = HostSettings.stylisticSets.map((tag) => {
             const box = Object.assign(document.createElement('input'), { type: 'checkbox', title: tag });
-            box.addEventListener('change', () => acted(stylistic(tag, box.checked)));
+            box.addEventListener('change', () => written(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } })));
             return { tag, box };
         });
-        const buttons = arrows.map(({ label, axis, sign }) => {
+        const buttons = Record.collect({ '←': { axis: 'horizontal', sign: -1 }, '→': { axis: 'horizontal', sign: 1 }, '↑': { axis: 'vertical', sign: 1 }, '↓': { axis: 'vertical', sign: -1 } } as const, (label, { axis, sign }) => {
             const button = Object.assign(document.createElement('button'), { textContent: label });
-            button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(Effect.flatMap(Ref.get(mode), nudged(axis, sign * (metaKey || ctrlKey ? shortcutMultiple : 1)))));
+            button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1))));
             return button;
         });
-        const empty = Object.assign(document.createElement('div'), { textContent: 'Select text' });
-        const controls = row(
-            picker(Struct.keys(modes), (value) => fork(Ref.set(mode, value))),
-            ...buttons,
-            insertion,
-            width,
-            ...sets.map(({ tag, box }) => row(box, Object.assign(document.createElement('span'), { textContent: tag }))),
+        const controls = row(mode.element, ...buttons, elongation.element, width.element, ...sets.map(({ tag, box }) => row(box, Object.assign(document.createElement('span'), { textContent: tag }))));
+        const displayed = ({ kashida, features }: Settings) =>
+            Effect.sync(() => {
+                controls.style.display = 'flex';
+                elongation.show(kashida._tag);
+                if (kashida._tag !== 'None') {
+                    width.show(kashida.lower);
+                }
+                sets.forEach(({ tag, box }) => Object.assign(box, { checked: Option.exists(Record.get(features, tag), Number.isGreaterThan(0)) }));
+            });
+        const refresh = typesetSelection(Option.none()).pipe(
+            Effect.matchCauseEffect({
+                onFailure: (cause) =>
+                    Effect.sync(() => {
+                        controls.style.display = 'none';
+                        status.textContent = Cause.pretty(cause);
+                    }),
+                onSuccess: (settings) => Effect.andThen(noted(''), displayed(settings)),
+            }),
         );
+        const changed = () => fork(scripted(refresh));
         const body = document.createElement('div');
-        const shownSettings = ({ kashida: { insertion: chosen, degree }, features }: Settings) => {
-            insertion.value = chosen;
-            width.valueAsNumber = degree;
-            sets.forEach(({ tag, box }) => Object.assign(box, { checked: Record.has(features, tag) }));
-        };
-        const refresh = Effect.gen(function* () {
-            const selection = yield* selected;
-            controls.style.display = Option.isSome(selection) ? 'flex' : 'none';
-            empty.style.display = Option.isSome(selection) ? 'none' : 'block';
-            yield* Option.match(selection, { onNone: () => Effect.void, onSome: (text) => Effect.map(HostSettings.read(text), shownSettings) });
-        });
-        const changed = () => fork(local(refresh).pipe(Effect.catchCause(logged)));
         body.style.color = 'var(--uxp-host-text-color)';
-        body.appendChild(empty);
+        body.appendChild(status);
         body.appendChild(controls);
         Object.assign(root, { textContent: '' }).appendChild(body);
-        yield* Effect.acquireRelease(
-            Effect.sync(() => app.addEventListener(selectionChanged, changed)),
-            () => Effect.sync(() => app.removeEventListener(selectionChanged, changed)),
+        yield* Effect.forEach(
+            ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const,
+            (event) =>
+                Effect.acquireRelease(
+                    Effect.sync(() => app.addEventListener(event, changed)),
+                    Function.constant(Effect.sync(() => app.removeEventListener(event, changed))),
+                ),
+            { discard: true },
         );
         yield* refresh;
-    });
-    return flow(shown, local);
-};
+    }, scripted);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

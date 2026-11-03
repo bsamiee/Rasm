@@ -4,14 +4,14 @@
     "description": "After Effects requests served from a CEP extension",
     "sideEffects": false,
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
+        "./contract": "./contract.ts",
         "./host": "./host.ts"
     },
     "dependencies": {
-        "@rasm/cep": "workspace:*"
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/extendscript": "workspace:*"
     },
     "devDependencies": {
         "types-for-adobe": "catalog:"

@@ -1,5 +1,5 @@
-import { Array, Effect, Match, Schema, type SchemaAST, SchemaGetter, SchemaIssue } from 'effect';
-import { type Asset, Assets, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from '#/model/asset';
+import { Array, Effect, Match, Option, Record, Schema, type SchemaAST, SchemaGetter, SchemaIssue } from 'effect';
+import { Asset, AssetId, Assets, ImageAsset, PdfAsset, Sheet, VideoAsset } from '#/model/asset.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -7,28 +7,33 @@ const percentBounds = { minimum: 0, maximum: 100 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const CompositionId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('CompositionId'));
 const text = { caption: Schema.String, alt: Schema.optionalKey(Schema.String), description: Schema.optionalKey(Schema.String) };
 const percentage = Schema.Finite.check(Schema.isBetween(percentBounds));
-const contain = Schema.Struct({ mode: Schema.Literal('contain') });
-const cover = Schema.Struct({ mode: Schema.Literal('cover'), x: percentage, y: percentage });
-const drawing = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('image'), role: Schema.Literal('drawing'), framing: contain });
-const photograph = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('image'), role: Schema.Literal('photograph'), framing: Schema.Union([contain, cover]) });
-const sheet = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('pdf'), page: Sheet.fields.number });
+const drawing = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('image'), role: Schema.Literal('drawing') });
+const photograph = Schema.Struct({
+    ...text,
+    assetId: AssetId,
+    kind: Schema.Literal('image'),
+    role: Schema.Literal('photograph'),
+    framing: Schema.Union([Schema.Struct({ mode: Schema.Literal('contain') }), Schema.Struct({ mode: Schema.Literal('cover'), x: percentage, y: percentage })]),
+});
+const sheet = Schema.Struct({ ...text, assetId: AssetId, kind: Schema.Literal('pdf'), page: Sheet.fields.number });
+const resolve = <K extends (typeof Asset.Type)['kind']>(kind: K, assetId: typeof AssetId.Type, input: unknown, options: SchemaAST.ParseOptions) =>
+    Assets.use((assets) =>
+        Option.match(Record.get(assets, assetId), {
+            onNone: () => Effect.fail(new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, input, options)),
+            onSome: (asset) => (Asset.isAnyOf([kind])(asset) ? Effect.succeed(asset) : Effect.fail(new SchemaIssue.InvalidValue({ message: `${asset.name} is ${asset.kind}, placement needs ${kind}` }, input, options))),
+        }),
+    );
 const film = Schema.Struct({
     ...text,
-    assetId: Id,
+    assetId: AssetId,
     kind: Schema.Literal('video'),
     poster: Schema.optionalKey(
-        Schema.Struct({ assetId: Id }).pipe(
+        Schema.Struct({ assetId: AssetId }).pipe(
             Schema.decodeTo(Schema.toType(ImageAsset), {
-                decode: SchemaGetter.transformEffect((input, options) =>
-                    Assets.use((assets) =>
-                        Match.value(assets[input.assetId]).pipe(
-                            Match.when({ mime: Match.is(...ImageAsset.fields.mime.literals) }, Effect.succeed<ImageAsset>),
-                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'Poster file is missing or not an image' }, input, options))),
-                        ),
-                    ),
-                ),
+                decode: SchemaGetter.transformEffect((input, options) => resolve('image', input.assetId, input, options)),
                 encode: SchemaGetter.transform((asset) => ({ assetId: asset.id })),
             }),
         ),
@@ -43,24 +48,27 @@ const ResolvedPlacement = Schema.Union([
 ]);
 const Placement = StoredPlacement.pipe(
     Schema.decodeTo(ResolvedPlacement, {
-        decode: SchemaGetter.transformEffect(
-            Effect.fnUntraced(function* (input: typeof StoredPlacement.Type, options: SchemaAST.ParseOptions) {
-                const { assetId, ...stored } = input;
-                return yield* Match.value({ placement: stored, asset: (yield* Assets)[assetId] }).pipe(
-                    Match.when({ placement: { kind: 'pdf' }, asset: { mime: Match.is(...PdfAsset.fields.mime.literals) } }, ({ placement, asset }) =>
-                        Effect.mapBoth(Effect.fromNullishOr(sheets(asset)[placement.page - 1]), { onSuccess: (page) => ({ ...placement, asset, page }), onFailure: () => new SchemaIssue.InvalidValue({ message: `PDF has no sheet ${placement.page}` }, input, options) }),
-                    ),
-                    Match.when({ placement: { kind: 'video' }, asset: { mime: Match.is(...VideoAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
-                    Match.when({ placement: { kind: 'image' }, asset: { mime: Match.is(...ImageAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
-                    Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'File is missing or has another media type' }, input, options))),
-                );
-            }),
-        ),
+        decode: SchemaGetter.transformEffect((input: typeof StoredPlacement.Type, options: SchemaAST.ParseOptions) => {
+            const { assetId, ...stored } = input;
+            return Match.value(stored).pipe(
+                Match.discriminatorsExhaustive('kind')({
+                    pdf: (placement) =>
+                        Effect.flatMap(resolve('pdf', assetId, input, options), (asset) =>
+                            Option.match(Array.get(asset.pages, placement.page - 1), {
+                                onNone: () => Effect.fail(new SchemaIssue.InvalidValue({ message: `${asset.name} has ${asset.pages.length} sheets, placement needs sheet ${placement.page}` }, input, options)),
+                                onSome: (page) => Effect.succeed({ ...placement, asset, page: { ...page, number: placement.page } }),
+                            }),
+                        ),
+                    video: (placement) => Effect.map(resolve('video', assetId, input, options), (asset) => ({ ...placement, asset })),
+                    image: (placement) => Effect.map(resolve('image', assetId, input, options), (asset) => ({ ...placement, asset })),
+                }),
+            );
+        }),
         encode: SchemaGetter.transform(({ asset, ...placement }: typeof ResolvedPlacement.Type) => (placement.kind === 'pdf' ? { ...placement, assetId: asset.id, page: placement.page.number } : { ...placement, assetId: asset.id })),
     }),
 );
 const Composition = Schema.Struct({
-    id: Id,
+    id: CompositionId,
     items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]),
     scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withConstructorDefault(Effect.succeed('full'))),
     align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withConstructorDefault(Effect.succeed('center'))),
@@ -69,17 +77,17 @@ const Composition = Schema.Struct({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const placementsFor = (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<typeof Placement.Type> =>
-    Match.value(asset).pipe(
-        Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, (document) => Array.map(sheets(document), (page) => ({ kind: 'pdf', asset: document, page, caption: '' }) as const)),
-        Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, (video) => [{ kind: 'video', asset: video, caption: '' }] as const),
-        Match.orElse((image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing', framing: { mode: 'contain' } }] as const),
-    );
+    Asset.match(asset, {
+        pdf: (document) => Array.map(document.sheets, (page) => ({ kind: 'pdf', asset: document, page, caption: '' }) as const),
+        video: (video) => [{ kind: 'video', asset: video, caption: '' }] as const,
+        image: (image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing' }] as const,
+    });
 const placementDimensions = (placement: typeof Placement.Type) => (placement.kind === 'pdf' ? placement.page : placement.asset);
 const placementRatio = (placement: typeof Placement.Type) => {
-    const { width, height } = placement.kind === 'image' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placementDimensions(placement);
+    const { width, height } = placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placementDimensions(placement);
     return width / height;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Composition, Placement, percentBounds, placementDimensions, placementRatio, placementsFor };
+export { Composition, CompositionId, Placement, percentBounds, placementDimensions, placementRatio, placementsFor };

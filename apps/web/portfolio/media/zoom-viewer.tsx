@@ -1,10 +1,10 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from 'react-aria-components';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
-import { MediaElement } from '#/media/media-element';
-import { ZoomControls } from '#/media/zoom-controls';
-import { mediaUrl } from '#/model/asset';
-import type { Placement } from '#/model/placement';
+import { MediaElement } from '#/media/media-element.tsx';
+import { ZoomControls } from '#/media/zoom-controls.tsx';
+import { assetUrl } from '#/model/api.ts';
+import type { Placement } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const ZoomViewer = ({ placement, layoutId }: { placement: Exclude<typeof Placeme
                                 Fit
                             </Button>
                         }
-                        href={mediaUrl(placement.asset)}
+                        href={assetUrl(placement.asset)}
                         zoomIn={() => zoomIn(undefined, animationTime)}
                         zoomOut={() => zoomOut(undefined, animationTime)}
                     />

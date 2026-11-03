@@ -77,4 +77,4 @@ const expand = Effect.fn('expand')(function* (product: string, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answers, Batch, Call, Expression, expand, Name, Probe, Reads, type Row, Run, scriptOf, Vector };
+export { answers, Batch, Call, Expression, expand, Keywords, Name, Probe, Reads, type Row, Run, scriptOf, Vector };

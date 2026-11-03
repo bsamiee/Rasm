@@ -10,8 +10,8 @@ Covers `bpy` code over node trees:
 - Use `blender-coding-render` for compositor effect stacks and strips
 
 [REFERENCES]:
-- [01]-[EXPRESSIONS](references/expressions.md): Node graphs as expression records lowered by content key
-- [02]-[EVALUATION](references/evaluation.md): Tree evaluation, stock node sampling, modifier inputs, and bakes
+- [01]-[EXPRESSIONS](references/expressions.md): Node graphs as expression records built into trees by content hash
+- [02]-[EVALUATION](references/evaluation.md): Tree evaluation, built-in node sampling, modifier inputs, and bakes
 
 ## [01]-[TREES]
 
@@ -19,30 +19,30 @@ Holders decide how code reaches a tree:
 
 | [INDEX] | [HOLDER]                                 | [TREE]                                                                                        |
 | :-----: | :--------------------------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `Material`, `World`, `Light`             | Embedded `node_tree` with stock nodes, `use_nodes` ignoring writes                            |
-|  [02]   | `Texture`, `FreestyleLineStyle`          | `node_tree` at `None` until `use_nodes = True` builds stock nodes                             |
+|  [01]   | `Material`, `World`, `Light`             | Embedded `node_tree` with built-in nodes, `use_nodes` ignoring writes                         |
+|  [02]   | `Texture`, `FreestyleLineStyle`          | `node_tree` at `None` until `use_nodes = True` builds default nodes                           |
 |  [03]   | `bpy.data.node_groups`                   | `new(name, <tree class>.bl_rna.identifier)` with empty nodes and interface                    |
 |  [04]   | Group node, `NODES` modifier             | `node_tree`, `node_group`                                                                     |
 |  [05]   | Compositor effect, strip, strip modifier | `node_group` of `SceneCompositorEffect`, `CompositorStrip`, `SequencerCompositorModifierData` |
 |  [06]   | Node editor                              | `space.node_tree` root, `space.edit_tree` entered group                                       |
 
 Tree kinds decide node classes and socket types:
-- Tree, node, and socket idnames read `<class>.bl_rna.identifier`: built-in classes hold `bl_idname` `None`, Python classes a `__name__` unlike it
+- Tree, node, and socket idnames read `<class>.bl_rna.identifier`: built-in classes hold `bl_idname` `None`, Python classes a `__name__` other than the idname
 - `nodes.new(bl_idname)` raises `RuntimeError` for a class the tree refuses or the build lacks
 - `interface.new_socket` raises `TypeError` listing socket types the tree kind takes
 - Geometry, shader, and compositor trees take Bundles, Menu Switch, and Index Switch, geometry trees all zones, shader trees Repeat and Closure zones
 - Texture trees take `TextureNode*` classes and Float, Vector, and Color sockets alone
 - `nodes.new` maps aliased classes to current ones (`ShaderNodeBsdfGlossy` to `ShaderNodeBsdfAnisotropic`), and matches read the created `bl_idname`
-- Find stock nodes by `bl_idname` and state: `tree.get_output_node("ALL")` in shader trees, `NodeGroupOutput` with `is_active_output` in groups
+- Find built-in nodes by `bl_idname` and state: `tree.get_output_node("ALL")` in shader trees, `NodeGroupOutput` with `is_active_output` in groups
 - Modifier-type geometry editors swap a written `space.node_tree` for the active modifier's tree at next redraw while `space.pin` is off
 
-Groups take picker and tool flags, and host helpers inline or build stock content:
+Groups take picker and tool flags, and host helpers inline a tree or add built-in nodes:
 - `is_modifier`, `is_strip_modifier`, and `allow_usage_in_scene_compositor_effect` list a group in pickers and asset menus
 - `node_group` writes take any tree of the kind whatever its flags
 - Group node `node_tree` writes of another tree kind or a tree containing the node's tree (`tree.contains_tree(other)`) leave it empty, no raise
 - Node tools set `is_tool`, one `is_type_*` and one `is_mode_*` flag, and `node_tool_idname`
 - Background runs register node tool operators through `window_manager.register_node_group_operators()`
-- Stock groups in the `assets/nodes` blends hold `Input_<n>` and `Output_<n>` identifiers beside `Socket_<n>`
+- Built-in groups in the `assets/nodes` blends hold `Input_<n>` and `Output_<n>` identifiers beside `Socket_<n>`
 - `inline_shader_nodes()` on materials, worlds, and lights returns an object with a `node_tree` that inlines groups, zones, closures, and bundles
 - Inlined trees drop reroutes and mutes, and Blender removes inlined trees once code releases the returned object
 - `bpy_extras.node_shader_utils.PrincipledBSDFWrapper` reads and writes Principled and output nodes
@@ -63,7 +63,7 @@ Mode writes (`data_type`, `operation`) enable sockets or retype them by node:
 
 Compositor nodes take every option through input sockets, and geometry nodes take some (Merge by Distance `Mode`, Raycast `Interpolation`):
 - Mode choices are `MENU` sockets (Glare `Type`, Blur `Type`, Scale `Frame Type`), `default_value` taking the exact item name
-- Stock menu sockets read empty `bl_rna.properties["default_value"].enum_items`, and the `TypeError` of a wrong name lists valid names
+- Built-in menu sockets read empty `bl_rna.properties["default_value"].enum_items`, and the `TypeError` of a wrong name lists valid names
 - Compositor node state compares through socket defaults alone
 
 Socket values take per-class shapes:
@@ -92,13 +92,13 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 - `link.is_muted` mutes a link in place, the target reading its own default
 - `nodes.remove(node)` removes the node's links, a held node raising `ReferenceError` and a held link reading `None` endpoints with no raise
 
-Multi-input sockets order their links by `multi_input_sort_id`, each new link landing on top:
+Multi-input sockets order their links by `multi_input_sort_id`, each new link added on top:
 - `socket.links` lists top first by descending sort id, up to 4095 links
 - `links.new` on a linked pair moves the held link on top with a duplicate sort id, `verify_limits=False` stacking a second link from that output
 - Reorder by removing the socket's links and relinking sources bottom first, sort ids renumbering from 0
 - `link.swap_multi_input_sort_id(other)` swaps link positions on one socket, keeping both links and their mute state
 
-`NodeSocket.links` scans `tree.links` on each read and lists muted links, and walks index one `tree.links` pass by target node:
+`NodeSocket.links` scans `tree.links` on each read and lists muted links. Graph walks index one `tree.links` pass by target node:
 
 ```python
 def upstream(tree: bpy.types.NodeTree, root: bpy.types.Node, /, *, kept: Callable[[bpy.types.NodeLink], bool] = lambda link: link.is_valid and not link.is_muted) -> tuple[bpy.types.Node, ...]:
@@ -232,7 +232,7 @@ Menu sockets store an item's integer identifier, keeping each selection across r
 - Group menu inputs list items while a link chain reaches a Menu Switch through group nodes, reroutes, and generic nodes
 - Unlinked menu sockets refuse every `default_value`, keeping the stored integer until a definition holding it arrives
 - Menu outputs feeding more than one Menu Switch invalidate each such link and list no items with no `node_warnings` entry, equal item names included
-- Stock nodes of one built-in menu share one definition, and one output feeds them all
+- Built-in nodes with the same menu share one definition, and one output feeds them all
 
 Interface writes add and remove sockets on every group node and modifier before the call returns, and users keep values by identifier:
 - Moves, removals, and retypes rewrite group node keyframe and driver paths to new indices and drop F-curves of removed sockets
@@ -276,7 +276,7 @@ Repeat `interfaced` calls with the same sockets write and tag nothing:
 - `None` fields leave a member at the value the socket type gives it, `omit_defaults` keeping them out of the write
 - Float members read back at `float32` precision, and compares round the record's floats through `np.float32`
 - `bpy_prop_array` values equal other `bpy_prop_array` values alone, and compares convert them through `enc_hook=list`
-- When live order per side differs from records, `move(item, len(items_tree))` per socket in record order lands each last on its side
+- When live order per side differs from records, `move(item, len(items_tree))` per socket in record order moves each last on its side
 - Refused socket types and values raise `TypeError` uncaught, a defect in the record
 
 ## [07]-[PYTHON_TYPES]
@@ -284,7 +284,7 @@ Repeat `interfaced` calls with the same sockets write and tag nothing:
 Python-defined trees, nodes, and sockets subclass `bpy.types.NodeTree`, `Node`, and `NodeSocket`, and Blender evaluates none of them:
 - `NodeTree.update()` runs more than once per node addition and link change, and tree evaluation runs once from a deferred step it queues
 - Socket and node property writes call neither tree nor node `update`, and evaluation they change runs from the property's own `update=` callback
-- Nodes with no `poll` join every tree kind, stock trees included, and `poll(cls, ntree)` refusing a tree makes `nodes.new` raise `RuntimeError`
+- Nodes with no `poll` join every tree kind, built-in trees included, and `poll(cls, ntree)` refusing a tree makes `nodes.new` raise `RuntimeError`
 - `Node.init(self, context)` builds sockets through `inputs.new(<socket idname>, <name>)` and `outputs.new`, `nodes.new` passing `None` as `context`
 - `NodeSocket` subclasses define `draw(self, context, layout, node, text)`, `register_class` raising `AttributeError` without it
 - `links.new` calls `update` on both endpoint nodes and skips `insert_link`
@@ -296,7 +296,7 @@ Trees reach a desired state through edits in place and keep nodes a user added:
 - Desired nodes, links, and interface items are frozen records keyed by structure, compared against live state before each write
 - Owned nodes hold an ID property mark under a key derived from structure, renames and `.001` suffixes breaking `name` keys
 - Copies of owned nodes (editor duplicates, clipboard pastes, `tree.copy()`) hold the mark, and marks dedupe by tree order with the first holder kept
-- Fresh materials, worlds, and lights hold unmarked stock nodes, removed before their first reconciliation writes
+- Fresh materials, worlds, and lights hold unmarked built-in nodes, removed before their first reconciliation writes
 - Interface items change in place, and reconciliation writes each group node and modifier value an interface default leaves stored
 
 Writes follow socket creation, each step adding sockets the next one reads:
