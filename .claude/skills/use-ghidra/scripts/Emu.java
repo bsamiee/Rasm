@@ -289,12 +289,27 @@ public class Emu extends GhidraScript {
             this.convention = convention;
         }
 
-        void begin() {
+        Outcome execute(PcodeThread<byte[]> thread, long budget, Address sentinel) {
             calls.clear();
             executed.clear();
             uninitialized.clear();
             userops.clear();
-            step = 0;
+            try {
+                for (step = 0; step < budget && !thread.getCounter().equals(sentinel); step++) {
+                    thread.stepInstruction();
+                }
+            } catch (PcodeExecutionException exception) {
+                return new Outcome(
+                        Stop.FAULTED,
+                        step,
+                        thread.getCounter(),
+                        Optional.of(String.valueOf(exception.getMessage())));
+            }
+            return new Outcome(
+                    thread.getCounter().equals(sentinel) ? Stop.RETURNED : Stop.EXHAUSTED,
+                    step,
+                    thread.getCounter(),
+                    Optional.empty());
         }
 
         @Override
@@ -530,28 +545,6 @@ public class Emu extends GhidraScript {
         return new Machine(emulator, recorder);
     }
 
-    private static Outcome execute(
-            PcodeThread<byte[]> thread, Recorder recorder, long budget, Address sentinel) {
-        long steps = 0;
-        try {
-            for (; steps < budget && !thread.getCounter().equals(sentinel); steps++) {
-                recorder.step = steps;
-                thread.stepInstruction();
-            }
-        } catch (PcodeExecutionException exception) {
-            return new Outcome(
-                    Stop.FAULTED,
-                    steps,
-                    thread.getCounter(),
-                    Optional.of(String.valueOf(exception.getMessage())));
-        }
-        return new Outcome(
-                thread.getCounter().equals(sentinel) ? Stop.RETURNED : Stop.EXHAUSTED,
-                steps,
-                thread.getCounter(),
-                Optional.empty());
-    }
-
     // --- [RUN]
 
     @Override
@@ -665,9 +658,8 @@ public class Emu extends GhidraScript {
                                     .getProgramContext()
                                     .getDisassemblyContext(prepared.entry()))
                     .ifPresentOrElse(thread::overrideContext, thread::overrideContextWithDefault);
-            machine.recorder().begin();
             Outcome outcome =
-                    execute(thread, machine.recorder(), prepared.steps(), layout.sentinel());
+                    machine.recorder().execute(thread, prepared.steps(), layout.sentinel());
             outcomes.add(
                     "%s %s%s"
                             .formatted(

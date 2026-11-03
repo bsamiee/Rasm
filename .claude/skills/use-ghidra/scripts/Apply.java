@@ -230,46 +230,6 @@ public class Apply extends GhidraScript {
         }
     }
 
-    // --- [PROTOTYPES]
-
-    private Outcome type(Row row, Function function, String prototype) {
-        try {
-            FunctionDefinitionDataType definition =
-                    CParserUtils.parseSignature(
-                            (DataTypeManagerService) null, currentProgram, prototype, false);
-            if (definition == null) {
-                return new Outcome(
-                        Step.TYPED,
-                        row.address(),
-                        new Report.Failure<>("`%s` holds no function name".formatted(prototype)));
-            }
-            ApplyFunctionSignatureCmd command =
-                    new ApplyFunctionSignatureCmd(
-                            row.address(),
-                            definition,
-                            SourceType.USER_DEFINED,
-                            definition.hasUnknownCallingConventionName(),
-                            false,
-                            DataTypeConflictHandler.DEFAULT_HANDLER,
-                            FunctionRenameOption.NO_CHANGE);
-            return new Outcome(
-                    Step.TYPED,
-                    row.address(),
-                    runCommand(command)
-                            ? new Report.Success<>(function.getPrototypeString(true, false))
-                            : new Report.Failure<>(command.getStatusMsg()));
-        } catch (ParseException exception) {
-            return new Outcome(
-                    Step.TYPED,
-                    row.address(),
-                    new Report.Failure<>(
-                            "`%s` did not parse (%s)"
-                                    .formatted(
-                                            prototype,
-                                            exception.getMessage().lines().findFirst().orElse(""))));
-        }
-    }
-
     // --- [LOCALS]
 
     private Stream<Outcome> remove(Row row, Function function) {
@@ -409,8 +369,61 @@ public class Apply extends GhidraScript {
                 functions.stream()
                         .flatMap(entry ->
                                 entry.getKey().prototype().stream()
-                                        .map(prototype ->
-                                                type(entry.getKey(), entry.getValue(), prototype)))
+                                        .map(prototype -> {
+                                            Address address = entry.getKey().address();
+                                            try {
+                                                FunctionDefinitionDataType definition =
+                                                        CParserUtils.parseSignature(
+                                                                (DataTypeManagerService) null,
+                                                                currentProgram,
+                                                                prototype,
+                                                                false);
+                                                if (definition == null) {
+                                                    return new Outcome(
+                                                            Step.TYPED,
+                                                            address,
+                                                            new Report.Failure<>(
+                                                                    "`%s` holds no function name"
+                                                                            .formatted(prototype)));
+                                                }
+                                                ApplyFunctionSignatureCmd command =
+                                                        new ApplyFunctionSignatureCmd(
+                                                                address,
+                                                                definition,
+                                                                SourceType.USER_DEFINED,
+                                                                definition
+                                                                        .hasUnknownCallingConventionName(),
+                                                                false,
+                                                                DataTypeConflictHandler
+                                                                        .DEFAULT_HANDLER,
+                                                                FunctionRenameOption.NO_CHANGE);
+                                                return new Outcome(
+                                                        Step.TYPED,
+                                                        address,
+                                                        runCommand(command)
+                                                                ? new Report.Success<>(
+                                                                        entry.getValue()
+                                                                                .getPrototypeString(
+                                                                                        true,
+                                                                                        false))
+                                                                : new Report.Failure<>(
+                                                                        command.getStatusMsg()));
+                                            } catch (ParseException exception) {
+                                                return new Outcome(
+                                                        Step.TYPED,
+                                                        address,
+                                                        new Report.Failure<>(
+                                                                "`%s` did not parse (%s)"
+                                                                        .formatted(
+                                                                                prototype,
+                                                                                exception
+                                                                                        .getMessage()
+                                                                                        .lines()
+                                                                                        .findFirst()
+                                                                                        .orElse(
+                                                                                                ""))));
+                                            }
+                                        }))
                         .toList();
         List<Outcome> removed =
                 functions.stream()
@@ -430,8 +443,7 @@ public class Apply extends GhidraScript {
                         monitor);
         List<Outcome> renamed =
                 renaming.stream()
-                        .flatMap(entry ->
-                                rename(entry.getKey(), decompiled.get(entry.getValue())))
+                        .flatMap(entry -> rename(entry.getKey(), decompiled.get(entry.getValue())))
                         .toList();
         List<Outcome> outcomes =
                 Stream.of(named, typed, removed, renamed).flatMap(List::stream).toList();

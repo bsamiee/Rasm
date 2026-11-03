@@ -1,14 +1,9 @@
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown };
-type Faults = readonly [Fault, ...Fault[]];
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Option<A> {
     static readonly none: Option<never> = new Option<never>([]);
     static readonly some = <T>(value: T): Option<T> => new Option<T>([value]);
-    static readonly given = <T>(value: T | null | undefined): Option<T> => (value === null || value === undefined ? Option.none : Option.some(value));
+    static readonly fromNullable = <T>(value: T | null | undefined): Option<T> => (value === null || value === undefined ? Option.none : Option.some(value));
     readonly values: readonly [] | readonly [A];
 
     constructor(values: Option<A>['values']) {
@@ -48,7 +43,8 @@ class Result<A> {
     }
 
     map<B>(f: (value: A) => B): Result<B> {
-        return this.bind((value) => Result.ok(f(value)));
+        const { outcome } = this;
+        return outcome.kind === 'ok' ? Result.ok(f(outcome.value)) : Result.fault(...outcome.faults);
     }
 
     bind<R extends Result<unknown> | Promise<Result<unknown>>>(f: (value: A) => R): R | Result<never> {
@@ -59,6 +55,11 @@ class Result<A> {
         return this.outcome.kind === 'ok' ? onOk(this.outcome.value) : onFault(this.outcome.faults);
     }
 }
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown };
+type Faults = readonly [Fault, ...Fault[]];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

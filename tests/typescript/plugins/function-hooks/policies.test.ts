@@ -1,6 +1,6 @@
 import { NodeServices } from '@effect/platform-node';
 import { describe, expect, layer } from '@effect/vitest';
-import { Option } from '@rasm/function-hooks/composition';
+import { Option } from '@rasm/function-hooks/monads';
 import { commandDecision, type Request, type System } from '@rasm/function-hooks/policies';
 import { Config, Duration, Effect, FileSystem, Path, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
@@ -53,7 +53,7 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean) {
         decide: (command: string, request: Request) =>
             Effect.promise(() =>
                 commandDecision(
-                    { run: spawn, exists: (entry) => run(fs.exists(entry)), read: (entry) => run(fs.readFileString(entry)), environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.given)), scanner, plugin, root: Option.some(ROOT), cwd: ROOT, home: Option.some(home) },
+                    { run: spawn, exists: (entry) => run(fs.exists(entry)), read: (entry) => run(fs.readFileString(entry)), environment: (name) => run(Effect.map(Config.String(name).pipe(Config.withDefault(undefined)), Option.fromNullable)), scanner, plugin, root: Option.some(ROOT), cwd: ROOT, home: Option.some(home) },
                     command,
                     'rasm',
                     request,
@@ -73,7 +73,7 @@ const decided = Effect.fn('decided')(function* (command: string, request: Reques
 
 layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
     const deadline: Duration.Input = '600 seconds';
-    const blind = 'Command waits blindly. Use Monitor or run_in_background';
+    const blind = 'Command waits in the foreground, use Monitor or run_in_background';
     const foreground: Request = { kind: 'foreground', timeout: Option.none };
     const background: Request = { kind: 'background' };
     const monitor: Request = { kind: 'monitor' };
@@ -114,16 +114,16 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['cd /tmp && W=/private/tmp/x; rm -rf $W/p "$W/q"', 'cd /tmp && W=/private/tmp/x; rm -rf /private/tmp/x/p "/private/tmp/x/q"'],
         ] as const)('%s', ([command, text]) => decided(command, foreground, false, { kind: 'rewrite', command: text, background: false }));
         it.effect.each([
-            ['trailing & becomes run_in_background', 'nx run portfolio:serve &', foreground, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Option.some('& backgrounded the call. Wait for its completion notice') }],
+            ['trailing & becomes run_in_background', 'nx run portfolio:serve &', foreground, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Option.some('Call runs in the background for &, wait for its completion notice') }],
             ['trailing & drops in a background call', 'nx run portfolio:serve &', background, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: false }],
             [
                 'missing timeout becomes call timeout',
                 `timeout ${Duration.toSeconds(deadline)} nx run rasm:check`,
                 foreground,
                 false,
-                { kind: 'rewrite', command: 'nx run rasm:check', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some(`timeout is not installed. Call timeout set to ${Duration.toSeconds(deadline)}`) },
+                { kind: 'rewrite', command: 'nx run rasm:check', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some(`timeout is not installed, call timeout set to ${Duration.toSeconds(deadline)}`) },
             ],
-            ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', foreground, false, { kind: 'rewrite', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some('timeout is not installed. Call timeout capped at maximum') }],
+            ['missing timeout over the maximum caps the call timeout', 'timeout 2h nx run rasm:check', foreground, false, { kind: 'rewrite', timeout: Option.some(Duration.toMillis(deadline)), notice: Option.some(`timeout is not installed, call timeout capped at ${Duration.toSeconds(deadline)}s`) }],
             ['installed timeout stays', `timeout ${Duration.toSeconds(deadline)} nx run rasm:check`, foreground, true, { kind: 'allow' }],
             ['read -t leak becomes sleep in Monitor', 'until test -f done; do read -t 1 x < <(tail -f /dev/null); done', monitor, false, { kind: 'rewrite', command: 'until test -f done; do sleep 1; done' }],
             [
@@ -178,46 +178,46 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             ['wait4path /Volumes/Build', blind],
             ['watch -n 2 ls', blind],
             ['bash -c "sleep 30; ls"', blind],
-            ["bash -c 'read -t 5 x < <(tail -f /dev/null)'", 'read -t leaks its input process. Use sleep 5'],
-            ["bash -c 'pgrep -f foo'", "pgrep foo matches its own shell. Use '[f]oo'"],
+            ["bash -c 'read -t 5 x < <(tail -f /dev/null)'", 'read -t 5 leaks its input process, use sleep 5'],
+            ["bash -c 'pgrep -f foo'", "pgrep foo matches its own shell, use '[f]oo'"],
             ["cat > /tmp/probe.py <<'EOF'\nprint(1)\nEOF\npython3 /tmp/probe.py", 'python3 runs inline code'],
             ["python3 - <<'EOF'\nprint(1)\nEOF", 'python3 runs inline code'],
             ['a || W=/private/tmp/x && rm -rf $W/p', 'rm $W/p expands at run time'],
             ['S=$(pwd); rm -rf $S/build', 'rm $S/build expands at run time'],
-            ['rm -rf .', 'covers repository root'],
-            [`osascript -e 'tell application "Finder" to make new folder'`, 'osascript drives Finder. Use watch-apps perform'],
-            [`osascript -e 'tell application "System Events" to keystroke "a"'`, 'System Events posts to frontmost app'],
-            [`osascript -e 'tell application "Adobe Illustrator" to do javascript "alert(1)"'`, "osascript scripts 'Adobe Illustrator'. Use Atelier execute_script"],
-            ['osascript probe.applescript', 'osascript probe.applescript is opaque'],
+            ['rm -rf .', 'covers the repository root'],
+            [`osascript -e 'tell application "Finder" to make new folder'`, 'osascript drives Finder, use watch-apps perform'],
+            [`osascript -e 'tell application "System Events" to keystroke "a"'`, 'System Events posts to the frontmost app'],
+            [`osascript -e 'tell application "Adobe Illustrator" to do javascript "alert(1)"'`, "osascript scripts 'Adobe Illustrator', use Atelier execute_script"],
+            ['osascript probe.applescript', 'osascript probe.applescript hides its statements'],
             ['open -W -a Blender scene.blend', 'open -W waits on Blender'],
-            ['pkill -f analyzeHeadless', 'pkill ends every match. Run kill <pid> on one pid pgrep lists'],
+            ['pkill -f analyzeHeadless', 'pkill ends every match, run kill <pid> on one pid pgrep lists'],
             ['killall Rhino', 'killall ends every match'],
             ['kill $(pgrep -x TextEdit)', 'pgrep feeds kill every match'],
             ['pgrep -x TextEdit | xargs kill', 'pgrep feeds kill every match'],
             ['pgrep -f Rhinoceros | xargs kill', 'pgrep feeds kill every match'],
-            [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'JavaScript osascript drives apps. Run watch-apps <subcommand> <app>'],
-            ['until watch-apps read TextEdit | grep -q responding; do sleep 5; done', 'Loop polls TextEdit. Run watch-apps watch TextEdit in Monitor'],
-            ['watch-apps watch TextEdit', 'watch-apps watch never exits. Run watch-apps watch TextEdit in Monitor'],
-            ['timeout 600 nx run rasm:check & wait; bash -c "timeout 5 ls"', 'timeout is not installed. Drop it'],
+            [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'JavaScript osascript drives apps, run watch-apps <subcommand> <app>'],
+            ['until watch-apps read TextEdit | grep -q responding; do sleep 5; done', 'Loop polls TextEdit, run watch-apps watch TextEdit in Monitor'],
+            ['watch-apps watch TextEdit', 'watch-apps watch never exits, run watch-apps watch TextEdit in Monitor'],
+            ['timeout 600 nx run rasm:check & wait; bash -c "timeout 5 ls"', 'timeout is not installed, remove it'],
             ['for p in a b; do nx run $p:test; done', 'Loop reruns nx tasks'],
             ['ls libs | xargs -I{} nx run {}:check', 'Loop reruns nx tasks'],
             ['nx run portfolio:serve & echo started', '& job outlives the call'],
-            ['"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" /tmp/p name -process x', 'analyzeHeadless project is not $GHIDRA_PROJECT_DIR'],
-            ['for b in a b; do analyzeHeadless "$GHIDRA_PROJECT_DIR" "$b" -process x; done', 'analyzeHeadless fans out per input. Send each run with printf'],
-            ['for f in a b; do analyzeHeadless "$GHIDRA_PROJECT_DIR" p -import "$f"; done', 'analyzeHeadless fans out per input. Chain one -import per project with &&'],
-            ["rsync -a --exclude '*.lock*' /private/tmp/x/p.rep/ /private/tmp/copy/", 'rsync copies Ghidra project p, its Serve.java serves every caller. Run printf'],
-            ['export GHIDRA_HEADLESS_MAXMEM=4096M; node prove.ts', 'GHIDRA_HEADLESS_MAXMEM overrides the analyzeHeadless heap. Drop it'],
+            ['"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" /tmp/p name -process x', 'analyzeHeadless project /tmp/p is not $GHIDRA_PROJECT_DIR'],
+            ['for b in a b; do analyzeHeadless "$GHIDRA_PROJECT_DIR" "$b" -process x; done', 'analyzeHeadless fans out per input, send each run with printf'],
+            ['for f in a b; do analyzeHeadless "$GHIDRA_PROJECT_DIR" p -import "$f"; done', 'analyzeHeadless fans out per input, chain one -import per project with &&'],
+            ["rsync -a --exclude '*.lock*' /private/tmp/x/p.rep/ /private/tmp/copy/", 'rsync copies Ghidra project p, send requests to its Serve.java with printf'],
+            ['export GHIDRA_HEADLESS_MAXMEM=4096M; node prove.ts', 'GHIDRA_HEADLESS_MAXMEM overrides the analyzeHeadless heap, remove it'],
             ['GHIDRA_MAXMEM=4G bash -c "echo"; bash -c "GHIDRA_MAXMEM=4G echo"', 'GHIDRA_MAXMEM overrides the analyzeHeadless heap'],
             ["sd -F 'abc' 'abc' notes.md", 'sd replaces abc with itself'],
             ["sd '' x notes.md", 'sd empty pattern matches everywhere'],
             ['fd -e plist Info ~', 'is too wide'],
             ['git reset --hard', 'git reset --hard discards working-tree or index state'],
             ['git stash', 'git stash hides uncommitted work'],
-            ['cat', 'cat waits on unfed stdin'],
+            ['cat', 'cat waits on stdin with no input'],
         ] as const)('%s', ([command, reason]) => decided(command, foreground, false, { kind: 'deny', reason: expect.stringContaining(reason) }));
         it.effect.each([
             ['wait.sh', 'until ! pgrep -f analyzeHeadless >/dev/null; do /bin/sleep 5; done\n', blind],
-            ['run.sh', 'project="$PWD/ghidra/project"\n"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$project" color -process "$1"\n', 'analyzeHeadless project is not $GHIDRA_PROJECT_DIR'],
+            ['run.sh', 'project="$PWD/ghidra/project"\n"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$project" color -process "$1"\n', 'analyzeHeadless project "$project" is not $GHIDRA_PROJECT_DIR'],
         ] as const)(
             'script file %s',
             Effect.fn('scripted')(function* ([name, text, reason]: readonly [string, string, string]) {
@@ -226,10 +226,10 @@ layer(NodeServices.layer, { timeout: 60_000 })('function-hooks', (it) => {
             }),
         );
         it.effect.each([
-            ['rm -f {}/*.lock*', "rm *.lock* deletes a Ghidra lock, stale locks block nothing. Run lsof -t '{}/p.lock~'"],
+            ['rm -f {}/*.lock*', "rm *.lock* deletes a Ghidra lock that blocks only while held, run lsof -t '{}/p.lock~'"],
             ['S={}; cd /tmp && rm -f $S/p.lock~', 'rm p.lock~ deletes a Ghidra lock'],
             ['find {} -maxdepth 1 -name p.lock -delete', 'find p.lock deletes a Ghidra lock'],
-            ['cp -cR {} /private/tmp/copy', 'cp copies Ghidra project p, its Serve.java serves every caller. Run printf'],
+            ['cp -cR {} /private/tmp/copy', 'cp copies Ghidra project p, send requests to its Serve.java with printf'],
         ] as const)(
             'project folder %s',
             Effect.fn('projected')(function* ([command, reason]: readonly [string, string]) {

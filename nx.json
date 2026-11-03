@@ -49,10 +49,6 @@
                     "lint:ruff": { "dependsOn": [ { "target": "lint:ruff:*", "params": "forward" } ] },
                     "lint:ruff:check": { "command": "ruff check" },
                     "lint:ruff:format": { "command": "ruff format --check" },
-                    "lint:deptry": { "dependsOn": [ { "target": "lint:deptry:*", "params": "forward" } ] },
-                    "lint:deptry:blender": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python/blender apps", "inputs": [ "python", "pythonFiles" ] },
-                    "lint:deptry:typography": { "command": "deptry --config libs/python/typography/pyproject.toml libs/python/typography", "inputs": [ "python", "pythonFiles" ] },
-                    "lint:deptry:foundry": { "command": "deptry --config tools/foundry/pyproject.toml tools/foundry", "inputs": [ "python", "pythonFiles" ] },
                     "lint:biome": {
                         "command": "biome check --error-on-warnings",
                         "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]
@@ -123,8 +119,9 @@
         "production": [ "{projectRoot}/**/*", "!{projectRoot}/.storybook/**/*" ],
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,.editorconfig,.config/analyzers.globalconfig,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" } ],
         "python": [ "{workspaceRoot}/**/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
+        "blender": [ "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/libs/python/blender/records/faults.py", { "runtime": "\"$BLENDER_PATH\" --version" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
-        "vite": [ "{workspaceRoot}/vite.shared.ts", "{workspaceRoot}/eng/typescript/{manifest,parsed,process}.ts", { "externalDependencies": [ "vite", "effect", "@effect/platform-node", "@vitejs/plugin-react", "@cloudflare/vite-plugin", "@swc/core", "plist", "smol-toml", "yaml" ] } ],
+        "vite": [ "{workspaceRoot}/vite.shared.ts", "{workspaceRoot}/eng/typescript/{manifest,parsed,process}.ts", { "externalDependencies": [ "vite", "effect", "@effect/platform-node", "@vitejs/plugin-react", "@cloudflare/vite-plugin", "@swc/core", "plist" ] } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "nextest": [ "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
         "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "{projectRoot}/Cargo.toml" ],
@@ -204,7 +201,7 @@
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
                 "command": "version=$(minver -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.blender pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
-                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/libs/python/blender/records/faults.py", "{workspaceRoot}/Directory.Build.props", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
+                "inputs": [ "...", "default", "python", "blender", "{workspaceRoot}/Directory.Build.props", { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}" ],
                 "cache": true
             },
@@ -328,7 +325,7 @@
             ],
             "cache": true
         },
-        "{typecheck:ty,typecheck:mypy,lint:refurb}:*": { "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } }, "inputs": [ "python", "pythonFiles" ], "cache": true },
+        "{typecheck:ty,typecheck:mypy,lint:refurb}:*": { "inputs": [ "...", "python" ], "cache": true },
         "lint:ruff:*": { "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}" ], "cache": true },
         "lint:tombi:*": { "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ], "cache": true },
         "lint:squawk": {
@@ -389,7 +386,7 @@
             { "cache": true },
             { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ] },
             { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support.py}" ] },
-            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "{workspaceRoot}/eng/python/blender/**/*.py", "{workspaceRoot}/libs/python/blender/records/faults.py", { "runtime": "\"$BLENDER_PATH\" --version" } ] },
+            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "blender" ] },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
                 "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],

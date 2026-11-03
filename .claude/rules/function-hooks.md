@@ -18,6 +18,8 @@ Hooks fix a wrong call and let it run, the model keeps working:
 - ALWAYS declare a program's options, bodies, input, and inner command as its `invocation.ts` row, an undeclared option's value parses as an operand
 - ALWAYS read process and path facts through the `System` each adapter builds once and passes to `commandDecision`
 - Discover tasks through native Nx JSON commands, hooks own no task catalog or command routing
+- Rewrites edit the call's own command (a variable delete takes its literal path), a nested body or script takes the refusal naming the form
+- Ghidra policies hold `analyzeHeadless` to `$GHIDRA_PROJECT_DIR`, refuse project copies and lock deletes, background imports and `Serve.java` alone
 - Settings `PreToolUse` hooks run inside `next` on the rewritten command and return a refusal as an `isError` result
 - Registrations on one event nest in order, first outermost, and a repeated registration fails module load
 - Calls the hook cannot parse or judge are refused
@@ -25,7 +27,7 @@ Hooks fix a wrong call and let it run, the model keeps working:
 ## [02]-[OUTPUT]
 
 Texts reaching a model or harness (refusal, context, toast, log line) appear only when they change the next action:
-- ALWAYS write a fact sentence, then an action sentence naming the replacement, under 10 words and passing `clean-prose`
+- ALWAYS write one sentence stating the fact, then after a comma the action naming the replacement, under 10 words and passing `clean-prose`
 - ALWAYS state what the hook derived from the call and point to the owner (skill, file, target) of the rest
 - Enumerated cases, hardcoded values, and guessed fixes steer the model to a wrong form
 - `context` is a note Claude reads after a tool result, and users never see it
@@ -37,7 +39,8 @@ Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modul
 - ALWAYS place each pure function in the folder of its concern, `hooks/register.ts` alone reads `$`
 - ALWAYS pass `$` whole to functions declared at top level of `register.ts`, any other use of `$` fails module load
 - ALWAYS keep files `.codex/hooks/rewrite.ts` imports inside the plugin, with APIs both Node and the harness supply
-- ALWAYS compose faults through the result type in `composition.ts`
+- ALWAYS compose faults through the result type in `monads.ts`
 - ALWAYS spawn a program by name, or by the path `mise which` prints in the repository when mise configuration changes the resolved path
+- `register.ts` tracks watch-apps and Atelier app instances by session and agent, quitting a subagent's at `turn.complete`, the rest at `session.end`
 - Modules that fail to load register no hook, and every call then runs unchecked
 - Every running session loads saved files at its next plugin reload, so each save leaves every module loadable and every name defined

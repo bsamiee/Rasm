@@ -1,11 +1,12 @@
-import { Option } from '../composition.ts';
+import { Option } from '../monads.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Invocation = readonly [string, ...string[]];
 
 interface Program {
-    readonly valued?: readonly string[];
+    readonly aliases?: readonly string[];
+    readonly valueOptions?: readonly string[];
     readonly arities?: Readonly<Record<string, number>>;
     readonly bodies?: readonly string[];
     readonly leading?: number;
@@ -16,20 +17,20 @@ interface Program {
     readonly shell?: readonly string[] | 'joined';
     readonly chdir?: readonly string[];
     readonly informational?: readonly string[];
-    readonly wholeWords?: true;
-    readonly runs?: readonly (readonly string[])[] | '--';
+    readonly singleDashLong?: true;
+    readonly wraps?: readonly (readonly string[])[] | '--';
     readonly execs?: readonly string[];
     readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
     readonly previews?: readonly [string, ...string[]];
     readonly headless?: readonly string[];
     readonly flags?: readonly string[];
-    readonly targets?: readonly string[];
+    readonly selectors?: readonly string[];
     readonly timer?: true | readonly string[];
     readonly endless?: true | readonly string[];
-    readonly verdict?: true;
+    readonly exitStatus?: true;
     readonly repeats?: true;
-    readonly standalone?: RegExp;
-    readonly closes?: true | readonly string[];
+    readonly stdinlessScript?: RegExp;
+    readonly closesInput?: true | readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -43,40 +44,38 @@ interface Operands {
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const OPTION = /^-./u;
 const TILDE = /^~(?<user>[^/]*)/u;
-const DIRECTORY = /^.*\//su;
+const DIRNAME = /^.*\//su;
+const HELP: readonly string[] = ['--help', '--version'];
 const PROGRAMS: ReadonlyMap<string, Program> = new Map(
-    Object.entries({
+    Object.entries<Program>({
         sudo: {
-            valued: ['-C', '-D', '-g', '-h', '-p', '-R', '-T', '-U', '-u', '--close-from', '--chdir', '--group', '--host', '--prompt', '--chroot', '--command-timeout', '--other-user', '--user'],
-            runs: [[]],
+            valueOptions: ['-C', '-D', '-g', '-h', '-p', '-R', '-T', '-U', '-u', '--close-from', '--chdir', '--group', '--host', '--prompt', '--chroot', '--command-timeout', '--other-user', '--user'],
+            wraps: [[]],
         },
-        doas: { valued: ['-C', '-u'], runs: [[]] },
-        env: { valued: ['-C', '-P', '-S', '-u'], runs: [[]] },
-        command: { runs: [[]] },
-        exec: { valued: ['-a'], runs: [[]] },
-        nice: { valued: ['-n'], runs: [[]] },
-        nohup: { runs: [[]] },
-        setsid: { runs: [[]] },
-        stdbuf: { valued: ['-e', '-i', '-o'], runs: [[]] },
-        timeout: { valued: ['-k', '-s', '--kill-after', '--signal'], leading: 1, runs: [[]] },
-        time: { valued: ['-o'], runs: [[]] },
-        xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]], repeats: true },
-        kill: { valued: ['-s', '-n'] },
-        ps: { valued: ['-p', '-o', '-O', '-U', '-u', '-G', '-g', '-t', '-M', '-N'] },
-        ...Object.fromEntries(['pgrep', 'pkill'].map((name) => [name, { valued: ['-d', '-F', '-G', '-g', '-P', '-s', '-t', '-U', '-u'] } satisfies Program])),
+        doas: { valueOptions: ['-C', '-u'], wraps: [[]] },
+        env: { valueOptions: ['-C', '-P', '-S', '-u'], wraps: [[]] },
+        command: { aliases: ['nohup', 'setsid', 'npx'], wraps: [[]] },
+        exec: { valueOptions: ['-a'], wraps: [[]] },
+        nice: { valueOptions: ['-n'], wraps: [[]] },
+        stdbuf: { valueOptions: ['-e', '-i', '-o'], wraps: [[]] },
+        timeout: { valueOptions: ['-k', '-s', '--kill-after', '--signal'], leading: 1, wraps: [[]] },
+        time: { valueOptions: ['-o'], wraps: [[]] },
+        xargs: { valueOptions: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', wraps: [[]], repeats: true },
+        kill: { valueOptions: ['-s', '-n'] },
+        ps: { valueOptions: ['-p', '-o', '-O', '-U', '-u', '-G', '-g', '-t', '-M', '-N'] },
+        pgrep: { aliases: ['pkill'], valueOptions: ['-d', '-F', '-G', '-g', '-P', '-s', '-t', '-U', '-u'] },
         sleep: { timer: true },
         wait4path: { endless: true },
-        caffeinate: { valued: ['-t', '-w'], runs: [[]], timer: ['-t'], endless: true },
-        watch: { valued: ['-n', '--interval'], endless: true },
-        arch: { valued: ['-arch', '-d'], runs: [[]] },
-        xcrun: { valued: ['--sdk', '--toolchain'], runs: [[]] },
-        lockf: { valued: ['-t'], leading: 1, runs: [[]] },
-        npx: { runs: [[]] },
-        npm: { runs: [['exec'], ['x']], verdict: true },
-        pnpm: { runs: [[], ['exec'], ['dlx']], verdict: true },
-        ...Object.fromEntries(['dotnet', 'swift', 'xcodebuild', 'pytest', 'vitest'].map((name) => [name, { verdict: true } satisfies Program])),
+        caffeinate: { valueOptions: ['-t', '-w'], wraps: [[]], timer: ['-t'], endless: true },
+        watch: { valueOptions: ['-n', '--interval'], endless: true },
+        arch: { valueOptions: ['-arch', '-d'], wraps: [[]] },
+        xcrun: { valueOptions: ['--sdk', '--toolchain'], wraps: [[]] },
+        lockf: { valueOptions: ['-t'], leading: 1, wraps: [[]] },
+        npm: { wraps: [['exec'], ['x']], exitStatus: true },
+        pnpm: { wraps: [[], ['exec'], ['dlx']], exitStatus: true },
+        dotnet: { aliases: ['swift', 'xcodebuild', 'pytest', 'vitest'], exitStatus: true },
         uv: {
-            valued: [
+            valueOptions: [
                 '--extra',
                 '--no-extra',
                 '--group',
@@ -136,17 +135,14 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '--project',
                 '--config-file',
             ],
-            runs: [['run'], ['tool', 'run']],
-            verdict: true,
+            wraps: [['run'], ['tool', 'run']],
+            exitStatus: true,
         },
-        poetry: { runs: [['run']] },
-        hatch: { runs: [['run']] },
-        pixi: { valued: ['-e', '--environment', '--manifest-path', '--auth-file', '--pypi-keyring-provider', '--concurrent-solves', '--concurrent-downloads', '--color'], runs: [['run']] },
-        mise: { runs: '--' },
-        doppler: { runs: '--' },
-        op: { runs: '--' },
+        poetry: { aliases: ['hatch'], wraps: [['run']] },
+        pixi: { valueOptions: ['-e', '--environment', '--manifest-path', '--auth-file', '--pypi-keyring-provider', '--concurrent-solves', '--concurrent-downloads', '--color'], wraps: [['run']] },
+        mise: { aliases: ['doppler', 'op'], wraps: '--' },
         hyperfine: {
-            valued: [
+            valueOptions: [
                 '-w',
                 '--warmup',
                 '-m',
@@ -177,55 +173,48 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             arities: { '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 },
             bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
         },
-        ...Object.fromEntries(
-            ['fd', 'fdfind'].map((name) => [
-                name,
-                {
-                    valued: [
-                        '-e',
-                        '--extension',
-                        '-t',
-                        '--type',
-                        '-E',
-                        '--exclude',
-                        '-d',
-                        '--max-depth',
-                        '--min-depth',
-                        '--exact-depth',
-                        '-S',
-                        '--size',
-                        '--changed-within',
-                        '--changed-before',
-                        '-o',
-                        '--owner',
-                        '-C',
-                        '--base-directory',
-                        '--search-path',
-                        '-j',
-                        '--threads',
-                        '--max-results',
-                        '-c',
-                        '--color',
-                        '--format',
-                        '--path-separator',
-                        '--ignore-file',
-                        '--ignore-contain',
-                        '--and',
-                        '--batch-size',
-                    ],
-                    leading: 1,
-                    informational: ['-h', '-V'],
-                    execs: ['-x', '-X', '--exec', '--exec-batch'],
-                    walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
-                } satisfies Program,
-            ]),
-        ),
-        ...Object.fromEntries(['find', 'gfind'].map((name) => [name, { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } } satisfies Program])),
-        tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
-        du: { valued: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
-        git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
+        fd: {
+            aliases: ['fdfind'],
+            valueOptions: [
+                '-e',
+                '--extension',
+                '-t',
+                '--type',
+                '-E',
+                '--exclude',
+                '-d',
+                '--max-depth',
+                '--min-depth',
+                '--exact-depth',
+                '-S',
+                '--size',
+                '--changed-isInside',
+                '--changed-before',
+                '-o',
+                '--owner',
+                '-j',
+                '--threads',
+                '--max-results',
+                '-c',
+                '--color',
+                '--format',
+                '--path-separator',
+                '--ignore-file',
+                '--ignore-contain',
+                '--and',
+                '--batch-size',
+            ],
+            leading: 1,
+            informational: ['-h', '-V'],
+            execs: ['-x', '-X', '--exec', '--exec-batch'],
+            walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
+        },
+        find: { aliases: ['gfind'], singleDashLong: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } },
+        tree: { valueOptions: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
+        du: { valueOptions: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
+        git: { valueOptions: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         rsync: {
-            valued: [
+            valueOptions: [
                 '-B',
                 '-e',
                 '-f',
@@ -289,7 +278,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             ],
         },
         grep: {
-            valued: [
+            valueOptions: [
                 '-A',
                 '--after-context',
                 '-B',
@@ -341,10 +330,10 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leadingOptions: ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'],
             stdin: 'default',
             walks: { when: ['-r', '-R', '--recursive', '--dereference-recursive'] },
-            closes: ['-q', '--quiet', '--silent', '-m', '--max-count', '-l', '--files-with-matches'],
+            closesInput: ['-q', '--quiet', '--silent', '-m', '--max-count', '-l', '--files-with-matches'],
         },
         rg: {
-            valued: [
+            valueOptions: [
                 '-e',
                 '--regexp',
                 '-f',
@@ -399,71 +388,55 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leadingOptions: ['-e', '--regexp', '-f', '--file', '--files', '--type-list', '--generate'],
             informational: ['-h', '-V'],
             walks: {},
-            closes: ['-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'],
+            closesInput: ['-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'],
         },
-        cat: { stdin: 'default' },
-        wc: { stdin: 'default' },
-        head: { valued: ['-n', '-c'], stdin: 'default', closes: true },
-        tail: { valued: ['-b', '-c', '-n'], stdin: 'default', endless: ['-f', '-F', '--follow'] },
-        sort: { valued: ['-k', '-t', '-o', '-S', '-T', '--batch-size', '--parallel', '--random-source', '--compress-program'], stdin: 'default', stdinless: ['--files0-from'] },
-        uniq: { valued: ['-f', '-s'], stdin: 'default' },
-        cut: { valued: ['-b', '-c', '-f', '-d'], stdin: 'default' },
-        shasum: { valued: ['-a'], stdin: 'default' },
-        md5: { valued: ['-s'], stdin: 'default', stdinless: ['-s'] },
-        tr: { stdin: 'always' },
-        tee: { stdin: 'always' },
-        pbcopy: { stdin: 'always' },
-        read: { valued: ['-a', '-d', '-i', '-n', '-N', '-p', '-t', '-u'], stdin: 'always', stdinless: ['-u'], timer: ['-t'] },
-        base64: { valued: ['-b', '-i', '-o', '--break', '--input', '--output'], stdin: 'always', stdinless: ['-i', '--input'] },
-        sed: { valued: ['-e', '-f'], leading: 1, leadingOptions: ['-e', '-f', '--expression', '--file'], stdin: 'default' },
-        awk: { valued: ['-F', '-v', '-f'], leading: 1, leadingOptions: ['-f'], stdin: 'default', standalone: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u },
-        jq: { valued: ['-L', '--library-path', '--indent'], arities: { '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 }, leading: 1, stdin: 'default', stdinless: ['-n', '--null-input'] },
-        yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
+        cat: { aliases: ['wc'], stdin: 'default' },
+        head: { valueOptions: ['-n', '-c'], stdin: 'default', closesInput: true },
+        tail: { valueOptions: ['-b', '-c', '-n'], stdin: 'default', endless: ['-f', '-F', '--follow'] },
+        sort: { valueOptions: ['-k', '-t', '-o', '-S', '-T', '--batch-size', '--parallel', '--random-source', '--compress-program'], stdin: 'default', stdinless: ['--files0-from'] },
+        uniq: { valueOptions: ['-f', '-s'], stdin: 'default' },
+        cut: { valueOptions: ['-b', '-c', '-f', '-d'], stdin: 'default' },
+        shasum: { valueOptions: ['-a'], stdin: 'default' },
+        md5: { valueOptions: ['-s'], stdin: 'default', stdinless: ['-s'] },
+        tr: { aliases: ['tee', 'pbcopy'], stdin: 'always' },
+        read: { valueOptions: ['-a', '-d', '-i', '-n', '-N', '-p', '-t', '-u'], stdin: 'always', stdinless: ['-u'], timer: ['-t'] },
+        base64: { valueOptions: ['-b', '-i', '-o', '--break', '--input', '--output'], stdin: 'always', stdinless: ['-i', '--input'] },
+        sed: { valueOptions: ['-e', '-f'], leading: 1, leadingOptions: ['-e', '-f', '--expression', '--file'], stdin: 'default' },
+        awk: { valueOptions: ['-F', '-v', '-f'], leading: 1, leadingOptions: ['-f'], stdin: 'default', stdinlessScript: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u },
+        jq: { valueOptions: ['-L', '--library-path', '--indent'], arities: { '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 }, leading: 1, stdin: 'default', stdinless: ['-n', '--null-input'] },
+        yq: { valueOptions: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
         sd: {
-            valued: ['-f', '-n', '--flags', '--max-replacements'],
-            flags: ['-p', '--preview', '-F', '--fixed-strings', '-A', '--across', '-h', '--help', '-V', '--version'],
+            valueOptions: ['-f', '-n', '--flags', '--max-replacements'],
+            flags: ['-F', '--fixed-strings', '-A', '--across'],
             leading: 2,
             stdin: 'default',
             informational: ['-h', '-V'],
             previews: ['-p', '--preview'],
         },
         node: { stdin: 'default', stdinless: ['--test', '--run'], code: ['-e', '-p', '--eval', '--print'], informational: ['-v'] },
-        perl: { valued: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
-        ruby: { valued: ['-I', '-r', '-C', '-E'], stdin: 'default', code: ['-e'], informational: ['-v', '-h', '--copyright'] },
+        perl: { valueOptions: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
+        ruby: { valueOptions: ['-I', '-r', '-C', '-E'], stdin: 'default', code: ['-e'], informational: ['-v', '-h', '--copyright'] },
         eval: { shell: 'joined' },
-        set: { valued: ['-o', '+o'] },
+        set: { valueOptions: ['-o', '+o'] },
         cd: { chdir: ['~'] },
-        pushd: { chdir: [] },
-        popd: { chdir: [] },
-        ...Object.fromEntries(['python', 'python3'].map((name) => [name, { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] } satisfies Program])),
-        ...Object.fromEntries(['bash', 'sh', 'zsh', 'dash', 'ksh'].map((name) => [name, { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] } satisfies Program])),
-        ...Object.fromEntries(
-            ['sqlite3', 'duckdb'].map((name) => [
-                name,
-                {
-                    valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
-                    leading: 1,
-                    stdin: 'default',
-                    stdinless: ['-c', '-s', '-f', '-no-stdin'],
-                    informational: ['-h', '-help', '-version'],
-                    wholeWords: true,
-                } satisfies Program,
-            ]),
-        ),
-        nx: { verdict: true, valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
+        pushd: { aliases: ['popd'], chdir: [] },
+        python: { aliases: ['python3'], valueOptions: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] },
+        bash: { aliases: ['sh', 'zsh', 'dash', 'ksh'], valueOptions: ['-o', '-O'], stdin: 'default', shell: ['-c'] },
+        sqlite3: { aliases: ['duckdb'], valueOptions: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'], leading: 1, stdin: 'default', stdinless: ['-c', '-s', '-f', '-no-stdin'], informational: ['-h', '-help', '-version'], singleDashLong: true },
+        nx: { exitStatus: true, valueOptions: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
         tsc: {
-            valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
+            valueOptions: ['--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
             informational: ['-v', '-h', '-b', '--build', '-w', '--watch', '--init', '--showConfig'],
-            targets: ['-p', '--project'],
-            verdict: true,
+            selectors: ['-p', '--project'],
+            exitStatus: true,
         },
         cargo: {
-            valued: ['-p', '--package', '--exclude', '-m', '--manifest-path', '-C', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
-            targets: ['-p', '--package'],
-            verdict: true,
+            valueOptions: ['--exclude', '-m', '--manifest-path', '-C', '--target', '--target-dir', '-F', '--features', '--profile', '-j', '--jobs', '--config', '-Z', '--color', '--message-format', '--bin', '--example', '--test', '--bench'],
+            selectors: ['-p', '--package'],
+            exitStatus: true,
         },
         biome: {
-            valued: [
+            valueOptions: [
                 '--config-path',
                 '--max-diagnostics',
                 '--reporter',
@@ -484,10 +457,10 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '--indent-width',
                 '--line-width',
             ],
-            targets: [],
+            selectors: [],
         },
         ruff: {
-            valued: [
+            valueOptions: [
                 '--config',
                 '--select',
                 '--extend-select',
@@ -510,10 +483,10 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '--stdin-filename',
                 '--cache-dir',
             ],
-            targets: [],
+            selectors: [],
         },
         'ast-grep': {
-            valued: [
+            valueOptions: [
                 '-c',
                 '--config',
                 '-r',
@@ -544,29 +517,29 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '--context',
                 '--max-results',
             ],
-            targets: [],
+            selectors: [],
         },
-        osascript: { valued: ['-e', '-l', '-s'] },
-        open: { valued: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
-        xed: { valued: ['-l', '--line'], informational: ['-h', '-v'] },
-        analyzeHeadless: { wholeWords: true, informational: ['-help'], valued: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths', '-loader'] },
+        osascript: { valueOptions: ['-e', '-l', '-s'] },
+        open: { valueOptions: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
+        xed: { valueOptions: ['-l', '--line'], informational: ['-h', '-v'] },
+        analyzeHeadless: { singleDashLong: true, informational: ['-help'], valueOptions: ['-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-processor', '-cspec', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths', '-loader'] },
         Blender: { informational: ['-v', '-h', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'] },
-        'watch-apps': { informational: ['-h', '--help'], valued: ['--document', '--arguments', '--environment', '--pid', '--window', '--longest-side'] },
-    } satisfies Record<string, Program>),
+        'watch-apps': { informational: ['-h'], valueOptions: ['--document', '--arguments', '--environment', '--pid', '--window', '--longest-side'] },
+    }).flatMap(([name, row]) => [name, ...(row.aliases ?? [])].map((alias) => [alias, row] as const)),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [OPTIONS]
 
-const declared = (program: string): Program => PROGRAMS.get(program) ?? {};
+const programRow = (program: string): Program => PROGRAMS.get(program) ?? {};
 
 const option = (row: Program, word: string) => {
-    const arity = (name: string): number => row.arities?.[name] ?? ([row.valued, row.bodies, row.code].some((listed) => listed?.includes(name) === true) ? 1 : 0);
+    const arity = (name: string): number => row.arities?.[name] ?? ([row.valueOptions, row.bodies, row.code, row.selectors, row.walks?.paths, row.walks?.base].some((listed) => listed?.includes(name) === true) ? 1 : 0);
     const cut = word.indexOf('=');
     const given = cut < 0 ? word : word.slice(0, cut);
-    const head = row.wholeWords === true && given.startsWith('--') ? given.slice(1) : given;
-    if (head.startsWith('--') || row.wholeWords === true || arity(head) > 0) {
+    const head = row.singleDashLong === true && given.startsWith('--') ? given.slice(1) : given;
+    if (head.startsWith('--') || row.singleDashLong === true || arity(head) > 0) {
         return { names: [head], taken: cut < 0 ? arity(head) : 0, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
     }
     const [, ...letters] = [...word];
@@ -578,27 +551,27 @@ const option = (row: Program, word: string) => {
     return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: attached === '' ? [] : [attached] };
 };
 
-const optional = (row: Program, word: string): boolean => OPTION.test(word) && (row.flags === undefined || option(row, word).names.every((name) => [row.flags, row.valued].some((listed) => listed?.includes(name) === true)));
+const isOption = (row: Program, word: string): boolean => OPTION.test(word) && (row.flags === undefined || option(row, word).names.every((name) => [row.flags, row.valueOptions, row.informational, row.previews, HELP].some((listed) => listed?.includes(name) === true)));
 
-const firstOperand = (invocation: Invocation, index: number): number => {
-    const [program] = invocation;
-    const word = invocation[index];
-    return word === undefined || word === '--' || !optional(declared(program), word) ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
+const firstOperand = ([program, ...args]: Invocation): number => {
+    const row = programRow(program);
+    const skipped = ([word, ...rest]: readonly string[]): number => (word === undefined || word === '--' || !isOption(row, word) ? 0 : 1 + option(row, word).taken + skipped(rest.slice(option(row, word).taken)));
+    return 1 + skipped(args);
 };
 
-const separated = (row: Program, [head, ...rest]: readonly string[]): Operands => {
+const splitOperands = (row: Program, [head, ...rest]: readonly string[]): Operands => {
     if (head === undefined || head === '--') {
         return { inputs: rest, options: [], values: [], inner: [] };
     }
-    if (!optional(row, head)) {
-        const tail = separated(row, rest);
+    if (!isOption(row, head)) {
+        const tail = splitOperands(row, rest);
         return { ...tail, inputs: [head, ...tail.inputs] };
     }
     const { names, taken, joined } = option(row, head);
     const launches = names.some((name) => row.execs?.includes(name) === true);
     const end = rest.findIndex((word) => word === ';' || word === '+');
     const launched = launches ? rest.slice(0, end < 0 ? rest.length : end) : [];
-    const tail = separated(row, rest.slice(launches ? launched.length + 1 : taken));
+    const tail = splitOperands(row, rest.slice(launches ? launched.length + 1 : taken));
     return {
         inputs: tail.inputs,
         options: [...names, ...tail.options],
@@ -609,49 +582,44 @@ const separated = (row: Program, [head, ...rest]: readonly string[]): Operands =
 
 const operands = (invocation: Invocation) => {
     const [program, ...args] = invocation;
-    const row = declared(program);
-    const { inputs: all, ...split } = separated(row, args);
+    const row = programRow(program);
+    const { inputs: all, ...split } = splitOperands(row, args);
     const count = split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0);
     const inputs = all.slice(count);
-    const { when, paths = [], base = [], before } = row.walks ?? { when: [] };
-    const tail = args.slice(firstOperand(invocation, 1) - 1);
+    const { when, paths, base, before } = row.walks ?? { when: [] };
+    const listed = (names: readonly string[] | undefined): readonly string[] => split.values.flatMap(([name, value]) => (names?.includes(name) === true ? [value] : []));
+    const tail = args.slice(firstOperand(invocation) - 1);
     const end = tail.findIndex((word) => before?.some((prefix) => word.startsWith(prefix)) === true);
-    const given = [...split.values.flatMap(([name, value]) => (paths.includes(name) ? [value] : [])), ...(before === undefined ? inputs : tail.slice(0, end < 0 ? tail.length : end))];
+    const given = [...listed(paths), ...(before === undefined ? inputs : tail.slice(0, end < 0 ? tail.length : end))];
     const roots = given.length === 0 ? ['.'] : given;
     return {
         ...split,
         leading: all.slice(0, count),
         inputs,
         roots: when?.some((name) => split.options.includes(name)) === false ? [] : roots,
-        base: split.values.flatMap(([name, value]) => (base.includes(name) ? [value] : [])),
-        bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(split.options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...split.values.filter(([name]) => row.bodies?.includes(name) === true).map(([, value]) => value)],
+        base: listed(base),
+        bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(split.options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...listed(row.bodies)],
     };
 };
 
+const informational = (program: string, options: readonly string[]): boolean => options.some((name) => [HELP, programRow(program).informational].some((listed) => listed?.includes(name) === true));
+
+const enabled = (listed: true | readonly string[] | undefined, options: readonly string[]): boolean => listed === true || options.some((name) => listed?.includes(name) === true);
+
 // --- [STDIN]
 
-const informational = (program: string, options: readonly string[]): boolean => options.some((name) => name === '--help' || name === '--version' || declared(program).informational?.includes(name) === true);
-
-const marked = (listed: true | readonly string[] | undefined, options: readonly string[]): boolean => listed === true || options.some((name) => listed?.includes(name) === true);
-
-const waits = (invocation: Invocation): boolean => {
+const readsStdin = (invocation: Invocation): boolean => {
     const [program] = invocation;
-    const { stdin, stdinless = [], code = [], standalone } = declared(program);
+    const { stdin, stdinless = [], code = [], stdinlessScript } = programRow(program);
     const { inputs, options, roots, leading } = operands(invocation);
-    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && !leading.some((text) => standalone?.test(text) === true) && (stdin === 'always' || inputs.includes('-') || (inputs.length === 0 && roots.length === 0));
+    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && !leading.some((text) => stdinlessScript?.test(text) === true) && (stdin === 'always' || inputs.includes('-') || (inputs.length === 0 && roots.length === 0));
 };
 
-// --- [INVOCATIONS]
+// --- [PATHS]
 
-const placed = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
-    const expanded = home.match(
-        (folder) => word.replace(TILDE, (_match, user: string) => (user === '' ? folder : `${folder.slice(0, folder.lastIndexOf('/'))}/${user}`)),
-        () => word,
-    );
-    const absolute = cwd.match(
-        (folder) => (expanded.startsWith('/') ? expanded : `${folder}/${expanded}`),
-        () => expanded,
-    );
+const resolvePath = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
+    const [expanded = word] = home.map((folder) => word.replace(TILDE, (_match, user: string) => (user === '' ? folder : `${folder.slice(0, folder.lastIndexOf('/'))}/${user}`))).toArray();
+    const [absolute = expanded] = cwd.map((folder) => (expanded.startsWith('/') ? expanded : `${folder}/${expanded}`)).toArray();
     return absolute.startsWith('/')
         ? Option.some(
               `/${absolute
@@ -663,11 +631,13 @@ const placed = (word: string, cwd: Option<string>, home: Option<string>): Option
         : Option.none;
 };
 
-const basename = (path: string): string => path.replace(DIRECTORY, '');
+const basename = (path: string): string => path.replace(DIRNAME, '');
 
-const within = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);
+const isInside = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);
 
-const unquoted = (word: string): string => word.replace(/(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(/\\(?<char>["\\$`\n])/gu, '$<char>') : body));
+// --- [INVOCATIONS]
+
+const unquote = (word: string): string => word.replace(/(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(/\\(?<char>["\\$`\n])/gu, '$<char>') : body));
 
 const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] => {
     if (head === undefined) {
@@ -677,27 +647,27 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
         return invocations(rest);
     }
     const program = basename(head);
-    const row = declared(program);
-    const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
+    const row = programRow(program);
+    const innerWords = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
         const [first, ...more] = words;
         const deeper = pending.flatMap(([step, ...steps]) => (step !== undefined && step === first ? [steps] : []));
-        if (first !== undefined && optional(row, first)) {
-            return wrapped(more.slice(option(row, first).taken), pending);
+        if (first !== undefined && isOption(row, first)) {
+            return innerWords(more.slice(option(row, first).taken), pending);
         }
         if (deeper.length > 0) {
-            return wrapped(more, deeper);
+            return innerWords(more, deeper);
         }
         return pending.some((path) => path.length === 0) ? words.slice(row.leading ?? 0) : [];
     };
-    const inner = row.runs === '--' ? rest.slice(rest.includes('--') ? rest.indexOf('--') + 1 : rest.length) : wrapped(rest, row.runs ?? []);
+    const inner = row.wraps === '--' ? rest.slice(rest.includes('--') ? rest.indexOf('--') + 1 : rest.length) : innerWords(rest, row.wraps ?? []);
     return [[program, ...rest.slice(0, rest.length - inner.length)], ...invocations(inner)];
 };
 
-const staged = <W extends { readonly text: string }>(words: readonly W[], [invocation, ...rest]: readonly Invocation[]): readonly { readonly assigned: readonly W[]; readonly words: readonly W[] }[] => {
+const invocationParts = <W extends { readonly text: string }>(words: readonly W[], [invocation, ...rest]: readonly Invocation[]): readonly { readonly assigned: readonly W[]; readonly words: readonly W[] }[] => {
     const at = words.findIndex(({ text }) => !ASSIGNMENT.test(text));
-    return invocation === undefined || at < 0 ? [] : [{ assigned: words.slice(0, at), words: words.slice(at, at + invocation.length) }, ...staged(words.slice(at + invocation.length), rest)];
+    return invocation === undefined || at < 0 ? [] : [{ assigned: words.slice(0, at), words: words.slice(at, at + invocation.length) }, ...invocationParts(words.slice(at + invocation.length), rest)];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { basename, declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, staged, unquoted, waits, within };
+export { basename, enabled, firstOperand, type Invocation, informational, invocationParts, invocations, isInside, isOption, operands, option, programRow, readsStdin, resolvePath, unquote };

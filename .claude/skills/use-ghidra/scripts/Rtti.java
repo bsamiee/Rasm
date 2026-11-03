@@ -193,7 +193,9 @@ public class Rtti extends GhidraScript {
                                                 Stream.concat(
                                                                 Stream.of(symbol.getAddress()),
                                                                 Stream.of(symbol.getAddress())
-                                                                        .filter(Address::isMemoryAddress)
+                                                                        .filter(
+                                                                                Address
+                                                                                        ::isMemoryAddress)
                                                                         .map(image::point))
                                                         .flatMap(image::referrers)
                                                         .filter(from ->
@@ -226,8 +228,7 @@ public class Rtti extends GhidraScript {
                                                                 .replaceFirst("")))
                                 .orElse(address.toString());
         AddressSet typeinfos = new AddressSet();
-        types.forEach(type ->
-                typeinfos.add(type.address(), type.address().add(type.size() - 1)));
+        types.forEach(type -> typeinfos.add(type.address(), type.address().add(type.size() - 1)));
         List<Map.Entry<TypeInfo, Address>> headers =
                 types.stream()
                         .flatMap(type ->
@@ -238,8 +239,8 @@ public class Rtti extends GhidraScript {
                                                 Map.entry(type, from.subtract(image.pointer()))))
                         .toList();
         AddressSet ends = new AddressSet(typeinfos);
-        headers.forEach(entry ->
-                ends.add(entry.getValue(), image.point(entry.getValue()).subtract(1)));
+        headers.forEach(
+                entry -> ends.add(entry.getValue(), image.point(entry.getValue()).subtract(1)));
         BiFunction<Address, Address, Report.Result<Optional<Slot>>> slotAt =
                 (point, at) -> {
                     try {
@@ -248,7 +249,9 @@ public class Rtti extends GhidraScript {
                                 Slot.Kind.of(getFunctionAt(target) != null, memory.getBlock(target))
                                         .map(kind ->
                                                 new Slot(
-                                                        (int) (at.subtract(point) / image.pointer()),
+                                                        (int)
+                                                                (at.subtract(point)
+                                                                        / image.pointer()),
                                                         target,
                                                         kind,
                                                         Optional.ofNullable(
@@ -280,37 +283,33 @@ public class Rtti extends GhidraScript {
                                                         .formatted(
                                                                 vtable, exception.getMessage())));
                             }
-                            return offset > 0
-                                    ? Stream.empty()
-                                    : Stream.of(
-                                            Report.all(
-                                                            Stream.iterate(
-                                                                            point,
-                                                                            at ->
-                                                                                    at.add(
-                                                                                            image
-                                                                                                    .pointer()))
-                                                                    .takeWhile(block::contains)
-                                                                    .takeWhile(at ->
-                                                                            !ends.contains(at))
-                                                                    .map(at ->
-                                                                            slotAt.apply(point, at))
-                                                                    .takeWhile(slot ->
-                                                                            slot.values()
-                                                                                    .allMatch(
-                                                                                            Optional
-                                                                                                    ::isPresent)))
-                                                    .map(slots ->
-                                                            new Vtable(
-                                                                    vtable,
-                                                                    entry.getKey(),
-                                                                    offset,
-                                                                    slots.stream()
-                                                                            .flatMap(Optional::stream)
-                                                                            .toList(),
-                                                                    image.referrers(point)
-                                                                            .sorted()
-                                                                            .toList())));
+                            if (offset > 0) {
+                                return Stream.empty();
+                            }
+                            return Stream.of(
+                                    Report.all(
+                                                    Stream.iterate(
+                                                                    point,
+                                                                    at -> at.add(image.pointer()))
+                                                            .takeWhile(block::contains)
+                                                            .takeWhile(at -> !ends.contains(at))
+                                                            .map(at -> slotAt.apply(point, at))
+                                                            .takeWhile(slot ->
+                                                                    slot.values()
+                                                                            .allMatch(
+                                                                                    Optional
+                                                                                            ::isPresent)))
+                                            .map(slots ->
+                                                    new Vtable(
+                                                            vtable,
+                                                            entry.getKey(),
+                                                            offset,
+                                                            slots.stream()
+                                                                    .flatMap(Optional::stream)
+                                                                    .toList(),
+                                                            image.referrers(point)
+                                                                    .sorted()
+                                                                    .toList())));
                         })
                         .toList();
         List<Vtable> vtables =

@@ -1,7 +1,6 @@
-import { Effect, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Effect, flow, Result, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Toml as TomlText, Yaml as YamlText } from 'effect/encoding';
 import { parse as parsePlist } from 'plist';
-import { parse as parseToml } from 'smol-toml';
-import { parse as parseYaml } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,8 +11,8 @@ const fromString = (expected: string, parse: (text: string) => unknown) =>
             encode: SchemaGetter.forbiddenEncoding,
         }),
     );
-const Toml = fromString('TOML', parseToml);
-const Yaml = fromString('YAML', parseYaml);
+const Toml = fromString('TOML', flow(TomlText.parse, Result.getOrThrow));
+const Yaml = fromString('YAML', YamlText.parse);
 const Plist = fromString('property list', parsePlist);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
