@@ -1,7 +1,7 @@
-import { constants, tmpdir } from 'node:os';
+import { constants } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { State } from '@rasm/automation/applications';
-import { Array, ByteSize, Duration, Effect, FileSystem, flow, identity, Match, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, flow, identity, Match, Option, Path, Record, Result, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/error';
 import type { Crash, Dialog } from '#/results';
@@ -39,6 +39,7 @@ const RUNNABLE = 'R';
 const ADOBE_CRASH_REPORTER = 'com.adobe.crashreporter';
 const MAIN_THREAD = /^\s*\d+ Thread_\S+\s+DispatchQueue_1: com\.apple\.main-thread\b/u;
 const FRAME = /^(?<depth>[ +!:|]*)\d+ (?<symbol>.+?) {2}(?:\(in (?<image>[^)]+)\)|\[)/u;
+const SPACES = /\s+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -69,6 +70,12 @@ const checked = Effect.fn('checked')(function* (command: string, args: readonly 
     return code === 0 ? stdout : yield* HarnessError.unavailable([command, ...args].join(' '))(`exited with code ${code}: ${stderr}`);
 });
 const printed = (command: string, args: readonly string[]) => Effect.map(checked(command, args), (bytes) => new TextDecoder().decode(bytes));
+const startOf = (line: string) =>
+    Array.matchLeft(line.trim().split(SPACES), {
+        onEmpty: Option.none,
+        onNonEmpty: (pid, started) => Option.zipWith(Schema.decodeOption(Schema.FiniteFromString)(pid), DateTime.make(started.join(' ')), (held, at) => [held, at] as const),
+    });
+const starts = (selected: readonly string[]) => Effect.map(printed('ps', ['-o', 'pid=,lstart=', ...selected]), (text) => new Map(Array.getSomes(text.split('\n').map(startOf))));
 const plist = Effect.fn('plist')(function* <S extends Schema.Top>(app: string, schema: S) {
     const path = yield* Path.Path;
     return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(yield* printed('plutil', ['-convert', 'json', '-o', '-', path.join(app, 'Contents', 'Info.plist')]));
@@ -146,11 +153,7 @@ const spawned = Effect.fn('spawned')(function* (identifier: string, spec: Spawne
 });
 const read = (names: Array.NonEmptyReadonlyArray<string>) => Effect.scoped(Effect.flatMap(rows(['read', ...names]), Stream.runCollect));
 const watch = (names: Array.NonEmptyReadonlyArray<string>, pid: number) => Stream.filter(Stream.unwrap(rows(['watch', ...names])), (row) => row.identifier !== names[0] || row.pid === pid);
-const sampled = Effect.fn('sampled')(function* (pid: number) {
-    const file = (yield* Path.Path).join(tmpdir(), `${pid}.sample.txt`);
-    yield* checked('sample', [String(pid), '1', '-file', file]);
-    return file;
-});
+const sampled = (pid: number, file: string) => Effect.as(checked('sample', [String(pid), '1', '-file', file]), file);
 const stalled = Effect.fn('stalled')(function* (sample: string) {
     const lines = (yield* (yield* FileSystem.FileSystem).readFileString(sample)).split('\n');
     const block = Array.takeWhile(
@@ -217,4 +220,4 @@ const described = (state: typeof State.Type): string =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ADOBE_CRASH_REPORTER, appeared, busy, type Control, checked, crashed, described, dialogOf, type Element, type Exited, Launch, output, perform, plist, pressed, printed, type Row, read, type Spawned, sampled, settled, shown, spawned, stalled, watch, watched };
+export { ADOBE_CRASH_REPORTER, appeared, busy, type Control, checked, crashed, described, dialogOf, type Element, type Exited, Launch, output, perform, plist, pressed, printed, type Row, read, type Spawned, sampled, settled, shown, spawned, stalled, starts, watch, watched };

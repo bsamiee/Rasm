@@ -1,15 +1,17 @@
-import { runMain } from '@effect/platform-node/NodeRuntime';
-import { layer } from '@effect/platform-node/NodeServices';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Automation } from '@rasm/automation/automation';
-import { Array, Config, Console, DateTime, Duration, Effect, FileSystem, Layer, Match, Number, Option, Order, Path, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Layer, Logger, LogLevel, Match, Number, Option, Order, Path, Predicate, Record, References, Result, Schema, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
+import { SecureRandom } from 'effect/crypto';
 import effect from 'effect/package.json' with { type: 'json' };
 import { answers, type Batch, Call, expand, Probe, type Row, scriptOf } from '#/cases';
 import { compare, compared, type Pair, type Reply } from '#/compare';
 import { HarnessError } from '#/error';
 import { answerOf, facts, statements } from '#/facts';
+import { begun, PHASES, phase, Run, stateOf, tagOf } from '#/log';
 import { merged } from '#/precondition';
-import { type Answer, Completion, Outcome, results } from '#/results';
+import { failures, instances, records } from '#/query';
+import { type Answer, type Compare, Outcome, results } from '#/results';
 import { type Cased, type Decoding, execute, type Fields, type Host, type Installed, installations, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed } from '#/session';
 import { prepared } from '#/source';
 import { bury, JsonObject, revive } from '#/values';
@@ -46,8 +48,8 @@ const RESULTS = '.results.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Line = Schema.fromJsonString(Schema.Unknown);
 const atelier = Automation.layer(Config.String('ATELIER_PATH'));
+const root = Config.String('HARNESS_LOGS');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -138,7 +140,8 @@ const prepare = <C extends Cased, E, P>(host: Pick<Host<Surveyed, C, E, P>, 'pla
         });
     });
 const planning = <S extends Surveyed, C extends Cased, E, P>(host: Pick<Host<S, C, E, P>, 'precondition' | 'placed' | 'Case' | 'refusal' | 'windowed'>, Facts: Facts, indexed: readonly Fact[], asking: Asking<E>, product: string, captures: string, batch: typeof Batch.Type, rows: readonly Row[]) => {
-    const failed = (row: Row) => (error: HarnessError | Schema.SchemaError) => Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), Result.fail);
+    const failed = (row: Row) => (error: HarnessError | Schema.SchemaError) =>
+        Effect.andThen(Effect.annotateLogs(Effect.logError('case refused'), { case: row.name, completion: 'Failed', tag: tagOf(error), error: error.message }), Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), Result.fail));
     const keyOf = (survey: S) => (row: Row) => Option.map(expressionOf(batch, row), (expression) => ({ ...asking, question: row.name, expression, args: argsOf(row), precondition: authored(batch, row), host: survey.host }));
     const planned = Effect.fnUntraced(function* (survey: S) {
         const fs = yield* FileSystem.FileSystem;
@@ -149,7 +152,7 @@ const planning = <S extends Surveyed, C extends Cased, E, P>(host: Pick<Host<S, 
         const sendable = Array.getSuccesses(made);
         const skipped = Array.getSomes(sendable.map((item) => Option.map(answered(item.row), ({ answer }) => ({ item, answer }))));
         return { engine: asking.engine, sendable: sendable.filter((item) => !skipped.some((held) => held.item === item)), settled: Array.getFailures(made), skipped } satisfies Planned<C>;
-    });
+    }, phase('plan'));
     return { planned, keyOf, windowed: Option.exists(Array.head(rows), windowedOf(host, batch)) };
 };
 
@@ -187,103 +190,92 @@ const callOf =
 const replyOf = (row: typeof Outcome.Type) => Option.map(answerOf(row), (answer): readonly [string, Reply] => [row.name, 'value' in answer ? Result.succeed(revive(answer.value)) : Result.fail(answer.thrown)]);
 const comparing = <S extends Surveyed, C extends Cased, X, R>(host: Session<S, C> & Pick<Host<S, C>, 'rebuilt'>, hosted: Effect.Effect<Hosted<C>, X, R>, module: string, pairs: readonly Pair[], unproven: readonly string[], scratch: string, limit: Duration.Duration) => {
     const { rebuilt } = host;
-    return rebuilt === undefined
-        ? compare(module, pairs, unproven)
-        : Effect.gen(function* () {
-              const { chosen, items, engine } = yield* hosted;
-              const outcomes = yield* rerun(host, rebuilt, chosen, scratch, limit, engine, Array.getSomes(pairs.map(callOf(items, module))));
-              return compared(module, pairs, new Map(Array.getSomes(outcomes.map(replyOf))), unproven);
-          });
+    const section =
+        rebuilt === undefined
+            ? compare(module, pairs, unproven)
+            : Effect.gen(function* () {
+                  const { chosen, items, engine } = yield* hosted;
+                  const outcomes = yield* rerun(host, rebuilt, chosen, scratch, limit, engine, Array.getSomes(pairs.map(callOf(items, module))));
+                  return compared(module, pairs, new Map(Array.getSomes(outcomes.map(replyOf))), unproven);
+              });
+    const reported = (held: typeof Compare.Type) => Effect.annotateLogs(held.mismatches.length === 0 ? Effect.logInfo('compared') : Effect.logWarning('compared'), { module: held.module, agreed: held.agreed, mismatched: held.mismatches.map(({ name }) => name), unproven: held.unproven });
+    return section.pipe(Effect.tap(reported), phase('compare'));
 };
 
 // --- [REPORTING]
 const order = (rows: readonly Row[]) => Order.mapInput(Number.Order, ({ name }: typeof Outcome.Type) => rows.findIndex((row) => row.name === name));
-const summary = (host: Pick<Host, 'shown'>) =>
-    Effect.fn('summary')(function* (row: typeof Outcome.Type) {
-        const shown = {
-            ...Record.filter({ answered: row.answered, leaked: row.leaked, ...Record.fromIterableWith(host.shown, (key) => [key, row[key]] as const) }, (items) => Array.isArray(items) && items.length > 0),
-            ...Record.filter({ crashed: row.crashed, hung: row.hung, dialog: row.dialog }, Predicate.isNotUndefined),
-        };
-        const completion = Completion.match(row.completion, {
-            Ran: () => 'ran',
-            Exited: () => 'exited',
-            Thrown: ({ message, file, line }) => `thrown ${message}${line === undefined ? '' : ` at ${file ?? ''}:${line}`}`,
-            Failed: ({ reason }) => `failed ${reason}`,
+const proved = Effect.fn('proved')(
+    function* <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, host: Host<S, C, E, P, F>, chosen: Installed, file: string, only: readonly string[], limit: Duration.Duration) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const { product, Facts, index, indexed, stated, batch, rows: every } = yield* loaded(name, host, file);
+        const Results = results(host.Engine);
+        const search = yield* statements(stated);
+        yield* Schema.decodeEffect(Schema.Array(Schema.Literals(every.map((row) => row.name))))(only);
+        const rows = every.filter((row) => only.length === 0 || only.includes(row.name));
+        const engine = yield* Effect.fromResult(host.engine(Array.dedupe(Array.getSomes(rows.map((row) => scriptOf(batch, row))))));
+        const asking: Asking<E> = { identifier: chosen.identifier, version: chosen.version, engine };
+        const known = surveyOf(host, Facts, indexed, asking);
+        const target = `${stem(path, file)}.${chosen.version}`;
+        const scratch = yield* fs.makeTempDirectoryScoped({ prefix: `${name}-harness-` });
+        const { planned, keyOf, windowed } = planning(host, Facts, indexed, asking, product, `${target}.captures`, batch, rows);
+        const done = yield* execute(host, chosen, scratch, limit, windowed, known, planned);
+        const { plan } = done;
+        yield* Effect.forEach(plan.skipped, ({ item, answer }) => Effect.annotateLogs(Effect.logInfo('case known'), { case: item.hosted.name, answer }), { discard: true });
+        yield* Effect.forEach(
+            plan.sendable.filter(({ row }) => Schema.is(Probe)(row)),
+            ({ row }) => Array.match(search(row.name), { onEmpty: () => Effect.void, onNonEmpty: (lines) => Effect.annotateLogs(Effect.logInfo('case stated'), { case: row.name, stated: lines }) }),
+            { discard: true },
+        );
+        const asked = DateTime.formatIso(yield* DateTime.now);
+        const outcomes = Array.sort(done.outcomes, order(rows));
+        const evidence = (row: Row) =>
+            Option.orElse(
+                Option.flatMap(
+                    Array.findFirst(outcomes, (held) => held.name === row.name),
+                    evidenceOf,
+                ),
+                () =>
+                    Option.map(
+                        Array.findFirst(plan.skipped, ({ item }) => item.hosted.name === row.name),
+                        ({ answer }): Evidence => ({ answer, before: {}, read: {} }),
+                    ),
+            );
+        const { pairs, unproven } = pairsOf(batch, rows, evidence);
+        const section = yield* UndefinedOr.match(batch.module, {
+            onUndefined: () => Effect.succeedNone,
+            onDefined: (module) => Effect.asSome(comparing(host, Effect.succeed({ chosen, items: [...plan.sendable, ...plan.skipped.map(({ item }) => item)], engine }), path.join(product, module), pairs, unproven, scratch, limit)),
         });
-        return [row.name, completion, ...(Record.isEmptyRecord(shown) ? [] : [yield* Schema.encodeEffect(Line)(shown)])].join(' | ');
-    });
-const counted = ({ agreed, mismatches, unproven }: { readonly agreed: number; readonly mismatches: readonly unknown[]; readonly unproven: readonly string[] }) => `${agreed} agreed, ${mismatches.length} mismatched, ${unproven.length} unproven`;
-const proved = Effect.fn('proved')(function* <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, host: Host<S, C, E, P, F>, chosen: Installed, file: string, only: readonly string[], limit: Duration.Duration) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { product, Facts, index, indexed, stated, batch, rows: every } = yield* loaded(name, host, file);
-    const Results = results(host.Engine);
-    const search = yield* statements(stated);
-    yield* Schema.decodeEffect(Schema.Array(Schema.Literals(every.map((row) => row.name))))(only);
-    const rows = every.filter((row) => only.length === 0 || only.includes(row.name));
-    const engine = yield* Effect.fromResult(host.engine(Array.dedupe(Array.getSomes(rows.map((row) => scriptOf(batch, row))))));
-    const asking: Asking<E> = { identifier: chosen.identifier, version: chosen.version, engine };
-    const known = surveyOf(host, Facts, indexed, asking);
-    const target = `${stem(path, file)}.${chosen.version}`;
-    const scratch = yield* fs.makeTempDirectoryScoped({ prefix: `${name}-harness-` });
-    const { planned, keyOf, windowed } = planning(host, Facts, indexed, asking, product, `${target}.captures`, batch, rows);
-    const done = yield* execute(host, chosen, scratch, limit, windowed, known, planned);
-    const { plan } = done;
-    yield* Effect.forEach(plan.skipped, ({ item, answer }) => Effect.flatMap(Schema.encodeEffect(Line)(answer), (text) => Console.log(`known: ${item.hosted.name} | ${text}`)), { discard: true });
-    yield* Effect.forEach(
-        plan.sendable.filter(({ row }) => Schema.is(Probe)(row)).flatMap(({ row }) => search(row.name).map((line) => `stated: ${row.name} | ${line}`)),
-        Console.log,
-        { discard: true },
-    );
-    const asked = DateTime.formatIso(yield* DateTime.now);
-    const outcomes = Array.sort(done.outcomes, order(rows));
-    const evidence = (row: Row) =>
-        Option.orElse(
+        const header = Option.getOrUndefined(done.header);
+        const written = {
+            application: header?.application ?? chosen.name,
+            identifier: chosen.identifier,
+            version: chosen.version,
+            engine,
+            ...(header?.state === undefined ? {} : { state: header.state }),
+            host: done.survey.host,
+            shared: done.shared,
+            ...Option.match(done.failed, { onNone: () => ({}), onSome: (failed) => ({ failed }) }),
+            answered: done.answered,
+            cases: outcomes,
+            ...Option.match(section, { onNone: () => ({}), onSome: (held) => ({ compare: held }) }),
+        };
+        yield* Option.isNone(done.header) && outcomes.length === 0 ? Effect.void : Effect.andThen(fs.writeFileString(`${target}${RESULTS}`, `${yield* Schema.encodeEffect(Results)(written)}\n`), Effect.annotateLogs(Effect.logInfo('results written'), { file: `${target}${RESULTS}` }));
+        const factOf = (row: Row) =>
             Option.flatMap(
                 Array.findFirst(outcomes, (held) => held.name === row.name),
-                evidenceOf,
-            ),
-            () =>
-                Option.map(
-                    Array.findFirst(plan.skipped, ({ item }) => item.hosted.name === row.name),
-                    ({ answer }): Evidence => ({ answer, before: {}, read: {} }),
-                ),
+                (held) => Option.zipWith(answerOf(held), keyOf(done.survey)(row), (answer, key): Fact => ({ ...key, answer, asked })),
+            );
+        const surveyed: readonly Fact[] = Option.isSome(done.header) && Option.isNone(known) ? [{ ...asking, question: host.survey.question, expression: host.survey.question, host: done.survey.host, answer: { value: bury(yield* Schema.encodeEffect(host.survey.Schema)(done.survey)) }, asked }] : [];
+        const made = [...surveyed, ...Array.getSomes(rows.map(factOf))];
+        yield* Option.match(
+            Option.filter(index, () => made.length > 0),
+            { onNone: () => Effect.void, onSome: (held) => Facts.record(held, made) },
         );
-    const { pairs, unproven } = pairsOf(batch, rows, evidence);
-    const section = yield* UndefinedOr.match(batch.module, {
-        onUndefined: () => Effect.succeedNone,
-        onDefined: (module) => Effect.asSome(comparing(host, Effect.succeed({ chosen, items: [...plan.sendable, ...plan.skipped.map(({ item }) => item)], engine }), path.join(product, module), pairs, unproven, scratch, limit)),
-    });
-    const header = Option.getOrUndefined(done.header);
-    const written = {
-        application: header?.application ?? chosen.name,
-        identifier: chosen.identifier,
-        version: chosen.version,
-        engine,
-        ...(header?.state === undefined ? {} : { state: header.state }),
-        host: done.survey.host,
-        shared: done.shared,
-        ...Option.match(done.failed, { onNone: () => ({}), onSome: (failed) => ({ failed }) }),
-        answered: done.answered,
-        cases: outcomes,
-        ...Option.match(section, { onNone: () => ({}), onSome: (held) => ({ compare: held }) }),
-    };
-    yield* Option.isNone(done.header) && outcomes.length === 0 ? Effect.void : Effect.andThen(fs.writeFileString(`${target}${RESULTS}`, `${yield* Schema.encodeEffect(Results)(written)}\n`), Console.log(`${written.application} ${chosen.version} ${target}${RESULTS}`));
-    yield* Effect.forEach([...(done.shared.length === 0 ? [] : [`shared: ${done.shared.join(', ')}`]), ...Option.toArray(Option.map(done.failed, (failed) => `failed: ${failed}`))], Console.log, { discard: true });
-    yield* Effect.forEach(outcomes, (row) => Effect.flatMap(summary(host)(row), Console.log), { discard: true });
-    yield* Option.match(section, { onNone: () => Effect.void, onSome: (held) => Console.log(`compare: ${counted(held)}`) });
-    const factOf = (row: Row) =>
-        Option.flatMap(
-            Array.findFirst(outcomes, (held) => held.name === row.name),
-            (held) => Option.zipWith(answerOf(held), keyOf(done.survey)(row), (answer, key): Fact => ({ ...key, answer, asked })),
-        );
-    const surveyed: readonly Fact[] = Option.isSome(done.header) && Option.isNone(known) ? [{ ...asking, question: host.survey.question, expression: host.survey.question, host: done.survey.host, answer: { value: bury(yield* Schema.encodeEffect(host.survey.Schema)(done.survey)) }, asked }] : [];
-    const made = [...surveyed, ...Array.getSomes(rows.map(factOf))];
-    yield* Option.match(
-        Option.filter(index, () => made.length > 0),
-        { onNone: () => Effect.void, onSome: (held) => Facts.record(held, made) },
-    );
-    return { mismatches: Option.match(section, { onNone: () => 0, onSome: ({ mismatches }) => mismatches.length }), failed: done.failed } satisfies Verdict;
-}, Effect.scoped);
+        return { mismatches: Option.match(section, { onNone: () => 0, onSome: ({ mismatches }) => mismatches.length }), failed: done.failed } satisfies Verdict;
+    },
+    Effect.scoped,
+    phase('prove'),
+);
 const recompared = Effect.fn('recompared')(function* <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, host: Host<S, C, E, P, F>, file: string, override: Option.Option<string>, limit: Duration.Duration) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { product, Facts, indexed, batch, rows } = yield* loaded(name, host, file);
@@ -315,9 +307,10 @@ const recompared = Effect.fn('recompared')(function* <S extends Surveyed, C exte
                 evidenceOf,
             );
         const { pairs, unproven } = pairsOf(batch, rows, evidence);
-        const section = yield* comparing(host, hosted, module, pairs, unproven, scratch, limit);
+        const release = { version: recorded.version, bundle: recorded.identifier };
+        const section = yield* Effect.annotateLogs(comparing(host, hosted, module, pairs, unproven, scratch, limit), release);
         yield* fs.writeFileString(target, `${yield* Schema.encodeEffect(Results)({ ...recorded, compare: section })}\n`);
-        yield* Console.log(`${recorded.application} ${recorded.version} ${target} | compare: ${counted(section)}`);
+        yield* Effect.annotateLogs(Effect.logInfo('results written'), { ...release, file: target });
         return { mismatches: section.mismatches.length, failed: Option.fromUndefinedOr(recorded.failed) } satisfies Verdict;
     }, Effect.scoped);
     return yield* Effect.forEach(found, judged);
@@ -332,6 +325,42 @@ const judged = (verdicts: readonly Verdict[], subject: string) => {
 
 const cases = Argument.Path('target', { mustExist: true }).pipe(Argument.atLeast(1), Argument.withDescription(`Product folder whose **/*${CASES} files run, or one case file, results written beside each as <name>.<version>${RESULTS}`));
 const limited = Flag.String('limit').pipe(Flag.withSchema(Schema.DurationFromString), Flag.withDefault(Duration.minutes(2)), Flag.withDescription('Bound on a launch, on a case writing no record before it records hung, and on the batch-end quit before the instance is reported left running'));
+const recorded = (fixed: Record.ReadonlyRecord<string, string>) =>
+    Logger.make(({ message, logLevel, cause, fiber, date }) => {
+        const annotations = fiber.getRef(References.CurrentLogAnnotations);
+        const current = Array.head(fiber.getRef(References.CurrentLogSpans));
+        const instance = Option.match(fiber.getRef(Run.Instance), { onNone: () => ({}), onSome: ({ pid, started, state }) => ({ pid, started: DateTime.formatIso(started), state: stateOf(SubscriptionRef.getUnsafe(state)) }) });
+        const located: Record.ReadonlyRecord<string, unknown> = { ...instance, ...annotations };
+        const span = Option.fromUndefinedOr(fiber.cache.span);
+        const signature = Option.map(Record.get(annotations, 'tag'), (tag) => [Option.match(current, { onNone: () => 'run', onSome: ([label]) => label }), Option.getOrElse(Record.get(located, 'state'), () => 'none'), tag].join('/'));
+        return Formatter.formatJson({
+            at: date.toISOString(),
+            level: logLevel,
+            message: Array.ensure(message).join(' '),
+            ...fixed,
+            ...Option.match(current, { onNone: () => ({}), onSome: ([label, start]) => ({ phase: label, ms: date.getTime() - start }) }),
+            ...Option.match(span, { onNone: () => ({}), onSome: (held) => ({ span: held.spanId, parent: held._tag === 'Span' ? Option.getOrUndefined(Option.map(held.parent, ({ spanId }) => spanId)) : undefined }) }),
+            ...located,
+            ...Option.match(signature, { onNone: () => ({}), onSome: (held) => ({ signature: held }) }),
+            ...(cause.reasons.length === 0 ? {} : { cause: Cause.pretty(cause) }),
+        });
+    });
+const logs = (name: string) => {
+    const retention = { age: '7 days', count: 200 } as const;
+    return Layer.unwrap(
+        Effect.map(begun(name, root, retention), ({ commit, instances: folder, file, fixed }) => {
+            const record = recorded(fixed);
+            const sightings = (held: string) =>
+                Effect.map(
+                    Logger.toFile(record, held, { flag: 'a' }),
+                    (logger) =>
+                        <A, E, R>(self: Effect.Effect<A, E, R>) =>
+                            Effect.withLogger(self, logger),
+                );
+            return Layer.mergeAll(Layer.succeed(Run, { commit, instances: folder, sightings }), Logger.layer([Logger.toFile(record, file, { flag: 'a' }), Logger.withConsoleLog(record)]));
+        }),
+    );
+};
 const prove = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, hosted: Effect.Effect<Host<S, C, E, P, F>, HarnessError>) =>
     Command.make(
         'prove',
@@ -343,35 +372,58 @@ const prove = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name
         },
         ({ targets: paths, release, only, limit }) =>
             Effect.gen(function* () {
+                const { commit } = yield* Run;
+                yield* Effect.annotateLogs(Effect.logInfo('run started'), { commit, command: 'prove', targets: paths, release, only, limit: Duration.format(limit) });
                 const host = yield* hosted;
                 const [files, chosen] = yield* Effect.all([targets(paths), Effect.flatMap(host.installed, (rows) => installations(rows, release, name))]);
-                const verdicts = yield* Effect.forEach(Array.cartesian(files, chosen), ([file, installed]) => proved(name, host, installed, file, only, limit));
+                const verdicts = yield* Effect.forEach(Array.cartesian(files, chosen), ([file, installed]) => Effect.annotateLogs(proved(name, host, installed, file, only, limit), { version: installed.version, bundle: installed.identifier, cases: file }));
                 yield* judged(verdicts, name);
-            }),
-    );
+            }).pipe(phase('run')),
+    ).pipe(Command.provide(Layer.mergeAll(atelier, logs(name))));
 const checked = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, hosted: Effect.Effect<Host<S, C, E, P, F>, HarnessError>) =>
     Command.make('compare', { targets: cases, module: Flag.Path('module', { mustExist: true }).pipe(Flag.optional, Flag.withDescription('Module compared in place of the batch module, a distilled module among them')), limit: limited }, ({ targets: paths, module, limit }) =>
         Effect.gen(function* () {
+            const { commit } = yield* Run;
+            yield* Effect.annotateLogs(Effect.logInfo('run started'), { commit, command: 'compare', targets: paths, module: Option.getOrUndefined(module), limit: Duration.format(limit) });
             const [host, path, files] = yield* Effect.all([hosted, Path.Path, targets(paths)]);
             const override = Option.map(module, (held) => path.resolve(held));
-            const verdicts = yield* Effect.forEach(files, (file) => recompared(name, host, file, override, limit));
+            const verdicts = yield* Effect.forEach(files, (file) => Effect.annotateLogs(recompared(name, host, file, override, limit), { cases: file }));
             yield* judged(verdicts.flat(), name);
-        }),
-    );
+        }).pipe(phase('run')),
+    ).pipe(Command.provide(Layer.mergeAll(atelier, logs(name))));
 const harness = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, load: () => Promise<{ readonly Host: Host<S, C, E, P, F> }>) => {
     const hosted = Effect.map(Effect.tryPromise({ try: load, catch: HarnessError.refused(name) }), (imported) => imported.Host);
     return Command.make(name).pipe(Command.withSubcommands([prove(name, hosted), checked(name, hosted)]));
 };
-Command.make('harness').pipe(
-    Command.withSubcommands([
-        harness('acrobat', () => import('#/acrobat/host')),
-        harness('blender', () => import('#/blender/host')),
-        harness('illustrator', () => import('#/illustrator/host')),
-        harness('indesign', () => import('#/indesign/host')),
-        harness('photoshop', () => import('#/photoshop/host')),
-        harness('rhino', () => import('#/rhino/host')),
-    ]),
-    Command.run({ version: effect.version }),
-    Effect.provide(Layer.provideMerge(atelier, layer)),
-    runMain,
+const hosts = [
+    harness('acrobat', () => import('#/acrobat/host')),
+    harness('blender', () => import('#/blender/host')),
+    harness('illustrator', () => import('#/illustrator/host')),
+    harness('indesign', () => import('#/indesign/host')),
+    harness('photoshop', () => import('#/photoshop/host')),
+    harness('rhino', () => import('#/rhino/host')),
+] as const;
+const named = (flag: string, description: string) => Flag.String(flag).pipe(Flag.optional, Flag.withDescription(description));
+const reading = {
+    host: Flag.Literals(
+        'host',
+        hosts.map(({ name }) => name),
+    ).pipe(Flag.optional, Flag.withDescription('Host whose runs are read')),
+    since: Flag.String('since').pipe(Flag.withSchema(Schema.DurationFromString), Flag.optional, Flag.withDescription('Span back from now read across every session, as "1 hour"')),
+    case: named('case', 'Case name read'),
+};
+const log = Command.make(
+    'log',
+    {
+        ...reading,
+        run: named('run', 'Run id, the newest run of this session when neither --run nor --since is given'),
+        level: Flag.Literals('level', LogLevel.values).pipe(Flag.optional, Flag.withDescription('Least level read')),
+        phase: Flag.Literals('phase', Struct.keys(PHASES)).pipe(Flag.optional, Flag.withDescription('Phase read')),
+    },
+    (selection) => records(root, selection),
+).pipe(Command.withDescription('Prints the records of runs as JSON Lines, one record per event'));
+const failing = Command.make('failures', { ...reading, version: named('version', 'Host version read'), signature: named('signature', 'Failure signature read, <phase>/<state>/<tag>') }, (signed) => failures(root, signed)).pipe(
+    Command.withDescription('Prints each failure signature per host, version, and case with its last run and the first later run passing it'),
 );
+const running = Command.make('instances', { host: reading.host }, ({ host }) => instances(root, host)).pipe(Command.withDescription('Prints the latest record of each live host instance a run launched, naming its run, session, and state'));
+Command.make('harness').pipe(Command.withSubcommands([...hosts, log, failing, running]), Command.run({ version: effect.version }), Effect.provide(Layer.mergeAll(NodeServices.layer, SecureRandom.layerWebCrypto)), NodeRuntime.runMain);
