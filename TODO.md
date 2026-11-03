@@ -43,7 +43,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 4. **Then:** `typescript-sweep` from `2a7c018e2` runs, folding the split-concept defect.
 5. **InPage depth rerun:** once the sweep lands and before extension phases 4 to 7, rerun the depth pass from `.artifacts/workflows/typescript-extension/inpage/depth-prompt.md` (one Fable agent), its prompt extended with every finding and naivety fix recorded since, the plan's `[16]` and `[17]-[DESKTOP_MANUAL]` rows, the matching `docs/research` notes, and deeper fontkit, HarfBuzz and catalog package use only where it replaces hand logic or adds real capability; then one adversary confirms the InPage work full, derived and collapsed, fixing in place.
 6. **Folder guidance:** once the sweep and the Rust queue settle.
-7. **Font library, on the owner's signal:** `libs/python/typography` built from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md` with `docs/research/coding/python/font-engineering.md`, replacing the `docs/research` font tooling.
+7. **Font library, on the owner's signal:** `libs/python/typography` built from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md` with `docs/research/coding/python/font-engineering.md`, replacing the 10,638-line `docs/research` font tooling with 2,500 to 4,000 lines rebuilt from its functionality on the chosen packages, never from its code.
 
 ### Open defects
 
