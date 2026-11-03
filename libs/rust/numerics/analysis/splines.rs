@@ -8,7 +8,7 @@ use nonempty_collections::{NESlice, NEVec};
 use validated::Validated;
 
 use crate::{
-    AnalysisError, Input, Observations, determined, finite, joined, refused_sites, refused_weights,
+    AnalysisError, Input, Observations, Placement, determined, finite, joined, refused_sites, refused_weights,
     roots::{minimum, real},
 };
 
@@ -69,13 +69,12 @@ pub struct Spline {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [FIT]
-fn smoothed(sites: ArrayView1<'_, f64>, weights: Option<ArrayView1<'_, f64>>, lanes: ArrayView2<'_, f64>, smooth: Option<f64>) -> Result<(Array2<f64>, Option<f64>), AnalysisError> {
-    let fitted = CubicSmoothingSpline::new(sites, lanes).with_optional_weights(weights).with_optional_smooth(smooth).make()?;
-    fitted.spline().map(|spline| (spline.coeffs().to_owned(), fitted.smooth())).ok_or(AnalysisError::Underdetermined { found: sites.len(), needed: 2 })
-}
-
 pub fn grid<D>(axes: NESlice<'_, GridAxis<'_>>, values: ArrayView<'_, f64, D>) -> Result<Spline, NEVec<AnalysisError>>
 where D: Dimension {
+    let smoothed = |sites: ArrayView1<'_, f64>, weights: Option<ArrayView1<'_, f64>>, lanes: ArrayView2<'_, f64>, smooth: Option<f64>| -> Result<(Array2<f64>, Option<f64>), AnalysisError> {
+        let fitted = CubicSmoothingSpline::new(sites, lanes).with_optional_weights(weights).with_optional_smooth(smooth).make()?;
+        fitted.spline().map(|spline| (spline.coeffs().to_owned(), fitted.smooth())).ok_or(AnalysisError::Underdetermined { found: sites.len(), needed: 2 })
+    };
     let monotone = |sites: ArrayView1<'_, f64>, lane: ArrayView1<'_, f64>| -> Vec<f64> {
         let widths = sites.iter().tuple_windows().map(|(start, last)| last - start).collect::<Vec<_>>();
         let secants = iter::zip(&widths, lane.iter().tuple_windows()).map(|(width, (start, last))| (last - start) / width).collect::<Vec<_>>();
@@ -99,7 +98,7 @@ where D: Dimension {
             _ => secants.first().map_or_default(|&secant| vec![secant; 2]),
         };
         let rows = izip!(&widths, &secants, slopes.iter().tuple_windows(), lane.iter())
-            .map(|(&width, &secant, (&start, &last), &value)| [2.0_f64.mul_add(-secant, start + last) / (width * width), 3.0_f64.mul_add(secant, -2.0_f64.mul_add(start, last)) / width, start, value])
+            .map(|(&width, &secant, (&start, &last), &value)| [2.0_f64.mul_add(-secant, start + last) / (width * width), 3.0_f64.mul_add(secant, -(2.0_f64.mul_add(start, last))) / width, start, value])
             .collect::<Vec<_>>();
         (0..4).flat_map(|block| rows.iter().filter_map(move |row| row.get(block).copied())).collect()
     };
@@ -129,14 +128,14 @@ where D: Dimension {
                 axis.weights.map_or(Ok(()), |weights| (weights.len() == found).ok_or(AnalysisError::Shape { input: Input::AxisWeights { dimension }, expected: found, found: weights.len() })),
                 axis.period.map_or(Ok(()), |period| (period.is_finite() && span < period).ok_or(AnalysisError::Period { dimension, span, period })),
             ],
-            finite(axis.sites, move |point| AnalysisError::Site { dimension, point }),
+            finite(axis.sites, move |point| AnalysisError::Site { dimension, point, placement: Placement::Unrepresentable }),
         )
         .chain(
             axis.sites
                 .iter()
                 .tuple_windows()
                 .positions(|(earlier, later)| later <= earlier || almost::equal(*later, *earlier))
-                .map(move |window| Err(AnalysisError::Unordered { dimension, point: window.strict_add(1) })),
+                .map(move |window| Err(AnalysisError::Site { dimension, point: window.strict_add(1), placement: Placement::Unordered })),
         )
         .chain(refused_weights(Some(dimension), axis.weights.into_iter().flatten()))
         .collect::<Vec<_>>()

@@ -1,4 +1,4 @@
-#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, vec_from_fn)]
+#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns)]
 
 use core::{borrow::Borrow, iter, range::RangeInclusive};
 
@@ -41,6 +41,24 @@ pub enum Input {
     AxisWeights {
         dimension: usize,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum Breakdown {
+    #[display("model output is not finite")]
+    Model,
+    #[display("interpolant is not finite")]
+    Interpolant,
+    #[display("kernel covariance is not positive definite")]
+    Kernel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum Placement {
+    #[display("falls outside the representable range")]
+    Unrepresentable,
+    #[display("does not exceed its predecessor")]
+    Unordered,
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -90,16 +108,14 @@ impl Observations {
 pub enum AnalysisError {
     #[error("{input} holds {found} entries where {expected} are needed")]
     Shape { input: Input, expected: usize, found: usize },
-    #[error("site {point} falls outside the representable range in dimension {dimension}")]
-    Site { dimension: usize, point: usize },
+    #[error("site {point} along dimension {dimension} {placement}")]
+    Site { dimension: usize, point: usize, placement: Placement },
     #[error("value [{}] is not finite", .index.iter().format(", "))]
     Value { index: Vec<usize> },
     #[error("weight {point}{} is {weight}, not a positive finite number", .dimension.map_or_else(String::new, |dimension| format!(" along dimension {dimension}")))]
     Weight { dimension: Option<usize>, point: usize, weight: f64 },
     #[error("{found} points where {needed} are needed")]
     Underdetermined { found: usize, needed: usize },
-    #[error("site {point} along dimension {dimension} does not exceed its predecessor")]
-    Unordered { dimension: usize, point: usize },
     #[error("{at} falls outside the span of dimension {dimension}")]
     Outside { dimension: usize, at: f64 },
     #[error("sites along dimension {dimension} span {span}, reaching their period {period}")]
@@ -162,7 +178,7 @@ where
 {
     sites.iter().positions(move |coordinate| !representable(coordinate)).map(move |entry| {
         let (dimension, point) = sites.vector_to_matrix_index(entry);
-        Err(AnalysisError::Site { dimension, point })
+        Err(AnalysisError::Site { dimension, point, placement: Placement::Unrepresentable })
     })
 }
 

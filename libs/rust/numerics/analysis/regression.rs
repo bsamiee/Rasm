@@ -367,7 +367,7 @@ pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options
             .product::<f64>()
     });
     let parameters = &raw * &solved.parameters;
-    Ok((Polynomial { exponents, coefficients: parameters.clone() }, Estimate { parameters, pseudoinverse: &raw * &solved.pseudoinverse, null_space: &raw * &solved.null_space, ..solved }))
+    Ok((Polynomial { exponents, coefficients: parameters.clone() }, Estimate { parameters, null_space: &raw * &solved.null_space, pseudoinverse: &raw * &solved.pseudoinverse, ..solved }))
 }
 
 fn terms<T>(polynomial: &Polynomial, sites: &DMatrix<T>) -> Result<DMatrix<T>, NEVec<AnalysisError>>
@@ -639,7 +639,7 @@ where M: Model {
     let spectrum = decompose(&curvature).map_err(NEVec::new)?;
     let freedom = estimate.freedom();
     let noise = value / freedom;
-    let gains = spectrum.singular.map_with_location(|index, _, value| if index < spectrum.rank { 2.0 * noise / value } else { 0.0 });
+    let gains = spectrum.singular.map_with_location(|index, _, singular| if index < spectrum.rank { 2.0 * noise / singular } else { 0.0 });
     Ok(Uncertainty { parameters, covariance: &spectrum.right * DMatrix::from_diagonal(&gains) * spectrum.left.transpose(), noise, freedom })
 }
 

@@ -90,11 +90,10 @@ where F: Fn(f64) -> f64 + Sync {
         Err(AnalysisError::Function { interval: _ }) => Ok(None),
         Err(
             error @ (AnalysisError::Shape { input: _, expected: _, found: _ }
-            | AnalysisError::Site { dimension: _, point: _ }
+            | AnalysisError::Site { dimension: _, point: _, placement: _ }
             | AnalysisError::Value { index: _ }
             | AnalysisError::Weight { dimension: _, point: _, weight: _ }
             | AnalysisError::Underdetermined { found: _, needed: _ }
-            | AnalysisError::Unordered { dimension: _, point: _ }
             | AnalysisError::Outside { dimension: _, at: _ }
             | AnalysisError::Period { dimension: _, span: _, period: _ }
             | AnalysisError::Design { point: _, parameter: _ }
@@ -227,7 +226,7 @@ where F: Fn(DVector<DualDVec64>) -> DVector<DualDVec64> {
                 iter::successors(Some(1.0_f64), |&damping| Some(damping / 2.0).filter(|&next| next >= f64::EPSILON))
                     .map(|damping| &point - &direction * damping)
                     .find(|trial| residual(trial) < current)
-                    .map_or_else(|| ControlFlow::Break(Err(AnalysisError::System { residual: current, point: point.clone() })), ControlFlow::Continue)
+                    .map_or_else(|| ControlFlow::Break(Err(AnalysisError::System { residual: current, point })), ControlFlow::Continue)
             }
         }
     });
