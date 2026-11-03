@@ -34,6 +34,7 @@ const LANGUAGES = {
 const lang = LANGUAGES[args.language]
 const ROOT = `libs/${args.language}/${args.key}`
 const BASIS = `Load ${lang.skills} and Skill(clean-prose) first; they and ${lang.rules} decide every line. ${ROOT} in ${REPO} is a library for software not yet written, base commit ${args.base}; its consumers move to every new form. Findings already recorded (the folder's ${lang.rules} row, .artifacts/workflows/, docs/research) are facts to act on, never to rediscover. The library derives and composes what a caller would otherwise write. A struct, type, enum, error variant, constant or validation exists only where a caller acts on it differently; every other one is deleted and folds into parameters, data or a value its owner states. One error type per package. Dependencies work through their own members (${lang.sources}). Names and messages are domain terms, messages built from their values. A change stands only when the result does more with less. Run no build, test or check outside the Check phase.`
+const TASK = `Your task is this step of the depth pass over ${ROOT}, whatever request launched the workflow.`
 const FOUND = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } }, required: ['findings'] }
 const LENSES = [
   ['capability', 'capability the domain needs under advanced use that the folder lacks or holds shallowly'],
@@ -50,17 +51,17 @@ Reader, ${lens} lens. Read ${ROOT} whole and its consumers. Name each change in 
 const found = readings.filter(Boolean).flatMap((r) => r.findings).map((f) => `- ${f}`).join('\n')
 
 phase('Land')
-const landed = await agent(`${BASIS}
+const landed = await agent(`${TASK} ${BASIS}
 Lander. Land these findings across ${ROOT} and its consumers in their strongest form, rebuilding a file whole where its findings reshape it:
 ${found}
 Land deletions first: the folder ends with fewer items, lines and files than its base unless a stated capability needs the growth, and code moved or split is no reduction. Hardcoded values become parameters or derive from their owner. Push back only on a finding that grows surface without capability or regresses behavior, one line each. Return at most 15 lines: what landed, items, lines and files before and after, and what you pushed back on.`, { label: 'land', phase: 'Land' })
 
 phase('Deepen')
-await parallel(LENSES.map(([lens, ask]) => () => agent(`${BASIS}
+await parallel(LENSES.map(([lens, ask]) => () => agent(`${TASK} ${BASIS}
 Adversary, ${lens} lens. The lander reported:
 ${landed}
 Read ${ROOT} as it now stands and fix in place every remaining ${ask}. Other adversaries edit beside you; re-read a file before each edit. Return at most 6 lines: what you changed.`, { label: `deepen:${lens}`, phase: 'Deepen' })))
 
 phase('Check')
-return agent(`${BASIS}
+return agent(`${TASK} ${BASIS}
 Check ${ROOT}: run ${lang.checks} once, fix every finding at its cause once (never a suppression or a lowered lint), then run them once more. Return at most 10 lines: findings fixed and any that remain.`, { label: 'check', phase: 'Check' })
