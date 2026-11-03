@@ -6,12 +6,17 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 
 ### Bar
 
-- **Depth in little surface:** the domain's full capability under advanced use in the fewest names.
-- **Reduction:** a struct, type, enum, error variant, constant or validation exists only where a caller acts on it differently; the rest is deleted.
-- **Derivation:** values derive from the type, member or host query that owns them, and one parameterized item serves every variant.
+- **Depth in little surface:** the domain's full capability under advanced use in the fewest names, as general logic any future app, tool or plugin composes.
+- **Read before changing:** code is read whole with its consumers, packages and Effect from source at their pinned release; a defect is traced to every layer that holds it and fixed at each, never patched at the symptom.
+- **Reduction:** a struct, type, interface, enum, error variant, constant, string literal set or validation exists only where a caller acts on it differently; the rest folds into fewer, richer objects whose operations live with them.
+- **Derivation:** values derive from the type, member, host query or standard that owns them; related quantities live in one algebraic relation solvable for any of them; one parameterized item serves every variant; no hardcoded size, step, limit or name.
+- **Packages:** each dependency's full capability through its own members; hand logic a package or Effect states is deleted.
+- **Shape:** flat control flow, no wrapper, alias, forwarding layer or single-use helper, no stringly form; agent-facing messages built from their values.
+- **Architecture:** a concept owns its file, a folder holds several concepts, a module made only to break an import cycle marks a wrong boundary to rebuild; no mini files, single-file folders or coined names.
 - **Both ends:** a library and its consumers are rebuilt together, each consumer calling it directly.
-- **Rebuild, never move:** poor logic is deleted whole and rebuilt in its best form; relocated code is no change.
+- **Rebuild, never move:** poor logic is deleted whole and rebuilt in its best form; relocated code is no change, and a change stands only when the result does more with less.
 - **Recorded findings:** RUST.md, TYPESCRIPT.md, `.artifacts/workflows/` and `docs/research` are acted on, never rediscovered.
+- **Doing the work:** a defect found is fixed in the same pass at its cause; subsequent passes deepen landed work, never receive work the current pass owns.
 - **Checks:** run once when a run's work is done, findings fixed once, then run once more.
 
 ### Workflows
@@ -20,7 +25,7 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 - **Depth:** `.claude/workflows/depth.js` with `language`, `key` and `base` on each landed folder.
 - **Shape:** readers in parallel, one lander that pushes back only on surface growth or regressions, adversaries fixing in place in parallel, one check.
 - **Extension research:** `extension-research.js` with `key` one domain.
-- **Tune:** `rust-tune.js` over a range of Rust commits, between groups of Rust runs; `typescript-tune.js` over a range of TypeScript commits. A fresh clean-prose agent per changed skill closes each.
+- **Tune:** `rust-tune.js`, `typescript-tune.js` and `python-tune.js` over a range of commits in their language.
 - **Sweep:** `typescript-sweep.js` rebuilds every TypeScript project in place.
 - **Folder guidance:** `guidance.js` once the tree settles.
 - **Commits:** the tree is committed and pushed before the InPage rerun, after its work closes, and before the extension phases.
@@ -37,13 +42,13 @@ Rust and TypeScript libraries and their consumers are rebuilt as general capabil
 
 ### Queue
 
-1. **TypeScript tune:** once `typescript-sweep` lands, `typescript-tune` from `2a7c018e2` over the sweep and the fixes since.
+1. **TypeScript close:** the sweep audit (running) judges and reduces the sweep's growth and checks the tree to zero; then `typescript-tune` from `2a7c018e2`.
 2. **Push**, then the **InPage depth rerun** from `.artifacts/workflows/typescript-extension/inpage/depth-prompt-2.md` (one Fable agent), with its follow-up depth, clean prose and refinement of modified content.
 3. **Push**, then the extension phases 4 to 7 in [02], pushing before the first run.
-4. **Harnesses:** the run-log plan in `.artifacts/workflows/harnesses/LOGGING.md` landed by focused agents, the watch-apps route closed across tool, hook and skill, then the depth pass in `.artifacts/workflows/harnesses/depth-brief.md`; then the open host proofs.
-5. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
-6. **Folder guidance:** once the TypeScript extension and the Rust queue settle.
-7. **Font library:** running: `libs/python/typography` and the `foundry` CLI at `tools/foundry` built from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md` with `docs/research/coding/python/font-engineering.md`, replacing the 10,638-line `docs/research` font tooling with 2,500 to 4,000 lines rebuilt from its functionality on the chosen packages, never from its code, deepened over 2 to 3 rounds; then `python-tune` over the Python it landed.
+4. **Harnesses:** the run-log plan in `.artifacts/workflows/harnesses/LOGGING.md` landing (running), then the depth pass in `.artifacts/workflows/harnesses/depth-brief.md`; then the open host proofs.
+5. **Font library:** `libs/python/typography` and the `foundry` CLI at `tools/foundry` (running) from `.artifacts/workflows/fonts/DECISION.md` and `ARCHITECTURE.md`, 2,650 to 4,000 lines rebuilt from the old tooling's functionality, never its code; each round pushed; then 2 to 3 rounds, each a fresh lead deepening it from `git diff` of the round before; then `python-tune` over it.
+6. **Rust, after the TypeScript extension:** three rows in RUST.md order and three depth runs at once, each landing freeing its slot; `rust-tune` every few landings.
+7. **Folder guidance:** once the TypeScript extension and the Rust queue settle.
 
 ### Open defects
 
@@ -78,14 +83,13 @@ Extends the TypeScript libraries in depth from what the most capable InDesign pl
 
 ### State
 
-- **Running:** `internals-finish` on color alone with one binary round (preferences, right-to-left, composers and guides distilled); `font-foundry` stopped, its tooling replaced by the font library; the derivation principle (`.artifacts/workflows/skills/derivation.md`) landed in every `<language>-coding` skill (`0a2cc53ef`).
+- **Running:** `internals-finish` on color alone with one binary round (preferences, right-to-left, composers and guides distilled).
 - **InPage landing:** library, depth pass (`f9bfccb21`) and Atelier (`233e6a109`) committed; plan at `.artifacts/workflows/typescript-extension/inpage/PLAN.md`.
 - **Research notes:** every value stated as library behavior is rewritten as the relation, parameter or measured property it derives from; `grids.md` holds one page relation solved for any free quantity.
-- **Harnesses:** rebuilt on one launch path with no automatic quit, kill, press, or relaunch; a dialog, hang, or crash ends a batch, pid in `failed`.
+- **Harnesses:** one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result; agents launch, drive and quit apps through watch-apps, and the hook routes every other form there.
 - **Next proofs:** host cases written and not run (second script decompile, Grid Calculator, ScribeDOOR, script domains) and ScribeDOOR for Illustrator run on it; ScribeDOOR's trial ends around 8 November.
 - **InPage:** 164 functions binary-proven over 1494 cases; the plug-in is Windows-only, so host proof is impossible. Its distill carries the typesetting logic (nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, the Quran glossary) for Persian and Arabic over any installed font, reading what each font states; Urdu-only forms stay out.
 - **Distilled:** 61 products; pages (23 left), styles (20), right-to-left (8) and tables (3) wait on host proofs.
-- **Fonts:** `font-foundry` studies the InPage set through Perso-Arabic typography and font engineering, tosses South Asian and junk faces, rebuilds each kept family to foundry grade and publishes to research and the drive, tossed families into `Rejected/`. Then every font in the drive's `01.Fonts/00.Paid Premium Fonts` and `01.Fonts/01.Premium Fonts` is added through Typeface (`/Applications/Typeface-beta.app`).
 - **Owner's choices:** InPage plug-in 2.2 for InDesign 2026 and a macOS build join the decompile when they arrive. No Apple Developer Program for now.
 
 ### Scope
