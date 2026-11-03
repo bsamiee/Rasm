@@ -1,11 +1,12 @@
 #![feature(error_reporter, try_blocks_heterogeneous)]
 
-use core::{error::Error, future::ready, iter, net::SocketAddr, pin::pin, time::Duration};
+use core::{future::ready, iter, net::SocketAddr, pin::pin, time::Duration};
 use std::{error::Report, io, process::ExitCode, sync::Arc};
 
-use axum::{Router, http::uri::Authority, serve::ListenerExt as _};
+use axum::{Router, serve::ListenerExt as _};
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, StreamExt as _, future};
+use http::uri::Authority;
 use itertools::Itertools as _;
 use jiff::fmt::friendly::{SpanParser, SpanPrinter};
 use nonempty_collections::{NEVec, NonEmptyIterator as _};
@@ -66,18 +67,7 @@ enum Operation {
 #[group(skip)]
 #[command(next_help_heading = "Daemon")]
 struct Options {
-    #[arg(
-        long,
-        env,
-        required = true,
-        value_delimiter = ',',
-        value_name = "HOST:PORT",
-        value_parser = |text: &str| -> Result<Authority, Box<dyn Error + Send + Sync>> {
-            let authority = text.parse::<Authority>()?;
-            authority.port_u16().is_some().then_some(authority).ok_or_else(|| "port missing".into())
-        },
-        help = "Host and port serving HTTP on each address the host resolves to, port 0 for one the system assigns"
-    )]
+    #[arg(long, env, required = true, value_delimiter = ',', value_name = "HOST:PORT", help = "Host and port serving HTTP on each address the host resolves to, port 0 for one the system assigns")]
     listen: Vec<Authority>,
     #[arg(
         long,
@@ -104,7 +94,7 @@ enum DaemonError<X> {
     #[error(transparent)]
     Command(#[from] CommandError),
     #[error("cannot resolve {authority}")]
-    Resolve { authority: Authority, source: io::Error },
+    Resolve { authority: Authority, source: Option<io::Error> },
     #[error("cannot {operation} {address}")]
     Io { operation: Operation, address: SocketAddr, source: io::Error },
     #[error(transparent)]
@@ -142,9 +132,7 @@ where
     rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter, level: _ }| {
         let failed = |operation: Operation, address: SocketAddr| move |source: io::Error| DaemonError::<D::Error>::Io { operation, address, source };
         let resolved = future::join_all(listen.into_iter().map(async |authority| {
-            let found = net::lookup_host(authority.as_str())
-                .await
-                .and_then(|found| NEVec::try_from_vec(found.collect()).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "could not resolve to any addresses")));
+            let found = net::lookup_host(authority.as_str()).await.map_err(Some).and_then(|found| NEVec::try_from_vec(found.collect()).ok_or(None));
             found.map_err(|source| DaemonError::<D::Error>::Resolve { authority: authority.clone(), source }).map(|found| (authority, found))
         }))
         .await
@@ -173,9 +161,9 @@ where
             .iter()
             .map(|(_, found)| {
                 let (&first, rest) = found.split_first();
-                bind(first, first.port())
-                    .map(|head @ (shared, _)| rest.iter().map(|&requested| bind(requested, shared.port())).collect::<Validated<Vec<_>, _>>().map(|tail| NEVec::from((head, tail))))
-                    .unwrap_or_else(Validated::fail)
+                bind(first, first.port()).map_or_else(Validated::fail, |head @ (shared, _)| {
+                    rest.iter().map(|&requested| bind(requested, shared.port())).collect::<Validated<Vec<_>, _>>().map(|tail| NEVec::from((head, tail)))
+                })
             })
             .collect::<Validated<Vec<_>, _>>()
             .ok()?;

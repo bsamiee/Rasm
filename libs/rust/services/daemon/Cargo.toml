@@ -35,6 +35,7 @@ derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
 jiff                               = { workspace = true }
 axum                               = { workspace = true }
+http                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }

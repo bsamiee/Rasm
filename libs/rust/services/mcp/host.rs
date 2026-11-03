@@ -7,12 +7,10 @@ use std::{
     sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
 };
 
-use axum::{
-    extract::ConnectInfo,
-    http::{request::Parts, uri::Authority},
-};
+use axum::extract::ConnectInfo;
 use clap::{Args, CommandFactory, FromArgMatches};
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, stream};
+use http::{request::Parts, uri::Authority};
 use itertools::Either;
 use opentelemetry::{
     Context, InstrumentationScope, KeyValue, global,
@@ -470,10 +468,8 @@ where
                 .with_allowed_origins(allowed_origin)
                 .enforce_origin_validation()
                 .with_cancellation_token(stopping.child_token());
-            let listened = addresses.iter().flat_map(|(authority, bound)| {
-                let name = authority.as_str().parse::<SocketAddr>().is_err().then(|| authority.host().to_owned());
-                name.into_iter().chain(bound.iter().map(SocketAddr::ip).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string()))
-            });
+            let listened =
+                addresses.iter().flat_map(|(authority, bound)| bound.iter().map(SocketAddr::ip).filter(|ip| !ip.is_unspecified()).flat_map(|ip| [authority.host().to_owned(), ip.to_string()]));
             config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(listened));
             let capabilities = endpoint.get_info().capabilities;
             Ok(Hosted { endpoint, capabilities, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), watchers: Mutex::default(), config })
