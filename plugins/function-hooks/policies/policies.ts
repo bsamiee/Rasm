@@ -454,28 +454,27 @@ const told = (head: Word, invocation: Invocation): Option<Launch> => {
     return files.length > 0 || apps.length === 0 || !plain || !launching ? none : some({ program: 'osascript', start: head, app: apps.map(quote).join(' '), flags: [], foreign: [] });
 };
 
-const drives = ({ script: { commands } }: Call): readonly Verdict[] =>
-    commands.flatMap(({ invocations: chain }) =>
-        chain.flatMap((invocation) => {
-            const [program] = invocation;
-            switch (program) {
-                case 'osascript': {
-                    const { apps, plain, files } = spoken(invocation);
-                    const driven = apps.filter((app) => app !== EVENTS);
-                    return [
-                        ...files.map((file) => refuse(`osascript ${file} is opaque. Pass -e lines`)),
-                        ...(apps.includes(EVENTS) ? [refuse(`${EVENTS} hits frontmost app. Use watch-apps perform`)] : []),
-                        ...(driven.length > 0 && !plain ? [refuse(`osascript drives ${driven.map(quote).join(' ')}. Use watch-apps perform or atelier`)] : []),
-                    ];
-                }
-                case 'killall':
-                case 'pkill':
-                    return [refuse(`${program} ends every ${operands(invocation).inputs.join(' ')} process. Kill your own pid`)];
-                default:
-                    return [];
+const drives = ({ script: { commands } }: Call): readonly Verdict[] => {
+    const invocations = commands.flatMap(({ invocations: chain }) => chain);
+    const ended = invocations.filter(([program]) => program === 'killall' || program === 'pkill');
+    return [
+        ...invocations.flatMap((invocation) => {
+            if (invocation[0] !== 'osascript') {
+                return [];
             }
+            const { apps, plain, files } = spoken(invocation);
+            const driven = apps.filter((app) => app !== EVENTS);
+            return [
+                ...files.map((file) => refuse(`osascript ${file} is opaque. Pass -e lines`)),
+                ...(apps.includes(EVENTS) ? [refuse(`${EVENTS} hits frontmost app. Use watch-apps perform`)] : []),
+                ...(driven.length > 0 && !plain ? [refuse(`osascript drives ${driven.map(quote).join(' ')}. Use watch-apps perform or atelier`)] : []),
+            ];
         }),
-    );
+        ...(ended.length > 0
+            ? [refuse(`${[...new Set(ended.map(([program]) => program))].join(' and ')} end every match of ${ended.map((invocation) => quote(operands(invocation).inputs.join(' '))).join(', ')}. Kill your own pids`)]
+            : []),
+    ];
+};
 
 const bundled = async (system: System, invocation: Invocation, { assigned, words: [head, ...args] }: Command['parts'][number]): Promise<Option<Launch>> => {
     const [program] = invocation;
