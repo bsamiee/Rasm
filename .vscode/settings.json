@@ -2,9 +2,11 @@
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
     "explorer.compactFolders": false,
     "files.exclude": {
+        "**/.build": true,
         ".cargo/rustc-source": true,
         ".swiftpm": true,
         "**/.artifacts": true,
+        "**/.cache": true,
         "**/.cloudflare": true,
         "**/.pixi": true,
         "**/.venv": true,
@@ -18,6 +20,8 @@
     "files.watcherExclude": {
         ".cargo/rustc-source/**": true,
         "**/.artifacts/**": true,
+        "**/.build/**": true,
+        "**/.cache/**": true,
         "**/.cloudflare/**": true,
         "**/.pixi/**": true,
         "**/.venv/**": true,
@@ -27,7 +31,10 @@
         "**/node_modules/**": true
     },
 
-    // --- [FILE_NESTING] ----------------------------------------------------------------
+    // --- [SOURCE_CONTROL] --------------------------------------------------------------
+    "git.autoRepositoryDetection": "subFolders",
+
+    // --- [FILE_NESTING]----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
         ".gitignore": ".gitattributes",
@@ -75,10 +82,12 @@
     // --- [SWIFT] -----------------------------------------------------------------------
     "swift.autoGenerateLaunchConfigurations": false,
     "swift.disableAutoResolve": true,
+    "swift.buildPath": ".cache/swiftpm/vscode",
+    "swift.swiftEnvironmentVariables": { "SWIFTPM_BUILD_DIR": ".cache/swiftpm/vscode" },
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.configuration.runtimes": [ { "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" } ],
-    "java.import.exclusions": [ "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**" ],
+    "java.import.exclusions": [ "**/.cache/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**" ],
     "java.import.maven.enabled": false,
     "java.import.gradle.enabled": false,
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],

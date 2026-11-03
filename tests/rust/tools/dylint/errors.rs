@@ -1115,6 +1115,14 @@ fn independent_question_marks(found: &str) {
        |
        = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
+    warning: `?` on `parse(left)` returns before independent `parse(right)` is computed
+      --> tools/dylint/examples/independent_question_marks.rs:75:81
+       |
+    75 | fn listed(left: &str, right: &str) -> Result<Vec<u32>, ParseIntError> { Ok(vec![parse(left)?, parse(right)?]) }
+       |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`
+
     warning: `?` on `spelled(text)` returns before independent `borrowed(text)` is computed
        --> tools/dylint/examples/untyped_error.rs:376:9
         |

@@ -73,15 +73,27 @@ utils:
                 matches: nx-typed-value
                 stopBy: {not: {matches: typescript-expression-wrapper}}
     nx-boundary:
-        kind: arrow_function, function_expression
         any:
-            - inside:
-                matches: nx-typed-value
-                stopBy: {not: {matches: typescript-expression-wrapper}}
-            - matches: nx-tuple-callback
-            - inside:
-                matches: nx-tuple-callback
-                stopBy: {not: {matches: typescript-expression-wrapper}}
+            - kind: arrow_function, function_expression
+              any:
+                - inside:
+                    matches: nx-typed-value
+                    stopBy: {not: {matches: typescript-expression-wrapper}}
+                - matches: nx-tuple-callback
+                - inside:
+                    matches: nx-tuple-callback
+                    stopBy: {not: {matches: typescript-expression-wrapper}}
+            - kind: method_definition
+              has: {kind: override_modifier}
+              inside:
+                kind: class_body
+                inside:
+                    kind: class_declaration
+                    has:
+                        kind: class_heritage
+                        has:
+                            kind: extends_clause
+                            has: {field: value, matches: {typescript-import-reference: {source: {regex: '^nx/release$'}, exported: {regex: '^VersionActions$'}}}}
     host-import:
         kind: call_expression
         has: {field: function, kind: import}

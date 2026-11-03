@@ -9,12 +9,15 @@ use crate::{expanded_externally, is_text, path};
 
 pub(crate) struct Pass {
     deserialize: Option<DefId>,
+    value: Option<DefId>,
 }
 
-lint!(Pass; DECODE_WITHOUT_PATH: "`Deserialize::deserialize` calls into a type other than a primitive, `str`, or `String` on a concrete deserializer that track no field path");
+lint!(Pass; DECODE_WITHOUT_PATH: "`Deserialize::deserialize` calls into a type other than a primitive, `str`, `String`, or `serde_json::Value` on a concrete deserializer that track no field path");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { deserialize: path(tcx, PathNS::Value, "serde::de::Deserialize::deserialize") } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { deserialize: path(tcx, PathNS::Value, "serde::de::Deserialize::deserialize"), value: path(tcx, PathNS::Type, "serde_json::value::Value") }
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
@@ -24,7 +27,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && fn_def_id(cx, expr).is_some_and(|called| self.deserialize == Some(called))
             && let source = cx.typeck_results().expr_ty(deserializer)
             && !source.has_param()
-            && cx.typeck_results().node_args(callee.hir_id).types().next().is_some_and(|target| !target.peel_refs().is_primitive() && !is_text(cx, target))
+            && cx.typeck_results().node_args(callee.hir_id).types().next().is_some_and(|target| {
+                let target = target.peel_refs();
+                !target.is_primitive() && !is_text(cx, target) && target.ty_adt_def().is_none_or(|held| self.value != Some(held.did()))
+            })
         {
             let source = with_forced_trimmed_paths!(source.to_string());
             span_lint_hir_and_then(cx, DECODE_WITHOUT_PATH, expr.hir_id, callee.span, format!("`Deserialize::deserialize` decodes `{source}` without tracking the field path"), |diag| {

@@ -133,13 +133,16 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
         .collect::<Validated<Vec<_>, _>>()
         .map2(probes.iter().copied().map(probe).collect::<Validated<Vec<_>, _>>(), |couplings, recorded| (couplings, recorded))
         .ok()?;
-    let Torn { graph, edges: _ } = cycles::tear(StableDiGraph::<(), ()>::from_elements(iter::chain(
-        subsystems.iter().map(|_| Element::Node { weight: () }),
-        connections.iter().map(|connection| Element::Edge { source: connection.source.subsystem, target: connection.target.subsystem, weight: () }),
-    )));
-    let evaluation = rasm_dependency::evaluation(graph).map_err(|source| NEVec::new(DynamicsError::from(source)))?;
-    let mut slots = subsystems.into_iter().map(Some).collect::<Vec<_>>();
-    let mut ordered = evaluation.order().nodes_iter().filter_map(|node| Some((node.index(), slots.get_mut(node.index())?.take()?))).collect::<Vec<_>>();
+    let Torn { evaluation, blocks: _ } = cycles::tear(
+        StableDiGraph::<Subsystem, ()>::from_elements(iter::chain(
+            subsystems.into_iter().map(|weight| Element::Node { weight }),
+            connections.iter().map(|connection| Element::Edge { source: connection.source.subsystem, target: connection.target.subsystem, weight: () }),
+        )),
+        |&()| (),
+    );
+    let order = evaluation.nodes_iter().collect::<Vec<_>>();
+    let mut graph = evaluation.into_inner();
+    let mut ordered = order.into_iter().filter_map(|node| Some((node.index(), graph.remove_node(node)?))).collect::<Vec<_>>();
     let start = *grid.first();
     pass(&mut ordered, &mut couplings, &mut recorded, start, |subsystem, _, _| {
         match subsystem {

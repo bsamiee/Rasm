@@ -1,5 +1,6 @@
 use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeQPath as _};
-use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use itertools::Itertools as _;
+use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet};
 use rustc_hir::{
     ExprKind, FnRetTy, ImplItem, Item, TraitItem,
     def::DefKind,
@@ -68,10 +69,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .flat_map(|(&implemented, _)| cx.tcx.associated_item_def_ids(implemented))
             .filter(|&&item| cx.tcx.def_kind(item) == DefKind::AssocFn)
             .filter_map(|&item| Some((pointee(cx, result_parts(cx, awaited_output(cx.tcx, item))?.1).ty_adt_def()?.did(), item)))
-            .fold(FxHashMap::default(), |mut mandated, (error, item)| {
-                mandated.entry(error).or_default().extend(parameters(cx.tcx, item));
-                mandated
-            });
+            .flat_map(|(error, item)| parameters(cx.tcx, item).map(move |parameter| (error, parameter)))
+            .into_grouping_map_with_hasher(FxBuildHasher)
+            .collect();
     }
 
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) { self.inspect(cx, item.owner_id.def_id); }

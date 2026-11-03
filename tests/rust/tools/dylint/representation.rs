@@ -646,15 +646,6 @@ fn primitive_domain_binding(found: &str) {
        = help: declare `SHEET_WIDTH_MM` as `uom::si::f64::Length` through a `Length { dimension: PhantomData, units: PhantomData, value }` literal holding its value in base units
        = note: `Length::new::<uom::si::length::millimeter>` builds it outside a const context
 
-    warning: `POINTS_PER_INCH` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:16:7
-       |
-    16 | const POINTS_PER_INCH: f64 = 72.0;
-       |       ^^^^^^^^^^^^^^^
-       |
-       = help: declare `POINTS_PER_INCH` as `uom::si::f64::LinearNumberDensity` through a `LinearNumberDensity { dimension: PhantomData, units: PhantomData, value }` literal holding its value in base units
-       = note: `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>` builds it outside a const context
-
     warning: `timeout_ms` holds a duration as `u64`
       --> tools/dylint/examples/primitive_domain_binding.rs:21:5
        |

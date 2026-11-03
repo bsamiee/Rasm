@@ -1,4 +1,4 @@
-#![feature(default_field_values, deref_patterns, float_conversions)]
+#![feature(default_field_values, deref_patterns, float_conversions, gen_blocks)]
 
 use core::{
     hash::Hash,
@@ -532,16 +532,16 @@ where
     K: Hash + Eq,
     I: IntoIterator<Item = T>,
 {
-    let mut pending = starts.into_iter().collect::<Vec<_>>();
-    let mut seen = HashSet::new();
-    iter::from_fn(move || {
-        let node = pending.pop()?;
-        Some(seen.insert(key(node)).then(|| {
-            pending.extend(next(node));
-            node
-        }))
-    })
-    .flatten()
+    gen move {
+        let mut pending = starts.into_iter().collect::<Vec<_>>();
+        let mut seen = HashSet::new();
+        while let Some(node) = pending.pop() {
+            if seen.insert(key(node)) {
+                pending.extend(next(node));
+                yield node;
+            }
+        }
+    }
 }
 
 fn distinct<'model>(starts: impl IntoIterator<Item = &'model Arc<Composed>>) -> impl Iterator<Item = &'model Arc<Composed>> { reached(starts, Arc::as_ptr, |node| node.children.values()) }

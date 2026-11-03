@@ -1,4 +1,4 @@
-#![feature(default_field_values, error_reporter, float_conversions, iterator_try_collect)]
+#![feature(default_field_values, error_reporter, float_conversions, gen_blocks, iterator_try_collect)]
 
 use core::{borrow::Borrow, fmt, str::Utf8Error};
 use std::{collections::BTreeMap, error::Report, sync::Arc};
@@ -15,7 +15,7 @@ use krilla::{
     error::KrillaError,
     icc::ICCProfile,
 };
-use kurbo::Affine;
+use kurbo::{Affine, Rect, Size};
 use lopdf::{Dictionary, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
 use moxcms::{CmsError, ColorProfile, DataColorSpace, ProfileClass};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
@@ -25,7 +25,7 @@ use pdf_oxide::{
     editor::{DocumentEditor, SaveOptions},
     ocr::OcrError,
 };
-use rasm_linework::LineworkError;
+use rasm_linework::{LineworkError, WidthError};
 use secrecy::{ExposeSecret as _, SecretString};
 use uom::si::{
     f64::{Length, LinearNumberDensity},
@@ -39,7 +39,11 @@ pub type Fields = BTreeMap<Arc<str>, Arc<str>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const POINTS_PER_INCH: f64 = 72.0;
+const PDFAID_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/id/";
+const PDFUAID_NAMESPACE: &str = "http://www.aiim.org/pdfua/ns/id/";
+const PDFXID_NAMESPACE: &str = "http://www.npes.org/pdfx/ns/id/";
+const GTS_PDFX_VERSION: &str = "GTS_PDFXVersion";
+const PART: &str = "part";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -137,6 +141,8 @@ pub enum PdfError {
     #[error(transparent)]
     Linework(#[from] LineworkError),
     #[error(transparent)]
+    Width(#[from] WidthError),
+    #[error(transparent)]
     Svg(#[from] usvg::Error),
     #[error(transparent)]
     Image(#[from] image::ImageError),
@@ -160,6 +166,10 @@ pub enum PdfError {
     Decode(Arc<str>),
     #[error("page {index} lies past the {count} pages of the document")]
     Page { index: usize, count: usize },
+    #[error("area of {} by {} encloses nothing", .0.width(), .0.height())]
+    Area(Rect),
+    #[error("font data of {family} holds no face {index}")]
+    Font { family: Arc<str>, index: u32 },
     #[error("text {0} reaches the writer unshaped")]
     Unshaped(Arc<str>),
     #[error("profile describes no CMYK output device")]
@@ -168,6 +178,12 @@ pub enum PdfError {
     Press(PdfXLevel),
     #[error("{press} and {accessibility} require different PDF versions")]
     Versions { press: PdfXLevel, accessibility: PdfUaLevel },
+    #[error("metadata holds no {0}")]
+    Metadata(Arc<str>),
+    #[error("document claims {0}, which no validator checks")]
+    Claim(Arc<str>),
+    #[error("page label range at page {0} numbers from zero, where ISO 32000 starts at one")]
+    Numbering(usize),
     #[error("label {0} names two pages")]
     Label(Arc<str>),
     #[error("outline entry {0} names no page and no label")]
@@ -178,8 +194,11 @@ pub enum PdfError {
     Unit(Arc<str>),
     #[error("layer {0} prints and views differently under a standard forbidding usage application")]
     Usage(Arc<str>),
-    #[error("timestamp authority answered status {0}")]
-    Timestamp(u8),
+    #[error("timestamp authority answered {}", fmt::from_fn(|formatter| match .0 {
+        Some(status) => write!(formatter, "status {status}"),
+        None => formatter.write_str("no status and token"),
+    }))]
+    Timestamp(Option<u8>),
     #[error("timestamp token stamps other bytes")]
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
@@ -193,10 +212,9 @@ pub enum PdfError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn save(document: &Document, options: SaveOptions) -> Result<Vec<u8>, PdfError> {
-    let bytes = document.data().as_ref().to_vec();
     match options {
-        SaveOptions { incremental: true, compress: _, linearize: false, garbage_collect: _, encryption: None } => Ok(bytes),
-        rewrite => DocumentEditor::from_bytes(bytes).and_then(|mut editor| editor.save_to_bytes_with_options(rewrite)).map_err(PdfError::from),
+        SaveOptions { incremental: true, compress: _, linearize: false, garbage_collect: _, encryption: None } => Ok(document.data().as_ref().to_vec()),
+        rewrite => editor(document).and_then(|mut editor| editor.save_to_bytes_with_options(rewrite).map_err(PdfError::from)),
     }
 }
 
@@ -205,7 +223,7 @@ pub fn fields(document: &Document) -> Result<Vec<Fields>, PdfError> {
     let path = [PIECE_INFO, env!("CARGO_PKG_NAME").as_bytes(), PRIVATE];
     let entry = |(key, value): (&Vec<u8>, &Object)| {
         Validated::from(str::from_utf8(key).map(Arc::from).map_err(PdfError::from))
-            .map2(Validated::from(structure.dereference(value).and_then(|(_, text)| decode_text_string(text)).map(Arc::from).map_err(PdfError::from)), |key, value| (key, value))
+            .map2(Validated::from(resolved(&structure, value).and_then(decode_text_string).map(Arc::from).map_err(PdfError::from)), |key, value| (key, value))
     };
     structure
         .page_iter()
@@ -236,27 +254,63 @@ where
         .ok()
         .map_err(PdfError::Refused)?;
     placed.iter().try_for_each(|(sheet, fields)| write_fields(&mut structure, *sheet, fields.borrow(), modified))?;
-    let mut bytes = Vec::new();
-    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    Document::new(bytes, None)
+    saved(structure)
 }
 
 fn structure(document: &Document) -> Result<lopdf::Document, PdfError> { lopdf::Document::load_mem(document.data().as_ref()).map_err(PdfError::from) }
 
 fn engine(document: &Document) -> Result<PdfDocument, PdfError> { PdfDocument::from_bytes(document.data().as_ref().to_vec()).map_err(PdfError::from) }
 
+fn editor(document: &Document) -> Result<DocumentEditor, PdfError> { DocumentEditor::from_bytes(document.data().as_ref().to_vec()).map_err(PdfError::from) }
+
+fn saved(mut structure: lopdf::Document) -> Result<Document, PdfError> {
+    let mut bytes = Vec::new();
+    structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
+    Document::new(bytes, None)
+}
+
 fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
     let pages = document.pages();
     pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })
 }
 
-fn frame(page: &Page<'_>) -> Affine {
-    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0);
-    Affine::scale(Length::new::<inch>(unit / POINTS_PER_INCH).get::<millimeter>()) * page.initial_transform(true).to_kurbo()
+fn points_per_millimeter() -> f64 {
+    const POINTS_PER_INCH: f64 = 72.0;
+    Length::new::<millimeter>(1.0).get::<inch>() * POINTS_PER_INCH
 }
 
-fn nested<'held>(structure: &'held lopdf::Document, node: &'held Dictionary, path: &[&[u8]]) -> Result<Option<&'held Dictionary>, lopdf::Error> {
-    path.iter().try_fold(Some(node), |found, &key| found.filter(|parent| parent.has(key)).map(|parent| structure.get_dict_in_dict(parent, key)).transpose())
+fn frame(page: &Page<'_>) -> (Affine, Size) {
+    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0) / points_per_millimeter();
+    let (width, height) = page.render_dimensions();
+    (Affine::scale(unit) * page.initial_transform(true).to_kurbo(), Size::new(f64::from(width), f64::from(height)) * unit)
+}
+
+fn resolved<'held>(structure: &'held lopdf::Document, object: &'held Object) -> Result<&'held Object, lopdf::Error> {
+    static NULL: Object = Object::Null;
+    match structure.dereference(object) {
+        Err(lopdf::Error::ObjectNotFound(_)) => Ok(&NULL),
+        found => found.map(|(_, target)| target),
+    }
+}
+
+fn entry<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, key: impl AsRef<[u8]>) -> Result<Option<&'held Object>, lopdf::Error> {
+    let key = key.as_ref();
+    Ok(holder.has(key).then(|| holder.get(key).and_then(|value| resolved(structure, value))).transpose()?.filter(|value| !value.is_null()))
+}
+
+fn nested<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, path: &[&[u8]]) -> Result<Option<&'held Dictionary>, lopdf::Error> {
+    path.iter().try_fold(Some(holder), |found, key| found.map(|parent| entry(structure, parent, key)?.map(Object::as_dict).transpose()).transpose().map(Option::flatten))
+}
+
+fn leaves<K, F>(structure: &lopdf::Document, node: &Dictionary, list: &str, key: &F, ancestors: &[ObjectId]) -> Result<Vec<(K, Object)>, lopdf::Error>
+where F: Fn(&Object) -> Result<K, lopdf::Error> {
+    let own = entry(structure, node, list)?.map(Object::as_array).transpose()?.into_iter().flat_map(|pairs| pairs.as_chunks::<2>().0).map(|[name, value]| key(name).map(|name| vec![(name, value.clone())]));
+    let kids = entry(structure, node, b"Kids")?.map(Object::as_array).transpose()?.into_iter().flatten().map(|kid| {
+        let id = kid.as_reference()?;
+        (!ancestors.contains(&id)).ok_or(lopdf::Error::ReferenceCycle(id))?;
+        leaves(structure, structure.get_dictionary(id)?, list, key, &[ancestors, &[id]].concat())
+    });
+    own.chain(kids).try_collect::<Vec<_>>().map(|found| found.into_iter().flatten().collect())
 }
 
 fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {

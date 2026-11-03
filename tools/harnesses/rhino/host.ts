@@ -195,10 +195,7 @@ const failing = Effect.fn('failing')(function* (log: string, source: string, spa
     const foreign = owned.filter(({ index }) => Option.isNone(index)).map(({ text }) => text);
     yield* foreign.length === 0 && owned.length > 0 ? Effect.void : HarnessError.make({ reason: { _tag: 'Unavailable', because: foreign.length === 0 ? printed : foreign.join('; ') }, subject: `${ENTRY.type} build` });
     return Record.map(
-        Array.groupBy(
-            owned.flatMap(({ text, index }) => Option.toArray(Option.map(index, (held) => [String(held), text] as const))),
-            ([index]) => index,
-        ),
+        Array.groupBy(Array.getSomes(owned.map(({ text, index }) => Option.map(index, (held) => [String(held), text] as const))), ([index]) => index),
         (pairs): string => `did not compile: ${pairs.map(([, text]) => text).join('; ')}`,
     );
 });

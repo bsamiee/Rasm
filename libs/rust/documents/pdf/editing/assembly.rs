@@ -148,6 +148,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     const ACROFORM: &str = "AcroForm";
     const DEFAULT_RESOURCES: &str = "DR";
     const FIELDS: &str = "Fields";
+    const NEED_APPEARANCES: &str = "NeedAppearances";
     const OPTIONAL_CONTENT: &str = "OCProperties";
     let mut merged = lopdf::Document::with_version(parts.nonempty_iter().map(|(source, _)| source.structure.version.as_str()).max());
     let placed = parts.nonempty_iter().map(|&(source, chosen)| placed(source, &mut merged, chosen)).collect::<Result<NEVec<_>, _>>()?;
@@ -230,7 +231,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
             }
             first
         });
-    let appearances = forms.iter().flatten().map(|form| entry(&assembly.structure, form, "NeedAppearances").map(|needed| matches!(needed, Some(Object::Boolean(true))))).try_fold(false, |any, needed| needed.map(|needed| any || needed))?;
+    let appearances = forms.iter().flatten().map(|form| entry(&assembly.structure, form, NEED_APPEARANCES).map(|needed| matches!(needed, Some(Object::Boolean(true))))).try_fold(false, |any, needed| needed.map(|needed| any || needed))?;
     let interactive = forms.iter().flatten().next().cloned().filter(|_| !fields.is_empty()).map(|mut form| {
         form.set(FIELDS, fields);
         form.remove(b"XFA");
@@ -238,7 +239,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
             form.set(DEFAULT_RESOURCES, resources.into_iter().map(|(category, entries)| (category, Object::Dictionary(entries))).collect::<Dictionary>());
         }
         if appearances {
-            form.set("NeedAppearances", true);
+            form.set(NEED_APPEARANCES, true);
         }
         form
     });
@@ -250,10 +251,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
             (next, tagged)
         })
     })?;
-    let dests = destinations.iter().flatten().filter(|(_, target)| opens(&assembly, target)).fold(BTreeMap::new(), |mut first, (name, target)| {
-        first.entry(name.clone()).or_insert_with(|| Object::Array(target.clone()));
-        first
-    });
+    let dests = destinations.iter().flatten().filter(|(_, target)| opens(&assembly, target)).rev().map(|(name, target)| (name.clone(), Object::Array(target.clone()))).collect::<BTreeMap<_, _>>();
     let others = trees.iter().flat_map(|named| named.iter().filter(|(kind, _)| kind.as_slice() != DESTS.as_bytes())).fold(Directory::new(), |mut first, (kind, entries)| {
         let slot = first.entry(kind.clone()).or_default();
         for (name, value) in entries {
@@ -316,10 +314,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         .filter_map(|(&id, object)| if let Object::Dictionary(node) = object { node.has_type(b"OCG").then_some((id, node)) } else { None })
         .map(|(id, node)| node.get_deref(b"Name", &assembly.structure).and_then(decode_text_string).map(|name| (id, name)))
         .try_collect::<Vec<_>>()?;
-    let canonical = layered.iter().fold(HashMap::<&str, ObjectId>::new(), |mut first, (id, name)| {
-        first.entry(name.as_str()).or_insert(*id);
-        first
-    });
+    let canonical = layered.iter().rev().map(|(id, name)| (name.as_str(), *id)).collect::<HashMap<_, _>>();
     let duplicates = layered.iter().filter_map(|(id, name)| canonical.get(name.as_str()).filter(|&&survivor| survivor != *id).map(|&survivor| (*id, survivor))).collect::<HashMap<_, _>>();
     for object in assembly.structure.objects.values_mut() {
         rewritten(object, &|id| duplicates.get(&id).map(|&survivor| Object::Reference(survivor)));
@@ -346,10 +341,9 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
             .iter()
             .flat_map(|(source, _)| &source.groups)
             .filter(|group| present.contains(&group.name))
-            .fold(BTreeMap::<&str, &Group>::new(), |mut first, group| {
-                first.entry(&group.name).or_insert(group);
-                first
-            })
+            .rev()
+            .map(|group| (&*group.name, group))
+            .collect::<BTreeMap<_, _>>()
             .into_values(),
     )
 }
@@ -388,7 +382,7 @@ fn placed(source: &Source, merged: &mut lopdf::Document, chosen: &[(usize, Objec
         })
     })?;
     let mut trailer = structure.trailer.clone();
-    for (_, value) in trailer.iter_mut() {
+    for (_, value) in &mut trailer {
         shift(value);
     }
     Ok((trailer, chosen.iter().map(|&(_, page)| moved(page)).collect()))
@@ -560,15 +554,12 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
         let kept = items
             .into_iter()
             .map(|item| {
-                let keep = match &item {
-                    Object::Integer(_) => here == Some(true),
-                    Object::Dictionary(reference) => placed(reference, here) == Some(true),
-                    Object::Reference(kid) => match resolved(structure, &item)? {
-                        Object::Dictionary(reference) if reference.has_type(b"MCR") || reference.has_type(b"OBJR") => placed(reference, here) == Some(true),
-                        Object::Dictionary(_) => marked(structure, held, *kid, here, &lineage)?,
-                        Object::Null | Object::Boolean(_) | Object::Integer(_) | Object::Real(_) | Object::Name(_) | Object::String(_, _) | Object::Array(_) | Object::Stream(_) | Object::Reference(_) => false,
-                    },
-                    Object::Null | Object::Boolean(_) | Object::Real(_) | Object::Name(_) | Object::String(_, _) | Object::Array(_) | Object::Stream(_) => false,
+                let keep = match (&item, resolved(structure, &item)?) {
+                    (Object::Integer(_), _) => here == Some(true),
+                    (Object::Dictionary(reference), _) => placed(reference, here) == Some(true),
+                    (Object::Reference(_), Object::Dictionary(reference)) if reference.has_type(b"MCR") || reference.has_type(b"OBJR") => placed(reference, here) == Some(true),
+                    (Object::Reference(kid), Object::Dictionary(_)) => marked(structure, held, *kid, here, &lineage)?,
+                    _ => false,
                 };
                 Ok::<_, lopdf::Error>(keep.then_some(item))
             })
@@ -786,7 +777,7 @@ where I: IntoIterator<Item = usize> {
                 .has(b"Contents")
                 .then(|| {
                     spaces(&structure, resources.iter().copied()).and_then(|colorspaces| {
-                        structure.get_and_decode_page_content(*sheet).and_then(|content| Content { operations: iter::chain([painted(FILL, revision), painted(STROKE, revision)], repainted(content.operations, &colorspaces, revision)).collect() }.encode())
+                        structure.get_and_decode_page_content(*sheet).and_then(|content| Content { operations: iter::chain([painted(FILL, revision), painted(STROKE, revision)], repainted(content.operations, &colorspaces, revision)).collect::<Vec<_>>() }.encode())
                     })
                 })
                 .transpose()
@@ -797,7 +788,7 @@ where I: IntoIterator<Item = usize> {
             let stream = structure.get_object(form)?.as_stream()?;
             let resources = stream.dict.has(RESOURCES.as_bytes()).then(|| structure.get_dict_in_dict(&stream.dict, RESOURCES.as_bytes())).transpose()?;
             spaces(&structure, resources).and_then(|colorspaces| {
-                stream.decompressed_content().and_then(|bytes| Content::decode(&bytes)).and_then(|content| Content { operations: repainted(content.operations, &colorspaces, revision).collect() }.encode())
+                stream.decompressed_content().and_then(|bytes| Content::decode(&bytes)).and_then(|content| Content { operations: repainted(content.operations, &colorspaces, revision).collect::<Vec<_>>() }.encode())
             })
             .map(|content| (Painted::Form(form), content))
         }))

@@ -6,12 +6,15 @@ rule:
     kind: call_expression
     all:
         - any:
-            - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[$I + 1..]))'
-            - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[($I + 1)..]))'
-            - pattern: '$S.iter().position($P).and_then(|$I| Some(($S.get(..$I)?, $S.get($I + 1..)?)))'
-            - pattern: '$S.iter().position($P).and_then(|$I| $S.get(..$I).zip($S.get($I + 1..)))'
+            - pattern: '$S.iter().$POS($P).map(|$I| (&$S[..$I], &$S[$I + 1..]))'
+            - pattern: '$S.iter().$POS($P).map(|$I| (&$S[..$I], &$S[($I + 1)..]))'
+            - pattern: '$S.iter().$POS($P).and_then(|$I| Some(($S.get(..$I)?, $S.get($I + 1..)?)))'
+            - pattern: '$S.iter().$POS($P).and_then(|$I| $S.get(..$I).zip($S.get($I + 1..)))'
 constraints:
     I: {kind: identifier}
-fix: $S.split_once($P)
-message: '`$S` splits around the first match of a predicate by hand'
-note: 'Call `<slice>.split_once(<predicate>)` (`#![feature(slice_split_once)]`)'
+    POS: {regex: '^r?position$'}
+transform:
+    SPLIT: {replace: {source: $POS, replace: 'position', by: 'split_once'}}
+fix: $S.$SPLIT($P)
+message: '`$S.iter().$POS(..)` splits around a match of a predicate by hand'
+note: 'Call `<slice>.split_once(<predicate>)` for the first match or `<slice>.rsplit_once(<predicate>)` for the last'

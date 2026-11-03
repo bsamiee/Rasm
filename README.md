@@ -109,7 +109,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - Projects with `.storybook/` run each story as a Chromium `test` case that fails on an axe violation
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
 - Xcode apps holding a UXP script build in a folder reference build that script first
-- Outputs sit under root `.artifacts/` and caches outside the checkout, each tool moved by one setting every run reads, or its guidance file states why not
+- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, daemon and supervisor output sit in pitchfork's log store
 
 ## [04]-[DELIVERY]
@@ -150,7 +150,6 @@ Products reach a person through separate levels:
 |  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
 |  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
 |  [27]   | Product version                | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
-|  [28]   | Cache folder                   | `mise.toml` `RASM_CACHE_HOME` per checkout, `.cargo/config.toml` `build-dir` template for Cargo      |
 
 - Tool rows name a release where `latest` resolves a development build
 

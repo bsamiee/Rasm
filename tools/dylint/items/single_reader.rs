@@ -188,7 +188,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let module = tcx.parent_module_from_def_id(item);
             signature(tcx, item.to_def_id()).inputs().iter().filter_map(|input| input.peel_refs().ty_adt_def()?.did().as_local()).filter(|&held| tcx.parent_module_from_def_id(held) == module).collect::<Vec<_>>()
         };
-        let operations = tcx.hir_body_owners().filter(|&owner| tcx.def_kind(owner) == DefKind::Fn && tcx.def_kind(tcx.local_parent(owner)) == DefKind::Mod).flat_map(&operands).counts();
+        let operation = |owner: LocalDefId| tcx.def_kind(owner) == DefKind::Fn && tcx.def_kind(tcx.local_parent(owner)) == DefKind::Mod;
+        let operations = tcx.hir_body_owners().filter(|&owner| operation(owner)).flat_map(&operands).counts();
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()
@@ -198,7 +199,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && !exported(cx, target)
                 && tcx.parent_module_from_def_id(caller) == tcx.parent_module_from_def_id(target)
                 && !is_entrypoint_fn(cx, target.to_def_id())
-                && !(tcx.def_kind(target) == DefKind::Fn && operands(target).iter().any(|held| operations.get(held).is_some_and(|&count| count > 1)))
+                && !(tcx.def_kind(target) == DefKind::Fn && operands(target).iter().any(|held| operations.get(held).is_some_and(|&count| count > 1_usize.strict_add(usize::from(operation(caller) && operands(caller).contains(held))))))
                 && !find_attr!(tcx, target, Used { .. })
                 && !(tcx.def_kind(target) == DefKind::AssocConst && tcx.generics_of(target).requires_monomorphization(tcx))
                 && let parent = tcx.local_parent(target)

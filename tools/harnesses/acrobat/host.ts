@@ -80,7 +80,7 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Staged.Type, folde
         (document): Effect.Effect<(typeof Placed.Type.documents)[number], PlatformError.PlatformError> =>
             'open' in document ? Effect.as(fs.copyFile(path.join(product, document.open), path.join(sandbox, path.basename(document.open))), { open: path.join(sandbox, path.basename(document.open)) }) : Effect.succeed(document),
     );
-    return { precondition: { ...decoded, documents, sandbox }, copies: decoded.documents.flatMap((document) => ('open' in document ? [path.join(product, document.open)] : [])) };
+    return { precondition: { ...decoded, documents, sandbox }, copies: Array.filterMap(decoded.documents, (document) => ('open' in document ? Result.succeed(path.join(product, document.open)) : Result.failVoid)) };
 });
 const staged = Effect.fn('staged')(function* (hosted: typeof HostCase.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -135,7 +135,10 @@ const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<un
 const menu = Effect.fn('menu')(function* (pid: number, index: number) {
     const items = specifier(CODES.item, 'index', 'every', Option.some(specifier(CODES.menu, 'index', index, Option.none())));
     const [named, modal] = yield* Effect.all([got(pid, items, Schema.Array(Item)), got(pid, specifier(CODES.title, 'property', { _tag: 'type', name: CODES.title }, Option.some(items)), Schema.Array(Schema.NullOr(Modal)))]);
-    return Option.map(Option.fromNullOr(named), (found) => found.flatMap(({ seld }, at) => (modal?.[at] === true ? [seld] : [])));
+    return Option.map(
+        Option.fromNullOr(named),
+        Array.filterMap(({ seld }, at) => (modal?.[at] === true ? Result.succeed(seld) : Result.failVoid)),
+    );
 });
 const modalIn = (pid: number) => Effect.map(Stream.runCollect(Stream.paginate(1, (index) => Effect.map(menu(pid, index), (names) => [Option.toArray(names).flat(), Option.as(names, index + 1)] as const))), (pages) => pages.flat());
 const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof Request.Type) {

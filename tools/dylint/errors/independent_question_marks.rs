@@ -2,9 +2,12 @@ use core::{fmt::Display, iter, ops::ControlFlow, slice};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    get_parent_expr, peel_hir_expr_while,
+    get_parent_expr,
+    macros::macro_backtrace,
+    peel_hir_expr_while,
     res::MaybeResPath as _,
     source::snippet,
+    sym,
     visitors::{for_each_expr_without_closures, is_local_used},
 };
 use rustc_hir::{Block, Expr, ExprField, ExprKind, HirId, MatchSource, Mutability, PatKind, Stmt, StmtKind, UnOp, def::DefKind};
@@ -80,7 +83,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let tried = |combined: &'tcx Expr<'tcx>| {
             operands(combined).filter(|&operand| !any_expr(cx.tcx, operand, mutates)).filter_map(|operand| for_each_expr_without_closures(operand, question)).collect::<Vec<_>>()
         };
-        if !expanded_externally(cx, expr.span)
+        let listed = || matches!(expr.kind, ExprKind::Array(_)) && macro_backtrace(expr.span).all(|call| cx.tcx.is_diagnostic_item(sym::vec_macro, call.def_id));
+        if (!expanded_externally(cx, expr.span) || listed())
             && !fixed(cx, expr.hir_id)
             && let results = tried(expr)
             && let &[first, second, ..] = &results

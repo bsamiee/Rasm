@@ -72,6 +72,7 @@ enum Operation {
 
 const SERVICE: &str = "bridged";
 const INSTANCE: &str = "transport";
+const LINKED: &str = "upstream linked";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -85,6 +86,7 @@ struct Event {
     service: String,
     #[serde(rename = "service.instance.id")]
     instance: String,
+    message: String,
 }
 
 #[derive(Deserialize)]
@@ -118,7 +120,7 @@ enum Failure {
     Io { operation: Operation, source: io::Error },
     #[error("cannot decode {line}")]
     Decode { line: String, source: serde_path_to_error::Error<serde_json::Error> },
-    #[error("bridge ended before listening\n{log}")]
+    #[error("bridge ended before listening and linking its upstream\n{log}")]
     Unready { log: String },
     #[error("MCP client handshake failed")]
     Initialize(#[from] Box<ClientInitializeError>),
@@ -166,6 +168,17 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
         .try_next()
         .await?;
     let Some((address, event)) = listening else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
+    let linked = lines
+        .by_ref()
+        .try_filter_map(|line| {
+            ready(decode::<Event>(&line).map(|linked| {
+                log.push(line);
+                (linked.message == LINKED).then_some(())
+            }))
+        })
+        .try_next()
+        .await?;
+    let Some(()) = linked else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
     let session = async {
         let client = ().serve(StreamableHttpClientTransport::from_uri(format!("http://{address}"))).await.map_err(Box::new)?;
         let listed = client.list_tools(Some(params)).await;

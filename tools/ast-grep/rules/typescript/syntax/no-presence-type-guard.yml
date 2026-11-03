@@ -68,16 +68,16 @@ utils:
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: return_statement}]}}}
     asserted:
         has: {kind: type_predicate, has: {field: type, pattern: $TYPE, not: {kind: object_type}}}
-    member-presence:
-        any:
-            - kind: call_expression
-              all:
-                - has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$'}
-                - has: {field: arguments, has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $TYPE}}
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^in$'}
-                - has: {field: right, kind: 'identifier, member_expression', pattern: $TYPE}
+    call-presence:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$'}
+            - has: {field: arguments, has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $TYPE}}
+    in-presence:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^in$'}
+            - has: {field: right, kind: 'identifier, member_expression', pattern: $TYPE}
     member-read:
         kind: member_expression, subscript_expression
         has: {field: object, pattern: $TYPE}
@@ -85,7 +85,14 @@ rule:
     any:
         - kind: ternary_expression
           all:
-            - has: {field: condition, any: [{matches: member-presence}, {has: {stopBy: end, matches: member-presence}}]}
+            - has:
+                field: condition
+                any:
+                    - matches: call-presence
+                    - has: {stopBy: end, matches: call-presence}
+                    - all:
+                        - any: [{matches: in-presence}, {has: {stopBy: end, matches: in-presence}}]
+                        - has: {stopBy: end, matches: object-test}
             - has: {field: consequence, any: [{matches: member-read}, {has: {stopBy: end, matches: member-read}}]}
         - kind: arrow_function, function_expression, function_declaration, method_definition
           all:

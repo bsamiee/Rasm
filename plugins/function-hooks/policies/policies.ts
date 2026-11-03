@@ -51,8 +51,8 @@ const BRANCH = 'creates a branch. Stay on current branch';
 const UNPLACED = 'follows unresolved cd. cd to a literal path';
 const ALIAS = 'defines alias hiding refused subcommands';
 const OVERWRITES = 'overwrites edits. Use the Edit tool';
-const MONITOR = 'Run it in Monitor';
 const HEADLESS = 'analyzeHeadless';
+const CEILING = 600_000;
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
 const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
@@ -315,51 +315,29 @@ const searched = (command: Command, listed: Command | undefined, invocation: Inv
 
 const selfless = ({ script: { commands } }: Call): readonly Verdict[] => commands.flatMap((command, index) => command.invocations.flatMap((invocation, at) => searched(command, commands[index - 1], invocation, at)));
 
-const contained = (inner: Command, outer: Command): boolean => inner !== outer && inner.extent.start >= outer.extent.start && inner.extent.end <= outer.extent.end;
-
-const followed = ({ commands, command, invocation }: Waited): readonly Verdict[] => {
-    const [program] = invocation;
-    const { endless } = declared(program);
+const blind = ({ command, invocation, at, kind }: Waited): readonly Verdict[] => {
+    const { timer, endless } = declared(invocation[0]);
     const { options } = operands(invocation);
-    const consumed = command.substituted && commands.some((other) => other.fed && other.invocations.some(([name]) => name === 'read') && contained(command, other));
-    return marked(endless, options) && !consumed ? [refuse(`${[program, ...options.filter((name) => endless !== true && endless?.includes(name) === true)].join(' ')} can wait forever. ${MONITOR}`)] : [];
+    const holding = at === command.invocations.length - 1 && (marked(timer, options) || marked(endless, options));
+    return kind === 'foreground' && (holding || command.spinning) ? [refuse('Command waits blindly. Use Monitor or run_in_background')] : [];
 };
 
 const corrections = ({ commands, command, invocation, at }: Waited): readonly Verdict[] => {
     const [program] = invocation;
     const { options, values } = operands(invocation);
-    const words = command.parts[at]?.words ?? [];
-    const [first] = words;
-    const final = words.at(-1);
+    const [first] = command.parts[at]?.words ?? [];
     const next = command.parts[at + 1]?.words[0];
     const [amount] = values.flatMap(([name, value]) => (name === '-t' ? [value] : []));
-    const timer = at === command.invocations.length - 1 && marked(declared(program).timer, options);
-    const leaking = command.fed && commands.some((other) => other.substituted && contained(other, command));
-    if (first === undefined || final === undefined) {
-        return [];
-    }
+    const leaking = program === 'read' && marked(declared(program).timer, options) && command.fed && commands.some((other) => other.substituted && other !== command && other.extent.start >= command.extent.start && other.extent.end <= command.extent.end);
     return [
-        ...(program === 'caffeinate' && next !== undefined ? [corrected(command, edit(first.span.start, next.span.start, '', some(`caffeinate dropped, ${next.text} runs directly`)), `caffeinate wraps ${next.text}. Run ${next.text} directly`)] : []),
-        ...(program === 'caffeinate' && next === undefined && amount === undefined ? [refuse('caffeinate can wait forever. Wait for task notification')] : []),
-        ...(program === 'caffeinate' && timer && amount !== undefined ? [corrected(command, edit(first.span.start, final.span.end, `sleep ${amount}`, some(`caffeinate -t ${amount} became sleep ${amount}`)), `caffeinate -t ${amount} waits. Use sleep ${amount}`)] : []),
-        ...(program === 'read' && timer && amount !== undefined && leaking ? [corrected(command, edit(command.extent.start, command.extent.end, `sleep ${amount}`, some(`read -t ${amount} became sleep ${amount}`)), `read -t leaks its input process. Use sleep ${amount}`)] : []),
+        ...(program === 'caffeinate' && first !== undefined && next !== undefined ? [corrected(command, edit(first.span.start, next.span.start, '', some(`caffeinate dropped, ${next.text} runs directly`)), `caffeinate wraps ${next.text}. Run ${next.text} directly`)] : []),
+        ...(leaking && amount !== undefined ? [corrected(command, edit(command.extent.start, command.extent.end, `sleep ${amount}`, some(`read -t ${amount} became sleep ${amount}`)), `read -t leaks its input process. Use sleep ${amount}`)] : []),
     ];
 };
 
-const held = ({ commands, command, invocation, at, kind }: Waited): readonly Verdict[] => {
-    const [program] = invocation;
-    const timer = kind === 'foreground' && at === command.invocations.length - 1 && marked(declared(program).timer, operands(invocation).options);
-    const opening = command.origin !== 'file' && commands.find((other) => other.origin === command.origin && other.invocations.at(-1)?.[0] !== 'cd') === command;
-    return [...(timer && command.looped ? [refuse(`Poll loop holds the turn. ${MONITOR}`)] : []), ...(timer && !command.looped && opening ? [refuse(`${program} waits blindly. Use Monitor or task notification`)] : [])];
-};
-
 const waiting = ({ request, script: { commands } }: Call): readonly Verdict[] => {
-    const [setting] = toArray(request).filter(({ kind }) => kind !== 'monitor');
-    if (setting === undefined) {
-        return [];
-    }
-    const sites = commands.flatMap((command) => command.invocations.map((invocation, at): Waited => ({ commands, command, invocation, at, kind: setting.kind })));
-    return sites.flatMap((site) => [...followed(site), ...corrections(site), ...held(site)]);
+    const sites = toArray(request).flatMap(({ kind }) => commands.flatMap((command) => command.invocations.map((invocation, at): Waited => ({ commands, command, invocation, at, kind }))));
+    return sites.flatMap((site) => [...blind(site), ...corrections(site)]);
 };
 
 const detached = ({ request, source, script: { commands, jobs } }: Call): readonly Verdict[] => {
@@ -388,10 +366,7 @@ const headless = (root: Option<string>, { invocations: chain, parts, origin }: C
     chain.flatMap((invocation, at) => {
         const words = invocation[0] === HEADLESS ? (parts[at]?.words.slice(1) ?? []) : [];
         const [location] = words;
-        return [
-            ...(location === undefined || PROJECTS.test(location.raw) ? [] : [refuse(`${HEADLESS} project is not $GHIDRA_PROJECT_DIR. Follow use-ghidra`)]),
-            ...(origin === 'call' && root.kind === 'some' && location !== undefined ? logged(root.value, words) : []),
-        ];
+        return [...(location === undefined || PROJECTS.test(location.raw) ? [] : [refuse(`${HEADLESS} project is not $GHIDRA_PROJECT_DIR. Follow use-ghidra`)]), ...(origin === 'call' && root.kind === 'some' && location !== undefined ? logged(root.value, words) : [])];
     });
 
 const ghidra = ({ request, system: { root }, script: { commands, assignments } }: Call): readonly Verdict[] => {
@@ -550,7 +525,12 @@ const deadlines = async ({ request, system, script: { commands } }: Call): Promi
             ({ exitCode }) => exitCode === 0,
             () => false,
         ));
-    return installed ? [] : limited.map(({ command, from, to, amount, limit }) => corrected(command, edit(from.span.start, to.span.start, '', some(`timeout is not installed. Call timeout ${applied ? `set to ${amount}` : 'stays'}`), applied ? some(limit) : none), 'timeout is not installed. Drop it'));
+    return installed
+        ? []
+        : limited.map(({ command, from, to, amount, limit }) => {
+              const capped = limit > CEILING ? 'capped at maximum' : `set to ${amount}`;
+              return corrected(command, edit(from.span.start, to.span.start, '', some(`timeout is not installed. Call timeout ${applied ? capped : 'stays'}`), applied ? some(Math.min(limit, CEILING)) : none), 'timeout is not installed. Drop it');
+          });
 };
 
 const respelled = (program: string, words: readonly Word[], table: Readonly<Record<string, string>>, reason = ''): readonly Verdict[] =>
@@ -735,7 +715,7 @@ const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation
 
 const unrun = (detail: string): string => `function-hooks policy did not run. ${detail}`;
 
-const launched = (command: Command, { program, start, app, flags, foreign }: Launch, tail: Word): readonly Verdict[] =>
+const routed = (command: Command, { program, start, app, flags, foreign }: Launch, tail: Word): readonly Verdict[] =>
     command.origin !== 'call' || foreign.length > 0 ? [refuse(`${[program, ...foreign].join(' ')} launches ${app}. Run watch-apps launch ${app}`)] : [edit(start.span.start, tail.span.end, ['watch-apps launch', app, ...flags].join(' '), some(`${program} became watch-apps launch ${app}`))];
 
 const rewritten = async (call: Call, command: Command): Promise<readonly Verdict[]> => {
@@ -748,7 +728,7 @@ const rewritten = async (call: Call, command: Command): Promise<readonly Verdict
     }
     const launch = await launching(call.system, command);
     if (launch.kind === 'some') {
-        return launched(command, launch.value, tail);
+        return routed(command, launch.value, tail);
     }
     const found = command.origin === 'call' ? await checker(call, command, last, words) : none;
     if (found.kind === 'none') {
@@ -758,8 +738,6 @@ const rewritten = async (call: Call, command: Command): Promise<readonly Verdict
     return [edit(head.span.start, tail.span.end, [`nx run ${run}`, ...(passed.length > 0 ? ['--', ...passed] : [])].join(' '), some(`${last[0]} ran as nx run ${run}`))];
 };
 
-const rewrites = async (call: Call): Promise<readonly Verdict[]> => (await Promise.all(call.script.commands.map((command) => rewritten(call, command)))).flat();
-
 const commandDecision = async (system: System, command: string, project: string, request: Option<Request> = none): Promise<Decision> => {
     const source = new TextEncoder().encode(command);
     const parsed = await parse(system, command);
@@ -767,7 +745,7 @@ const commandDecision = async (system: System, command: string, project: string,
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, source, script: parsed.value, project, request };
-    const verdicts = (await Promise.all([deletes, git, walks, probes, inlined, selfless, waiting, detached, deadlines, ghidra, pipefail, repeated, drives, rewrites].map((policy) => policy(call)))).flat();
+    const verdicts = (await Promise.all([...[deletes, git, walks, probes, inlined, selfless, waiting, detached, deadlines, ghidra, pipefail, repeated, drives].map((policy) => policy(call)), ...parsed.value.commands.map((each) => rewritten(call, each))])).flat();
     const reasons = [...new Set(verdicts.flatMap((verdict) => (verdict.kind === 'refuse' ? [verdict.reason] : [])))];
     const edits = verdicts.flatMap((verdict) => (verdict.kind === 'edit' ? [verdict] : []));
     const backgrounds = verdicts.flatMap((verdict) => (verdict.kind === 'background' ? [verdict.notice] : []));
@@ -782,7 +760,15 @@ const commandDecision = async (system: System, command: string, project: string,
               kind: 'rewrite',
               command: spliced(source, 0, edits),
               notice: notices.length === 0 ? none : some(notices.join('. ')),
-              timeout: timeouts.length === 0 ? none : some(timeouts.reduce((sum, value) => sum + value, 0)),
+              timeout:
+                  timeouts.length === 0
+                      ? none
+                      : some(
+                            Math.min(
+                                CEILING,
+                                timeouts.reduce((sum, value) => sum + value, 0),
+                            ),
+                        ),
               background: backgrounds.length > 0,
           };
 };

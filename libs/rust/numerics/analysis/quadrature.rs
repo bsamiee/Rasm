@@ -39,10 +39,10 @@ pub enum Weight {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
-    pub degree: NonZero<usize> = NonZero::new(10).unwrap(),
+    pub degree: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 9),
     pub absolute: Option<Tolerance> = None,
     pub relative: Tolerance = TOLERANCE,
-    pub limit: NonZero<usize> = NonZero::new(50).unwrap(),
+    pub limit: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 49),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -222,7 +222,7 @@ where
         let width = width.or_else(|| outputs.first().map(|(output, _)| output.len())).unwrap_or_default();
         summed(width, outputs, || vec![span]).map(|sum| (sum, degree.get()))
     };
-    let doubled = |degree: &NonZero<usize>| degree.checked_mul(NonZero::<usize>::MIN.saturating_add(1)).filter(|next| next.get() <= settings.degree.get().saturating_mul(settings.limit.get()));
+    let doubled = |degree: &NonZero<usize>| degree.checked_mul(const { NonZero::new(2).unwrap() }).filter(|next| next.get() <= settings.degree.get().saturating_mul(settings.limit.get()));
     let (coarse, cost) = measured(settings.degree, None)?;
     let width = Some(coarse.len());
     iter::successors(doubled(&settings.degree), doubled)

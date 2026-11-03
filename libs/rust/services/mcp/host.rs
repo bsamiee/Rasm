@@ -32,8 +32,8 @@ use rmcp::{
         ConstString as _, CustomNotification, CustomRequest, CustomResult, DiscoverRequestMethod, DiscoverResult, GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskMethod,
         GetTaskParams, GetTaskResult, Implementation, InitializeRequestParams, InitializeResult, InitializeResultMethod, ListPromptsRequestMethod, ListPromptsResult,
         ListResourceTemplatesRequestMethod, ListResourceTemplatesResult, ListResourcesRequestMethod, ListResourcesResult, ListToolsRequestMethod, ListToolsResult, PaginatedRequestParams,
-        ProgressNotificationParam, ProtocolVersion, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ResourcesCapability, ServerCapabilities, ServerConfig,
-        ServerNotification, SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Tool, UnsubscribeRequestMethod, UnsubscribeRequestParams, UpdateTaskMethod, UpdateTaskParams,
+        ProgressNotificationParam, ProtocolVersion, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ResourcesCapability, ServerConfig, ServerNotification,
+        SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Tool, UnsubscribeRequestMethod, UnsubscribeRequestParams, UpdateTaskMethod, UpdateTaskParams,
     },
     service::{NotificationContext, RequestContext, SubscriptionContext},
     transport::{StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID, streamable_http_server::session::local::LocalSessionManager},
@@ -97,7 +97,6 @@ enum Target {
 
 struct Hosted<E> {
     endpoint: E,
-    capabilities: ServerCapabilities,
     notifier: Notifier,
     stopping: CancellationToken,
     requests: TaskTracker,
@@ -239,7 +238,11 @@ where E: Endpoint
         }
         let (Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted)) = parent.map_or(Ok(()), |parent| span.set_parent(parent));
         let (started, cancelled) = (Instant::now(), context.ct.clone());
-        let result = if self.host.requests.is_closed() { Err(McpError::Stopping.into()) } else { call.instrument(span.clone()).await };
+        let result = match (self.host.requests.is_closed(), self.host.endpoint.ready()) {
+            (true, _) => Err(McpError::Stopping.into()),
+            (false, Err(unready)) => Err(unready.into()),
+            (false, Ok(())) => call.instrument(span.clone()).await,
+        };
         let elapsed = started.elapsed();
         let (error_type, failure) = match (&result, cancelled.is_cancelled()) {
             (Ok(_) | Err(_), true) => (Some(Cow::Borrowed("cancelled")), None),
@@ -345,7 +348,7 @@ where E: Endpoint
     async fn subscribe(&self, request: SubscribeRequestParams, context: RequestContext<RoleServer>) -> Result<(), ErrorData> {
         let uri = request.uri.clone();
         let held = async move {
-            match self.host.capabilities.resources {
+            match self.get_info().capabilities.resources {
                 Some(ResourcesCapability { subscribe: Some(true), .. }) => {
                     let lease = self.host.lease(&request.uri)?;
                     self.subscribed.send_if_modified(|uris| uris.insert(request.uri, lease).is_none());
@@ -405,7 +408,7 @@ where E: Endpoint
     fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { Cow::Borrowed(versions()) }
 
     fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> {
-        let mut accepted = requested.supported_by(&self.host.capabilities);
+        let mut accepted = requested.supported_by(&self.get_info().capabilities);
         accepted.resource_subscriptions = accepted.resource_subscriptions.take().map(|uris| {
             let leased = self.host.leased(&uris);
             let kept = Vec::from_iter(leased.keys().cloned());
@@ -416,7 +419,7 @@ where E: Endpoint
     }
 
     async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
-        let (notifications, peer) = (self.notifications(list_changes(&self.host.capabilities), self.subscribed.subscribe()), context.peer.clone());
+        let (notifications, peer) = (self.notifications(list_changes(&self.get_info().capabilities), self.subscribed.subscribe()), context.peer.clone());
         let relayed = async move { notifications.map(Ok).try_for_each(|notification| peer.send_notification(notification)).await };
         self.relay.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(relayed.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "session closed")))));
         self.host.endpoint.on_initialized(context).await;
@@ -471,8 +474,7 @@ where
             let listened =
                 addresses.iter().flat_map(|(authority, bound)| bound.iter().map(SocketAddr::ip).filter(|ip| !ip.is_unspecified()).flat_map(|ip| [authority.host().to_owned(), ip.to_string()]));
             config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(listened));
-            let capabilities = endpoint.get_info().capabilities;
-            Ok(Hosted { endpoint, capabilities, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), watchers: Mutex::default(), config })
+            Ok(Hosted { endpoint, notifier, stopping, requests: TaskTracker::new(), watches: TaskTracker::new(), watchers: Mutex::default(), config })
         },
     )
 }

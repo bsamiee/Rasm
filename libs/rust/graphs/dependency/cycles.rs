@@ -1,73 +1,103 @@
-use std::collections::BTreeMap;
+use core::{cmp::Reverse, iter};
 
+use itertools::Itertools as _;
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use petgraph::{
-    algo::{astar, condensation, greedy_feedback_arc_set, kosaraju_scc},
-    graph::DiGraph,
-    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableDiGraph},
-    visit::{EdgeFiltered, EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
+    algo::{astar, condensation, kosaraju_scc},
+    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
+    visit::{EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
+
+use crate::{DependencyError, Edges, Evaluation, acyclic, at, compact, dense, link, unweighted};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
+pub struct Block<E> {
+    pub members: NEVec<NodeIndex>,
+    pub torn: Edges<E>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Torn<N, E> {
-    pub graph: StableDiGraph<N, E>,
-    pub edges: Vec<(NodeIndex, NodeIndex, E)>,
+    pub evaluation: Evaluation<N, E>,
+    pub blocks: Vec<Block<E>>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn condensed<N, E>(graph: &StableDiGraph<N, E>) -> StableDiGraph<Vec<NodeIndex>, EdgeIndex> {
-    let mut blocks = StableDiGraph::from(condensation(DiGraph::from(graph.map(|node, _| node, |edge, _| edge)), false));
-    blocks.retain_edges(|blocks, edge| blocks.edge_endpoints(edge).is_some_and(|(source, target)| source != target));
-    blocks
+pub fn condensed<N, E>(graph: &StableDiGraph<N, E>) -> Evaluation<NEVec<NodeIndex>, EdgeIndex> {
+    let mut components = StableDiGraph::from(condensation(compact(graph), false));
+    components.retain_edges(|retained, edge| retained.edge_endpoints(edge).is_some_and(distinct));
+    acyclic(components.filter_map_owned(|_, members| NEVec::try_from_vec(members), |_, edge| Some(edge)))
 }
 
 pub fn simple<N, E>(graph: &StableDiGraph<N, E>) -> impl Iterator<Item = Vec<NodeIndex>> + use<N, E> {
     let loops = graph.node_indices().filter(|&node| graph.contains_edge(node, node)).collect::<Vec<_>>();
-    let skeleton = graph.filter_map(|_, _| Some(()), |edge, _| graph.edge_endpoints(edge).filter(|(source, target)| source != target).map(|_| ()));
-    gen move {
-        let mut cycles = johnson_simple_cycles(&skeleton, Some(loops).filter(|found| !found.is_empty()));
-        while let Some(found) = cycles.next(&skeleton) {
-            yield found;
-        }
-    }
+    let unweighted = unweighted(graph, |edge| graph.edge_endpoints(edge).is_some_and(distinct));
+    let mut cycles = johnson_simple_cycles(&unweighted, Some(loops).filter(|found| !found.is_empty()));
+    iter::from_fn(move || cycles.next(&unweighted))
 }
 
 #[must_use]
-pub fn tear<N, E>(mut graph: StableDiGraph<N, E>) -> Torn<N, E> {
-    let skeleton = graph.map(|_, _| (), |_, _| ());
-    let block = blocks(&skeleton);
-    let edges = greedy_feedback_arc_set(&EdgeFiltered::from_fn(&skeleton, |edge: EdgeReference<'_, ()>| block.get(edge.source().index()) == block.get(edge.target().index())))
-        .filter_map(|edge| graph.remove_edge(edge.id()).map(|weight| (edge.source(), edge.target(), weight)))
-        .collect();
-    Torn { graph, edges }
-}
-
-pub(crate) fn closings<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Vec<NodeIndex>> {
-    let block = blocks(graph);
-    let within = |node: NodeIndex| block.get(node.index()).copied().flatten();
-    graph
+pub fn tear<N, E, K>(mut graph: StableDiGraph<N, E>, cost: impl Fn(&E) -> K) -> Torn<N, E>
+where K: Ord {
+    let components = components(&graph);
+    let mut kept = acyclic(unweighted(&graph, |_| false));
+    let cut = graph
         .edge_references()
-        .filter_map(|edge| within(edge.source()).filter(|&rank| within(edge.target()) == Some(rank)).map(|rank| (rank, (edge.source(), edge.target()))))
-        .collect::<BTreeMap<_, _>>()
+        .sorted_by_cached_key(|edge| Reverse(cost(edge.weight())))
+        .filter_map(|edge| link(&mut kept, (edge.source(), edge.target(), ())).err().map(|endpoints| (edge.id(), endpoints)))
+        .collect::<Vec<_>>();
+    let mut torn = cut
         .into_iter()
-        .map(|(rank, (source, target))| closing(graph, |node| within(node) == Some(rank), target, source))
-        .collect()
+        .filter_map(|(edge, (source, target))| Some((at(&components, source)?, (source, target, graph.remove_edge(edge)?))))
+        .into_group_map();
+    let evaluation = acyclic(graph);
+    let blocks = evaluation
+        .nodes_iter()
+        .filter_map(|node| Some((at(&components, node)?, node)))
+        .sorted_by_key(|&(component, _)| component)
+        .chunk_by(|&(component, _)| component)
+        .into_iter()
+        .filter_map(|(component, members)| Some(Block { members: NEVec::try_from_vec(members.map(|(_, node)| node).collect())?, torn: torn.remove(&component).unwrap_or_default() }))
+        .collect();
+    Torn { evaluation, blocks }
 }
 
-fn blocks<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Option<usize>> {
-    let mut block = vec![None; graph.node_bound()];
-    for (node, rank) in kosaraju_scc(graph).into_iter().enumerate().flat_map(|(rank, members)| members.into_iter().map(move |node| (node, rank))) {
-        if let Some(slot) = block.get_mut(node.index()) {
-            *slot = Some(rank);
-        }
+pub(crate) fn cycle<N, E>(graph: &StableDiGraph<N, E>) -> Option<DependencyError> {
+    let components = components(graph);
+    NEVec::try_from_vec(
+        graph
+            .edge_references()
+            .filter_map(|edge| at(&components, edge.source()).filter(|&component| at(&components, edge.target()) == Some(component)).map(|component| (component, edge.source(), edge.target())))
+            .unique_by(|&(component, _, _)| component)
+            .map(|(component, source, target)| path(graph, |node| at(&components, node) == Some(component), target, source))
+            .collect(),
+    )
+    .map(|paths| DependencyError::Cycle { paths })
+}
+
+pub(crate) fn refused<N, E>(evaluation: &Evaluation<N, E>, edges: NEVec<(NodeIndex, NodeIndex)>) -> DependencyError {
+    DependencyError::Cycle {
+        paths: edges
+            .into_nonempty_iter()
+            .map(|(source, target)| {
+                let window = evaluation.get_position(target)..=evaluation.get_position(source);
+                path(evaluation, |node| window.contains(&evaluation.get_position(node)), target, source)
+            })
+            .collect(),
     }
-    block
 }
 
-pub(crate) fn closing<N, E>(graph: &StableDiGraph<N, E>, members: impl Fn(NodeIndex) -> bool, start: NodeIndex, goal: NodeIndex) -> Vec<NodeIndex> {
+fn components<N, E>(graph: &StableDiGraph<N, E>) -> Vec<Option<usize>> {
+    dense(graph.node_bound(), kosaraju_scc(graph).into_iter().rev().enumerate().flat_map(|(component, members)| members.into_iter().map(move |node| (node, component))))
+}
+
+fn distinct((source, target): (NodeIndex, NodeIndex)) -> bool { source != target }
+
+fn path<N, E>(graph: &StableDiGraph<N, E>, members: impl Fn(NodeIndex) -> bool, start: NodeIndex, goal: NodeIndex) -> Vec<NodeIndex> {
     astar(&NodeFiltered::from_fn(graph, members), start, |node| node == goal, |_| 1_usize, |_| 0_usize).map_or_default(|(_, path)| path)
 }

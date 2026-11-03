@@ -47,12 +47,18 @@ utils:
         has: {field: value, pattern: $STATE.last_mut()}
     element-write:
         kind: call_expression
-        has:
-            field: function
-            kind: field_expression
-            all:
-                - has: {field: value, kind: identifier, pattern: $STATE}
-                - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+        any:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, kind: identifier, pattern: $STATE}
+                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+            - all:
+                - regex: '\.entry\([\s\S]*\)\s*\.\s*or_(insert|insert_with|insert_with_key|default)\('
+                - any:
+                    - pattern: '$STATE.entry($$$_KEY).$_SLOT($$$_VALUE)'
+                    - pattern: '$STATE.entry($$$_KEY).$_SLOT($$$_VALUE).$_WRITE($$$_ITEM)'
 rule:
     pattern: $LOOP
     any:

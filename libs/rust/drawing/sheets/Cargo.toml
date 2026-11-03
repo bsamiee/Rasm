@@ -1,0 +1,42 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-sheets"
+version.workspace    = true
+edition.workspace    = true
+description          = "Drawing sets every Rasm document export composes on rasm-linework and rasm-annotation: sheets in set order with scaled and cropped viewports, one layer table stating print and view states and draw order, model and paper annotation trimming its container's linework under its text, cross-references resolved into callout slots and page links, rasters fitted from their header size"
+repository.workspace = true
+license.workspace    = true
+keywords             = ["drawing", "sheet", "viewport", "layer", "cad"]
+categories           = ["graphics"]
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+enum-map             = { workspace = true }
+indexmap             = { workspace = true }
+uom                  = { workspace = true }
+imagesize            = { workspace = true }
+kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
+rasm-linework        = { workspace = true }
+rasm-annotation      = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

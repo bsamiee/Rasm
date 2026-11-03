@@ -51,7 +51,7 @@ trait Completer<A> = Fn(A, ArgumentInfo, Option<CompletionContext>) -> BoxFuture
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub instructions: Option<String> = None,
-    pub page: NonZero<usize> = NonZero::new(1024).unwrap(),
+    pub page: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023),
     pub retention: Duration = Duration::from_hours(1),
 }
 

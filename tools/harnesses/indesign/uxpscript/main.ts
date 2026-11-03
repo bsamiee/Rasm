@@ -3,7 +3,7 @@ import indesign, { type ScriptLanguage } from 'adobe:indesign';
 import uxp from 'adobe:uxp';
 import { Encoded, type fields, type HostCase, Outcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
 import { bury, JsonObject, type Reference, revive } from '@rasm/harnesses/values';
-import { Equal, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
+import { Equal, Iterable, identity, Match, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ const same = Schema.toEquivalence(Schema.Json);
 const { app } = indesign;
 const names = Object.getOwnPropertyNames(indesign).filter((name) => name !== 'app');
 const field = (target: unknown, key: PropertyKey): unknown => Reflect.get(new Object(target), key);
-const message = (error: unknown) => (Predicate.hasProperty(error, 'message') ? String(error.message) : String(error));
+const message = (error: unknown) => String(field(error, 'message') ?? error);
 const invoked = (target: unknown, key: string, args: readonly unknown[]): unknown => {
     const method = field(target, key);
     if (!Predicate.isFunction(method)) {
@@ -78,7 +78,7 @@ const invoked = (target: unknown, key: string, args: readonly unknown[]): unknow
 const items = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Schema.Array(Schema.String))(value), () => []);
 const elements = (list: unknown) => items(invoked(invoked(list, 'everyItem', []), 'getElements', []));
-const called = (made: unknown, args: readonly unknown[]): unknown => Reflect.apply(Option.getOrThrow(Option.liftPredicate(made, Predicate.isFunction)), undefined, args);
+const called = (made: unknown, args: readonly unknown[]): unknown => Option.getOrThrow(Option.liftPredicate(made, Predicate.isFunction))(...args);
 const enumerator = (value: unknown): value is object => value instanceof indesign.Enumerator;
 const equal = (left: unknown, right: unknown) => enumerator(left) && enumerator(right) && invoked(left, 'equals', [right]) === true;
 const members = (enumeration: unknown) => Object.getOwnPropertyNames(Object.getPrototypeOf(enumeration)).filter((key) => enumerator(field(enumeration, key)) && String(field(enumeration, key)) === key);
@@ -120,11 +120,9 @@ const codecOf = (enumerations: Batch['enumerations']): Codec => {
     const encoded = (value: unknown) => bury(value, named);
     return { encoded, record: Record.map(encoded), revived: (value) => revive(value, located) };
 };
-const compiled = (parameters: readonly string[], code: string) => {
+const compiled = (parameters: readonly string[], code: string) =>
     // biome-ignore lint/nursery/noImpliedEval: case data and originals compile inside the host
-    const made = new Function(...parameters, code);
-    return (...args: readonly unknown[]): unknown => Reflect.apply(made, undefined, args);
-};
+    new Function(...parameters, code);
 const lines = (error: unknown) => Array.from(String(field(error, 'stack') ?? '').matchAll(STACK_LINE), (found) => Number(found.groups?.line));
 const HEAD = (() => {
     try {
@@ -135,8 +133,8 @@ const HEAD = (() => {
     }
 })();
 const scope = (overrides: Node) => {
-    const keys = [...names.filter((name) => !Object.hasOwn(overrides, name)), ...Object.keys(overrides)];
-    return { keys, values: keys.map((key) => (Object.hasOwn(overrides, key) ? overrides[key] : Reflect.get(indesign, key))) };
+    const inherited = names.filter((name) => !Object.hasOwn(overrides, name));
+    return { keys: [...inherited, ...Object.keys(overrides)], values: [...inherited.map((name) => Reflect.get(indesign, name)), ...Object.values(overrides)] };
 };
 const shadow = <T extends object>(target: T, get: (key: PropertyKey, value: unknown) => unknown, set: (key: PropertyKey, value: unknown) => boolean = (key, value) => Reflect.set(target, key, value)) =>
     new Proxy(target, {
@@ -520,7 +518,7 @@ const state = (codec: Codec, doc: unknown) => {
         );
     return codec.encoded({
         name: field(doc, 'name'),
-        ...Object.fromEntries(preferences(doc).flatMap((name) => Option.toArray(nested(name)))),
+        ...Object.fromEntries(Iterable.getSomes(preferences(doc).map(nested))),
         cmykProfile: field(doc, 'cmykProfile'),
         rgbProfile: field(doc, 'rgbProfile'),
         appliedLanguage: field(field(field(doc, 'textDefaults'), 'appliedLanguage'), 'name'),
@@ -632,7 +630,7 @@ const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, 
         }
     };
     const shadows = installed(session);
-    const result = ((): Omit<typeof Outcome.Type, 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
+    const result = ((): Omit<Parameters<typeof Outcome.make>[0], 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
         try {
             const docs = opened(session);
             session.record.opened = docs.map((doc) => state(codec, doc));

@@ -11,7 +11,7 @@ const _ROOT = import.meta.dirname;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _project = Effect.fnUntraced(function* (directory: string) {
-    const [fs, path, ci, cache] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('CI'), false), Config.String('RASM_CACHE_HOME')]);
+    const [fs, path, ci] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('CI'), false)]);
     const { name, devDependencies } = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ name: Schema.String, devDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) })))(yield* fs.readFileString(path.join(directory, 'package.json')));
     const results = path.join(_ROOT, '.artifacts', 'typescript', 'vitest', name);
     const segments = path.relative(_ROOT, directory).split(path.sep);
@@ -39,7 +39,7 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                 reportsDirectory: path.join(results, 'coverage'),
                 skipFull: true,
             },
-            fsModuleCachePath: path.join(cache, 'vitest', name, 'modules'),
+            fsModuleCachePath: path.join(_ROOT, '.cache', 'vitest', name, 'modules'),
             hideSkippedTests: ci,
             maxWorkers: '50%',
             pool: 'threads',

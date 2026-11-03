@@ -6,7 +6,7 @@ utils:
     partitioned:
         kind: let_declaration
         all:
-            - has: {field: pattern, kind: tuple_pattern, has: {nthChild: 2, kind: identifier, pattern: $ERRORS}}
+            - has: {field: pattern, kind: tuple_pattern, all: [{has: {nthChild: 1, pattern: $OKS}}, {has: {nthChild: 2, kind: identifier, pattern: $ERRORS}}]}
             - has:
                 field: value
                 kind: call_expression
@@ -42,6 +42,11 @@ utils:
         all:
             - has: {field: function, regex: '^Err$'}
             - has: {field: arguments, has: {stopBy: end, pattern: $ERRORS}}
+    rollback:
+        kind: block
+        all:
+            - has: {stopBy: end, kind: call_expression, has: {field: function, regex: '^Err$'}}
+            - has: {stopBy: end, kind: identifier, pattern: $OKS, not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^Ok$'}}}}}
     selection:
         any:
             - kind: if_expression
@@ -66,5 +71,9 @@ rule:
         - any:
             - follows: {stopBy: end, matches: partitioned}
             - inside: {stopBy: {kind: 'function_item, closure_expression'}, follows: {stopBy: end, matches: partitioned}}
+        - not:
+            any:
+                - has: {stopBy: end, matches: rollback}
+                - inside: {stopBy: {kind: 'if_expression, match_expression, block'}, kind: 'if_expression, match_expression', has: {stopBy: end, matches: rollback}}
 message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from a partition for emptiness'
-note: 'Call `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error'
+note: 'Call `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error, keeping the partition where the error branch reads the `Ok` values'

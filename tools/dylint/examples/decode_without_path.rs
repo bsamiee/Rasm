@@ -37,6 +37,8 @@ fn text(value: &serde_json::Value) -> Result<&str, serde_json::Error> { <&str>::
 
 fn tracked(text: &str) -> Result<Wrapped, serde_path_to_error::Error<serde_json::Error>> { serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(text)) }
 
+fn dynamic(text: &str) -> Result<serde_json::Value, serde_json::Error> { serde_json::Value::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -50,5 +52,6 @@ fn main() {
         converted(serde_json::Value::Null).map(read),
         tracked("{}").map(|Wrapped(port)| read(port)),
         text(&serde_json::Value::Null).map(str::len),
+        dynamic("null").map(|value| value.is_null()),
     ));
 }

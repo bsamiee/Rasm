@@ -41,7 +41,7 @@ utils:
             - kind: ERROR
               regex: '=$'
               inside: {kind: field_declaration}
-            - inside: {kind: parameters, stopBy: end, inside: {kind: function_type, inside: {kind: field_declaration, field: type, has: {kind: ERROR, regex: '=$'}}}}
+            - inside: {kind: parameters, stopBy: end, inside: {kind: function_type, inside: {kind: field_declaration, field: type, has: {kind: ERROR, regex: '=$'}, not: {regex: ',\s*\n\s*(pub(\s*\([^)]*\))?\s+)?\w+\s*:[^:]'}}}}
     type-default:
         kind: ERROR
         has: {kind: trait_bounds}
@@ -117,4 +117,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method on an associated const in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)`), and a method on a package constant inside a constructor call that `.ok().unwrap()` follows in `const { .. }` (`try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap()`)'
+note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method call in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)` in place of `NonZero::new(1024).unwrap()`, whose recovery swallows the next field), and a method on a package constant inside a constructor call that `.ok().unwrap()` follows in `const { .. }` (`try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap()`)'

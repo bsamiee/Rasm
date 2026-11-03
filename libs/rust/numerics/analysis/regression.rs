@@ -70,7 +70,7 @@ pub enum Band {
 pub struct Options {
     pub regularization: Regularization = Regularization::Truncated,
     pub loss: Loss = Loss::Squared,
-    pub iterations: NonZero<usize> = NonZero::new(25).unwrap(),
+    pub iterations: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 24),
     pub tolerance: Tolerance = TOLERANCE,
 }
 
@@ -467,8 +467,7 @@ where
         .par_column_iter()
         .map(|start| {
             optimize(space, start.into_owned(), Target::Minimize, objective, settings)
-                .map_err(|failures| failures.into_nonempty_iter().map(AnalysisError::from).collect::<NEVec<_>>())
-                .and_then(|solved| solved.map_err(NEVec::new))
+                .map_err(|failure| failure.either(NEVec::new, |failures| failures.into_nonempty_iter().map(AnalysisError::from).collect()))
         })
         .partition_map(Either::from);
     let failures = failed.into_iter().flatten().collect::<Vec<_>>();

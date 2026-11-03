@@ -4,7 +4,7 @@
 name                 = "rasm-dependency"
 version.workspace    = true
 edition.workspace    = true
-description          = "Evaluation graphs: cycle refusal naming every closing path, input wiring that extends or replaces and returns the replaced weights, keyed topological order and layers in either direction, invalidation reach, branded dependency-driven propagation with early cutoff, transitive reduction, condensation, simple cycles, tearing, and deadline-bounded critical path schedules"
+description          = "Acyclic evaluation graphs with checked connections, topological order and layers, invalidation, cycle tearing, and critical path schedules"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["dependency-graph", "topological-sort", "invalidation", "critical-path", "scheduling"]
@@ -24,6 +24,7 @@ bench   = false
 # --- [RUNTIME]
 [dependencies]
 thiserror            = { workspace = true }
+enum-map             = { workspace = true }
 itertools            = { workspace = true }
 nonempty-collections = { workspace = true }
 petgraph             = { workspace = true }

@@ -3,7 +3,7 @@ import { layer as nodeFileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerPosix } from '@effect/platform-node/NodePath';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type TargetConfiguration, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Result, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseToml } from 'smol-toml';
 import { parseSync } from 'vite';
@@ -300,7 +300,7 @@ const markers = {
         const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
         const bins = crate.targets.filter(({ kind }) => kind.includes('bin'));
         const named = new Set(bins.map(({ name }) => name));
-        const launched = Object.entries(daemons).flatMap(([daemon, row]) => (typeof row !== 'string' && row.boot && Option.exists(row.run, (run) => !named.isDisjointFrom(new Set(run.split(' ')))) ? [daemon] : []));
+        const launched = Array.filterMap(Object.entries(daemons), ([daemon, row]) => (typeof row !== 'string' && row.boot && Option.exists(row.run, (run) => !named.isDisjointFrom(new Set(run.split(' ')))) ? Result.succeed(daemon) : Result.failVoid));
         const tested = crate.targets.some(({ test }) => test);
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
         const selection = tested ? { options: { args: crate.targets.some(({ kind, types }) => kind.some((type) => type !== 'bin' && types.includes(type))) ? ['--lib', '--bins', '--tests'] : ['--all-targets'] } } : {};
@@ -354,7 +354,7 @@ const markers = {
         const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
         const tags = ['build:xcode', ...(updated ? ['output:appcast'] : [])];
         const xcode = swiftProject(tags, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('xcode', root), MinVerTagPrefix: yield* tagPrefix(held, tags, name), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
+        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), MinVerTagPrefix: yield* tagPrefix(held, tags, name), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
         return { root, name, ...xcode, targets: Record.map(xcode.targets, (target, step) => ({ ...target, options, ...(['build', 'pack'].includes(step) ? { dependsOn: bundled } : {}) })) };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
@@ -452,7 +452,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
                     ),
                 ),
                 Effect.flatMap(Effect.validate((file: string) => decode(Rule, root, file), { concurrency: 'unbounded' })),
-                Effect.map(Array.flatMap(({ id, metadata }) => Option.toArray(Option.map(metadata, ({ below, from }) => ({ id, below, from }))))),
+                Effect.map(Array.filterMap(({ id, metadata }) => Option.match(metadata, { onNone: () => Result.failVoid, onSome: ({ below, from }) => Result.succeed({ id, below, from }) }))),
             ),
         ],
         { concurrency: 'unbounded' },
@@ -467,8 +467,8 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
     const groups = Record.collect(
         Array.groupBy(scopes, ({ version }) => version),
         (version, members) => {
-            const environment = `"$RASM_CACHE_HOME/python/${version}"`;
-            const excludedGroups = Object.entries(requirements).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
+            const environment = `.cache/python/${version}`;
+            const excludedGroups = Array.filterMap(Object.entries(requirements), ([group, { minimum }]) => (reaches(version)(minimum[1]) ? Result.failVoid : Result.succeed(`--no-group ${group}`)));
             return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
         },
     );
@@ -485,7 +485,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
             return running.length > 0 ? [[version, scan([ids(running), scoped])] as const] : [];
         }),
     ]);
-    const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .artifacts/ast-grep/rewrite.lock`;
+    const lock = `python -c "import fcntl, subprocess, sys; lock = open(sys.argv[1], 'w'); fcntl.flock(lock, fcntl.LOCK_EX); sys.exit(subprocess.call(sys.argv[2:]))" .cache/ast-grep/rewrite.lock`;
     const split = (target: string, children: Readonly<Record<string, string>>) => {
         const [lead, ...rest] = Object.keys(children).map((child) => `${target}:${child}`);
         return {

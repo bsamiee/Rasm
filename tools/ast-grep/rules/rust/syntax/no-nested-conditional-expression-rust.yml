@@ -145,6 +145,11 @@ rule:
                             - matches: conditional
                             - kind: block
                               has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, matches: tail-conditional}
+                            - kind: block
+                              has:
+                                  kind: expression_statement
+                                  not: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}}
+                                  has: {nthChild: 1, kind: 'if_expression, match_expression'}
         - kind: call_expression
           pattern: Some($VALUE).filter($TEST).unwrap_or_else($FALLBACK)
 message: '`if`, `match`, `map_or`, `map_or_else`, `unwrap_or_else`, or `filter(..).unwrap_or_else` value nests another decision'

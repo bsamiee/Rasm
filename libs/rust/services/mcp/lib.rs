@@ -8,7 +8,7 @@ use core::{
     pin::pin,
     str::Utf8Error,
 };
-use std::{borrow::Cow, error::Report, ffi::OsString, io};
+use std::{borrow::Cow, error::Report, ffi::OsString, io, sync::Arc};
 
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::{ValidationError, paths::Location};
@@ -36,6 +36,8 @@ use tokio_stream::wrappers::WatchStream;
 pub trait Failure = rasm_telemetry::Failure + Send + Sync + 'static;
 
 pub trait Endpoint: ServerHandler + Lifetime<Error: Failure> {
+    fn ready(&self) -> Result<(), McpError> { Ok(()) }
+
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> { Err::<Ready<()>, _>(McpError::ResourceNotFound { uri: uri.to_owned() }) }
 }
 
@@ -212,6 +214,13 @@ pub enum McpError {
         #[serde(skip)]
         source: Box<ClientInitializeError>,
     },
+    #[error("upstream server is starting, call again once its handshake completes")]
+    Starting,
+    #[error("upstream server is unavailable")]
+    Unavailable {
+        #[serde(skip)]
+        source: Arc<Self>,
+    },
     #[error("upstream server ended before shutdown")]
     Ended,
 }
@@ -234,6 +243,8 @@ impl From<McpError> for ErrorData {
             | McpError::Service { source: _ }
             | McpError::Spawn { command: _, source: _ }
             | McpError::Handshake { source: _ }
+            | McpError::Starting
+            | McpError::Unavailable { source: _ }
             | McpError::Ended => ErrorCode::INTERNAL_ERROR,
         };
         Self { code, ..server::tools::ToolError(value).into() }
@@ -244,9 +255,9 @@ impl From<McpError> for sysexits::ExitCode {
     fn from(value: McpError) -> Self {
         match value {
             McpError::Spawn { command: _, source } => source.into(),
-            McpError::Handshake { source: _ } => Self::Protocol,
+            McpError::Handshake { source: _ } | McpError::Unavailable { source: _ } => Self::Protocol,
             McpError::Ended => Self::Unavailable,
-            McpError::Stopping => Self::TempFail,
+            McpError::Stopping | McpError::Starting => Self::TempFail,
             McpError::Declarations { errors } => Self::from(errors.into_nonempty_iter().next().0),
             McpError::Route { pattern: _, source: _ }
             | McpError::Template { template: _, expression: _ }

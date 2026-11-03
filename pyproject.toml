@@ -470,7 +470,7 @@ HDF5_DIR = "$CONDA_PREFIX"
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-cache-dir      = "$RASM_CACHE_HOME/ruff"
+cache-dir      = ".cache/ruff"
 preview        = true
 target-version = "py315"
 line-length    = 200
@@ -676,7 +676,7 @@ rules    = { unsupported-dynamic-base = "ignore" }                              
 [tool.mypy]
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
-cache_dir               = "$RASM_CACHE_HOME/mypy"
+cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict                  = true
 pretty                  = true
 warn_unreachable        = true
@@ -762,7 +762,7 @@ disable    = [
 
 [tool.pytest]
 strict                   = true
-cache_dir                = "$RASM_CACHE_HOME/pytest"
+cache_dir                = ".cache/pytest"
 testpaths                = ["tests/python"]
 pythonpath               = ["."]
 python_files             = ["test_*.py", "*_test.py", "bench_*.py"]

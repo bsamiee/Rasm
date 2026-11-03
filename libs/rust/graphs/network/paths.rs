@@ -79,7 +79,7 @@ where
         E: 'graph,
     {
         let tolerance = tolerance.map_or_default(Tolerance::into_inner);
-        let leg = Cell::new((EdgeIndex::end(), 0.0, 0.0));
+        let leg = Cell::new(None::<(EdgeIndex, f64, f64)>);
         let origin = Reached { distance: 0.0, extent: 0.0, paths: 1.0, predecessors: Vec::new() };
         let mut current = (origin.distance, origin.extent, origin.paths);
         let mut settled = IndexMap::from([(source, origin)]);
@@ -91,7 +91,7 @@ where
                 let edge = travel(edge);
                 let spent = cost(edge);
                 let step = (edge.id(), spent.into_inner(), extent(edge, spent).into_inner());
-                leg.set(step);
+                leg.set(Some(step));
                 Ok::<f64, !>(step.1)
             },
             |event| match event {
@@ -113,13 +113,14 @@ where
                     Control::<()>::Continue
                 }
                 DijkstraEvent::EdgeRelaxed(_, to, _) | DijkstraEvent::EdgeNotRelaxed(_, to, _) => {
-                    let ((edge, step, span), (base, spent, paths)) = (leg.get(), current);
-                    let (arrival, spanned) = (base + step, spent + span);
-                    if radius.is_some_and(|bound| spanned > bound.into_inner()) {
-                        Control::Prune
-                    } else {
-                        frontier.entry(to).or_default().push((edge, arrival, spanned, paths));
-                        Control::Continue
+                    let (base, spent, paths) = current;
+                    match leg.take().map(|(edge, step, span)| (edge, base + step, spent + span)) {
+                        Some((_, _, spanned)) if radius.is_some_and(|bound| spanned > bound.into_inner()) => Control::Prune,
+                        Some((edge, arrival, spanned)) => {
+                            frontier.entry(to).or_default().push((edge, arrival, spanned, paths));
+                            Control::Continue
+                        }
+                        None => Control::Continue,
                     }
                 }
                 DijkstraEvent::ExamineEdge(..) | DijkstraEvent::Finish(_) => Control::Continue,

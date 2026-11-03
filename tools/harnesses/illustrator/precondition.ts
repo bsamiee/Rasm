@@ -66,7 +66,7 @@ const precondition = (survey: typeof Survey.Type) => {
     const created = ({ intent, resolution, language, profile, ...given }: typeof Document.Type) => {
         const reads: Record.ReadonlyRecord<string, string> = { width: 'doc.width', height: 'doc.height', units: 'doc.rulerUnits', colorMode: 'doc.documentColorSpace', numArtboards: 'doc.artboards.length' };
         const posted: { readonly [K in keyof typeof WRITES]: Schema.Json | undefined } = { resolution, language };
-        const writes = Struct.keys(WRITES).flatMap((key) => Option.toArray(Option.map(Option.fromUndefinedOr(posted[key]), (value) => [WRITES[key], value] as const)));
+        const writes = Array.getSomes(Struct.keys(WRITES).map((key) => Option.map(Option.fromUndefinedOr(posted[key]), (value) => [WRITES[key], value] as const)));
         const expects = [...Array.getSomes(Record.collect(given, (key, value) => Option.map(Record.get(reads, key), (read) => [read, value] as const))), ...writes, ...Option.toArray(Option.map(Option.fromUndefinedOr(profile), (value) => ['doc.colorProfileName', value] as const))];
         return { preset: String(intent), settings: given, writes, expects };
     };

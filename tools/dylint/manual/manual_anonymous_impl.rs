@@ -86,7 +86,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let mut implementations = trait_impls(tcx);
         for (structure, sites) in mentions.found {
             if let [Some(site)] = *sites.as_slice()
-                && let Some(owned) = implementations.swap_remove(&structure)
+                && let Some(owned) = implementations.remove(&structure)
                 && !exported(cx, structure)
                 && !expanded_externally(cx, tcx.def_span(structure))
                 && tcx.inherent_impls(structure).is_empty()

@@ -4,7 +4,7 @@
 name                 = "rasm-implicit"
 version.workspace    = true
 edition.workspace    = true
-description          = "Implicit fields at nalgebra signatures over fidget: trees relative to an f64 origin with recentring, value and gradient sampling at world points across a caller thread pool, triply periodic minimal surface lattices at a unit cell, shell walls between two constant or graded level sets, and JIT octree meshing over a world domain at a bounded depth into a parry triangle mesh, refusing a field not finite in the domain"
+description          = "Implicit fields at nalgebra signatures over fidget: trees at an f64 origin placed at a pose and compiled once with recentering and caps bound as variables, cancellable value and gradient sampling in caller batches across a thread pool refusing non-finite points, Newton projection onto the surface, interval classification and surface bounds over a world box, minimal surface lattices at a unit cell or a relative density field graded through sampled level quantiles, strut lattices at a world radius field with blended node fillets, first-order distance, shell walls between two level sets in either order, and JIT octree meshing over a world domain's cube at a caller cell size into a parry triangle mesh with vertex gradients, refusing a field singular in the domain"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["implicit", "sdf", "lattice", "meshing", "geometry"]
@@ -23,14 +23,14 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-rayon           = { workspace = true }
-thiserror       = { workspace = true }
-derive-where    = { workspace = true }
-bounded-integer = { workspace = true }
-nutype          = { workspace = true }
-nalgebra        = { workspace = true }
-fidget          = { workspace = true }
-parry3d-f64     = { workspace = true }
+rayon        = { workspace = true }
+thiserror    = { workspace = true }
+derive-where = { workspace = true }
+itertools    = { workspace = true }
+nalgebra     = { workspace = true }
+statrs       = { workspace = true }
+fidget       = { workspace = true }
+parry3d-f64  = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

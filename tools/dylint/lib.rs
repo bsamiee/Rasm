@@ -26,9 +26,10 @@ use clippy_utils::{
     ty::{implements_trait, is_copy},
     visitors::{Visitable, for_each_expr},
 };
+use itertools::Itertools as _;
 use rustc_abi::FieldIdx;
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
+use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet};
 use rustc_errors::{Applicability, Diag, DiagMessage};
 use rustc_hir::{
     Body, BodyId, Expr, ExprKind, HirId, Mutability, Node, Pat, PatKind, UnOp,
@@ -409,15 +410,13 @@ fn generated(cx: &LateContext<'_>, node: HirId) -> bool {
         .any(|owner| derived(cx.tcx, owner.to_def_id()) || macro_backtrace(cx.tcx.def_span(owner)).any(|call| call.kind == MacroKind::Attr))
 }
 
-fn trait_impls(tcx: TyCtxt<'_>) -> FxIndexMap<LocalDefId, Vec<(DefId, LocalDefId)>> {
+fn trait_impls(tcx: TyCtxt<'_>) -> FxHashMap<LocalDefId, Vec<(DefId, LocalDefId)>> {
     tcx.all_local_trait_impls(())
         .iter()
         .flat_map(|(&implemented, implementations)| implementations.iter().map(move |&implementation| (implemented, implementation)))
         .filter_map(|implementation @ (_, local)| Some((tcx.type_of(local).instantiate_identity().skip_normalization().peel_refs().ty_adt_def()?.did().as_local()?, implementation)))
-        .fold(FxIndexMap::default(), |mut owners, (owner, implementation)| {
-            owners.entry(owner).or_default().push(implementation);
-            owners
-        })
+        .into_grouping_map_with_hasher(FxBuildHasher)
+        .collect()
 }
 
 fn enclosing_trait_impl(cx: &LateContext<'_>, node: HirId) -> Option<DefId> { cx.tcx.trait_impl_of_assoc(cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(node).to_def_id())) }

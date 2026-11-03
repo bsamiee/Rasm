@@ -1,15 +1,18 @@
-use core::{iter, num::NonZero};
+use core::{any::TypeId, iter, num::NonZero, ops::Div};
 
-use itertools::Itertools as _;
+use itertools::{Itertools as _, Position};
 use rasm_linework::Visibility;
+use rust_decimal::RoundingStrategy;
 use uom::{
     Conversion,
     si::{
         Unit as _,
         angle::{self, degree, minute, radian, second},
-        f64::{Angle, Length},
+        area,
+        f64::{Angle, Area, Length, Ratio, Volume},
         length::{self, inch},
-        ratio::ratio,
+        ratio::{percent, ratio},
+        volume,
     },
 };
 
@@ -29,35 +32,65 @@ pub enum Separator {
     Comma,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+pub enum Grouping {
+    #[display("\u{202f}")]
+    Space,
+    #[display(",")]
+    Comma,
+    #[display(".")]
+    Point,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Sign {
+    Negative,
+    Explicit,
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Unit<Measure> {
-    one: Measure,
+pub struct Unit<Quantity> {
+    one: Quantity,
     symbol: &'static str,
+    spaced: bool,
 }
 
 impl Unit<Length> {
     #[must_use]
     pub fn new<N>() -> Self
     where N: length::Unit + Conversion<f64, T = f64> {
-        Self { one: Length::new::<N>(1.0), symbol: N::abbreviation() }
+        Self { one: Length::new::<N>(1.0), symbol: N::abbreviation(), spaced: true }
+    }
+}
+
+impl Unit<Area> {
+    #[must_use]
+    pub fn new<N>() -> Self
+    where N: area::Unit + Conversion<f64, T = f64> {
+        Self { one: Area::new::<N>(1.0), symbol: N::abbreviation(), spaced: true }
+    }
+}
+
+impl Unit<Volume> {
+    #[must_use]
+    pub fn new<N>() -> Self
+    where N: volume::Unit + Conversion<f64, T = f64> {
+        Self { one: Volume::new::<N>(1.0), symbol: N::abbreviation(), spaced: true }
     }
 }
 
 impl Unit<Angle> {
     #[must_use]
     pub fn new<N>() -> Self
-    where N: angle::Unit + Conversion<f64, T = f64> {
-        Self { one: Angle::new::<N>(1.0), symbol: N::abbreviation() }
+    where N: angle::Unit + Conversion<f64, T = f64> + 'static {
+        Self { one: Angle::new::<N>(1.0), symbol: N::abbreviation(), spaced: ![TypeId::of::<degree>(), TypeId::of::<minute>(), TypeId::of::<second>()].contains(&TypeId::of::<N>()) }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Increment {
-    pub significand: NonZero<u32>,
-    pub exponent: i8,
-}
+#[nutype::nutype(validate(predicate = |step: &rust_decimal::Decimal| step.is_sign_positive() && !step.is_zero()), derive(Debug, Clone, Copy, PartialEq, Eq, Hash))]
+pub struct Increment(rust_decimal::Decimal);
 
 #[nutype::nutype(validate(predicate = |denominator: &NonZero<u16>| denominator.is_power_of_two()), derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord))]
 pub struct Denominator(NonZero<u16>);
@@ -68,6 +101,7 @@ pub struct Decimal {
     pub leading: Visibility = Visibility::Visible,
     pub trailing: Visibility = Visibility::Visible,
     pub separator: Separator = Separator::Point,
+    pub grouping: Option<Grouping> = None,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -94,92 +128,85 @@ pub enum Angular {
     Sexagesimal { subdivision: Subdivision, decimal: Decimal },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Slope {
+    Ratio(Decimal),
+    Percent(Decimal),
+    Pitch { run: NonZero<u16>, decimal: Decimal },
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn decimal(notation: &Decimal, value: f64) -> String {
-    rounded(value, notation.increment).map_or_else(|| value.to_string(), |(sign, whole, fraction)| format!("{sign}{}", written(notation, &whole, &fraction)))
+pub fn decimal(notation: &Decimal, value: f64, sign: Sign) -> String {
+    rounded(value, notation.increment.into_inner()).map_or_else(|| value.to_string(), |total| format!("{}{}", signed(total, sign), written(notation, total.abs())))
 }
 
 #[must_use]
-pub fn linear(notation: &Linear, length: Length) -> String {
+pub fn quantity<Quantity>(notation: &Decimal, unit: Unit<Quantity>, symbol: Visibility, value: Quantity, sign: Sign) -> String
+where Quantity: Div<Output = Ratio> {
+    let number = decimal(notation, (value / unit.one).get::<ratio>(), sign);
+    match symbol {
+        Visibility::Visible => format!("{number}{}{}", if unit.spaced { " " } else { "" }, unit.symbol),
+        Visibility::Hidden => number,
+    }
+}
+
+#[must_use]
+pub fn linear(notation: &Linear, length: Length, sign: Sign) -> String {
     match *notation {
-        Linear::Decimal { unit, decimal: rounding, symbol } => {
-            let number = decimal(&rounding, (length / unit.one).get::<ratio>());
-            match symbol {
-                Visibility::Visible => marked(&number, unit.symbol),
-                Visibility::Hidden => number,
-            }
+        Linear::Decimal { unit, decimal: digits, symbol } => quantity(&digits, unit, symbol, length, sign),
+        Linear::Imperial { inches: Inches::Fractional(denominator), feet } => {
+            let value = length.get::<inch>();
+            let parts = denominator.into_inner();
+            let Some((count, (whole, numerator))) = rounded(value * f64::from(parts.get()), rust_decimal::Decimal::ONE).and_then(|count| Some((count, split(count.abs(), parts.get().into())?)))
+            else {
+                return value.to_string();
+            };
+            let fraction = u16::try_from(numerator).ok().and_then(NonZero::new).map(|numerator| {
+                let shift = numerator.trailing_zeros().min(parts.trailing_zeros());
+                (numerator.get().strict_shr(shift), parts.get().strict_shr(shift))
+            });
+            imperial(signed(count, sign), whole, feet, fraction.is_none(), |inches, shown| match fraction {
+                Some((numerator, denominator)) if !shown && inches.is_zero() => format!("{numerator}/{denominator}"),
+                Some((numerator, denominator)) => format!("{inches} {numerator}/{denominator}"),
+                None => inches.to_string(),
+            })
         }
-        Linear::Imperial { inches: field, feet } => {
-            let measure = length.get::<inch>();
-            let (scale, increment) = match field {
-                Inches::Fractional(denominator) => (f64::from(denominator.into_inner().get()), Increment { significand: NonZero::<u32>::MIN, exponent: 0 }),
-                Inches::Decimal(rounding) => (1.0, rounding.increment),
-            };
-            let Some((sign, whole, fraction)) = rounded(measure * scale, increment) else { return measure.to_string() };
-            let (inches, reduced) = match field {
-                Inches::Fractional(denominator) => {
-                    let denominator = denominator.into_inner();
-                    let (inches, remainder) = divided(&whole, denominator.into());
-                    let lowest = |numerator: NonZero<u64>| {
-                        let shift = numerator.trailing_zeros().min(denominator.trailing_zeros());
-                        (numerator.get().strict_shr(shift), denominator.get().strict_shr(shift))
-                    };
-                    (inches, NonZero::new(remainder).map(lowest))
-                }
-                Inches::Decimal(_) => (whole, None),
-            };
-            let (count, inches) = match feet {
-                Some(_) => {
-                    let (count, rest) = divided(&inches, const { NonZero::new(12).unwrap() });
-                    (count, vec![rest])
-                }
-                None => (Vec::new(), inches),
-            };
-            let zero = reduced.is_none() && iter::chain(&inches, &fraction).all(|&digit| digit == 0);
-            let foot = integral(&count);
-            let shown = feet.is_some_and(|zeros| zeros.feet == Visibility::Visible || foot != "0");
-            let elided = shown && zero && feet.is_some_and(|zeros| zeros.inches == Visibility::Hidden);
-            let integer = integral(&inches);
-            let written_inches = match (field, reduced) {
-                (Inches::Decimal(rounding), _) => written(&rounding, &inches, &fraction),
-                (Inches::Fractional(_), Some((numerator, denominator))) if !shown && integer == "0" => format!("{numerator}/{denominator}"),
-                (Inches::Fractional(_), Some((numerator, denominator))) => format!("{integer} {numerator}/{denominator}"),
-                (Inches::Fractional(_), None) => integer,
-            };
-            match (shown, elided) {
-                (false, _) => format!("{sign}{written_inches}\""),
-                (true, true) => format!("{sign}{foot}'"),
-                (true, false) => format!("{sign}{foot}'-{written_inches}\""),
-            }
+        Linear::Imperial { inches: Inches::Decimal(digits), feet } => {
+            let value = length.get::<inch>();
+            rounded(value, digits.increment.into_inner()).map_or_else(|| value.to_string(), |total| imperial(signed(total, sign), total.abs(), feet, true, |inches, _| written(&digits, inches)))
         }
     }
 }
 
 #[must_use]
-pub fn angular(notation: &Angular, angle: Angle) -> String {
+pub fn angular(notation: &Angular, angle: Angle, sign: Sign) -> String {
     match *notation {
-        Angular::Decimal { unit, decimal: rounding } => marked(&decimal(&rounding, (angle / unit.one).get::<ratio>()), unit.symbol),
-        Angular::Sexagesimal { subdivision, decimal: rounding } => {
-            let sexagesimal = const { NonZero::new(60).unwrap() };
-            let measure = match subdivision {
-                Subdivision::Minute => angle.get::<minute>(),
-                Subdivision::Second => angle.get::<second>(),
+        Angular::Decimal { unit, decimal: digits } => quantity(&digits, unit, Visibility::Visible, angle, sign),
+        Angular::Sexagesimal { subdivision, decimal: digits } => {
+            let (rank, value) = match subdivision {
+                Subdivision::Minute => (1, angle.get::<minute>()),
+                Subdivision::Second => (2, angle.get::<second>()),
             };
-            let [degrees_mark, minutes_mark, seconds_mark] = [degree::abbreviation(), minute::abbreviation(), second::abbreviation()];
-            let Some((sign, whole, fraction)) = rounded(measure, rounding.increment) else { return measure.to_string() };
-            match subdivision {
-                Subdivision::Minute => {
-                    let (degrees, minutes) = divided(&whole, sexagesimal);
-                    format!("{sign}{}{degrees_mark}{}{minutes_mark}", integral(&degrees), written(&rounding, &[minutes], &fraction))
-                }
-                Subdivision::Second => {
-                    let (total, seconds) = divided(&whole, sexagesimal);
-                    let (degrees, minutes) = divided(&total, sexagesimal);
-                    format!("{sign}{}{degrees_mark}{minutes}{minutes_mark}{}{seconds_mark}", integral(&degrees), written(&rounding, &[seconds], &fraction))
-                }
-            }
+            let sixty = rust_decimal::Decimal::from(60);
+            let Some((total, (degrees, places))) = rounded(value, digits.increment.into_inner()).and_then(|total| {
+                let parts = (0..rank).try_fold((total.abs(), Vec::new()), |(rest, mut places), _| {
+                    split(rest, sixty).map(|(quotient, remainder)| {
+                        places.push(remainder);
+                        (quotient, places)
+                    })
+                })?;
+                Some((total, parts))
+            }) else {
+                return value.to_string();
+            };
+            let numbers = iter::once(degrees.to_string()).chain(places.iter().rev().with_position().map(|(position, place)| match position {
+                Position::Last | Position::Only => written(&digits, *place),
+                Position::First | Position::Middle => place.to_string(),
+            }));
+            let marks = [degree::abbreviation(), minute::abbreviation(), second::abbreviation()];
+            format!("{}{}", signed(total, sign), numbers.zip(marks).map(|(number, mark)| format!("{number}{mark}")).join(""))
         }
     }
 }
@@ -195,69 +222,56 @@ pub fn bearing(notation: &Angular, azimuth: Angle) -> String {
         turned if turned <= full => Some(('N', full - turned, 'W')),
         _ => None,
     };
-    quadrant.map_or_else(|| angular(notation, azimuth), |(meridian, reduced, departure)| format!("{meridian} {} {departure}", angular(notation, reduced)))
+    quadrant.map_or_else(|| angular(notation, azimuth, Sign::Negative), |(meridian, reduced, departure)| format!("{meridian} {} {departure}", angular(notation, reduced, Sign::Negative)))
 }
 
-fn rounded(value: f64, increment: Increment) -> Option<(&'static str, Vec<u64>, Vec<u64>)> {
-    let digits = |text: &str| text.bytes().map(|byte| u64::from(byte.strict_sub(b'0'))).collect::<Vec<_>>();
-    let Increment { significand, exponent } = increment;
-    let magnitude = usize::from(exponent.unsigned_abs());
-    let (places, zeros) = if exponent.is_negative() { (magnitude, 0) } else { (0, magnitude) };
-    let divisor = NonZero::<u64>::from(significand);
-    value.is_finite().then(|| {
-        let written = value.abs().to_string();
-        let (whole, fraction) = written.split_once('.').unwrap_or((&written, ""));
-        let shifted = iter::chain(digits(whole), digits(fraction)).chain(iter::repeat_n(0, places)).collect::<Vec<_>>();
-        let (kept, next) = match shifted.len().checked_sub(fraction.len().strict_add(zeros)).and_then(|at| shifted.split_at_checked(at)) {
-            Some((kept, [next, ..])) => (kept, *next),
-            Some((kept, [])) => (kept, 0),
-            None => ([].as_slice(), 0),
-        };
-        let (quotient, remainder) = divided(kept, divisor);
-        let carry = if remainder.strict_mul(2).strict_add(u64::from(next >= 5)) >= divisor.get() { divisor.get() } else { 0 };
-        let (product, overflow) = quotient.iter().rev().fold((Vec::with_capacity(quotient.len()), carry), |(mut product, carry), &digit| {
-            let current = digit.strict_mul(divisor.get()).strict_add(carry);
-            product.push(current % 10);
-            (product, current / 10)
-        });
-        let mut total = iter::chain(digits(&overflow.to_string()), product.into_iter().rev()).chain(iter::repeat_n(0, zeros)).collect::<Vec<_>>();
-        let decimals = total.split_off(total.len().strict_sub(places));
-        let sign = if value.is_sign_negative() && iter::chain(&total, &decimals).any(|&digit| digit != 0) { "-" } else { "" };
-        (sign, total, decimals)
-    })
+#[must_use]
+pub fn slope(notation: &Slope, gradient: Ratio) -> String {
+    let rise = gradient.abs();
+    match *notation {
+        Slope::Ratio(digits) => format!("1:{}", decimal(&digits, rise.get::<ratio>().recip(), Sign::Negative)),
+        Slope::Percent(digits) => format!("{}%", decimal(&digits, rise.get::<percent>(), Sign::Negative)),
+        Slope::Pitch { run, decimal: digits } => format!("{}:{run}", decimal(&digits, rise.get::<ratio>() * f64::from(run.get()), Sign::Negative)),
+    }
 }
 
-fn written(notation: &Decimal, whole: &[u64], fraction: &[u64]) -> String {
-    let Decimal { increment: _, leading, trailing, separator } = *notation;
-    let integer = integral(whole);
-    let digits = fraction.iter().join("");
-    let decimals = match trailing {
-        Visibility::Visible => digits.as_str(),
-        Visibility::Hidden => digits.trim_end_matches('0'),
+fn rounded(value: f64, step: rust_decimal::Decimal) -> Option<rust_decimal::Decimal> {
+    rust_decimal::Decimal::try_from(value).ok()?.checked_div(step)?.round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero).checked_mul(step)
+}
+
+fn split(value: rust_decimal::Decimal, radix: rust_decimal::Decimal) -> Option<(rust_decimal::Decimal, rust_decimal::Decimal)> { Some((value.checked_div(radix)?.trunc(), value.checked_rem(radix)?)) }
+
+const fn signed(value: rust_decimal::Decimal, sign: Sign) -> &'static str {
+    match (sign, value.is_zero(), value.is_sign_negative()) {
+        (Sign::Negative | Sign::Explicit, true, _) | (Sign::Negative, false, false) => "",
+        (Sign::Negative | Sign::Explicit, false, true) => "-",
+        (Sign::Explicit, false, false) => "+",
+    }
+}
+
+fn written(notation: &Decimal, magnitude: rust_decimal::Decimal) -> String {
+    let Decimal { increment: _, leading, trailing, separator, grouping } = *notation;
+    let shown = match trailing {
+        Visibility::Visible => magnitude,
+        Visibility::Hidden => magnitude.normalize(),
     };
-    match (decimals, leading) {
-        ("", Visibility::Visible | Visibility::Hidden) => integer,
-        (_, Visibility::Hidden) if integer == "0" => format!("{separator}{decimals}"),
-        (_, Visibility::Visible | Visibility::Hidden) => format!("{integer}{separator}{decimals}"),
+    let text = shown.to_string();
+    let (integer, decimals) = text.split_once('.').unwrap_or((text.as_str(), ""));
+    let whole = match (leading, shown.trunc().is_zero() && !decimals.is_empty()) {
+        (Visibility::Hidden, true) => String::new(),
+        (Visibility::Visible, true | false) | (Visibility::Hidden, false) =>
+            grouping.map_or_else(|| integer.to_owned(), |mark| integer.chars().collect::<Vec<_>>().rchunks(3).rev().map(|group| group.iter().collect::<String>()).join(&mark.to_string())),
+    };
+    if decimals.is_empty() { whole } else { format!("{whole}{separator}{decimals}") }
+}
+
+fn imperial(sign: &str, magnitude: rust_decimal::Decimal, feet: Option<Zeros>, exact: bool, inches: impl Fn(rust_decimal::Decimal, bool) -> String) -> String {
+    match feet.zip(split(magnitude, rust_decimal::Decimal::from(12))) {
+        None => format!("{sign}{}\"", inches(magnitude, false)),
+        Some((zeros, (count, rest))) => match (zeros.feet == Visibility::Visible || !count.is_zero(), exact && rest.is_zero() && zeros.inches == Visibility::Hidden) {
+            (false, _) => format!("{sign}{}\"", inches(rest, false)),
+            (true, true) => format!("{sign}{count}'"),
+            (true, false) => format!("{sign}{count}'-{}\"", inches(rest, true)),
+        },
     }
-}
-
-fn integral(whole: &[u64]) -> String {
-    let digits = whole.iter().join("");
-    match digits.trim_start_matches('0') {
-        "" => "0".to_owned(),
-        significant => significant.to_owned(),
-    }
-}
-
-fn marked(number: &str, symbol: &str) -> String {
-    if [degree::abbreviation(), minute::abbreviation(), second::abbreviation()].contains(&symbol) { format!("{number}{symbol}") } else { format!("{number} {symbol}") }
-}
-
-fn divided(dividend: &[u64], divisor: NonZero<u64>) -> (Vec<u64>, u64) {
-    dividend.iter().fold((Vec::with_capacity(dividend.len()), 0), |(mut quotient, remainder), &digit| {
-        let current = remainder.strict_mul(10).strict_add(digit);
-        quotient.push(current / divisor);
-        (quotient, current % divisor)
-    })
 }

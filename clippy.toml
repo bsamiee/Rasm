@@ -86,9 +86,10 @@ allowed-duplicate-crates = [
     "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 beside 0.4 under `hayro-jbig2` 0.3 and `hayro-syntax` 0.8
     "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `grib` 0.20.2, `hayro-syntax` 0.8, and the `pdf_oxide` 0.3.78 `jpeg2000` feature
     "moxcms",                # 0.8 under `image` 0.25.10, `hayro-interpret` 0.7 and 0.8, and `typst-library` 0.15.1 beside 0.9, the catalog row, under `rasm-pdf`
+    "imagesize",             # 0.14 under `krilla` 0.8.2 and `usvg` 0.47.0 beside 0.15, the catalog row, under `rasm-sheets`
     "approx",                # 0.3 under `alga` 0.9.3, the default of `sprs` 0.11.6 under newest `csaps` 0.5.0, beside 0.5 under `nalgebra`, `simba`, `num-dual`, `statrs`, `parry3d-f64`, `geo-types`, `glam`, `glamx` and `palette`
     "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-spectra` and `rasm-analysis`
-    "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, and `tracing-subscriber` beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` and `fidget-shapes` take under newest `fidget` 0.5.1
+    "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, and `tracing-subscriber` beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` takes under newest `fidget` 0.5.1
 ]
 
 # --- [BANS]

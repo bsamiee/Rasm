@@ -1,6 +1,7 @@
 use core::cmp;
 use std::collections::{BTreeMap, BTreeSet};
 
+use itertools::Itertools as _;
 use ordered_float::OrderedFloat;
 use petgraph::{
     EdgeType, Undirected,
@@ -50,19 +51,23 @@ where Ty: EdgeType {
 #[must_use]
 pub fn biconnected<N, E, Ty>(graph: &StableGraph<N, E, Ty>) -> Biconnected
 where Ty: EdgeType {
-    let parallels = graph.edge_references().filter(|edge| edge.source() != edge.target()).fold(BTreeMap::<_, Vec<EdgeIndex>>::new(), |mut parallels, edge| {
-        parallels.entry(cmp::minmax(edge.source(), edge.target())).or_default().push(edge.id());
-        parallels
-    });
+    let parallels = graph
+        .edge_references()
+        .filter(|edge| edge.source() != edge.target())
+        .map(|edge| (cmp::minmax(edge.source(), edge.target()), edge.id()))
+        .into_group_map()
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
     let mut labels = <_>::default();
     let points = articulation_points(&StableUnGraph::<(), ()>::from_edges(parallels.keys().copied().map(<(NodeIndex, NodeIndex)>::from)), Some(&mut labels));
     let blocks = labels
         .into_iter()
-        .fold(BTreeMap::<usize, BTreeSet<EdgeIndex>>::new(), |mut blocks, ((source, target), label)| {
-            blocks.entry(label).or_default().extend(parallels.get(&cmp::minmax(source, target)).into_iter().flatten());
-            blocks
-        })
-        .into_values()
+        .flat_map(|((source, target), label)| parallels.get(&cmp::minmax(source, target)).into_iter().flatten().map(move |&edge| (label, edge)))
+        .into_grouping_map()
+        .collect::<BTreeSet<EdgeIndex>>()
+        .into_iter()
+        .sorted_unstable_by_key(|&(label, _)| label)
+        .map(|(_, block)| block)
         .collect::<Vec<_>>();
     Biconnected { articulation_points: points.into_iter().collect(), bridges: blocks.iter().filter(|block| block.len() == 1).flatten().copied().collect(), blocks }
 }

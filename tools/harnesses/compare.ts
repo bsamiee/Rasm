@@ -44,14 +44,14 @@ const imported = Effect.fn('imported')(function* (module: string) {
             Option.filter(Predicate.isFunction),
             Effect.fromOption(() => HarnessError.make({ reason: { _tag: 'Unavailable', because: `exports no function ${pair.fn}` }, subject: module })),
         );
-        return yield* Effect.try(() => Reflect.apply(made, undefined, pair.args)).pipe(
+        return yield* Effect.try(() => made(...pair.args)).pipe(
             Effect.catch(({ cause }) => Effect.flip(Effect.orDie(Schema.decodeUnknownEffect(Thrown)(cause)))),
             Effect.result,
         );
     });
 });
 const compared = (module: string, pairs: readonly Pair[], replies: ReadonlyMap<string, Reply>, unproven: readonly string[]): typeof Compare.Type => {
-    const rows = pairs.flatMap((pair) => Option.toArray(Option.map(Option.fromUndefinedOr(replies.get(pair.name)), (reply) => ({ name: pair.name, fn: pair.fn, args: bury(pair.args), differences: observed(pair)(reply).map(({ path, host, rebuilt }) => ({ path, host: bury(host), rebuilt: bury(rebuilt) })) }))));
+    const rows = Array.getSomes(pairs.map((pair) => Option.map(Option.fromUndefinedOr(replies.get(pair.name)), (reply) => ({ name: pair.name, fn: pair.fn, args: bury(pair.args), differences: observed(pair)(reply).map(({ path, host, rebuilt }) => ({ path, host: bury(host), rebuilt: bury(rebuilt) })) }))));
     const mismatches = rows.filter(({ differences: found }) => found.length > 0);
     return { module, agreed: rows.length - mismatches.length, mismatches, unproven: [...unproven, ...pairs.filter(({ name }) => !replies.has(name)).map(({ name }) => name)] };
 };

@@ -1,23 +1,34 @@
 use core::marker::PhantomData;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use petgraph::{
     Direction,
     stable_graph::{NodeIndex, StableDiGraph},
-    visit::{Dfs, Reversed, VisitMap as _, Visitable, Walker as _},
+    visit::{Dfs, NodeIndexable as _, Reversed, VisitMap as _, Visitable, Walker as _},
 };
 
-use crate::{DependencyError, Evaluation, present};
+use crate::{DependencyError, Evaluation, acyclic, at, dense, entries, present};
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Brand<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Outcome {
+    Unchanged,
+    Changed,
+    Failed,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct Due<'id> {
+pub struct Ready<'id> {
     node: NodeIndex,
-    brand: PhantomData<fn(&'id ()) -> &'id ()>,
+    brand: Brand<'id>,
 }
 
-impl Due<'_> {
+impl Ready<'_> {
     #[must_use]
     pub const fn node(&self) -> NodeIndex { self.node }
 }
@@ -25,53 +36,60 @@ impl Due<'_> {
 #[derive(Debug, Clone, Copy)]
 struct Pending {
     inputs: usize,
-    stale: bool,
+    received: Outcome,
 }
 
 #[derive(Debug)]
 pub struct Propagation<'graph, 'id, N, E> {
     graph: &'graph StableDiGraph<N, E>,
-    pending: BTreeMap<NodeIndex, Pending>,
-    changed: BTreeSet<NodeIndex>,
-    brand: PhantomData<fn(&'id ()) -> &'id ()>,
+    pending: Vec<Option<Pending>>,
+    dirty: BTreeSet<NodeIndex>,
+    brand: Brand<'id>,
 }
 
 impl<'id, N, E> Propagation<'_, 'id, N, E> {
-    pub fn finish(&mut self, Due { node, brand: _ }: Due<'id>, changed: bool) -> Vec<Due<'id>> {
-        self.pending.remove(&node);
-        if changed {
-            self.changed.insert(node);
-        }
-        let released = self.complete(node, changed);
+    pub fn finish(&mut self, Ready { node, brand: _ }: Ready<'id>, outcome: Outcome) -> Vec<Ready<'id>> {
+        let released = self.settle(node, outcome);
         self.advance(released)
     }
 
-    pub fn outstanding(&self) -> impl Iterator<Item = NodeIndex> { self.pending.iter().filter(|&(_, &Pending { inputs: _, stale })| stale).map(|(&node, _)| node) }
+    pub fn outstanding(&self) -> impl Iterator<Item = (NodeIndex, Outcome)> {
+        entries(&self.pending).map(|(node, &Pending { inputs: _, received })| (node, received))
+    }
 
-    #[must_use]
-    pub const fn changed(&self) -> &BTreeSet<NodeIndex> { &self.changed }
+    pub fn dirty(&self) -> impl Iterator<Item = NodeIndex> { self.dirty.iter().copied() }
 
-    fn complete(&mut self, node: NodeIndex, changed: bool) -> Vec<NodeIndex> {
-        self.graph
+    fn settle(&mut self, node: NodeIndex, outcome: Outcome) -> Vec<NodeIndex> {
+        if let Some(slot) = self.pending.get_mut(node.index()) {
+            *slot = slot.filter(|_| outcome == Outcome::Failed).map(|pending| Pending { received: outcome, ..pending });
+        }
+        let graph = self.graph;
+        graph
             .neighbors_directed(node, Direction::Outgoing)
-            .filter(|target| {
-                self.pending.get_mut(target).is_some_and(|Pending { inputs, stale }| {
-                    *stale |= changed;
-                    *inputs = inputs.strict_sub(1);
-                    *inputs == 0
-                })
+            .filter_map(|target| {
+                let remaining = self.pending.get_mut(target.index()).and_then(Option::as_mut).map(|pending| {
+                    *pending = Pending { inputs: pending.inputs.strict_sub(1), received: pending.received.max(outcome) };
+                    pending.inputs
+                });
+                match remaining {
+                    Some(0) => Some(target),
+                    None if outcome == Outcome::Changed => {
+                        self.dirty.insert(target);
+                        None
+                    }
+                    Some(1..) | None => None,
+                }
             })
             .collect()
     }
 
-    fn advance(&mut self, mut released: Vec<NodeIndex>) -> Vec<Due<'id>> {
+    fn advance(&mut self, mut released: Vec<NodeIndex>) -> Vec<Ready<'id>> {
         let mut ready = Vec::new();
         while let Some(node) = released.pop() {
-            if self.pending.get(&node).is_some_and(|&Pending { inputs: _, stale }| stale) {
-                ready.push(Due { node, brand: PhantomData });
-            } else {
-                self.pending.remove(&node);
-                released.extend(self.complete(node, false));
+            match at(&self.pending, node) {
+                Some(Pending { inputs: _, received: Outcome::Changed }) => ready.push(Ready { node, brand: PhantomData }),
+                Some(Pending { inputs: _, received: received @ (Outcome::Unchanged | Outcome::Failed) }) => released.extend(self.settle(node, received)),
+                None => {}
             }
         }
         ready
@@ -80,36 +98,43 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn reach<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<StableDiGraph<&N, &E>, DependencyError> {
-    walk(graph, nodes, direction).map(|discovered| graph.filter_map(|node, weight| discovered.is_visited(&node).then_some(weight), |_, weight| Some(weight)))
+pub fn reach<N, E>(evaluation: &Evaluation<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<Evaluation<&N, &E>, DependencyError> {
+    let nodes = nodes.into_iter().collect::<Vec<_>>();
+    present(evaluation, nodes.iter().copied())?;
+    let discovered = walk(evaluation, nodes, direction);
+    Ok(acyclic(evaluation.filter_map(|node, weight| discovered.is_visited(&node).then_some(weight), |_, weight| Some(weight))))
 }
 
 pub fn propagate<'graph, N, E, R>(
     evaluation: &'graph Evaluation<N, E>,
     dirty: impl IntoIterator<Item = NodeIndex>,
-    run: impl for<'id> FnOnce(Propagation<'graph, 'id, N, E>, Vec<Due<'id>>) -> R,
+    requested: Option<&[NodeIndex]>,
+    run: impl for<'id> FnOnce(Propagation<'graph, 'id, N, E>, Vec<Ready<'id>>) -> R,
 ) -> Result<R, DependencyError> {
-    let graph = evaluation.graph();
     let dirty = dirty.into_iter().collect::<BTreeSet<_>>();
-    let discovered = walk(graph, dirty.iter().copied(), Direction::Outgoing)?;
-    let pending = discovered
-        .ones()
-        .map(NodeIndex::new)
-        .map(|node| (node, Pending { inputs: graph.neighbors_directed(node, Direction::Incoming).filter(|source| discovered.is_visited(source)).count(), stale: dirty.contains(&node) }))
-        .collect::<BTreeMap<_, _>>();
-    let released = pending.iter().filter(|&(_, &Pending { inputs, stale: _ })| inputs == 0).map(|(&node, _)| node).collect();
-    let mut propagation = Propagation { graph, pending, changed: BTreeSet::new(), brand: PhantomData };
+    present(evaluation, dirty.iter().chain(requested.into_iter().flatten()).copied())?;
+    let downstream = walk(evaluation, dirty.iter().copied(), Direction::Outgoing);
+    let upstream = requested.map(|outputs| walk(evaluation, outputs.iter().copied(), Direction::Incoming));
+    let member = |node: NodeIndex| downstream.is_visited(&node) && upstream.as_ref().is_none_or(|upstream| upstream.is_visited(&node));
+    let pending = dense(
+        evaluation.node_bound(),
+        downstream.ones().map(NodeIndex::new).filter(|&node| member(node)).map(|node| {
+            let inputs = evaluation.neighbors_directed(node, Direction::Incoming).filter(|&source| member(source)).count();
+            (node, Pending { inputs, received: if dirty.contains(&node) { Outcome::Changed } else { Outcome::Unchanged } })
+        }),
+    );
+    let released = entries(&pending).filter_map(|(node, &Pending { inputs, received: _ })| (inputs == 0).then_some(node)).collect();
+    let deferred = dirty.iter().copied().filter(|&node| !member(node)).collect();
+    let mut propagation = Propagation { graph: evaluation.inner(), pending, dirty: deferred, brand: PhantomData };
     let ready = propagation.advance(released);
     Ok(run(propagation, ready))
 }
 
-fn walk<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<<StableDiGraph<N, E> as Visitable>::Map, DependencyError> {
-    let nodes = nodes.into_iter().collect::<Vec<_>>();
-    present(graph, nodes.iter().copied())?;
-    let mut search = Dfs::from_parts(nodes, graph.visit_map());
+fn walk<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> <StableDiGraph<N, E> as Visitable>::Map {
+    let mut search = Dfs::from_parts(nodes.into_iter().collect(), graph.visit_map());
     match direction {
         Direction::Outgoing => (&mut search).iter(graph).for_each(drop),
         Direction::Incoming => (&mut search).iter(Reversed(graph)).for_each(drop),
     }
-    Ok(search.discovered)
+    search.discovered
 }

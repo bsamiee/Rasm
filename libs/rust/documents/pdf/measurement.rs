@@ -10,12 +10,12 @@ use uom::{
         Unit as _,
         area::square_millimeter,
         f64::Length,
-        length::{inch, millimeter},
+        length::millimeter,
     },
     str::ParseQuantityError,
 };
 
-use crate::{Document, POINTS_PER_INCH, PdfError};
+use crate::{Document, PdfError};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ pub fn measures(document: &Document, index: usize) -> Result<Vec<Measure>, PdfEr
         }))
     };
     let page = crate::page(document, index)?;
-    let frame = crate::frame(page);
+    let (frame, _) = crate::frame(page);
     page.raw()
         .get::<Array<'_>>(keys::VP)
         .into_iter()
@@ -82,7 +82,7 @@ where I: IntoIterator<Item: Borrow<Page>> {
     let ordered = |sign: f64, low: f64, high: f64| if sign < 0.0 { [high, low] } else { [low, high] };
     structure.page_iter().collect::<Vec<_>>().into_iter().zip(pages).try_for_each(|(id, page)| {
         let Page { size, viewports, layers: _, links: _, fields: _ } = page.borrow();
-        let user = Affine::FLIP_Y.then_translate(Vec2::new(0.0, size.height)).then_scale(Length::new::<inch>(POINTS_PER_INCH.recip()).get::<millimeter>().recip());
+        let user = Affine::FLIP_Y.then_translate(Vec2::new(0.0, size.height)).then_scale(crate::points_per_millimeter());
         let entries = viewports
             .iter()
             .map(|viewport| {

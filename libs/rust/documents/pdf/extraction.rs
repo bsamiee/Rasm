@@ -12,7 +12,7 @@ use pdf_oxide::{
     geometry, layout,
     ocr::{OcrEngine, OcrOutput, OcrSpan},
 };
-use rasm_linework::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, WidthError, pages::Layer};
+use rasm_linework::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, pages::Layer};
 use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
 
@@ -75,9 +75,7 @@ where P: IntoIterator<Item = usize> {
             .zip(fill_color.or_else(|| stroke_color.is_none().then(layout::Color::black)))
             .map(|(outline, color)| Validated::from(Region::new(outline, FillRule::NonZero, tolerance).map(|region| Element::Fill { region, color: paint(color), .. }).map_err(PdfError::from)));
         let stroked = outline.zip(*stroke_color).map(|(outline, color)| {
-            let width = Width::try_new(f64::from(*stroke_width) * scale).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| {
-                PdfError::from(pdf_oxide::Error::InvalidPdf(format!("line width {stroke_width} is negative or not finite")))
-            });
+            let width = Width::try_new(f64::from(*stroke_width) * scale).map_err(PdfError::from);
             let centerline = Path::try_new(outline).map_err(|error| PdfError::from(LineworkError::from(error)));
             Validated::from(width).map2(Validated::from(centerline), |width, centerline| Element::Stroke {
                 path: centerline,
@@ -110,9 +108,8 @@ where P: IntoIterator<Item = usize> {
     let groups = layers::groups(document)?;
     extract(document, pages, |engine, index| {
         let page = crate::page(document, index)?;
-        let frame = crate::frame(page);
+        let (frame, size) = crate::frame(page);
         let scale = frame.determinant().abs().sqrt();
-        let (width, height) = page.render_dimensions();
         let extracted = match area {
             Some(area) => {
                 let Rect { x0, y0, x1, y1 } = frame.inverse().transform_rect_bbox(area);
@@ -143,7 +140,7 @@ where P: IntoIterator<Item = usize> {
             .map(|(Group { name, print, view }, members)| drawn(&name, &members).map(|elements| Layer { name, print, view, elements }))
             .collect::<Validated<Vec<_>, _>>();
         drawn(&Arc::default(), &outside)
-            .map2(grouped, |elements, layers| Paths { size: Size::new(f64::from(width) * scale, f64::from(height) * scale), elements, layers })
+            .map2(grouped, |elements, layers| Paths { size, elements, layers })
             .ok()
             .map_err(PdfError::Refused)
     })

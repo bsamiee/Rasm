@@ -42,21 +42,21 @@ pub struct Block {
 impl Block {
     pub fn new(cone: SupportedConeT<f64>, matrix: CscMatrix<f64>, b: Vec<f64>) -> Result<Self, OptimizeError> {
         matrix.check_format()?;
-        let dimension = |expected: Option<usize>| {
-            expected.filter(|&expected| expected == matrix.m && expected == b.len()).map(drop).ok_or(Refusal::Dimension { rows: matrix.m, constants: b.len(), expected })
-        };
+        let dimension = |expected: Option<usize>| expected.is_some_and(|expected| expected == matrix.m && expected == b.len()).ok_or(Refusal::Dimension { rows: matrix.m, constants: b.len(), expected });
         let unbounded = matches!(cone, SupportedConeT::NonnegativeConeT(_) | SupportedConeT::SecondOrderConeT(1));
-        let refusal = match &cone {
-            SupportedConeT::ZeroConeT(order) | SupportedConeT::NonnegativeConeT(order) | SupportedConeT::SecondOrderConeT(order) => dimension(Some(*order)),
-            SupportedConeT::ExponentialConeT() => dimension(Some(3)),
-            SupportedConeT::PowerConeT(alpha) if 0.0 < *alpha && *alpha < 1.0 => dimension(Some(3)),
-            SupportedConeT::GenPowerConeT(alpha, order)
-                if alpha.iter().all(|&power| power > 0.0) && (1.0 - alpha.iter().sum::<f64>()).abs() < f64::EPSILON * nalgebra::convert::<usize, f64>(alpha.len()) * 0.5 =>
-                dimension(alpha.len().checked_add(*order)),
-            SupportedConeT::PSDTriangleConeT(order) => dimension(order.checked_add(1).and_then(|next| order.checked_mul(next)).map(|count| count / 2)),
-            SupportedConeT::PowerConeT(_) | SupportedConeT::GenPowerConeT(_, _) => Err(Refusal::Power),
-        }
-        .and_then(|()| b.iter().position(|&constant| !(constant.is_finite() || (unbounded && constant == f64::INFINITY))).map_or(Ok(()), |index| Err(Refusal::Constant { index })));
+        let refusal: Result<(), Refusal> = try {
+            match &cone {
+                SupportedConeT::ZeroConeT(order) | SupportedConeT::NonnegativeConeT(order) | SupportedConeT::SecondOrderConeT(order) => dimension(Some(*order)),
+                SupportedConeT::ExponentialConeT() => dimension(Some(3)),
+                SupportedConeT::PowerConeT(alpha) if 0.0 < *alpha && *alpha < 1.0 => dimension(Some(3)),
+                SupportedConeT::GenPowerConeT(alpha, order)
+                    if alpha.iter().all(|&power| power > 0.0) && (1.0 - alpha.iter().sum::<f64>()).abs() < f64::EPSILON * nalgebra::convert::<usize, f64>(alpha.len()) * 0.5 =>
+                    dimension(alpha.len().checked_add(*order)),
+                SupportedConeT::PSDTriangleConeT(order) => dimension(order.checked_add(1).and_then(|next| order.checked_mul(next)).map(|count| count / 2)),
+                SupportedConeT::PowerConeT(_) | SupportedConeT::GenPowerConeT(_, _) => Err(Refusal::Power),
+            }?;
+            b.iter().position(|&constant| !(constant.is_finite() || (unbounded && constant == f64::INFINITY))).map(|index| Refusal::Constant { index }).map_or(Ok(()), Err)?;
+        };
         match refusal {
             Ok(()) => Ok(Self { cone, matrix, b }),
             Err(reason) => Err(OptimizeError::Cone { cone, reason }),

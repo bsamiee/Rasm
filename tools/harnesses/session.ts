@@ -333,7 +333,7 @@ const surveyIn = Effect.fn('surveyIn')(function* <S extends Any, C extends Any, 
 });
 const finishedIn = Effect.fnUntraced(function* <C, S>(live: Live, rest: readonly Prepared<C>[], ran: Ran<S>, limit: Duration.Duration) {
     const on = (index: number) => ran.notes.filter(({ index: at }) => Option.contains(at, index)).map(({ answered }) => answered);
-    const kept = rest.flatMap(({ map }, index) => Option.toArray(Option.map(Option.fromUndefinedOr(ran.finished.get(index)), (row) => ({ ...mapped(map)(row), answered: [...row.answered, ...on(index)] }))));
+    const kept = Array.getSomes(rest.map(({ map }, index) => Option.map(Option.fromUndefinedOr(ran.finished.get(index)), (row) => ({ ...mapped(map)(row), answered: [...row.answered, ...on(index)] }))));
     const stop = Option.getOrElse(ran.running, () => ran.finished.size);
     const reason = Option.match(ran.verdict, {
         onNone: () => 'not run, batch ended before the case',

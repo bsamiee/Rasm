@@ -21,7 +21,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const [fs, path, home, ghidra, pulumi] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR'), Config.String('PULUMI_HOME')]);
     const root = path.resolve(workspaceRoot);
     const shown = { stdout: 'inherit' } as const;
-    const residues = ['.build', '.artifacts', '.playwright-cli', '.playwright-mcp'];
+    const residues = ['.build', '.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
     const under = (roots: readonly string[]) => (entry: string) => roots.some((at) => entry === at || entry.startsWith(`${at}${path.sep}`));
     const lineage = (entry: string) => Array.unfold(path.dirname(entry), (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
     const lines = (text: string) => text.split('\n').filter(String.isNonEmpty);
@@ -67,7 +67,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
             identity,
         ),
     );
-    const worktree = Schema.decodeUnknownOption(Schema.TemplateLiteralParser(['worktree ', Schema.String]));
+    const listedPath = Schema.decodeUnknownOption(Schema.TemplateLiteralParser(['worktree ', Schema.String]));
     const product = Schema.decodeUnknownOption(Schema.TemplateLiteralParser([Schema.String, ' v', Schema.String, ' (', Schema.String, '):']));
     const agent = Schema.is(Schema.TemplateLiteral(['dev.mise.', Schema.String, '.plist']));
     const launch = Schema.decodeUnknownOption(Schema.Struct({ Label: Schema.TemplateLiteralParser(['dev.mise.', Schema.String]), WorkingDirectory: Schema.Literal(root), StandardOutPath: Schema.OptionFromOptionalKey(Schema.String), StandardErrorPath: Schema.OptionFromOptionalKey(Schema.String) }));
@@ -79,7 +79,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
                 Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String })) }))),
                 Effect.map(({ customLanguages }) => Object.values(customLanguages).map(({ libraryPath }) => path.resolve(root, libraryPath))),
             ),
-            worktrees: stdout('git', ['worktree', 'list', '--porcelain', '-z']).pipe(Effect.map((text) => Array.getSomes(text.split('\0').map((field) => worktree(field))).map(Tuple.get(1)))),
+            worktrees: stdout('git', ['worktree', 'list', '--porcelain', '-z']).pipe(Effect.map((text) => Array.getSomes(text.split('\0').map((field) => listedPath(field))).map(Tuple.get(1)))),
             installed: stdout('mise', ['ls', '--installed', '--json']).pipe(
                 Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String })))))),
                 Effect.flatMap((installs) => Effect.forEach(Object.values(installs).flat(), ({ install_path }) => fs.realPath(install_path), { concurrency: 'unbounded' })),
@@ -104,16 +104,14 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const checkouts = yield* Effect.forEach(
         worktrees,
         (worktree) =>
-            Effect.all({
-                worktree: Effect.succeed(worktree),
-                metadata: stdout('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: worktree }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })), build_directory: Schema.String }))))),
-                cache: stdout('mise', ['env', '--json'], { cwd: worktree }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ RASM_CACHE_HOME: Schema.String })))), Effect.map(Struct.get('RASM_CACHE_HOME'))),
-            }),
+            stdout('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: worktree }).pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })), build_directory: Schema.String })))),
+                Effect.map((metadata) => ({ worktree, ...metadata })),
+            ),
         { concurrency: 'unbounded' },
     );
-    const caches = checkouts.flatMap(({ metadata, cache }) => [metadata.build_directory, cache]);
     const own = yield* Effect.fromNullishOr(checkouts.find(({ worktree }) => worktree === root));
-    const members = new Set(own.metadata.packages.map(Struct.get('name')));
+    const members = new Set(own.packages.map(Struct.get('name')));
     yield* accumulate(
         launched.filter(({ Label: [, name] }) => !agents.has(name)),
         ({ Label: [, name] }) => stdout('mise', ['bootstrap', 'services', 'remove', name, '--yes'], shown),
@@ -145,7 +143,10 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const descendants = (pid: number): (typeof running)[number][] => (children.get(pid) ?? []).flatMap((child) => [child, ...descendants(child.pid)]);
     const ancestors = (pid: number) => Array.unfold(pid, (current) => Option.flatMap(Option.fromUndefinedOr(processes.get(current)), ({ ppid }) => (ppid === current ? Option.none() : Option.some([current, ppid] as const))));
     const holds = (candidate: (typeof running)[number], descriptor: string, roots: readonly string[]) => candidate.opened.some((handle) => handle.descriptor === descriptor && under(roots)(handle.path));
-    const [local, tools] = [[...Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), ...caches], [...installed, ...developer, ...toolchains.map(Struct.get('path'))]];
+    const [local, tools] = [
+        [...Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), ...checkouts.map(Struct.get('build_directory'))],
+        [...installed, ...developer, ...toolchains.map(Struct.get('path'))],
+    ];
     const owned = (candidate: (typeof running)[number]) => holds(candidate, 'txt', local) || (holds(candidate, 'txt', tools) && holds(candidate, 'cwd', worktrees));
     const { uid } = yield* Effect.fromNullishOr(processes.get(self));
     const exempt = new Set([...ancestors(self), ...jobs.flatMap((pid) => [pid, ...descendants(pid).map(Struct.get('pid'))]), ...running.filter(({ terminal }) => Option.isSome(terminal)).flatMap(({ pid }) => ancestors(pid))]);
@@ -225,13 +226,12 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
         ...launched.filter(({ Label: [, name] }) => agents.get(name) === true).flatMap(({ StandardOutPath, StandardErrorPath }) => Array.getSomes([StandardOutPath, StandardErrorPath])),
         ...languages,
         cacheDir,
-        ...tasks.flatMap(({ definition }) => Option.toArray(xcode(definition.options))).map(({ env }) => path.join(own.cache, env.XCODE_DERIVED_DATA_PATH)),
+        ...Array.getSomes(tasks.map(({ definition }) => xcode(definition.options))).map(({ env }) => path.resolve(root, env.XCODE_DERIVED_DATA_PATH)),
         pulumi,
     ];
     const listed = new Set([
         ...residues.map((entry) => path.join(root, entry)),
-        own.cache,
-        own.metadata.build_directory,
+        own.build_directory,
         ghidra,
         ...tasks
             .filter(({ definition }) => definition.outputs !== undefined)
@@ -274,7 +274,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
                         () => Effect.asVoid(stdout('mise', ['daemons', 'start', ...names], shown)),
                     ),
             }),
-            Array.match(Array.dedupe(products.flatMap(([name, , , , source]) => (under(worktrees)(source) && !members.has(name) ? [name] : []))), { onEmpty: () => Effect.void, onNonEmpty: (names) => stdout('cargo', ['uninstall', ...names], shown) }),
+            Array.match(Array.dedupe(Array.filterMap(products, ([name, , , , source]) => (under(worktrees)(source) && !members.has(name) ? Result.succeed(name) : Result.failVoid))), { onEmpty: () => Effect.void, onNonEmpty: (names) => stdout('cargo', ['uninstall', ...names], shown) }),
             Fiber.join(pruning),
         ],
         identity,

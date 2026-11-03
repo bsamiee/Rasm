@@ -71,6 +71,7 @@ impl Domain {
     fn of<'tcx>(cx: &LateContext<'tcx>, name: Symbol, held: Ty<'tcx>) -> Option<Self> {
         const EPOCH: &str = "epoch";
         const RATE: &str = "per";
+        const COUNTS: &[&str] = &["samples", "dots", "pixels", "px", "lines", "cycles", "ticks", "cells"];
         const BYTE_SIZES: &[(&str, &str)] = &[("bytes", "b"), ("kb", "kb"), ("kib", "kib"), ("mb", "mb"), ("mib", "mib"), ("gb", "gb"), ("gib", "gib")];
         const QUANTITIES: &[(&str, bool, Quantity, &str)] = &[
             ("mm", true, Quantity::Length, "millimeter"),
@@ -123,12 +124,11 @@ impl Domain {
         let float = if let ty::Float(float) = held.kind() { Some(*float) } else { None };
         let time = |clock, unit| held.is_numeric().then_some(Self::Time { clock, unit, float });
         let measured = |word: &str| QUANTITIES.iter().find(|&&(suffix, ..)| suffix == word);
-        let worded = |word: &str| word.parse::<Unit>().is_ok() || BYTE_SIZES.iter().any(|&(suffix, _)| suffix == word) || measured(word).is_some();
         let stored = |quantity, unit| float.filter(|float| matches!(float, FloatTy::F32 | FloatTy::F64)).map(|float| Self::Quantity { quantity, unit, float });
         let time_unit = last.parse::<Unit>().ok();
         match (previous, last) {
             (Some(RATE), _) => measured(last)
-                .filter(|&&(_, _, quantity, _)| quantity == Quantity::Length && !segments.next().is_some_and(worded))
+                .filter(|&&(_, _, quantity, _)| quantity == Quantity::Length && segments.next().is_some_and(|word| COUNTS.contains(&word)))
                 .and_then(|&(_, _, _, unit)| stored(Quantity::LinearNumberDensity, unit)),
             (_, "timestamp") | (Some("since"), EPOCH) | (Some("created" | "updated" | "modified" | "expires" | "issued" | "started" | "finished" | "deleted"), "at") => time(Clock::Instant, None),
             _ if time_unit.is_some() => time(if previous == Some(EPOCH) { Clock::Instant } else { Clock::Duration }, time_unit),

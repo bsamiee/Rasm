@@ -138,36 +138,38 @@ pub fn diff(before: &Layer, after: &Layer) -> Layer {
 pub fn effective_diff(before: &Model, after: &Model) -> Vec<Node<Value>> {
     fn shared(model: &Model, child: &Arc<Composed>) -> bool { descend(&model.heads, &child.path).is_some_and(|definition| Arc::ptr_eq(definition, child)) }
     let none = (IndexMap::<Box<str>, Arc<Value>>::new(), IndexMap::<Name, Arc<Composed>>::new());
-    let mut pending = before
-        .heads
-        .keys()
-        .chain(after.heads.keys())
-        .unique()
-        .map(|head| (Path(NEVec::new(head.clone())), [before, after].map(|model| model.heads.get(head).map_or((&none.0, &none.1), |node| (&node.attributes, &node.children)))))
-        .collect::<Vec<_>>();
-    iter::from_fn(move || {
-        let (path, [(attributes, children), (revised, listed)]) = pending.pop()?;
-        let changed = attributes
+    let none = &none;
+    gen move {
+        let mut pending = before
+            .heads
             .keys()
-            .chain(revised.keys())
+            .chain(after.heads.keys())
             .unique()
-            .filter(|id| attributes.get(*id) != revised.get(*id))
-            .map(|id| (id.clone(), revised.get(id).map(|value| Value::clone(value))))
-            .collect::<IndexMap<_, _>>();
-        let names = children.keys().chain(listed.keys()).unique().collect::<Vec<_>>();
-        let targets = names
-            .iter()
-            .filter_map(|&name| match (children.get(name), listed.get(name)) {
-                (Some(left), Some(right)) if left.path == right.path => None,
-                (_, right) => Some((name.clone(), right.map(|child| child.path.clone()))),
-            })
-            .collect::<IndexMap<_, _>>();
-        pending.extend(names.into_iter().filter_map(|name| {
-            let (left, right) = (children.get(name)?, listed.get(name)?);
-            (!(shared(before, left) && shared(after, right))).then(|| (path.child(name.clone()), [(&left.attributes, &left.children), (&right.attributes, &right.children)]))
-        }));
-        Some(Node { children: targets, attributes: changed, ..Node::new(path) })
-    })
+            .map(|head| (Path(NEVec::new(head.clone())), [before, after].map(|model| model.heads.get(head).map_or((&none.0, &none.1), |node| (&node.attributes, &node.children)))))
+            .collect::<Vec<_>>();
+        while let Some((path, [(attributes, children), (revised, listed)])) = pending.pop() {
+            let changed = attributes
+                .keys()
+                .chain(revised.keys())
+                .unique()
+                .filter(|id| attributes.get(*id) != revised.get(*id))
+                .map(|id| (id.clone(), revised.get(id).map(|value| Value::clone(value))))
+                .collect::<IndexMap<_, _>>();
+            let names = children.keys().chain(listed.keys()).unique().collect::<Vec<_>>();
+            let targets = names
+                .iter()
+                .filter_map(|&name| match (children.get(name), listed.get(name)) {
+                    (Some(left), Some(right)) if left.path == right.path => None,
+                    (_, right) => Some((name.clone(), right.map(|child| child.path.clone()))),
+                })
+                .collect::<IndexMap<_, _>>();
+            pending.extend(names.into_iter().filter_map(|name| {
+                let (left, right) = (children.get(name)?, listed.get(name)?);
+                (!(shared(before, left) && shared(after, right))).then(|| (path.child(name.clone()), [(&left.attributes, &left.children), (&right.attributes, &right.children)]))
+            }));
+            yield Node { children: targets, attributes: changed, ..Node::new(path) };
+        }
+    }
     .filter(|node| !(node.children.is_empty() && node.attributes.is_empty()))
     .collect()
 }

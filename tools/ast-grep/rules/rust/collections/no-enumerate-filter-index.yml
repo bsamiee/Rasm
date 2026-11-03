@@ -24,7 +24,7 @@ rule:
     any:
         - all:
             - any:
-                - pattern: $I.enumerate().filter($F).map(|($IDX, _)| $IDX)
+                - pattern: $I.enumerate().filter($F).map(|($IDX, _)| $_BODY)
                 - pattern: $I.enumerate().filter($F).map(|$T| $T.0)
             - matches: index-free-filter
         - all:
@@ -36,4 +36,4 @@ rule:
                 - pattern: '$I.enumerate().filter_map(|($IDX, $ITEM)| if $TEST { Some($IDX) } else { None })'
             - matches: index-free-test
 message: '`$CHAIN` enumerates `$I` to keep indexes of elements that pass a test'
-note: 'Call `<iterator>.positions(<test>)` (`use itertools::Itertools as _;`) with the test taking each element by value'
+note: 'Call `<iterator>.positions(<test>)` (`use itertools::Itertools as _;`) with the test taking each element by value, mapping each index after it'

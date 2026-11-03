@@ -1,19 +1,29 @@
-use core::{
-    iter,
-    ops::{Neg, Sub},
+use core::ops::{Neg, Sub};
+use std::collections::BTreeMap;
+
+use enum_map::EnumMap;
+use nonempty_collections::NEBTreeSet;
+use petgraph::{
+    Direction,
+    algo::Measure,
+    stable_graph::{EdgeIndex, NodeIndex},
+    visit::{EdgeRef as _, IntoEdgeReferences as _},
 };
-use std::collections::{BTreeMap, HashMap};
 
-use petgraph::{Direction, algo::Measure, stable_graph::NodeIndex, visit::EdgeRef as _};
-
-use crate::Evaluation;
+use crate::{DependencyError, Evaluation, at, pass};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum)]
 pub enum Event {
     Start,
     Finish,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum)]
+pub enum Float {
+    Total,
+    Free,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -26,74 +36,100 @@ pub struct Precedence<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Horizon<T> {
-    pub start: T,
-    pub finish: Option<T>,
+pub struct Constraint<T> {
+    pub earliest: Option<T>,
+    pub latest: Option<T>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Activity<T> {
-    pub early_start: T,
-    pub early_finish: T,
-    pub late_start: T,
-    pub late_finish: T,
-    pub total_float: T,
-    pub free_float: T,
+    pub early: EnumMap<Event, T>,
+    pub late: EnumMap<Event, T>,
+    pub float: EnumMap<Float, T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Schedule<T> {
     pub activities: BTreeMap<NodeIndex, Activity<T>>,
+    pub relationships: BTreeMap<EdgeIndex, EnumMap<Float, T>>,
     pub makespan: T,
-    pub path: Vec<NodeIndex>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn schedule<N, E, T>(evaluation: &Evaluation<N, E>, duration: impl Fn(&N) -> T, precedence: impl Fn(&E) -> Precedence<T>, Horizon { start, finish }: Horizon<T>) -> Schedule<T>
-where T: Measure + Copy + Ord + Sub<Output = T> + Neg<Output = T> {
-    let (sequence, graph) = (evaluation.order().nodes_iter().collect::<Vec<_>>(), evaluation.graph());
-    let date = |event: Event, opened: T, closed: T| match event {
-        Event::Start => opened,
-        Event::Finish => closed,
+pub fn schedule<N, E, T>(
+    evaluation: &Evaluation<N, E>,
+    duration: impl Fn(&N) -> T,
+    constraint: impl Fn(&N) -> EnumMap<Event, Constraint<T>>,
+    precedence: impl Fn(&E) -> Precedence<T>,
+    start: T,
+    deadline: Option<T>,
+) -> Result<Schedule<T>, DependencyError>
+where
+    T: Measure + Copy + Ord + Sub<Output = T> + Neg<Output = T>,
+{
+    if let Some(nodes) = NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::default()).collect()) {
+        return Err(DependencyError::Duration { nodes });
+    }
+    let dated = |direction: Direction, origin: (Event, T)| {
+        let (extreme, limit): (fn(T, T) -> T, fn(Constraint<T>) -> Option<T>) = match direction {
+            Direction::Outgoing => (Ord::max, |Constraint { earliest, latest: _ }| earliest),
+            Direction::Incoming => (Ord::min, |Constraint { earliest: _, latest }| latest),
+        };
+        pass(evaluation, direction, |node, dates| {
+            let (length, bounds) = (duration(&evaluation[node]), constraint(&evaluation[node]));
+            let finish = evaluation
+                .edges_directed(node, direction.opposite())
+                .filter_map(|edge| {
+                    let Precedence { predecessor, successor, lag } = precedence(edge.weight());
+                    let (neighbor, near, far, lag) = match direction {
+                        Direction::Outgoing => (edge.source(), successor, predecessor, lag),
+                        Direction::Incoming => (edge.target(), predecessor, successor, lag.neg()),
+                    };
+                    at(dates, neighbor).map(|known: EnumMap<Event, T>| (near, known[far].add(lag)))
+                })
+                .chain(bounds.into_iter().filter_map(|(event, bounds)| limit(bounds).map(|date| (event, date))))
+                .fold(bound(origin, length), |finish, candidate| extreme(finish, bound(candidate, length)));
+            EnumMap::from_fn(|event| match event {
+                Event::Start => finish.sub(length),
+                Event::Finish => finish,
+            })
+        })
     };
-    let (early, end) = sequence.iter().fold((HashMap::with_capacity(sequence.len()), None), |(mut dates, end), &node| {
-        let length = duration(&graph[node]);
-        let (early_finish, driver) = graph
-            .edges_directed(node, Direction::Incoming)
-            .filter_map(|edge| {
-                let Precedence { predecessor, successor, lag } = precedence(edge.weight());
-                dates.get(&edge.source()).map(|&(early_start, early_finish, _): &(T, T, Option<NodeIndex>)| {
-                    let bound = date(predecessor, early_start, early_finish).add(lag);
-                    (date(successor, bound.add(length), bound), edge.source())
-                })
-            })
-            .max_by_key(|&(early_finish, _)| early_finish)
-            .filter(|&(early_finish, _)| early_finish >= start.add(length))
-            .map_or_else(|| (start.add(length), None), |(early_finish, source)| (early_finish, Some(source)));
-        dates.insert(node, (early_finish.sub(length), early_finish, driver));
-        (dates, Some(end.map_or((early_finish, node), |held: (T, NodeIndex)| held.max((early_finish, node)))))
-    });
-    let completion = end.map_or(start, |(early_finish, _)| early_finish);
-    let deadline = finish.unwrap_or(completion);
-    let activities = sequence.iter().rev().filter_map(|node| early.get_key_value(node)).fold(HashMap::with_capacity(sequence.len()), |mut dates, (&node, &(early_start, early_finish, _))| {
-        let length = early_finish.sub(early_start);
-        let (late_finish, free_float) = graph
-            .edges_directed(node, Direction::Outgoing)
-            .filter_map(|edge| {
-                let Precedence { predecessor, successor, lag } = precedence(edge.weight());
-                dates.get(&edge.target()).map(|next: &Activity<T>| {
-                    let bound = date(successor, next.late_start, next.late_finish).sub(lag);
-                    (date(predecessor, bound.add(length), bound), date(successor, next.early_start, next.early_finish).sub(lag).sub(date(predecessor, early_start, early_finish)))
-                })
-            })
-            .reduce(|(late_finish, free_float), (edge_finish, edge_float)| (late_finish.min(edge_finish), free_float.min(edge_float)))
-            .map_or_else(|| (deadline, deadline.sub(early_finish)), |(late_finish, free_float)| (late_finish.min(deadline), free_float));
-        dates.insert(node, Activity { early_start, early_finish, late_start: late_finish.sub(length), late_finish, total_float: late_finish.sub(early_finish), free_float });
-        dates
-    });
-    let mut path = iter::successors(end.map(|(_, node)| node), |node| early.get(node).and_then(|&(_, _, driver)| driver)).collect::<Vec<_>>();
-    path.reverse();
-    Schedule { activities: activities.into_iter().collect(), makespan: completion.sub(start), path }
+    let early = dated(Direction::Outgoing, (Event::Start, start));
+    let completion = early.iter().flatten().map(|dates| dates[Event::Finish]).max().unwrap_or(start);
+    let close = deadline.unwrap_or(completion);
+    let late = dated(Direction::Incoming, (Event::Finish, close));
+    let relationships = evaluation
+        .edge_references()
+        .filter_map(|edge| {
+            let Precedence { predecessor, successor, lag } = precedence(edge.weight());
+            let opened = at(&early, edge.source())?[predecessor].add(lag);
+            let (soonest, latest) = (at(&early, edge.target())?[successor], at(&late, edge.target())?[successor]);
+            Some((edge.id(), EnumMap::from_fn(|float| match float {
+                Float::Total => latest.sub(opened),
+                Float::Free => soonest.sub(opened),
+            })))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let activities = evaluation
+        .node_indices()
+        .filter_map(|node| {
+            let (early, late) = (at(&early, node)?, at(&late, node)?);
+            let free = evaluation.edges_directed(node, Direction::Outgoing).filter_map(|edge| relationships.get(&edge.id()).map(|float| float[Float::Free])).min().unwrap_or_else(|| close.sub(early[Event::Finish]));
+            Some((node, Activity { early, late, float: EnumMap::from_fn(|float| match float {
+                Float::Total => late[Event::Finish].sub(early[Event::Finish]),
+                Float::Free => free,
+            }) }))
+        })
+        .collect();
+    Ok(Schedule { activities, relationships, makespan: completion.sub(start) })
+}
+
+fn bound<T>((near, date): (Event, T), length: T) -> T
+where T: Measure + Copy {
+    match near {
+        Event::Start => date.add(length),
+        Event::Finish => date,
+    }
 }

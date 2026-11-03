@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
+use itertools::Itertools as _;
 use lopdf::{Dictionary, Object, ObjectId, dictionary, text_string};
 use pdf_oxide::{
     Destination, OutlineItem,
@@ -174,13 +175,7 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .collect::<Validated<(), _>>()
         .ok()
         .map_err(PdfError::Refused)?;
-    let labeled = iter::zip(0_usize.., &pages).filter_map(|(page, &id)| label(&navigation.labels, page).filter(|name| !name.is_empty()).map(|name| (name.into_bytes(), id))).fold(
-        BTreeMap::<Vec<u8>, Vec<ObjectId>>::new(),
-        |mut grouped, (name, id)| {
-            grouped.entry(name).or_default().push(id);
-            grouped
-        },
-    );
+    let labeled = iter::zip(0_usize.., &pages).filter_map(|(page, &id)| label(&navigation.labels, page).filter(|name| !name.is_empty()).map(|name| (name.into_bytes(), id))).into_group_map().into_iter().collect::<BTreeMap<Vec<u8>, Vec<ObjectId>>>();
     let catalog = structure.catalog()?;
     let mut directory = catalog.has(NAMES.as_bytes()).then(|| structure.get_dict_in_dict(catalog, NAMES.as_bytes()).cloned()).transpose()?.unwrap_or_default();
     let held = pages.iter().copied().collect::<BTreeSet<_>>();

@@ -24,6 +24,7 @@ interface Command {
     readonly piping: boolean;
     readonly substituted: boolean;
     readonly looped: boolean;
+    readonly spinning: boolean;
     readonly origin: Origin;
     readonly written: readonly string[];
 }
@@ -58,7 +59,7 @@ type Hit = Capture &
         | { readonly ruleId: 'operand' | 'heredoc' | 'herestring' | 'written' | 'statement'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
         | { readonly ruleId: 'assignment' | 'rebinding' | 'expansion'; readonly metaVariables: { readonly single: { readonly SCOPE?: Capture } } }
         | { readonly ruleId: 'chained'; readonly metaVariables: { readonly single: { readonly CHAIN: Capture } } }
-        | { readonly ruleId: 'fed' | 'piping' | 'substituted' | 'looped' | 'unbounded' | 'background' }
+        | { readonly ruleId: 'fed' | 'piping' | 'substituted' | 'looped' | 'spun' | 'unbounded' | 'background' }
     );
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -127,6 +128,7 @@ const SCANNER = [
         },
         { id: 'expansion', utils: SCOPE, rule: { kind: 'simple_expansion, expansion', regex: String.raw`^\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})$`, matches: 'scoped' } },
         { id: 'looped', rule: { kind: 'command', inside: { stopBy: 'end', kind: 'while_statement, for_statement, c_style_for_statement' } } },
+        { id: 'spun', rule: { kind: 'command', inside: { stopBy: 'end', kind: 'while_statement', has: { field: 'body', kind: 'do_group', not: { has: { stopBy: 'end', kind: 'command', not: { regex: '^(?::|true)$' } } } } } } },
         { id: 'substituted', rule: { kind: 'command', inside: { stopBy: 'end', kind: 'process_substitution' } } },
         {
             id: 'piping',
@@ -274,6 +276,7 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
                                 piping: has('piping'),
                                 substituted: has('substituted'),
                                 looped: context.looped || has('looped') || chain.some(([program]) => declared(program).repeats === true),
+                                spinning: has('spun'),
                                 origin: context.origin,
                                 written: own.flatMap((other) => (other.ruleId === 'written' ? [resolved(other)] : [])),
                             },

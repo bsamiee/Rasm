@@ -73,18 +73,19 @@ pub(crate) fn raster(bytes: &Arc<[u8]>) -> Result<Raster, PdfError> {
 
 pub(crate) fn frames(tiff: &[u8]) -> Result<impl Iterator<Item = Result<(Size, Raster), PdfError>>, PdfError> {
     let mut reader = decoder(tiff)?;
-    let mut pending = true;
-    Ok(iter::from_fn(move || {
-        pending.then(|| {
-            pending = false;
-            let (paper, frame) = decoded(&mut reader)?;
-            if reader.more_images() {
-                reader.next_image()?;
-                pending = true;
+    Ok(gen move {
+        loop {
+            let step = decoded(&mut reader).and_then(|(paper, frame)| {
+                let more = reader.more_images();
+                more.then(|| reader.next_image()).transpose().map(|_| ((paper, Raster::Frame(frame)), more)).map_err(PdfError::from)
+            });
+            let more = step.as_ref().is_ok_and(|&(_, more)| more);
+            yield step.map(|(item, _)| item);
+            if !more {
+                break;
             }
-            Ok::<_, PdfError>((paper, Raster::Frame(frame)))
-        })
-    }))
+        }
+    })
 }
 
 #[must_use]

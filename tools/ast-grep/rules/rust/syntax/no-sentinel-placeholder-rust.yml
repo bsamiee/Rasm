@@ -177,6 +177,10 @@ rule:
             - has: {field: pattern, kind: identifier, pattern: $NAME}
             - has: {field: value, any: [{matches: bound}, {matches: aliased}], pattern: $SENTINEL}
             - matches: retest-after
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: 'scoped_identifier, generic_function', regex: '^((\w+::)*(NodeIndex|EdgeIndex)(::<[^>]*>)?::end|.*\bIndexType>?::max)$'}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
         - kind: 'const_item, static_item'
           all:
             - has: {field: name, regex: '(?i)^(unset|none|null|missing|absent|invalid|unknown|undefined|sentinel|no_\w+|not_\w+)$'}
@@ -188,4 +192,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` collapses absence or failure into a sentinel value'
-note: 'Keep the `Option` or `Result` where a consumer acts on absence, and select an extreme with `reduce` or `max` in place of a seeded `fold`'
+note: 'Keep the `Option` or `Result` where a consumer acts on absence, an `Option<NodeIndex>` or `Option<EdgeIndex>` in place of petgraph''s `end()` index, and select an extreme with `reduce` or `max` in place of a seeded `fold`'

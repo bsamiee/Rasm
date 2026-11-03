@@ -17,7 +17,7 @@ class NoRelease extends Schema.TaggedError<NoRelease, { readonly brand: unique s
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const newest = Effect.fn('newest')(function* (url: string, parse: (tag: string) => Option.Option<string>) {
-    const tags = (yield* stdout('git', ['ls-remote', '--tags', '--refs', url])).split('\n').flatMap((line) => Option.toArray(Option.flatMap(Option.fromUndefinedOr(line.split('refs/tags/')[1]), parse)));
+    const tags = Array.getSomes((yield* stdout('git', ['ls-remote', '--tags', '--refs', url])).split('\n').map((line) => Option.flatMap(Option.fromUndefinedOr(line.split('refs/tags/')[1]), parse)));
     return yield* Array.match(tags, { onEmpty: () => Effect.fail(NoRelease.make({ url })), onNonEmpty: (all) => Effect.succeed(Array.max(all, compare)) });
 });
 const inline = (rules: Record.ReadonlyRecord<string, string>) => Record.collect(rules, (id, rule) => `{id: ${id}, severity: info, ${rule}}`).join('\n---\n');

@@ -73,7 +73,7 @@ pub enum OptimizeError {
     Gap(#[from] MipGapError),
     #[error(transparent)]
     Resolution(#[from] ResolutionError),
-    #[error("nlopt refused to run {algorithm:?} {}", failure(*state))]
+    #[error("nlopt refused to run its algorithm {}", failure(*state))]
     Algorithm { algorithm: Algorithm, state: FailState },
     #[error("nlopt refused constraint {constraint} {}", failure(*state))]
     Constraint { constraint: usize, state: FailState },

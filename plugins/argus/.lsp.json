@@ -28,12 +28,12 @@
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" },
         "diagnostics": false,
-        "env": { "SWIFTPM_BUILD_DIR": "${RASM_CACHE_HOME}/swiftpm/index" },
-        "initializationOptions": { "swiftPM": { "scratchPath": "${RASM_CACHE_HOME}/swiftpm/index", "forceResolvedVersions": true } }
+        "env": { "SWIFTPM_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" },
+        "initializationOptions": { "swiftPM": { "scratchPath": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index", "forceResolvedVersions": true } }
     },
     "java": {
         "command": "mise",
-        "args": [ "exec", "--", "jdtls", "-data", "${RASM_CACHE_HOME}/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${RASM_CACHE_HOME}/jdtls/configuration" ],
+        "args": [ "exec", "--", "jdtls", "-data", "${CLAUDE_PROJECT_DIR}/.cache/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${CLAUDE_PROJECT_DIR}/.cache/jdtls/configuration" ],
         "extensionToLanguage": { ".java": "java" },
         "diagnostics": false,
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
@@ -49,7 +49,8 @@
                 "project": {
                     "sourcePaths": [ "." ],
                     "referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ]
-                }
+                },
+                "diagnostic": { "filter": [ "**/.cache/**" ] }
             }
         }
     },

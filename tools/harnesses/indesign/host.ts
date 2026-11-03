@@ -85,7 +85,7 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folde
         (document): Effect.Effect<(typeof Placed.Type.documents)[number], PlatformError.PlatformError> =>
             'open' in document ? Effect.as(fs.copyFile(path.join(product, document.open), path.join(folder, path.basename(document.open))), { open: path.join(folder, path.basename(document.open)) }) : Effect.succeed(document),
     );
-    return { precondition: { ...decoded, documents }, copies: decoded.documents.flatMap((document) => ('open' in document ? [path.join(product, document.open)] : [])) };
+    return { precondition: { ...decoded, documents }, copies: Array.filterMap(decoded.documents, (document) => ('open' in document ? Result.succeed(path.join(product, document.open)) : Result.failVoid)) };
 });
 
 // --- [DIGESTS]
@@ -109,11 +109,11 @@ const digest = Effect.fn('digest')(function* (file: string) {
 // --- [TRANSPORT]
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
-    const scripts = batch.cases.flatMap((row) => Option.toArray(Option.map(Option.fromUndefinedOr(row._tag === 'Probe' ? undefined : row.source), ({ script }) => script)));
+    const scripts = Array.getSomes(batch.cases.map((row) => Option.map(Option.fromUndefinedOr(row._tag === 'Probe' ? undefined : row.source), ({ script }) => script)));
     const held = Option.isNone(batch.survey) ? 'uxpscript' : yield* Effect.fromResult(engine(scripts));
     const encoded = yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, enumerations: Option.match(batch.survey, { onNone: () => ({}), onSome: ({ enumerations }) => enumerations }), survey: Option.isNone(batch.survey), cases: batch.cases });
     const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
-    const direct = held === 'extendscript' ? `${sources.join('\n')}\nharness(arguments[0]);` : { _tag: 'file' as const, url: (yield* bundle).href };
+    const direct = held === 'extendscript' ? sources.join('\n') : { _tag: 'file' as const, url: (yield* bundle).href };
     const { reply } = yield* automation.execute({ pid: live.pid, command: 'do script', arguments: { direct, language: ENGINES[held].language, 'with arguments': [encoded] }, artifacts: [] });
     const answer = yield* Schema.decodeUnknownEffect(Reply)(reply);
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${held} batch` }) : Effect.succeed(answer);

@@ -323,6 +323,19 @@ fn single_reader(found: &str) {
         |                               ^^^^^
         = help: move `DEPTH` into `padded` as a nested item
 
+    warning: `framed` has one reader, `gridded`
+       --> tools/dylint/examples/single_reader.rs:236:1
+        |
+    236 | fn framed(grid: &Grid) -> usize { grid.cells.len() }
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: read here
+       --> tools/dylint/examples/single_reader.rs:170:36
+        |
+    170 | fn gridded(grid: &Grid) -> usize { framed(grid).strict_add(WIDTH) }
+        |                                    ^^^^^^
+        = help: move `framed` into `gridded` as a closure
+
     warning: `seed` has one reader, `SEED`
        --> tools/dylint/examples/single_reader.rs:172:1
         |
@@ -421,9 +434,9 @@ fn single_reader(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/single_reader.rs:238:42
+       --> tools/dylint/examples/single_reader.rs:242:42
         |
-    238 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+    242 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
         |                                          ^^^^^^
         = help: move `halved` into `narrowed` as a closure
     "#);

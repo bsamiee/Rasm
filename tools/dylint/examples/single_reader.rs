@@ -167,7 +167,7 @@ fn halved(width: usize) -> usize { width.strict_div(2) }
 
 fn padded() -> usize { [1_u8; DEPTH + 1].len() }
 
-fn gridded(grid: &Grid) -> usize { grid.cells.len().strict_add(WIDTH) }
+fn gridded(grid: &Grid) -> usize { framed(grid).strict_add(WIDTH) }
 
 const fn seed() -> u8 { 3 }
 
@@ -231,6 +231,10 @@ fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) }
 
 fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) }
 
+fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
+
+fn framed(grid: &Grid) -> usize { grid.cells.len() }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -239,7 +243,7 @@ async fn main() {
     let window = Window { width: 3 };
     let grid = Grid { cells: [0; 4] };
     let cursor = Cursor { position: 2 };
-    black_box(&(advanced(&cursor), rewound(&cursor)));
+    black_box(&stepped(&cursor));
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));

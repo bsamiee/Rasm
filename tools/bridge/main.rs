@@ -55,4 +55,4 @@ impl FromArgMatches for Upstream {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() -> ExitCode { host::run(Defaults { .. }, Identity::new(), |Upstream(command), host| Proxy::spawn(command, host)) }
+fn main() -> ExitCode { host::run(Defaults { .. }, Identity::new(), async |Upstream(command), host| Proxy::spawn(command, host)) }

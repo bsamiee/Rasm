@@ -1,12 +1,9 @@
 use lopdf::{Dictionary, Object};
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-static NULL: Object = Object::Null;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn resolved<'structure>(structure: &'structure lopdf::Document, object: &'structure Object) -> Result<&'structure Object, lopdf::Error> {
+    static NULL: Object = Object::Null;
     match structure.dereference(object) {
         Err(lopdf::Error::ObjectNotFound(_)) => Ok(&NULL),
         found => found.map(|(_, target)| target),

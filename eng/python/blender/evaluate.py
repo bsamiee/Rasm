@@ -46,7 +46,7 @@ def exited(app: Path, pid: str, /) -> int:
         return status
 
 
-def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")], cache: Annotated[Path, Parameter(env_var="RASM_CACHE_HOME")]) -> Result[int, Faults]:
+def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]) -> Result[int, Faults]:
     """Runs Blender with `--python-use-system-env` in a fresh user base, headless on `-b` or `--background` before any `--`, else as GUI.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.
@@ -57,13 +57,12 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
         arguments: Blender arguments, after `--` when one opens with `-`.
         blender: Blender executable.
         pycache: Bytecode cache folder.
-        cache: Cache folder of this checkout.
 
     Returns:
         Blender's exit status with output printed, or fault of a failed folder reset, package sync, or launch.
     """
     folder = Path(".artifacts/blender/evaluate", name).resolve()
-    scripts = cache / "blender" / "scripts"
+    scripts = Path(".cache/blender/scripts").resolve()
     environment = frozendict(
         BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), BLENDER_SYSTEM_SCRIPTS=str(scripts), PYTHONPATH=str(Path("libs/python").resolve())
     )

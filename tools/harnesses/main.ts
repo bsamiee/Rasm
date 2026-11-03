@@ -213,9 +213,9 @@ const paired = (batch: typeof Batch.Type, row: Row, fn: string, evidence: Eviden
     };
 };
 const pairsOf = (batch: typeof Batch.Type, rows: readonly Row[], evidence: (row: Row) => Option.Option<Evidence>) => {
-    const proven = rows.flatMap((row) => Option.toArray(Option.map(Option.fromUndefinedOr(Schema.is(Probe)(row) ? undefined : row.fn), (fn) => ({ row, fn }))));
+    const proven = Array.getSomes(rows.map((row) => Option.map(Option.fromUndefinedOr(Schema.is(Probe)(row) ? undefined : row.fn), (fn) => ({ row, fn }))));
     return {
-        pairs: proven.flatMap(({ row, fn }) => Option.toArray(Option.map(evidence(row), (held) => paired(batch, row, fn, held)))),
+        pairs: Array.getSomes(proven.map(({ row, fn }) => Option.map(evidence(row), (held) => paired(batch, row, fn, held)))),
         unproven: proven.filter(({ row }) => Option.isNone(evidence(row))).map(({ row }) => row.name),
     };
 };
@@ -323,7 +323,7 @@ const proved = Effect.fn('proved')(function* (host: AnyHost, chosen: Installed, 
             Array.findFirst(outcomes, ({ name }) => name === row.name),
             (held) => Option.zipWith(answerOf(held, shownWith(held, held.value ?? null)), keyOf(done.survey)(row), (answer, key): Fact => ({ ...key, answer, asked })),
         );
-    const made: readonly Fact[] = [...(Option.isSome(done.header) && Option.isNone(known) ? [{ ...surveyed, ...hosting, answer: { value: bury(yield* Schema.encodeEffect(host.survey.Schema)(done.survey)) }, asked }] : []), ...rows.flatMap((row) => Option.toArray(factOf(row)))];
+    const made: readonly Fact[] = [...(Option.isSome(done.header) && Option.isNone(known) ? [{ ...surveyed, ...hosting, answer: { value: bury(yield* Schema.encodeEffect(host.survey.Schema)(done.survey)) }, asked }] : []), ...Array.getSomes(rows.map((row) => factOf(row)))];
     yield* Option.match(
         Option.filter(index, () => made.length > 0),
         { onNone: () => Effect.void, onSome: (held) => Facts.record(held, made) },

@@ -59,6 +59,9 @@ rule:
                         - inside: {kind: block, inside: {kind: function_item, field: body}}
                         - inside: {kind: block, inside: {kind: match_arm, field: value}}
                 - inside: {kind: match_arm, field: value}
+                - all:
+                    - inside: {kind: let_declaration, field: value}
+                    - not: {has: {field: arguments, has: {stopBy: end, kind: field_identifier, regex: '^map_err$'}}}
         - kind: let_declaration
           all:
             - has: {field: pattern, kind: identifier, pattern: $TRIED}

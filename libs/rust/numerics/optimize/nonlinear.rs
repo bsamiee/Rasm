@@ -1,6 +1,7 @@
 use core::{iter, num::NonZero, time::Duration};
 
 use bounded_integer::BoundedU32;
+use itertools::{Either, Itertools as _};
 use nalgebra::DVector;
 use nlopt::{Algorithm, FailState, MObjFn, Nlopt, ObjFn, OptResult, Target};
 use nonempty_collections::NEVec;
@@ -69,7 +70,7 @@ pub struct Settings<'problem> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn optimize<K, F, E>(space: &Space<K>, start: DVector<f64>, target: Target, objective: F, settings: &Settings<'_>) -> Result<Result<Solution, E>, NEVec<OptimizeError>>
+pub fn optimize<K, F, E>(space: &Space<K>, start: DVector<f64>, target: Target, objective: F, settings: &Settings<'_>) -> Result<Solution, Either<E, NEVec<OptimizeError>>>
 where F: Objective<E> {
     fn configure<O, U>(nlopt: &mut Nlopt<O, U>, optimizer: &Optimizer) -> Result<(), FailState>
     where O: ObjFn<U> {
@@ -95,10 +96,11 @@ where F: Objective<E> {
         ],
         settings.local_optimizer.iter().filter_map(|local| local.xtol_abs.as_ref()).map(|xtol_abs| shape(Input::LocalXtolAbs, xtol_abs.len())),
     )
-    .chain(iter::zip(space.values(), &start).enumerate().filter(|(_, (bounds, value))| !bounds.contains(*value)).map(|(index, _)| Err(OptimizeError::Entry { input: Input::Start, index })))
-    .chain(settings.initial_step.iter().flatten().enumerate().filter(|(_, step)| !step.is_normal()).map(|(index, _)| Err(OptimizeError::Entry { input: Input::InitialStep, index })))
+    .chain(iter::zip(space.values(), &start).positions(|(bounds, value)| !bounds.contains(value)).map(|index| Err(OptimizeError::Entry { input: Input::Start, index })))
+    .chain(settings.initial_step.iter().flatten().positions(|step| !step.is_normal()).map(|index| Err(OptimizeError::Entry { input: Input::InitialStep, index })))
     .collect::<Validated<(), _>>()
-    .ok()?;
+    .ok()
+    .map_err(Either::Right)?;
     let ends = |end: fn(&Bounds) -> f64| space.values().into_iter().map(end).collect::<Vec<_>>();
     let worst = match target {
         Target::Minimize => f64::INFINITY,
@@ -129,7 +131,7 @@ where F: Objective<E> {
             nlopt.set_local_optimizer(local_optimizer)?;
         }
     })
-    .map_err(|state| NEVec::new(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state }))?;
+    .map_err(|state| Either::Right(NEVec::new(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state })))?;
     settings
         .constraints
         .iter()
@@ -143,16 +145,16 @@ where F: Objective<E> {
             .map(drop)
             .map_err(|state| OptimizeError::Constraint { constraint, state })
         })
-        .map_err(NEVec::new)?;
+        .map_err(|failure| Either::Right(NEVec::new(failure)))?;
     Nlopt::<fn(&[f64], Option<&mut [f64]>, &mut ()) -> f64, ()>::srand_seed(settings.seed.map(u64::from));
     let mut point = start;
     let outcome = nlopt.optimize(point.as_mut_slice());
     match (outcome, nlopt.recover_user_data()) {
-        (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state }),
-        (_, Some(failure)) => Ok(Err(failure)),
-        (Err((state, value)), None) => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Failure(state) }),
-        (Ok((_, value)), None) if !value.is_finite() => Err(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Objective }),
-        (Ok((status, value)), None) => Ok(Ok(Solution { point, objective: value, status })),
+        (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(Either::Right(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state })),
+        (_, Some(failure)) => Err(Either::Left(failure)),
+        (Err((state, value)), None) => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Failure(state) })),
+        (Ok((_, value)), None) if !value.is_finite() => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Objective })),
+        (Ok((status, value)), None) => Ok(Solution { point, objective: value, status }),
     }
-    .map_err(NEVec::new)
+    .map_err(|failure| failure.map_right(NEVec::new))
 }

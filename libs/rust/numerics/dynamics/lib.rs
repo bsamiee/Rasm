@@ -9,7 +9,6 @@ use itertools::Itertools as _;
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
 use petgraph::graph::{EdgeIndex, NodeIndex};
-use rasm_dependency::DependencyError;
 use uom::{
     fmt::DisplayStyle::Abbreviation,
     si::{
@@ -196,8 +195,6 @@ pub enum DynamicsError {
     Connection { connection: Connection, kinds: Box<[Kind; 2]> },
     #[error("subsystem {subsystem} failed at {}", time.into_format_args(second, Abbreviation))]
     Subsystem { subsystem: usize, time: Time, source: Box<Self> },
-    #[error(transparent)]
-    Dependency(#[from] DependencyError),
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

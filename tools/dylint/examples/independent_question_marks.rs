@@ -57,7 +57,7 @@ fn main() {
         built_inline("1", "9"),
         nested("1", "2"),
         streamed(&mut "1\n2".lines()),
-        optional(&[1, 2]),
+        (optional(&[1, 2]), listed("1", "2")),
         joined(&["joined", "--count", "1"]),
     ));
 }
@@ -71,6 +71,8 @@ fn nested(left: &str, right: &str) -> Result<(usize, u32), ParseIntError> { Ok((
 fn streamed(lines: &mut core::str::Lines<'_>) -> Result<(u32, u32), ParseIntError> { Ok((parse(lines.next().unwrap_or_default())?, parse(lines.next().unwrap_or_default())?)) }
 
 fn optional(items: &[u32]) -> Option<u32> { Some(items.first()?.strict_add(*items.last()?)) }
+
+fn listed(left: &str, right: &str) -> Result<Vec<u32>, ParseIntError> { Ok(vec![parse(left)?, parse(right)?]) }
 
 #[derive(clap::Args)]
 struct Counted {

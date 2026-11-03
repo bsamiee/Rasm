@@ -12,10 +12,17 @@ const requested = (e: { readonly tool: 'Monitor' } | { readonly tool: 'Bash'; re
     if (e.tool === 'Monitor') {
         return { kind: 'monitor' };
     }
-    return e.run_in_background === true ? { kind: 'background' } : { kind: 'foreground', timeout: given(e.timeout) };
+    const timeout = given(e.timeout);
+    return e.run_in_background === true ? { kind: 'background' } : { kind: 'foreground', timeout };
 };
 
-const resolved = ({ exitCode, stdout, stderr }: { readonly exitCode: number; readonly stdout: string; readonly stderr: string }): Promise<string> => (exitCode === 0 ? Promise.resolve(stdout.trim()) : Promise.reject(new Error(`mise which ast-grep exited ${exitCode}. ${stderr.trim()}`)));
+const located = async (run: System['run'], root: string): Promise<string> => {
+    const { exitCode, stdout, stderr } = await run(['mise', 'which', 'ast-grep'], { cwd: root, stdin: '' });
+    if (exitCode !== 0) {
+        return Promise.reject(new Error(`mise which ast-grep exited ${exitCode}. ${stderr.trim()}`));
+    }
+    return stdout.trim();
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -29,10 +36,11 @@ const register: Register = (on, options) => {
         if (e.command === undefined) {
             return next(e);
         }
-        const scanner = scanners.get($.plugin.root) ?? (await resolved(await $.process.run(['mise', 'which', 'ast-grep'], { cwd: $.plugin.root })));
+        const run: System['run'] = (argv, init) => $.process.run(argv, init);
+        const scanner = scanners.get($.plugin.root) ?? (await located(run, $.plugin.root));
         scanners.set($.plugin.root, scanner);
         const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
-        const system: System = { run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), read: (path) => $.fs.read(path), scanner, plugin: $.plugin.root, root: given(repo?.root), cwd, home: given(home) };
+        const system: System = { run, exists: (path) => $.fs.exists(path), read: (path) => $.fs.read(path), scanner, plugin: $.plugin.root, root: given(repo?.root), cwd, home: given(home) };
         const decision = await commandDecision(system, e.command, project, some(requested(e)));
         if (decision.kind === 'deny') {
             return { deny: decision.reason };
@@ -41,8 +49,7 @@ const register: Register = (on, options) => {
             return next(e);
         }
         const { command, notice, timeout, background } = decision;
-        const limit = 600_000;
-        const answer = await next({ ...e, command, ...(timeout.kind === 'some' && { timeout: Math.min(timeout.value, limit) }), ...(background && { run_in_background: true }) });
+        const answer = await next({ ...e, command, ...(timeout.kind === 'some' && { timeout: timeout.value }), ...(background && { run_in_background: true }) });
         return notice.kind === 'none' || answer.deny !== undefined ? answer : { ...answer, context: [...(answer.context ?? []), notice.value] };
     }).catch((_$, e, next) => (next.called ? next(e) : { deny: unrun(next.error.message ?? next.error.kind) }));
 };

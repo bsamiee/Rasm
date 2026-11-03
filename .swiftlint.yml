@@ -112,7 +112,7 @@ analyzer_rules:
 
 # --- [OPTIONS] --------------------------------------------------------------------------
 strict: true
-cache_path: ${RASM_CACHE_HOME}/swiftlint
+cache_path: .cache/swiftlint
 deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:

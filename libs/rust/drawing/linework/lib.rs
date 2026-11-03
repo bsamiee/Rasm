@@ -13,7 +13,7 @@ use linesweeper::{
     topology::{Contour, ContourIdx, Topology, WindingNumber},
 };
 use nonempty_collections::{NEVec, NonEmptyIterator as _};
-use parlance::{FontFamily, FontVariation};
+use parlance::{FontFamily, FontFeature, FontVariation};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -104,13 +104,31 @@ pub enum FontStyle {
     Oblique { angle: Option<Slant> },
 }
 
+impl From<FontStyle> for parlance::FontStyle {
+    fn from(value: FontStyle) -> Self {
+        match value {
+            FontStyle::Normal => Self::Normal,
+            FontStyle::Italic => Self::Italic,
+            FontStyle::Oblique { angle } => Self::Oblique(angle.map(Slant::into_inner)),
+        }
+    }
+}
+
+impl From<FontWeight> for parlance::FontWeight {
+    fn from(value: FontWeight) -> Self { Self::new(value.into_inner()) }
+}
+
+impl From<FontWidth> for parlance::FontWidth {
+    fn from(value: FontWidth) -> Self { Self::from_ratio(value.into_inner()) }
+}
+
 #[nutype::nutype(validate(finite), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct DashOffset(f64);
 
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = PI), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Deflection(f64);
 
-#[nutype::nutype(validate(with = invertible, error = LineworkError), derive(Debug, Clone, Copy, PartialEq, Deref))]
+#[nutype::nutype(validate(with = invertible, error = LineworkError), default = Affine::IDENTITY, derive(Debug, Clone, Copy, PartialEq, Deref, Default))]
 pub struct Placement(Affine);
 
 #[nutype::nutype(validate(with = finite, error = Error), derive(Debug, Clone, PartialEq, Deref))]
@@ -254,7 +272,18 @@ pub struct Text {
     pub anchor: Anchor = Anchor::Start,
     pub baseline: Baseline = Baseline::Alphabetic,
     pub max_advance: Option<Width> = None,
+    pub line_height: Option<Width> = None,
+    pub features: Vec<FontFeature> = Vec::new(),
+    pub spans: Vec<Span> = Vec::new(),
     pub target: Target = Target::Model,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Span {
+    pub range: Range<usize>,
+    pub weight: Option<FontWeight> = None,
+    pub style: Option<FontStyle> = None,
+    pub features: Vec<FontFeature> = Vec::new(),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -89,7 +89,7 @@ const executed = Effect.fn('executed')(function* (live: Live, argument: string) 
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, 'harness.jsx');
     const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
-    yield* fs.writeFileString(file, `${sources.join('\n')}\nharness(arguments[0]);\n`);
+    yield* fs.writeFileString(file, sources.join('\n'));
     const direct = `$.evalFile(new File(${jsesc(file, { quotes: 'double', wrap: true })}))`;
     const { reply } = yield* automation.execute({ pid: live.pid, command: JAVASCRIPT.command, arguments: { direct, [JAVASCRIPT.argument]: [argument] }, artifacts: [] });
     return reply;

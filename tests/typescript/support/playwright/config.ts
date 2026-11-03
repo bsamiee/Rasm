@@ -1,3 +1,4 @@
+import { globSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import { searchForWorkspaceRoot } from 'vite';
@@ -11,6 +12,7 @@ const config = (directory: string) => {
         updateSnapshots: 'none',
         reporter: [['list'], ['html', { outputFolder: artifacts('playwright-report'), open: 'never' }]],
         use: { trace: { mode: 'retain-on-failure', snapshots: { dom: true, aria: true, screen: true } }, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce' },
+        projects: globSync('e2e-*', { cwd: directory }).map((name) => ({ name, testDir: resolve(directory, name) })),
     });
 };
 

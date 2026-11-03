@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "ab_glyph_rasterizer"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
+
+[[package]]
 name = "accelerate-src"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4609,13 +4615,14 @@ dependencies = [
 
 [[package]]
 name = "hayro"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4675ff5acd7ca41c0c34ccd2a3a154f5c86d8b5ec92bef0a114bfb194969e2af"
+checksum = "34d3977ae664ab6eea015be3024379c83c6a3580f67d51be6884f1992bf683ba"
 dependencies = [
+ "ab_glyph_rasterizer",
  "bytemuck",
  "fearless_simd 1.2.0",
- "hayro-interpret 0.8.0",
+ "hayro-interpret 0.9.0",
  "image",
  "kurbo",
  "pic-scale",
@@ -4636,13 +4643,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2866f0d976e76497480b853d5e258dab6e4b89ecfe991124e08f15dfa8fd03ad"
 
 [[package]]
-name = "hayro-cmap"
-version = "0.1.0"
+name = "hayro-ccitt"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d285dc30731c8485de5fa732fbdf2b3affdf01e4da7c2135022ca6fa664bf6"
+checksum = "adbed896e99325bc312778bb9c9c289d795d51c12775c44dd5e4352f679c7e46"
+
+[[package]]
+name = "hayro-cmap"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a14afde3344be69225fec4f6f44f6a219a3a492f9d8301eb25ef608fe4b7014c"
 dependencies = [
  "brotli 8.0.4",
  "hayro-postscript",
+]
+
+[[package]]
+name = "hayro-font"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ac7f0c78172573e9bd6eeb17f62c63f4d378b2a2d127c3ee9c2c7cc6fbdf78b"
+dependencies = [
+ "bitflags 2.13.2",
+ "hayro-cmap",
+ "hayro-syntax 0.9.0",
+ "kurbo",
+ "phf 0.13.1",
+ "rustc-hash",
+ "siphasher",
+ "skrifa 0.49.0",
 ]
 
 [[package]]
@@ -4666,21 +4695,19 @@ dependencies = [
 
 [[package]]
 name = "hayro-interpret"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9df074ff163a63864cec9b0bf640ccbff8abf4e44481df7369ce0ac172ffbe"
+checksum = "166477622df4b770a0fc5889a9e4b48c7ff8595d6ec019bf71b4297b97b55fb6"
 dependencies = [
  "bitflags 2.13.2",
  "hayro-cmap",
- "hayro-syntax 0.8.0",
+ "hayro-font",
+ "hayro-syntax 0.9.0",
  "kurbo",
  "moxcms 0.8.1",
- "phf 0.13.1",
  "rustc-hash",
  "siphasher",
- "skrifa 0.46.2",
  "smallvec 1.16.4",
- "yoke",
 ]
 
 [[package]]
@@ -4691,6 +4718,16 @@ checksum = "000e025850f4592ddcaee85640db70704151f2bafd43b6f431aa5b6a2c6a35a9"
 dependencies = [
  "fearless_simd 1.2.0",
  "hayro-ccitt 0.4.0",
+]
+
+[[package]]
+name = "hayro-jbig2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb5c7f3a4eb551c2bb7fa16e268f728d4bc2a5c9b090554b8dc0ee2503fb5840"
+dependencies = [
+ "fearless_simd 1.2.0",
+ "hayro-ccitt 0.5.0",
 ]
 
 [[package]]
@@ -4712,10 +4749,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "hayro-postscript"
-version = "0.1.0"
+name = "hayro-jpeg2000"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "885c5ef0654933139a9b9546fc2c69e18d37f38aa2520f079092b1be18f1fcaa"
+checksum = "6e5e5f2b3de970707fc22fd956d8f44211602939d5e4588603afa919cb7b3740"
+dependencies = [
+ "fearless_simd 1.2.0",
+]
+
+[[package]]
+name = "hayro-postscript"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc2d80da85f31c3fdc0366431f44cfd645a9da1e242ed1f4a61f213d9765660f"
 
 [[package]]
 name = "hayro-svg"
@@ -4733,12 +4779,12 @@ dependencies = [
 
 [[package]]
 name = "hayro-svg"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7377affc9513cf5b66c4a8b5fa1e6058ae652eef3d13fdc4709004a03968488"
+checksum = "0edc5390c89046716cabb1d73ded73b074376f404642c9348017627534f3cea7"
 dependencies = [
  "base64 0.22.1",
- "hayro-interpret 0.8.0",
+ "hayro-interpret 0.9.0",
  "image",
  "kurbo",
  "rustc-hash",
@@ -4754,7 +4800,7 @@ checksum = "0edeafd70aa2db743de8ede8637d07ec87db05efe69cde371d03f1b185fcef27"
 dependencies = [
  "flate2",
  "hayro-ccitt 0.3.0",
- "hayro-jbig2",
+ "hayro-jbig2 0.3.1",
  "hayro-jpeg2000 0.3.5",
  "memchr",
  "rustc-hash",
@@ -4764,14 +4810,14 @@ dependencies = [
 
 [[package]]
 name = "hayro-syntax"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cdc818d8d265dcb42081d488f7599df4f73fb79e9d347ecedcd3c23809d2026"
+checksum = "a6ced8279487b029813f6cc05399099fa34df6fa23d8f7b0d41d972c49d5b30d"
 dependencies = [
  "flate2",
- "hayro-ccitt 0.4.0",
- "hayro-jbig2",
- "hayro-jpeg2000 0.4.1",
+ "hayro-ccitt 0.5.0",
+ "hayro-jbig2 0.4.0",
+ "hayro-jpeg2000 0.5.0",
  "memchr",
  "rustc-hash",
  "smallvec 1.16.4",
@@ -5444,6 +5490,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09e54e57b4c48b40f7aec75635392b12b3421fa26fe8b4332e63138ed278459c"
 
 [[package]]
+name = "imagesize"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65b27460c2c92b037f3f94c538ed9a3342f3fdf923606781629ccb35f82d042a"
+
+[[package]]
 name = "imgref"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6021,7 +6073,7 @@ dependencies = [
  "gif",
  "hayro-write",
  "image-webp",
- "imagesize",
+ "imagesize 0.14.0",
  "indexmap 2.14.2",
  "pdf-writer",
  "png",
@@ -9311,6 +9363,7 @@ dependencies = [
 name = "rasm-dependency"
 version = "1.0.0"
 dependencies = [
+ "enum-map",
  "itertools 0.15.0",
  "nonempty-collections",
  "petgraph",
@@ -9335,6 +9388,22 @@ dependencies = [
  "rayon",
  "thiserror 2.0.21",
  "uom",
+ "validated",
+]
+
+[[package]]
+name = "rasm-form"
+version = "1.0.0"
+dependencies = [
+ "derive_more",
+ "faer",
+ "nalgebra",
+ "nlopt",
+ "nonempty-collections",
+ "rasm-optimize",
+ "rasm-stats",
+ "rayon",
+ "thiserror 2.0.21",
  "validated",
 ]
 
@@ -9382,13 +9451,13 @@ dependencies = [
 name = "rasm-implicit"
 version = "1.0.0"
 dependencies = [
- "bounded-integer",
  "derive-where",
  "fidget",
+ "itertools 0.15.0",
  "nalgebra",
- "nutype",
  "parry3d-f64",
  "rayon",
+ "statrs",
  "thiserror 2.0.21",
 ]
 
@@ -9593,9 +9662,9 @@ dependencies = [
  "derive_more",
  "fast_image_resize",
  "fontdb",
- "hayro 0.8.0",
- "hayro-svg 0.8.0",
- "hayro-syntax 0.8.0",
+ "hayro 0.9.0",
+ "hayro-svg 0.9.0",
+ "hayro-syntax 0.9.0",
  "image",
  "image-compare",
  "jiff",
@@ -9681,6 +9750,24 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "tui-logger",
+ "validated",
+]
+
+[[package]]
+name = "rasm-sheets"
+version = "1.0.0"
+dependencies = [
+ "derive_more",
+ "enum-map",
+ "imagesize 0.15.0",
+ "indexmap 2.14.2",
+ "kurbo",
+ "linesweeper",
+ "nonempty-collections",
+ "rasm-annotation",
+ "rasm-linework",
+ "thiserror 2.0.21",
+ "uom",
  "validated",
 ]
 
@@ -10087,17 +10174,6 @@ name = "read-fonts"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "046a7d674daf459825b32f5062056d6882db0d2f5a479fbd76ccfc870ac18709"
-dependencies = [
- "bytemuck",
- "font-types 0.12.7",
- "once_cell",
-]
-
-[[package]]
-name = "read-fonts"
-version = "0.43.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "005c8acf251756c478b0bf402885bfd88a1476020c4c7e6060edc1aa68da38ea"
 dependencies = [
  "bytemuck",
  "font-types 0.12.7",
@@ -11355,16 +11431,6 @@ checksum = "819ab7d62b1d3e72d9d9dea5650bac30424f9111364bb94928dbf5ecad1baa68"
 dependencies = [
  "bytemuck",
  "read-fonts 0.41.0",
-]
-
-[[package]]
-name = "skrifa"
-version = "0.46.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4febebda507fb889c545a37a135517769d1391941013561292897961d1887d6"
-dependencies = [
- "bytemuck",
- "read-fonts 0.43.3",
 ]
 
 [[package]]
@@ -13473,7 +13539,7 @@ dependencies = [
  "data-url",
  "flate2",
  "fontdb",
- "imagesize",
+ "imagesize 0.14.0",
  "kurbo",
  "log",
  "pico-args",

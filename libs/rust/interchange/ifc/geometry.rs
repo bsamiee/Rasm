@@ -376,12 +376,13 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         .into_iter()
         .flat_map(|(scoped, chain)| {
             let start = chain.last().copied().map(|node| (scoped, node, chain.iter().copied().fold(origin.clone(), |inherited, ancestor| placed(&inherited, ancestor))));
-            let mut pending = start.into_iter().collect::<Vec<_>>();
-            iter::from_fn(move || {
-                let (path, node, placement) = pending.pop()?;
-                pending.extend(node.children.iter().rev().map(|(name, child)| (path.child(name.clone()), child, placed(&placement, child))));
-                Some((path, node, placement))
-            })
+            gen move {
+                let mut pending = start.into_iter().collect::<Vec<_>>();
+                while let Some((path, node, placement)) = pending.pop() {
+                    pending.extend(node.children.iter().rev().map(|(name, child)| (path.child(name.clone()), child, placed(&placement, child))));
+                    yield (path, node, placement);
+                }
+            }
         })
         .flat_map(|(path, node, placement)| {
             forms.iter().filter_map(move |&(id, _)| node.attributes.get(id).and_then(|value| shapes.get(&Arc::as_ptr(value)).cloned().flatten())).map(move |shape| Instance { path: path.clone(), node: node.path.clone(), shape, placement: placement.clone() })

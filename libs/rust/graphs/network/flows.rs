@@ -49,13 +49,12 @@ where
     let coincident = supply.intersection(&demand).map(|&node| Validated::<(), _>::fail((node, Refusal::Coincident))).collect::<Validated<(), _>>();
     let (from, to) = located(&supply).map3(located(&demand), coincident, |from, to, ()| (from, to)).ok().map_err(NetworkError::Refused)?;
     let bound = compacted.edge_weights().try_fold(1_u64, |total, &arc| total.checked_add(arc)).ok_or(NetworkError::Overflow)?;
-    let live = compacted.node_count();
-    let mut network = compacted.into_edge_type::<Directed>();
+    let mut network = compacted.map(|_, &node| Some(node), |_, &arc| arc).into_edge_type::<Directed>();
     if !Ty::is_directed() {
         let reverse = network.edge_references().map(|arc| (arc.target(), arc.source(), *arc.weight())).collect::<Vec<_>>();
         network.extend_with_edges(reverse);
     }
-    let [origin, terminus] = [(); 2].map(|()| network.add_node(NodeIndex::end()));
+    let [origin, terminus] = [(); 2].map(|()| network.add_node(None));
     network.extend_with_edges(from.into_iter().map(|source| (origin, source, bound)).chain(to.into_iter().map(|sink| (sink, terminus, bound))));
     let (value, flows) = dinics(&network, origin, terminus);
     let residual = DiGraphMap::<NodeIndex, ()>::from_edges(
@@ -64,7 +63,7 @@ where
             .zip(&flows)
             .flat_map(|(arc, &flow)| [(flow < *arc.weight()).then_some((arc.source(), arc.target())), (flow > 0).then_some((arc.target(), arc.source()))].into_iter().flatten()),
     );
-    let side = Bfs::new(&residual, origin).iter(&residual).filter(|node| node.index() < live).map(|node| network[node]).collect::<BTreeSet<_>>();
+    let side = Bfs::new(&residual, origin).iter(&residual).filter_map(|node| network[node]).collect::<BTreeSet<_>>();
     let scaled = |amount: u64| convert::<u64, f64>(amount) * resolution.into_inner();
     let backward = (!Ty::is_directed()).then(|| flows.iter().skip(graph.edge_count())).into_iter().flatten().chain(iter::repeat(&0));
     let edges = graph

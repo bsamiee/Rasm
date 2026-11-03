@@ -1,19 +1,14 @@
-use core::range::RangeInclusive;
-
-use bounded_integer::BoundedU8;
-use derive_where::derive_where;
 use fidget::{
-    jit::JitShape,
     mesh::{Mesh, Octree, Settings},
-    render::{CancelToken, ThreadPool},
-    shape::{EzShape as _, ShapeBulkEvalError, ShapeTracingEvalError, ShapeVars},
-    shapes::{self, Intersection, types::Vec3},
-    types::Interval,
+    shape::{BoundShape, ShapeBulkEvalError},
 };
-use nalgebra::{Matrix4, Point3};
-use parry3d_f64::{math::Vector, shape::TriMesh};
+use nalgebra::{Matrix4, Vector3};
+use parry3d_f64::{
+    math::Vector,
+    shape::{TriMesh, TriMeshBuilderError},
+};
 
-use crate::{Domain, Field, ImplicitError, bind, recentre};
+use crate::{Domain, Evaluation, ImplicitError, Shape, bind, centered, depth, evaluate, singular, world};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,50 +18,36 @@ pub enum Boundary {
     Capped,
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const MAX_DEPTH: u8 = u8::try_from(usize::MAX.ilog(8)).ok().unwrap();
-
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive_where(Debug)]
-pub struct Meshing<'pool, 'vars> {
-    pub depth: BoundedU8<1, MAX_DEPTH>,
-    pub boundary: Boundary = Boundary::Capped,
-    #[derive_where(skip)]
-    pub threads: Option<&'pool ThreadPool> = Some(&ThreadPool::Global),
-    pub vars: Option<&'vars ShapeVars<f32>> = None,
-    #[derive_where(skip)]
-    pub cancel: Option<CancelToken> = None,
+#[derive(Debug, Clone)]
+pub struct Surface {
+    pub mesh: TriMesh,
+    pub gradients: Vec<Vector3<f64>>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn mesh(field: Field, domain: Domain, Meshing { depth, boundary, threads, vars, cancel }: Meshing<'_, '_>) -> Result<Option<TriMesh>, ImplicitError> {
-    let RangeInclusive { start, last } = domain.into_inner();
-    let centre = Point3::from(start.coords.zip_map(&last.coords, f64::midpoint));
-    let half = ((last - start) / 2.0).cast::<f32>();
-    let world_to_model = Matrix4::new_nonuniform_scaling(&half);
-    let surface = recentre(field, centre).tree;
-    let bound = bind(
-        match boundary {
-            Boundary::Open => surface,
-            Boundary::Capped => Intersection { input: vec![surface, shapes::Box { lower: Vec3::from(-half), upper: Vec3::from(half) }.into()] }.into(),
-        },
-        vars,
-    )?;
-    let unit = Interval::new(-1.0, 1.0);
-    let (root, _) = JitShape::new_interval_eval()
-        .eval_with_transform_and_vars(&bound.shape().ez_interval_tape(), unit, unit, unit, &world_to_model, bound.vars())
-        .map_err(|ShapeTracingEvalError::MissingVar(source)| ShapeBulkEvalError::from(source))?;
-    (root.lower() > 0.0 || root.upper() < 0.0 || (root.lower().is_finite() && root.upper().is_finite())).ok_or(ImplicitError::NotFinite { domain })?;
-    let Mesh { triangles, vertices } =
-        Octree::build(&bound, &Settings { depth: depth.get(), world_to_model, threads, cancel: cancel.unwrap_or_default() }).ok_or(ImplicitError::Cancelled)?.walk_dual();
-    vertices.iter().all(|vertex| vertex.iter().all(|coordinate| coordinate.is_finite())).ok_or(ImplicitError::NotFinite { domain })?;
+pub fn mesh(shape: &Shape, evaluation: &Evaluation<'_>, size: f64, boundary: Boundary, domain: Domain) -> Result<Option<Surface>, ImplicitError> {
+    let extent = domain.half.max();
+    let depth = depth(extent, size)?;
+    let half = match boundary {
+        Boundary::Open => None,
+        Boundary::Capped => Some(domain.half),
+    };
+    let vars = bind(shape, evaluation, domain.center, half);
+    singular(shape, &vars, evaluation.cancel.as_ref(), domain.center, depth, centered(Vector3::repeat(extent)))?;
+    let settings = Settings { depth, world_to_model: Matrix4::new_scaling(extent), threads: evaluation.threads, cancel: evaluation.cancel.clone().unwrap_or_default() };
+    let Mesh { triangles, vertices } = Octree::build(&BoundShape::new(shape.shape.clone(), &vars).map_err(ShapeBulkEvalError::from)?, &settings).ok_or(ImplicitError::Cancelled)?.walk_dual();
     let indices = triangles
         .into_iter()
         .map(|triangle| <[usize; 3]>::from(triangle).try_map(u32::try_from))
         .try_collect::<Vec<_>>()
         .map_err(|source| ImplicitError::Capacity { vertices: vertices.len(), source })?;
-    Ok(TriMesh::new(vertices.into_iter().map(|vertex| Vector::from(vertex.cast::<f64>() + centre.coords)).collect(), indices).ok())
+    let gradients = evaluate::<(f64, Vector3<f64>)>(shape, evaluation, &vars, vertices.iter().copied())?;
+    match TriMesh::new(vertices.into_iter().map(|vertex| Vector::from(world(domain.center, vertex).coords)).collect(), indices) {
+        Ok(mesh) => Ok(Some(Surface { mesh, gradients: gradients.into_iter().map(|(_, gradient)| gradient).collect() })),
+        Err(TriMeshBuilderError::EmptyIndices) => Ok(None),
+        Err(source) => Err(ImplicitError::from(source)),
+    }
 }

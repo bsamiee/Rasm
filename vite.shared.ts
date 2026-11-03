@@ -29,7 +29,7 @@ const worker =
             const tooling = Array.some(yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]), Boolean);
             const hosted = tooling
                 ? []
-                : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === 'test' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(yield* Config.String('RASM_CACHE_HOME'), 'cloudflare', relative(_ROOT, directory)) } }) })];
+                : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === 'test' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(_ROOT, '.cache', 'cloudflare', relative(_ROOT, directory)) } }) })];
             return { build: { target: 'esnext', rolldownOptions: { experimental: _EXPERIMENTAL } }, plugins: [plugins, hosted] };
         }).pipe(Effect.runPromise);
 

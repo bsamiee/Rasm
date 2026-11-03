@@ -154,7 +154,7 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folde
         (document): Effect.Effect<(typeof Placed.Type.documents)[number], PlatformError.PlatformError> =>
             'open' in document ? Effect.as(fs.copyFile(path.join(product, document.open), path.join(folder, path.basename(document.open))), { ...document, open: path.join(folder, path.basename(document.open)) }) : Effect.succeed(document),
     );
-    return { precondition: { ...decoded, documents }, copies: decoded.documents.flatMap((document) => ('open' in document ? [path.join(product, document.open)] : [])) };
+    return { precondition: { ...decoded, documents }, copies: Array.filterMap(decoded.documents, (document) => ('open' in document ? Result.succeed(path.join(product, document.open)) : Result.failVoid)) };
 });
 
 // --- [DIGESTS]
@@ -174,7 +174,7 @@ const called = Effect.fn('called')(function* (live: Live, sent: typeof Sent.Type
     const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
     const sources = yield* Effect.forEach([SHARED, ENGINE], (url) => Effect.flatMap(path.fromFileUrl(url), fs.readFileString));
     const encoded = jsesc(yield* Schema.encodeEffect(Sent)(sent), { json: true });
-    const { reply } = yield* automation.execute({ pid: live.pid, command: 'do javascript', arguments: { direct: `${sources.join('\n')}\nharness(arguments[0]);`, 'with arguments': [encoded] }, artifacts: [] });
+    const { reply } = yield* automation.execute({ pid: live.pid, command: 'do javascript', arguments: { direct: sources.join('\n'), 'with arguments': [encoded] }, artifacts: [] });
     const answer = yield* Schema.decodeUnknownEffect(Reply)(reply);
     return yield* 'failed' in answer ? HarnessError.make({ reason: { _tag: 'Unavailable', because: answer.failed }, subject: `${sent._tag} batch` }) : Effect.succeed(answer);
 });
