@@ -42,7 +42,7 @@ ${of('path', p.path).flatMap((r) => r.findings).map((f) => `- ${f}`).join('\n')}
 Push back only on a finding that grows surface without capability or regresses behavior, one line each. Other landers edit beside you; re-read a file before each edit. Return at most 10 lines: what landed.`, { label: `land:${p.path}`, phase: 'Land' }).then((report) => agent(`${BASIS}
 Adversary for ${p.path}. The lander reported:
 ${report}
-Read the project as it now stands against its base (\`git diff ${args.base} -- ${p.path}\`) and fix in place: what the base did better, junk, indirection, wrappers, aliases, names no operation needs, logic advanced use breaks, and project files off standard form. Rebuild every poorly shaped block, changed or not. ${SHAPE} Each file ends with fewer lines than the lander left, or the same count with its nesting removed. Return at most 6 lines: what you changed, lines before and after.`, { label: `deepen:${p.path}`, phase: 'Land' })))),
+Read the project as it now stands against its base (\`git diff ${args.base} -- ${p.path}\`) and fix in place: what the base did better, junk, indirection, wrappers, aliases, names no operation needs, logic advanced use breaks, and project files off standard form. Rebuild every poorly shaped block, changed or not. ${SHAPE} Each file ends with fewer lines than at the base, or the same count with its nesting removed, unless a stated capability needs the growth. Return at most 6 lines: what you changed, lines before and after.`, { label: `deepen:${p.path}`, phase: 'Land' })))),
 )
 
 phase('Check')
