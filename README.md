@@ -110,7 +110,8 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
 - Xcode apps holding a UXP script build in a folder reference build that script first
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
-- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, harness runs as one JSON Lines file per run under `.artifacts/logs/harnesses/`, daemon and supervisor output sit in pitchfork's log store
+- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, daemon and supervisor output sit in pitchfork's log store
+- Harness runs write `.artifacts/logs/harnesses/host=<host>/run=<id>/records.jsonl` and hang samples for `harness log`, `failures`, `instances`
 
 ## [04]-[DELIVERY]
 

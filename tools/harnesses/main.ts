@@ -1,6 +1,6 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Automation } from '@rasm/automation/automation';
-import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Layer, Logger, LogLevel, Match, Number, Option, Order, Path, Predicate, Record, References, Result, Schema, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Config, Console, DateTime, Duration, Effect, FileSystem, Formatter, Layer, Logger, LogLevel, Match, MutableRef, Number, Option, Order, Path, Predicate, Record, References, Result, Schema, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import { SecureRandom } from 'effect/crypto';
 import effect from 'effect/package.json' with { type: 'json' };
@@ -8,7 +8,7 @@ import { answers, type Batch, Call, expand, Probe, type Row, scriptOf } from '#/
 import { compare, compared, type Pair, type Reply } from '#/compare';
 import { HarnessError } from '#/error';
 import { answerOf, facts, statements } from '#/facts';
-import { begun, PHASES, phase, Run, stateOf, tagOf } from '#/log';
+import { begun, counted, phase, Run, ran, signing, stateOf, type Tally, tagOf } from '#/log';
 import { merged } from '#/precondition';
 import { failures, instances, records } from '#/query';
 import { type Answer, type Compare, Outcome, results } from '#/results';
@@ -198,7 +198,14 @@ const comparing = <S extends Surveyed, C extends Cased, X, R>(host: Session<S, C
                   const outcomes = yield* rerun(host, rebuilt, chosen, scratch, limit, engine, Array.getSomes(pairs.map(callOf(items, module))));
                   return compared(module, pairs, new Map(Array.getSomes(outcomes.map(replyOf))), unproven);
               });
-    const reported = (held: typeof Compare.Type) => Effect.annotateLogs(held.mismatches.length === 0 ? Effect.logInfo('compared') : Effect.logWarning('compared'), { module: held.module, agreed: held.agreed, mismatched: held.mismatches.map(({ name }) => name), unproven: held.unproven });
+    const reported = (held: typeof Compare.Type) =>
+        Effect.annotateLogs(
+            Array.match(held.mismatches, {
+                onEmpty: () => Effect.logInfo('compared'),
+                onNonEmpty: () => Effect.annotateLogs(Effect.logWarning('compared'), { tag: 'Disagreed' satisfies HarnessError['reason']['_tag'] }),
+            }),
+            { module: held.module, agreed: held.agreed, mismatched: held.mismatches.map(({ name }) => name), unproven: held.unproven },
+        );
     return section.pipe(Effect.tap(reported), phase('compare'));
 };
 
@@ -315,52 +322,35 @@ const recompared = Effect.fn('recompared')(function* <S extends Surveyed, C exte
     }, Effect.scoped);
     return yield* Effect.forEach(found, judged);
 });
-const judged = (verdicts: readonly Verdict[], subject: string) => {
+const judged = Effect.fnUntraced(function* (verdicts: readonly Verdict[], subject: string) {
     const mismatches = verdicts.reduce((total, { mismatches: held }) => total + held, 0);
     const failed = Array.getSomes(verdicts.map(({ failed: held }) => held));
-    return mismatches > 0 ? HarnessError.make({ reason: { _tag: 'Disagreed', mismatches }, subject }) : Array.match(failed, { onEmpty: () => Effect.void, onNonEmpty: (held) => HarnessError.unavailable(subject)(held.join('; ')) });
-};
+    return yield* mismatches > 0 ? HarnessError.make({ reason: { _tag: 'Disagreed', mismatches }, subject }) : Array.match(failed, { onEmpty: () => Effect.void, onNonEmpty: (held) => HarnessError.unavailable(subject)(held.join('; ')) });
+}, Effect.catchCause(signing));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cases = Argument.Path('target', { mustExist: true }).pipe(Argument.atLeast(1), Argument.withDescription(`Product folder whose **/*${CASES} files run, or one case file, results written beside each as <name>.<version>${RESULTS}`));
 const limited = Flag.String('limit').pipe(Flag.withSchema(Schema.DurationFromString), Flag.withDefault(Duration.minutes(2)), Flag.withDescription('Bound on a launch, on a case writing no record before it records hung, and on the batch-end quit before the instance is reported left running'));
-const recorded = (fixed: Record.ReadonlyRecord<string, string>) =>
-    Logger.make(({ message, logLevel, cause, fiber, date }) => {
-        const annotations = fiber.getRef(References.CurrentLogAnnotations);
-        const current = Array.head(fiber.getRef(References.CurrentLogSpans));
-        const instance = Option.match(fiber.getRef(Run.Instance), { onNone: () => ({}), onSome: ({ pid, started, state }) => ({ pid, started: DateTime.formatIso(started), state: stateOf(SubscriptionRef.getUnsafe(state)) }) });
-        const located: Record.ReadonlyRecord<string, unknown> = { ...instance, ...annotations };
-        const span = Option.fromUndefinedOr(fiber.cache.span);
-        const signature = Option.map(Record.get(annotations, 'tag'), (tag) => [Option.match(current, { onNone: () => 'run', onSome: ([label]) => label }), Option.getOrElse(Record.get(located, 'state'), () => 'none'), tag].join('/'));
-        return Formatter.formatJson({
-            at: date.toISOString(),
-            level: logLevel,
-            message: Array.ensure(message).join(' '),
-            ...fixed,
-            ...Option.match(current, { onNone: () => ({}), onSome: ([label, start]) => ({ phase: label, ms: date.getTime() - start }) }),
-            ...Option.match(span, { onNone: () => ({}), onSome: (held) => ({ span: held.spanId, parent: held._tag === 'Span' ? Option.getOrUndefined(Option.map(held.parent, ({ spanId }) => spanId)) : undefined }) }),
-            ...located,
-            ...Option.match(signature, { onNone: () => ({}), onSome: (held) => ({ signature: held }) }),
-            ...(cause.reasons.length === 0 ? {} : { cause: Cause.pretty(cause) }),
-        });
-    });
-const logs = (name: string) => {
-    const retention = { age: '7 days', count: 200 } as const;
-    return Layer.unwrap(
-        Effect.map(begun(name, root, retention), ({ commit, instances: folder, file, fixed }) => {
-            const record = recorded(fixed);
-            const sightings = (held: string) =>
-                Effect.map(
-                    Logger.toFile(record, held, { flag: 'a' }),
-                    (logger) =>
-                        <A, E, R>(self: Effect.Effect<A, E, R>) =>
-                            Effect.withLogger(self, logger),
-                );
-            return Layer.mergeAll(Layer.succeed(Run, { commit, instances: folder, sightings }), Logger.layer([Logger.toFile(record, file, { flag: 'a' }), Logger.withConsoleLog(record)]));
+const logged = (host: string) =>
+    Layer.unwrap(
+        Effect.gen(function* () {
+            const { run, folder, file, fixed } = yield* begun(host, root);
+            const record = Logger.make(({ message, logLevel, fiber, date }) => ({
+                at: date.toISOString(),
+                level: logLevel,
+                message: Array.ensure(message).join(' '),
+                ...fixed,
+                ...Option.match(Array.head(fiber.getRef(References.CurrentLogSpans)), { onNone: () => ({}), onSome: ([label, start]) => ({ phase: label, ms: date.getTime() - start }) }),
+                ...Option.match(fiber.getRef(Run.Instance), { onNone: () => ({}), onSome: ({ pid, started, state }) => ({ pid, started: DateTime.formatIso(started), state: stateOf(SubscriptionRef.getUnsafe(state)) }) }),
+                ...fiber.getRef(References.CurrentLogAnnotations),
+            }));
+            const json = Logger.map(record, Formatter.formatJson);
+            const tally = MutableRef.make<Tally>({ levels: {}, signatures: [], instances: [] });
+            yield* Effect.addFinalizer(() => Effect.suspend(() => Console.log(Formatter.formatJson({ run, log: file, ...MutableRef.get(tally) }))));
+            return Layer.mergeAll(Layer.succeed(Run, { folder }), Logger.layer([Logger.toFile(json, file), Logger.withConsoleLog(json), Logger.map(record, (entry) => MutableRef.update(tally, counted(entry)))]));
         }),
     );
-};
 const prove = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, hosted: Effect.Effect<Host<S, C, E, P, F>, HarnessError>) =>
     Command.make(
         'prove',
@@ -372,25 +362,21 @@ const prove = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name
         },
         ({ targets: paths, release, only, limit }) =>
             Effect.gen(function* () {
-                const { commit } = yield* Run;
-                yield* Effect.annotateLogs(Effect.logInfo('run started'), { commit, command: 'prove', targets: paths, release, only, limit: Duration.format(limit) });
                 const host = yield* hosted;
                 const [files, chosen] = yield* Effect.all([targets(paths), Effect.flatMap(host.installed, (rows) => installations(rows, release, name))]);
                 const verdicts = yield* Effect.forEach(Array.cartesian(files, chosen), ([file, installed]) => Effect.annotateLogs(proved(name, host, installed, file, only, limit), { version: installed.version, bundle: installed.identifier, cases: file }));
                 yield* judged(verdicts, name);
-            }).pipe(phase('run')),
-    ).pipe(Command.provide(Layer.mergeAll(atelier, logs(name))));
+            }).pipe(ran),
+    ).pipe(Command.provide(Layer.mergeAll(atelier, logged(name))));
 const checked = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, hosted: Effect.Effect<Host<S, C, E, P, F>, HarnessError>) =>
     Command.make('compare', { targets: cases, module: Flag.Path('module', { mustExist: true }).pipe(Flag.optional, Flag.withDescription('Module compared in place of the batch module, a distilled module among them')), limit: limited }, ({ targets: paths, module, limit }) =>
         Effect.gen(function* () {
-            const { commit } = yield* Run;
-            yield* Effect.annotateLogs(Effect.logInfo('run started'), { commit, command: 'compare', targets: paths, module: Option.getOrUndefined(module), limit: Duration.format(limit) });
             const [host, path, files] = yield* Effect.all([hosted, Path.Path, targets(paths)]);
             const override = Option.map(module, (held) => path.resolve(held));
             const verdicts = yield* Effect.forEach(files, (file) => Effect.annotateLogs(recompared(name, host, file, override, limit), { cases: file }));
             yield* judged(verdicts.flat(), name);
-        }).pipe(phase('run')),
-    ).pipe(Command.provide(Layer.mergeAll(atelier, logs(name))));
+        }).pipe(ran),
+    ).pipe(Command.provide(Layer.mergeAll(atelier, logged(name))));
 const harness = <S extends Surveyed, C extends Cased, E, P, F extends Fields>(name: string, load: () => Promise<{ readonly Host: Host<S, C, E, P, F> }>) => {
     const hosted = Effect.map(Effect.tryPromise({ try: load, catch: HarnessError.refused(name) }), (imported) => imported.Host);
     return Command.make(name).pipe(Command.withSubcommands([prove(name, hosted), checked(name, hosted)]));
@@ -403,27 +389,24 @@ const hosts = [
     harness('photoshop', () => import('#/photoshop/host')),
     harness('rhino', () => import('#/rhino/host')),
 ] as const;
-const named = (flag: string, description: string) => Flag.String(flag).pipe(Flag.optional, Flag.withDescription(description));
-const reading = {
-    host: Flag.Literals(
-        'host',
-        hosts.map(({ name }) => name),
-    ).pipe(Flag.optional, Flag.withDescription('Host whose runs are read')),
-    since: Flag.String('since').pipe(Flag.withSchema(Schema.DurationFromString), Flag.optional, Flag.withDescription('Span back from now read across every session, as "1 hour"')),
-    case: named('case', 'Case name read'),
-};
 const log = Command.make(
     'log',
     {
-        ...reading,
-        run: named('run', 'Run id, the newest run of this session when neither --run nor --since is given'),
-        level: Flag.Literals('level', LogLevel.values).pipe(Flag.optional, Flag.withDescription('Least level read')),
-        phase: Flag.Literals('phase', Struct.keys(PHASES)).pipe(Flag.optional, Flag.withDescription('Phase read')),
+        run: Flag.String('run').pipe(Flag.optional, Flag.withDescription('Run id a run summary prints, newest run of this session when absent')),
+        level: Flag.Literals('level', LogLevel.values).pipe(Flag.optional, Flag.withDescription('Lowest level printed')),
+        case: Flag.String('case').pipe(Flag.optional, Flag.withDescription('Case name printed')),
     },
-    (selection) => records(root, selection),
-).pipe(Command.withDescription('Prints the records of runs as JSON Lines, one record per event'));
-const failing = Command.make('failures', { ...reading, version: named('version', 'Host version read'), signature: named('signature', 'Failure signature read, <phase>/<state>/<tag>') }, (signed) => failures(root, signed)).pipe(
-    Command.withDescription('Prints each failure signature per host, version, and case with its last run and the first later run passing it'),
-);
-const running = Command.make('instances', { host: reading.host }, ({ host }) => instances(root, host)).pipe(Command.withDescription('Prints the latest record of each live host instance a run launched, naming its run, session, and state'));
+    (read) => records(root, read),
+).pipe(Command.withDescription("Prints one run's records as JSON Lines"));
+const failing = Command.make(
+    'failures',
+    {
+        host: Flag.Literals(
+            'host',
+            hosts.map(({ name }) => name),
+        ).pipe(Flag.optional, Flag.withDescription('Host printed, every host when absent')),
+    },
+    ({ host }) => failures(root, host),
+).pipe(Command.withDescription('Prints each failure signature per host, version, and case with its last run and first later passing run'));
+const running = Command.make('instances', {}, () => instances(root)).pipe(Command.withDescription('Prints latest record of each live instance a run launched'));
 Command.make('harness').pipe(Command.withSubcommands([...hosts, log, failing, running]), Command.run({ version: effect.version }), Effect.provide(Layer.mergeAll(NodeServices.layer, SecureRandom.layerWebCrypto)), NodeRuntime.runMain);

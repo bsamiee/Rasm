@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { type Installation, State } from '@rasm/automation/applications';
 import type { Automation } from '@rasm/automation/automation';
-import { Array, Data, type DateTime, Deferred, Duration, Effect, Equal, Equivalence, FileSystem, identity, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
+import { Array, Data, type DateTime, Deferred, Duration, Effect, Equal, Equivalence, FileSystem, HashMap, identity, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import type { Row as Authored } from '#/cases';
 import { HarnessError } from '#/error';
 import { busy, crashed, described, dialogOf, type Element, type Exited, Launch, perform, pressed, type Row, read, type Spawned, settled, shown, spawned, stalled, starts, watch, watched } from '#/instance';
-import { phase, Run, type Sighting, sample, sightings, stateOf, tagOf } from '#/log';
+import { LAUNCHED, phase, Run, STATES, sample, stateOf, tagOf } from '#/log';
 import { type Answered, Completion, type Dialog, type Hang, Outcome, outcome, record, type Written } from '#/results';
 import type { Mapped } from '#/source';
 import type { JsonObject } from '#/values';
@@ -72,7 +72,6 @@ interface Note {
 interface Live {
     readonly pid: number;
     readonly started: DateTime.Utc;
-    readonly sighted: Option.Option<Sighting>;
     readonly launched: boolean;
     readonly chosen: Installed;
     readonly scratch: string;
@@ -270,44 +269,45 @@ const sightingOf = (pid: number, state: typeof State.Type) => ({
         : {}),
 });
 const within = (live: Live) => Effect.provideService(Run.Instance, Option.some(live));
-const sighted = (live: Live, state: typeof State.Type, message: string) => {
-    const levels = { Launching: 'Info', Responding: 'Info', Dialog: 'Warn', Unresponsive: 'Warn', Failed: 'Warn', Exited: 'Info' } as const;
-    const logged = Effect.logWithLevel(levels[stateOf(state)])(message).pipe(Effect.annotateLogs(sightingOf(live.pid, state)), within(live));
-    return Option.match(live.sighted, { onNone: () => logged, onSome: (into) => into(logged) });
-};
-const watcher = (live: Live, passing: readonly Progress[]) =>
-    Effect.fn('watcher')(function* (row: Row) {
-        const ours = row.identifier === live.chosen.identifier && row.pid === live.pid;
-        const before = ours ? yield* SubscriptionRef.getAndSet(live.state, row.state) : row.state;
-        yield* same(sightingOf(row.pid, before), sightingOf(row.pid, row.state)) ? Effect.void : sighted(live, row.state, `instance ${stateOf(row.state)}`);
-        const answer = Effect.fnUntraced(function* (element: Element) {
-            const [at, presses, notes] = yield* Effect.all([Ref.get(live.inFlight), Ref.get(live.presses), Ref.get(live.notes)]);
-            const used = notes.filter(({ index }) => Equal.equals(index, at)).length;
-            const wanted = Option.flatMap(
-                Option.filter(at, () => ours),
-                (index) => Option.flatMap(Array.get(presses, index), Array.get(used)),
-            );
-            const control = Option.zipWith(
-                wanted,
-                Option.flatMap(wanted, (label) => pressed(element, label)),
-                (label, { id }) => ({ label, id }),
-            );
-            yield* Option.match(control, {
-                onNone: () => ended(live, Verdict.Dialog({ index: at, dialog: dialogOf(element, row.pid) })),
-                onSome: ({ label, id }) => {
-                    const answered = { ...(element.title === undefined ? {} : { title: element.title }), text: element.detail?.text ?? [], pressed: label };
-                    return Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: at, element: element.id, answered })), Effect.annotateLogs(Effect.logInfo('dialog answered'), { dialog: answered })]), perform(id)), (error) => ended(live, Verdict.Lost({ error })));
-                },
+const owned = (live: Live, row: Row) => row.identifier === live.chosen.identifier && row.pid === live.pid;
+const sighted = (row: Row, message: string) => Effect.logWithLevel(STATES[stateOf(row.state)])(message).pipe(Effect.annotateLogs(sightingOf(row.pid, row.state)));
+const watcher = (live: Live, passing: readonly Progress[], seen: Ref.Ref<HashMap.HashMap<number, typeof State.Type>>) =>
+    Effect.fn('watcher')(
+        function* (row: Row) {
+            const ours = owned(live, row);
+            const before = yield* Ref.modify(seen, (held) => [HashMap.get(held, row.pid), HashMap.set(held, row.pid, row.state)] as const);
+            yield* ours ? SubscriptionRef.set(live.state, row.state) : Effect.void;
+            yield* Option.exists(before, (held) => same(sightingOf(row.pid, held), sightingOf(row.pid, row.state))) ? Effect.void : sighted(row, `instance ${stateOf(row.state)}`);
+            const answer = Effect.fnUntraced(function* (element: Element) {
+                const [at, presses, notes] = yield* Effect.all([Ref.get(live.inFlight), Ref.get(live.presses), Ref.get(live.notes)]);
+                const used = notes.filter(({ index }) => Equal.equals(index, at)).length;
+                const wanted = Option.flatMap(
+                    Option.filter(at, () => ours),
+                    (index) => Option.flatMap(Array.get(presses, index), Array.get(used)),
+                );
+                const control = Option.zipWith(
+                    wanted,
+                    Option.flatMap(wanted, (label) => pressed(element, label)),
+                    (label, { id }) => ({ label, id }),
+                );
+                yield* Option.match(control, {
+                    onNone: () => ended(live, Verdict.Dialog({ index: at, dialog: dialogOf(element, row.pid) })),
+                    onSome: ({ label, id }) => {
+                        const answered = { ...(element.title === undefined ? {} : { title: element.title }), text: element.detail?.text ?? [], pressed: label };
+                        return Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: at, element: element.id, answered })), Effect.annotateLogs(Effect.logInfo('dialog answered'), { dialog: answered })]), perform(id)), (error) => ended(live, Verdict.Lost({ error })));
+                    },
+                });
             });
-        });
-        yield* State.match(row.state, {
-            Launching: () => Effect.void,
-            Responding: ({ elements }) => Effect.flatMap(Ref.get(live.notes), (notes) => Effect.forEach(elements.filter(unanswered(notes, requiring(passing, row.pid))), answer, { discard: true })),
-            Unresponsive: () => Effect.void,
-            Failed: ({ reason }) => (ours ? ended(live, Verdict.Lost({ error: HarnessError.unavailable(`process ${row.pid}`)(reason) })) : Effect.void),
-            Exited: (exit) => (ours && settled(exit) ? ended(live, Verdict.Exited({ exit })) : Effect.void),
-        });
-    });
+            yield* State.match(row.state, {
+                Launching: () => Effect.void,
+                Responding: ({ elements }) => Effect.flatMap(Ref.get(live.notes), (notes) => Effect.forEach(elements.filter(unanswered(notes, requiring(passing, row.pid))), answer, { discard: true })),
+                Unresponsive: () => Effect.void,
+                Failed: ({ reason }) => (ours ? ended(live, Verdict.Lost({ error: HarnessError.unavailable(`process ${row.pid}`)(reason) })) : Effect.void),
+                Exited: (exit) => (ours && settled(exit) ? ended(live, Verdict.Exited({ exit })) : Effect.void),
+            });
+        },
+        (effect, row) => (owned(live, row) ? within(live)(effect) : Effect.annotateLogs(effect, { identifier: row.identifier, pid: row.pid, state: stateOf(row.state) })),
+    );
 const advanced = (live: Live, names: readonly string[]) => (running: Option.Option<number>) =>
     Effect.flatMap(Ref.getAndSet(live.inFlight, running), (before) =>
         Option.match(
@@ -325,7 +325,7 @@ const progress = Effect.fnUntraced(function* (live: Live, records: string, names
         Stream.runHead,
     );
     const index = yield* Ref.get(live.inFlight);
-    const [cpu, file] = yield* Effect.all([busy(live.pid), sample(live)]);
+    const [cpu, file] = yield* Effect.all([busy(live.pid), sample(live.pid)]);
     yield* ended(live, Verdict.Hung({ index, hang: { cpu, sample: file, frames: yield* stalled(file), pid: live.pid } }));
 });
 
@@ -351,7 +351,6 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Host, 'progress' | 
     const live: Live = {
         pid: instance.pid,
         started,
-        sighted: launched ? Option.some(yield* sightings({ pid: instance.pid, started })) : Option.none(),
         launched,
         chosen,
         scratch,
@@ -361,9 +360,10 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Host, 'progress' | 
         presses: yield* Ref.make<readonly (readonly string[])[]>([]),
         state: yield* SubscriptionRef.make<typeof State.Type>(instance.state),
     };
-    yield* Effect.annotateLogs(sighted(live, instance.state, launched ? 'instance launched' : 'instance attached'), { shared });
+    yield* Effect.annotateLogs(sighted(instance, launched ? LAUNCHED : 'instance attached'), { shared }).pipe(within(live));
+    const seen = yield* Ref.make(HashMap.make([instance.pid, instance.state]));
     yield* Effect.forkScoped(
-        Stream.runForEach(rows, watcher(live, passing)).pipe(
+        Stream.runForEach(rows, watcher(live, passing, seen)).pipe(
             Effect.andThen(refused(`instance ${instance.pid} watch ended`)),
             Effect.catch((error) => ended(live, Verdict.Lost({ error }))),
         ),
@@ -374,7 +374,7 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Host, 'progress' | 
             Stream.runHead,
         ),
         Effect.flatMap(Deferred.await(live.verdict), (over) => refused(verdictText(limit, instance.pid)(over))),
-    ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => Effect.flatMap(Effect.all([sample(live), SubscriptionRef.get(live.state)]), ([file, state]) => refused(`instance ${instance.pid} ${described(state)} past ${Duration.format(limit)}, sample ${file}, left running`)) }), phase('ready'), within(live));
+    ).pipe(Effect.timeoutOrElse({ duration: limit, orElse: () => Effect.flatMap(Effect.all([sample(live.pid), SubscriptionRef.get(live.state)]), ([file, state]) => refused(`instance ${instance.pid} ${described(state)} past ${Duration.format(limit)}, sample ${file}, left running`)) }), phase('ready'), within(live));
     return { live, shared };
 });
 const openedIn = (host: Pick<Host, 'opened'>, live: Live, limit: Duration.Duration) =>
@@ -383,7 +383,7 @@ const openedIn = (host: Pick<Host, 'opened'>, live: Live, limit: Duration.Durati
         : Effect.asSome(host.opened(live)).pipe(
               Effect.timeoutOrElse({
                   duration: limit,
-                  orElse: () => Effect.flatMap(sample(live), (file) => HarnessError.unavailable(live.chosen.name)(`instance ${live.pid} opened nothing past ${Duration.format(limit)}, sample ${file}, left running`)),
+                  orElse: () => Effect.flatMap(sample(live.pid), (file) => HarnessError.unavailable(live.chosen.name)(`instance ${live.pid} opened nothing past ${Duration.format(limit)}, sample ${file}, left running`)),
               }),
               phase('open'),
               within(live),
@@ -513,11 +513,13 @@ const execute = Effect.fn('execute')(function* <S extends Surveyed, C extends Ca
         const nearby = ({ windowed: held }: Prepared<C>) => held === mode;
         const [near, far] = Array.partition(plan.sendable, Result.liftPredicate(nearby, identity));
         const first: Finished<S> = { ...(yield* ranIn(host, live, survey, opened, near, limit)), shared };
-        const unrun = (failed: string) =>
-            Effect.map(
-                Effect.forEach(far, ({ hosted }) => Effect.orDie(Schema.decodeEffect(Outcome)({ name: hosted.name, completion: { _tag: 'Failed', reason: `not run, ${failed}` } }))),
+        const unrun = (failed: string) => {
+            const reason = `not run, ${failed}`;
+            return Effect.map(
+                Effect.forEach(far, ({ hosted }) => Effect.andThen(Effect.annotateLogs(Effect.logWarning('case not run'), { case: hosted.name, error: reason }), Effect.orDie(Schema.decodeEffect(Outcome)({ name: hosted.name, completion: { _tag: 'Failed', reason } })))),
                 (outcomes) => ({ ...idle, outcomes }),
             );
+        };
         const relaunched = Effect.scoped(
             Effect.gen(function* () {
                 const other = yield* acquired(host, chosen, scratch, limit, !mode);

@@ -73,7 +73,7 @@ const printed = (command: string, args: readonly string[]) => Effect.map(checked
 const startOf = (line: string) =>
     Array.matchLeft(line.trim().split(SPACES), {
         onEmpty: Option.none,
-        onNonEmpty: (pid, started) => Option.zipWith(Schema.decodeOption(Schema.FiniteFromString)(pid), DateTime.make(started.join(' ')), (held, at) => [held, at] as const),
+        onNonEmpty: (pid, started) => Option.zipWith(Schema.decodeOption(Schema.FiniteFromString)(pid), Option.map(DateTime.makeZoned(started.join(' '), { timeZone: DateTime.zoneMakeLocal(), adjustForTimeZone: true }), DateTime.toUtc), (held, at) => [held, at] as const),
     });
 const starts = (selected: readonly string[]) => Effect.map(printed('ps', ['-o', 'pid=,lstart=', ...selected]), (text) => new Map(Array.getSomes(text.split('\n').map(startOf))));
 const plist = Effect.fn('plist')(function* <S extends Schema.Top>(app: string, schema: S) {
