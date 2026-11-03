@@ -63,26 +63,23 @@ where E: 'static {
         Inputs::Extend => BTreeSet::new(),
         Inputs::Replace => targets.iter().flat_map(|&target| graph.edges_directed(target, Direction::Incoming).map(|edge| edge.id())).collect(),
     };
-    let attach = |evaluation: &mut Evaluation<N, E>, edges: Vec<(NodeIndex, NodeIndex, E)>| {
-        let (added, refused): (Vec<_>, Vec<_>) = edges.into_iter().partition_map(|(source, target, weight)| match evaluation.try_add_edge(source, target, weight) {
-            Ok(edge) => Either::Left(edge),
-            Err(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge) => Either::Right((source, target)),
-        });
-        match NEVec::try_from_vec(refused) {
-            None => Ok(added),
-            Some(refused) => {
-                let cycle = cycles::refused(evaluation, refused);
-                disconnect(evaluation, added);
-                Err(cycle)
-            }
-        }
-    };
-    if targets.len() > 1 && !incoming.is_empty() {
+    let replaced = if targets.len() > 1 && !incoming.is_empty() {
         connect(&mut acyclic(unweighted(graph, |edge| !incoming.contains(&edge))), edges.iter().map(|&(source, target, _)| (source, target, ())).collect::<Vec<_>>(), Inputs::Extend)?;
-        let replaced = disconnect(evaluation, incoming);
-        attach(evaluation, edges).map(|added| Connected { added, replaced })
+        Some(disconnect(evaluation, incoming.iter().copied()))
     } else {
-        attach(evaluation, edges).map(|added| Connected { added, replaced: disconnect(evaluation, incoming) })
+        None
+    };
+    let (added, refused): (Vec<_>, Vec<_>) = edges.into_iter().partition_map(|(source, target, weight)| match evaluation.try_add_edge(source, target, weight) {
+        Ok(edge) => Either::Left(edge),
+        Err(AcyclicEdgeError::Cycle(_) | AcyclicEdgeError::SelfLoop | AcyclicEdgeError::InvalidEdge) => Either::Right((source, target)),
+    });
+    match NEVec::try_from_vec(refused) {
+        None => Ok(Connected { added, replaced: replaced.unwrap_or_else(|| disconnect(evaluation, incoming)) }),
+        Some(refused) => {
+            let cycle = cycles::refused(evaluation, refused);
+            disconnect(evaluation, added);
+            Err(cycle)
+        }
     }
 }
 

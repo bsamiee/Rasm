@@ -9388,6 +9388,7 @@ dependencies = [
 name = "rasm-dependency"
 version = "1.0.0"
 dependencies = [
+ "derive_more",
  "enum-map",
  "itertools 0.15.0",
  "nonempty-collections",
