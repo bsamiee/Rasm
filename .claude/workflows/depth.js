@@ -40,6 +40,7 @@ const LENSES = [
   ['dependencies', 'dependency members that replace hand logic, and packages to add, replace or drop'],
   ['reduction', 'structs, types, enums, variants, constants, validations, wrappers, helpers, public items and whole files to delete, collapse or derive, and logic an algebraic, derived or parameterized form replaces'],
   ['correctness', 'wrong results, lost error causes, thread safety, blocking work, needless allocation and slow paths'],
+  ['relations', 'one relation, codec or parameterized function several functions restate, and which existing functions then become uses of it'],
   ['shape', 'files holding more than one concept or a concept split across files, nested control flow, coined names, and consumers that wrap the folder'],
 ]
 
