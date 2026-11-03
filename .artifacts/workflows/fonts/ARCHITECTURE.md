@@ -1,21 +1,24 @@
 # [ARCHITECTURE]
 
-`libs/python/typography/` holds the font capability any typography code uses as top-level packages and the production pipeline as one nested package `foundry`, which reconciles each face of a declared font set from its original binary through a plan of rules into a UFO source, compiles it through ufo2ft, verifies it against one set of requirements, and packages it. Records are frozen `msgspec.Struct`, results are `expression` `Outcome[T]` with one `Fault` record, and every module follows the `python-coding` skill.
+`libs/python/typography/` holds the font capability any typography code uses as core packages and the production pipeline as library packages beside them, which reconcile each face of a declared font set from its original binary through a plan of rules into a UFO source, compile it through ufo2ft, verify it against one set of requirements, and package it. `tools/foundry/` is the command project over them. Records are frozen `msgspec.Struct`, results are `expression` `Outcome[T]` with one `Fault` record, and every module follows the `python-coding` skill.
 
 ## [01]-[MODULES]
 
 Each package owns what fontTools, ufo2ft, HarfBuzz, OTS and fontspector leave undone:
 
-| [INDEX] | [PACKAGE]              | [OWNS]                                                                   | [READS]                           |
-| :-----: | :--------------------- | :----------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `faces`                | `FontSet`, `Family`, `Face`, `Glyph`, `Role`, `Coverage`, decode, import | `fontTools.ttLib`, ufoLib2        |
-|  [02]   | `outlines`             | Union, difference, stroke measure, nib sweep, signed gap, bounds, IoU    | `skia-pathops`, fontTools pens    |
-|  [03]   | `shaping`              | Shaped runs, `hb-shape` serialization, fontspector shaping JSON, corpus  | `uharfbuzz`                       |
-|  [04]   | `foundry.rules`        | `Rule` union, `Plan` per genre and treatment, lookup records, emission   | `faces`, `outlines`, `shaping`    |
-|  [05]   | `foundry.verification` | `Requirement` union, `Finding`, `verified`, OTS and fontspector decode   | `opentype-sanitizer`, fontspector |
-|  [06]   | `foundry`              | `App` commands `source`, `build`, `check`, `approve`, `run`, `publish`   | Every package above, ufo2ft       |
+| [INDEX] | [PACKAGE]       | [OWNS]                                                                   | [READS]                            |
+| :-----: | :-------------- | :----------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `faces`         | `FontSet`, `Family`, `Face`, `Glyph`, `Role`, `Coverage`, decode, import | `fontTools.ttLib`, ufoLib2         |
+|  [02]   | `outlines`      | Union, difference, stroke measure, nib sweep, signed gap, bounds, IoU    | `skia-pathops`, fontTools pens     |
+|  [03]   | `shaping`       | Shaped runs, `hb-shape` serialization, fontspector shaping JSON, corpus  | `uharfbuzz`                        |
+|  [04]   | `rules`         | `Rule` union, `Plan` per genre and treatment, lookup records, emission   | `faces`, `outlines`, `shaping`     |
+|  [05]   | `verification`  | `Requirement` union, `Finding`, `verified`, `approved`, report decode    | `opentype-sanitizer`, fontspector  |
+|  [06]   | `builds`        | `Built`, `sourced`, `built`, `checked`, `published`, one pipeline        | Every package above, ufo2ft        |
+|  [07]   | `tools/foundry` | `App` commands `source`, `build`, `check`, `approve`, `run`, `publish`   | `builds`, `verification` by import |
 
-Dependencies point downward in table order, and `faces`, `outlines` and `shaping` import nothing from `foundry`, so checking and build tooling never couples into the core packages. `foundry` alone performs file and process effects: UFO write, `compileTTF` with the writer list, `ttfautohint`, `fontTools.ttLib.woff2` and the build hash, since a separate compile package would forward ufo2ft calls unchanged.
+Dependencies point downward in table order, and `faces`, `outlines` and `shaping` import nothing from `rules`, `verification` or `builds`, so checking and build tooling never couples into the core packages. `builds` alone performs file and process effects: UFO write, `compileTTF` with the writer list, `ttfautohint`, `fontTools.ttLib.woff2` and the build hash, since a separate compile package would forward ufo2ft calls unchanged. Each module holds one concept at its natural size, and no package or folder holds a single small file.
+
+`tools/foundry/app.py` holds one `App` with `result_action=(exited, "sys_exit")`, one import-path registration per command with its `help=`, and parameters typed by the library's scalar types, enums and paths, so `foundry build <set.toml>` binds a `ResolvedExistingFile` and `foundry check <face>` a `FaceName`. Commands return the library's `Outcome`, and `exited` writes a JSON value on stdout or each `Fault` on stderr.
 
 ## [02]-[FACE_MODEL]
 
@@ -97,9 +100,9 @@ Verification is one relation, `verified(built: Built, requirements: tuple[Requir
 |  [15]   | `Reproducible`  | Rebuild hash equals the declaration's recorded hash                  | `Built.hash`                           |
 
 - `Finding` records requirement, face, subject (glyph, pair or word), measured value and bound, and the report serializes the tuple as JSON
-- `approve` writes shaping JSON from a named build hash, and a missing file is a finding, so no run seeds its own baseline
+- `approved` writes shaping JSON from a named build hash, and a missing file is a finding, so no run seeds its own baseline
 - `fontspector` runs `shaping/regression` under `--profile googlefonts -c shaping/regression` with `--configuration` naming `test_directory`
-- Host checks through `tools/harnesses/indesign` stay outside the library, and `check` names the harness command to run
+- Host checks through `tools/harnesses/indesign` stay outside the library, and `checked` names the harness command to run
 
 ## [05]-[PACKAGES]
 
@@ -134,7 +137,7 @@ Considered and not taken:
 
 ## [06]-[LOGIC]
 
-Algorithms the research proved, kept as pure functions with their correction, `rules` and `verification` nested under `foundry`:
+Algorithms the research proved, kept as pure functions with their correction:
 
 | [INDEX] | [FUNCTION]           | [COMPUTES]                                                            | [CORRECTION]                             |
 | :-----: | :------------------- | :-------------------------------------------------------------------- | :--------------------------------------- |
@@ -161,22 +164,23 @@ Algorithms the research proved, kept as pure functions with their correction, `r
 ## [07]-[BOUNDARIES]
 
 - Originals, set declarations, approved shaping JSON and built fonts sit together outside the repository, named by relative paths
-- `publish` copies built files to a destination argument and compares hashes, deleting nothing
+- `published` copies built files to a destination argument and compares hashes, deleting nothing
 - Private Use Area ornaments have bidi class L, and the typesetting library that places them inserts the mark that keeps line order
 - Reference faces for Perso-Arabic text are unhinted with `prep` and `gasp` alone, so `Hinting` stays out of every text plan by default
 
 ## [08]-[BUDGET]
 
-Line budgets derive from what each package holds, summing to 2,600 to 4,000 lines:
+Line budgets derive from what each package holds, summing to 2,650 to 4,000 lines:
 
-| [INDEX] | [PACKAGE]              | [LINES]      | [HOLDS]                                                                         |
-| :-----: | :--------------------- | :----------- | :------------------------------------------------------------------------------ |
-|  [01]   | `faces`                | 600 to 900   | Set, family, face, glyph, role and coverage records, declaration decode, import |
-|  [02]   | `outlines`             | 400 to 600   | Union, difference, area, IoU, bounds, gap, stroke, nib, tidy over skia-pathops  |
-|  [03]   | `shaping`              | 250 to 400   | Runs over uharfbuzz, `hb-shape` serialization, shaping JSON codec, corpus       |
-|  [04]   | `foundry.rules`        | 900 to 1,350 | Rule and plan records, `applied`, lookup records, emitter, rule logic           |
-|  [05]   | `foundry.verification` | 300 to 500   | Requirement and finding records, `verified`, OTS and fontspector decode         |
-|  [06]   | `foundry`              | 150 to 250   | `App`, compile through ufo2ft, hinting, WOFF2, hash, publish, report            |
+| [INDEX] | [PACKAGE]       | [LINES]      | [HOLDS]                                                                         |
+| :-----: | :-------------- | :----------- | :------------------------------------------------------------------------------ |
+|  [01]   | `faces`         | 600 to 900   | Set, family, face, glyph, role and coverage records, declaration decode, import |
+|  [02]   | `outlines`      | 400 to 600   | Union, difference, area, IoU, bounds, gap, stroke, nib, tidy over skia-pathops  |
+|  [03]   | `shaping`       | 250 to 400   | Runs over uharfbuzz, `hb-shape` serialization, shaping JSON codec, corpus       |
+|  [04]   | `rules`         | 850 to 1,250 | Rule and plan records, `applied`, lookup records, emitter, rule logic           |
+|  [05]   | `verification`  | 300 to 450   | Requirement and finding records, `verified`, `approved`, report decode          |
+|  [06]   | `builds`        | 150 to 250   | `Built`, compile through ufo2ft, hinting, WOFF2, hash, publish, report          |
+|  [07]   | `tools/foundry` | 100 to 150   | `App`, command registrations, parameter aliases, `exited`                       |
 
 Current surface the rebuild deletes outright, with nothing standing in for it:
 - `rebuild.py`: the older pipeline editing binaries in place, its `ROSTER`, `migrate`, `clear_previous` and Drive `publish`

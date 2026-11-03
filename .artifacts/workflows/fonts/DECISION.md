@@ -31,22 +31,28 @@ Upkeep: `docs/research` is git-ignored, so the tools hold no history and `rebuil
 
 ## [03]-[SHAPE]
 
-Library with one command entry, holding only work no tool does:
-- Top-level packages under `libs/python/typography/`, each with `py.typed`: `faces`, `outlines`, `shaping` for typography code, `foundry` for builds
-- `foundry` nests `foundry.rules`, `foundry.verification`, packaging and the CLI, and `faces`, `outlines` and `shaping` import nothing from it
+Library capability with a thin command project, holding only work no tool does:
+- Packages under `libs/python/typography/`, each with `py.typed`: core `faces`, `outlines`, `shaping`, pipeline `rules`, `verification`, `builds`
+- `builds` is the one pipeline over every face class, and every package is importable by any caller: the CLI, tests, a later host workflow
+- Core packages import nothing from the pipeline packages, so checking and build tooling never couples into them
 - `ufo2ft` compiles through its writers and filters, fontspector and OTS judge generic conformance, and the library supplies their inputs
-- `foundry/__main__.py` holds one cyclopts `App` run as `python -m foundry <command> <set.toml>`, with no `tools/` binary or `eng/` module
+- `tools/foundry/` is the CLI project: one cyclopts `App` holding commands, parameters and output alone, every behavior in the library
+- `foundry build <set.toml>` and `foundry check <face>` run from PATH, never through `python -m`
+- Font-set declarations decode through `msgspec.toml` into frozen `Struct` records, pydantic stays out with no untrusted network boundary
+- Command parameters are the library's own scalar types, enums and paths, a `Struct` never binds a token (cyclopts leaves it unchecked)
 - Font sets are inputs: one TOML declaration per set beside its originals, read by path argument
 - InPage's licence allows no copying, so originals and declaration stay on the drive, and the library holds no family name, path or value
 - Tests under `tests/python/libs/typography/<package>/` build their fonts with `fontTools.fontBuilder`, so the repository holds no licensed binary
 
-Face roles, outline geometry, design rules and requirements are domain code with tests, outside the `eng/` machinery root targets call and the `tools/` repository tooling.
+Face roles, outline geometry, design rules and requirements are domain code with tests, outside the `eng/` machinery root targets call.
 
 ## [04]-[PLACE]
 
 - `libs/python/typography/pyproject.toml` is one packaged uv workspace member on the `blender` pattern, joined to root `members` and `uv.lock` first
 - Later typography work joins the same member as further top-level packages
 - Manifest: hatchling, `dev-mode-dirs = [".."]`, `[project] dependencies` naming each import, `[tool.ruff] extend`, `[tool.deptry]`
+- `tools/foundry/pyproject.toml` is a packaged member with `[project.scripts] foundry = "foundry.app:app"` depending on `typography` by workspace source
+- `tools/foundry` takes an `install` target running `uv tool install` over the project, so `foundry` sits on PATH over its previous install
 - Nx infers a project per `py.typed` directory with its `tests/python` folder, and ty, mypy and refurb run as root targets
 - `follow_untyped_imports` rows for `ufo2ft.*`, `ots.*`, `ttfautohint.*` and `youseedee.*` join the `fontTools.*` and `pathops.*` row
 - `untyped_calls_exclude` takes `fontTools.feaLib`, `fontTools.pens`, `ufo2ft` and `ots`, whose calls mypy strict reports as untyped
@@ -99,4 +105,5 @@ Findings of the code study and the journal that a rebuild leaves behind:
 Total size is 2,500 to 4,000 lines against the 10,638 lines of the current tooling, and the build reads that tooling's functionality and findings, never its code:
 - Each capability takes its higher-order form: genres, treatments and rules as data, verification as one relation, one pipeline over every face class
 - Each form builds on the chosen packages' own members, so nothing fontTools, ufo2ft, uharfbuzz, skia-pathops, OTS or fontspector states is restated
+- Each module holds one concept at its natural size, and no package or folder holds a single small file
 - Use `ARCHITECTURE.md` for each package's line budget and the current surface the rebuild deletes
