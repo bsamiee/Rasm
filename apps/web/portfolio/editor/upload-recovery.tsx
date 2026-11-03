@@ -1,4 +1,5 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ConfirmDialog } from '#/editor/confirm-dialog';
 import { RequestAlert } from '#/editor/request-alert';
@@ -18,7 +19,7 @@ const UploadRecovery = () => {
         cleanup: { label: 'Remove leftover upload data', description: 'Uploaded file and its placements stay' },
         removing: { label: 'Finish removal', description: 'Deletes remaining upload data of removed file' },
     } satisfies Record<(typeof PendingUpload.Type)['status'], { readonly label: string; readonly description: string }>;
-    const queuedUploads = new Set(files.flatMap((file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? [file.meta.prepared.asset.id] : [])));
+    const queuedUploads = new Set(Array.filterMap(files, (file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? Result.succeed(file.meta.prepared.asset.id) : Result.failVoid)));
     return (
         <section className="border-line border-t pt-5">
             <div className="flex items-center justify-between gap-3">

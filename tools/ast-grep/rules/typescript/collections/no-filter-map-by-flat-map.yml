@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-map-by-flat-map
+language: tsx
+severity: error
+ignores: ['plugins/function-hooks/**']
+utils:
+    one-or-none:
+        any:
+            - kind: ternary_expression
+              any: [{pattern: '$_ ? [] : [$_]'}, {pattern: '$_ ? [$_] : []'}]
+              not: {has: {kind: array, has: {kind: spread_element}}}
+            - kind: call_expression
+              has: {field: function, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}}
+            - kind: parenthesized_expression
+              has: {nthChild: 1, matches: one-or-none}
+    selecting-callback:
+        kind: arrow_function, function_expression
+        has: {field: body, matches: one-or-none}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^flatMap$'}}
+        - any:
+            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Iterable)$'}}}}}
+            - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
+        - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: selecting-callback}}
+message: '`$CALLEE` keeps one element or none per input'
+note: 'Call `Array.filterMap(<list>, (x) => <condition> ? Result.succeed(<value>) : Result.failVoid)`, `Array.filter` when the kept value is the element, or `Array.getSomes(Array.map(<list>, <f>))` over an `Option`'

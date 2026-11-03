@@ -68,21 +68,39 @@ utils:
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: return_statement}]}}}
     asserted:
         has: {kind: type_predicate, has: {field: type, pattern: $TYPE, not: {kind: object_type}}}
+    member-presence:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $TYPE}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^in$'}
+                - has: {field: right, kind: 'identifier, member_expression', pattern: $TYPE}
+    member-read:
+        kind: member_expression, subscript_expression
+        has: {field: object, pattern: $TYPE}
 rule:
-    kind: arrow_function, function_expression, function_declaration, method_definition
-    all:
-        - any:
-            - has: {field: return_type, matches: asserted}
-            - inside:
-                kind: variable_declarator
-                field: value
-                has:
-                    field: type
+    any:
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, any: [{matches: member-presence}, {has: {stopBy: end, matches: member-presence}}]}
+            - has: {field: consequence, any: [{matches: member-read}, {has: {stopBy: end, matches: member-read}}]}
+        - kind: arrow_function, function_expression, function_declaration, method_definition
+          all:
+            - any:
+                - has: {field: return_type, matches: asserted}
+                - inside:
+                    kind: variable_declarator
+                    field: value
                     has:
-                        kind: generic_type
-                        all:
-                            - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
-                            - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE, not: {kind: object_type}}}
-        - matches: tested-body
-message: 'Type guard asserts `$TYPE` from the presence or type of a member'
-note: 'Decode the members read with a `Schema` at entry, or narrow a typed union on its literal discriminant (`constructorName` for InDesign objects)'
+                        field: type
+                        has:
+                            kind: generic_type
+                            all:
+                                - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
+                                - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE, not: {kind: object_type}}}
+            - matches: tested-body
+message: '`$TYPE` narrows on the presence or type of a member'
+note: 'Decode the members read with a `Schema` at entry, or narrow a typed union on its literal discriminant (`constructorName` for InDesign objects, `Match.discriminators` for a host union)'

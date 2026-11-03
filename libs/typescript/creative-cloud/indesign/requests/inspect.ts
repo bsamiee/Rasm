@@ -14,6 +14,8 @@ import { PreflightProcessView } from '#/requests/preflight';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Contents = Schema.Struct({ contents: Schema.Json });
+
 class ApplicationView extends Schema.TaggedClass<ApplicationView, { readonly brand: unique symbol }>()('Application', {
     ...Reference.fields,
     version: Schema.String,
@@ -34,6 +36,8 @@ class ApplicationView extends Schema.TaggedClass<ApplicationView, { readonly bra
     static readonly of = Effect.fn('ApplicationView.of')(function* (app: Application) {
         const { owning } = yield* Model;
         const overridable = owning<Text>('textHasOverrides');
+        const storied = owning<Text>('parentStory');
+        const story = (item: unknown) => Option.map(Option.liftPredicate(item, storied), ({ parentStory }) => parentStory.toSpecifier());
         const rows = yield* Effect.forEach(app.documents.everyItem().getElements(), DocumentView.row);
         const opened = yield* Effect.option(Model.document);
         const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
@@ -43,8 +47,8 @@ class ApplicationView extends Schema.TaggedClass<ApplicationView, { readonly bra
                 Effect.transposeOption,
                 Effect.map((overrides) => ({
                     ...reference(item),
-                    contents: Option.fromUndefinedOr('contents' in item ? item.contents : undefined),
-                    parentStory: 'parentStory' in item ? Option.some(item.parentStory.toSpecifier()) : Option.none(),
+                    contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')),
+                    parentStory: story(item),
                     overrides,
                 })),
             ),

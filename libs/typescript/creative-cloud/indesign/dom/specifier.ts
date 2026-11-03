@@ -1,7 +1,7 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
 import { Reference } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cache, Effect, Equal, Option, Predicate, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
+import { Array, Cache, Effect, Equal, Option, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -10,6 +10,7 @@ const Container = Schema.String.check(Schema.isPattern(/(?:^|[^/])$/u));
 const Separator = Schema.Literals(['//', '/']);
 const { Kind, Identified, Indexed, Named } = Reference;
 const Property = Schema.TemplateLiteral(['@', Schema.String]);
+const Titled = Schema.Struct({ name: Schema.String });
 const Name = Schema.TemplateLiteralParser(Named.parts);
 const Selector = Schema.Union([Identified, Indexed, Named]);
 const Step = Schema.Struct({ container: Container, separator: Separator, kind: Schema.Union([Kind, Schema.Literal('')]), selector: Schema.OptionFromOptionalKey(Selector) });
@@ -56,10 +57,13 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
             const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at) => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
             const related = fields.flatMap(([field, { type, array }]) => (Option.isSome(array) && Option.isSome(sibling) && Equal.equals(type, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
-            const collections = fields
-                .flatMap(([field, row]) => (model.plural(row) ? [value(field)] : []))
-                .filter(model.collection)
-                .flatMap((items) => Option.toArray(Option.fromUndefinedOr(items.everyItem())));
+            const collections = Array.getSomes(
+                fields
+                    .filter(([, row]) => model.plural(row))
+                    .map(([field]) => value(field))
+                    .filter(model.collection)
+                    .map((items) => Option.fromUndefinedOr(items.everyItem())),
+            );
             const candidates = Array.dedupe(Array.map([...siblings, ...related.filter((each) => Option.contains(specifier.name, each.name))], (each) => each.toSpecifier()));
             return yield* Effect.fromOption(
                 Option.map(
@@ -98,7 +102,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 
 const reference = (object: InDesignDOMObject<unknown>): Reference => {
     const valid = object.isValid;
-    return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid && 'name' in object ? Option.liftPredicate(object.name, Predicate.isString) : Option.none(), valid });
+    return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid ? Option.map(Schema.decodeUnknownOption(Titled)(object), Struct.get('name')) : Option.none(), valid });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

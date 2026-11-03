@@ -26,7 +26,7 @@ const PortfolioStructure = Schema.Struct({
     entries: Schema.Array(Entry).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 });
 const uniqueIds = Schema.makeFilter((document: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
-    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) => (new Set(ids).size === ids.length ? [] : [{ path, issue: 'Duplicate IDs' }])),
+    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].filter(({ ids }) => new Set(ids).size !== ids.length).map(({ path }) => ({ path, issue: 'Duplicate IDs' })),
 );
 const Portfolio = PortfolioStructure.check(uniqueIds);
 const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);

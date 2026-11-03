@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-apply-without-receiver
+language: tsx
+severity: error
+utils:
+    reflect-apply:
+        has: {field: function, regex: '^((globalThis|window|self)\.)?Reflect\.apply$', matches: typescript-global-reference}
+rule:
+    kind: call_expression
+    not: {has: {field: arguments, has: {kind: comment, stopBy: end}}}
+    any:
+        - matches: reflect-apply
+          any:
+            - pattern: $_($F, undefined, [$$$LISTED])
+            - pattern: $_($F, undefined, $SPREAD)
+              not: {has: {field: arguments, has: {nthChild: 3, kind: array}}}
+        - pattern: $F.call(undefined, $$$LISTED)
+        - pattern: $F.apply(undefined, $SPREAD)
+rewriters:
+    - id: bare
+      rule: {kind: 'identifier, member_expression, subscript_expression, call_expression, new_expression, parenthesized_expression', pattern: $NODE}
+      fix: $NODE
+    - id: wrapped
+      rule: {pattern: $NODE}
+      fix: ($NODE)
+    - id: spread
+      rule: {pattern: $NODE}
+      fix: ...$NODE
+transform:
+    CALLEE: rewrite($F, rewriters=[bare, wrapped])
+    SPREADS: rewrite($SPREAD, rewriters=[spread])
+fix: $CALLEE($$$LISTED$SPREADS)
+message: '`$F` is called through `apply` or `call` with an `undefined` receiver'
+note: 'Call `<function>(<arguments>)`, spreading a held argument list as `<function>(...<arguments>)`'

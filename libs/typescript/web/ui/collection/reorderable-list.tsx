@@ -1,4 +1,4 @@
-import { Array, Filter } from 'effect';
+import { Array, Filter, Result } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
@@ -24,7 +24,7 @@ const ReorderableList = <T extends { readonly id: string }>({
     readonly moveLabel: string;
 }) => {
     const [selection, setSelection] = useState<Selection>(new Set());
-    const selected: ReadonlySet<Key> = new Set(items.flatMap(({ id }) => (selection === 'all' || selection.has(id) ? [id] : [])));
+    const selected: ReadonlySet<Key> = new Set(Array.filterMap(items, ({ id }) => (selection === 'all' || selection.has(id) ? Result.succeed(id) : Result.failVoid)));
     const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) => {
         const [moved, kept] = Array.partition(
             items,

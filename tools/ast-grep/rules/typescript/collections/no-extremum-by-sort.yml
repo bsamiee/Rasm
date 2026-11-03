@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-extremum-by-sort
+language: tsx
+severity: error
+utils:
+    sorted:
+        kind: call_expression
+        has: {field: function, pattern: $SORT, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^(sort|sortWith|sortBy)$'}}}}
+rule:
+    kind: call_expression
+    any:
+        - all:
+            - has: {field: function, pattern: $PICK, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^(head|headNonEmpty|last|lastNonEmpty)$'}}}}
+            - has: {field: arguments, has: {nthChild: 1, matches: sorted}, not: {has: {nthChild: 2}}}
+        - all:
+            - has: {field: function, pattern: $PICK, matches: {effect-module-member: {module: {regex: '\b(Array|Iterable)$'}, member: {regex: '^(take|takeRight)$'}}}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: sorted}}, {has: {nthChild: 2, regex: '^1$'}}]}
+message: '`$PICK` over `$SORT` sorts a whole list to read one extremum'
+note: 'Call `Array.min(<list>, <order>)` or `Array.max` over a non-empty list, behind `Array.isReadonlyArrayNonEmpty` or `Option.liftPredicate` for one that can be empty'

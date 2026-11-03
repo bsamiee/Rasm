@@ -38,9 +38,10 @@ const Mapping = Schema.fromJsonString(
 );
 const Entry = Schema.Struct({ originalLine: Schema.Int });
 const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
+const Returned = Schema.TaggedStruct('Returned', ExecuteScript.Result.fields);
 const Scripted = Schema.Union([
-    Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(Schema.toType(ExecuteScript.Result), { decode: SchemaGetter.succeed({ result: Option.none() }), encode: SchemaGetter.forbiddenEncoding })),
-    Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Union([Schema.Struct({ failed: Schema.Struct({ message: Schema.String, line: Schema.OptionFromNullOr(Schema.Int) }) }), ExecuteScript.Result])))),
+    Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(Schema.toType(Returned), { decode: SchemaGetter.succeed({ _tag: 'Returned' as const, result: Option.none() }), encode: SchemaGetter.forbiddenEncoding })),
+    Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Union([Schema.TaggedStruct('Failed', { failed: Schema.Struct({ message: Schema.String, line: Schema.OptionFromNullOr(Schema.Int) }) }), Returned])))),
 ]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -126,18 +127,21 @@ const plugins = Effect.fnUntraced(function* ({ serving, scripting }: Effect.Succ
         return "{" + parts.join(",") + "}";
     }
     try {
-        var value = eval(decodeURIComponent(body)).call(this);
-        return value === undefined ? "" : encodeURIComponent('{"result":' + encoded(value) + '}');
+        var value = eval(body).call(this);
+        return value === undefined ? "" : encodeURIComponent('{"_tag":"Returned","result":' + encoded(value) + '}');
     } catch (error) {
-        return encodeURIComponent('{"failed":' + encoded({ message: String(error && error.message !== undefined ? error.message : error), line: error && (error.line || error.lineNumber) }) + '}');
+        return encodeURIComponent('{"_tag":"Failed","failed":' + encoded({ message: String(error && error.message !== undefined ? error.message : error), line: error && (error.line || error.lineNumber) }) + '}');
     }
-}).call(this, "${encodeURIComponent(source)}")`,
+}).call(this, arguments[0])`,
+                'with arguments': [source],
                 ...(definition.includes('code="doLg"') ? { doLg: { _tag: 'enumerator', name: 'JSLg' } as const } : {}),
             },
             artifacts: [],
         });
-        const answered = yield* Schema.decodeUnknownEffect(Scripted)(reply);
-        return yield* 'failed' in answered ? Effect.catchReason(Effect.fail(HostError.thrown(answered.failed.message, answered.failed.line)(answered.failed)), 'HostError', 'Thrown', relined) : Effect.succeed(answered);
+        return yield* Match.valueTags(yield* Schema.decodeUnknownEffect(Scripted)(reply), {
+            Failed: ({ failed }) => Effect.catchReason(Effect.fail(HostError.thrown(failed.message, failed.line)(failed)), 'HostError', 'Thrown', relined),
+            Returned: ({ result }) => Effect.succeed({ result }),
+        });
     });
     yield* registerRoutedTool(scripting)(
         Tool.make('execute_script', {

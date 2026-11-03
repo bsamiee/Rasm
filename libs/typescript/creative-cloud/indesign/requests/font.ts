@@ -1,7 +1,7 @@
 import { HostError, Reference } from '@rasm/automation/requests';
 import { Source } from '@rasm/typography/source';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Predicate, Result, Schema, Struct } from 'effect';
 import { Model } from '#/dom/model';
 import { reference, Specifier } from '#/dom/specifier';
 import { fontByName, picked, read, Slice } from '#/dom/value';
@@ -38,14 +38,17 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
             onNone: () => Effect.succeed(Array.empty<string>()),
             onSome: (open) =>
                 Effect.map(
-                    FindChange.make({
-                        mode: 'Text',
-                        find: Option.some({ appliedFont: { type: face.constructorName, specifier } }),
-                        options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
-                        change: Option.none(),
-                        scope: Option.none(),
-                        slice: Slice.make({ offset: 0, limit: Option.none() }),
-                    }).search(open),
+                    FindChange.search(
+                        FindChange.make({
+                            mode: 'Text',
+                            find: Option.some({ appliedFont: { type: face.constructorName, specifier } }),
+                            options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
+                            change: Option.none(),
+                            scope: Option.none(),
+                            slice: Slice.make({ offset: 0, limit: Option.none() }),
+                        }),
+                        open,
+                    ),
                     ({ matches }) => [
                         ...Array.map(matches, Struct.get('specifier')),
                         ...Array.map(
@@ -60,7 +63,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
             try: () =>
                 installed
                     ? [
-                          Array.dedupe(Array.flatMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? [named] : []))),
+                          Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? Result.succeed(named) : Result.failVoid))),
                           Array.map(
                               members(OpenTypeFeature).filter((feature) => face.checkOpenTypeFeature(feature)),
                               String,

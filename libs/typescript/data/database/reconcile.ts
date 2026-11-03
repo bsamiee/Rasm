@@ -93,7 +93,7 @@ const render = (
     const path = (entry: Column) => Option.map(Option.filter(entry.projection, Column.Projection.$is('Path')), (projected) => engine.projection(sql, entry, projected.from, projected.path));
     const operand = (name: string) => Option.match(Option.flatMap(named(name), path), { onNone: () => quoted(name), onSome: (expression) => engine.projected(sql, expression, name) });
     const predicate = ({ column: name, predicate: rule }: Relation['indexes'][number]['where'][number]) => {
-        const members = (values: readonly (string | number)[]) => spaced([operand(name), `IN (${values.flatMap((member) => Option.toArray(Option.map(named(name), (entry) => engine.constant(entry, member)))).join(', ')})`]);
+        const members = (values: readonly (string | number)[]) => spaced([operand(name), `IN (${Array.getSomes(values.map((member) => Option.map(named(name), (entry) => engine.constant(entry, member)))).join(', ')})`]);
         return Match.value(rule).pipe(
             Match.when(null, () => spaced([operand(name), 'IS NULL'])),
             Match.when({ not: null }, () => spaced([operand(name), 'IS NOT NULL'])),
@@ -182,11 +182,12 @@ const diff = <L extends { readonly name: string; readonly identity: string | nul
         });
         const found = declared.map((item) => {
             const owns = (candidate: (typeof standing)[number]) => candidate.incarnation === item.identity.incarnation && [candidate.row.name, candidate.origin].some((name) => name === item.name || Option.contains(item.earlier, name));
-            const chosen = Array.head(
-                Array.sort(
+            const chosen = Option.map(
+                Option.liftPredicate(
                     standing.filter((candidate) => owns(candidate) || candidate.row.name === item.name),
-                    Order.mapInput(Order.Tuple([Order.Boolean, Order.Boolean]), (candidate: (typeof standing)[number]) => [!owns(candidate), candidate.row.name !== item.name] as const),
+                    Array.isArrayNonEmpty,
                 ),
+                Array.min(Order.mapInput(Order.Tuple([Order.Boolean, Order.Boolean]), (candidate: (typeof standing)[number]) => [!owns(candidate), candidate.row.name !== item.name] as const)),
             );
             return {
                 item,
@@ -196,7 +197,7 @@ const diff = <L extends { readonly name: string; readonly identity: string | nul
                 recorded: Option.flatMap(chosen, ({ recorded }) => recorded),
             };
         });
-        return { found, retiring, claimed: found.flatMap(({ row }) => Option.toArray(row)) };
+        return { found, retiring, claimed: Array.getSomes(found.map(({ row }) => row)) };
     };
     const located = claim(
         tables,

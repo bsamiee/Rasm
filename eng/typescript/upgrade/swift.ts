@@ -4,7 +4,7 @@ import { readJsonFile } from '@nx/devkit';
 import { Array, Effect, flow, Option, Path, Record, Schema, String } from 'effect';
 import { normalizeFull } from 'verkit';
 import { stdout } from '#/eng/typescript/process';
-import { Capture, newest, scan, splice } from '#/eng/typescript/upgrade/bounds';
+import { Capture, newest, rewrite, scan } from '#/eng/typescript/upgrade/bounds';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -56,15 +56,10 @@ Effect.gen(function* () {
     const urls = Array.dedupe([...requirements.map(({ metaVariables }) => metaVariables.single.URL.text), ...documents.flatMap(([, document]) => document.packages.filter(Schema.is(Remote)).map(({ repository }) => repository))]);
     const tags = Object.fromEntries(yield* Effect.validate(urls, (url) => Effect.map(newest(url, flow(normalizeFull, Option.fromNullOr)), (tag) => [url, tag] as const), { concurrency: 'unbounded' }));
     const release = (url: string) => Option.getOrThrow(Record.get(tags, url));
-    const edits = requirements.filter(({ metaVariables: { single } }) => release(single.URL.text) !== single.FROM.text).map(({ file, metaVariables: { single } }) => ({ file, span: single.FROM.range.byteOffset, tag: release(single.URL.text) }));
-    yield* Effect.forEach(
-        Object.entries(Array.groupBy(edits, ({ file }) => file)),
-        ([file, found]) =>
-            splice(
-                file,
-                found.map(({ span, tag }) => [span, tag] as const),
-            ),
-        { discard: true },
-    );
+    const stale = Array.dedupe(requirements.filter(({ metaVariables: { single } }) => release(single.URL.text) !== single.FROM.text).map(({ metaVariables: { single } }) => single.URL.text));
+    yield* Array.match(stale, {
+        onEmpty: () => Effect.void,
+        onNonEmpty: (moved) => rewrite(Object.fromEntries(moved.map((url, at) => [`requirement${at}`, `language: swiftlang, rule: {pattern: '.package(url: "${url}", from: "$FROM")'}, fix: '.package(url: "${url}", from: "${release(url)}")'`])), ['--custom-languages', 'allow', ...(listed['Package.swift'] ?? [])]),
+    });
     yield* Effect.forEach(documents, ([file, document]) => project(file, document, release), { concurrency: 'unbounded', discard: true });
 }).pipe(Effect.provide(layer), runMain);

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-dropped-tracer-logger
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, pattern: $LAYER, matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^layer$'}}}}
+        - has: {field: arguments, has: {nthChild: 1, kind: array, pattern: $LOGGERS, not: {has: {regex: '\btracerLogger$'}}}}
+        - not: {has: {field: arguments, has: {nthChild: 2, has: {kind: pair, all: [{has: {field: key, regex: '^mergeWithExisting$'}}, {has: {field: value, regex: '^true$'}}]}}}}
+        - inside: {kind: program, stopBy: end, regex: '\bOtlp(Tracer)?\.layer'}
+message: '`$LAYER($LOGGERS)` replaces the default loggers and drops log events from spans'
+note: 'List `Logger.tracerLogger` beside the console logger, or pass `{ mergeWithExisting: true }`'

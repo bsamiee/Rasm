@@ -1,11 +1,10 @@
-import { Array, Effect, FileSystem, Option, Order, Record, Schema } from 'effect';
+import { Array, Effect, Option, Record, Schema } from 'effect';
 import { compare } from 'verkit';
 import { stdout } from '#/eng/typescript/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Span = Schema.Struct({ start: Schema.Int, end: Schema.Int });
-const Capture = Schema.Struct({ text: Schema.String, range: Schema.Struct({ byteOffset: Span }) });
+const Capture = Schema.Struct({ text: Schema.String });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -21,19 +20,13 @@ const newest = Effect.fn('newest')(function* (url: string, parse: (tag: string) 
     const tags = (yield* stdout('git', ['ls-remote', '--tags', '--refs', url])).split('\n').flatMap((line) => Option.toArray(Option.flatMap(Option.fromUndefinedOr(line.split('refs/tags/')[1]), parse)));
     return yield* Array.match(tags, { onEmpty: () => Effect.fail(NoRelease.make({ url })), onNonEmpty: (all) => Effect.succeed(Array.max(all, compare)) });
 });
-const scan = Effect.fn('scan')(function* <Id extends string, Single extends Schema.Struct.Fields>(rules: Record.ReadonlyRecord<Id, string>, single: Single, args: readonly string[]) {
-    const text = yield* stdout('ast-grep', ['scan', '--inline-rules', Record.collect(rules, (id, rule) => `{id: ${id}, severity: info, ${rule}}`).join('\n---\n'), '--json=compact', ...args]);
-    return yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ file: Schema.String, ruleId: Schema.Literals(Record.keys(rules)), metaVariables: Schema.Struct({ single: Schema.Struct(single) }) }))))(text);
+const inline = (rules: Record.ReadonlyRecord<string, string>) => Record.collect(rules, (id, rule) => `{id: ${id}, severity: info, ${rule}}`).join('\n---\n');
+const scan = Effect.fn('scan')(function* <Single extends Schema.Struct.Fields>(rules: Record.ReadonlyRecord<string, string>, single: Single, args: readonly string[]) {
+    const text = yield* stdout('ast-grep', ['scan', '--inline-rules', inline(rules), '--json=compact', ...args]);
+    return yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ metaVariables: Schema.Struct({ single: Schema.Struct(single) }) }))))(text);
 });
-const splice = Effect.fn('splice')(function* (file: string, edits: ReadonlyArray<readonly [typeof Span.Type, string]>) {
-    const fs = yield* FileSystem.FileSystem;
-    const bytes = Buffer.from(yield* fs.readFile(file));
-    yield* fs.writeFile(
-        file,
-        Array.sortWith(edits, ([{ start }]) => start, Order.flip(Order.Number)).reduce((text, [{ start, end }, value]) => Buffer.concat([text.subarray(0, start), Buffer.from(value), text.subarray(end)]), bytes),
-    );
-});
+const rewrite = (rules: Record.ReadonlyRecord<string, string>, args: readonly string[]) => stdout('ast-grep', ['scan', '--inline-rules', inline(rules), '--update-all', ...args]);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Capture, newest, scan, splice };
+export { Capture, newest, rewrite, scan };

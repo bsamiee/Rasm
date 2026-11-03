@@ -1,7 +1,7 @@
 import type { InDesignDOMObject, ParagraphStyle, Story, Text, TextFrame } from 'adobe:indesign';
 import { HostError, Reference } from '@rasm/automation/requests';
 import { Settings } from '@rasm/typography/settings';
-import { Array, Cache, Effect, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cache, Effect, flow, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
 import { reference } from '#/dom/specifier';
@@ -61,8 +61,14 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
         return yield* read(StyleView, style.toSpecifier(), () => ({
             _tag: 'Style',
             ...reference(style),
-            group: Array.flatMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? [ancestor.name] : [])),
-            basedOn: Array.unfold(basedOn, (each) => (model.host(each) && Predicate.hasProperty(each, 'basedOn') ? Option.some([each, each.basedOn] as const) : Option.none())),
+            group: Array.filterMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
+            basedOn: Array.unfold(
+                basedOn,
+                flow(
+                    Option.liftPredicate(StyleView.matches(model)),
+                    Option.map((above) => [above, above.basedOn] as const),
+                ),
+            ),
             nextStyle: Option.liftPredicate(properties.nextStyle, model.host),
             own,
             paragraphAttributes: Option.zipWith(paragraph, settings, ParagraphAttributes.of),
@@ -91,8 +97,8 @@ class StoryView extends Schema.TaggedClass<StoryView, { readonly brand: unique s
                 overset: story.length - Number.sumAll(Array.map(containers, ({ characters }) => characters.length)),
                 textContainers: Array.map(containers, (container) => ({
                     ...reference(container),
-                    page: 'parentPage' in container ? Option.map(Option.fromNullOr(container.parentPage), Struct.get('name')) : Option.none(),
-                    columns: 'textFramePreferences' in container ? Option.some(container.textFramePreferences.textColumnCount) : Option.none(),
+                    page: container.constructorName === 'TextPath' ? Option.none() : Option.map(Option.fromNullOr(container.parentPage), Struct.get('name')),
+                    columns: container.constructorName === 'TextPath' ? Option.none() : Option.some(container.textFramePreferences.textColumnCount),
                     overflows: container.overflows,
                     characters: container.characters.length,
                 })),

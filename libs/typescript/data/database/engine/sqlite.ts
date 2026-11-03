@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Match, Option, Record, Schema, String, Struct } from 'effect';
+import { Array, Effect, Equal, Match, Option, Record, Result, Schema, String, Struct } from 'effect';
 import type { SqlClient, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Engine } from '#/engine';
@@ -108,7 +108,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     };
     static readonly open: Engine['open'] = (sql) => sql`PRAGMA optimize = 0x10002`;
     static readonly commented = ({ columns, ...table }: typeof SqliteTable.Type) => {
-        const found = Array.fromIterable(String.matchAll(patterns.comment)(table.sql)).flatMap(({ groups }) => (groups?.name === undefined || groups.identity === undefined ? [] : [{ name: groups.name.replaceAll('""', '"'), comment: groups.identity }]));
+        const found = Array.filterMap(String.matchAll(patterns.comment)(table.sql), ({ groups }) => (groups?.name === undefined || groups.identity === undefined ? Result.failVoid : Result.succeed({ name: groups.name.replaceAll('""', '"'), comment: groups.identity })));
         const own = Option.filter(Array.head(found), ({ name }) => name === table.name);
         const rest = Option.isSome(own) ? Array.drop(found, 1) : found;
         return {

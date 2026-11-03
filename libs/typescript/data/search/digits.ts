@@ -1,4 +1,4 @@
-import { Array, Data, Option } from 'effect';
+import { Array, Data, Option, pipe } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,13 +17,15 @@ class Digits extends Data.Class<{ readonly system: string; readonly table: reado
         ).length % ASCII.length;
     static readonly fold = (text: string): string => text.replace(DECIMAL, (digit) => `${Digits.#value(digit)}`);
     static readonly of = (system: string): Option.Option<Digits> =>
-        Option.map(
-            Option.liftPredicate(system, (given) => Array.contains(Intl.supportedValuesOf('numberingSystem'), given)),
-            (known) => {
+        pipe(
+            system,
+            Option.liftPredicate((given: string) => Array.contains(Intl.supportedValuesOf('numberingSystem'), given)),
+            Option.map((known) => {
                 const { format } = new Intl.NumberFormat('en', { numberingSystem: known });
                 return new Digits({ system: known, table: Array.makeBy(ASCII.length, format) });
-            },
-        ).pipe(Option.filter(({ table }) => Digits.fold(table.join('')) === ASCII));
+            }),
+            Option.filter(({ table }) => Digits.fold(table.join('')) === ASCII),
+        );
     static get systems(): readonly string[] {
         return Intl.supportedValuesOf('numberingSystem').filter((system) => Option.isSome(Digits.of(system)));
     }

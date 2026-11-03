@@ -12,6 +12,7 @@ const UNEVALUATED = 'EvalScript error.';
 
 const Cep = Schema.Struct({ evalScript: Schema.declare(Predicate.isFunction), getSystemPath: Schema.declare(Predicate.isFunction), getExtensionId: Schema.declare(Predicate.isFunction) });
 const Panel = Schema.Struct({ __adobe_cep__: Schema.declare(Schema.is(Cep)) });
+const Labeled = Schema.Struct({ label: Schema.String });
 const Reply = Schema.Union([
     Schema.Literal(UNEVALUATED).pipe(Schema.decodeTo(Schema.toEncoded(Schema.TaggedStruct('Unevaluated', {})), { decode: SchemaGetter.succeed({ _tag: 'Unevaluated' as const }), encode: SchemaGetter.forbiddenEncoding })),
     Schema.fromJsonString(
@@ -38,7 +39,7 @@ const extension = (): void => {
             (payload: unknown) =>
                 Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ tag: Schema.Literal(tag), label: Schema.String, payload: Schema.toCodecJson(payloadSchema) })))({
                     tag,
-                    label: Predicate.hasProperty(payload, 'label') && Predicate.isString(payload.label) ? payload.label : tag,
+                    label: Option.match(Schema.decodeUnknownOption(Labeled)(payload), { onNone: () => tag, onSome: ({ label }) => label }),
                     payload,
                 }).pipe(
                     Effect.flatMap((request) => evaluated(`handle(${request.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`)),

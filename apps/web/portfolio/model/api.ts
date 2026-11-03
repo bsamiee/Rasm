@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation } from 'effect';
+import { Array, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
 import { Id, uploadLimit } from '#/model/asset';
 import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
@@ -24,7 +24,10 @@ const Api = HttpApi.make('portfolio')
         HttpApiGroup.make('content').add(
             HttpApiEndpoint.get('draft', '/portfolio', { success: HttpApiSchema.WithHeaders(PortfolioData, { 'draft-etag': Revision }) }),
             HttpApiEndpoint.put('save', '/portfolio', { payload: StoredPortfolio, ...write }),
-            HttpApiEndpoint.post('publish', '/publish', { payload: StoredPortfolio.check(Schema.makeFilter((document) => document.entries.flatMap(({ title }, index) => (title.trim() === '' ? [{ path: ['entries', index, 'title'], issue: 'Title required to publish' }] : [])))), ...write }),
+            HttpApiEndpoint.post('publish', '/publish', {
+                payload: StoredPortfolio.check(Schema.makeFilter((document) => Array.filterMap(document.entries, ({ title }, index) => (title.trim() === '' ? Result.succeed({ path: ['entries', index, 'title'], issue: 'Title required to publish' }) : Result.failVoid)))),
+                ...write,
+            }),
         ),
         HttpApiGroup.make('media').add(
             HttpApiEndpoint.get('pending', '/media/pending', { success: Schema.Array(PendingUpload) }),

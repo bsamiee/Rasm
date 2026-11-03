@@ -1,6 +1,6 @@
 import type { Document, Gradient, Layer, Link, MasterSpread, MixedInk, MixedInkGroup, Page, PageItem, PlainColor, PlainSwatch, Spread, Tint } from 'adobe:indesign';
 import { HostError, type Open, Reference } from '@rasm/automation/requests';
-import { Array, Effect, Match, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Effect, Match, Number, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { HostSettings } from '#/documents/settings';
 import { ParagraphAttributes } from '#/documents/text';
 import { Model } from '#/dom/model';
@@ -163,7 +163,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
 }) {
     static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
     static readonly matches = (model: typeof Model.Service) => model.document;
-    static readonly overset = ({ stories }: Document): readonly string[] => Array.flatMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? [stories.itemByID(id).toSpecifier()] : []));
+    static readonly overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
     static readonly row = Effect.fn('DocumentView.row')(function* (document: Document) {
         const { saved } = document;
         return { ...reference(document), saved, modified: document.modified, path: saved ? yield* Model.file(document, 'fullName') : Option.none(), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };

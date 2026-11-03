@@ -1,7 +1,7 @@
 import type { BaseCollection, Document, Enumeration, Enumerator, InDesignDOMObject, Page, PageItem, ReadonlyNamedDOMObject, Spread, Text, TextFrame } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cache, Context, Effect, flow, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
+import { Array, Cache, Context, Effect, flow, Option, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
 import { READER, Rows, unavailable } from '#/dom/dictionary';
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -10,8 +10,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
     make: Effect.fnUntraced(function* (indesign: typeof import('adobe:indesign')) {
         const model: typeof indesign = Object.create(indesign);
         const exported = Array.map(Object.getOwnPropertyNames(indesign), (name) => [name, Reflect.get(indesign, name)] as const);
-        const classes = Array.flatMap(exported, ([name, value]) => (Predicate.isFunction(value) ? [name] : []));
-        const enumerations = Array.flatMap(exported, ([name, value]) => (value instanceof indesign.Enumeration ? [name] : []));
+        const classes = Array.filterMap(exported, ([name, value]) => (Predicate.isFunction(value) ? Result.succeed(name) : Result.failVoid));
+        const enumerations = Array.filterMap(exported, ([name, value]) => (value instanceof indesign.Enumeration ? Result.succeed(name) : Result.failVoid));
         const enumeration = (name: string): Option.Option<Enumeration> => Option.liftPredicate(Reflect.get(indesign, name), (value): value is Enumeration => value instanceof indesign.Enumeration);
         const enumerator = (value: unknown): value is Enumerator => value instanceof indesign.Enumerator;
         const members = <E extends Enumeration>(found: E) => {
@@ -22,7 +22,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/model', {
             });
         };
         const owning = <A>(member: keyof A & string) => {
-            const owners = new Set(Array.flatMap(exported, ([, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? [type.prototype] : [])));
+            const owners = new Set(Array.filterMap(exported, ([, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? Result.succeed(type.prototype) : Result.failVoid)));
             return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
         };
         const host = owning<InDesignDOMObject<unknown>>('toSpecifier');

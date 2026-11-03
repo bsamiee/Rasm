@@ -1,5 +1,6 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
+import { HostError } from '@rasm/automation/requests';
 import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, PlatformError, Predicate, Record, Schema, Scope, ScopedRef, Sink, Stdio, Stream, UndefinedOr } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import type { Link } from '#/link';
@@ -44,7 +45,7 @@ const plugin = <E, F>(
             const manifest = yield* Effect.try({ try: () => fs.readFileSync(path, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: path, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)));
             const origin = yield* Effect.fromOption(
                 Option.map(manifest.requiredPermissions.network, ({ domains: [first] }) => first),
-                () => new Cause.NoSuchElementError(`${manifest.name} manifest lacks requiredPermissions.network`),
+                () => HostError.make({ reason: { _tag: 'Unavailable', because: 'manifest lacks requiredPermissions.network' }, subject: manifest.name }),
             );
             return Layer.provideMerge(dial({ origin, extension: manifest.name }), Layer.succeed(Plugin)(manifest));
         }).pipe(Layer.unwrap, Layer.provideMerge(hostLayer), Layer.tapCause(logCause)),

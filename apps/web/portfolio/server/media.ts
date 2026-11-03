@@ -74,9 +74,7 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
                         () => HttpApiError.BadRequest.make(),
                     ),
                 );
-                if (Option.isNone(stored)) {
-                    yield* completeUpload(asset.id, attempt);
-                }
+                yield* Option.match(stored, { onNone: () => completeUpload(asset.id, attempt), onSome: () => Effect.void });
                 return { id: asset.id };
             },
             Effect.scoped,

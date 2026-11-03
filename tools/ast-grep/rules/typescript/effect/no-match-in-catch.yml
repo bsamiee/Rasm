@@ -38,6 +38,10 @@ utils:
               all:
                 - has: {field: left, kind: identifier, pattern: $E}
                 - has: {field: operator, regex: '^instanceof$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bCause$'}, member: {regex: '^(is|has)[A-Z]\w*$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $E}}
     refailing-catch:
         kind: call_expression
         all:
@@ -54,4 +58,4 @@ rule:
                 has: {stopBy: {matches: typescript-function-boundary}, matches: selection}
         - not: {matches: refailing-catch}
 message: '`$HANDLER` selects the failure by hand inside its callback'
-note: 'Call `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module to select the failure by `_tag` or predicate'
+note: 'Call `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module to select the failure by `_tag` or predicate, `catchCauseIf` or `tapCauseIf` to select the cause by a `Cause` refinement'

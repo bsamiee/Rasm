@@ -16,7 +16,7 @@ const server = <K extends string, A, E>(
     ) => Layer.Layer<A, E, HttpRouter.HttpRouter | Page | Layer.Success<typeof NodeHttpServer.layerHttpServices> | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A | Page> | HttpRouter.Request<'GlobalRequires', A>>,
 ) => {
     const root = join(import.meta.dirname, layout.assets);
-    const telemetry = Otlp.layerFromConfig({ resource: { serviceName: worker.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson])));
+    const telemetry = Otlp.layerFromConfig({ resource: { serviceName: worker.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])));
     return Layer.unwrap(
         Effect.gen(function* () {
             const [env, files, memoMap] = yield* Effect.all([

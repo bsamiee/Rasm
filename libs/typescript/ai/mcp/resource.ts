@@ -23,7 +23,7 @@ const resourceValues = Effect.fnUntraced(function* <A, I, R>(schema: Schema.Code
     const observe = (uri: string, read: Effect.Effect<A, Error>) =>
         read.pipe(
             Effect.tap((value) => SubscriptionRef.update(store, HashMap.set(uri, [read, value] as const))),
-            Effect.tapError((error) => (Cause.isNoSuchElementError(error) ? SubscriptionRef.update(store, HashMap.remove(uri)) : Effect.void)),
+            Effect.tapCauseIf(flow(Cause.findErrorOption, Option.exists(Cause.isNoSuchElementError)), () => SubscriptionRef.update(store, HashMap.remove(uri))),
         );
     const matchingEntry = (at: string, holds: Predicate.Predicate<A>) =>
         flow(

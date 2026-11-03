@@ -2,7 +2,6 @@
 id: no-listed-enum-members
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts']
 utils:
     literal-union:
         kind: union_type

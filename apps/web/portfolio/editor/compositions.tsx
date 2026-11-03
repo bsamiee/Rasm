@@ -52,7 +52,7 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
                 {second === undefined ? (
                     <MenuButton
                         onAction={({ pair }) => update((compositions) => compositions.filter((candidate) => candidate.id !== pair.id).map((candidate) => (candidate.id === item.id ? { ...candidate, items: [first, pair.items[0]] } : candidate)))}
-                        options={entry.compositions.flatMap((pair) => (pair.id !== item.id && pair.items.length === 1 ? [{ id: pair.id, label: placementTitle(pair.items[0]), pair }] : []))}
+                        options={entry.compositions.filter((pair) => pair.id !== item.id && pair.items.length === 1).map((pair) => ({ id: pair.id, label: placementTitle(pair.items[0]), pair }))}
                     >
                         Pair with
                     </MenuButton>

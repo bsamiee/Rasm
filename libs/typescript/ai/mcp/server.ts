@@ -19,17 +19,15 @@ const ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBloc
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const orInternalError = Effect.catchCause((cause: Cause.Cause<unknown>) =>
-    Cause.hasInterruptsOnly(cause)
-        ? Effect.interrupt
-        : Effect.fail(
-              McpSchema.InternalError.make({
-                  message: Cause.prettyErrors(cause)
-                      .map((error) => Formatter.format(error))
-                      .join('\n'),
-              }),
-          ),
-);
+const internalError = (_: unknown, cause: Cause.Cause<unknown>) =>
+    Effect.fail(
+        McpSchema.InternalError.make({
+            message: Cause.prettyErrors(cause)
+                .map((error) => Formatter.format(error))
+                .join('\n'),
+        }),
+    );
+const orInternalError = <A, E, R>(self: Effect.Effect<A, E, R>) => Effect.catchCauseFilter(Effect.catchCauseFilter(self, Cause.findError, internalError), Cause.findDefect, internalError);
 const failureAttributes = Exit.match({ onSuccess: (value: unknown) => (Schema.is(McpSchema.CallToolResult)(value) && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause: Cause.Cause<unknown>) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) });
 const instrumented =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>

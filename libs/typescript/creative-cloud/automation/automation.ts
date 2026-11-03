@@ -1,4 +1,4 @@
-import { Cause, Context, Duration, Effect, identity, Layer, Schedule, Sink, Stream, SubscriptionRef } from 'effect';
+import { Context, Duration, Effect, identity, Layer, Schedule, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -11,16 +11,13 @@ class Host extends Context.Service<Host, ChildProcessSpawner.ChildProcessHandle>
 class Automation extends Context.Service<Automation>()('@rasm/automation/automation', {
     make: Effect.gen(function* () {
         const [client, { exitCode: exited }] = yield* Effect.all([RpcClient.make(Contract), Host]);
-        const held = Effect.fnUntraced(function* <A, E, R>(changes: Stream.Stream<A, E, R>, subject: string) {
+        const held = Effect.fnUntraced(function* <A, E, R>(changes: Stream.Stream<A, E, R>) {
             const [first, rest] = yield* Stream.peel(changes, Sink.head());
-            const latest = yield* Effect.flatMap(
-                Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} stream ended before first value`)),
-                SubscriptionRef.make,
-            );
+            const latest = yield* Effect.flatMap(Effect.fromOption(first), SubscriptionRef.make);
             yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(latest, value)));
             return latest;
         });
-        const [installations, instances] = yield* Effect.all([held(client.installations(), 'installations'), held(client.instances(), 'instances')]);
+        const [installations, instances] = yield* Effect.all([held(client.installations()), held(client.instances())]);
         return { ...client, installations, instances, exited, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
     }),
 }) {

@@ -129,7 +129,7 @@ const fontByName = Effect.fn('fontByName')(function* (name: string) {
     );
     const missing = Array.flatMap(app.documents.everyItem().getElements(), (open) => {
         const used = open.fonts.everyItem();
-        return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ names: [label], font: () => open.fonts.item(index) }]));
+        return Array.filterMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? Result.failVoid : Result.succeed({ names: [label], font: () => open.fonts.item(index) })));
     });
     return (yield* Unmatched.single([...installed, ...missing], 'font', Option.some(name), Struct.get('names'))).font();
 });

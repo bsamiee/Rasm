@@ -35,7 +35,7 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
     });
     static readonly handle = (payload: FindChange) =>
         Option.match(payload.scope, { onSome: Specifier.resolve, onNone: () => Model.document }).pipe(
-            Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? commit(payload.label, payload.search(found)) : payload.search(found))),
+            Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? commit(payload.label, FindChange.search(payload, found)) : FindChange.search(payload, found))),
             Effect.flatMap(({ count, matches }) => read(FindChange.Result, payload.label, () => ({ count, matches: payload.slice.of(matches) }))),
         );
 
@@ -43,60 +43,57 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
         return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
     }
 
-    search(located: unknown) {
-        const { mode, find: sought, change: replacing, options, scope } = this;
+    static readonly search = Effect.fnUntraced(function* ({ mode, find: sought, change: replacing, options, scope }: FindChange, located: unknown) {
         const { find, change, preferences } = modes[mode];
-        return Effect.gen(function* () {
-            const model = yield* Model;
-            const { app, enumerator, NothingEnum } = model;
-            yield* Effect.forEach(Object.values(preferences), held, { discard: true });
-            yield* Effect.try({
-                try: () =>
-                    Object.assign(
-                        app,
-                        Record.mapEntries(preferences, (member) => [member, NothingEnum.NOTHING]),
-                    ),
-                catch: HostError.refused(`reset of ${mode} preferences`),
-            });
-            const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (enumerator(each) ? `<${String(each)}>` : String(each))).join('');
-            const scopes = yield* Effect.forEach(
-                Array.ensure(located),
-                flow(
-                    Option.liftPredicate(model.owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change)),
-                    Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.map(scope, Struct.get('path')), candidates: [] })),
+        const model = yield* Model;
+        const { app, enumerator, NothingEnum } = model;
+        yield* Effect.forEach(Object.values(preferences), held, { discard: true });
+        yield* Effect.try({
+            try: () =>
+                Object.assign(
+                    app,
+                    Record.mapEntries(preferences, (member) => [member, NothingEnum.NOTHING]),
                 ),
-            );
-            yield* Effect.forEach(
-                [
-                    [preferences.find, sought],
-                    [preferences.options, options],
-                    [preferences.change, replacing],
-                ] as const,
-                ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => Change.write(app[target], values))),
-                { discard: true },
-            );
-            const describe = (hit: Text | PageItem) => {
-                const frame = model.text(hit) ? hit.parentTextFrames[0] : undefined;
-                return model.text(hit) ? { specifier: hit.toSpecifier(), text: rendered(hit.contents), page: frame !== undefined && 'parentPage' in frame ? frame.parentPage?.name : undefined } : { specifier: hit.toSpecifier(), page: model.item(hit) ? hit.parentPage?.name : undefined };
-            };
-            const found = yield* Effect.forEach(
-                scopes,
-                Effect.fnUntraced(function* (each) {
-                    yield* Effect.transposeOption(Option.map(model.owner(each), (context) => preserve(app, { activeDocument: context })));
-                    return yield* Effect.try({
-                        try: () => {
-                            const hits = each[find]();
-                            const matches = Predicate.isNumber(hits) ? [] : hits.map(describe);
-                            return { count: { matches: Predicate.isNumber(hits) ? hits : hits.length, changes: Option.flatMap(replacing, () => Option.liftPredicate(each[change](), Predicate.isNumber)) }, matches };
-                        },
-                        catch: HostError.refused(`${mode} search of ${each.toSpecifier()}`),
-                    });
-                }, Effect.scoped),
-            );
-            const changes = Array.getSomes(found.map(({ count }) => count.changes));
-            return { count: { matches: Number.sumAll(found.map(({ count }) => count.matches)), changes: Option.map(Option.liftPredicate(changes, Array.isReadonlyArrayNonEmpty), Number.sumAll) }, matches: Array.flatMap(found, Struct.get('matches')) };
-        }).pipe(Effect.scoped);
-    }
+            catch: HostError.refused(`reset of ${mode} preferences`),
+        });
+        const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (enumerator(each) ? `<${String(each)}>` : String(each))).join('');
+        const scopes = yield* Effect.forEach(
+            Array.ensure(located),
+            flow(
+                Option.liftPredicate(model.owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change)),
+                Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.map(scope, Struct.get('path')), candidates: [] })),
+            ),
+        );
+        yield* Effect.forEach(
+            [
+                [preferences.find, sought],
+                [preferences.options, options],
+                [preferences.change, replacing],
+            ] as const,
+            ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => Change.write(app[target], values))),
+            { discard: true },
+        );
+        const describe = (hit: Text | PageItem) => {
+            const frame = model.text(hit) ? hit.parentTextFrames[0] : undefined;
+            return model.text(hit) ? { specifier: hit.toSpecifier(), text: rendered(hit.contents), page: frame !== undefined && frame.constructorName !== 'TextPath' ? frame.parentPage?.name : undefined } : { specifier: hit.toSpecifier(), page: model.item(hit) ? hit.parentPage?.name : undefined };
+        };
+        const found = yield* Effect.forEach(
+            scopes,
+            Effect.fnUntraced(function* (each) {
+                yield* Effect.transposeOption(Option.map(model.owner(each), (context) => preserve(app, { activeDocument: context })));
+                return yield* Effect.try({
+                    try: () => {
+                        const hits = each[find]();
+                        const matches = Predicate.isNumber(hits) ? [] : hits.map(describe);
+                        return { count: { matches: Predicate.isNumber(hits) ? hits : hits.length, changes: Option.flatMap(replacing, () => Option.liftPredicate(each[change](), Predicate.isNumber)) }, matches };
+                    },
+                    catch: HostError.refused(`${mode} search of ${each.toSpecifier()}`),
+                });
+            }, Effect.scoped),
+        );
+        const changes = Array.getSomes(found.map(({ count }) => count.changes));
+        return { count: { matches: Number.sumAll(found.map(({ count }) => count.matches)), changes: Option.map(Option.liftPredicate(changes, Array.isReadonlyArrayNonEmpty), Number.sumAll) }, matches: Array.flatMap(found, Struct.get('matches')) };
+    }, Effect.scoped);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

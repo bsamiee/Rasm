@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-option-branch-statement
+language: tsx
+severity: error
+rule:
+    kind: if_statement
+    has:
+        field: condition
+        has:
+            nthChild: 1
+            kind: call_expression
+            all:
+                - has: {field: function, pattern: $TEST, matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^is(Some|None)$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $OPTION}, not: {has: {nthChild: 2}}}
+message: '`if ($TEST($OPTION))` branches on an `Option` by statement'
+note: 'Fold with `Option.match(<option>, { onNone, onSome })`, or exit through `Effect.fromOption` or `Option.getOrElse`'

@@ -1,6 +1,11 @@
 import { Array, Effect, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
 import { rank } from '#/rank';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const COLLATOR = new Intl.Collator('en', { usage: 'search', sensitivity: 'accent' });
+const LISTING = new Intl.ListFormat('en');
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.OptionFromOptionalKey(Schema.String), candidates: Schema.Array(Schema.String) }) {
@@ -13,16 +18,14 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
             const all = Array.fromIterable(candidates);
             return Option.match(query, {
                 onNone: () => Effect.succeed(all),
-                onSome: (wanted) => {
-                    const { compare } = new Intl.Collator('en', { usage: 'search', sensitivity: 'accent' });
-                    return Effect.fromOption(
+                onSome: (wanted) =>
+                    Effect.fromOption(
                         Option.liftPredicate(
-                            all.filter((candidate) => names(candidate).some((name) => compare(name, wanted) === 0)),
+                            all.filter((candidate) => names(candidate).some((name) => COLLATOR.compare(name, wanted) === 0)),
                             Array.isReadonlyArrayNonEmpty,
                         ),
                         () => Unmatched.make({ subject, query, candidates: Array.dedupe(Array.flatMap(all, flow(names, Array.take(1)))) }),
-                    );
-                },
+                    ),
             });
         },
     );
@@ -48,7 +51,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         );
         const shown = Array.take(ordered, limit);
         const rest = this.candidates.length - shown.length;
-        const listed = new Intl.ListFormat('en').format([...shown, ...(rest === 0 ? [] : [`${rest} more`])]);
+        const listed = LISTING.format([...shown, ...(rest === 0 ? [] : [`${rest} more`])]);
         return `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}${listed === '' ? '' : `, candidates: ${listed}`}`;
     }
 }

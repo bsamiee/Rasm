@@ -203,10 +203,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const drawings = catalog.tables.map((declared) => ({ declared, rendered: render(sql, Pg, catalog, declared) }));
         const indexes = drawings.flatMap(({ rendered }) => rendered.indexes);
         const required = Array.dedupe(indexes.flatMap(Struct.get('extensions')));
-        const owned = Array.dedupeWith(
-            indexes.flatMap(({ configuration }) => Option.toArray(configuration)),
-            (self, that) => self.name === that.name,
-        );
+        const owned = Array.dedupeWith(Array.getSomes(indexes.map(({ configuration }) => configuration)), (self, that) => self.name === that.name);
         const preamble = PgPrelude.preamble(sql, catalog.timeouts);
         const { migrator, absent, configurations } = yield* PgPrelude.open(sql, preamble, required, Array.dedupe(owned.flatMap(Struct.get('filters'))), owned);
         const [existing, drifted] = [configurations.filter(Struct.get('configured')).map(Struct.get('name')), configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(Struct.get('name'))];
@@ -244,9 +241,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             const owner = entry.rendered.relation;
             const prior = (parts: readonly string[]) => identifier([entry.live.name, ...parts.map(entry.original)]);
             const named = [...entry.live.checks, ...entry.live.references].map(({ name: constraint }) => constraint);
-            const relabels = [...entry.rendered.definitions.flatMap(({ check }) => Option.toArray(check)), ...entry.rendered.links]
-                .filter(({ name: target, parts }) => named.includes(prior(parts)) && prior(parts) !== target && !named.includes(target))
-                .map(({ name: target, parts }) => ({ from: prior(parts), to: target }));
+            const relabels = [...Array.getSomes(entry.rendered.definitions.map(({ check }) => check)), ...entry.rendered.links].filter(({ name: target, parts }) => named.includes(prior(parts)) && prior(parts) !== target && !named.includes(target)).map(({ name: target, parts }) => ({ from: prior(parts), to: target }));
             const relabeled = (constraint: string) => relabels.find(({ from }) => from === constraint)?.to ?? constraint;
             const links = entry.live.references.map((row) => ({ ...row, name: relabeled(row.name), columns: Array.map(row.columns, entry.renamed), target: resolved.referenced(row.target).name }));
             const stale = entry.rendered.links.filter((link) => !links.some((row) => row.name === link.name && Equal.equals(row.columns, link.columns) && row.target === link.target && row.onDelete === link.onDelete));

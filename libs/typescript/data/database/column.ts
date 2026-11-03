@@ -51,7 +51,7 @@ class Column extends Data.Class<{
             (nodes: readonly SchemaRepresentation.Representation[]) =>
             <P>({ id, payloadSchema }: SchemaRepresentation.FilterReviver<P>) =>
                 Array.flatMapNullishOr(
-                    nodes.flatMap((node) => ('checks' in node ? node.checks.flatMap(leaves) : [])),
+                    nodes.flatMap((node) => (node._tag === 'Reference' ? [] : node.checks.flatMap(leaves))),
                     Struct.get('representation'),
                 ).flatMap((check) => (check.id === id ? Option.toArray(Schema.decodeOption(Schema.toCodecJson(payloadSchema))(check.payload)) : []));
         const [stored, typed] = [payloads(values), payloads(decoded)];
@@ -107,7 +107,12 @@ class Column extends Data.Class<{
                 limits(typed, SchemaRepresentation.isBetweenBigIntReviver, false, lower, upper),
             ].flat(),
             fallback: Schema.decodeUnknownOption(Fallback)(defaults?.[field]),
-            projection: Option.map(Option.fromUndefinedOr(projections?.[field]), (projection) => ('where' in projection ? Column.Projection.Where({ where: Column.conditions(projection.where) }) : Column.Projection.Path({ from: String.camelToSnake(projection.from), path: projection.path }))),
+            projection: Option.map(Option.fromUndefinedOr(projections?.[field]), (projection: NonNullable<NonNullable<TableOptions<Fields>['projections']>[string]>) =>
+                Match.value(projection).pipe(
+                    Match.when({ where: Match.defined }, ({ where }) => Column.Projection.Where({ where: Column.conditions(where) })),
+                    Match.orElse(({ from, path }) => Column.Projection.Path({ from: String.camelToSnake(from), path })),
+                ),
+            ),
             earlier: Option.map(Option.fromUndefinedOr(renamed?.[field]), String.camelToSnake),
             incarnation: Array.countBy(retired, Equal.equals(name)),
             retype: Option.exists(Option.fromUndefinedOr(retype), Array.contains(field)),

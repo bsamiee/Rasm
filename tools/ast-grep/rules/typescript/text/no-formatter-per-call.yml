@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-formatter-per-call
+language: tsx
+severity: error
+rule:
+    kind: new_expression
+    all:
+        - has: {field: constructor, pattern: $FORMATTER, regex: '^((globalThis|window|self)\.)?Intl\.[A-Z]\w*$', matches: typescript-global-reference}
+        - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
+        - inside: {stopBy: end, kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
+message: '`$FORMATTER` with constant options is rebuilt at each call'
+note: 'Build the formatter once in a module `const` and read it inside the function'

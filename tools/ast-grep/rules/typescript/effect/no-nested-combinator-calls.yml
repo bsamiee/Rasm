@@ -33,30 +33,41 @@ utils:
             - has: {field: arguments, has: {nthChild: 2}}
 rule:
     pattern: $CALL
-    all:
-        - matches: member-call
-        - has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call}}}}}}
-        - matches: data-first-step
-        - has: {field: function, pattern: $OUTER}
-        - has:
-            field: arguments
-            has:
-                nthChild: 1
-                matches: data-first-step
-                has: {field: arguments, has: {nthChild: 1, matches: data-first-step}}
-        - not:
-            all:
-                - nthChild: 1
-                - inside: {kind: arguments, inside: {matches: data-first-step}}
-        - not: {has: {kind: comment, stopBy: end}}
-        - not: {has: {kind: type_arguments, stopBy: end}}
-        - any:
-            - pattern: $FIXABLE
-              inside:
-                kind: program
-                stopBy: end
-                has: {kind: import_statement, has: {stopBy: end, kind: identifier, regex: '^pipe$', matches: effect-pipe-function}}
-            - pattern: $KEPT
+    any:
+        - kind: call_expression
+          pattern: $KEPT
+          all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^pipe$'}
+                    - has: {field: object, matches: step, all: [{has: {field: function, pattern: $OUTER}}, {has: {field: arguments, all: [{has: {nthChild: 1, matches: module-call}}, {has: {nthChild: 2}}]}}]}
+            - not: {has: {kind: comment, stopBy: end}}
+        - all:
+            - matches: member-call
+            - has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call}}}}}}
+            - matches: data-first-step
+            - has: {field: function, pattern: $OUTER}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    matches: data-first-step
+                    has: {field: arguments, has: {nthChild: 1, matches: data-first-step}}
+            - not:
+                all:
+                    - nthChild: 1
+                    - inside: {kind: arguments, inside: {matches: data-first-step}}
+            - not: {has: {kind: comment, stopBy: end}}
+            - not: {has: {kind: type_arguments, stopBy: end}}
+            - any:
+                - pattern: $FIXABLE
+                  inside:
+                    kind: program
+                    stopBy: end
+                    has: {kind: import_statement, has: {stopBy: end, kind: identifier, regex: '^pipe$', matches: effect-pipe-function}}
+                - pattern: $KEPT
 rewriters:
     - id: unary
       rule:
@@ -88,7 +99,7 @@ transform:
     STEPS: rewrite($FIXABLE, rewriters=[unary, steps, unary-head, head])
     PIPED: {replace: {source: $STEPS, replace: '(?s)^(.+)$', by: 'pipe($1)'}}
 fix: $PIPED$KEPT
-message: '`$OUTER` wraps data-first module calls four deep'
+message: '`$OUTER` nests data-first module calls four deep or under a `.pipe`'
 note: 'Write `pipe(<value>, <step>, <step>, <step>)`'
 labels:
     CALL: {style: primary}

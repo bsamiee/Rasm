@@ -1,7 +1,7 @@
 import { Catalog } from '@rasm/database/catalog';
 import { Column } from '@rasm/database/column';
 import { Relation } from '@rasm/database/relation';
-import { Option, Schema } from 'effect';
+import { Array, Option, Schema } from 'effect';
 import { type SqlClient, Statement } from 'effect/sql';
 import { StoredPortfolio } from '#/model/portfolio';
 
@@ -23,11 +23,7 @@ const assets = Relation.make(
 );
 const owner = Relation.make('owner', { email: Schema.String, userId: Schema.String }, { key: ['email'], withoutRowid: true });
 const catalog = new Catalog({ tables: [documents, assets, owner], retired: ['reconcile_revision'], excluded: ['_cf_'] });
-const bookkeeping = Statement.csv(
-    Object.values(assets.columns)
-        .flatMap(({ projection }) => Option.toArray(Option.filter(projection, Column.Projection.$is('Path'))))
-        .map(({ path }) => Statement.fragment([Statement.parameter(['$', ...path].join('.'))])),
-);
+const bookkeeping = Statement.csv(Array.getSomes(Object.values(assets.columns).map(({ projection }) => Option.filter(projection, Column.Projection.$is('Path')))).map(({ path }) => Statement.fragment([Statement.parameter(['$', ...path].join('.'))])));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

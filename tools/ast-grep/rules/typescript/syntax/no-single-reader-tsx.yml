@@ -70,10 +70,11 @@ utils:
             - matches: reference
             - has: {stopBy: end, matches: reference}
     later-reference:
-        matches: reference
-        any:
-            - follows: {stopBy: end, matches: holds-reference}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
+        all:
+            - matches: reference
+            - any:
+                - follows: {stopBy: end, matches: holds-reference}
+                - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
     component:
         kind: arrow_function, function_declaration
         has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
@@ -113,8 +114,9 @@ rule:
                         - not:
                             has:
                                 stopBy: end
-                                matches: reference
-                                not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}]}}
+                                all:
+                                    - matches: reference
+                                    - not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}]}}
                         - not: {has: {stopBy: end, matches: later-reference}}
                 - not:
                     inside:
@@ -138,8 +140,8 @@ rule:
                     kind: program
                     stopBy: end
                     all:
-                        - has: {stopBy: end, matches: read, not: {inside: {stopBy: end, matches: typescript-function-boundary}}, inside: {stopBy: end, matches: constant-reader}}
-                        - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}]}}}}
+                        - has: {stopBy: end, all: [{matches: read}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: constant-reader}}]}
+                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}]}}}]}}
                         - not: {has: {stopBy: end, all: [{kind: variable_declarator}, {pattern: $HOLDER}, {has: {stopBy: end, matches: later-reference}}]}}
 message: '`$NAME` has one reader'
 note: 'Move the declaration into its reader as a local where its name states a fact, else inline it'

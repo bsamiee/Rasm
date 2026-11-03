@@ -5,7 +5,7 @@ import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { findMaxSatisfying, isValid } from 'verkit';
 import { parse } from 'yaml';
 import { stdout } from '#/eng/typescript/process';
-import { Capture, newest, scan, splice } from '#/eng/typescript/upgrade/bounds';
+import { newest, rewrite } from '#/eng/typescript/upgrade/bounds';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -50,13 +50,8 @@ Effect.gen(function* () {
         'tree-sitter-swift': ['catalog', 'tree-sitter-swift', `github:${repository}#${grammar}`],
         docgen: ['docgen', 'typescript', `npm:typescript@${compiler}`],
     } as const;
-    const found = yield* scan(
-        Record.map(rows, ([parent, key]) => `language: yaml, rule: {pattern: "${key}: $VALUE", inside: {kind: block_mapping_pair, has: {field: key, regex: "^${parent}$"}, stopBy: end}}`),
-        { VALUE: Capture },
+    yield* rewrite(
+        Record.map(rows, ([parent, key, value]) => `language: yaml, rule: {pattern: "${key}: $VALUE", inside: {kind: block_mapping_pair, has: {field: key, regex: "^${parent}$"}, stopBy: end}}, fix: "${key}: ${value}"`),
         [file],
-    );
-    yield* splice(
-        file,
-        found.map(({ ruleId, metaVariables: { single } }) => [single.VALUE.range.byteOffset, rows[ruleId][2]] as const),
     );
 }).pipe(Effect.provide(Layer.merge(layer, FetchHttpClient.layer)), runMain);
