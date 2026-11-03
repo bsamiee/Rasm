@@ -133,18 +133,18 @@ Instances are read at insertion and after each window, sheet, title, focus, mini
 
 `next` reads `{"<case>": {<fields>}}` in each state with an action, and states outside the table hold none:
 
-| [INDEX] | [NEXT]    | [FIELDS]                                             | [MEANING]                        | [ACTION]                                         |
-| :-----: | :-------- | :--------------------------------------------------- | :------------------------------- | :----------------------------------------------- |
-|  [01]   | `wait`    | `launching`, `unresponsive`, `failed` `unanswered`   | Launching, or a read unanswered  | Wait for the next line                           |
-|  [02]   | `drive`   | `responding`, no `requiresAnswer` or on-screen `windows` | Running, nothing to answer       | `read`, then `perform` or `set`                  |
-|  [03]   | `answer`  | `responding` with `requiresAnswer`                   | Dialog or sheet holds the app    | Read `text`, `perform <answer field id> AXPress` |
-|  [04]   | `capture` | `responding` with on-screen `windows` alone          | Window Accessibility cannot read | `capture --window <number>`, read the image      |
-|  [05]   | `resume`  | `unresponsive` `process` `stopped`                   | Stopped by a signal              | `kill -CONT <pid>`                               |
-|  [06]   | `force`   | `unresponsive` after the quit event                  | Quit sent, no answer since       | `quit --pid <pid> --force`                       |
-|  [07]   | `grant`   | `failed` `untrusted`                                 | Accessibility access missing     | Grant Accessibility access                       |
-|  [08]   | `report`  | `exited` with `report`                               | Crash report written             | Read the report at `url` before a launch         |
+| [INDEX] | [NEXT]    | [STATE]                                                  | [ACTION]                                         |
+| :-----: | :-------- | :------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `wait`    | `launching`, `unresponsive`, or `failed` `unanswered`    | Wait for the next line                           |
+|  [02]   | `drive`   | `responding`, no `requiresAnswer` or on-screen `windows` | `read`, then `perform` or `set`                  |
+|  [03]   | `answer`  | `responding`, a dialog or sheet with `requiresAnswer`    | Read `text`, `perform <answer field id> AXPress` |
+|  [04]   | `capture` | `responding`, no `requiresAnswer`, on-screen `windows`   | `capture --window <number>`, read the image      |
+|  [05]   | `resume`  | `unresponsive` `process` `stopped` by a signal           | `kill -CONT <pid>`                               |
+|  [06]   | `force`   | `unresponsive` after the quit event, no answer since     | `quit --pid <pid> --force`                       |
+|  [07]   | `grant`   | `failed` `untrusted`, Accessibility access missing       | Grant Accessibility access                       |
+|  [08]   | `report`  | `exited` with the crash `report` written                 | Read the report at `url` before a launch         |
 
-- `answer` holds the element `id` and `accept` (`AXDefaultButton`, `OKButton`), `discard` (`DontSaveButton`), and `cancel` (`AXCancelButton`, `CancelButton`, close button) control ids
+`answer` holds the element `id` and `accept` (`AXDefaultButton`, `OKButton`), `discard` (`DontSaveButton`), and `cancel` (`AXCancelButton`, `CancelButton`, close button) control ids:
 - `buttons` holds each labeled button's `id` and `label`, the choice where an app marks no answer control (Adobe apps)
 - `capture` `windows` holds the `number` of each on-screen window no element describes
 - Crash reports hold `url`, `pid`, `bundleIdentifier`, and Mach `exception` type

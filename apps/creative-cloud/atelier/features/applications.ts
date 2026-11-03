@@ -5,7 +5,7 @@ import { Content } from '@rasm/mcp/content';
 import { Resource } from '@rasm/mcp/resource';
 import { Route } from '@rasm/mcp/route';
 import { Server } from '@rasm/mcp/server';
-import { Context, Effect, FileSystem, Path, Schema, SubscriptionRef } from 'effect';
+import { Context, Effect, FileSystem, Path, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { imageSize } from 'image-size';
 import type { routes } from '#/routes';
@@ -14,18 +14,19 @@ import type { status } from '#/status';
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Capture extends Schema.Class<Capture, { readonly brand: unique symbol }>('Capture')({ image: Content.image('image/png'), width: Schema.Int, height: Schema.Int }) {
-    static readonly written = <A, E, R>(write: (file: URL) => Effect.Effect<A, E, R>) =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-                const file = yield* files.makeTempFileScoped({ suffix: '.png' });
-                const written = yield* Effect.flatMap(path.toFileUrl(file), write);
-                const image = yield* files.readFile(file);
-                const { width, height } = yield* Effect.try({ try: () => imageSize(image), catch: HostError.refused(`PNG size of ${file}`) });
-                return [Capture.make({ image, width, height }), written] as const;
-            }),
-        );
+    static readonly written = Effect.fnUntraced(function* <A, E, R>(write: (file: URL) => Effect.Effect<A, E, R>) {
+        const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const file = yield* files.makeTempFileScoped({ suffix: '.png' });
+        const written = yield* Effect.flatMap(path.toFileUrl(file), write);
+        const image = yield* files.readFile(file);
+        const { width, height } = yield* Effect.try({ try: () => imageSize(image), catch: HostError.refused(`PNG size of ${file}`) });
+        return [Capture.make({ image, width, height }), written] as const;
+    }, Effect.scoped);
 }
+
+const Installations = Schema.Array(Installation);
+const Parameterless = Schema.Struct({});
+const Captured = Screenshot.Result.mapFields(Struct.assign(Capture.fields));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -33,7 +34,7 @@ const applications = Automation.use((automation) =>
     Resource.register({
         name: 'applications',
         description: 'Installed Adobe applications, each name an application value',
-        schema: Schema.Array(Installation),
+        schema: Installations,
         changes: SubscriptionRef.changes(automation.installations),
         content: automation.installed,
     }),
@@ -47,8 +48,8 @@ const launch = ({ application }: Effect.Success<ReturnType<typeof routes>>, { re
             annotations: Context.omit(Server.Visible)(application.annotations),
         })(
             Tool.make('launch', {
-                description: 'Opens application hidden in background beside other versions until quit, returns pid and whether launch created it once launching ends or a dialog requires an answer',
-                parameters: Schema.Struct({}),
+                description: 'Opens application hidden beside other versions until quit. Returns once launching ends or a dialog requires an answer',
+                parameters: Parameterless,
                 success: Launched,
             }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),
             (_, launched) => Effect.succeed(launched),
@@ -60,7 +61,7 @@ const screenshot = ({ application }: Effect.Success<ReturnType<typeof routes>>) 
             Tool.make('screenshot', {
                 description: 'Captures on-screen windows as one PNG without raising them, with their window IDs',
                 parameters: Screenshot,
-                success: Schema.Struct({ ...Capture.fields, ...Screenshot.Result.fields }),
+                success: Captured,
             }).annotate(Tool.Readonly, true),
             (shot, { pid }) =>
                 Effect.map(

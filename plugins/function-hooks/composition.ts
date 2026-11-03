@@ -7,18 +7,12 @@ type Faults = readonly [Fault, ...Fault[]];
 
 class Option<A> {
     static readonly none: Option<never> = new Option<never>([]);
+    static readonly some = <T>(value: T): Option<T> => new Option<T>([value]);
+    static readonly given = <T>(value: T | null | undefined): Option<T> => (value === null || value === undefined ? Option.none : Option.some(value));
     readonly values: readonly [] | readonly [A];
 
-    constructor(values: readonly [] | readonly [A]) {
+    constructor(values: Option<A>['values']) {
         this.values = values;
-    }
-
-    static some<T>(value: T): Option<T> {
-        return new Option<T>([value]);
-    }
-
-    static given<T>(value: T | null | undefined): Option<T> {
-        return value === null || value === undefined ? Option.none : Option.some(value);
     }
 
     toArray(): readonly A[] {
@@ -37,23 +31,16 @@ class Option<A> {
 }
 
 class Result<A> {
-    readonly outcome: { readonly kind: 'ok'; readonly value: A } | { readonly kind: 'fault'; readonly faults: Faults };
-
-    constructor(outcome: { readonly kind: 'ok'; readonly value: A } | { readonly kind: 'fault'; readonly faults: Faults }) {
-        this.outcome = outcome;
-    }
-
-    static ok<T>(value: T): Result<T> {
-        return new Result<T>({ kind: 'ok', value });
-    }
-
-    static fault(...faults: Faults): Result<never> {
-        return new Result<never>({ kind: 'fault', faults });
-    }
-
-    static all<T>(results: readonly Result<T>[]): Result<readonly T[]> {
+    static readonly ok = <T>(value: T): Result<T> => new Result<T>({ kind: 'ok', value });
+    static readonly fault = (...faults: Faults): Result<never> => new Result<never>({ kind: 'fault', faults });
+    static readonly all = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
         const [first, ...rest] = results.flatMap(({ outcome }) => (outcome.kind === 'fault' ? outcome.faults : []));
         return first === undefined ? Result.ok(results.flatMap((result) => result.toArray())) : Result.fault(first, ...rest);
+    };
+    readonly outcome: { readonly kind: 'ok'; readonly value: A } | { readonly kind: 'fault'; readonly faults: Faults };
+
+    constructor(outcome: Result<A>['outcome']) {
+        this.outcome = outcome;
     }
 
     toArray(): readonly A[] {
@@ -61,11 +48,11 @@ class Result<A> {
     }
 
     map<B>(f: (value: A) => B): Result<B> {
-        return this.outcome.kind === 'ok' ? Result.ok(f(this.outcome.value)) : Result.fault(...this.outcome.faults);
+        return this.bind((value) => Result.ok(f(value)));
     }
 
     bind<R extends Result<unknown> | Promise<Result<unknown>>>(f: (value: A) => R): R | Result<never> {
-        return this.outcome.kind === 'ok' ? f(this.outcome.value) : Result.fault(...this.outcome.faults);
+        return this.match<R | Result<never>>(f, (faults) => Result.fault(...faults));
     }
 
     match<B>(onOk: (value: A) => B, onFault: (faults: Faults) => B): B {

@@ -36,3 +36,17 @@ public struct FileFailure: CustomNSError, LocalizedError {
         }
     }
 }
+
+extension FileFailure: Equatable {
+    public static func == (left: Self, right: Self) -> Bool {
+        let same: Bool =
+            switch left.reason {
+                case .unwatched: right.reason.is(\.unwatched)
+                case .held: right.reason.is(\.held)
+                case .compromised: right.reason.is(\.compromised)
+                case .filesystem(let error):
+                    right.reason[case: \.filesystem].map { other in ((other as NSError).domain, (other as NSError).code) == ((error as NSError).domain, (error as NSError).code) } == true
+            }
+        return left.subject == right.subject && same
+    }
+}

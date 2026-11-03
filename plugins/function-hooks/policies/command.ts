@@ -73,9 +73,8 @@ const NAME = /^[A-Za-z_]\w*/u;
 const LITERAL = /^(?:[\w./~@%+:,=-]+|'[\w./~@%+:,=-]+'|"[\w./~@%+:,=-]+"|"?\$!"?)$/u;
 const REFERENCE = /^\$\{?(?<name>\w+)\}?$/u;
 const REFERENCES = /\$(?:(?<bare>[A-Za-z_]\w*)|\{(?<braced>[A-Za-z_]\w*)\})/gu;
-const SHELLED: ReadonlySet<string> = new Set(['PWD', 'OLDPWD', 'SHLVL', '_']);
-const VALUE = 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number';
 const OWNER = {
+    value: { kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number' },
     owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
     statement: { has: { field: 'body', matches: 'last' } },
     last: {
@@ -106,13 +105,13 @@ const SCANNER = [
     '--inline-rules',
     [
         { id: 'command', utils: SCOPE, rule: { kind: 'command', any: [{ pattern: '$CMD $$$ARGS' }, { pattern: '$CMD' }], matches: 'scoped' } },
-        { id: 'operand', utils: OWNER, rule: { kind: VALUE, follows: { kind: VALUE }, inside: { kind: 'file_redirect', matches: 'owner' } } },
+        { id: 'operand', utils: OWNER, rule: { matches: 'value', follows: { matches: 'value' }, inside: { kind: 'file_redirect', matches: 'owner' } } },
         { id: 'heredoc', utils: OWNER, rule: { kind: 'heredoc_body', inside: { kind: 'heredoc_redirect', matches: 'owner' } } },
-        { id: 'herestring', utils: OWNER, rule: { kind: VALUE, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
+        { id: 'herestring', utils: OWNER, rule: { matches: 'value', inside: { kind: 'herestring_redirect', matches: 'owner' } } },
         {
             id: 'written',
             utils: OWNER,
-            rule: { kind: VALUE, inside: { kind: 'file_redirect', field: 'destination', regex: '^(?:1?>|&>)', matches: 'owner', inside: { stopBy: { kind: 'redirected_statement' }, kind: 'redirected_statement', has: { kind: 'heredoc_redirect' } } } },
+            rule: { matches: 'value', inside: { kind: 'file_redirect', field: 'destination', regex: '^(?:1?>|&>)', matches: 'owner', inside: { stopBy: { kind: 'redirected_statement' }, kind: 'redirected_statement', has: { kind: 'heredoc_redirect' } } } },
         },
         { id: 'statement', rule: { kind: 'redirected_statement', has: { field: 'body', kind: 'command', pattern: '$BODY' } } },
         { id: 'assignment', utils: SCOPE, rule: { kind: 'variable_assignment', not: { any: [{ inside: { kind: 'command, c_style_for_statement' } }, { matches: 'guarded' }] }, matches: 'scoped' } },
@@ -204,7 +203,10 @@ const resolver = (hits: readonly Hit[], source: Uint8Array, assigned: ReadonlySe
         if (name !== undefined && !assigned.has(name)) {
             return Option.given(environment.get(name));
         }
-        return bound !== undefined && more.length === 0 && bound.end <= at.range.byteOffset.start ? (scoped ? bound.value : bound.literal) : Option.none;
+        if (bound === undefined || more.length > 0 || bound.end > at.range.byteOffset.start) {
+            return Option.none;
+        }
+        return scoped ? bound.value : bound.literal;
     };
     const valued = (bound: readonly Binding[], hit: Hit, name: string, scoped: boolean): Option<string> => {
         const values = [...hit.text.slice(name.length + 1).matchAll(REFERENCES)].map((match) => ({ match, value: lookup(bound, match.groups?.bare ?? match.groups?.braced, hit, scoped) }));
@@ -233,18 +235,20 @@ const resolver = (hits: readonly Hit[], source: Uint8Array, assigned: ReadonlySe
             const value = hit.ruleId === 'expansion' ? lookup(bindings, REFERENCE.exec(hit.text)?.groups?.name, hit, scoped) : Option.none;
             return value.toArray().map((text) => ({ ...hit.range.byteOffset, text }));
         });
-        return ({ range: { byteOffset } }) =>
-            spliced(
+        return ({ range: { byteOffset } }) => {
+            const text = spliced(
                 source.subarray(byteOffset.start, byteOffset.end),
                 byteOffset.start,
                 references.filter(({ start, end }) => start >= byteOffset.start && end <= byteOffset.end),
             );
+            return scoped ? unquoted(text) : text;
+        };
     };
-    const [visible, literal] = [substituted(true), substituted(false)];
-    return { resolved: (capture) => unquoted(visible(capture)), literal };
+    return { resolved: substituted(true), literal: substituted(false) };
 };
 
 const parse = (system: System, command: string): Promise<Result<Script>> => {
+    const shelled: ReadonlySet<string> = new Set(['PWD', 'OLDPWD', 'SHLVL', '_']);
     const destination = (chain: readonly Invocation[]): readonly (string | undefined)[] =>
         chain
             .filter(([program]) => declared(program).chdir !== undefined)
@@ -268,9 +272,9 @@ const parse = (system: System, command: string): Promise<Result<Script>> => {
                 const assigned = new Set(names);
                 const referenced = [
                     ...new Set(sorted.flatMap((hit) => (hit.ruleId === 'expansion' || hit.ruleId === 'assignment' || hit.ruleId === 'rebinding' || hit.ruleId === 'chained' ? [...hit.text.matchAll(REFERENCES)].flatMap((match) => Option.given(match.groups?.bare ?? match.groups?.braced).toArray()) : []))),
-                ].filter((name) => !(assigned.has(name) || SHELLED.has(name)));
+                ].filter((name) => !(assigned.has(name) || shelled.has(name)));
                 const environment = new Map((await Promise.all(referenced.map(async (name) => (await system.environment(name)).toArray().map((value) => [name, value] as const)))).flat());
-                const { resolved, literal } = resolver(sorted, new TextEncoder().encode(source), new Set([...assigned, ...SHELLED]), environment);
+                const { resolved, literal } = resolver(sorted, new TextEncoder().encode(source), new Set([...assigned, ...shelled]), environment);
                 const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' || hit.ruleId === 'written' || hit.ruleId === 'statement' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
                     .values()
                     .flatMap((own) => {

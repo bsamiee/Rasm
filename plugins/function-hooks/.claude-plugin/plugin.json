@@ -8,7 +8,7 @@
         "project": {
             "type": "string",
             "title": "Project",
-            "description": "Policies that rewrite or refuse agent tool calls before they run",
+            "description": "Nx project for commands that name none",
             "default": "rasm"
         }
     }

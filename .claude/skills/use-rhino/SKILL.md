@@ -48,13 +48,13 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 - Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
-Sessions open on:
+Sessions open in order:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
 2. New work takes an open untitled, unmodified document, else `watch-apps launch RhinoBETA --new --environment RHINO_MCP_AUTOSTART_PORT=10500` opens one while no Rhino runs
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - RhinoAI announces each document's listener while `RHINO_MCP_AUTOSTART_PORT` holds a value or its MCP auto-load option is on
-- A second Rhino shows a modal `Rhinoceros already running` alert, whose `next.answer` `accept` button quits it
+- Second Rhino instances show a modal `Rhinoceros already running` alert, its `next.answer` `accept` quitting them
 - Each Rhino starts a `com.mcneel.rhinoceros.RhinoMonitor` helper that exits with a quit Rhino and outlives a killed one until `watch-apps quit` names it
 - Rhino Settings and About float as panels that stay off screen while Rhino runs in the background, listed in `windows` and absent from `elements`
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none

@@ -4,7 +4,8 @@
     "description": "Policies that rewrite or refuse agent tool calls before they run",
     "type": "module",
     "exports": {
-        ".": "./index.ts"
+        "./composition": "./composition.ts",
+        "./policies": "./policies/policies.ts"
     },
     "devDependencies": {
         "@effect/platform-node": "catalog:",

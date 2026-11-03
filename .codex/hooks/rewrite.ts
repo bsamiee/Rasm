@@ -1,5 +1,6 @@
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { commandDecision, Option, type System, unrun } from '@rasm/function-hooks';
+import { Option } from '@rasm/function-hooks/composition';
+import { commandDecision, type System, unrun } from '@rasm/function-hooks/policies';
 import { Cause, Config, Console, Effect, FileSystem, Match, Path, Schema, Stdio, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import manifest from '#/package.json' with { type: 'json' };

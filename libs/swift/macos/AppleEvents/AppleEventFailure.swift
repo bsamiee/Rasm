@@ -57,3 +57,22 @@ public struct AppleEventFailure: CustomNSError, LocalizedError {
         }
     }
 }
+
+extension AppleEventFailure: Equatable {
+    public static func == (left: Self, right: Self) -> Bool {
+        let same: Bool =
+            switch left.reason {
+                case .requiresRunning: right.reason.is(\.requiresRunning)
+                case .osa(let status): right.reason[case: \.osa] == Optional(status)
+                case .host(let error):
+                    right.reason[case: \.host].map { other in ((other as NSError).domain, (other as NSError).code) == ((error as NSError).domain, (error as NSError).code) } == true
+                case .unmatched(let miss): right.reason[case: \.unmatched] == Optional(miss)
+                case .unencodable: right.reason.is(\.unencodable)
+                case .activating: right.reason.is(\.activating)
+                case .undelivered(let status): right.reason[case: \.undelivered] == Optional(status)
+                case .unanswered(let status): right.reason[case: \.unanswered] == Optional(status)
+                case .replied(let status, let message): right.reason[case: \.replied].map { other in other == (status, message) } == true
+            }
+        return left.subject == right.subject && same
+    }
+}

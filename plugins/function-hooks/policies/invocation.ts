@@ -43,57 +43,7 @@ interface Operands {
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const OPTION = /^-./u;
 const TILDE = /^~(?<user>[^/]*)/u;
-const PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
-const SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
-const FD: Program = {
-    valued: [
-        '-e',
-        '--extension',
-        '-t',
-        '--type',
-        '-E',
-        '--exclude',
-        '-d',
-        '--max-depth',
-        '--min-depth',
-        '--exact-depth',
-        '-S',
-        '--size',
-        '--changed-within',
-        '--changed-before',
-        '-o',
-        '--owner',
-        '-C',
-        '--base-directory',
-        '--search-path',
-        '-j',
-        '--threads',
-        '--max-results',
-        '-c',
-        '--color',
-        '--format',
-        '--path-separator',
-        '--ignore-file',
-        '--ignore-contain',
-        '--and',
-        '--batch-size',
-    ],
-    leading: 1,
-    informational: ['-h', '-V'],
-    execs: ['-x', '-X', '--exec', '--exec-batch'],
-    walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
-};
-const FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } };
-const PROCESSES: Program = { valued: ['-d', '-F', '-G', '-g', '-P', '-s', '-t', '-U', '-u'] };
-const VERDICT: Program = { verdict: true };
-const SQL: Program = {
-    valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
-    leading: 1,
-    stdin: 'default',
-    stdinless: ['-c', '-s', '-f', '-no-stdin'],
-    informational: ['-h', '-help', '-version'],
-    wholeWords: true,
-};
+const DIRECTORY = /^.*\//su;
 const PROGRAMS: ReadonlyMap<string, Program> = new Map(
     Object.entries({
         sudo: {
@@ -113,8 +63,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         xargs: { valued: ['-E', '-I', '-J', '-L', '-n', '-P', '-R', '-S', '-s'], stdin: 'always', runs: [[]], repeats: true },
         kill: { valued: ['-s', '-n'] },
         ps: { valued: ['-p', '-o', '-O', '-U', '-u', '-G', '-g', '-t', '-M', '-N'] },
-        pgrep: PROCESSES,
-        pkill: PROCESSES,
+        ...Object.fromEntries(['pgrep', 'pkill'].map((name) => [name, { valued: ['-d', '-F', '-G', '-g', '-P', '-s', '-t', '-U', '-u'] } satisfies Program])),
         sleep: { timer: true },
         wait4path: { endless: true },
         caffeinate: { valued: ['-t', '-w'], runs: [[]], timer: ['-t'], endless: true },
@@ -125,11 +74,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         npx: { runs: [[]] },
         npm: { runs: [['exec'], ['x']], verdict: true },
         pnpm: { runs: [[], ['exec'], ['dlx']], verdict: true },
-        dotnet: VERDICT,
-        swift: VERDICT,
-        xcodebuild: VERDICT,
-        pytest: VERDICT,
-        vitest: VERDICT,
+        ...Object.fromEntries(['dotnet', 'swift', 'xcodebuild', 'pytest', 'vitest'].map((name) => [name, { verdict: true } satisfies Program])),
         uv: {
             valued: [
                 '--extra',
@@ -232,10 +177,50 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             arities: { '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 },
             bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
         },
-        fd: FD,
-        fdfind: FD,
-        find: FIND,
-        gfind: FIND,
+        ...Object.fromEntries(
+            ['fd', 'fdfind'].map((name) => [
+                name,
+                {
+                    valued: [
+                        '-e',
+                        '--extension',
+                        '-t',
+                        '--type',
+                        '-E',
+                        '--exclude',
+                        '-d',
+                        '--max-depth',
+                        '--min-depth',
+                        '--exact-depth',
+                        '-S',
+                        '--size',
+                        '--changed-within',
+                        '--changed-before',
+                        '-o',
+                        '--owner',
+                        '-C',
+                        '--base-directory',
+                        '--search-path',
+                        '-j',
+                        '--threads',
+                        '--max-results',
+                        '-c',
+                        '--color',
+                        '--format',
+                        '--path-separator',
+                        '--ignore-file',
+                        '--ignore-contain',
+                        '--and',
+                        '--batch-size',
+                    ],
+                    leading: 1,
+                    informational: ['-h', '-V'],
+                    execs: ['-x', '-X', '--exec', '--exec-batch'],
+                    walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
+                } satisfies Program,
+            ]),
+        ),
+        ...Object.fromEntries(['find', 'gfind'].map((name) => [name, { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } } satisfies Program])),
         tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
         du: { valued: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
@@ -450,15 +435,21 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         cd: { chdir: ['~'] },
         pushd: { chdir: [] },
         popd: { chdir: [] },
-        python: PYTHON,
-        python3: PYTHON,
-        bash: SHELL,
-        sh: SHELL,
-        zsh: SHELL,
-        dash: SHELL,
-        ksh: SHELL,
-        sqlite3: SQL,
-        duckdb: SQL,
+        ...Object.fromEntries(['python', 'python3'].map((name) => [name, { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] } satisfies Program])),
+        ...Object.fromEntries(['bash', 'sh', 'zsh', 'dash', 'ksh'].map((name) => [name, { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] } satisfies Program])),
+        ...Object.fromEntries(
+            ['sqlite3', 'duckdb'].map((name) => [
+                name,
+                {
+                    valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
+                    leading: 1,
+                    stdin: 'default',
+                    stdinless: ['-c', '-s', '-f', '-no-stdin'],
+                    informational: ['-h', '-help', '-version'],
+                    wholeWords: true,
+                } satisfies Program,
+            ]),
+        ),
         nx: { verdict: true, valued: ['-c', '--configuration', '-t', '--targets', '--target', '-p', '--projects', '--exclude', '--outputStyle', '--output-style', '--runner', '--base', '--head', '--files', '--parallel', '--tuiAutoExit', '--type', '--withTarget', '--sep'] },
         tsc: {
             valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--lib', '--types', '--typeRoots', '--outDir', '--outFile', '--rootDir', '--declarationDir', '--tsBuildInfoFile', '--jsx', '--locale', '--generateTrace'],
@@ -672,6 +663,8 @@ const placed = (word: string, cwd: Option<string>, home: Option<string>): Option
         : Option.none;
 };
 
+const basename = (path: string): string => path.replace(DIRECTORY, '');
+
 const within = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);
 
 const unquoted = (word: string): string => word.replace(/(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(/\\(?<char>["\\$`\n])/gu, '$<char>') : body));
@@ -683,7 +676,7 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     if (ASSIGNMENT.test(head)) {
         return invocations(rest);
     }
-    const program = head.slice(head.lastIndexOf('/') + 1);
+    const program = basename(head);
     const row = declared(program);
     const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
         const [first, ...more] = words;
@@ -707,4 +700,4 @@ const staged = <W extends { readonly text: string }>(words: readonly W[], [invoc
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, staged, unquoted, waits, within };
+export { basename, declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, staged, unquoted, waits, within };

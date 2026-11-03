@@ -65,12 +65,12 @@ extension CrashReport {
             try await withTimeout(limit, expired: ApplicationFailure(subject: String(process), reason: .noReport(limit)), clock: clock) { () async throws(ApplicationFailure) in
                 var listed: Bool = false
                 for await change: Result<[FileEvent], FileFailure> in FileEvent.events(of: directory) {
-                    let batch: [FileEvent]
-                    switch change {
-                        case .success(let events): batch = events
-                        case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
-                    }
-                    let files: [URL] = listed ? batch.map(\.url).filter { url in url.pathExtension == "ips" } : listing(directory, since: launch).files
+                    let batch: [FileEvent] =
+                        switch change {
+                            case .success(let events): events
+                            case .failure(let failure): throw ApplicationFailure(subject: failure.subject, reason: .unwatched(failure))
+                        }
+                    let files: [URL] = listed ? dated(batch.map(\.url), since: launch).files : listing(directory, since: launch).files
                     listed = true
                     if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }
                 }
@@ -80,25 +80,31 @@ extension CrashReport {
     }
 
     private static func listing(_ directory: URL, since earliest: Date) -> (files: [URL], failures: [ApplicationFailure]) {
-        let unread: (URL, any Error) -> ApplicationFailure = { url, error in ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error)) }
         let entries: [URL]
         do {
             entries = try ifPresent { try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) } ?? []
         } catch {
             return ([], [unread(directory, error)])
         }
-        let dated: [(url: URL, date: Result<Date?, any Error>)] = entries.filter { url in url.pathExtension == "ips" }.map { url in
+        return dated(entries, since: earliest)
+    }
+
+    private static func dated(_ entries: [URL], since earliest: Date) -> (files: [URL], failures: [ApplicationFailure]) {
+        let stamped: [(url: URL, date: Result<Date?, any Error>)] = entries.filter { url in url.pathExtension == "ips" }.map { url in
             (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate })
         }
-        let files: [(url: URL, date: Date?)] = dated.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date) } }.filter { file in
+        let files: [(url: URL, date: Date?)] = stamped.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date) } }.filter { file in
             file.date.map { date in date >= earliest } ?? true
         }
-        let failures: [ApplicationFailure] = dated.compactMap { entry in entry.date[case: \.failure].map { error in unread(entry.url, error) } }
+        let failures: [ApplicationFailure] = stamped.compactMap { entry in entry.date[case: \.failure].map { error in unread(entry.url, error) } }
         return (files.sorted(using: KeyPathComparator(\.date, order: .reverse)).map(\.url), failures)
     }
 
     private static func read(_ file: URL) -> Result<Self?, ApplicationFailure> {
-        Result { try ifPresent { try Self(Data(contentsOf: file), at: file) }.flatMap(\.self) }
-            .mapError { error in ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error)) }
+        Result { try ifPresent { try Self(Data(contentsOf: file), at: file) }.flatMap(\.self) }.mapError { error in unread(file, error) }
+    }
+
+    private static func unread(_ file: URL, _ error: any Error) -> ApplicationFailure {
+        ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error))
     }
 }

@@ -1,6 +1,7 @@
 import AppKit
 import Applications
 import ArgumentParser
+import AsyncAlgorithms
 import CasePaths
 import Encoding
 import OrderedCollections
@@ -16,6 +17,7 @@ import UniformTypeIdentifiers
 let captures: URL = URL.temporaryDirectory.appending(component: ProcessInfo.processInfo.processName, directoryHint: .isDirectory)
 let logVariable: String = "WATCH_APPS_LOG"
 let sessionVariable: String = "CLAUDE_CODE_SESSION_ID"
+let installedNames: String = "Installed application paths, bundle identifiers, or display names. Names ignore case and diacritics"
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -220,25 +222,33 @@ struct WatchApps: AsyncParsableCommand {
         _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, AsyncStream<(key: String, line: Line)>.Continuation) async -> Void,
     ) async -> Never {
         await run { output in
-            var found: OrderedDictionary<String, [Installation]> = [:]
-            for name: String in OrderedSet(names) {
+            let found: OrderedDictionary<String, [Installation]> = await OrderedSet(names).async.reduce(into: [:]) { @Sendable found, name in
                 do throws(ApplicationFailure) { found[name] = try await Installation.installed(named: name) } catch { output.yield((name, .fail(error))) }
             }
             await work(found, output)
         }
     }
+
+    static func run(printing printed: Result<[Data], ApplicationFailure>) throws {
+        switch printed {
+            case .success(let lines): for line: Data in lines { try FileHandle.standardOutput.write(contentsOf: line) }
+            case .failure(let failure):
+                try FileHandle.standardOutput.write(contentsOf: JSONEncoder.lines.encodeLine([ProcessInfo.processInfo.processName: Line.fail(failure)]))
+                throw ExitCode.failure
+        }
+    }
 }
 
 struct Installed: ParsableArguments {
-    @Argument(help: "Bundle identifiers or display names of installed applications, case and diacritics ignored")
+    @Argument(help: ArgumentHelp(installedNames))
     var names: [String]
 }
 
 struct Running: ParsableArguments {
-    @Argument(help: "Bundle identifiers, display names, or bundle paths of running applications, case and diacritics ignored")
+    @Argument(help: "Running application paths, bundle identifiers, or display names. Names ignore case and diacritics")
     var names: [String] = []
 
-    @Option(help: "Process ID of one running instance, in place of names")
+    @Option(help: "One running instance's process ID, in place of names")
     var pid: pid_t?
 
     func validate() throws(ValidationError) {
@@ -286,7 +296,7 @@ struct Running: ParsableArguments {
 
 struct Watch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Prints windows, dialogs requiring an answer, hangs, exits, system prompts naming the applications, and system pressure, at start and on each change"
+        abstract: "Prints instance states, system prompts, and system pressure. Reprints on each change"
     )
 
     @OptionGroup var installed: Installed
@@ -312,11 +322,10 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract:
-            "Opens each application, or each document's default application, hidden without activation and prints its state until it responds, exits, or a system prompt naming it shows, then exits leaving the instance running"
+        abstract: "Opens each application or document hidden without activation. Prints states until next leaves wait or prompts show. Leaves each instance running"
     )
 
-    @Argument(help: "Bundle identifiers or display names of installed applications, case and diacritics ignored")
+    @Argument(help: ArgumentHelp(installedNames))
     var names: [String] = []
 
     @Flag(help: "Opens another instance when one runs")
@@ -331,7 +340,7 @@ struct Launch: AsyncParsableCommand {
     @Option(
         help: "NAME=VALUE environment variable of new instance, one per flag",
         transform: { entry in
-            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) lacks =") }
+            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) lacks =, pass NAME=VALUE") }
             return (String(entry[..<split]), String(entry[entry.index(after: split)...]))
         },
     )
@@ -344,13 +353,18 @@ struct Launch: AsyncParsableCommand {
 
     func run() async {
         await WatchApps.run(names) { applications, output in
-            var launches: OrderedDictionary<Installation, [URL]> = [:]
-            for file: URL in document where names.isEmpty {
-                do throws(ApplicationFailure) { launches[try Installation(opening: file), default: []].append(file) } catch { output.yield((file.path(percentEncoded: false), .fail(error))) }
-            }
-            for (name, releases): (key: String, value: [Installation]) in applications {
-                do throws(ApplicationFailure) { launches[try Installation.newest(of: name, among: releases)] = document } catch { output.yield((name, .fail(error))) }
-            }
+            let launches: OrderedDictionary<Installation, [URL]> =
+                if names.isEmpty {
+                    document.reduce(into: [:]) { launches, file in
+                        do throws(ApplicationFailure) { launches[try Installation(opening: file), default: []].append(file) } catch { output.yield((file.path(percentEncoded: false), .fail(error))) }
+                    }
+                } else {
+                    applications.reduce(into: [:]) { launches, application in
+                        do throws(ApplicationFailure) { launches[try Installation.newest(of: application.key, among: application.value)] = document } catch {
+                            output.yield((application.key, .fail(error)))
+                        }
+                    }
+                }
             guard !launches.isEmpty else { return }
             let target: Target = .launch(
                 launches.map { installation, documents in (installation, documents) },
@@ -365,7 +379,7 @@ struct Launch: AsyncParsableCommand {
 
 struct Show: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Unhides each running instance without activation so capture reaches its windows, silent unless an instance stays hidden"
+        abstract: "Unhides each running instance without activation. Prints a fail line for one staying hidden"
     )
 
     @OptionGroup var running: Running
@@ -379,7 +393,7 @@ struct Show: AsyncParsableCommand {
 
 struct Read: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Prints full state of each running instance once, with its resource usage"
+        abstract: "Prints each instance's full state and resource usage once"
     )
 
     @OptionGroup var running: Running
@@ -393,7 +407,7 @@ struct Read: AsyncParsableCommand {
 
 struct Capture: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Writes a PNG of each running instance's on-screen windows and prints its file and window numbers"
+        abstract: "Writes a PNG of each instance's on-screen windows. Prints its file and window numbers"
     )
 
     @OptionGroup var running: Running
@@ -451,7 +465,7 @@ struct ElementID: ParsableArguments {
 
 struct Perform: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Performs one element Accessibility action and prints the state its instance settles in"
+        abstract: "Performs one Accessibility action on an element. Prints its instance's next state"
     )
 
     @OptionGroup var element: ElementID
@@ -467,7 +481,7 @@ struct Perform: AsyncParsableCommand {
 struct SetValue: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "set",
-        abstract: "Sets element \(kAXValueAttribute) to text and prints the state its instance settles in, failing on an element without settable \(kAXValueAttribute)",
+        abstract: "Sets an element's \(kAXValueAttribute) to text. Prints its instance's next state. Elements without settable \(kAXValueAttribute) print a fail line",
     )
 
     @OptionGroup var element: ElementID
@@ -482,13 +496,12 @@ struct SetValue: AsyncParsableCommand {
 
 struct Quit: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract:
-            "Asks each running instance to quit and prints its state until it exits, an element requires an answer, it refuses, or it stops answering, sending nothing while an element requires an answer"
+        abstract: "Sends each running instance the quit event. Prints states until exit, refusal, hang, or required answer. Sends nothing while an element requires an answer"
     )
 
     @OptionGroup var running: Running
 
-    @Flag(help: "Kills each instance without asking, for one no answer or quit frees")
+    @Flag(help: "Kills each instance without asking. Use when no answer or quit frees it")
     var force: Bool = false
 
     func run() async {
@@ -504,7 +517,7 @@ struct Quit: AsyncParsableCommand {
 
 struct Log: ParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Prints one line per watch-apps run of the current session with its last line per key, or every record of one run"
+        abstract: "Prints each session run's last line per key. --pid prints every record of one run"
     )
 
     @Option(help: "Process ID of one watch-apps run")
@@ -513,49 +526,43 @@ struct Log: ParsableCommand {
     func run() throws {
         let encoder: JSONEncoder = JSONEncoder.lines
         let decoder: JSONDecoder = JSONDecoder.lines
-        let printed: Result<[Data], ApplicationFailure> = Result { () throws(ApplicationFailure) -> [Data] in
-            guard let path: String = ProcessInfo.processInfo.environment[logVariable] else {
-                throw ApplicationFailure(subject: logVariable, reason: .unmatched(Unmatched(subject: "environment variable", query: logVariable, candidates: [])))
-            }
-            let lines: [Data]
-            let records: [Record<JSONValue>]
-            do {
-                lines = try Data(contentsOf: URL(filePath: path)).split(separator: UInt8(ascii: "\n"))
-                records = try lines.map { line in try decoder.decode(Record<JSONValue>.self, from: line) }
-            } catch {
-                throw ApplicationFailure(subject: path, reason: .host(error))
-            }
-            let output: [Data]
-            if let pid {
-                let start: Int = records.lastIndex { record in record.pid == pid && record.argv != nil } ?? records.endIndex
-                let end: Int = records[start...].firstIndex { record in record.pid == pid && record.exit != nil }.map { end in end + 1 } ?? records.endIndex
-                output = (start..<end).filter { index in records[index].pid == pid }.map { index in lines[index] + [UInt8(ascii: "\n")] }
-            } else {
-                let session: String? = ProcessInfo.processInfo.environment[sessionVariable]
-                var runs: [Run] = []
-                var active: [pid_t: Int] = [:]
-                for record: Record<JSONValue> in records {
-                    switch (record.argv, record.line, record.exit, active[record.pid]) {
-                        case (.some(let argv), _, _, _) where record.session == session:
-                            active[record.pid] = runs.endIndex
-                            runs.append(Run(pid: record.pid, at: record.at, argv: argv))
-                        case (.some, _, _, _): active[record.pid] = nil
-                        case (.none, .some(.object(let line)), _, .some(let run)): runs[run].last.merge(line.mapValues(\.outlined)) { _, next in next }
-                        case (.none, _, .some(let exit), .some(let run)):
-                            runs[run].exit = exit
-                            active[record.pid] = nil
-                        case (.none, _, _, _): continue
-                    }
+        try WatchApps.run(
+            printing: Result { () throws(ApplicationFailure) -> [Data] in
+                guard let path: String = ProcessInfo.processInfo.environment[logVariable] else {
+                    throw ApplicationFailure(subject: logVariable, reason: .unmatched(Unmatched(subject: "environment variable", query: logVariable, candidates: [])))
                 }
-                do { output = try runs.map(encoder.encodeLine) } catch { throw ApplicationFailure(subject: path, reason: .host(error)) }
+                let lines: [Data]
+                let records: [Record<JSONValue>]
+                do {
+                    lines = try Data(contentsOf: URL(filePath: path)).split(separator: UInt8(ascii: "\n"))
+                    records = try lines.map { line in try decoder.decode(Record<JSONValue>.self, from: line) }
+                } catch {
+                    throw ApplicationFailure(subject: path, reason: .host(error))
+                }
+                let output: [Data]
+                if let pid {
+                    let start: Int = records.lastIndex { record in record.pid == pid && record.argv != nil } ?? records.endIndex
+                    let end: Int = records[start...].firstIndex { record in record.pid == pid && record.exit != nil }.map { end in end + 1 } ?? records.endIndex
+                    output = (start..<end).filter { index in records[index].pid == pid }.map { index in lines[index] + [UInt8(ascii: "\n")] }
+                } else {
+                    let session: String? = ProcessInfo.processInfo.environment[sessionVariable]
+                    let runs: [Run] = records.reduce(into: (runs: [Run](), active: [pid_t: Int]())) { folded, record in
+                        switch (record.argv, record.line, record.exit, folded.active[record.pid]) {
+                            case (.some(let argv), _, _, _) where record.session == session:
+                                folded.active[record.pid] = folded.runs.endIndex
+                                folded.runs.append(Run(pid: record.pid, at: record.at, argv: argv))
+                            case (.some, _, _, _): folded.active[record.pid] = nil
+                            case (.none, .some(.object(let line)), _, .some(let run)): folded.runs[run].last.merge(line.mapValues(\.outlined)) { _, next in next }
+                            case (.none, _, .some(let exit), .some(let run)):
+                                folded.runs[run].exit = exit
+                                folded.active[record.pid] = nil
+                            case (.none, _, _, _): break
+                        }
+                    }.runs
+                    do { output = try runs.map(encoder.encodeLine) } catch { throw ApplicationFailure(subject: path, reason: .host(error)) }
+                }
+                return output
             }
-            return output
-        }
-        switch printed {
-            case .success(let lines): for line: Data in lines { try FileHandle.standardOutput.write(contentsOf: line) }
-            case .failure(let failure):
-                try FileHandle.standardOutput.write(contentsOf: encoder.encodeLine([ProcessInfo.processInfo.processName: Line.fail(failure)]))
-                throw ExitCode.failure
-        }
+        )
     }
 }

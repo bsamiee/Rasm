@@ -44,6 +44,9 @@ const Entry = Schema.Struct({ originalLine: Schema.Int });
 const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
 const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
 const Result = Schema.toCodecJson(ExecuteScript.Result);
+const Body = Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) });
+const Opening = Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) });
+const Rendering = Schema.Struct(Struct.omit(Render.fields, ['file']));
 const Opened = Reference.mapFields(Struct.assign({ launched: Schema.OptionFromOptionalKey(Launched.annotate({ description: 'Instance open launched' })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -59,7 +62,7 @@ const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, aw
     });
     const mapping = new SourceMap(yield* Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)));
     const original = (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(mapping.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), Struct.get('originalLine'));
-    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.guards.Thrown(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, original))(error.cause) : error);
+    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, original))(error.cause) : error);
     return { source, relined };
 });
 const library = (installation: Installation) => Array.findFirst([InDesign, Photoshop, Illustrator, AfterEffects] as const, ({ identifier }) => installation.identifier.startsWith(identifier));
@@ -105,7 +108,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     yield* Route.register(script)(
         Tool.make(script.tag, {
             description: 'Runs TypeScript function body in application, returns its result as JSON, failures name body line',
-            parameters: Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) }),
+            parameters: Body,
             success: ExecuteScript.Result,
         }).annotate(Server.Instructions, [
             `${script.tag} runs body in linked InDesign synchronously in one undo step that a throw rolls back`,
@@ -127,8 +130,8 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     );
     yield* Route.register(opened.optional('linked application Launch Services picks for file'))(
         Tool.make(opened.tag, {
-            description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
-            parameters: Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) }),
+            description: 'Opens document without dialogs and returns its reference. Skips the window where the application allows. Launches the picked application if none runs, awaiting its link. After Effects replaces its open project',
+            parameters: Opening,
             success: Opened,
         }),
         Effect.fnUntraced(function* ({ file }, chosen) {
@@ -140,7 +143,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     yield* Route.register(rendered)(
         Tool.make(rendered.tag, {
             description: 'Renders document target as PNG, an InDesign page item or Photoshop layer without the rest of its page, spread, or document. Use screenshot for panels, dialogs, and pasteboard',
-            parameters: Schema.Struct(Struct.omit(Render.fields, ['file'])),
+            parameters: Rendering,
             success: Capture,
         }).annotate(Tool.Readonly, true),
         (payload, { client }) =>

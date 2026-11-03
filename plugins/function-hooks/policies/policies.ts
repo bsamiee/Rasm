@@ -1,7 +1,7 @@
 import { Option } from '../composition.ts';
 import { type Command, parse, printed, type Script, spliced, type Word } from './command.ts';
 import { identified } from './instances.ts';
-import { declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, unquoted, waits, within } from './invocation.ts';
+import { basename, declared, firstOperand, type Invocation, informational, invocations, marked, operands, option, optional, placed, unquoted, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -39,6 +39,15 @@ interface Waited {
     readonly at: number;
     readonly kind: Request['kind'];
 }
+interface Removal {
+    readonly system: System;
+    readonly command: Command;
+    readonly tail: readonly Word[];
+    readonly name: string;
+    readonly covered: (word: string) => string;
+    readonly start: Option<string>;
+    readonly patterns: readonly string[];
+}
 interface Launcher {
     readonly app: Option<string>;
     readonly waits: readonly string[];
@@ -54,7 +63,7 @@ interface Target {
 const WORKTREE = 'creates second checkout. Work in main checkout';
 const BRANCH = 'creates a branch. Stay on current branch';
 const UNPLACED = 'follows unresolved cd. cd to a literal path';
-const ALIAS = 'defines alias hiding refused subcommands';
+const ALIAS = 'defines alias hiding refused subcommands. Run subcommands directly';
 const OVERWRITES = 'overwrites edits. Use the Edit tool';
 const HEADLESS = 'analyzeHeadless';
 const PROJECT = 'GHIDRA_PROJECT_DIR';
@@ -93,7 +102,6 @@ const PID = /^\d+$/u;
 const DAEMON = /\btype="BackgroundOnly"/u;
 const SIGNAL = /^-?(?:SIG)?/u;
 const SPACES = /\s+/u;
-const EVENTS = 'System Events';
 const WATCHER = 'watch-apps';
 const FINDERS: ReadonlySet<string> = new Set(['ps', 'pgrep', 'pidof']);
 const LAUNCHERS = {
@@ -121,6 +129,11 @@ const corrected = (command: Command, change: Verdict, reason: string): Verdict =
 
 const quote = (word: string): string => (SAFE.test(word) ? word : `'${word.replaceAll("'", String.raw`'\''`)}'`);
 
+const expanded = (words: readonly Word[], text: string): string => {
+    const [spoken] = words.filter((word) => word.unbounded && word.text === text);
+    return spoken === undefined || !EXPANDS.test(text) ? text : unquoted(spoken.literal);
+};
+
 const items = (program: string, [head, ...rest]: readonly Word[]): readonly { readonly words: readonly Word[]; readonly names: readonly string[] }[] => {
     if (head === undefined || head.text === '--') {
         return [];
@@ -140,8 +153,31 @@ const milliseconds = (amount: string): Option<number> => {
 
 // --- [DELETE]
 
+const removed =
+    ({ system, command, tail, name, covered, start, patterns }: Removal) =>
+    async (word: string): Promise<readonly Verdict[]> => {
+        const { root, home } = system;
+        const spoken = tail.filter(({ text, unbounded }) => unbounded && text === word);
+        const path = expanded(tail, word);
+        if (spoken.length > 0 && EXPANDS.test(path)) {
+            return [refuse(`${name} ${word} expands at run time. Name literal path`)];
+        }
+        const anchored = (cut: number): Option<string> => placed(cut < 0 ? path : path.slice(0, path.lastIndexOf('/', cut) + 1), start, home);
+        const [place] = anchored(spoken.length > 0 ? path.search(GLOB) : -1).toArray();
+        if (place === undefined) {
+            return [refuse(`${name} ${UNPLACED}`)];
+        }
+        if (!patterns.some((pattern) => NAMED.test(pattern)) && root.toArray().some((top) => within(top, place))) {
+            return [refuse(covered(path))];
+        }
+        const edits = path === word ? [] : spoken.map(({ raw, span, literal }) => corrected(command, edit(span.start, span.end, literal, Option.some(`${name} took ${literal} for ${raw}`)), `${name} ${raw} expands at run time. Name ${literal}`));
+        const [target = place] = placed(path, start, home).toArray();
+        const targets = patterns.length === 0 ? [target] : patterns.map((pattern) => `${target}/${pattern}`);
+        return [...edits, ...(await Promise.all(targets.map((candidate) => locked(system, name, candidate)))).flat()];
+    };
+
 const deletes = async ({ system, script: { commands }, project }: Call): Promise<readonly Verdict[]> => {
-    const { root, home } = system;
+    const { home } = system;
     const removing = (invocation: Invocation): readonly Invocation[] => {
         if (invocation[0] !== 'git') {
             return ['rm', 'rimraf', 'trash', 'unlink', 'shred'].includes(invocation[0]) ? [invocation] : [];
@@ -156,10 +192,6 @@ const deletes = async ({ system, script: { commands }, project }: Call): Promise
         const patterns = program === 'find' || program === 'gfind' ? args.flatMap((word, at) => (tests.includes(word) ? args.slice(at + 1, at + 2) : [])) : [...leading, ...values.flatMap(([name, value]) => (name === '-e' || name === '--extension' ? [value] : []))];
         return { roots, folder: base.reduce((folder, word) => placed(word, folder, home), cwd), patterns };
     };
-    const anchored = (word: string, unbounded: boolean, cwd: Option<string>): Option<string> => {
-        const cut = unbounded ? word.search(GLOB) : -1;
-        return placed(cut < 0 ? word : word.slice(0, word.lastIndexOf('/', cut) + 1), cwd, home);
-    };
     const judged = commands.flatMap((command): readonly (readonly Verdict[] | Promise<readonly Verdict[]>)[] => {
         const { words, invocations: chain, cwd } = command;
         const last = chain.at(-1);
@@ -168,40 +200,18 @@ const deletes = async ({ system, script: { commands }, project }: Call): Promise
         }
         const [program] = last;
         const tail = words.slice(words.length - last.length);
-        const judge =
-            (name: string, covered: (word: string) => string, start: Option<string>, patterns: readonly string[]) =>
-            async (word: string): Promise<readonly Verdict[]> => {
-                const spoken = tail.filter(({ text, unbounded }) => unbounded && text === word);
-                const [expanded] = EXPANDS.test(word) ? spoken : [];
-                const path = expanded === undefined ? word : unquoted(expanded.literal);
-                if (expanded !== undefined && EXPANDS.test(path)) {
-                    return [refuse(`${name} ${word} expands at run time. Name literal path`)];
-                }
-                const [place] = anchored(path, spoken.length > 0, start).toArray();
-                if (place === undefined) {
-                    return [refuse(`${name} ${UNPLACED}`)];
-                }
-                const selective = patterns.some((pattern) => NAMED.test(pattern));
-                if (root.toArray().some((top) => !selective && within(top, place))) {
-                    return [refuse(covered(path))];
-                }
-                const stated = expanded === undefined ? [] : spoken.map(({ raw, span, literal }) => corrected(command, edit(span.start, span.end, literal, Option.some(`${name} took ${literal} for ${raw}`)), `${name} ${raw} expands at run time. Name ${literal}`));
-                const [target = place] = placed(path, start, home).toArray();
-                const targets = patterns.length === 0 ? [target] : patterns.map((pattern) => `${target}/${pattern}`);
-                return [...stated, ...(await Promise.all(targets.map((candidate) => locked(system, name, candidate)))).flat()];
-            };
         const { options, inner } = operands(last);
         const [remover] = removing(last);
         const [feeder] = chain.slice(0, -1).filter(([name]) => declared(name).stdin === 'always');
         if (remover !== undefined) {
             const name = program === 'git' ? 'git rm' : program;
-            return feeder === undefined ? [...new Set(operands(remover).inputs)].map(judge(name, (word) => `${name} ${word} covers repository root. Run nx run ${project}:clean`, cwd, [])) : [[refuse(`${name} reads paths from ${feeder[0]}. Use fd -X ${name}`)]];
+            return feeder === undefined ? [...new Set(operands(remover).inputs)].map(removed({ system, command, tail, name, covered: (word) => `${name} ${word} covers repository root. Run nx run ${project}:clean`, start: cwd, patterns: [] })) : [[refuse(`${name} reads paths from ${feeder[0]}. Use fd -X ${name}`)]];
         }
         if (!(options.includes('-delete') || invocations(inner).some((launched) => removing(launched).length > 0))) {
             return [];
         }
         const { roots, folder, patterns } = searched(last, cwd);
-        return [...new Set(roots)].map(judge(program, (word) => `${program} deletes under ${word} unfiltered. Add -name pattern`, folder, patterns));
+        return [...new Set(roots)].map(removed({ system, command, tail, name: program, covered: (word) => `${program} deletes under ${word} unfiltered. Add -name pattern`, start: folder, patterns }));
     });
     return (await Promise.all(judged)).flat();
 };
@@ -393,7 +403,7 @@ const corrections = ({ commands, command, invocation, at }: Waited): readonly Ve
     ];
 };
 
-const settled = ({ request, routes, script: { commands } }: Call): readonly { readonly command: Command; readonly verdict: Verdict }[] => {
+const paused = ({ request, routes, script: { commands } }: Call): readonly { readonly command: Command; readonly verdict: Verdict }[] => {
     const own = commands.filter(({ origin }) => origin === 'call').toSorted((left, right) => left.extent.start - right.extent.start);
     const driving = own.some((command) => !command.looped && (routes.get(command)?.kind === 'rewrite' || command.invocations.some(([program]) => program === WATCHER)));
     const answered = request.kind === 'foreground' || request.kind === 'plain';
@@ -474,7 +484,7 @@ const waiting = (call: Call): readonly Verdict[] => {
         request,
         script: { commands },
     } = call;
-    const dropped = settled(call);
+    const dropped = paused(call);
     const polling = polled(call).length > 0;
     const kept = commands.filter((command) => !(dropped.some((drop) => drop.command === command) || (polling && command.looped)));
     const sites = kept.flatMap((command) => command.invocations.map((invocation, at): Waited => ({ commands, command, invocation, at, kind: request.kind })));
@@ -503,17 +513,76 @@ const heaped = (command: Command, word: Word): readonly Verdict[] => {
     return name === undefined ? [] : [corrected(command, edit(word.span.start, next.span.start, '', Option.some(`${name} dropped, analyzeHeadless sets the heap`)), overridden(name))];
 };
 
-const headless = (root: Option<string>, { invocations: chain, parts, origin }: Command): readonly Verdict[] =>
-    chain.flatMap((invocation, at) => {
-        const words = invocation[0] === HEADLESS ? (parts[at]?.words.slice(1) ?? []) : [];
+const projects = async ({ environment, home }: System): Promise<Option<string>> => {
+    const [folder] = (await environment(PROJECT)).toArray().flatMap((value) => placed(value, Option.none, home).toArray());
+    return Option.given(folder);
+};
+
+const spelled = (folder: Option<string>, path: string): string =>
+    folder.match(
+        (shared) => (within(path, shared) ? `"$${PROJECT}${path.slice(shared.length)}"` : quote(path)),
+        () => quote(path),
+    );
+
+const served = (name: string): string => `printf '%s\\n' <program> <script> <argument>... | paste -s - | nc -U "$${PROJECT}/${name}.sock"`;
+
+const projected = async ({ run, plugin }: System, path: string, stem: string): Promise<readonly string[]> => {
+    const parts = path.split('/');
+    const [base] = parts.flatMap((part, at) => (PROJECTED.test(part) ? [[...parts.slice(0, at), part.replace(PROJECTED, '')].join('/')] : []));
+    if (base !== undefined) {
+        return [base];
+    }
+    const { stdout } = await run(['find', path, '-maxdepth', '1', '-name', `${stem}.gpr`], { cwd: plugin, stdin: '' });
+    return [...new Set(stdout.split('\n').flatMap((file) => (PROJECTED.test(file) ? [file.replace(PROJECTED, '')] : [])))];
+};
+
+const locked = async (system: System, program: string, path: string): Promise<readonly Verdict[]> => {
+    const cut = path.lastIndexOf('/');
+    const leaf = path.slice(cut + 1);
+    const stem = LOCK.exec(leaf)?.groups?.stem;
+    const bases = stem === undefined ? [] : await projected(system, path.slice(0, cut), stem || '*');
+    if (bases.length === 0) {
+        return [];
+    }
+    const folder = await projects(system);
+    return [refuse(`${program} ${leaf} deletes a Ghidra lock, stale locks block nothing. Run lsof -t ${bases.map((base) => spelled(folder, `${base}.lock~`)).join(' ')}`)];
+};
+
+const copies = async ({ system, script: { commands } }: Call): Promise<readonly Verdict[]> => {
+    const sources = commands.flatMap(({ words, invocations: chain, cwd }) =>
+        chain.flatMap((invocation) =>
+            invocation[0] === 'cp' || invocation[0] === 'rsync'
+                ? operands(invocation)
+                      .inputs.slice(0, -1)
+                      .map((source) => ({ program: invocation[0], path: placed(expanded(words, source), cwd, system.home) }))
+                : [],
+        ),
+    );
+    const found = await Promise.all(sources.flatMap(({ program, path }) => path.toArray().map(async (place) => ({ program, bases: await projected(system, place, '*') }))));
+    return found.flatMap(({ program, bases }) => bases.map((base) => refuse(`${program} copies Ghidra project ${basename(base)}, its Serve.java serves every caller. Run ${served(basename(base))}`)));
+};
+
+const headless = ({ home, root }: System, folder: Option<string>, command: Command): readonly Verdict[] =>
+    command.invocations.flatMap((invocation, at) => {
+        const words = invocation[0] === HEADLESS ? (command.parts[at]?.words.slice(1) ?? []) : [];
         const [location] = words;
-        return [...(location === undefined || PROJECTS.test(location.raw) ? [] : [refuse(`${HEADLESS} project is not $GHIDRA_PROJECT_DIR. Follow use-ghidra`)]), ...(origin === 'call' && location !== undefined ? root.toArray().flatMap((folder) => logged(folder, words)) : [])];
+        const logs = command.origin === 'call' && location !== undefined ? root.toArray().flatMap((top) => logged(top, words)) : [];
+        if (location === undefined || PROJECTS.test(location.raw)) {
+            return logs;
+        }
+        const shared = `"$${PROJECT}"`;
+        const derived = placed(location.text, command.cwd, home)
+            .toArray()
+            .some((place) => folder.toArray().includes(place));
+        return [derived ? corrected(command, edit(location.span.start, location.span.end, shared, Option.some(`${HEADLESS} took ${shared} for ${location.raw}`)), `${HEADLESS} project ${location.raw} is ${shared}. Pass ${shared}`) : refuse(`${HEADLESS} project is not $${PROJECT}. Pass ${shared}`), ...logs];
     });
 
-const ghidra = ({ request, system: { root }, script: { commands, assignments } }: Call): readonly Verdict[] => {
+const ghidra = async ({ request, system, script: { commands, assignments } }: Call): Promise<readonly Verdict[]> => {
     const runs = commands.filter(({ invocations: chain }) => chain.some((invocation) => invocation[0] === HEADLESS && !informational(HEADLESS, operands(invocation).options)));
     const prefixed = commands.flatMap((command) => command.parts.flatMap(({ assigned }) => assigned.map((word) => ({ command, word }))));
-    return [...prefixed.flatMap(({ command, word }) => heaped(command, word)), ...assignments.flatMap(({ name }) => (OWNED.test(name) ? [refuse(overridden(name))] : [])), ...runs.flatMap((run) => headless(root, run)), ...(request.kind === 'foreground' && runs.length > 0 ? [backgrounded(HEADLESS)] : [])];
+    const lasting = runs.some(({ invocations: chain }) => chain.some((invocation) => invocation[0] === HEADLESS && (operands(invocation).options.includes('-import') || invocation.slice(1).some((word, at) => invocation[at] === '-postScript' && basename(word) === SERVE))));
+    const folder = runs.length === 0 ? Option.none : await projects(system);
+    return [...prefixed.flatMap(({ command, word }) => heaped(command, word)), ...assignments.flatMap(({ name }) => (OWNED.test(name) ? [refuse(overridden(name))] : [])), ...runs.flatMap((run) => headless(system, folder, run)), ...(request.kind === 'foreground' && lasting ? [backgrounded(HEADLESS)] : [])];
 };
 
 const logged = (root: string, words: readonly Word[]): readonly Verdict[] =>
@@ -547,9 +616,15 @@ const pipefail = ({ script: { commands } }: Call): readonly Verdict[] => {
 
 const repeated = ({ script: { commands, jobs } }: Call): readonly Verdict[] => {
     const runs = commands.filter(({ invocations: chain }) => chain.some(([program]) => program === HEADLESS));
+    const fanned = runs.filter(({ looped }) => looped || (runs.length > 1 && jobs.length > 0)).flatMap(({ invocations: chain }) => chain.filter(([program]) => program === HEADLESS));
     return [
         ...(commands.some(({ looped, invocations: chain }) => looped && chain.some((invocation) => invocation[0] === 'nx' && operands(invocation).inputs[0] !== 'show')) ? [refuse('Loop reruns nx tasks. Use one nx run-many')] : []),
-        ...(runs.some(({ looped }) => looped) || (runs.length > 1 && jobs.length > 0) ? [refuse(`${HEADLESS} fans out per input. Use one Serve.java process`)] : []),
+        ...fanned.map((invocation) => {
+            const { options, inputs } = operands(invocation);
+            const [, name] = inputs;
+            const project = name === undefined || EXPANDS.test(name) ? '<name>' : name;
+            return refuse(`${HEADLESS} fans out per input. ${options.includes('-import') ? 'Chain one -import per project with &&' : `Send each run with ${served(project)}`}`);
+        }),
     ];
 };
 
@@ -585,7 +660,11 @@ const running = async (system: System, commands: readonly Command[]): Promise<Re
     const probed = await Promise.all(
         pids.map(async (pid) => {
             const { stdout } = await system.run(['lsappinfo', 'info', '-only', 'bundleID,ApplicationType', pid], { cwd: system.plugin, stdin: '' });
-            return DAEMON.test(stdout) ? [] : identified(stdout).toArray().map((bundle) => [pid, bundle] as const);
+            return DAEMON.test(stdout)
+                ? []
+                : identified(stdout)
+                      .toArray()
+                      .map((bundle) => [pid, bundle] as const);
         }),
     );
     return new Map(probed.flat());
@@ -594,7 +673,7 @@ const running = async (system: System, commands: readonly Command[]): Promise<Re
 const killed = (apps: ReadonlyMap<string, string>, head: Word, invocation: Invocation): Option<Route> => {
     const { force, pids } = signalled(invocation);
     const [flags] = force.toArray();
-    if (flags === undefined || pids.length === 0 || !pids.every((pid) => apps.has(pid))) {
+    if (flags === undefined || pids.length === 0 || !new Set(pids).isSubsetOf(apps)) {
         return Option.none;
     }
     const quits = pids.map((pid) => [WATCHER, 'quit', '--pid', pid, ...flags].join(' '));
@@ -609,13 +688,13 @@ const upstream = (commands: readonly Command[], index: number): readonly Command
 const drives = ({ script: { commands } }: Call): readonly Verdict[] => {
     const ended = [...new Set(commands.flatMap(({ invocations: chain }) => chain.flatMap(([program]) => (program === 'killall' || program === 'pkill' ? [program] : []))))];
     return [
-        ...ended.map((program) => refuse(`${program} ends every match. Kill one pid pgrep lists`)),
+        ...ended.map((program) => refuse(`${program} ends every match. Run kill <pid> on one pid pgrep lists`)),
         ...commands.flatMap((command, index) => {
             const quitting = command.invocations.some((invocation) => invocation[0] === 'kill' && signalled(invocation).force.toArray().length > 0);
             const sources = [...(command.fed ? upstream(commands, index) : []), ...commands.filter((other) => other !== command && other.extent.start >= command.extent.start && other.extent.end <= command.extent.end)];
             const [finder] = sources.flatMap(({ invocations: chain }) => chain.flatMap(([program]) => (FINDERS.has(program) ? [program] : [])));
             const watched = sources.flatMap(({ invocations: chain }) => chain.filter(([program]) => program === WATCHER));
-            return quitting ? [...(finder === undefined ? [] : [refuse(`${finder} feeds kill every match. Kill one pid ${finder} lists`)]), ...(watched.length === 0 ? [] : [refuse(`kill takes pids from ${WATCHER}. Use ${[WATCHER, 'quit', ...watched.flatMap(addressed).map(quote)].join(' ')}`)])] : [];
+            return quitting ? [...(finder === undefined ? [] : [refuse(`${finder} feeds kill every match. Run kill <pid> on one pid ${finder} lists`)]), ...(watched.length === 0 ? [] : [refuse(`kill takes pids from ${WATCHER}. Use ${[WATCHER, 'quit', ...watched.flatMap(addressed).map(quote)].join(' ')}`)])] : [];
         }),
     ];
 };
@@ -719,8 +798,9 @@ const spoken = (values: readonly (readonly [string, string])[]): readonly { read
 const told = (head: Word, invocation: Invocation): Option<Route> => {
     const { values, inputs } = operands(invocation);
     const refusal = (reason: string): Option<Route> => Option.some({ kind: 'refuse', reason });
+    const events = 'System Events';
     if (values.some(([name, value]) => name === '-l' && value === 'JavaScript')) {
-        return values.some(([name, value]) => name === '-e' && SCRIPTED.test(value)) ? refusal(`JavaScript osascript drives apps. Use ${WATCHER} launch, quit, or perform`) : Option.none;
+        return values.some(([name, value]) => name === '-e' && SCRIPTED.test(value)) ? refusal(`JavaScript osascript drives apps. Run ${WATCHER} <subcommand> <app>`) : Option.none;
     }
     const said = spoken(values);
     const aimed = said.flatMap(({ app, statement: spoke }) => app.toArray().map((name) => ({ app: name, statement: spoke })));
@@ -736,7 +816,7 @@ const told = (head: Word, invocation: Invocation): Option<Route> => {
     const [refused] = (
         [
             [inputs.length > 0, `osascript ${inputs.join(' ')} is opaque. Pass -e lines`],
-            [aimed.some(({ app }) => app === EVENTS), `${EVENTS} hits frontmost app. Use ${WATCHER} perform`],
+            [aimed.some(({ app }) => app === events), `${events} posts to frontmost app. Use ${WATCHER} perform`],
             [shell !== undefined, `osascript runs a shell command. Run ${shell ?? ''} directly`],
             [aimed.some(({ statement: spoke }) => spoke.kind === 'script'), `osascript scripts ${apps.join(' ')}. Use Atelier execute_script`],
             [aimed.some(({ statement: spoke }) => spoke.kind === 'hide'), `${apps.join(' ')} instances launch hidden. Run ${WATCHER} launch ${apps.join(' ')}`],
@@ -933,7 +1013,7 @@ const owner = async ({ system, project }: Call, selectors: readonly string[], in
         .toArray()
         .filter((path) => within(path, root));
     const located = (path: string): Option<string> => {
-        const leaf = path.slice(path.lastIndexOf('/') + 1);
+        const leaf = basename(path);
         const folder = leaf === 'tsconfig.json' ? path.slice(0, path.lastIndexOf('/')) : path;
         return folder === path && leaf.lastIndexOf('.') > 0 ? Option.none : Option.some(folder.slice(root.length + 1) || '.');
     };
@@ -972,8 +1052,8 @@ const runs = async ({ system }: Call, graph: Readonly<Record<string, Target>>, p
     );
 };
 
-const chosen = (graph: Readonly<Record<string, Target>>, found: readonly { readonly target: string; readonly keys: ReadonlySet<string> }[], wanted: readonly string[]): Option<{ readonly target: string; readonly aggregate: boolean }> => {
-    const fitting = found.filter(({ keys }) => wanted.every((key) => keys.has(key)));
+const chosen = (graph: Readonly<Record<string, Target>>, found: readonly { readonly target: string; readonly keys: ReadonlySet<string> }[], wanted: ReadonlySet<string>): Option<{ readonly target: string; readonly aggregate: boolean }> => {
+    const fitting = found.filter(({ keys }) => wanted.isSubsetOf(keys));
     const fewest = Math.min(...fitting.map(({ keys }) => keys.size));
     const [target, ...others] = [...new Set(fitting.filter(({ keys }) => keys.size === fewest).map((ran) => grouped(graph, ran.target)))];
     return target === undefined || others.length > 0 ? Option.none : Option.some({ target, aggregate: !found.some((ran) => ran.target === target) });
@@ -982,7 +1062,7 @@ const chosen = (graph: Readonly<Record<string, Target>>, found: readonly { reado
 const forwarded = (program: string, words: readonly Word[], dropped: ReadonlySet<string>, subcommand: boolean) => {
     const listed = items(program, words);
     const first = listed.findIndex(({ names }) => names.length === 0);
-    return listed.filter(({ names }, at) => (names.length === 0 ? !subcommand || at !== first : !names.every((name) => dropped.has(name))));
+    return listed.filter(({ names }, at) => (names.length === 0 ? !subcommand || at !== first : !new Set(names).isSubsetOf(dropped)));
 };
 
 const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation, words: readonly Word[]): Promise<Option<{ readonly run: string; readonly passed: readonly string[] }>> => {
@@ -1003,11 +1083,13 @@ const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation
     const [subcommand] = inputs;
     const found = await runs(call, targets, program, subcommand);
     const known = new Set(found.flatMap(({ keys }) => [...keys].flatMap((key) => key.split('=').slice(0, 1))));
-    const wanted = [...keyed(invocation)].filter((key) =>
-        key
-            .split('=')
-            .slice(0, 1)
-            .some((flag) => known.has(flag)),
+    const wanted = new Set(
+        [...keyed(invocation)].filter((key) =>
+            key
+                .split('=')
+                .slice(0, 1)
+                .some((flag) => known.has(flag)),
+        ),
     );
     const target = chosen(targets, found, wanted);
     const kept = forwarded(program, words.slice(1), new Set([...known, ...selectors]), subcommand !== undefined);
@@ -1015,7 +1097,7 @@ const checker = async (call: Call, { cwd, fed }: Command, invocation: Invocation
     const moved = selectors.length === 0 && folder !== root;
     const passed = kept.flatMap((item) => item.words).map((word) => (moved ? rebased(word, folder, root, home) : Option.some(word.raw)));
     const [chose] = target.toArray();
-    if (chose === undefined || (chose.aggregate && (wanted.length > 0 || switched)) || (moved && switched) || passed.some((argument) => argument.toArray().length === 0)) {
+    if (chose === undefined || (chose.aggregate && (wanted.size > 0 || switched)) || (moved && switched) || passed.some((argument) => argument.toArray().length === 0)) {
         return Option.none;
     }
     return Option.some({ run: `${name}:${chose.target}`, passed: [...passed.flatMap((argument) => argument.toArray()), ...(moved && passed.length === 0 ? [quote(folder.slice(root.length + 1))] : [])] });
@@ -1057,7 +1139,7 @@ const decided = async (system: System, source: Uint8Array, script: Script, proje
     const [apps, writers] = await Promise.all([running(system, commands), writing(system, request, commands)]);
     const routes = new Map((await Promise.all(commands.map(async (each) => (await launching(system, request, apps, each)).toArray().map((route) => [each, route] as const)))).flat());
     const call: Call = { system, source, script, project, request, apps, writers, routes };
-    const verdicts = (await Promise.all([...[deletes, git, walks, probes, inlined, selfless, waiting, followed, detached, deadlines, ghidra, pipefail, repeated, drives, observes].map((policy) => policy(call)), ...commands.map((each) => rewritten(call, each))])).flat();
+    const verdicts = (await Promise.all([...[deletes, git, walks, probes, inlined, selfless, waiting, followed, detached, deadlines, ghidra, copies, pipefail, repeated, drives, observes].map((policy) => policy(call)), ...commands.map((each) => rewritten(call, each))])).flat();
     const reasons = [...new Set(verdicts.flatMap((verdict) => (verdict.kind === 'refuse' ? [verdict.reason] : [])))];
     const edits = verdicts.flatMap((verdict) => (verdict.kind === 'edit' ? [verdict] : []));
     const backgrounds = verdicts.flatMap((verdict) => (verdict.kind === 'background' ? [verdict.notice] : []));

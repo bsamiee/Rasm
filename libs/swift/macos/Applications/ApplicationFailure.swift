@@ -63,8 +63,8 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
-            case .activating: "\(subject) not sent, raising a window takes focus from the frontmost app"
-            case .disabled: "\(subject) not sent to disabled element"
+            case .activating: "Skipped \(kAXRaiseAction) on \(subject), raising a window takes focus from the frontmost app"
+            case .disabled: "Element \(subject) is disabled"
             case .notSettable(let attribute): "\(subject) has no settable \(attribute)"
             case .refused(.some(let error)): "\(subject) refused with AXError \(error.rawValue)"
             case .refused(.none): "\(subject) refused"
@@ -103,7 +103,38 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
 
 extension ApplicationFailure: Equatable {
     public static func == (left: Self, right: Self) -> Bool {
-        left.name == right.name && left.subject == right.subject && left.errorDescription == right.errorDescription
+        let same: Bool =
+            switch left.reason {
+                case .untrusted: right.reason.is(\.untrusted)
+                case .malformed(let usage): right.reason[case: \.malformed] == Optional(usage)
+                case .unanswered(let action): right.reason[case: \.unanswered] == action
+                case .noProcess: right.reason.is(\.noProcess)
+                case .visibility(let hidden, let limit): right.reason[case: \.visibility].map { other in other == (hidden, limit) } == true
+                case .unreadable(let read): right.reason[case: \.unreadable] == Optional(read)
+                case .unresolved: right.reason.is(\.unresolved)
+                case .foreign(let process): right.reason[case: \.foreign] == Optional(process)
+                case .activating: right.reason.is(\.activating)
+                case .disabled: right.reason.is(\.disabled)
+                case .notSettable(let attribute): right.reason[case: \.notSettable] == Optional(attribute)
+                case .refused(let error): right.reason[case: \.refused] == error
+                case .noIdentifier: right.reason.is(\.noIdentifier)
+                case .noPath: right.reason.is(\.noPath)
+                case .noHandler: right.reason.is(\.noHandler)
+                case .noWindow: right.reason.is(\.noWindow)
+                case .noDisplay: right.reason.is(\.noDisplay)
+                case .noImage: right.reason.is(\.noImage)
+                case .noExtension: right.reason.is(\.noExtension)
+                case .noEncoder: right.reason.is(\.noEncoder)
+                case .noReport(let limit): right.reason[case: \.noReport] == Optional(limit)
+                case .event(let failure): right.reason[case: \.event] == Optional(failure)
+                case .system(let error): right.reason[case: \.system] == Optional(error)
+                case .host(let error):
+                    right.reason[case: \.host].map { other in ((other as NSError).domain, (other as NSError).code) == ((error as NSError).domain, (error as NSError).code) } == true
+                case .cancelled: right.reason.is(\.cancelled)
+                case .unmatched(let miss): right.reason[case: \.unmatched] == Optional(miss)
+                case .unwatched(let failure): right.reason[case: \.unwatched] == Optional(failure)
+            }
+        return left.subject == right.subject && same
     }
 }
 

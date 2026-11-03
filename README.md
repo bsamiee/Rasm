@@ -26,6 +26,8 @@ Rasm/
 │   ├── ast-grep/             # Grammar extensions, outlines, rules, and utilities per language
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
+│   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, verified, published
+│   ├── harnesses/            # Host proof harness running case files in each desktop host, every run traced to a log
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans

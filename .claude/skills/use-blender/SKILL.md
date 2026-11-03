@@ -62,7 +62,7 @@ Sessions open in order:
 
 - Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
 
-Quitting saves preferences, the last GUI to quit overwriting what others saved, so preferences a task GUI changed take their prior values before `watch-apps quit --pid <pid>` ends it. Blender draws its menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone, and quitting an edited file prints `refused` under a save prompt only `capture` shows, so `bpy.ops.wm.read_homefile()` discards a task GUI's edits first.
+Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before `watch-apps quit --pid <pid>` ends it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 
 Script-driven task GUIs run a runner script:
 - `python -m eng.python.blender run <name> -- --python <runner.py>` runs one and returns once it quits
@@ -179,5 +179,5 @@ Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, 
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
-- `watch-apps launch --new` starts macOS GUI runs hidden, and `run` returns once the runner's quit call ends that instance
+- `watch-apps launch --new` starts macOS GUI runs hidden
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

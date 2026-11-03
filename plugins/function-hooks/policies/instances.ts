@@ -4,7 +4,7 @@ import { Option } from '../composition.ts';
 
 interface Ledger {
     readonly runs: ReadonlyMap<number, boolean>;
-    readonly instances: ReadonlyMap<number, Instance>;
+    readonly instances: readonly Instance[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -18,6 +18,10 @@ interface Instance {
     readonly pid: number;
     readonly bundle: string;
     readonly agent?: string;
+}
+interface Change {
+    readonly created: readonly Instance[];
+    readonly exited: ReadonlySet<number>;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,29 +38,25 @@ const decoded = (text: string): readonly unknown[] => {
     }
 };
 
+const jsonLines = (text: unknown): readonly unknown[] => (typeof text === 'string' ? text.split('\n').flatMap((line) => (line.startsWith('{') ? decoded(line) : [])) : []);
+
 const identified = (output: string): Option<string> => Option.given(IDENTIFIER.exec(output)?.groups?.bundle);
 
-const changed = (lines: readonly unknown[]): { readonly created: readonly Instance[]; readonly exited: ReadonlySet<number> } => {
+const changed = (lines: readonly unknown[]): Change => {
     const states = lines
         .flatMap(record)
         .flatMap((line) => Object.entries(line))
         .flatMap(([bundle, instances]) => record(instances).flatMap((found) => Object.entries(found).flatMap(([pid, state]) => (PID.test(pid) ? [{ pid: Number(pid), bundle, state }] : []))))
-        .flatMap(({ pid, bundle, state }) => record(state).map((settled) => ({ pid, bundle, state: settled })));
+        .flatMap(({ pid, bundle, state }) => record(state).map((fields) => ({ pid, bundle, state: fields })));
     return {
         created: states.flatMap(({ pid, bundle, state }) => (record(state.running).some(({ created }) => created === true) ? [{ pid, bundle }] : [])),
         exited: new Set(states.flatMap(({ pid, state }) => ('exited' in state ? [pid] : []))),
     };
 };
 
-const reported = (output: unknown): { readonly created: readonly Instance[]; readonly exited: ReadonlySet<number> } =>
-    changed(
-        [output, ...record(output).map(({ stdout }) => stdout)]
-            .flatMap((text) => (typeof text === 'string' ? text.split('\n') : []))
-            .filter((line) => line.startsWith('{'))
-            .flatMap(decoded),
-    );
+const reported = (output: unknown): Change => changed([output, ...record(output).map(({ stdout }) => stdout)].flatMap(jsonLines));
 
-const tallied = (instances: ReadonlyMap<number, Instance>, launching: boolean, { created, exited }: ReturnType<typeof changed>): ReadonlyMap<number, Instance> => new Map([...instances, ...(launching ? created : []).map((instance) => [instance.pid, instance] as const)].filter(([pid]) => !exited.has(pid)));
+const recorded = (kept: readonly Instance[], { created, exited }: Change): readonly Instance[] => [...new Map([...kept, ...created].map((instance) => [instance.pid, instance])).values()].filter(({ pid }) => !exited.has(pid));
 
 const entered =
     (session: string) =>
@@ -69,18 +69,10 @@ const entered =
         if (launching === undefined) {
             return { runs, instances };
         }
-        return line === undefined ? { runs: others, instances } : { runs, instances: tallied(instances, launching, changed([line])) };
+        return line === undefined ? { runs: others, instances } : { runs, instances: recorded(instances, { ...changed([line]), ...(!launching && { created: [] }) }) };
     };
 
-const logged = (text: string, session: string): readonly Instance[] => [
-    ...text
-        .split('\n')
-        .filter((line) => line.startsWith('{'))
-        .flatMap(decoded)
-        .flatMap(record)
-        .reduce<Ledger>(entered(session), { runs: new Map(), instances: new Map() })
-        .instances.values(),
-];
+const logged = (text: string, session: string): readonly Instance[] => jsonLines(text).flatMap(record).reduce<Ledger>(entered(session), { runs: new Map(), instances: [] }).instances;
 
 const launched = (result: unknown): readonly number[] => {
     const blocks: readonly unknown[] = Array.isArray(result) ? result : record(result).flatMap(({ content }) => (Array.isArray(content) ? content : []));
@@ -93,8 +85,6 @@ const launched = (result: unknown): readonly number[] => {
 
 const held = (value: unknown): readonly Instance[] => (Array.isArray(value) ? value.flatMap(record).flatMap(({ pid, bundle, agent }) => (typeof pid === 'number' && typeof bundle === 'string' ? [{ pid, bundle, ...(typeof agent === 'string' && { agent }) }] : [])) : []);
 
-const recorded = (kept: readonly Instance[], created: readonly Instance[], exited: ReadonlySet<number>): readonly Instance[] => [...new Map([...kept, ...created].map((instance) => [instance.pid, instance])).values()].filter(({ pid }) => !exited.has(pid));
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { held, type Instance, identified, launched, logged, recorded, reported };
+export { type Change, held, type Instance, identified, launched, logged, recorded, reported };
