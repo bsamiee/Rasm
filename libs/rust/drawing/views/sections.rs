@@ -1,4 +1,5 @@
 use core::cmp::Ordering;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use kurbo::{BezPath, Rect, Shape as _, Triangle};
@@ -8,7 +9,10 @@ use nalgebra::Point3;
 use nonempty_collections::NEVec;
 use parry3d_f64::shape::TriMeshFlags;
 use rasm_linework::{EdgeKind, LineworkError, Region, Tolerance, regions::boolean};
-use rasm_mesh::{Source, sections::trim};
+use rasm_mesh::{
+    Source, export,
+    sections::{Trim, trim},
+};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 
@@ -49,33 +53,24 @@ pub fn sections(view: &View) -> Result<Vec<(usize, Region)>, NEVec<ViewsError>> 
 pub(super) fn prepared(frame: &Frame, index: usize, body: Body, token: Option<&CancelToken>) -> Result<Option<Prepared>, ViewsError> {
     (!cancel::is_cancelled(token)).ok_or(ViewsError::Cancelled)?;
     let refused = move |source| ViewsError::Mesh { body: index, source };
-    let topology = move |source| ViewsError::Topology { body: index, source };
     match body {
-        Body::Solid(solid) => {
-            let (exported, faces) = solid.to_mesh().map_err(refused)?;
-            let aabb = exported.local_aabb();
-            let rounding = f64::EPSILON * 64.0_f64 * aabb.mins.abs().max(aabb.maxs.abs()).max_element().max(frame.plane.translation.vector.amax());
-            match exported.vertices().iter().map(|&vertex| depth(frame, &Point3::from(vertex))).minmax_by(f64::total_cmp).into_option() {
-                Some((nearest, _)) if nearest >= -rounding => Some((exported, faces.into_iter().map(Some).collect())),
-                Some((_, farthest)) if farthest > rounding => trim(&solid, &frame.plane, token)
-                    .map_err(refused)?
-                    .map(|trimmed| {
-                        let originals = solid.original_ids();
-                        trimmed
-                            .to_mesh()
-                            .map_err(refused)
-                            .map(|(mesh, sources)| (mesh, sources.into_iter().map(|source| source.original.is_none_or(|original| originals.contains(&original)).then_some(source)).collect()))
-                    })
-                    .transpose()?,
-                Some(_) | None => None,
-            }
-            .map(|(mut mesh, sources)| mesh.set_flags(TriMeshFlags::HALF_EDGE_TOPOLOGY).map(|()| Prepared { body: index, mesh, sources, surface: false }).map_err(topology))
-            .transpose()
-        }
+        Body::Solid(solid) => trim(&solid, &frame.plane, token)
+            .map_err(refused)?
+            .map(|Trim { solid: kept, cap }| {
+                let (mut mesh, sources) = export(&kept).map_err(refused)?;
+                mesh.set_flags(TriMeshFlags::HALF_EDGE_TOPOLOGY).map_err(|source| ViewsError::Topology { body: index, source })?;
+                Ok(Prepared {
+                    body: index,
+                    mesh: Arc::new(mesh),
+                    sources: sources.into_iter().map(|source| cap.is_none_or(|cap| source.original != Some(cap)).then_some(source)).collect(),
+                    surface: false,
+                })
+            })
+            .transpose(),
         Body::Surface(mut mesh) => {
-            mesh.set_flags(mesh.flags() | TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::MERGE_DUPLICATE_VERTICES).map_err(topology)?;
-            let sources = (0..).take(mesh.num_triangles()).map(|face| Some(Source { original: None, face })).collect();
-            Ok(Some(Prepared { body: index, mesh, sources, surface: true }))
+            mesh.set_flags(mesh.flags() | TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::MERGE_DUPLICATE_VERTICES).map_err(|source| ViewsError::Topology { body: index, source })?;
+            let sources = (0..).take(mesh.num_triangles()).map(|face| Some(Source { original: None, run: 0, face })).collect();
+            Ok(Some(Prepared { body: index, mesh: Arc::new(mesh), sources, surface: true }))
         }
     }
 }

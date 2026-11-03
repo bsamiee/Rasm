@@ -4,7 +4,7 @@
 name                 = "rasm-mesh"
 version.workspace    = true
 edition.workspace    = true
-description          = "Solids over manifold-rust at nalgebra signatures: mesh import at a tolerance with winding repair, face and original provenance, extrusion, revolution, hulls of points and solids, affine placement, warps, cancellable booleans and Minkowski sums, plane sections, meshopt and kernel reduction of meshes and colored point clouds, refinement, parallel body decomposition, voxels and measures"
+description          = "Solids over manifold-rust at nalgebra signatures: mesh import at a tolerance with winding repair, face, instance and original provenance, extrusion, revolution, hulls of points and solids, affine placement, warps, cancellable CSG trees over placed instances and Minkowski sums, plane trims with their cap, holed section and silhouette polygons, meshopt and kernel reduction of meshes and colored point clouds, refinement, parallel body decomposition and measures"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["mesh", "csg", "boolean", "solid", "geometry"]
@@ -28,6 +28,7 @@ thiserror       = { workspace = true }
 derive_more     = { workspace = true }
 bounded-integer = { workspace = true }
 nutype          = { workspace = true }
+itertools       = { workspace = true }
 nalgebra        = { workspace = true }
 manifold-rust   = { workspace = true }
 meshopt         = { workspace = true }
