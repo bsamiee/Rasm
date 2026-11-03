@@ -17,5 +17,4 @@ feature-unification = "workspace"
 [unstable]
 checksum-freshness  = true
 feature-unification = true
-fine-grain-locking  = true
 git                 = "shallow-deps"
