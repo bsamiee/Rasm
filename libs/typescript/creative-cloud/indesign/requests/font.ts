@@ -14,45 +14,19 @@ import { search } from '#/requests/find-change';
 const notFound = Schema.is(Schema.Struct({ code: Schema.Literal(-2) }));
 const faceView = Effect.fn('faceView')(function* (face: Face) {
     const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
-    const refused = HostError.refused(`uses of ${face.name}`);
     const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];
     const style = installed ? Option.some(face.fontStyleName) : Option.none();
     const specifier = yield* Effect.orDie(Schema.decodeUnknownEffect(Specifier.Path)(face.toSpecifier()));
-    const uses = yield* Option.match(yield* Effect.option(Model.current), {
-        onNone: () => Effect.succeed(Array.empty<string>()),
-        onSome: (open) =>
-            Effect.all([
-                search(
-                    {
-                        mode: 'Text',
-                        find: Option.some({ appliedFont: { specifier } }),
-                        options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
-                        change: Option.none(),
-                    },
-                    open,
-                ),
-                Effect.try({
-                    try: () =>
-                        Array.map(
-                            [...open.allParagraphStyles, ...open.allCharacterStyles].filter(({ appliedFont, fontStyle }) => Unmatched.named(`${Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily}\t${fontStyle}`, face.name)),
-                            (each) => each.toSpecifier(),
-                        ),
-                    catch: refused,
-                }),
-            ]).pipe(Effect.map(([{ matches }, styled]) => [...Array.map(matches, Struct.get('specifier')), ...styled])),
+    const open = Option.toArray(yield* Effect.option(Model.current));
+    const searched = yield* Effect.forEach(open, (document) => search({ mode: 'Text', find: Option.some({ appliedFont: { specifier } }), options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }), change: Option.none() }, document));
+    const styled = yield* Effect.try({
+        try: () => Array.flatMap(open, (document) => [...document.allParagraphStyles, ...document.allCharacterStyles].filter(({ appliedFont, fontStyle }) => Unmatched.named(`${Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily}\t${fontStyle}`, face.name)).map((each) => each.toSpecifier())),
+        catch: HostError.refused(`uses of ${face.name}`),
     });
+    const uses = [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled];
     const every = app.fonts.everyItem();
     const [styles, features] = yield* Effect.try({
-        try: () =>
-            installed
-                ? [
-                      Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? Result.succeed(named) : Result.failVoid))),
-                      Array.map(
-                          members(OpenTypeFeature).filter((feature) => face.checkOpenTypeFeature(feature)),
-                          String,
-                      ),
-                  ]
-                : [[], []],
+        try: () => (installed ? [Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([each, named]) => (each === family ? Result.succeed(named) : Result.failVoid))), members(OpenTypeFeature).filter((feature) => face.checkOpenTypeFeature(feature)).map(String)] : [[], []]),
         catch: HostError.refused(`styles and features of ${face.name}`),
     });
     const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();

@@ -2,7 +2,7 @@ import type { Page, PageItem, Spread } from 'adobe:indesign';
 import { HostError, type Render } from '@rasm/automation/requests';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Cache, Effect, Match, Number, Option, Path, pipe, Record, Schema, Struct } from 'effect';
+import { Cache, Effect, Match, Number, Option, Path, Record, Schema, Struct } from 'effect';
 import { extent } from '#/documents/document';
 import { Model } from '#/dom/model';
 import { Specifier } from '#/dom/specifier';
@@ -28,12 +28,8 @@ const render = Effect.fn('render')(function* ({ target: written, longestSide, op
     const pointsPerInch = 72;
     const preferences = app.pngExportPreferences;
     const { fields } = yield* Cache.get(model.declarations, preferences.constructorName);
-    const bounds = yield* pipe(
-        Record.get(fields, 'exportResolution'),
-        Option.flatMap(({ minimum, maximum }) => Option.all({ minimum, maximum })),
-        Effect.fromOption,
-        Effect.orDie,
-    );
+    const { minimum, maximum } = yield* Effect.orDie(Effect.fromOption(Record.get(fields, 'exportResolution')));
+    const bounds = yield* Effect.orDie(Effect.fromOption(Option.all({ minimum, maximum })));
     const defaults = {
         pngColorSpace: PNGColorSpaceEnum.RGB,
         pngQuality: PNGQualityEnum.MAXIMUM,

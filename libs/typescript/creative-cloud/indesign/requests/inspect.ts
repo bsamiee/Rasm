@@ -102,12 +102,11 @@ const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>,
 });
 const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspect) {
     const [found, { domObject }, path] = yield* Effect.all([Model.resolve(target), Model, target.path]);
-    return yield* domObject(found)
-        ? object(found, fields, slice)
-        : Effect.flatMap(
-              Effect.forEach(slice.of(found), (item) => Effect.all({ own: Model.reference(item), entries: values(item, Option.getOrElse(fields, Array.empty)) }).pipe(Effect.map(({ own, entries }) => ({ ...own, fields: entries })))),
-              (items) => Model.read(Inspect.Items, path, () => ({ _tag: 'Items', specifier: path, total: found.length, items })),
-          );
+    if (domObject(found)) {
+        return yield* object(found, fields, slice);
+    }
+    const items = yield* Effect.forEach(slice.of(found), (item) => Effect.zipWith(Model.reference(item), values(item, Option.getOrElse(fields, Array.empty)), (own, entries) => ({ ...own, fields: entries })));
+    return yield* Model.read(Inspect.Items, path, () => ({ _tag: 'Items', specifier: path, total: found.length, items }));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

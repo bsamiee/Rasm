@@ -38,12 +38,10 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     const profile = (name: string) => Unmatched.single(profiles, 'preflight profile', Option.some(name), (each) => [each.name]);
     const live = preflightOff ? Option.none() : Option.some(document.activeProcess);
     const applied = Option.flatMap(live, (process) => Option.fromNullishOr(process.appliedProfile));
-    const chosen = yield* Option.match(named, { onSome: profile, onNone: () => Option.match(applied, { onSome: Effect.succeed, onNone: () => (Predicate.isString(working) ? profile(working) : Effect.succeed(working)) }) });
+    const requested = Option.orElse(named, () => applied).pipe(Option.getOrElse(() => working));
+    const chosen = yield* Predicate.isString(requested) ? profile(requested) : Effect.succeed(requested);
     const refused = HostError.refused(`preflight of ${document.toSpecifier()} under ${chosen.name}`);
-    const finished = Option.flatMap(
-        Option.filter(live, () => Option.isNone(named)),
-        flow(aggregated, Result.getSuccess),
-    );
+    const finished = Option.isNone(named) ? Option.flatMap(live, flow(aggregated, Result.getSuccess)) : Option.none();
     const waited = Effect.acquireUseRelease(
         Effect.try({ try: () => app.preflightProcesses.add(document, chosen), catch: refused }),
         (process) =>

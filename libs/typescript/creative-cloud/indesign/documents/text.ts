@@ -1,7 +1,7 @@
 import type { CellStyle, CharacterStyle, InDesignDOMObject, ObjectStyle, ParagraphStyle, Story, TableStyle, Text, TextFrame } from 'adobe:indesign';
 import { HostError } from '@rasm/automation/requests';
 import type { Settings } from '@rasm/typography/settings';
-import { Array, Cache, Effect, flow, Number, Option, Predicate, Record, Result, type Schema, Struct } from 'effect';
+import { Array, Cache, Effect, Number, Option, Predicate, Record, Result, type Schema, Struct } from 'effect';
 import { ParagraphAttributes, StoryView, StyleView, TextView } from '#/contract';
 import { HostSettings } from '#/documents/settings';
 import { Model } from '#/dom/model';
@@ -52,13 +52,7 @@ const styleView = Model.view(
             _tag: 'Style',
             ...Model.referenceUnsafe(style),
             group: Array.filterMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
-            basedOn: Array.unfold(
-                basedOn,
-                flow(
-                    Option.liftPredicate(model.style),
-                    Option.map((above) => [above, above.basedOn] as const),
-                ),
-            ),
+            basedOn: Array.unfold(basedOn, (above) => (model.style(above) ? Option.some([above, above.basedOn] as const) : Option.none())),
             nextStyle: 'nextStyle' in properties ? Option.liftPredicate(properties.nextStyle, model.domObject) : Option.none(),
             differing: own,
             paragraphAttributes: Option.zipWith(paragraph, settings, paragraphAttributes),
