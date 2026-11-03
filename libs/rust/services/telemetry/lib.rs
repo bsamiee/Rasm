@@ -133,6 +133,7 @@ pub struct Defaults {
 struct Unrecognized {
     setting: Id,
     value: Box<str>,
+    source: Arc<clap::Error>,
 }
 
 #[derive(Clone)]
@@ -147,7 +148,8 @@ where P: TypedValueParser
     fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, clap::Error> {
         match (value.is_empty(), arg, value.to_str()) {
             (true, _, _) => Ok(Ok(None)),
-            (false, Some(arg), Some(text)) => Ok(self.0.parse_ref(cmd, Some(arg), value).map(Some).map_err(|clap::Error { .. }| Unrecognized { setting: arg.get_id().clone(), value: text.into() })),
+            (false, Some(arg), Some(text)) =>
+                Ok(self.0.parse_ref(cmd, Some(arg), value).map(Some).map_err(|source| Unrecognized { setting: arg.get_id().clone(), value: text.into(), source: Arc::new(source) })),
             (false, None, _) | (false, Some(_), None) => self.0.parse_ref(cmd, arg, value).map(|parsed| Ok(Some(parsed))),
         }
     }
@@ -267,11 +269,11 @@ impl Options {
         let Defaults { directives, attributes } = defaults;
         let exporters = [&traces_exporter, &metrics_exporter, &logs_exporter].map(|exporter| match exporter {
             Ok(Some(exporter)) if !matches!(sdk_disabled, Ok(Some(true))) => *exporter,
-            Ok(Some(_) | None) | Err(Unrecognized { setting: _, value: _ }) => Exporter::None,
+            Ok(Some(_) | None) | Err(Unrecognized { setting: _, value: _, source: _ }) => Exporter::None,
         });
         let exported = exporters.iter().any(Exporter::is_otlp);
         let [traces, metrics, logs] = exporters;
-        let level = iter::chain(directives.split(','), log.iter().map(String::as_str)).filter_map(|directive| directive.parse::<LevelFilter>().ok()).last().unwrap_or(LevelFilter::OFF);
+        let level = iter::chain(directives.split(','), log.iter().map(String::as_str)).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
         let (accepted, refused): (Vec<Directive>, Vec<_>) =
             log.iter().filter(|directive| !directive.is_empty()).map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let detectors: [Box<dyn ResourceDetector>; _] =
@@ -336,12 +338,13 @@ impl Options {
         for (directive, source) in &refused {
             tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(source), directive = directive.as_str(), "ignored filter directive");
         }
-        for Unrecognized { setting, value } in iter::chain(
+        for Unrecognized { setting, value, source } in iter::chain(
             propagators.iter().filter_map(|propagator| propagator.as_ref().err()),
             [traces_exporter.as_ref().err(), metrics_exporter.as_ref().err(), logs_exporter.as_ref().err(), sdk_disabled.as_ref().err()].into_iter().flatten(),
         ) {
             let row = command.get_arguments().find(|arg| arg.get_id() == setting);
-            tracing::warn!(flag = row.and_then(Arg::get_long), variable = row.and_then(Arg::get_env).and_then(OsStr::to_str), value = &**value, "ignored unrecognized value");
+            let (flag, variable) = (row.and_then(Arg::get_long), row.and_then(Arg::get_env).and_then(OsStr::to_str));
+            tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&**source), flag, variable, value = &**value, "ignored unrecognized value");
         }
         global::set_tracer_provider(tracer_provider.clone());
         global::set_meter_provider(meter_provider.clone());

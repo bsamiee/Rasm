@@ -44,6 +44,10 @@ struct Window {
     width: usize,
 }
 
+struct Cursor {
+    position: usize,
+}
+
 impl Window {
     const MULTIPLE: usize = 3;
     const OFFSET: usize = 1;
@@ -223,6 +227,10 @@ fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).m
 
 fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
 
+fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) }
+
+fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -230,6 +238,8 @@ async fn main() {
     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
     let window = Window { width: 3 };
     let grid = Grid { cells: [0; 4] };
+    let cursor = Cursor { position: 2 };
+    black_box(&(advanced(&cursor), rewound(&cursor)));
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));

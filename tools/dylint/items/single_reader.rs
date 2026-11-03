@@ -16,7 +16,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::{hir::nested_filter, ty::TyCtxt};
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, Span, Symbol, kw, sym};
 
-use crate::{expanded_externally, exported, fn_item_value, generated, parameter};
+use crate::{expanded_externally, exported, fn_item_value, generated, parameter, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ pub(crate) struct Pass {
     pinned: FxHashSet<LocalDefId>,
 }
 
-lint!(default Pass; SINGLE_READER: "crate-private functions, constants, and statics with one reader in their module, other than the entry point");
+lint!(default Pass; SINGLE_READER: "crate-private functions, constants, and statics with one reader in their module, other than the entry point and the operations of a type two functions there take");
 
 impl Pass {
     fn reference(&mut self, cx: &LateContext<'_>, target: Option<DefId>, node: HirId, span: Span) {
@@ -184,6 +184,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
         let mut walk = Walk { tcx, seen: FxHashSet::default(), outermost: None, depth: 0, enclosing: FxHashMap::default(), deepest: FxHashMap::default() };
         tcx.hir_walk_toplevel_module(&mut walk);
+        let operands = |item: LocalDefId| {
+            let module = tcx.parent_module_from_def_id(item);
+            signature(tcx, item.to_def_id()).inputs().iter().filter_map(|input| input.peel_refs().ty_adt_def()?.did().as_local()).filter(|&held| tcx.parent_module_from_def_id(held) == module).collect::<Vec<_>>()
+        };
+        let operations = tcx.hir_body_owners().filter(|&owner| tcx.def_kind(owner) == DefKind::Fn && tcx.def_kind(tcx.local_parent(owner)) == DefKind::Mod).flat_map(&operands).counts();
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()
@@ -193,6 +198,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && !exported(cx, target)
                 && tcx.parent_module_from_def_id(caller) == tcx.parent_module_from_def_id(target)
                 && !is_entrypoint_fn(cx, target.to_def_id())
+                && !(tcx.def_kind(target) == DefKind::Fn && operands(target).iter().any(|held| operations.get(held).is_some_and(|&count| count > 1)))
                 && !find_attr!(tcx, target, Used { .. })
                 && !(tcx.def_kind(target) == DefKind::AssocConst && tcx.generics_of(target).requires_monomorphization(tcx))
                 && let parent = tcx.local_parent(target)

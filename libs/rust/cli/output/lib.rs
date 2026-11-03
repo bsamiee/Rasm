@@ -32,8 +32,6 @@ pub enum OutputError {
     Write { source: io::Error },
     #[error("cannot encode row {row}")]
     Encode { row: usize, source: serde_json::Error },
-    #[error("cannot write row {row} as CSV")]
-    Csv { row: usize, source: csv::Error },
     #[error("cannot write row {row}, column `{name}` is outside the CSV header")]
     Column { row: usize, name: String },
     #[error(transparent)]
@@ -46,8 +44,7 @@ impl From<OutputError> for ExitCode {
     fn from(value: OutputError) -> Self {
         match value {
             OutputError::Write { source } | OutputError::Pager(MinusError::Draw(source)) | OutputError::Prompt(InquireError::IO(source)) => source.into(),
-            OutputError::Encode { row: _, source: _ } | OutputError::Csv { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Prompt(InquireError::Custom(_)) =>
-                Self::DataErr,
+            OutputError::Encode { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Prompt(InquireError::Custom(_)) => Self::DataErr,
             OutputError::Pager(_) => Self::IoErr,
             OutputError::Prompt(InquireError::NotTTY) => Self::NoInput,
             OutputError::Prompt(InquireError::InvalidConfiguration(_)) => Self::Software,
@@ -81,27 +78,32 @@ where
 {
     let progress = IndicatifLayer::new().with_span_field_formatter(hide_indicatif_span_fields(DefaultFields::new()));
     let (stderr, stdout) = (progress.get_stderr_writer(), progress.get_stdout_writer());
-    rasm_command::run(defaults, stderr, progress.with_filter(IndicatifFilter::new(false)).and_then(layer), async move |Process { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
-        inquire::set_global_render_config(theme::prompts(&styles));
-        let header = *styles.get_header();
-        task::spawn_blocking(move || {
-            let outcome = match executor::block_on(select(pin!(work(args, filter)), signals.next())) {
-                Either::Left((started, next)) => started.and_then(|items| formats::written(options, header, stdout, Box::pin(items).take_until(next))),
-                Either::Right(_) => Ok(ExitCode::TempFail),
-            };
-            let cooked = if terminal::is_raw_mode_enabled().is_ok_and(|raw| raw) { terminal::disable_raw_mode() } else { Ok(()) };
-            match (outcome, cooked.map_err(|source| E::from(OutputError::Prompt(InquireError::IO(source))))) {
-                (outcome, Ok(())) => outcome,
-                (Ok(_), Err(failure)) => Err(NEVec::new(failure)),
-                (Err(mut failures), Err(failure)) => {
-                    failures.push(failure);
-                    Err(failures)
+    rasm_command::run(
+        defaults,
+        stderr,
+        progress.with_filter(IndicatifFilter::new(false)).and_then(layer),
+        async move |Process { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
+            inquire::set_global_render_config(theme::prompts(&styles));
+            let header = *styles.get_header();
+            task::spawn_blocking(move || {
+                let outcome = match executor::block_on(select(pin!(work(args, filter)), signals.next())) {
+                    Either::Left((started, next)) => started.and_then(|items| formats::written(options, header, stdout, Box::pin(items).take_until(next))),
+                    Either::Right(_) => Ok(ExitCode::TempFail),
+                };
+                let cooked = terminal::is_raw_mode_enabled().and_then(|raw| if raw { terminal::disable_raw_mode() } else { Ok(()) });
+                match (outcome, cooked.map_err(|source| E::from(OutputError::Prompt(InquireError::IO(source))))) {
+                    (outcome, Ok(())) => outcome,
+                    (Ok(_), Err(failure)) => Err(NEVec::new(failure)),
+                    (Err(mut failures), Err(failure)) => {
+                        failures.push(failure);
+                        Err(failures)
+                    }
                 }
-            }
-        })
-        .await
-        .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))
-    })
+            })
+            .await
+            .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))
+        },
+    )
 }
 
 mod cells;

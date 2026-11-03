@@ -1,4 +1,5 @@
-#![feature(error_reporter, iterator_try_collect, try_blocks_heterogeneous)]
+#![feature(error_reporter, try_blocks_heterogeneous)]
+#![cfg_attr(unix, feature(iterator_try_collect))]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
 #[cfg(windows)]
@@ -176,24 +177,6 @@ fn augmented(program: Command, augment: impl FnOnce(Command) -> Command) -> Comm
     augment(program).about(Resettable::from(about)).long_about(Resettable::from(long_about))
 }
 
-fn listened() -> io::Result<Signals> {
-    cfg_select! {
-        unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().try_collect(),
-        windows => {
-            let (mut interrupt, mut interrupt_break, mut close, mut logoff, mut shutdown) =
-                (windows::ctrl_c()?, windows::ctrl_break()?, windows::ctrl_close()?, windows::ctrl_logoff()?, windows::ctrl_shutdown()?);
-            let receivers: [Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send + Sync>; 5] = [
-                Box::new(move |context| interrupt.poll_recv(context)),
-                Box::new(move |context| interrupt_break.poll_recv(context)),
-                Box::new(move |context| close.poll_recv(context)),
-                Box::new(move |context| logoff.poll_recv(context)),
-                Box::new(move |context| shutdown.poll_recv(context)),
-            ];
-            Ok(receivers.into_iter().map(stream::poll_fn).collect())
-        }
-    }
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
@@ -269,7 +252,24 @@ where
     telemetry.run(&command, defaults, (move || OptionalWriter::from(appender.clone())).or_else(stderr), layer, |filter, level| {
         let runtime = DropGuard::new(Runtime::new().map_err(failed(Operation::Runtime))?, Runtime::shutdown_background);
         runtime.block_on(async {
-            let signals = listened().map_err(failed(Operation::Signal))?;
+            let signals = (try bikeshed io::Result<Signals> {
+                cfg_select! {
+                    unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().try_collect::<Signals>()?,
+                    windows => {
+                        let (mut interrupt, mut interrupt_break, mut close, mut logoff, mut shutdown) =
+                            (windows::ctrl_c()?, windows::ctrl_break()?, windows::ctrl_close()?, windows::ctrl_logoff()?, windows::ctrl_shutdown()?);
+                        let receivers: [Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send + Sync>; 5] = [
+                            Box::new(move |context| interrupt.poll_recv(context)),
+                            Box::new(move |context| interrupt_break.poll_recv(context)),
+                            Box::new(move |context| close.poll_recv(context)),
+                            Box::new(move |context| logoff.poll_recv(context)),
+                            Box::new(move |context| shutdown.poll_recv(context)),
+                        ];
+                        receivers.into_iter().map(stream::poll_fn).collect::<Signals>()
+                    }
+                }
+            })
+            .map_err(failed(Operation::Signal))?;
             work(Process { args, styles, signals, filter, level }).await
         })
     })

@@ -76,24 +76,17 @@ enum Sink {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fn failed(source: io::Error) -> OutputError { OutputError::Write { source } }
+fn failed(source: impl Into<io::Error>) -> OutputError { OutputError::Write { source: source.into() } }
 
-fn escaped(text: &str, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    text.chars().try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
-}
-
-fn drained(out: &mut Out, scratch: &mut Vec<u8>) -> io::Result<()> {
-    let lines = scratch.iter().rposition(|byte| *byte == b'\n').map_or_default(|end| end.strict_add(1));
-    out.write_all(scratch.drain(..lines).as_slice())?;
-    out.flush()
+fn delivered(out: &mut Out, scratch: &[u8]) -> io::Result<usize> {
+    let lines = scratch.iter().rposition(|byte| *byte == b'\n').and_then(|end| scratch.get(..=end)).unwrap_or_default();
+    out.write_all(lines)?;
+    out.flush()?;
+    Ok(lines.len())
 }
 
 fn appended(sink: &mut Sink, row: usize, value: &impl Serialize) -> Result<(), OutputError> {
     let flattened = |columns: &mut Columns| cells::flattened(value, columns).map_err(|source| OutputError::Encode { row, source });
-    let recorded = |source: csv::Error| match source.kind() {
-        csv::ErrorKind::Io(failure) => failed(io::Error::new(failure.kind(), source)),
-        _ => OutputError::Csv { row, source },
-    };
     match sink {
         Sink::Jsonl { out: _, scratch } => {
             let mark = scratch.len();
@@ -124,12 +117,12 @@ fn appended(sink: &mut Sink, row: usize, value: &impl Serialize) -> Result<(), O
             let first = width.is_none();
             let width = *width.get_or_insert(columns.names.len());
             if first && named {
-                writer.write_record(columns.names.iter().map(Box::as_ref)).map_err(recorded)?;
+                writer.write_record(columns.names.iter().map(Box::as_ref)).map_err(failed)?;
             }
             if let Some(name) = fields.iter().enumerate().skip(width).find_map(|(index, field)| field.as_ref().and_then(|_| columns.names.get_index(index))) {
                 return Err(OutputError::Column { row, name: name.to_string() });
             }
-            writer.write_record((0..width).map(|index| fields.get(index).and_then(Option::as_ref).map_or("", |field| field.text.as_str()))).map_err(recorded)
+            writer.write_record((0..width).map(|index| fields.get(index).and_then(Option::as_ref).map_or("", |field| field.text.as_str()))).map_err(failed)
         }
         Sink::Grid { rows, columns } => {
             rows.push(flattened(columns)?);
@@ -140,9 +133,11 @@ fn appended(sink: &mut Sink, row: usize, value: &impl Serialize) -> Result<(), O
 
 fn flushed(sink: &mut Sink) -> Result<(), OutputError> {
     match sink {
-        Sink::Jsonl { out, scratch } | Sink::Json { out, scratch, formatter: _, first: _ } => drained(out, scratch),
+        Sink::Jsonl { out, scratch } | Sink::Json { out, scratch, formatter: _, first: _ } => delivered(out, scratch).map(|lines| {
+            scratch.drain(..lines);
+        }),
         Sink::Csv { out, writer, columns: _, width: _ } =>
-            mem::replace(&mut **writer, csv::Writer::from_writer(Vec::new())).into_inner().map_err(IntoInnerError::into_error).and_then(|mut scratch| drained(out, &mut scratch)),
+            mem::replace(&mut **writer, csv::Writer::from_writer(Vec::new())).into_inner().map_err(IntoInnerError::into_error).and_then(|scratch| delivered(out, &scratch)).map(|_lines| ()),
         Sink::Grid { rows: _, columns: _ } => Ok(()),
     }
     .map_err(failed)
@@ -157,11 +152,15 @@ fn finished(sink: Sink, header: Style, paging: Paging, unpaged: bool) -> Result<
             }
             formatter.end_array(&mut scratch)?;
             scratch.push(b'\n');
-            drained(&mut out, &mut scratch)?
+            delivered(&mut out, &scratch)?;
         })
         .map_err(failed),
         Sink::Grid { rows, columns: _ } if rows.is_empty() => Ok(()),
         Sink::Grid { rows, columns } => {
+            let escaped = |text: &str, formatter: &mut fmt::Formatter<'_>| {
+                text.chars()
+                    .try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
+            };
             let cell = |Field { text, numeric }: &Field| Cell::new(fmt::from_fn(|formatter| escaped(text, formatter))).set_alignment(if *numeric { CellAlignment::Right } else { CellAlignment::Left });
             let mut table = Table::new();
             table.load_style(presets::UTF8_FULL_CONDENSED).set_content_arrangement(ContentArrangement::Dynamic);
@@ -214,13 +213,7 @@ where
             let (mut sink, failures) = batch.into_iter().try_fold(state, |(mut sink, mut failures), (row, item)| match item.map(|value| appended(&mut sink, row, &value)) {
                 Ok(Ok(())) => ControlFlow::Continue((sink, failures)),
                 Ok(Err(error @ OutputError::Write { source: _ })) => ControlFlow::Break((failures, Err(error))),
-                Ok(Err(
-                    error @ (OutputError::Encode { row: _, source: _ }
-                    | OutputError::Csv { row: _, source: _ }
-                    | OutputError::Column { row: _, name: _ }
-                    | OutputError::Pager(_)
-                    | OutputError::Prompt(_)),
-                )) => {
+                Ok(Err(error @ (OutputError::Encode { row: _, source: _ } | OutputError::Column { row: _, name: _ } | OutputError::Pager(_) | OutputError::Prompt(_)))) => {
                     failures.push(E::from(error));
                     ControlFlow::Continue((sink, failures))
                 }

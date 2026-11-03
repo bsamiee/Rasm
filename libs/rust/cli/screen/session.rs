@@ -185,11 +185,17 @@ where P: Program {
     }
 }
 
-pub(crate) fn batched<P>(session: Session<P>, inputs: Vec<Result<Input<P::Action, P::Item>, Either<io::Error, P::Error>>>, styles: &Styles) -> ControlFlow<Session<P>, Session<P>>
-where P: Program {
+pub(crate) fn batched<P>(
+    session: Session<P>,
+    inputs: impl IntoIterator<Item = Result<Input<P::Action, P::Item>, Either<io::Error, P::Error>>>,
+    styles: &Styles,
+) -> ControlFlow<Session<P>, Session<P>>
+where
+    P: Program,
+{
     let mut folded = inputs.into_iter().try_fold(session, |mut session, input| match input {
         Ok(Input::Event(event)) => keyed(session, event),
-        Ok(input) => updated(session, input),
+        Ok(input @ (Input::Action(_) | Input::Item(_) | Input::Tick(_) | Input::End)) => updated(session, input),
         Err(Either::Left(source)) => ended(session, Operation::Read, Err(NEVec::new(source))),
         Err(Either::Right(failure)) => {
             session.failures.push(failure);

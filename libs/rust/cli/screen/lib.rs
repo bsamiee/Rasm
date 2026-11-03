@@ -124,74 +124,89 @@ where
         let held = held.clone();
         move || held.clone()
     };
-    rasm_command::run(defaults, writer.with_filter(|_| session::raw()).or_else(io::stderr), TuiTracingSubscriberLayer.and_then(layer), async move |Process { args, styles, mut signals, filter, level }| {
-        let styles = match AutoStream::choice(&io::stdout()) {
-            ColorChoice::Never => Styles::plain(),
-            ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
-        };
-        let level = level.as_log();
-        tui_logger::set_default_level(tui_logger::LevelFilter::Trace);
-        tui_logger::set_buffer_depth(P::HISTORY.get());
-        task::spawn_blocking(move || {
-            io::stdout().is_terminal().ok_or_else(|| NEVec::new(P::Error::from(ScreenError::Detached)))?;
-            let Either::Left((started, _)) = executor::block_on(select(pin!(start(args, filter.clone())), signals.next())) else {
-                return Ok(ExitCode::TempFail);
+    rasm_command::run(
+        defaults,
+        writer.with_filter(|_| session::raw()).or_else(io::stderr),
+        TuiTracingSubscriberLayer.and_then(layer),
+        async move |Process { args, styles, mut signals, filter, level }| {
+            let styles = match AutoStream::choice(&io::stdout()) {
+                ColorChoice::Never => Styles::plain(),
+                ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
             };
-            let (program, items) = started?;
-            let mut ticks = time::interval(
-                const {
-                    assert!(!P::REFRESH.is_zero(), "refresh period is zero, set `Program::REFRESH` to a nonzero duration");
-                    P::REFRESH
-                },
-            );
-            ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
-            #[cfg(not(panic = "abort"))]
-            let owner = thread::current().id();
-            let hooked = held.clone();
-            panic::update_hook(move |hook, info| {
-                if cfg_select! {
-                    panic = "abort" => true,
-                    _ => thread::current().id() == owner,
-                } {
-                    session::left::<P>(&hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
-                }
-                hook(info);
-            });
-            let entering = session::entered::<P>().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
-            let (effects, requested) = mpsc::unbounded();
-            let delivered = |item: Result<P::Item, P::Error>| item.map(Input::Item).map_err(Either::Right);
-            let mut inputs = pin!(
-                stream::select(
-                    EventStream::new().map(|event| event.map(Input::Event).map_err(Either::Left)),
-                    stream::select(
-                        stream::select(items.map(delivered).chain(stream::once(future::ready(Ok(Input::End)))), requested.flatten_unordered(None).map(delivered)),
-                        IntervalStream::new(ticks).map(|instant| Ok(Input::Tick(instant.into_std()))),
-                    ),
-                )
-                .take_until(signals.next())
-                .ready_chunks(BATCH)
-            );
-            let failures = entering.map_or_else(
-                |source| vec![P::Error::from(session::failed(Operation::Enter)(source))],
-                |terminal| {
-                    let Session { terminal: _, program: _, pane: _, level: stepped, logs: _, filter, effects: _, held: _, failures } = executor::block_on_stream(inputs.as_mut())
-                        .try_fold(
-                            Session { terminal, program, pane: None, level, logs: TuiWidgetState::new().set_default_display_level(level), filter, effects, held: held.clone(), failures: Vec::new() },
-                            |session, batch| session::batched(session, batch, &styles),
-                        )
-                        .into_value();
-                    if stepped != level {
-                        session::reloaded(&filter, level);
+            let level = level.as_log();
+            tui_logger::set_default_level(tui_logger::LevelFilter::Trace);
+            tui_logger::set_buffer_depth(P::HISTORY.get());
+            task::spawn_blocking(move || {
+                io::stdout().is_terminal().ok_or_else(|| NEVec::new(P::Error::from(ScreenError::Detached)))?;
+                let Either::Left((started, _)) = executor::block_on(select(pin!(start(args, filter.clone())), signals.next())) else {
+                    return Ok(ExitCode::TempFail);
+                };
+                let (program, items) = started?;
+                let mut ticks = time::interval(
+                    const {
+                        assert!(!P::REFRESH.is_zero(), "refresh period is zero, set `Program::REFRESH` to a nonzero duration");
+                        P::REFRESH
+                    },
+                );
+                ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
+                #[cfg(not(panic = "abort"))]
+                let owner = thread::current().id();
+                let hooked = held.clone();
+                panic::update_hook(move |hook, info| {
+                    if cfg_select! {
+                        panic = "abort" => true,
+                        _ => thread::current().id() == owner,
+                    } {
+                        session::left::<P>(&hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
                     }
-                    failures
-                },
-            );
-            let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
-            NEVec::try_from_vec(iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).collect()).map_or(Ok(status), Err)
-        })
-        .await
-        .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))
-    })
+                    hook(info);
+                });
+                let entering = session::entered::<P>().and_then(|()| Terminal::new(CrosstermBackend::new(io::stdout())));
+                let (effects, requested) = mpsc::unbounded();
+                let delivered = |item: Result<P::Item, P::Error>| item.map(Input::Item).map_err(Either::Right);
+                let mut inputs = pin!(
+                    stream::select(
+                        EventStream::new().map(|event| event.map(Input::Event).map_err(Either::Left)),
+                        stream::select(
+                            stream::select(items.map(delivered).chain(stream::once(future::ready(Ok(Input::End)))), requested.flatten_unordered(None).map(delivered)),
+                            IntervalStream::new(ticks).map(|instant| Ok(Input::Tick(instant.into_std()))),
+                        ),
+                    )
+                    .take_until(signals.next())
+                    .ready_chunks(BATCH)
+                );
+                let failures = entering.map_or_else(
+                    |source| vec![P::Error::from(session::failed(Operation::Enter)(source))],
+                    |terminal| {
+                        let Session { terminal: _, program: _, pane: _, level: stepped, logs: _, filter, effects: _, held: _, failures } = executor::block_on_stream(inputs.as_mut())
+                            .try_fold(
+                                Session {
+                                    terminal,
+                                    program,
+                                    pane: None,
+                                    level,
+                                    logs: TuiWidgetState::new().set_default_display_level(level),
+                                    filter,
+                                    effects,
+                                    held: held.clone(),
+                                    failures: Vec::new(),
+                                },
+                                |session, batch| session::batched(session, batch, &styles),
+                            )
+                            .into_value();
+                        if stepped != level {
+                            session::reloaded(&filter, level);
+                        }
+                        failures
+                    },
+                );
+                let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
+                NEVec::try_from_vec(iter::chain(failures, session::left::<P>(&held).map(P::Error::from)).collect()).map_or(Ok(status), Err)
+            })
+            .await
+            .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))
+        },
+    )
 }
 
 pub mod keymap;
